@@ -1,0 +1,10 @@
+[project]
+name = "dataeval-application"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dataeval>=0.89.0",
+    "maite-datasets>=0.0.2",
+]
