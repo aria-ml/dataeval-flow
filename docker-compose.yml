@@ -1,0 +1,20 @@
+services:
+  dataeval:
+    build: .
+    env_file: .env
+    environment:
+      - DATASET_SPLIT=${DATASET_SPLIT:-}  # For multi-split datasets (optional)
+    volumes:
+      - ${DATASET_DIR}:/data/dataset:ro    # Reference dataset
+      - ${MODEL_DIR}:/data/model:ro        # Model files
+      - ${INCOMING_DIR}:/data/incoming:ro  # Raw images to process
+      - ${OUTPUT_DIR}:/output              # Results (read-write)
+
+# NOTE: docker-compose does not natively support GPU allocation in non-Swarm mode.
+# Use `docker run --gpus all` directly for GPU workloads:
+#
+#   docker run --gpus all --env-file .env \
+#     -v ${DATASET_DIR}:/data/dataset:ro \
+#     -v ${MODEL_DIR}:/data/model:ro \
+#     -v ${OUTPUT_DIR}:/output \
+#     dataeval:gpu

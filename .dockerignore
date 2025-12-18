@@ -1,0 +1,16 @@
+# Reduce build context size (these files not needed in container)
+.git
+.github
+.env
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+.ruff_cache
+htmlcov
+
+# Docs excluded (not needed at runtime; add back if you want /app/LICENSE in image)
+*.md
+LICENSE
