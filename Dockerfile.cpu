@@ -1,0 +1,40 @@
+# DataEval Application Container - CPU variant
+# Use official uv image with Python 3.12 pre-installed (pin version for reproducibility)
+FROM ghcr.io/astral-sh/uv:0.9.18-python3.12-bookworm-slim
+
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies only (--no-install-project skips installing the project itself)
+RUN uv sync --frozen --no-dev --no-install-project
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Set CPU mode for entrypoint
+ENV CONTAINER_MODE=cpu
+
+# Copy source code
+COPY src/ ./src/
+
+# Copy entrypoint script
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash dataeval \
+    && mkdir -p /data/dataset /data/model /data/incoming /output \
+    && touch /data/dataset/.not_mounted /data/model/.not_mounted /data/incoming/.not_mounted \
+    && chown -R dataeval:dataeval /data /output /app
+
+# Container labels
+LABEL org.opencontainers.image.title="DataEval Application (CPU)" \
+      org.opencontainers.image.description="DataEval Application container - CPU variant" \
+      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-app"
+
+USER dataeval
+
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["python", "src/workflows/inspect_dataset.py"]
