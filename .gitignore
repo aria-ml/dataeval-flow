@@ -22,6 +22,14 @@ build/
 .mypy_cache/
 .cache/
 
+# Test/Build output
+output/
+.coverage
+.coverage.*
+
+# Nox
+.nox/
+
 # OS
 .DS_Store
 Thumbs.db

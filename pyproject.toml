@@ -2,9 +2,165 @@
 name = "dataeval-app"
 version = "0.1.0"
 description = "DataEval Application container for data evaluation"
-requires-python = ">=3.10,<3.13"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10,<3.14"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
 dependencies = [
     "dataeval>=0.93.1",
     "datasets>=4.0.0",
     "maite-datasets>=0.0.9",
 ]
+
+[project.urls]
+Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-app"
+
+[project.scripts]
+dataeval-app = "dataeval_app.__main__:main"
+
+[dependency-groups]
+base = [
+    "nox>=2025.5.1",
+    "nox-uv>=0.6.2",
+    "uv>=0.8.0",
+]
+lint = [
+    { include-group = "base" },
+    "ruff>=0.11",
+    "codespell[toml]>=2.3",
+]
+test = [
+    { include-group = "base" },
+    "pytest>=8.3",
+    "pytest-cov>=6.1",
+    "pytest-xdist>=3.6.1",
+    "coverage[toml]>=7.6",
+]
+type = [
+    { include-group = "base" },
+    "pyright[nodejs]>=1.1.400",
+]
+dev = [
+    { include-group = "lint" },
+    { include-group = "type" },
+    { include-group = "test" },
+]
+
+# --- Build System ---
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/dataeval_app"]
+
+[tool.hatch.build.targets.wheel]
+include = ["src/dataeval_app"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/dataeval_app" = "dataeval_app"
+
+# --- Pytest ---
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "--pythonwarnings=ignore::DeprecationWarning",
+    "--verbose",
+    "--durations=20",
+    "--durations-min=1.0",
+]
+markers = [
+    "required: marks tests for required functionality [TR-4-H-3]",
+    "optional: marks tests for optional functionality [TR-4-H-4]",
+]
+
+# --- Coverage ---
+
+[tool.coverage.run]
+source = ["src/dataeval_app"]
+branch = true
+concurrency = ["multiprocessing"]
+parallel = true
+
+[tool.coverage.report]
+exclude_also = [
+    "raise NotImplementedError",
+    ": \\.\\.\\.",
+    "if TYPE_CHECKING:",
+]
+include = ["*/src/dataeval_app/*"]
+fail_under = 90
+show_missing = true
+
+[tool.coverage.html]
+directory = "output/htmlcov"
+
+[tool.coverage.xml]
+output = "output/coverage.xml"
+
+# --- Pyright ---
+
+[tool.pyright]
+reportMissingImports = false
+
+# --- Ruff [CR-3-G-2] ---
+
+[tool.ruff]
+exclude = [
+    ".devcontainer",
+    ".github",
+    ".vscode",
+    ".jupyter_cache",
+    "*env*",
+    "output",
+    "_build",
+    ".tox",
+    ".nox",
+    "prototype",
+]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "F", "E", "W", "C90", "I", "N", "D1", "D200", "D201", "D211", "D403", "D419",
+    "UP", "YTT", "ANN", "S", "BLE", "B", "A", "C4", "T10", "ISC", "ICN",
+    "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID252", "ARG", "FIX", "PD",
+    "FLY", "NPY", "RUF100", "PERF",
+]
+ignore = [
+    "ANN401",   # Any type - required for MAITE dataset compatibility
+    "C408",
+    "C416",
+]
+fixable = ["ALL"]
+per-file-ignores = { "tests/*" = ["ANN", "S101", "D"] }
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+known-first-party = ["dataeval_app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --- Codespell ---
+
+[tool.codespell]
+skip = "./*env*,./output,./htmlcov,./.nox,uv.lock"

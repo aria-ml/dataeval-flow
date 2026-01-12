@@ -14,3 +14,6 @@ htmlcov
 # Docs excluded (not needed at runtime; add back if you want /app/LICENSE in image)
 *.md
 LICENSE
+
+# Explicitly include README.md (required for package build by pyproject.toml)
+!README.md
