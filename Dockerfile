@@ -10,18 +10,32 @@ RUN uv python install 3.12
 
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# 1. Copy config files (and touch README to prevent cache busting)
+COPY pyproject.toml uv.lock noxfile.py ./
+RUN touch README.md
 
-# Install dependencies only (--no-install-project skips installing the project itself)
-RUN uv sync --frozen --no-dev --no-install-project
+# 2. Install PROD + DEV dependencies (needed for testing)
+RUN uv sync --frozen --group dev --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy source code
+# 3. Copy source and tests
 COPY src/ ./src/
+COPY tests/ ./tests/
 
-# Copy entrypoint script for GPU validation
+# -------------------------------------------------------
+# CI GATE: Run Tests & Linting
+# If this fails, the Docker build fails.
+# -------------------------------------------------------
+RUN nox
+
+# 4. Re-sync only prod dependencies (removes dev tools from final layer)
+RUN uv sync --frozen --no-dev --no-install-project
+
+# 5. Set PYTHONPATH for src layout (required since project not installed)
+ENV PYTHONPATH="/app/src"
+
+# 6. Setup Runtime
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
@@ -43,4 +57,4 @@ LABEL org.opencontainers.image.title="DataEval Application" \
 USER dataeval
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["python", "src/workflows/inspect_dataset.py"]
+CMD ["python", "src/container_run.py"]

@@ -112,7 +112,7 @@ Debug (bypass GPU check):
     docker run \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --entrypoint python \
-        dataeval:gpu src/workflows/inspect_dataset.py
+        dataeval:gpu src/container_run.py
 
 --------------------------------------------------------------------------------
 CPU-ONLY MACHINES

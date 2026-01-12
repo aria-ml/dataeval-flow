@@ -1,24 +1,38 @@
 # DataEval Application Container - CPU variant
-# Use official uv image with Python 3.12 pre-installed (pin version for reproducibility)
 FROM ghcr.io/astral-sh/uv:0.9.18-python3.12-bookworm-slim
 
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# 1. Copy config files first (README.md is required for package build)
+# We use 'touch' here so documentation edits don't invalidate the dependency cache
+COPY pyproject.toml uv.lock noxfile.py ./
+RUN touch README.md
 
-# Install dependencies only (--no-install-project skips installing the project itself)
-RUN uv sync --frozen --no-dev --no-install-project
+# 2. Install PROD + DEV dependencies (needed for testing)
+RUN uv sync --frozen --group dev --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Set CPU mode for entrypoint
 ENV CONTAINER_MODE=cpu
 
-# Copy source code
+# 3. Copy source and tests
 COPY src/ ./src/
+COPY tests/ ./tests/
 
-# Copy entrypoint script
+# -------------------------------------------------------
+# CI GATE: Run Tests & Linting
+# If this fails, the Docker build fails.
+# -------------------------------------------------------
+RUN nox
+
+# 4. Re-sync only prod dependencies (removes dev tools from final layer)
+RUN uv sync --frozen --no-dev --no-install-project
+
+# 5. Set PYTHONPATH for src layout (required since project not installed)
+ENV PYTHONPATH="/app/src"
+
+# 6. Setup Runtime
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
@@ -37,4 +51,4 @@ LABEL org.opencontainers.image.title="DataEval Application (CPU)" \
 USER dataeval
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["python", "src/workflows/inspect_dataset.py"]
+CMD ["python", "src/container_run.py"]

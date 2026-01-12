@@ -137,6 +137,38 @@ The Docker build may appear frozen during the `uv sync` step:
 
 **Tip:** First build is slow; subsequent builds use Docker cache and complete in seconds.
 
+## Running Without Container
+
+The `dataeval_app` package can be used standalone without Docker.
+
+**Installation:**
+```bash
+git clone https://gitlab.jatic.net/jatic/aria/dataeval-app.git
+cd dataeval-app
+uv sync
+```
+
+**CLI Usage:**
+```bash
+python -m dataeval_app --dataset-path /path/to/your/dataset
+python -m dataeval_app --dataset-path /path/to/dataset --split train
+```
+
+**Python API Usage:**
+```python
+from pathlib import Path
+from dataeval_app import load_dataset, inspect_dataset
+
+dataset = load_dataset(Path("/path/to/dataset"), split="train")
+inspect_dataset(Path("/path/to/dataset"))
+```
+
+**Development:**
+```bash
+uv sync --group dev
+nox
+```
+
 ## License
 
 MIT
