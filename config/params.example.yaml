@@ -1,0 +1,27 @@
+# config/params.example.yaml - Workflow Parameters
+# Copy to /data/config/params.yaml in container (or use --params CLI option)
+# Schema defined by DataCleaningParameters Pydantic model
+#
+# yaml-language-server: $schema=params.schema.json
+
+# =============================================================================
+# REQUIRED PARAMETERS (must be explicitly set per CR-4.14-G-1)
+# =============================================================================
+
+# Outlier detection method (required)
+outlier_method: "modzscore"  # Options: zscore, modzscore, iqr
+
+# Outlier detection flags (all required)
+outlier_use_dimension: true  # Use dimension statistics
+outlier_use_pixel: true      # Use pixel statistics
+outlier_use_visual: true     # Use visual statistics
+
+# Outlier threshold (required, use null for DataEval default)
+outlier_threshold: null  # Or set a custom value, e.g., 3.0
+
+# =============================================================================
+# OPTIONAL PARAMETERS (have safe defaults)
+# =============================================================================
+
+# Execution mode (optional, default: "advisory")
+# mode: "advisory"  # Options: advisory (report only), preparatory (modify dataset)

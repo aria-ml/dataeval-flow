@@ -1,0 +1,60 @@
+{
+  "description": "User-configurable workflow parameters.\n\nAll parameters have sensible defaults. Override via params.yaml or CLI.",
+  "properties": {
+    "outlier_method": {
+      "default": "modzscore",
+      "description": "Statistical method for outlier detection",
+      "enum": [
+        "zscore",
+        "modzscore",
+        "iqr"
+      ],
+      "title": "Outlier Method",
+      "type": "string"
+    },
+    "outlier_threshold": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Custom threshold (uses DataEval default if None)",
+      "title": "Outlier Threshold"
+    },
+    "outlier_use_dimension": {
+      "default": true,
+      "description": "Use dimension statistics for outlier detection",
+      "title": "Outlier Use Dimension",
+      "type": "boolean"
+    },
+    "outlier_use_pixel": {
+      "default": true,
+      "description": "Use pixel statistics for outlier detection",
+      "title": "Outlier Use Pixel",
+      "type": "boolean"
+    },
+    "outlier_use_visual": {
+      "default": true,
+      "description": "Use visual statistics for outlier detection",
+      "title": "Outlier Use Visual",
+      "type": "boolean"
+    },
+    "mode": {
+      "default": "advisory",
+      "description": "advisory: report only, preparatory: modify dataset",
+      "enum": [
+        "advisory",
+        "preparatory"
+      ],
+      "title": "Mode",
+      "type": "string"
+    }
+  },
+  "title": "WorkflowParameters",
+  "type": "object"
+}

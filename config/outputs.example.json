@@ -1,0 +1,73 @@
+{
+  "raw": {
+    "dataset_size": 1000,
+    "duplicates": {
+      "exact": [[0, 45], [12, 789]],
+      "near": [[100, 101, 102], [250, 251]],
+      "total_exact": 2,
+      "total_near": 2
+    },
+    "img_outliers": {
+      "outlier_indices": [23, 156, 892],
+      "scores": {
+        "23": 4.21,
+        "156": 3.87,
+        "892": 5.12
+      },
+      "method": "modzscore",
+      "threshold": 3.5
+    },
+    "label_stats": {
+      "class_counts": {
+        "cat": 450,
+        "dog": 350,
+        "bird": 200
+      },
+      "imbalance_ratio": 2.25,
+      "missing_labels": 5
+    },
+    "target_outliers": null
+  },
+  "report": {
+    "summary": "Dataset analysis complete. Found 2 exact duplicates, 2 near-duplicate groups, and 3 image outliers.",
+    "findings": [
+      {
+        "report_type": "table",
+        "title": "Duplicate Images",
+        "description": "Image pairs that are identical or near-identical",
+        "data": [
+          {"type": "exact", "indices": [0, 45]},
+          {"type": "exact", "indices": [12, 789]},
+          {"type": "near", "indices": [100, 101, 102]},
+          {"type": "near", "indices": [250, 251]}
+        ]
+      },
+      {
+        "report_type": "table",
+        "title": "Image Outliers",
+        "description": "Images with unusual statistics (dimension, pixel, or visual)",
+        "data": [
+          {"index": 23, "score": 4.21, "reason": "unusual dimensions"},
+          {"index": 156, "score": 3.87, "reason": "pixel intensity outlier"},
+          {"index": 892, "score": 5.12, "reason": "visual feature outlier"}
+        ]
+      },
+      {
+        "report_type": "key_value",
+        "title": "Class Distribution",
+        "description": "Label counts per class",
+        "data": {
+          "cat": 450,
+          "dog": 350,
+          "bird": 200
+        }
+      },
+      {
+        "report_type": "text",
+        "title": "Recommendations",
+        "description": null,
+        "data": "Consider removing 4 duplicate image groups and reviewing 3 outliers at indices 23, 156, 892."
+      }
+    ]
+  }
+}
