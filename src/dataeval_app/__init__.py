@@ -17,6 +17,18 @@ from dataeval_app.dataset import (
     load_dataset,
     load_dataset_huggingface,
 )
+from dataeval_app.utility import (
+    PreprocessingStep,
+    build_preprocessing,
+)
 
-__all__ = ["load_dataset", "load_dataset_huggingface", "inspect_dataset"]
+__all__ = [
+    # Dataset
+    "load_dataset",
+    "load_dataset_huggingface",
+    "inspect_dataset",
+    # Preprocessing
+    "PreprocessingStep",
+    "build_preprocessing",
+]
 __version__ = "0.1.0"

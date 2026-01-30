@@ -1,27 +1,71 @@
-# config/params.example.yaml - Workflow Parameters
+# =============================================================================
+# Workflow Configuration
+# =============================================================================
+# Schema: WorkflowConfig (see src/dataeval_app/ingest/params.py)
 # Copy to /data/config/params.yaml in container (or use --params CLI option)
-# Schema defined by DataCleaningParameters Pydantic model
 #
 # yaml-language-server: $schema=params.schema.json
-
-# =============================================================================
-# REQUIRED PARAMETERS (must be explicitly set per CR-4.14-G-1)
 # =============================================================================
 
-# Outlier detection method (required)
-outlier_method: "modzscore"  # Options: zscore, modzscore, iqr
+# -----------------------------------------------------------------------------
+# DATA CLEANING PARAMETERS (required)
+# -----------------------------------------------------------------------------
+data_cleaning:
+  # Outlier detection method (required)
+  outlier_method: "modzscore"  # Options: zscore, modzscore, iqr
 
-# Outlier detection flags (all required)
-outlier_use_dimension: true  # Use dimension statistics
-outlier_use_pixel: true      # Use pixel statistics
-outlier_use_visual: true     # Use visual statistics
+  # Outlier detection flags (all required)
+  outlier_use_dimension: true  # Use dimension statistics
+  outlier_use_pixel: true      # Use pixel statistics
+  outlier_use_visual: true     # Use visual statistics
 
-# Outlier threshold (required, use null for DataEval default)
-outlier_threshold: null  # Or set a custom value, e.g., 3.0
+  # Outlier threshold (required, use null for DataEval default)
+  outlier_threshold: null  # Or set a custom value, e.g., 3.0
 
-# =============================================================================
-# OPTIONAL PARAMETERS (have safe defaults)
-# =============================================================================
+  # Execution mode (optional, default: "advisory")
+  # mode: "advisory"  # Options: advisory (report only), preparatory (modify dataset)
 
-# Execution mode (optional, default: "advisory")
-# mode: "advisory"  # Options: advisory (report only), preparatory (modify dataset)
+  # -----------------------------------------------------------------------------
+  # MODEL CONFIGURATION (optional)
+  # -----------------------------------------------------------------------------
+  # List of ONNX models for embedding extraction.
+  # Pass-through configuration for DataEval's OnnxEncoder.
+  #
+  # models:
+  #   - name: resnet50
+  #     path: "./resnet50-v2-7.onnx"
+  #     embedding_layer: "resnetv24_flatten0_reshape0"
+  #
+  #   - name: mobilenetv3
+  #     path: "./mobilenet_v3.onnx"
+  #     embedding_layer: "mobilenet_v3_flatten0"
+
+  # Preprocessing steps (optional, applied in order)
+  # Pass-through to torchvision.transforms.v2 - any transform name is allowed.
+  # See: https://pytorch.org/vision/stable/transforms.html
+  #
+  # Supported transforms (pass-through from YAML):
+  # Resize, CenterCrop, RandomCrop, RandomResizedCrop, FiveCrop, TenCrop,
+  # RandomHorizontalFlip, RandomVerticalFlip, Pad, RandomRotation,
+  # RandomAffine, RandomPerspective, ElasticTransform, ColorJitter,
+  # Grayscale, RandomGrayscale, GaussianBlur, RandomInvert, RandomPosterize,
+  # RandomSolarize, RandomAutocontrast, RandomEqualize, RandomAdjustSharpness,
+  # Normalize, ToImage, ToDtype, ConvertImageDtype, ToPureTensor
+  #
+  # preprocessing:
+  #   - step: Resize
+  #     params:
+  #       size: [256, 256]
+  #       antialias: true
+  #   - step: CenterCrop
+  #     params:
+  #       size: [224, 224]
+  #   - step: ToImage
+  #   - step: ToDtype
+  #     params:
+  #       dtype: float32
+  #       scale: true
+  #   - step: Normalize
+  #     params:
+  #       mean: [0.485, 0.456, 0.406]
+  #       std: [0.229, 0.224, 0.225]
