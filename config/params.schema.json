@@ -1,60 +1,120 @@
 {
-  "description": "User-configurable workflow parameters.\n\nAll parameters have sensible defaults. Override via params.yaml or CLI.",
-  "properties": {
-    "outlier_method": {
-      "default": "modzscore",
-      "description": "Statistical method for outlier detection",
-      "enum": [
-        "zscore",
-        "modzscore",
-        "iqr"
+  "$defs": {
+    "DataCleaningParameters": {
+      "description": "Parameters for data cleaning workflow.\n\nRequired parameters must be explicitly set per CR-4.14-G-1\n(avoid application-specific defaults).",
+      "properties": {
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "outlier_method": {
+          "description": "Statistical method for outlier detection",
+          "enum": [
+            "zscore",
+            "modzscore",
+            "iqr"
+          ],
+          "title": "Outlier Method",
+          "type": "string"
+        },
+        "outlier_use_dimension": {
+          "description": "Use dimension statistics for outlier detection",
+          "title": "Outlier Use Dimension",
+          "type": "boolean"
+        },
+        "outlier_use_pixel": {
+          "description": "Use pixel statistics for outlier detection",
+          "title": "Outlier Use Pixel",
+          "type": "boolean"
+        },
+        "outlier_use_visual": {
+          "description": "Use visual statistics for outlier detection",
+          "title": "Outlier Use Visual",
+          "type": "boolean"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Custom threshold (None = use DataEval default for chosen method)",
+          "title": "Outlier Threshold"
+        }
+      },
+      "required": [
+        "outlier_method",
+        "outlier_use_dimension",
+        "outlier_use_pixel",
+        "outlier_use_visual",
+        "outlier_threshold"
       ],
-      "title": "Outlier Method",
-      "type": "string"
+      "title": "DataCleaningParameters",
+      "type": "object"
     },
-    "outlier_threshold": {
+    "ModelConfig": {
+      "description": "Configuration for a single ONNX model.\n\nPass-through configuration for DataEval's OnnxEncoder.",
+      "properties": {
+        "name": {
+          "description": "Identifier for the model",
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path to the ONNX model file",
+          "title": "Path",
+          "type": "string"
+        },
+        "embedding_layer": {
+          "description": "Layer name for embedding extraction",
+          "title": "Embedding Layer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "embedding_layer"
+      ],
+      "title": "ModelConfig",
+      "type": "object"
+    }
+  },
+  "description": "Unified workflow configuration.\n\nContains all configuration sections for the workflow.",
+  "properties": {
+    "data_cleaning": {
+      "$ref": "#/$defs/DataCleaningParameters"
+    },
+    "models": {
       "anyOf": [
         {
-          "minimum": 0.0,
-          "type": "number"
+          "items": {
+            "$ref": "#/$defs/ModelConfig"
+          },
+          "type": "array"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Custom threshold (uses DataEval default if None)",
-      "title": "Outlier Threshold"
-    },
-    "outlier_use_dimension": {
-      "default": true,
-      "description": "Use dimension statistics for outlier detection",
-      "title": "Outlier Use Dimension",
-      "type": "boolean"
-    },
-    "outlier_use_pixel": {
-      "default": true,
-      "description": "Use pixel statistics for outlier detection",
-      "title": "Outlier Use Pixel",
-      "type": "boolean"
-    },
-    "outlier_use_visual": {
-      "default": true,
-      "description": "Use visual statistics for outlier detection",
-      "title": "Outlier Use Visual",
-      "type": "boolean"
-    },
-    "mode": {
-      "default": "advisory",
-      "description": "advisory: report only, preparatory: modify dataset",
-      "enum": [
-        "advisory",
-        "preparatory"
-      ],
-      "title": "Mode",
-      "type": "string"
+      "description": "Optional list of ONNX models for embedding extraction",
+      "title": "Models"
     }
   },
-  "title": "WorkflowParameters",
+  "required": [
+    "data_cleaning"
+  ],
+  "title": "WorkflowConfig",
   "type": "object"
 }

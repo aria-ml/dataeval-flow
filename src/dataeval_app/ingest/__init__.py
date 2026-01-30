@@ -1,4 +1,4 @@
-"""Ingest package - configuration schema exports."""
+"""Ingest package - workflow configuration and output schemas."""
 
 from dataeval_app.ingest.outputs import (
     DataCleaningOutputs,
@@ -10,8 +10,11 @@ from dataeval_app.ingest.outputs import (
 )
 from dataeval_app.ingest.params import (
     DataCleaningParameters,
+    ModelConfig,
+    WorkflowConfig,
     WorkflowParametersBase,
     export_params_schema,
+    load_config,
     load_params,
 )
 
@@ -20,6 +23,11 @@ __all__ = [
     "WorkflowParametersBase",
     "WorkflowOutputsBase",
     "WorkflowReportBase",
+    # Unified Config
+    "WorkflowConfig",
+    "load_config",
+    # Model Config
+    "ModelConfig",
     # Data Cleaning Parameters
     "DataCleaningParameters",
     "load_params",
