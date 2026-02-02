@@ -1,6 +1,6 @@
 """Unit tests for simplified factory module."""
 
-from dataeval.detectors.linters import Duplicates, Outliers
+from dataeval.quality import Duplicates, Outliers
 
 from dataeval_app.factory import (
     create_duplicates,
@@ -72,9 +72,4 @@ class TestCreateDuplicates:
     def test_default_parameters(self):
         """Duplicates created with default parameters."""
         detector = create_duplicates()
-        assert isinstance(detector, Duplicates)
-
-    def test_only_exact_true(self):
-        """Duplicates created with only_exact=True."""
-        detector = create_duplicates(only_exact=True)
         assert isinstance(detector, Duplicates)

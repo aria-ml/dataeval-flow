@@ -11,9 +11,10 @@ Factory Functions:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
-from dataeval.detectors.linters import Duplicates, Outliers
+from dataeval.flags import ImageStats
+from dataeval.quality import Duplicates, Outliers
 
 if TYPE_CHECKING:
     from dataeval_app.ingest import DataCleaningParameters
@@ -46,15 +47,19 @@ def create_outliers(
     Outliers
         Configured Outliers detector instance.
     """
-    kwargs: dict[str, Any] = {
-        "use_dimension": outlier_use_dimension,
-        "use_pixel": outlier_use_pixel,
-        "use_visual": outlier_use_visual,
-        "outlier_method": outlier_method,
-    }
-    if outlier_threshold is not None:
-        kwargs["outlier_threshold"] = outlier_threshold
-    return Outliers(**kwargs)
+    flags = ImageStats.NONE
+    if outlier_use_dimension:
+        flags |= ImageStats.DIMENSION
+    if outlier_use_pixel:
+        flags |= ImageStats.PIXEL
+    if outlier_use_visual:
+        flags |= ImageStats.VISUAL
+
+    return Outliers(
+        flags=flags,
+        outlier_method=outlier_method,
+        outlier_threshold=outlier_threshold,
+    )
 
 
 def create_outliers_from_params(params: DataCleaningParameters) -> Outliers:
@@ -79,21 +84,16 @@ def create_outliers_from_params(params: DataCleaningParameters) -> Outliers:
     )
 
 
-def create_duplicates(only_exact: bool = False) -> Duplicates:
-    """Create Duplicates detector with specified configuration.
+def create_duplicates() -> Duplicates:
+    """Create Duplicates detector.
 
     Note: No `create_duplicates_from_params` is provided because duplicate
     detection uses sensible defaults (detect both exact and near duplicates)
     that don't require user configuration in DataCleaningParameters.
-
-    Parameters
-    ----------
-    only_exact : bool
-        Only detect exact duplicates (not near-duplicates).
 
     Returns
     -------
     Duplicates
         Configured Duplicates detector instance.
     """
-    return Duplicates(only_exact=only_exact)
+    return Duplicates()

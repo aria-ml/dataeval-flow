@@ -18,11 +18,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "dataeval>=0.93.1",
+    "dataeval>=0.95.0",
     "datasets>=4.0.0",
     "maite-datasets>=0.0.9",
     "pydantic>=2.0",
     "pyyaml>=6.0",
+    "torchvision>=0.19",
 ]
 
 [project.urls]
