@@ -196,7 +196,6 @@ pages:
 semgrep-sast:
   extends: .rules_main_mr
   stage: security
-  needs: []
   variables:
     SAST_EXCLUDED_ANALYZERS: "eslint,gosec,kubesec,nodejs-scan,phpcs-security-audit,pmd-apex,security-code-scan,sobelow,spotbugs"
 
@@ -204,20 +203,17 @@ semgrep-sast:
 gemnasium-python-dependency_scanning:
   extends: .rules_main_mr
   stage: security
-  needs: []
 
 # Secret Detection [DSOR-4-H-1, DSOR-4-H-2]
 # This job name is valid in the template
 secret_detection:
   extends: .rules_main_mr
   stage: security
-  needs: []
 
 # SBOM Export [DSOR-5-H-1]
 sbom:
   extends: .rules_main_mr
   stage: security
-  needs: []
   # Override entrypoint so GitLab can use shell instead of running syft immediately
   image: alpine:latest
   script:
