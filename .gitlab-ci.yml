@@ -192,23 +192,31 @@ pages:
 # Security Stage [DSOR-1 to DSOR-5]
 # -----------------------------------------------------------------------------
 
+# NOTE: Security template jobs use `extends:` internally — do not override with
+# `extends:` here or the template's analyzer inheritance chain will break.
+
 # SAST - Static Application Security Testing [DSOR-1-H-1, DSOR-1-H-2]
 semgrep-sast:
-  extends: .rules_main_mr
   stage: security
   variables:
     SAST_EXCLUDED_ANALYZERS: "eslint,gosec,kubesec,nodejs-scan,phpcs-security-audit,pmd-apex,security-code-scan,sobelow,spotbugs"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # Dependency Scanning [DSOR-2-H-1, DSOR-2-H-2]
 gemnasium-python-dependency_scanning:
-  extends: .rules_main_mr
   stage: security
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # Secret Detection [DSOR-4-H-1, DSOR-4-H-2]
-# This job name is valid in the template
 secret_detection:
-  extends: .rules_main_mr
   stage: security
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # SBOM Export [DSOR-5-H-1]
 sbom:
