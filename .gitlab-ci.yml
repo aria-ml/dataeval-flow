@@ -123,6 +123,45 @@ build:docker:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
+# Container Smoke Test - Validates entrypoint.sh executes correctly
+container-test:
+  stage: build
+  image: docker:25.0.5-git
+  services:
+    - docker:24.0-dind
+  needs: [build:docker]
+  script:
+    # Create minimal test config (required mount)
+    - mkdir -p /tmp/test-config
+    - |
+      cat > /tmp/test-config/config.yaml << 'EOF'
+      datasets:
+        - name: test
+          format: huggingface
+          path: /data/dataset
+          splits: [train]
+      EOF
+
+    # Create minimal test dataset (required mount)
+    - mkdir -p /tmp/test-dataset
+    - echo "test" > /tmp/test-dataset/dummy.txt
+
+    # Build CPU image locally (can't pull from registry in this setup)
+    - docker build -f Dockerfile.cpu -t dataeval-test:cpu .
+
+    # Smoke test: Run with --help flag (triggers entrypoint help display)
+    - |
+      docker run --rm \
+        -v /tmp/test-config:/data/config:ro \
+        -v /tmp/test-dataset:/data/dataset:ro \
+        dataeval-test:cpu --help
+
+    # Verify exit code 0
+    - echo "Container smoke test passed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
 # -----------------------------------------------------------------------------
 # Security Stage [DSOR-1 to DSOR-5]
 # -----------------------------------------------------------------------------

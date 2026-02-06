@@ -249,6 +249,7 @@ class TestUnifiedConfig:
 
         config = load_config(config_file)
         assert isinstance(config, WorkflowConfig)
+        assert config.data_cleaning is not None
         assert config.data_cleaning.outlier_method == "iqr"
 
     def test_load_config_file_not_found(self):
@@ -352,6 +353,44 @@ class TestBaseClasses:
         assert issubclass(DataCleaningReport, WorkflowReportBase)
 
 
+class TestLoadConfigFolder:
+    """Test load_config_folder function."""
+
+    def test_load_from_folder(self, tmp_path: Path):
+        """Load config from folder with multiple YAML files."""
+        from dataeval_app.ingest import load_config_folder
+
+        # Create test YAML files
+        (tmp_path / "00-base.yaml").write_text(
+            "data_cleaning:\n"
+            "  outlier_method: iqr\n"
+            "  outlier_use_dimension: true\n"
+            "  outlier_use_pixel: true\n"
+            "  outlier_use_visual: true\n"
+            "  outlier_threshold: null\n"
+        )
+        (tmp_path / "01-models.yaml").write_text(
+            "models:\n  - name: resnet50\n    path: ./resnet50.onnx\n    embedding_layer: flatten0\n"
+        )
+
+        config = load_config_folder(tmp_path)
+        assert config.data_cleaning is not None
+        assert config.data_cleaning.outlier_method == "iqr"
+        assert config.models is not None
+        assert len(config.models) == 1
+        assert config.models[0].name == "resnet50"
+
+    def test_load_from_folder_not_directory(self, tmp_path: Path):
+        """Raises ValueError if path is not a directory."""
+        from dataeval_app.ingest import load_config_folder
+
+        file_path = tmp_path / "file.yaml"
+        file_path.write_text("key: value\n")
+
+        with pytest.raises(ValueError, match="not a directory"):
+            load_config_folder(file_path)
+
+
 class TestModelConfig:
     """Test ModelConfig schema."""
 
@@ -410,3 +449,239 @@ class TestModelConfig:
         assert len(config.models) == 2
         assert config.models[0].name == "resnet50"
         assert config.models[1].name == "mobilenet"
+
+
+class TestP1SchemaClasses:
+    """Test P1 schema classes (DatasetConfig, PreprocessorConfig, SelectionConfig, TaskConfig)."""
+
+    def test_split_config_defaults(self):
+        """SplitConfig has correct defaults."""
+        from dataeval_app.ingest import SplitConfig
+
+        split = SplitConfig()
+        assert split.num_folds is None
+        assert split.stratify is False
+        assert split.split_on is None
+        assert split.test_frac is None
+        assert split.val_frac is None
+
+    def test_split_config_custom(self):
+        """SplitConfig accepts custom values."""
+        from dataeval_app.ingest import SplitConfig
+
+        split = SplitConfig(
+            num_folds=5,
+            stratify=True,
+            split_on=["category_id"],
+            test_frac=0.2,
+            val_frac=0.1,
+        )
+        assert split.num_folds == 5
+        assert split.stratify is True
+        assert split.split_on == ["category_id"]
+        assert split.test_frac == 0.2
+        assert split.val_frac == 0.1
+
+    def test_dataset_config_with_list_splits(self):
+        """DatasetConfig with list of split names."""
+        from dataeval_app.ingest import DatasetConfig
+
+        dataset = DatasetConfig(
+            name="cppe5",
+            format="huggingface",
+            path="./cppe5",
+            splits=["train", "test", "validation"],
+        )
+        assert dataset.name == "cppe5"
+        assert dataset.format == "huggingface"
+        assert dataset.path == "./cppe5"
+        assert dataset.splits == ["train", "test", "validation"]
+        assert dataset.metadata_auto_bin_method is None
+        assert dataset.metadata_ignore == []
+        assert dataset.metadata_continuous_factor_bins is None
+
+    def test_dataset_config_with_split_config(self):
+        """DatasetConfig with SplitConfig object."""
+        from dataeval_app.ingest import DatasetConfig, SplitConfig
+
+        split = SplitConfig(num_folds=5, stratify=True)
+        dataset = DatasetConfig(
+            name="retail",
+            format="coco",
+            path="./retail",
+            splits=split,
+            metadata_auto_bin_method="clusters",
+            metadata_ignore=["id", "source"],
+            metadata_continuous_factor_bins={"age": [0.0, 18.0, 65.0, 100.0]},
+        )
+        assert dataset.splits == split
+        assert dataset.metadata_auto_bin_method == "clusters"
+        assert dataset.metadata_ignore == ["id", "source"]
+        assert dataset.metadata_continuous_factor_bins == {"age": [0.0, 18.0, 65.0, 100.0]}
+
+    def test_dataset_config_missing_required_raises(self):
+        """DatasetConfig requires name, format, path, splits."""
+        from dataeval_app.ingest import DatasetConfig
+
+        with pytest.raises(ValidationError, match="name"):
+            DatasetConfig(format="coco", path="./data", splits=["train"])  # type: ignore[call-arg]
+
+    def test_dataset_config_invalid_format_raises(self):
+        """DatasetConfig rejects invalid format."""
+        from dataeval_app.ingest import DatasetConfig
+
+        with pytest.raises(ValidationError, match="format"):
+            DatasetConfig(
+                name="test",
+                format="invalid",  # type: ignore[arg-type]
+                path="./data",
+                splits=["train"],
+            )
+
+    def test_preprocessor_config_valid(self):
+        """PreprocessorConfig with valid steps."""
+        from dataeval_app.ingest import PreprocessorConfig
+        from dataeval_app.utility import PreprocessingStep
+
+        config = PreprocessorConfig(
+            name="resnet50_preprocessor",
+            steps=[
+                PreprocessingStep(step="Resize", params={"size": [224, 224]}),
+                PreprocessingStep(step="ToTensor"),
+            ],
+        )
+        assert config.name == "resnet50_preprocessor"
+        assert len(config.steps) == 2
+        assert config.steps[0].step == "Resize"
+        assert config.steps[1].step == "ToTensor"
+
+    def test_selection_step_valid(self):
+        """SelectionStep with type and params."""
+        from dataeval_app.ingest import SelectionStep
+
+        step = SelectionStep(type="Limit", params={"size": 10000})
+        assert step.type == "Limit"
+        assert step.params == {"size": 10000}
+
+    def test_selection_step_default_params(self):
+        """SelectionStep params defaults to empty dict."""
+        from dataeval_app.ingest import SelectionStep
+
+        step = SelectionStep(type="ClassBalance")
+        assert step.type == "ClassBalance"
+        assert step.params == {}
+
+    def test_selection_config_valid(self):
+        """SelectionConfig with named pipeline."""
+        from dataeval_app.ingest import SelectionConfig, SelectionStep
+
+        config = SelectionConfig(
+            name="training_subset",
+            steps=[
+                SelectionStep(type="Limit", params={"size": 10000}),
+                SelectionStep(type="ClassFilter", params={"classes": [0, 1, 2]}),
+            ],
+        )
+        assert config.name == "training_subset"
+        assert len(config.steps) == 2
+        assert config.steps[0].type == "Limit"
+        assert config.steps[1].type == "ClassFilter"
+
+    def test_task_config_valid(self):
+        """TaskConfig with all optional fields."""
+        from dataeval_app.ingest import TaskConfig
+
+        task = TaskConfig(
+            name="data_cleaning",
+            dataset="cppe5",
+            model="resnet50",
+            preprocessor="resnet50_preprocessor",
+            selection="training_subset",
+            params={"outlier_method": "modzscore"},
+            output_format="json",
+        )
+        assert task.name == "data_cleaning"
+        assert task.dataset == "cppe5"
+        assert task.model == "resnet50"
+        assert task.preprocessor == "resnet50_preprocessor"
+        assert task.selection == "training_subset"
+        assert task.params == {"outlier_method": "modzscore"}
+        assert task.output_format == "json"
+
+    def test_task_config_minimal(self):
+        """TaskConfig with only required fields."""
+        from dataeval_app.ingest import TaskConfig
+
+        task = TaskConfig(name="minimal", dataset="test")
+        assert task.name == "minimal"
+        assert task.dataset == "test"
+        assert task.model is None
+        assert task.preprocessor is None
+        assert task.selection is None
+        assert task.params == {}
+        assert task.output_format == "json"
+
+    def test_task_config_invalid_output_format_raises(self):
+        """TaskConfig rejects invalid output_format."""
+        from dataeval_app.ingest import TaskConfig
+
+        with pytest.raises(ValidationError, match="output_format"):
+            TaskConfig(
+                name="test",
+                dataset="test",
+                output_format="invalid",  # type: ignore[arg-type]
+            )
+
+    def test_workflow_config_with_all_p1_schemas(self, tmp_path: Path):
+        """WorkflowConfig loads all P1 schema sections."""
+        from dataeval_app.ingest import load_config_folder
+
+        # Create config with all P1 sections
+        (tmp_path / "config.yaml").write_text(
+            "datasets:\n"
+            "  - name: cppe5\n"
+            "    format: huggingface\n"
+            "    path: ./cppe5\n"
+            "    splits:\n"
+            "      - train\n"
+            "      - test\n"
+            "preprocessors:\n"
+            "  - name: basic\n"
+            "    steps:\n"
+            "      - step: ToTensor\n"
+            "selections:\n"
+            "  - name: subset\n"
+            "    steps:\n"
+            "      - type: Limit\n"
+            "        params:\n"
+            "          size: 1000\n"
+            "tasks:\n"
+            "  - name: clean\n"
+            "    dataset: cppe5\n"
+            "    preprocessor: basic\n"
+            "    selection: subset\n"
+        )
+
+        config = load_config_folder(tmp_path)
+
+        # Verify datasets
+        assert config.datasets is not None
+        assert len(config.datasets) == 1
+        assert config.datasets[0].name == "cppe5"
+        assert config.datasets[0].splits == ["train", "test"]
+
+        # Verify preprocessors
+        assert config.preprocessors is not None
+        assert len(config.preprocessors) == 1
+        assert config.preprocessors[0].name == "basic"
+
+        # Verify selections
+        assert config.selections is not None
+        assert len(config.selections) == 1
+        assert config.selections[0].name == "subset"
+
+        # Verify tasks
+        assert config.tasks is not None
+        assert len(config.tasks) == 1
+        assert config.tasks[0].name == "clean"
+        assert config.tasks[0].dataset == "cppe5"

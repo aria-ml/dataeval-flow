@@ -29,11 +29,11 @@ VOLUME MOUNTS
 ================================================================================
 
 REQUIRED:
+  /data/config     YAML config files (read-only)
   /data/dataset    Reference dataset (read-only)
 
 OPTIONAL:
   /data/model      Model files (read-only)
-  /data/incoming   Raw images to process (read-only)
   /output          Results and output files (read-write)
 
 --------------------------------------------------------------------------------
@@ -50,52 +50,32 @@ MOUNT SYNTAX
 EXAMPLES
 --------------------------------------------------------------------------------
 
-Minimal (dataset only):
+Minimal (config + dataset):
     docker run --gpus all \
+        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         dataeval:gpu
 
 With output directory:
     docker run --gpus all \
+        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --mount type=bind,source=/home/user/results,target=/output \
         dataeval:gpu
 
 All mounts:
     docker run --gpus all \
+        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --mount type=bind,source=/home/user/models,target=/data/model,readonly \
-        --mount type=bind,source=/home/user/incoming,target=/data/incoming,readonly \
         --mount type=bind,source=/home/user/results,target=/output \
         dataeval:gpu
 
 Windows PowerShell:
     docker run --gpus all `
+        --mount type=bind,source=C:\data\config,target=/data/config,readonly `
         --mount type=bind,source=C:\data\cifar10,target=/data/dataset,readonly `
         --mount type=bind,source=C:\output,target=/output `
-        dataeval:gpu
-
---------------------------------------------------------------------------------
-DOCKER COMPOSE (RECOMMENDED)
---------------------------------------------------------------------------------
-
-1. Copy and edit config:
-       cp .env.example .env
-       # Edit .env with your paths
-
-2. Run:
-       docker compose up
-
---------------------------------------------------------------------------------
-ENVIRONMENT VARIABLES
---------------------------------------------------------------------------------
-
-DATASET_SPLIT    For DatasetDict (multi-split datasets), specify which split to use.
-                 If not set and dataset has multiple splits, an error will show
-                 available options.
-
-    docker run --gpus all -e DATASET_SPLIT=test \
-        --mount type=bind,source=/home/user/cifar10_full,target=/data/dataset,readonly \
         dataeval:gpu
 
 --------------------------------------------------------------------------------
@@ -104,12 +84,14 @@ OTHER OPTIONS
 
 Interactive shell:
     docker run -it --gpus all \
+        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --entrypoint /bin/bash \
         dataeval:gpu
 
 Debug (bypass GPU check):
     docker run \
+        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --entrypoint python \
         dataeval:gpu src/container_run.py
@@ -119,6 +101,7 @@ CPU-ONLY MACHINES
 --------------------------------------------------------------------------------
 
     docker run \
+        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --mount type=bind,source=/home/user/results,target=/output \
         dataeval:cpu
@@ -128,6 +111,7 @@ TROUBLESHOOTING
 --------------------------------------------------------------------------------
 
 "No GPU detected"      -> Add --gpus all to command
+"No config mounted"    -> Add --mount for /data/config
 "No dataset mounted"   -> Add --mount for /data/dataset
 "invalid mount config" -> Check source path exists on host
 "Permission denied"    -> Check host directory permissions
@@ -161,6 +145,25 @@ if [[ -z "$(ls -A /data/dataset 2>/dev/null)" ]]; then
     exit 1
 fi
 
+# ============== VALIDATE CONFIG MOUNT (REQUIRED) ==============
+# Marker file exists = no mount attempted = show help
+if [[ -f "/data/config/.not_mounted" ]]; then
+    show_help
+fi
+
+# No marker but empty = mount attempted with bad path = show error
+if [[ -z "$(ls -A /data/config 2>/dev/null)" ]]; then
+    echo ""
+    echo "ERROR: Config mount is empty at /data/config"
+    echo ""
+    echo "Check that your source path exists on the host:"
+    echo "  -v /path/to/config:/data/config:ro"
+    echo "       ↑ verify this path exists"
+    echo ""
+    echo "Run with --help for usage information."
+    exit 1
+fi
+
 # ============== VALIDATE OPTIONAL MOUNTS ==============
 # Check if mount was attempted (no marker) but directory is empty (bad path)
 
@@ -171,17 +174,6 @@ if [[ ! -f "/data/model/.not_mounted" ]] && [[ -z "$(ls -A /data/model 2>/dev/nu
     echo ""
     echo "Check that your source path exists on the host:"
     echo "  -v /path/to/models:/data/model:ro"
-    echo "       ↑ verify this path exists"
-    exit 1
-fi
-
-# /data/incoming - Raw images (optional)
-if [[ ! -f "/data/incoming/.not_mounted" ]] && [[ -z "$(ls -A /data/incoming 2>/dev/null)" ]]; then
-    echo ""
-    echo "ERROR: Incoming mount is empty at /data/incoming"
-    echo ""
-    echo "Check that your source path exists on the host:"
-    echo "  -v /path/to/images:/data/incoming:ro"
     echo "       ↑ verify this path exists"
     exit 1
 fi
@@ -208,6 +200,7 @@ else
         echo "Did you forget --gpus all?"
         echo ""
         echo "    docker run --gpus all \\"
+        echo "        --mount type=bind,source=/path/to/config,target=/data/config,readonly \\"
         echo "        --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \\"
         echo "        dataeval:gpu"
         echo ""
@@ -223,6 +216,7 @@ else
         echo "Ensure nvidia-container-toolkit is installed and run with --gpus all"
         echo ""
         echo "    docker run --gpus all \\"
+        echo "        --mount type=bind,source=/path/to/config,target=/data/config,readonly \\"
         echo "        --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \\"
         echo "        dataeval:gpu"
         echo ""

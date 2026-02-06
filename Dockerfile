@@ -43,8 +43,8 @@ RUN chmod +x entrypoint.sh
 RUN useradd --create-home --shell /bin/bash dataeval
 
 # Create mount points with correct ownership
-RUN mkdir -p /data/dataset /data/model /data/incoming /output \
-    && touch /data/dataset/.not_mounted /data/model/.not_mounted /data/incoming/.not_mounted \
+RUN mkdir -p /data/config /data/dataset /data/model /output \
+    && touch /data/config/.not_mounted /data/dataset/.not_mounted /data/model/.not_mounted \
     && chown -R dataeval:dataeval /data /output /app
 
 # Container labels

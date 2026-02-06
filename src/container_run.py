@@ -5,9 +5,9 @@ This script is container-specific and NOT part of the dataeval_app package.
 It knows about container mount points and maps them to library parameters.
 
 The container expects these mount points:
+- /data/config: Config files (required)
 - /data/dataset: Input dataset (required)
 - /data/model: Model files (optional)
-- /data/incoming: Raw images (optional)
 - /output: Results directory (optional)
 """
 
@@ -17,9 +17,9 @@ from pathlib import Path
 
 # Container mount points (container-specific knowledge)
 CONTAINER_MOUNTS = {
+    "config": Path("/data/config"),
     "dataset": Path("/data/dataset"),
     "model": Path("/data/model"),
-    "incoming": Path("/data/incoming"),
     "output": Path("/output"),
 }
 
@@ -59,13 +59,12 @@ def main() -> int:
         Exit code: 0 for success, 1 for error.
     """
     dataset_path = get_dataset_path()
-    split = os.environ.get("DATASET_SPLIT")
 
     # Container-specific validation (before importing heavy dependencies)
     if not dataset_path.exists():
         print(f"ERROR: Dataset path not found: {dataset_path}")
         print("Troubleshooting:")
-        print("  1. Ensure DATASET_PATH is set in docker-compose")
+        print("  1. Ensure the dataset directory is mounted correctly")
         print("  2. Check that the path contains a valid dataset")
         return 1
 
@@ -78,7 +77,7 @@ def main() -> int:
         return 1
 
     try:
-        return inspect_dataset(dataset_path, split)
+        return inspect_dataset(dataset_path)
     except (FileNotFoundError, ValueError) as e:
         print(f"ERROR: {e}")
         return 1
