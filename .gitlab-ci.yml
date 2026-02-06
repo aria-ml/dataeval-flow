@@ -1,6 +1,15 @@
 # JATIC Compliant GitLab CI/CD Pipeline
 # Reference: docs/design/JATIC project software requirements.md
 
+# Auto-cancel stale pipelines when new commits are pushed to MRs
+# https://gitlab.jatic.net/help/ci/yaml/index.md#workflowauto_cancelon_new_commit
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+default:
+  interruptible: true
+
 stages:
   - lint
   - security
@@ -18,66 +27,78 @@ include:
 
 variables:
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  PYTHON_VERSION: "3.11"
   DOCKER_TLS_CERTDIR: "/certs"
-  
+
   # Harbor Registry Configuration
   # HARBOR_TOKEN must be set as a CI/CD Variable in GitLab
   HARBOR_URL: "harbor.jatic.net"
   HARBOR_USER: "robot$dataeval+dataeval-app"
-  
+
   # Target Image Path
   # Used for local tagging only in this configuration
   CI_APPLICATION_REPOSITORY: "$HARBOR_URL/dataeval/dataeval-app"
   CI_APPLICATION_TAG: "$CI_COMMIT_SHA"
 
 # -----------------------------------------------------------------------------
+# Shared Templates
+# -----------------------------------------------------------------------------
+
+# Base template for all uv/nox jobs
+.nox:
+  image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+  cache:
+    key:
+      files:
+        - uv.lock
+    paths:
+      - $UV_CACHE_DIR
+  after_script:
+    - uv cache prune --ci
+
+# Shared rule sets
+.rules_main_mr:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+.rules_mr_only:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+.rules_main_only:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# -----------------------------------------------------------------------------
 # Lint Stage
 # -----------------------------------------------------------------------------
 
 lint:
+  extends: [.nox, .rules_main_mr]
   stage: lint
-  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
   script:
-    # Use uvx to run nox with the nox-uv plugin
     - uvx --with nox-uv nox -s lint
-  cache:
-    key: uv-lint-$CI_COMMIT_REF_SLUG
-    paths:
-      - .uv-cache
-      - .venv
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # Type Check [TR-7-H-1, TR-7-H-2]
 # Type check should be an explicit, visible job in the pipeline, not hidden in lint
 type-check:
+  extends: [.nox, .rules_main_mr]
   stage: lint
-  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
   script:
-    # Use uvx to run nox with the nox-uv plugin
     - uvx --with nox-uv nox -s type
-  cache:
-    key: uv-type-$CI_COMMIT_REF_SLUG
-    paths:
-      - .uv-cache
-      - .venv
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # -----------------------------------------------------------------------------
 # Test Stage [TR-1-H-4: Python 3.10, 3.11, 3.12]
 # -----------------------------------------------------------------------------
 
 test:
+  extends: [.nox, .rules_main_mr]
   stage: test
-  image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.10", "3.11", "3.12"]
   script:
-    # Install 'nox-uv' alongside 'nox' so the noxfile imports work
     - uvx --with nox-uv nox -s test
   coverage: '/TOTAL.*\s+(\d+%)/'
   artifacts:
@@ -89,42 +110,27 @@ test:
         coverage_format: cobertura
         path: output/coverage.xml
     expire_in: 1 week
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # -----------------------------------------------------------------------------
 # Build Stage (Local Build Only - No Push)
 # -----------------------------------------------------------------------------
 
 build:docker:
+  extends: .rules_main_mr
   stage: build
-  # Update image to match working base.yml reference
   image: docker:25.0.5-git
   services:
     - docker:24.0-dind
-  # Login removed: We are not pushing to Harbor, so login is unnecessary
-  # before_script:
-  #   - apk add --no-cache bash util-linux
-  #   - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL} -u "${HARBOR_USER}" --password-stdin || echo "Failed to login to Harbor..."
   script:
     # Build GPU image (Uses unified Dockerfile with override args)
-    # Flattened command to avoid line-continuation syntax errors in CI runner
     - docker build --build-arg BASE_IMAGE="nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04" --build-arg CONTAINER_MODE="gpu" -t $CI_APPLICATION_REPOSITORY:$CI_APPLICATION_TAG -t $CI_APPLICATION_REPOSITORY:gpu .
-        
+
     # Build CPU image (Uses unified Dockerfile with defaults)
     - docker build -t $CI_APPLICATION_REPOSITORY:cpu .
-    
-    # Push commands removed to avoid Harbor authentication errors
-    # - docker push $CI_APPLICATION_REPOSITORY:$CI_APPLICATION_TAG
-    # - docker push $CI_APPLICATION_REPOSITORY:gpu
-    # - docker push $CI_APPLICATION_REPOSITORY:cpu
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # Container Smoke Test - Validates entrypoint.sh executes correctly
 container-test:
+  extends: .rules_main_only
   stage: build
   image: docker:25.0.5-git
   services:
@@ -158,13 +164,36 @@ container-test:
 
     # Verify exit code 0
     - echo "Container smoke test passed"
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Docs preview - Build docs on MRs for review
+docs:preview:
+  extends: [.nox, .rules_mr_only]
+  stage: build
+  script:
+    - uvx --with nox-uv nox -s docs
+  artifacts:
+    paths:
+      - output/docs
+    expose_as: "Documentation Preview"
+    expire_in: 1 week
+
+# GitLab Pages - Publish Sphinx documentation
+pages:
+  extends: [.nox, .rules_main_only]
+  stage: build
+  script:
+    - uvx --with nox-uv nox -s docs
+    - mv output/docs public
+  artifacts:
+    paths:
+      - public
 
 # -----------------------------------------------------------------------------
 # Security Stage [DSOR-1 to DSOR-5]
 # -----------------------------------------------------------------------------
+
+# NOTE: Security template jobs use `extends:` internally — do not override with
+# `extends:` here or the template's analyzer inheritance chain will break.
 
 # SAST - Static Application Security Testing [DSOR-1-H-1, DSOR-1-H-2]
 semgrep-sast:
@@ -183,7 +212,6 @@ gemnasium-python-dependency_scanning:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # Secret Detection [DSOR-4-H-1, DSOR-4-H-2]
-# This job name is valid in the template
 secret_detection:
   stage: security
   rules:
@@ -192,6 +220,7 @@ secret_detection:
 
 # SBOM Export [DSOR-5-H-1]
 sbom:
+  extends: .rules_main_mr
   stage: security
   # Override entrypoint so GitLab can use shell instead of running syft immediately
   image: alpine:latest
@@ -203,9 +232,6 @@ sbom:
     paths:
       - sbom.json
     expire_in: 1 week
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # -----------------------------------------------------------------------------
 # Release Stage

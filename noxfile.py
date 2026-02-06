@@ -62,6 +62,21 @@ def test(session: nox.Session) -> None:
     )
 
 
+@nox_uv.session(uv_groups=["docs"])
+def docs(session: nox.Session) -> None:
+    """Build Sphinx documentation."""
+    session.run(
+        "sphinx-build",
+        "--fail-on-warning",
+        "--keep-going",
+        "--fresh-env",
+        "--builder",
+        "html",
+        "docs/source",
+        "output/docs",
+    )
+
+
 @nox_uv.session(uv_only_groups=["base"])
 def check(session: nox.Session) -> None:
     """Validate lock file is up to date."""
