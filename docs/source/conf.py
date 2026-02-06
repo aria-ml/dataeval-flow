@@ -5,6 +5,7 @@ For the full list of built-in configuration values, see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
+import datetime
 from typing import Any
 
 # -----------------------------------------------------------------------------
@@ -12,7 +13,7 @@ from typing import Any
 # -----------------------------------------------------------------------------
 
 project = "DataEval App"
-copyright = "2025, ARiA"  # noqa: A001
+copyright = f"{datetime.date.today().year}, ARiA"  # noqa: A001
 author = "ARiA"
 
 root_doc = "index"
