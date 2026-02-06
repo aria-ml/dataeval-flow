@@ -160,6 +160,23 @@ container-test:
     - echo "Container smoke test passed"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Docs preview - Build docs on MRs for review
+docs:preview:
+  stage: build
+  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+  script:
+    - uvx --with nox-uv nox -s docs
+  artifacts:
+    paths:
+      - output/docs
+    expose_as: "Documentation Preview"
+    expire_in: 1 week
+  cache:
+    key: uv-docs-$CI_COMMIT_REF_SLUG
+    paths:
+      - .uv-cache
+  rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # GitLab Pages - Publish Sphinx documentation
