@@ -162,6 +162,19 @@ container-test:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
+# GitLab Pages - Publish Sphinx documentation
+pages:
+  stage: build
+  image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+  script:
+    - uvx --with nox-uv nox -s docs
+    - mv output/docs public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
 # -----------------------------------------------------------------------------
 # Security Stage [DSOR-1 to DSOR-5]
 # -----------------------------------------------------------------------------

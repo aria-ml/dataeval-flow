@@ -54,6 +54,15 @@ type = [
     { include-group = "base" },
     "pyright[nodejs]>=1.1.400",
 ]
+docs = [
+    { include-group = "base" },
+    "Sphinx>=7.2.6",
+    "sphinx-autoapi>=3.6.0",
+    "sphinx-immaterial>=0.12.5",
+    "sphinx-design>=0.6.1",
+    "sphinx-new-tab-link>=0.8.0",
+    "myst-parser>=3.0",
+]
 dev = [
     { include-group = "lint" },
     { include-group = "type" },
