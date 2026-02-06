@@ -1,7 +1,11 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""
+Configuration file for the Sphinx documentation builder.
+
+For the full list of built-in configuration values, see the documentation:
+https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""
+
+from typing import Any
 
 # -----------------------------------------------------------------------------
 # Project configuration
@@ -116,12 +120,12 @@ html_theme_options = {
 # -----------------------------------------------------------------------------
 
 
-def _inherits_from(obj, full_name: str) -> bool:
+def _inherits_from(obj: Any, full_name: str) -> bool:
     parent = obj.obj.get("inherited_from")
     return bool(parent and parent.get("full_name") == full_name)
 
 
-def autoapi_skip_member(app, what, name, obj, skip, options):
+def autoapi_skip_member(app: Any, what: str, name: str, obj: Any, skip: bool, options: Any) -> bool:  # noqa: ARG001
     """Skip undocumented attributes, pydantic internals, and empty modules."""
     if what == "attribute" and obj.docstring == "":
         skip = True
@@ -134,5 +138,6 @@ def autoapi_skip_member(app, what, name, obj, skip, options):
     return skip
 
 
-def setup(app):
+def setup(app: Any) -> None:
+    """Connect the autoapi-skip-member event to our custom skip logic."""
     app.connect("autoapi-skip-member", autoapi_skip_member)
