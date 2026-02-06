@@ -10,7 +10,14 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from dataeval_app.ingest.schemas import (
+    DatasetConfig,
+    PreprocessorConfig,
+    SelectionConfig,
+    TaskConfig,
+)
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # Base classes
@@ -84,20 +91,32 @@ class WorkflowConfig(BaseModel):
     """Unified workflow configuration.
 
     Contains all configuration sections for the workflow.
+    Extended with new schemas (P1): datasets, preprocessors, selections, tasks.
     """
 
-    data_cleaning: DataCleaningParameters
+    # Existing fields (from PRs #1-5)
+    data_cleaning: DataCleaningParameters | None = None
     models: list[ModelConfig] | None = Field(
         default=None,
         description="Optional list of ONNX models for embedding extraction",
     )
+
+    # New fields (P1)
+    datasets: list[DatasetConfig] | None = None
+    preprocessors: list[PreprocessorConfig] | None = None
+    selections: list[SelectionConfig] | None = None  # Named selection pipelines
+    tasks: list[TaskConfig] | None = None
 
 
 # -----------------------------------------------------------------------------
 # Utility functions
 # -----------------------------------------------------------------------------
 
+# Keep original path for backward compat (single-file loading)
 DEFAULT_PARAMS_PATH = Path("/data/config/params.yaml")
+
+# New default for multi-file folder loading
+DEFAULT_CONFIG_FOLDER = Path("/data/config")
 
 
 def load_config(config_path: Path | None = None) -> WorkflowConfig:
@@ -178,3 +197,32 @@ def export_params_schema(output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     schema = WorkflowConfig.model_json_schema()
     output_path.write_text(json.dumps(schema, indent=2))
+
+
+def load_config_folder(config_path: Path | None = None) -> WorkflowConfig:
+    """Load and merge all YAML files from config folder.
+
+    Replaces load_config() for multi-file support.
+
+    Parameters
+    ----------
+    config_path : Path | None
+        Path to config folder. Uses /data/config if None.
+
+    Returns
+    -------
+    WorkflowConfig
+        Validated configuration with all sections merged.
+
+    Raises
+    ------
+    ValueError
+        If the config path is not a directory.
+    pydantic.ValidationError
+        If merged configuration is invalid.
+    """
+    from dataeval_app.ingest.config_loader import merge_yaml_folder
+
+    path = config_path or DEFAULT_CONFIG_FOLDER
+    merged = merge_yaml_folder(path)
+    return WorkflowConfig.model_validate(merged)

@@ -15,7 +15,16 @@ from dataeval_app.ingest.params import (
     WorkflowParametersBase,
     export_params_schema,
     load_config,
+    load_config_folder,
     load_params,
+)
+from dataeval_app.ingest.schemas import (
+    DatasetConfig,
+    PreprocessorConfig,
+    SelectionConfig,
+    SelectionStep,
+    SplitConfig,
+    TaskConfig,
 )
 
 __all__ = [
@@ -26,8 +35,16 @@ __all__ = [
     # Unified Config
     "WorkflowConfig",
     "load_config",
+    "load_config_folder",
     # Model Config
     "ModelConfig",
+    # Schema classes (P1)
+    "DatasetConfig",
+    "SplitConfig",
+    "PreprocessorConfig",
+    "SelectionConfig",
+    "SelectionStep",
+    "TaskConfig",
     # Data Cleaning Parameters
     "DataCleaningParameters",
     "load_params",

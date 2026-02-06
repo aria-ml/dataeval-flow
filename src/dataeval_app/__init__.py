@@ -7,7 +7,7 @@ Examples
 --------
 >>> from pathlib import Path
 >>> from dataeval_app import load_dataset, inspect_dataset
->>> dataset = load_dataset(Path("/my/local/dataset"), split="train")
+>>> dataset = load_dataset(Path("/my/local/dataset"))
 >>> inspect_dataset(Path("/my/local/dataset"))
 0
 """

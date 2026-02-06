@@ -11,16 +11,13 @@ from pathlib import Path
 from typing import Any
 
 
-def load_dataset_huggingface(path: Path, split: str | None = None) -> Any:
+def load_dataset_huggingface(path: Path) -> Any:
     """Load a HuggingFace dataset and convert to MAITE format.
 
     Parameters
     ----------
     path : Path
         Path to the dataset directory containing HuggingFace dataset files.
-    split : str | None, optional
-        Split name for DatasetDict (e.g., "train", "test"). Required if
-        the dataset contains multiple splits.
 
     Returns
     -------
@@ -31,8 +28,6 @@ def load_dataset_huggingface(path: Path, split: str | None = None) -> Any:
     ------
     ImportError
         If required dependencies (datasets, maite_datasets) are missing.
-    ValueError
-        If split is required but not provided, or if specified split is not found.
     RuntimeError
         If dataset loading or conversion fails.
 
@@ -40,7 +35,7 @@ def load_dataset_huggingface(path: Path, split: str | None = None) -> Any:
     --------
     >>> from pathlib import Path
     >>> from dataeval_app import load_dataset_huggingface
-    >>> ds = load_dataset_huggingface(Path("/data/cifar10"), split="test")
+    >>> ds = load_dataset_huggingface(Path("/data/cifar10"))
     """
     from datasets import load_from_disk
     from maite_datasets.adapters import from_huggingface
@@ -51,20 +46,17 @@ def load_dataset_huggingface(path: Path, split: str | None = None) -> Any:
     if hasattr(dataset, "keys") and callable(dataset.keys):  # type: ignore[union-attr]
         available_splits = list(dataset.keys())  # type: ignore[union-attr]
         if available_splits:
-            print(f"DatasetDict detected. Available splits: {available_splits}")
-            if not split:
-                raise ValueError(f"Multiple splits found. Specify --split argument.\n  Available: {available_splits}")
-            if split not in available_splits:
-                raise ValueError(f"Split '{split}' not found.\n  Available: {available_splits}")
-            print(f"Using split: '{split}'")
-            dataset = dataset[split]
+            print(f"DatasetDict detected with {len(available_splits)} splits: {available_splits}")
+            print("Split selection will be handled by TaskExecutor based on config.")
+            # Return first split for now (P2 will use config-driven selection)
+            dataset = dataset[available_splits[0]]
     else:
         print("Dataset detected (single split)")
 
     return from_huggingface(dataset)  # type: ignore[arg-type]
 
 
-def load_dataset(path: Path, split: str | None = None) -> Any:
+def load_dataset(path: Path) -> Any:
     """Load a dataset and convert to MAITE format.
 
     This is the main entry point for loading datasets. Currently delegates
@@ -74,8 +66,6 @@ def load_dataset(path: Path, split: str | None = None) -> Any:
     ----------
     path : Path
         Path to the dataset directory.
-    split : str | None, optional
-        Split name for multi-split datasets.
 
     Returns
     -------
@@ -86,12 +76,12 @@ def load_dataset(path: Path, split: str | None = None) -> Any:
     --------
     >>> from pathlib import Path
     >>> from dataeval_app import load_dataset
-    >>> ds = load_dataset(Path("/data/cifar10"), split="test")
+    >>> ds = load_dataset(Path("/data/cifar10"))
     """
-    return load_dataset_huggingface(path, split)
+    return load_dataset_huggingface(path)
 
 
-def inspect_dataset(path: Path, split: str | None = None) -> int:
+def inspect_dataset(path: Path) -> int:
     """Inspect a dataset and print summary.
 
     Loads the dataset, displays metadata, and shows the first 10 samples
@@ -101,8 +91,6 @@ def inspect_dataset(path: Path, split: str | None = None) -> int:
     ----------
     path : Path
         Path to the dataset directory.
-    split : str | None, optional
-        Split name for multi-split datasets (e.g., "train", "test").
 
     Returns
     -------
@@ -118,14 +106,14 @@ def inspect_dataset(path: Path, split: str | None = None) -> int:
     --------
     >>> from pathlib import Path
     >>> from dataeval_app import inspect_dataset
-    >>> result = inspect_dataset(Path("/data/cifar10"), split="test")
+    >>> result = inspect_dataset(Path("/data/cifar10"))
     >>> result
     0
     """
     if not path.exists():
         raise FileNotFoundError(f"Dataset path not found: {path}")
 
-    maite_ds = load_dataset(path, split)
+    maite_ds = load_dataset(path)
     print(f"Dataset loaded: {len(maite_ds)} images")
 
     # Show MAITE metadata if available

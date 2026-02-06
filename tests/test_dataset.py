@@ -35,8 +35,8 @@ class TestImports:
 class TestDatasetModule:
     """Test the dataset library module."""
 
-    def test_load_dataset_huggingface_with_split(self, mock_hf_dataset: MagicMock) -> None:
-        """Test loading a mocked HuggingFace dataset with split."""
+    def test_load_dataset_huggingface_datasetdict(self, mock_hf_dataset: MagicMock) -> None:
+        """Test loading a DatasetDict uses first split automatically."""
         with (
             patch("datasets.load_from_disk") as mock_load,
             patch("maite_datasets.adapters.from_huggingface") as mock_adapter,
@@ -46,30 +46,11 @@ class TestDatasetModule:
 
             from dataeval_app import load_dataset_huggingface
 
-            load_dataset_huggingface(Path("dummy/path"), split="train")
+            load_dataset_huggingface(Path("dummy/path"))
 
+            # Should use first available split
             mock_hf_dataset.__getitem__.assert_called_with("train")
             mock_adapter.assert_called()
-
-    def test_load_dataset_missing_split_error(self, mock_hf_dataset: MagicMock) -> None:
-        """Ensure error is raised if split is missing for DatasetDict."""
-        with patch("datasets.load_from_disk") as mock_load:
-            mock_load.return_value = mock_hf_dataset
-
-            from dataeval_app import load_dataset_huggingface
-
-            with pytest.raises(ValueError, match="Multiple splits found"):
-                load_dataset_huggingface(Path("dummy/path"), split=None)
-
-    def test_load_dataset_invalid_split_error(self, mock_hf_dataset: MagicMock) -> None:
-        """Ensure error is raised if split name is not found."""
-        with patch("datasets.load_from_disk") as mock_load:
-            mock_load.return_value = mock_hf_dataset
-
-            from dataeval_app import load_dataset_huggingface
-
-            with pytest.raises(ValueError, match="Split 'invalid' not found"):
-                load_dataset_huggingface(Path("dummy/path"), split="invalid")
 
     def test_load_dataset_delegates(self) -> None:
         """Test load_dataset delegates to load_dataset_huggingface."""
@@ -78,8 +59,8 @@ class TestDatasetModule:
 
             from dataeval_app.dataset import load_dataset
 
-            load_dataset(Path("/some/path"), split="train")
-            mock_hf.assert_called_once_with(Path("/some/path"), "train")
+            load_dataset(Path("/some/path"))
+            mock_hf.assert_called_once_with(Path("/some/path"))
 
     def test_inspect_dataset_path_not_found(self) -> None:
         """Ensure FileNotFoundError is raised for missing path."""
@@ -166,16 +147,6 @@ class TestMainModule:
         with patch("sys.argv", ["dataeval_app", "--dataset-path", "/some/path"]):
             args = parse_args()
             assert args.dataset_path == Path("/some/path")
-            assert args.split is None
-
-    def test_parse_args_with_split(self) -> None:
-        """Test parsing with dataset path and split."""
-        from dataeval_app.__main__ import parse_args
-
-        with patch("sys.argv", ["dataeval_app", "--dataset-path", "/path", "--split", "train"]):
-            args = parse_args()
-            assert args.dataset_path == Path("/path")
-            assert args.split == "train"
 
     def test_main_success(self, mock_dataset_path: Path) -> None:
         """Test main() with successful execution."""

@@ -11,8 +11,9 @@ docker build -t dataeval:gpu .
 # 2. Show help
 docker run dataeval:gpu
 
-# 3. Run with dataset
+# 3. Run with config and dataset
 docker run --gpus all \
+  --mount type=bind,source=/path/to/config,target=/data/config,readonly \
   --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
   dataeval:gpu
@@ -24,12 +25,12 @@ For easier usage (GPU is default):
 
 ```bash
 # Linux/Mac
-./run.sh --dataset /path/to/dataset --output /path/to/output
-./run.sh --dataset /path/to/dataset --output /path/to/output -cpu
+./run.sh --config /path/to/config --dataset /path/to/dataset
+./run.sh --config /path/to/config --dataset /path/to/dataset --cpu
 
 # Windows PowerShell
-.\run.ps1 -Dataset /path/to/dataset -Output /path/to/output
-.\run.ps1 -Dataset /path/to/dataset -Output /path/to/output -CPU
+.\run.ps1 -Config /path/to/config -Dataset /path/to/dataset
+.\run.ps1 -Config /path/to/config -Dataset /path/to/dataset -CPU
 ```
 
 ## Requirements
@@ -51,9 +52,9 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 
 | Path | Mode | Purpose |
 |------|------|---------|
+| `/data/config` | ro | Config files (required) |
 | `/data/dataset` | ro | Dataset (required) |
 | `/data/model` | ro | Model files (optional) |
-| `/data/incoming` | ro | Raw images (optional) |
 | `/output` | rw | Results |
 
 ## Dataset Formats
@@ -63,30 +64,7 @@ Currently supported dataset structures:
 | Format | Structure | Example |
 |--------|-----------|---------|
 | **Dataset** | Single split, used directly | `cifar10_test/` |
-| **DatasetDict** | Multiple splits (dict), requires `DATASET_SPLIT` | `cifar10_full/` with `train/` and `test/` |
-
-### Using DatasetDict (multi-split datasets)
-
-For datasets with multiple splits, set `DATASET_SPLIT` env var:
-
-```bash
-# List available splits (will error and show options)
-docker run --gpus all \
-  -v /path/to/cifar10_full:/data/dataset:ro \
-  dataeval:gpu
-
-# Output:
-# DatasetDict detected. Available splits: ['train', 'test']
-# ERROR: Multiple splits found. Set DATASET_SPLIT env var.
-#   Example: -e DATASET_SPLIT=train
-#   Available: ['train', 'test']
-
-# Specify split
-docker run --gpus all \
-  -e DATASET_SPLIT=test \
-  -v /path/to/cifar10_full:/data/dataset:ro \
-  dataeval:gpu
-```
+| **DatasetDict** | Multiple splits (dict), configured via config YAML | `cifar10_full/` |
 
 ## CPU Fallback
 
@@ -96,24 +74,14 @@ For machines without NVIDIA GPU:
 docker build -f Dockerfile.cpu -t dataeval:cpu .
 docker run dataeval:cpu  # Shows help
 docker run \
+  --mount type=bind,source=/path/to/config,target=/data/config,readonly \
   --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \
   dataeval:cpu
 ```
 
-## Docker Compose
-
-```bash
-# 1. Copy and edit config
-cp .env.example .env
-# Edit .env with your paths
-
-# 2. Run
-docker compose up
-```
-
 ## Dependencies
 
-- `dataeval>=0.93.1` - Core evaluation library
+- `dataeval>=0.95.0` - Core evaluation library
 - `datasets>=4.0.0` - Dataset loading library
 - `maite-datasets>=0.0.9` - MAITE protocol adapter
 
@@ -151,7 +119,6 @@ uv sync
 **CLI Usage:**
 ```bash
 python -m dataeval_app --dataset-path /path/to/your/dataset
-python -m dataeval_app --dataset-path /path/to/dataset --split train
 ```
 
 **Python API Usage:**
@@ -159,7 +126,7 @@ python -m dataeval_app --dataset-path /path/to/dataset --split train
 from pathlib import Path
 from dataeval_app import load_dataset, inspect_dataset
 
-dataset = load_dataset(Path("/path/to/dataset"), split="train")
+dataset = load_dataset(Path("/path/to/dataset"))
 inspect_dataset(Path("/path/to/dataset"))
 ```
 

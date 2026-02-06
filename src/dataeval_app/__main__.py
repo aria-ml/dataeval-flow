@@ -19,7 +19,7 @@ def parse_args() -> argparse.Namespace:
     Returns
     -------
     argparse.Namespace
-        Parsed arguments containing dataset_path and optional split.
+        Parsed arguments containing dataset_path.
     """
     parser = argparse.ArgumentParser(
         prog="dataeval_app",
@@ -30,12 +30,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         required=True,
         help="Path to the dataset directory",
-    )
-    parser.add_argument(
-        "--split",
-        type=str,
-        default=None,
-        help="Dataset split to use (for DatasetDict)",
     )
     return parser.parse_args()
 
@@ -48,7 +42,7 @@ def main() -> NoReturn:
     """
     args = parse_args()
     try:
-        result = inspect_dataset(args.dataset_path, args.split)
+        result = inspect_dataset(args.dataset_path)
         sys.exit(result)
     except (FileNotFoundError, ValueError, ImportError) as e:
         print(f"ERROR: {e}")
