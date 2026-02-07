@@ -1,5 +1,9 @@
 # Installation
 
+```{admonition} Coming Soon
+Installation guide is a place-holder.  Official installation notes will be updated.
+```
+
 ## Using pip
 
 ```bash
