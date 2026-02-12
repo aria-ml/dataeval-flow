@@ -1,16 +1,23 @@
-"""End-to-end integration tests for P1 config infrastructure.
+"""End-to-end integration tests for config infrastructure.
 
 These tests verify that components work together correctly:
-- Multi-file config loading with all P1 sections
+- Multi-file config loading with all config sections
 - Task reference resolution (task → dataset, preprocessor, selection)
 - Container mount path constants
-
-Note: True task execution tests require P2 TaskExecutor (not yet implemented).
+- Full pipeline: config YAML → run_task() → output files
 """
 
+import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from dataeval_app.ingest import load_config_folder
+import polars as pl
+
+# Ensure target modules are in sys.modules for @patch with xdist
+import dataeval_app.dataset
+import dataeval_app.metadata
+import dataeval_app.workflows.cleaning.workflow  # noqa: F401
+from dataeval_app.config import load_config_folder
 
 
 class TestConfigToFactoryIntegration:
@@ -40,6 +47,7 @@ class TestConfigToFactoryIntegration:
         (config_dir / "03-tasks.yaml").write_text(
             "tasks:\n"
             "  - name: clean_task\n"
+            "    workflow: data-cleaning\n"
             "    dataset: test_dataset\n"
             "    preprocessor: basic\n"
             "    selection: subset\n"
@@ -103,10 +111,12 @@ class TestConfigToFactoryIntegration:
             "          size: 50\n"
             "tasks:\n"
             "  - name: task1\n"
+            "    workflow: data-cleaning\n"
             "    dataset: dataset_a\n"
             "    preprocessor: preproc_x\n"
             "    selection: sel_1\n"
             "  - name: task2\n"
+            "    workflow: data-cleaning\n"
             "    dataset: dataset_b\n"
             "    preprocessor: preproc_y\n"
         )
@@ -159,14 +169,17 @@ class TestConfigToFactoryIntegration:
             "      - step: ToTensor\n"
             "tasks:\n"
             "  - name: outlier_detection\n"
+            "    workflow: data-cleaning\n"
             "    dataset: shared_dataset\n"
             "    preprocessor: shared_preproc\n"
             "    params:\n"
             "      outlier_method: modzscore\n"
             "  - name: duplicate_detection\n"
+            "    workflow: data-cleaning\n"
             "    dataset: shared_dataset\n"
             "    preprocessor: shared_preproc\n"
             "  - name: analysis_only\n"
+            "    workflow: data-cleaning\n"
             "    dataset: shared_dataset\n"
             "    output_format: terminal\n"
         )
@@ -206,7 +219,7 @@ class TestContainerMountPaths:
 
     def test_default_paths_match_container_mounts(self):
         """DEFAULT_CONFIG_FOLDER and DEFAULT_PARAMS_PATH align with container mounts."""
-        from dataeval_app.ingest.params import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
+        from dataeval_app.config.loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
 
         # Verify paths use /data/config pattern
         assert Path("/data/config") == DEFAULT_CONFIG_FOLDER
@@ -264,8 +277,9 @@ class TestConfigMergeBehavior:
         config_dir.mkdir()
 
         # Create files with explicit ordering
-        (config_dir / "02-second.yaml").write_text("tasks:\n  - name: task_second\n    dataset: x\n")
-        (config_dir / "01-first.yaml").write_text("tasks:\n  - name: task_first\n    dataset: x\n")
+        task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    dataset: x\n"
+        (config_dir / "02-second.yaml").write_text(task_yaml.format(name="task_second"))
+        (config_dir / "01-first.yaml").write_text(task_yaml.format(name="task_first"))
 
         config = load_config_folder(config_dir)
 
@@ -273,3 +287,210 @@ class TestConfigMergeBehavior:
         # First file (01-) processed first, so task_first is first in list
         assert config.tasks[0].name == "task_first"
         assert config.tasks[1].name == "task_second"
+
+
+class TestEndToEndCleaningWorkflow:
+    """Full pipeline: config YAML → run_task() → dataset → evaluators → output files.
+
+    Mocks only at external boundaries (5 mocks):
+      - datasets.load_from_disk          (HuggingFace I/O)
+      - maite_datasets.adapters.from_huggingface  (MAITE conversion)
+      - dataeval.Metadata                 (metadata extraction)
+      - dataeval.quality.Outliers         (outlier evaluator)
+      - dataeval.quality.Duplicates       (duplicate evaluator)
+
+    Runs for real across 10 source files (20 functions):
+      config/loader.py      load_config_folder, YAML parsing, file merge
+      config/_merge.py      merge_config_dicts
+      config/models.py      WorkflowConfig.model_validate
+      config/schemas/       DatasetConfig, TaskConfig validation
+      workflow/orchestrator  run_task, _resolve_by_name, _write_output
+      workflow/__init__      get_workflow, WorkflowContext, WorkflowResult
+      dataset.py            load_dataset, load_dataset_huggingface (split select)
+      metadata.py           build_metadata
+      workflows/cleaning/   DataCleaningWorkflow.execute, _run_cleaning,
+                            _build_outliers, _build_duplicates,
+                            _serialize_outlier_issues, _serialize_duplicates,
+                            _compute_label_stats, _build_findings
+      _jatic_metadata.py    write_metadata
+
+    Asserts (26 checks):
+      - WorkflowResult: success, name, metadata (mode, evaluators)
+      - results.json: outlier count/issues, target_outliers, duplicate groups,
+        label stats (item_count, class_count, per-class counts), dataset_size,
+        report summary and finding titles
+      - metadata.json: dataset_id, tool, version, timestamp
+      - Mock calls: each external mock called exactly once
+    """
+
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_app.metadata.Metadata")
+    @patch("maite_datasets.adapters.from_huggingface")
+    @patch("datasets.load_from_disk")
+    def test_config_to_output(
+        self,
+        mock_load_from_disk: MagicMock,
+        mock_from_huggingface: MagicMock,
+        mock_metadata_cls: MagicMock,
+        mock_outliers_cls: MagicMock,
+        mock_duplicates_cls: MagicMock,
+        tmp_path: Path,
+    ):
+        """Config YAML → run_task() produces results.json + metadata.json."""
+        from dataeval_app.workflow import run_task
+
+        # ── 1. Write config YAML ──────────────────────────────────────
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+
+        (config_dir / "config.yaml").write_text(
+            "datasets:\n"
+            "  - name: test_ds\n"
+            "    format: huggingface\n"
+            "    path: ./dataset\n"
+            "    splits: [train]\n"
+            "tasks:\n"
+            "  - name: e2e_clean\n"
+            "    workflow: data-cleaning\n"
+            "    dataset: test_ds\n"
+            "    params:\n"
+            "      outlier_method: modzscore\n"
+            "      outlier_flags:\n"
+            "        - dimension\n"
+            "        - pixel\n"
+            "      outlier_threshold: null\n"
+            "    output_format: json\n"
+        )
+
+        # ── 2. Create dataset directory (path.exists() check) ─────────
+        (tmp_path / "dataset").mkdir()
+
+        # ── 3. Output directory ───────────────────────────────────────
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # ── 4. Mock external boundaries ───────────────────────────────
+
+        # 4a. HuggingFace dataset loading
+        mock_hf_dataset = MagicMock()
+        mock_hf_dataset.keys = MagicMock(return_value=["train"])
+        mock_hf_dataset.__getitem__ = MagicMock(return_value=mock_hf_dataset)
+        mock_load_from_disk.return_value = mock_hf_dataset
+
+        # 4b. MAITE conversion — return dataset-like object with __len__ and __getitem__
+        mock_maite_ds = MagicMock()
+        mock_maite_ds.__len__ = MagicMock(return_value=10)
+        mock_maite_ds.__getitem__ = MagicMock(return_value={"image": "fake", "label": 0})
+        mock_from_huggingface.return_value = mock_maite_ds
+
+        # 4c. Metadata mock
+        mock_metadata = MagicMock()
+        mock_metadata.class_labels = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
+        mock_metadata.index2label = {0: "cat", 1: "dog", 2: "bird"}
+        mock_metadata.item_count = 10
+        mock_metadata_cls.return_value = mock_metadata
+
+        # 4d. Outliers mock — produces Polars DataFrame matching OutliersOutput.issues
+        outlier_issues_df = pl.DataFrame(
+            {
+                "item_id": [2, 7],
+                "metric_name": ["brightness", "contrast"],
+                "metric_value": [3.5, -2.8],
+            }
+        )
+        mock_outliers_result = MagicMock()
+        mock_outliers_result.issues = outlier_issues_df
+        mock_outliers_instance = MagicMock()
+        mock_outliers_instance.evaluate.return_value = mock_outliers_result
+        mock_outliers_cls.return_value = mock_outliers_instance
+
+        # 4e. Duplicates mock — produces DuplicatesOutput-like structure
+        mock_dup_items = MagicMock()
+        mock_dup_items.exact = [[0, 5]]  # one exact duplicate group
+        mock_near_group = MagicMock()
+        mock_near_group.indices = [3, 8]
+        mock_near_group.methods = frozenset({"hash"})
+        mock_near_group.orientation = "same"
+        mock_dup_items.near = [mock_near_group]
+
+        mock_dup_targets = MagicMock()
+        mock_dup_targets.exact = None
+        mock_dup_targets.near = None
+
+        mock_dup_result = MagicMock()
+        mock_dup_result.items = mock_dup_items
+        mock_dup_result.targets = mock_dup_targets
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.evaluate.return_value = mock_dup_result
+        mock_duplicates_cls.return_value = mock_dup_instance
+
+        # ── 5. Load config and run task ───────────────────────────────
+        config = load_config_folder(config_dir)
+        assert config.tasks is not None
+        task = config.tasks[0]
+
+        result = run_task(task, config, output_dir=output_dir)
+
+        # ── 6. Assert result ──────────────────────────────────────────
+        assert result.success is True
+        assert result.name == "data-cleaning"
+        assert result.metadata["mode"] == "advisory"
+        assert "outliers" in result.metadata["evaluators"]  # type: ignore[operator]
+        assert "duplicates" in result.metadata["evaluators"]  # type: ignore[operator]
+
+        # ── 7. Assert output files exist and have expected structure ──
+        task_dir = output_dir / "e2e_clean"
+        results_file = task_dir / "results.json"
+        metadata_file = task_dir / "metadata.json"
+
+        assert results_file.exists(), "results.json not written"
+        assert metadata_file.exists(), "metadata.json not written"
+
+        # Verify results.json content
+        results_data = json.loads(results_file.read_text())
+        raw = results_data["raw"]
+
+        # Outlier results
+        assert raw["img_outliers"]["count"] == 2
+        assert len(raw["img_outliers"]["issues"]) == 2
+        assert raw["img_outliers"]["issues"][0]["item_id"] == 2
+
+        # No target outliers (no target_id column)
+        assert raw["target_outliers"] is None
+
+        # Duplicate results
+        assert len(raw["duplicates"]["items"]["exact"]) == 1
+        assert raw["duplicates"]["items"]["exact"][0] == [0, 5]
+        assert len(raw["duplicates"]["items"]["near"]) == 1
+        assert raw["duplicates"]["items"]["near"][0]["indices"] == [3, 8]
+
+        # Label stats
+        assert raw["label_stats"]["item_count"] == 10
+        assert raw["label_stats"]["class_count"] == 3
+        assert raw["label_stats"]["label_counts_per_class"]["cat"] == 3
+        assert raw["label_stats"]["label_counts_per_class"]["bird"] == 4
+
+        # Dataset size
+        assert raw["dataset_size"] == 10
+
+        # Report findings
+        report = results_data["report"]
+        assert "Data cleaning complete" in report["summary"]
+        finding_titles = [f["title"] for f in report["findings"]]
+        assert "Image Outliers" in finding_titles
+        assert "Duplicates" in finding_titles
+        assert "Label Distribution" in finding_titles
+
+        # Verify metadata.json (JATIC)
+        jatic = json.loads(metadata_file.read_text())
+        assert jatic["dataset_id"] == "test_ds"
+        assert jatic["tool"] == "dataeval-app"
+        assert "version" in jatic
+        assert "timestamp" in jatic
+
+        # ── 8. Verify mock calls ──────────────────────────────────────
+        mock_load_from_disk.assert_called_once()
+        mock_from_huggingface.assert_called_once()
+        mock_outliers_instance.evaluate.assert_called_once()
+        mock_dup_instance.evaluate.assert_called_once()

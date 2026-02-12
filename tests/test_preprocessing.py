@@ -2,7 +2,7 @@
 
 import pytest
 
-from dataeval_app.utility.preprocessing import PreprocessingStep, build_preprocessing
+from dataeval_app.preprocessing import PreprocessingStep, build_preprocessing
 
 
 class TestPreprocessingStep:
@@ -40,15 +40,49 @@ class TestBuildPreprocessing:
         assert transform is not None
 
     def test_invalid_transform_name_raises(self):
-        """Unknown transform name raises AttributeError."""
+        """Unknown transform name raises ValueError."""
         steps = [PreprocessingStep(step="NonExistentTransform", params={})]
-        with pytest.raises(AttributeError, match="NonExistentTransform"):
+        with pytest.raises(ValueError, match="Unknown transform: 'NonExistentTransform'"):
             build_preprocessing(steps)
 
     def test_invalid_transform_params_raises(self):
         """Invalid param type for transform raises ValueError."""
         steps = [PreprocessingStep(step="Resize", params={"size": "big"})]
         with pytest.raises(ValueError, match="size can be"):
+            build_preprocessing(steps)
+
+    def test_interpolation_converter(self):
+        """build_preprocessing converts interpolation string to enum."""
+        steps = [
+            PreprocessingStep(
+                step="Resize",
+                params={"size": [64, 64], "interpolation": "BILINEAR", "antialias": True},
+            ),
+        ]
+        transform = build_preprocessing(steps)
+        assert transform is not None
+
+    def test_invalid_dtype_raises(self):
+        """Unknown dtype string raises ValueError."""
+        steps = [PreprocessingStep(step="ToDtype", params={"dtype": "nonexistent", "scale": False})]
+        with pytest.raises(ValueError, match="Unknown torch dtype: 'nonexistent'"):
+            build_preprocessing(steps)
+
+    def test_invalid_interpolation_raises(self):
+        """Unknown interpolation mode raises ValueError."""
+        steps = [
+            PreprocessingStep(
+                step="Resize",
+                params={"size": [64, 64], "interpolation": "NONEXISTENT"},
+            ),
+        ]
+        with pytest.raises(ValueError, match="Unknown InterpolationMode: 'NONEXISTENT'"):
+            build_preprocessing(steps)
+
+    def test_non_string_dtype_raises(self):
+        """Non-string dtype (e.g. int from YAML) raises ValueError."""
+        steps = [PreprocessingStep(step="ToDtype", params={"dtype": 32, "scale": False})]
+        with pytest.raises(ValueError, match="Unknown torch dtype"):
             build_preprocessing(steps)
 
 

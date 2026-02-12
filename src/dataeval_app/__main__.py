@@ -1,52 +1,70 @@
 #!/usr/bin/env python3
-"""CLI entry point for standalone usage: python -m dataeval_app.
-
-This module provides the command-line interface for the DataEval Application.
-It can be invoked directly via: python -m dataeval_app --dataset-path /path/to/data
-"""
+"""CLI entry point for standalone usage: python -m dataeval_app."""
 
 import argparse
 import sys
 from pathlib import Path
 from typing import NoReturn
 
-from dataeval_app import inspect_dataset
-
 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments.
-
-    Returns
-    -------
-    argparse.Namespace
-        Parsed arguments containing dataset_path.
-    """
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         prog="dataeval_app",
-        description="DataEval Application - Data evaluation and inspection tools",
+        description="DataEval Application - Data evaluation tools",
     )
     parser.add_argument(
-        "--dataset-path",
+        "--config",
         type=Path,
-        required=True,
-        help="Path to the dataset directory",
+        default=None,
+        help="Path to config folder (default: /data/config)",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Path to output directory (default: /output)",
     )
     return parser.parse_args()
 
 
 def main() -> NoReturn:
-    """CLI entry point.
-
-    Parses command line arguments and runs dataset inspection.
-    Exits with code 0 on success, 1 on error.
-    """
+    """CLI entry point."""
     args = parse_args()
     try:
-        result = inspect_dataset(args.dataset_path)
-        sys.exit(result)
+        _run_tasks(args.config, args.output)
     except (FileNotFoundError, ValueError, ImportError) as e:
         print(f"ERROR: {e}")
         sys.exit(1)
+
+
+def _run_tasks(config_path: Path | None, output_dir: Path | None = None) -> NoReturn:
+    """Load config and run all tasks."""
+    from dataeval_app.config import load_config_folder
+    from dataeval_app.workflow import run_task
+
+    config = load_config_folder(config_path)
+
+    if not config.tasks:
+        print("No tasks defined in config.")
+        sys.exit(0)
+
+    print(f"Running {len(config.tasks)} task(s)...")
+    failures = 0
+    for task in config.tasks:
+        print(f"\n--- Task: {task.name} (workflow: {task.workflow}) ---")
+        result = run_task(task, config, output_dir=output_dir)
+        if result.success:
+            if hasattr(result.data, "report"):
+                print(f"  OK: {result.data.report.summary}")  # type: ignore[attr-defined]  # guarded by hasattr
+            else:
+                print(f"  OK: {result.name} completed successfully")
+        else:
+            print(f"  FAILED: {result.errors}")
+            failures += 1
+
+    print(f"\nDone. {len(config.tasks) - failures}/{len(config.tasks)} succeeded.")
+    sys.exit(1 if failures else 0)
 
 
 if __name__ == "__main__":

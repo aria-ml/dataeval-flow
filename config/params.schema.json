@@ -1,5 +1,26 @@
 {
   "$defs": {
+    "BoVWExtractorConfig": {
+      "description": "BoVWExtractor configuration. No model file required.",
+      "properties": {
+        "type": {
+          "const": "bovw",
+          "default": "bovw",
+          "title": "Type",
+          "type": "string"
+        },
+        "vocab_size": {
+          "default": 2048,
+          "description": "Visual word count.",
+          "maximum": 4096,
+          "minimum": 256,
+          "title": "Vocab Size",
+          "type": "integer"
+        }
+      },
+      "title": "BoVWExtractorConfig",
+      "type": "object"
+    },
     "DataCleaningParameters": {
       "description": "Parameters for data cleaning workflow.\n\nRequired parameters must be explicitly set per CR-4.14-G-1\n(avoid application-specific defaults).",
       "properties": {
@@ -23,20 +44,19 @@
           "title": "Outlier Method",
           "type": "string"
         },
-        "outlier_use_dimension": {
-          "description": "Use dimension statistics for outlier detection",
-          "title": "Outlier Use Dimension",
-          "type": "boolean"
-        },
-        "outlier_use_pixel": {
-          "description": "Use pixel statistics for outlier detection",
-          "title": "Outlier Use Pixel",
-          "type": "boolean"
-        },
-        "outlier_use_visual": {
-          "description": "Use visual statistics for outlier detection",
-          "title": "Outlier Use Visual",
-          "type": "boolean"
+        "outlier_flags": {
+          "description": "Image statistics groups for outlier detection. At least one required.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outlier Flags",
+          "type": "array"
         },
         "outlier_threshold": {
           "anyOf": [
@@ -48,52 +68,655 @@
               "type": "null"
             }
           ],
+          "default": null,
           "description": "Custom threshold (None = use DataEval default for chosen method)",
           "title": "Outlier Threshold"
+        },
+        "outlier_cluster_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Std devs from cluster center to flag as outlier (requires extractor). None = skip cluster detection.",
+          "title": "Outlier Cluster Threshold"
+        },
+        "outlier_cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clustering algorithm for cluster-based outlier detection.",
+          "title": "Outlier Cluster Algorithm"
+        },
+        "outlier_n_clusters": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters. None = auto-detect.",
+          "title": "Outlier N Clusters"
+        },
+        "duplicate_flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash).",
+          "title": "Duplicate Flags"
+        },
+        "duplicate_merge_near": {
+          "default": true,
+          "description": "Merge overlapping near-duplicate groups from different detection methods.",
+          "title": "Duplicate Merge Near",
+          "type": "boolean"
+        },
+        "duplicate_cluster_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection.",
+          "title": "Duplicate Cluster Threshold"
+        },
+        "duplicate_cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clustering algorithm for cluster-based duplicate detection.",
+          "title": "Duplicate Cluster Algorithm"
+        },
+        "duplicate_n_clusters": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters for duplicate detection. None = auto-detect.",
+          "title": "Duplicate N Clusters"
         }
       },
       "required": [
         "outlier_method",
-        "outlier_use_dimension",
-        "outlier_use_pixel",
-        "outlier_use_visual",
-        "outlier_threshold"
+        "outlier_flags"
       ],
       "title": "DataCleaningParameters",
       "type": "object"
     },
+    "DatasetConfig": {
+      "description": "Dataset configuration schema.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "huggingface",
+            "coco",
+            "voc",
+            "yolo"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "splits": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "$ref": "#/$defs/SplitConfig"
+            }
+          ],
+          "title": "Splits"
+        },
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
+        }
+      },
+      "required": [
+        "name",
+        "format",
+        "path",
+        "splits"
+      ],
+      "title": "DatasetConfig",
+      "type": "object"
+    },
+    "FlattenExtractorConfig": {
+      "description": "FlattenExtractor configuration. No parameters.",
+      "properties": {
+        "type": {
+          "const": "flatten",
+          "default": "flatten",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "FlattenExtractorConfig",
+      "type": "object"
+    },
     "ModelConfig": {
-      "description": "Configuration for a single ONNX model.\n\nPass-through configuration for DataEval's OnnxEncoder.",
+      "description": "Configuration for a model used for embedding extraction.",
       "properties": {
         "name": {
           "description": "Identifier for the model",
           "title": "Name",
           "type": "string"
         },
-        "path": {
-          "description": "Path to the ONNX model file",
-          "title": "Path",
+        "extractor": {
+          "description": "Extractor configuration",
+          "discriminator": {
+            "mapping": {
+              "bovw": "#/$defs/BoVWExtractorConfig",
+              "flatten": "#/$defs/FlattenExtractorConfig",
+              "onnx": "#/$defs/OnnxExtractorConfig",
+              "torch": "#/$defs/TorchExtractorConfig",
+              "uncertainty": "#/$defs/UncertaintyExtractorConfig"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OnnxExtractorConfig"
+            },
+            {
+              "$ref": "#/$defs/BoVWExtractorConfig"
+            },
+            {
+              "$ref": "#/$defs/FlattenExtractorConfig"
+            },
+            {
+              "$ref": "#/$defs/TorchExtractorConfig"
+            },
+            {
+              "$ref": "#/$defs/UncertaintyExtractorConfig"
+            }
+          ],
+          "title": "Extractor"
+        }
+      },
+      "required": [
+        "name",
+        "extractor"
+      ],
+      "title": "ModelConfig",
+      "type": "object"
+    },
+    "OnnxExtractorConfig": {
+      "description": "OnnxExtractor configuration.",
+      "properties": {
+        "type": {
+          "const": "onnx",
+          "default": "onnx",
+          "title": "Type",
           "type": "string"
         },
-        "embedding_layer": {
-          "description": "Layer name for embedding extraction",
-          "title": "Embedding Layer",
+        "model_path": {
+          "description": "Path to ONNX model file.",
+          "title": "Model Path",
+          "type": "string"
+        },
+        "output_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output layer name. None = first output.",
+          "title": "Output Name"
+        },
+        "flatten": {
+          "default": true,
+          "description": "Flatten output to (N, D) shape.",
+          "title": "Flatten",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model_path"
+      ],
+      "title": "OnnxExtractorConfig",
+      "type": "object"
+    },
+    "PreprocessingStep": {
+      "description": "Single preprocessing step.\n\nPass-through to torchvision.transforms.v2 - any transform name is allowed.\nSee: https://pytorch.org/vision/stable/transforms.html\n\nExample\n-------\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
+      "properties": {
+        "step": {
+          "description": "Transform name from torchvision.transforms.v2",
+          "title": "Step",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "step"
+      ],
+      "title": "PreprocessingStep",
+      "type": "object"
+    },
+    "PreprocessorConfig": {
+      "description": "Named preprocessor pipeline configuration.\n\nUses existing PreprocessingStep which has 'step' field (not 'name').",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PreprocessingStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "steps"
+      ],
+      "title": "PreprocessorConfig",
+      "type": "object"
+    },
+    "SelectionConfig": {
+      "description": "Named selection pipeline configuration.\n\nSimilar to PreprocessorConfig - defines reusable selection pipelines.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SelectionStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "steps"
+      ],
+      "title": "SelectionConfig",
+      "type": "object"
+    },
+    "SelectionStep": {
+      "description": "Single selection step - pass-through to dataeval.selection.\n\nSee: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/selection/index.html",
+      "properties": {
+        "type": {
+          "description": "Selection class from dataeval.selection",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "SelectionStep",
+      "type": "object"
+    },
+    "SplitConfig": {
+      "description": "Dataset split configuration.",
+      "properties": {
+        "num_folds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Num Folds"
+        },
+        "stratify": {
+          "default": false,
+          "title": "Stratify",
+          "type": "boolean"
+        },
+        "split_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Split On"
+        },
+        "test_frac": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Test Frac"
+        },
+        "val_frac": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Val Frac"
+        }
+      },
+      "title": "SplitConfig",
+      "type": "object"
+    },
+    "TaskConfig": {
+      "description": "Task/workflow configuration schema.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "type": "string"
+        },
+        "dataset": {
+          "title": "Dataset",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preprocessor"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selection"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "output_format": {
+          "default": "json",
+          "enum": [
+            "json",
+            "yaml",
+            "terminal"
+          ],
+          "title": "Output Format",
           "type": "string"
         }
       },
       "required": [
         "name",
-        "path",
-        "embedding_layer"
+        "workflow",
+        "dataset"
       ],
-      "title": "ModelConfig",
+      "title": "TaskConfig",
+      "type": "object"
+    },
+    "TorchExtractorConfig": {
+      "description": "TorchExtractor configuration.\n\nNote: model must be loadable from model_path (e.g., torchscript or\nstate_dict + class). Full programmatic model support deferred.",
+      "properties": {
+        "type": {
+          "const": "torch",
+          "default": "torch",
+          "title": "Type",
+          "type": "string"
+        },
+        "model_path": {
+          "description": "Path to saved PyTorch model.",
+          "title": "Model Path",
+          "type": "string"
+        },
+        "layer_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Layer for forward hook extraction.",
+          "title": "Layer Name"
+        },
+        "use_output": {
+          "default": true,
+          "description": "Capture layer output (True) or input (False).",
+          "title": "Use Output",
+          "type": "boolean"
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Device (e.g., 'cpu', 'cuda:0').",
+          "title": "Device"
+        }
+      },
+      "required": [
+        "model_path"
+      ],
+      "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "UncertaintyExtractorConfig": {
+      "description": "ClassifierUncertaintyExtractor configuration.\n\nNote: same model_path constraint as TorchExtractorConfig.",
+      "properties": {
+        "type": {
+          "const": "uncertainty",
+          "default": "uncertainty",
+          "title": "Type",
+          "type": "string"
+        },
+        "model_path": {
+          "description": "Path to saved classification model.",
+          "title": "Model Path",
+          "type": "string"
+        },
+        "preds_type": {
+          "default": "probs",
+          "description": "Model output format.",
+          "enum": [
+            "probs",
+            "logits"
+          ],
+          "title": "Preds Type",
+          "type": "string"
+        },
+        "batch_size": {
+          "default": 32,
+          "description": "Inference batch size.",
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Device (e.g., 'cpu', 'cuda:0').",
+          "title": "Device"
+        }
+      },
+      "required": [
+        "model_path"
+      ],
+      "title": "UncertaintyExtractorConfig",
       "type": "object"
     }
   },
-  "description": "Unified workflow configuration.\n\nContains all configuration sections for the workflow.",
+  "description": "Unified workflow configuration.\n\nOne optional field per registered workflow.",
   "properties": {
     "data_cleaning": {
-      "$ref": "#/$defs/DataCleaningParameters"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataCleaningParameters"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "models": {
       "anyOf": [
@@ -108,13 +731,70 @@
         }
       ],
       "default": null,
-      "description": "Optional list of ONNX models for embedding extraction",
+      "description": "Optional list of models for embedding extraction",
       "title": "Models"
+    },
+    "datasets": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/DatasetConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Datasets"
+    },
+    "preprocessors": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PreprocessorConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preprocessors"
+    },
+    "selections": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/SelectionConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selections"
+    },
+    "tasks": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/TaskConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tasks"
     }
   },
-  "required": [
-    "data_cleaning"
-  ],
   "title": "WorkflowConfig",
   "type": "object"
 }

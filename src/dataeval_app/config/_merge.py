@@ -19,7 +19,7 @@ def merge_yaml_folder(config_path: Path) -> dict[str, Any]:
     if not config_path.is_dir():
         raise ValueError(f"Config path is not a directory: {config_path}")
 
-    yaml_files = sorted(config_path.glob("*.yaml")) + sorted(config_path.glob("*.yml"))
+    yaml_files = sorted(list(config_path.glob("*.yaml")) + list(config_path.glob("*.yml")))
 
     for yaml_file in yaml_files:
         with open(yaml_file, encoding="utf-8") as f:

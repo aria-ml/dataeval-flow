@@ -1,34 +1,35 @@
-"""DataEval Application - Data evaluation and inspection tools.
+"""DataEval Application - Data evaluation tools.
 
-This package can be used standalone (without container) for loading
-and inspecting datasets in MAITE-compatible format.
+This package provides dataset loading, preprocessing, and workflow
+execution for evaluating datasets using DataEval.
 
 Examples
 --------
 >>> from pathlib import Path
->>> from dataeval_app import load_dataset, inspect_dataset
+>>> from dataeval_app import load_dataset
 >>> dataset = load_dataset(Path("/my/local/dataset"))
->>> inspect_dataset(Path("/my/local/dataset"))
-0
 """
 
 from dataeval_app.dataset import (
-    inspect_dataset,
     load_dataset,
     load_dataset_huggingface,
 )
-from dataeval_app.utility import (
+from dataeval_app.preprocessing import (
     PreprocessingStep,
     build_preprocessing,
 )
+from dataeval_app.workflow import get_workflow, list_workflows, run_task
 
 __all__ = [
     # Dataset
     "load_dataset",
     "load_dataset_huggingface",
-    "inspect_dataset",
     # Preprocessing
     "PreprocessingStep",
     "build_preprocessing",
+    # Workflow
+    "get_workflow",
+    "list_workflows",
+    "run_task",
 ]
 __version__ = "0.1.0"

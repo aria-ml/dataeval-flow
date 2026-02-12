@@ -118,16 +118,15 @@ uv sync
 
 **CLI Usage:**
 ```bash
-python -m dataeval_app --dataset-path /path/to/your/dataset
+python -m dataeval_app --config /path/to/config --output /path/to/output
 ```
 
 **Python API Usage:**
 ```python
 from pathlib import Path
-from dataeval_app import load_dataset, inspect_dataset
+from dataeval_app import load_dataset
 
 dataset = load_dataset(Path("/path/to/dataset"))
-inspect_dataset(Path("/path/to/dataset"))
 ```
 
 **Development:**
