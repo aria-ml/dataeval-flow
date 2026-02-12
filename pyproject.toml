@@ -18,7 +18,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "dataeval>=0.95.0",
+    "dataeval==1.0.0rc0",
     "datasets>=4.0.0",
     "maite-datasets>=0.0.9",
     "pydantic>=2.0",

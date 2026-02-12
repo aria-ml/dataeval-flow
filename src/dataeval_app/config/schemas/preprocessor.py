@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from dataeval_app.utility import PreprocessingStep  # Reuse existing
+from dataeval_app.preprocessing import PreprocessingStep
 
 
 class PreprocessorConfig(BaseModel):

@@ -36,7 +36,7 @@ def write_metadata(
     Examples
     --------
     >>> from pathlib import Path
-    >>> from dataeval_app._metadata import write_metadata
+    >>> from dataeval_app._jatic_metadata import write_metadata
     >>> output = Path("/tmp/output")
     >>> output.mkdir(exist_ok=True)
     >>> metadata_path = write_metadata(output, "cifar10", {"accuracy": 0.95})
@@ -54,5 +54,5 @@ def write_metadata(
 
     output_path.mkdir(parents=True, exist_ok=True)
     metadata_file = output_path / "metadata.json"
-    metadata_file.write_text(json.dumps(metadata, indent=2))
+    metadata_file.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return metadata_file

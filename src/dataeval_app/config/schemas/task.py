@@ -9,6 +9,7 @@ class TaskConfig(BaseModel):
     """Task/workflow configuration schema."""
 
     name: str
+    workflow: str  # registered workflow name (e.g. "data-cleaning")
     dataset: str  # reference to DatasetConfig.name
     model: str | None = None  # reference to ModelConfig.name
     preprocessor: str | None = None  # reference to PreprocessorConfig.name

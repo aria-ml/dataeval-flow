@@ -1,8 +1,8 @@
 # =============================================================================
 # Workflow Configuration
 # =============================================================================
-# Schema: WorkflowConfig (see src/dataeval_app/ingest/params.py)
-# Copy to /data/config/params.yaml in container (or use --params CLI option)
+# Schema: WorkflowConfig (see src/dataeval_app/config/models.py)
+# Copy to /data/config/params.yaml in container (or use --config CLI option)
 #
 # yaml-language-server: $schema=params.schema.json
 # =============================================================================
@@ -14,58 +14,87 @@ data_cleaning:
   # Outlier detection method (required)
   outlier_method: "modzscore"  # Options: zscore, modzscore, iqr
 
-  # Outlier detection flags (all required)
-  outlier_use_dimension: true  # Use dimension statistics
-  outlier_use_pixel: true      # Use pixel statistics
-  outlier_use_visual: true     # Use visual statistics
+  # Image statistics groups for outlier detection (required, at least one)
+  outlier_flags:
+    - dimension  # Dimension statistics
+    - pixel      # Pixel statistics
+    - visual     # Visual statistics
 
-  # Outlier threshold (required, use null for DataEval default)
-  outlier_threshold: null  # Or set a custom value, e.g., 3.0
+  # Outlier threshold (optional, default: null = DataEval default for chosen method)
+  # outlier_threshold: 3.0
+
+  # Cluster-based outlier detection (optional, requires a model/extractor)
+  # outlier_cluster_threshold: 2.5   # Std devs from cluster center to flag
+  # outlier_cluster_algorithm: kmeans # Options: kmeans, hdbscan
+  # outlier_n_clusters: null          # null = auto-detect
+
+  # Duplicate detection hash flags (optional, default: null = DataEval default)
+  # duplicate_flags:
+  #   - hash_basic  # xxhash + phash + dhash
+  #   - hash_d4     # phash_d4 + dhash_d4 (rotation-invariant)
+
+  # Merge overlapping near-duplicate groups (optional, default: true)
+  # duplicate_merge_near: true
+
+  # Cluster-based duplicate detection (optional, requires a model/extractor)
+  # duplicate_cluster_threshold: 2.0  # Threshold for near-duplicate clusters
+  # duplicate_cluster_algorithm: kmeans # Options: kmeans, hdbscan
+  # duplicate_n_clusters: null          # null = auto-detect
 
   # Execution mode (optional, default: "advisory")
   # mode: "advisory"  # Options: advisory (report only), preparatory (modify dataset)
 
-  # -----------------------------------------------------------------------------
-  # MODEL CONFIGURATION (optional)
-  # -----------------------------------------------------------------------------
-  # List of ONNX models for embedding extraction.
-  # Pass-through configuration for DataEval's OnnxEncoder.
-  #
-  # models:
-  #   - name: resnet50
-  #     path: "./resnet50-v2-7.onnx"
-  #     embedding_layer: "resnetv24_flatten0_reshape0"
-  #
-  #   - name: mobilenetv3
-  #     path: "./mobilenet_v3.onnx"
-  #     embedding_layer: "mobilenet_v3_flatten0"
+# -----------------------------------------------------------------------------
+# MODEL CONFIGURATION (optional)
+# -----------------------------------------------------------------------------
+# List of models for embedding extraction.
+# Each model has a name and an extractor config with a `type` discriminator.
+#
+# models:
+#   - name: resnet50
+#     extractor:
+#       type: onnx
+#       model_path: "./resnet50-v2-7.onnx"
+#       output_name: "resnetv24_flatten0_reshape0"
+#
+#   - name: flat
+#     extractor:
+#       type: flatten
+#
+#   - name: bovw_features
+#     extractor:
+#       type: bovw
+#       vocab_size: 2048
 
-  # Preprocessing steps (optional, applied in order)
-  # Pass-through to torchvision.transforms.v2 - any transform name is allowed.
-  # See: https://pytorch.org/vision/stable/transforms.html
-  #
-  # Supported transforms (pass-through from YAML):
-  # Resize, CenterCrop, RandomCrop, RandomResizedCrop, FiveCrop, TenCrop,
-  # RandomHorizontalFlip, RandomVerticalFlip, Pad, RandomRotation,
-  # RandomAffine, RandomPerspective, ElasticTransform, ColorJitter,
-  # Grayscale, RandomGrayscale, GaussianBlur, RandomInvert, RandomPosterize,
-  # RandomSolarize, RandomAutocontrast, RandomEqualize, RandomAdjustSharpness,
-  # Normalize, ToImage, ToDtype, ConvertImageDtype, ToPureTensor
-  #
-  # preprocessing:
-  #   - step: Resize
-  #     params:
-  #       size: [256, 256]
-  #       antialias: true
-  #   - step: CenterCrop
-  #     params:
-  #       size: [224, 224]
-  #   - step: ToImage
-  #   - step: ToDtype
-  #     params:
-  #       dtype: float32
-  #       scale: true
-  #   - step: Normalize
-  #     params:
-  #       mean: [0.485, 0.456, 0.406]
-  #       std: [0.229, 0.224, 0.225]
+# -----------------------------------------------------------------------------
+# PREPROCESSING (optional, applied in order)
+# -----------------------------------------------------------------------------
+# Pass-through to torchvision.transforms.v2 - any transform name is allowed.
+# See: https://pytorch.org/vision/stable/transforms.html
+#
+# Supported transforms (pass-through from YAML):
+# Resize, CenterCrop, RandomCrop, RandomResizedCrop, FiveCrop, TenCrop,
+# RandomHorizontalFlip, RandomVerticalFlip, Pad, RandomRotation,
+# RandomAffine, RandomPerspective, ElasticTransform, ColorJitter,
+# Grayscale, RandomGrayscale, GaussianBlur, RandomInvert, RandomPosterize,
+# RandomSolarize, RandomAutocontrast, RandomEqualize, RandomAdjustSharpness,
+# Normalize, ToImage, ToDtype, ConvertImageDtype, ToPureTensor
+#
+# preprocessors:
+#   - name: resnet50_preprocessor
+#     steps:
+#       - step: Resize
+#         params:
+#           size: [256, 256]
+#           antialias: true
+#       - step: CenterCrop
+#         params:
+#           size: [224, 224]
+#       - step: ToDtype
+#         params:
+#           dtype: float32
+#           scale: true
+#       - step: Normalize
+#         params:
+#           mean: [0.485, 0.456, 0.406]
+#           std: [0.229, 0.224, 0.225]

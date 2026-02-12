@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
+
 
 class SplitConfig(BaseModel):
     """Dataset split configuration."""
@@ -22,6 +24,6 @@ class DatasetConfig(BaseModel):
     format: Literal["huggingface", "coco", "voc", "yolo"]
     path: str
     splits: list[str] | SplitConfig
-    metadata_auto_bin_method: str | None = None
-    metadata_ignore: list[str] = Field(default_factory=list)
+    metadata_auto_bin_method: AutoBinMethod | None = None
+    metadata_exclude: list[str] = Field(default_factory=list)
     metadata_continuous_factor_bins: dict[str, list[float]] | None = None

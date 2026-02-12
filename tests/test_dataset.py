@@ -24,11 +24,18 @@ class TestImports:
 
     def test_public_api_exports(self) -> None:
         """Verify __all__ exports are available from package root."""
-        from dataeval_app import inspect_dataset, load_dataset, load_dataset_huggingface
+        from dataeval_app import load_dataset, load_dataset_huggingface
 
         assert callable(load_dataset)
         assert callable(load_dataset_huggingface)
-        assert callable(inspect_dataset)
+
+    def test_workflow_api_exports(self) -> None:
+        """Verify workflow exports are available from package root."""
+        from dataeval_app import get_workflow, list_workflows, run_task
+
+        assert callable(get_workflow)
+        assert callable(list_workflows)
+        assert callable(run_task)
 
 
 @pytest.mark.required
@@ -62,111 +69,44 @@ class TestDatasetModule:
             load_dataset(Path("/some/path"))
             mock_hf.assert_called_once_with(Path("/some/path"))
 
-    def test_inspect_dataset_path_not_found(self) -> None:
-        """Ensure FileNotFoundError is raised for missing path."""
-        from dataeval_app import inspect_dataset
-
-        with pytest.raises(FileNotFoundError):
-            inspect_dataset(Path("/nonexistent/path"))
-
-    def test_inspect_dataset_success(self, mock_dataset_path: Path, mock_maite_dataset: MagicMock) -> None:
-        """Test successful dataset inspection."""
-        with (
-            patch("datasets.load_from_disk") as mock_load,
-            patch("maite_datasets.adapters.from_huggingface") as mock_adapter,
-        ):
-            # Setup: single-split dataset (no keys method)
-            mock_ds = MagicMock(spec=[])  # No keys attribute
-            mock_load.return_value = mock_ds
-            mock_adapter.return_value = mock_maite_dataset
-
-            from dataeval_app import inspect_dataset
-
-            result = inspect_dataset(mock_dataset_path)
-
-            assert result == 0
-            mock_load.assert_called_once()
-            mock_adapter.assert_called_once()
-
-    def test_inspect_dataset_non_tuple_item(self, mock_dataset_path: Path) -> None:
-        """Test inspection handles non-tuple items gracefully."""
-        mock_maite = MagicMock()
-        mock_maite.__len__ = MagicMock(return_value=1)
-        mock_maite.__getitem__ = MagicMock(return_value="not a tuple")
-        mock_maite.metadata = {}
-
-        with (
-            patch("datasets.load_from_disk") as mock_load,
-            patch("maite_datasets.adapters.from_huggingface") as mock_adapter,
-        ):
-            mock_ds = MagicMock(spec=[])
-            mock_load.return_value = mock_ds
-            mock_adapter.return_value = mock_maite
-
-            from dataeval_app import inspect_dataset
-
-            result = inspect_dataset(mock_dataset_path)
-            assert result == 0
-
-    def test_inspect_dataset_item_exception(self, mock_dataset_path: Path) -> None:
-        """Test inspection handles item access exceptions gracefully."""
-        mock_maite = MagicMock()
-        mock_maite.__len__ = MagicMock(return_value=1)
-        mock_maite.__getitem__ = MagicMock(side_effect=RuntimeError("Item error"))
-        mock_maite.metadata = {}
-
-        with (
-            patch("datasets.load_from_disk") as mock_load,
-            patch("maite_datasets.adapters.from_huggingface") as mock_adapter,
-        ):
-            mock_ds = MagicMock(spec=[])
-            mock_load.return_value = mock_ds
-            mock_adapter.return_value = mock_maite
-
-            from dataeval_app import inspect_dataset
-
-            result = inspect_dataset(mock_dataset_path)
-            assert result == 0
-
 
 @pytest.mark.required
 class TestMainModule:
     """Test the __main__.py CLI module."""
 
-    def test_parse_args_required(self) -> None:
-        """Test that --dataset-path is required."""
+    def test_parse_args_no_args(self) -> None:
+        """Test parsing with no arguments succeeds (config defaults to None)."""
         from dataeval_app.__main__ import parse_args
 
-        with pytest.raises(SystemExit), patch("sys.argv", ["dataeval_app"]):
-            parse_args()
-
-    def test_parse_args_with_path(self) -> None:
-        """Test parsing with dataset path."""
-        from dataeval_app.__main__ import parse_args
-
-        with patch("sys.argv", ["dataeval_app", "--dataset-path", "/some/path"]):
+        with patch("sys.argv", ["dataeval_app"]):
             args = parse_args()
-            assert args.dataset_path == Path("/some/path")
+            assert args.config is None
 
-    def test_main_success(self, mock_dataset_path: Path) -> None:
+    def test_parse_args_with_config(self) -> None:
+        """Test parsing with --config flag."""
+        from dataeval_app.__main__ import parse_args
+
+        with patch("sys.argv", ["dataeval_app", "--config", "/my/config"]):
+            args = parse_args()
+            assert args.config == Path("/my/config")
+
+    def test_main_success(self) -> None:
         """Test main() with successful execution."""
         from dataeval_app.__main__ import main
 
         with (
-            patch("sys.argv", ["dataeval_app", "--dataset-path", str(mock_dataset_path)]),
-            patch("dataeval_app.__main__.inspect_dataset", return_value=0),
+            patch("sys.argv", ["dataeval_app"]),
+            patch("dataeval_app.__main__._run_tasks"),
         ):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-            assert exc_info.value.code == 0
+            main()
 
     def test_main_file_not_found(self) -> None:
         """Test main() with FileNotFoundError."""
         from dataeval_app.__main__ import main
 
         with (
-            patch("sys.argv", ["dataeval_app", "--dataset-path", "/nonexistent"]),
-            patch("dataeval_app.__main__.inspect_dataset", side_effect=FileNotFoundError("Not found")),
+            patch("sys.argv", ["dataeval_app"]),
+            patch("dataeval_app.__main__._run_tasks", side_effect=FileNotFoundError("Not found")),
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
@@ -179,7 +119,7 @@ class TestMetadata:
 
     def test_write_metadata_creates_file(self, tmp_path: Path) -> None:
         """Test that write_metadata creates metadata.json file."""
-        from dataeval_app._metadata import write_metadata
+        from dataeval_app._jatic_metadata import write_metadata
 
         output_dir = tmp_path / "output"
         result = write_metadata(output_dir, "test_dataset", {"accuracy": 0.95})
@@ -191,7 +131,7 @@ class TestMetadata:
         """Test that metadata.json contains expected fields."""
         import json
 
-        from dataeval_app._metadata import write_metadata
+        from dataeval_app._jatic_metadata import write_metadata
 
         output_dir = tmp_path / "output"
         result = write_metadata(output_dir, "cifar10", {"score": 0.9})
@@ -206,7 +146,7 @@ class TestMetadata:
 
     def test_write_metadata_creates_parent_dirs(self, tmp_path: Path) -> None:
         """Test that write_metadata creates parent directories if needed."""
-        from dataeval_app._metadata import write_metadata
+        from dataeval_app._jatic_metadata import write_metadata
 
         nested_dir = tmp_path / "deeply" / "nested" / "output"
         result = write_metadata(nested_dir, "test", {})
@@ -251,22 +191,9 @@ class TestContainerRun:
             path = get_output_path()
             assert path == Path("/custom/output")
 
-    def test_main_path_not_found(self) -> None:
-        """Test main() when dataset path doesn't exist."""
+    def test_main_config_not_found(self) -> None:
+        """Test main() when config path doesn't exist."""
         from container_run import main
 
-        with patch.dict("os.environ", {"DATASET_PATH": "/nonexistent/path"}):
-            result = main()
-            assert result == 1
-
-    def test_main_success(self, mock_dataset_path: Path) -> None:
-        """Test main() successful execution."""
-        from container_run import main
-
-        with (
-            patch.dict("os.environ", {"DATASET_PATH": str(mock_dataset_path)}),
-            patch("dataeval_app.inspect_dataset", return_value=0) as mock_inspect,
-        ):
-            result = main()
-            assert result == 0
-            mock_inspect.assert_called_once()
+        result = main()
+        assert result == 1

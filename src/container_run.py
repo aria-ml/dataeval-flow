@@ -51,36 +51,45 @@ def get_output_path() -> Path:
 
 
 def main() -> int:
-    """Container entry point - resolve paths and call library.
+    """Container entry point - resolve paths and run tasks.
 
     Returns
     -------
     int
         Exit code: 0 for success, 1 for error.
     """
-    dataset_path = get_dataset_path()
-
-    # Container-specific validation (before importing heavy dependencies)
-    if not dataset_path.exists():
-        print(f"ERROR: Dataset path not found: {dataset_path}")
+    config_path = CONTAINER_MOUNTS["config"]
+    if not config_path.exists() or (config_path / ".not_mounted").exists():
+        print("ERROR: Config path not found or not mounted: /data/config")
         print("Troubleshooting:")
-        print("  1. Ensure the dataset directory is mounted correctly")
-        print("  2. Check that the path contains a valid dataset")
+        print("  1. Ensure the config directory is mounted correctly")
+        print("  2. Check that the path contains valid YAML config files")
         return 1
 
-    # Import after validation to give helpful error messages first
     try:
-        from dataeval_app import inspect_dataset
+        from dataeval_app.config import load_config_folder
+        from dataeval_app.workflow import run_task
     except ImportError as e:
         print(f"ERROR: Failed to import dataeval_app: {e}")
         print("Ensure dependencies are installed correctly.")
         return 1
 
-    try:
-        return inspect_dataset(dataset_path)
-    except (FileNotFoundError, ValueError) as e:
-        print(f"ERROR: {e}")
-        return 1
+    config = load_config_folder(config_path)
+    if not config.tasks:
+        print("No tasks defined in config.")
+        return 0
+
+    output_path = get_output_path()
+    print(f"Running {len(config.tasks)} task(s)...")
+    exit_code = 0
+    for task in config.tasks:
+        run_result = run_task(task, config, output_dir=output_path)
+        status = "OK" if run_result.success else "FAILED"
+        print(f"  {task.name}: {status}")
+        if not run_result.success:
+            exit_code = 1
+
+    return exit_code
 
 
 if __name__ == "__main__":

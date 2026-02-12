@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from dataeval_app.ingest.config_loader import _deep_merge, merge_yaml_folder
+from dataeval_app.config._merge import _deep_merge, merge_yaml_folder
 
 
 class TestDeepMerge:
@@ -37,6 +37,20 @@ class TestDeepMerge:
         overlay = {"b": 2}
         _deep_merge(base, overlay)
         assert base == {"a": 1, "b": 2}
+
+    def test_none_value_overwrites(self):
+        """None in overlay overwrites existing value."""
+        base = {"key": "old"}
+        overlay = {"key": None}
+        _deep_merge(base, overlay)
+        assert base == {"key": None}
+
+    def test_nested_list_in_dict(self):
+        """Lists nested inside dicts are extended recursively."""
+        base = {"a": {"items": [1, 2]}}
+        overlay = {"a": {"items": [3]}}
+        _deep_merge(base, overlay)
+        assert base == {"a": {"items": [1, 2, 3]}}
 
 
 class TestMergeYamlFolder:
@@ -79,6 +93,23 @@ class TestMergeYamlFolder:
     def test_merge_yaml_folder_yml_extension(self, tmp_path: Path):
         """Both .yaml and .yml extensions are supported."""
         (tmp_path / "config.yml").write_text("key: value\n")
+
+        result = merge_yaml_folder(tmp_path)
+        assert result == {"key": "value"}
+
+    def test_merge_yaml_folder_mixed_extensions_sorted(self, tmp_path: Path):
+        """Mixed .yaml and .yml files are sorted together alphabetically."""
+        (tmp_path / "02-second.yaml").write_text("value: second\n")
+        (tmp_path / "01-first.yml").write_text("value: first\n")
+
+        result = merge_yaml_folder(tmp_path)
+        # 02-second.yaml comes after 01-first.yml alphabetically, so "second" wins
+        assert result["value"] == "second"
+
+    def test_merge_yaml_folder_empty_file(self, tmp_path: Path):
+        """YAML file with no content (safe_load returns None) is treated as empty dict."""
+        (tmp_path / "00-base.yaml").write_text("key: value\n")
+        (tmp_path / "01-empty.yaml").write_text("# just a comment\n")
 
         result = merge_yaml_folder(tmp_path)
         assert result == {"key": "value"}
