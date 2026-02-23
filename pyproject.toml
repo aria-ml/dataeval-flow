@@ -18,7 +18,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "dataeval==1.0.0rc0",
+    "dataeval==1.0.0rc4",
     "datasets>=4.0.0",
     "maite-datasets>=0.0.9",
     "pydantic>=2.0",
@@ -61,7 +61,11 @@ docs = [
     "sphinx-immaterial>=0.12.5",
     "sphinx-design>=0.6.1",
     "sphinx-new-tab-link>=0.8.0",
-    "myst-parser>=3.0",
+    "matplotlib>=3.8",
+    "myst-nb>=1.2",
+    "jupytext>=1.19.1",
+    "ipykernel>=7.0",
+    "pip>=24.0",
 ]
 dev = [
     { include-group = "lint" },

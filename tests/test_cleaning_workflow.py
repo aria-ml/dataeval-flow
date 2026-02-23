@@ -51,7 +51,7 @@ class TestBuildOutliers:
         _build_outliers(params)
         mock_outliers_cls.assert_called_once()
         call_kwargs = mock_outliers_cls.call_args[1]
-        assert call_kwargs["outlier_method"] == "zscore"
+        assert call_kwargs["outlier_threshold"] == ("zscore", None)
 
     @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
     def test_with_extractor(self, mock_outliers_cls: MagicMock):
@@ -66,7 +66,7 @@ class TestBuildOutliers:
         params = _make_params(outlier_flags=["dimension"], outlier_threshold=2.5)
         _build_outliers(params)
         call_kwargs = mock_outliers_cls.call_args[1]
-        assert call_kwargs["outlier_threshold"] == 2.5
+        assert call_kwargs["outlier_threshold"] == ("zscore", 2.5)
 
     @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
     def test_cluster_params_passed(self, mock_outliers_cls: MagicMock):
