@@ -106,8 +106,7 @@ def _build_outliers(
 
     return Outliers(
         flags=flags,
-        outlier_method=params.outlier_method,
-        outlier_threshold=params.outlier_threshold,
+        outlier_threshold=(params.outlier_method, params.outlier_threshold),
         cluster_threshold=params.outlier_cluster_threshold,
         cluster_algorithm=params.outlier_cluster_algorithm,
         n_clusters=params.outlier_n_clusters,
