@@ -4,13 +4,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
 
-from dataeval_app.config.models import WorkflowConfig
-from dataeval_app.config.schemas.task import TaskConfig
-
-# TYPE_CHECKING-only: workflow.__init__ imports from this module at line-level,
-# so a regular import would create a circular import.  Quoted annotations in
-# run_task / _write_output keep full type-checker coverage with no runtime cost.
 if TYPE_CHECKING:
+    from dataeval_app.config.models import WorkflowConfig
+    from dataeval_app.config.schemas.task import TaskConfig
     from dataeval_app.workflow import WorkflowResult
 
 __all__ = ["run_task"]
@@ -110,7 +106,7 @@ def _validate_mapping_keys(
         raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
 
 
-def run_task(task: TaskConfig, config: WorkflowConfig, output_dir: Path | None = None) -> "WorkflowResult":
+def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
     """Run a single task using config-driven resolution.
 
     This is the primary entry point for config-driven execution.
@@ -129,8 +125,6 @@ def run_task(task: TaskConfig, config: WorkflowConfig, output_dir: Path | None =
         Task to execute. References are resolved against *config*.
     config : WorkflowConfig
         Full workflow configuration containing datasets, models, etc.
-    output_dir : Path | None
-        Root output directory for results. Defaults to ``/output``.
 
     Returns
     -------
@@ -212,71 +206,20 @@ def run_task(task: TaskConfig, config: WorkflowConfig, output_dir: Path | None =
     if workflow.params_schema is not None:
         params = workflow.params_schema.model_validate(task.params)
 
-    # 6. Run workflow
-    result = workflow.execute(context, params)
+    # 6. Run workflow with timing
+    import time
 
-    # 7. Serialize output based on task.output_format (skip on failure)
-    if result.success:
-        _write_output(result, task, dataset_names=dataset_names, output_dir=output_dir)
+    start = time.monotonic()
+    result = workflow.execute(context, params)
+    elapsed = time.monotonic() - start
+
+    # 7. Populate metadata envelope (JATIC fields + timing)
+    from dataeval_app import __version__
+
+    result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
+    result.metadata.datasets = dataset_names
+    result.metadata.tool_version = __version__
+    result.metadata.execution_time_s = round(elapsed, 3)
+    result.format = task.output_format
 
     return result
-
-
-def _write_output(
-    result: "WorkflowResult",
-    task: TaskConfig,
-    dataset_names: list[str] | None = None,
-    output_dir: Path | None = None,
-) -> None:
-    """Serialize WorkflowResult based on task.output_format.
-
-    Writes to *output_dir*/<task.name>/ if the output directory exists,
-    otherwise prints to terminal.
-
-    Parameters
-    ----------
-    result : WorkflowResult
-        Successful workflow result to serialize.
-    task : TaskConfig
-        Task configuration (name, output_format).
-    dataset_names : list[str] | None
-        Dataset names for metadata. Joined with comma for dataset_id.
-    output_dir : Path | None
-        Root output directory.  Defaults to ``/output``.
-    """
-    import json
-
-    import yaml
-
-    from dataeval_app._jatic_metadata import write_metadata
-
-    if output_dir is None:
-        output_dir = Path("/output")
-    task_dir = output_dir / task.name
-
-    if task.output_format == "terminal" or not output_dir.exists():
-        # Print report to terminal
-        if hasattr(result.data, "report"):
-            report = result.data.report  # type: ignore[attr-defined]  # guarded by hasattr
-            print(f"\n{'=' * 60}")
-            print(f"  {task.name}: {report.summary}")
-            print(f"{'=' * 60}")
-            for finding in report.findings:
-                print(f"\n  [{finding.title}]")
-                if finding.description:
-                    print(f"  {finding.description}")
-        return
-
-    task_dir.mkdir(parents=True, exist_ok=True)
-    data_dict = result.data.model_dump()
-
-    if task.output_format == "json":
-        results_file = task_dir / "results.json"
-        results_file.write_text(json.dumps(data_dict, indent=2), encoding="utf-8")
-    elif task.output_format == "yaml":
-        results_file = task_dir / "results.yaml"
-        results_file.write_text(yaml.dump(data_dict, default_flow_style=False), encoding="utf-8")
-
-    # Write JATIC metadata.json alongside results
-    dataset_id = ",".join(dataset_names) if dataset_names else "unknown"
-    write_metadata(task_dir, dataset_id, data_dict)

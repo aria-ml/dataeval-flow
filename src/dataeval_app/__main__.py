@@ -49,19 +49,26 @@ def _run_tasks(config_path: Path | None, output_dir: Path | None = None) -> NoRe
         print("No tasks defined in config.")
         sys.exit(0)
 
+    if output_dir is None:
+        output_dir = Path("/output")
+
     print(f"Running {len(config.tasks)} task(s)...")
     failures = 0
     for task in config.tasks:
         print(f"\n--- Task: {task.name} (workflow: {task.workflow}) ---")
-        result = run_task(task, config, output_dir=output_dir)
-        if result.success:
-            if hasattr(result.data, "report"):
-                print(f"  OK: {result.data.report.summary}")  # type: ignore[attr-defined]  # guarded by hasattr
-            else:
-                print(f"  OK: {result.name} completed successfully")
-        else:
+        result = run_task(task, config)
+        if not result.success:
             print(f"  FAILED: {result.errors}")
             failures += 1
+            continue
+
+        # Determine output path for file-based formats
+        path = output_dir / task.name if output_dir.exists() else None
+        out = result.report(path=path)
+        if isinstance(out, str):
+            print(out)
+        else:
+            print(f"  OK: wrote {out}")
 
     print(f"\nDone. {len(config.tasks) - failures}/{len(config.tasks)} succeeded.")
     sys.exit(1 if failures else 0)

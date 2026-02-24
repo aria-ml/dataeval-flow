@@ -30,6 +30,7 @@ class Reportable(BaseModel):
     """Human-readable report item."""
 
     report_type: Literal["table", "key_value", "image", "text"]
+    severity: Literal["ok", "info", "warning"] = "info"
     title: str
     data: dict[str, Any] | list[dict[str, Any]] | str
     description: str | None = None

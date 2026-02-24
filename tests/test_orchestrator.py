@@ -1,18 +1,14 @@
-"""Tests for workflow orchestrator — run_task, _resolve_by_name, _write_output."""
+"""Tests for workflow orchestrator — run_task, _resolve_by_name."""
 
-import json
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 from dataeval_app.workflow.orchestrator import (
     _resolve_by_name,
     _resolve_optional_mapping,
     _validate_mapping_keys,
-    _write_output,
     run_task,
 )
 
@@ -47,184 +43,6 @@ class TestResolveByName:
         items = [_Named("foo"), _Named("bar")]
         with pytest.raises(ValueError, match="Available: \\['foo', 'bar'\\]"):
             _resolve_by_name(items, "baz", "thing")
-
-
-# ---------------------------------------------------------------------------
-# _write_output
-# ---------------------------------------------------------------------------
-
-
-def _make_task(name: str = "test_task", output_format: str = "json", dataset: str = "ds") -> MagicMock:
-    task = MagicMock()
-    task.name = name
-    task.output_format = output_format
-    task.datasets = dataset
-    return task
-
-
-def _make_result(summary: str = "done", findings: list | None = None) -> MagicMock:
-    result = MagicMock()
-    report = MagicMock()
-    report.summary = summary
-    report.findings = findings or []
-    result.data = MagicMock()
-    result.data.report = report
-    result.data.model_dump.return_value = {"raw": {}, "report": {"summary": summary}}
-    return result
-
-
-class TestWriteOutput:
-    def test_terminal_format_prints(self, capsys: pytest.CaptureFixture):
-        task = _make_task(output_format="terminal")
-        result = _make_result(summary="All good")
-        _write_output(result, task)
-        out = capsys.readouterr().out
-        assert "test_task" in out
-        assert "All good" in out
-
-    def test_terminal_format_prints_findings(self, capsys: pytest.CaptureFixture):
-        """Terminal output includes finding titles and descriptions."""
-        task = _make_task(output_format="terminal")
-        finding = MagicMock()
-        finding.title = "Image Outliers"
-        finding.description = "5 images flagged"
-        result = _make_result(summary="Done", findings=[finding])
-        _write_output(result, task)
-        out = capsys.readouterr().out
-        assert "Image Outliers" in out
-        assert "5 images flagged" in out
-
-    def test_terminal_format_finding_no_description(self, capsys: pytest.CaptureFixture):
-        """Terminal output handles findings with description=None."""
-        task = _make_task(output_format="terminal")
-        finding = MagicMock()
-        finding.title = "Duplicates"
-        finding.description = None
-        result = _make_result(summary="Done", findings=[finding])
-        _write_output(result, task)
-        out = capsys.readouterr().out
-        assert "Duplicates" in out
-        # description=None should be skipped, not printed
-        assert "None" not in out
-
-    def test_json_format_creates_file(self, tmp_path: Path):
-        task = _make_task(output_format="json")
-        result = _make_result()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-        _write_output(result, task, output_dir=output_dir)
-
-        results_file = output_dir / task.name / "results.json"
-        assert results_file.exists()
-        data = json.loads(results_file.read_text())
-        assert "raw" in data
-
-    def test_yaml_format_creates_file(self, tmp_path: Path):
-        task = _make_task(output_format="yaml")
-        result = _make_result()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-        _write_output(result, task, output_dir=output_dir)
-
-        results_file = output_dir / task.name / "results.yaml"
-        assert results_file.exists()
-        data = yaml.safe_load(results_file.read_text())
-        assert "raw" in data
-
-    def test_fallback_to_terminal_when_no_output_dir(self, tmp_path: Path, capsys: pytest.CaptureFixture):
-        """When output_dir doesn't exist, fall back to terminal."""
-        task = _make_task(output_format="json")
-        result = _make_result(summary="Fallback")
-        nonexistent = tmp_path / "does_not_exist"
-        _write_output(result, task, output_dir=nonexistent)
-        out = capsys.readouterr().out
-        assert "Fallback" in out
-
-    def test_json_writes_metadata(self, tmp_path: Path):
-        """JSON output also writes JATIC metadata.json."""
-        task = _make_task(output_format="json")
-        result = _make_result()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-        _write_output(result, task, output_dir=output_dir)
-
-        metadata_file = output_dir / task.name / "metadata.json"
-        assert metadata_file.exists()
-
-    def test_yaml_writes_metadata(self, tmp_path: Path):
-        """YAML output also writes JATIC metadata.json."""
-        task = _make_task(output_format="yaml")
-        result = _make_result()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
-        _write_output(result, task, output_dir=output_dir)
-
-        metadata_file = output_dir / task.name / "metadata.json"
-        assert metadata_file.exists()
-
-
-class TestRunTaskWriteOutputGuard:
-    """Verify run_task only calls _write_output when result.success is True."""
-
-    @patch("dataeval_app.dataset.load_dataset")
-    @patch("dataeval_app.workflow.orchestrator._write_output")
-    def test_write_output_skipped_on_failure(self, mock_write: MagicMock, mock_load_ds: MagicMock):
-        """Failed workflow result should NOT trigger _write_output."""
-        mock_load_ds.return_value = MagicMock()
-
-        # Workflow that returns a failed result
-        mock_result = MagicMock()
-        mock_result.success = False
-        mock_result.errors = ["simulated failure"]
-        mock_workflow = MagicMock()
-        mock_workflow.params_schema = None
-        mock_workflow.execute.return_value = mock_result
-
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
-
-        ds = DatasetConfig(name="ds", format="huggingface", path="./x", split="train")
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="ds")
-        config = MagicMock()
-        config.datasets = [ds]
-        config.preprocessors = None
-        config.models = None
-        config.selections = None
-
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_workflow):
-            result = run_task(task, config)
-
-        assert not result.success
-        mock_write.assert_not_called()
-
-    @patch("dataeval_app.dataset.load_dataset")
-    @patch("dataeval_app.workflow.orchestrator._write_output")
-    def test_write_output_called_on_success(self, mock_write: MagicMock, mock_load_ds: MagicMock):
-        """Successful workflow result should trigger _write_output."""
-        mock_load_ds.return_value = MagicMock()
-
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_workflow = MagicMock()
-        mock_workflow.params_schema = None
-        mock_workflow.execute.return_value = mock_result
-
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
-
-        ds = DatasetConfig(name="ds", format="huggingface", path="./x", split="train")
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="ds")
-        config = MagicMock()
-        config.datasets = [ds]
-        config.preprocessors = None
-        config.models = None
-        config.selections = None
-
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_workflow):
-            result = run_task(task, config)
-
-        assert result.success
-        mock_write.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -287,10 +105,7 @@ class TestRunTask:
 
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -326,10 +141,7 @@ class TestRunTask:
         mock_build_pre.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -366,10 +178,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -406,10 +215,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -430,10 +236,7 @@ class TestRunTask:
 
         mock_wf = self._mock_workflow(params_schema=DataCleaningParameters)
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -638,10 +441,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -657,10 +457,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -680,10 +477,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -713,10 +507,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -745,10 +536,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -794,10 +582,7 @@ class TestRunTaskMultiDataset:
         mock_build_pre.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -814,10 +599,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = mock_dataset
         mock_wf = self._mock_workflow()
 
-        with (
-            patch("dataeval_app.workflow.get_workflow", return_value=mock_wf),
-            patch("dataeval_app.workflow.orchestrator._write_output"),
-        ):
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         context = mock_wf.execute.call_args[0][0]
@@ -826,16 +608,18 @@ class TestRunTaskMultiDataset:
         assert "ds" in context.dataset_contexts
         assert context.dataset_contexts["ds"].dataset is mock_dataset
 
-    def test_write_output_multi_dataset_metadata(self, tmp_path: Path):
-        """Multi-dataset writes comma-joined dataset_id in metadata."""
-        task = _make_task(output_format="json")
-        result = _make_result()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir()
+    @patch("dataeval_app.dataset.load_dataset")
+    def test_multi_dataset_metadata_has_comma_joined_id(self, mock_load_ds: MagicMock):
+        """run_task populates metadata.dataset_id with comma-joined names for multi-dataset."""
+        from dataeval_app.config.schemas.task import TaskConfig
 
-        _write_output(result, task, dataset_names=["ds_a", "ds_b"], output_dir=output_dir)
+        config = self._make_config(["ds_a", "ds_b"])
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"])
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = self._mock_workflow()
 
-        metadata_file = output_dir / task.name / "metadata.json"
-        assert metadata_file.exists()
-        metadata = json.loads(metadata_file.read_text())
-        assert metadata["dataset_id"] == "ds_a,ds_b"
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+            result = run_task(task, config)
+
+        assert result.metadata.dataset_id == "ds_a,ds_b"
+        assert result.metadata.datasets == ["ds_a", "ds_b"]

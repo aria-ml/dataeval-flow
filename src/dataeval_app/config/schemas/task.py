@@ -18,7 +18,7 @@ class TaskConfig(BaseModel):
     preprocessors: str | Mapping[str, str] | None = None  # reference to PreprocessorConfig.name
     selections: str | Mapping[str, str] | None = None  # reference to SelectionConfig.name
     params: dict[str, Any] = Field(default_factory=dict)
-    output_format: Literal["json", "yaml", "terminal"] = "json"
+    output_format: Literal["json", "yaml", "text"] = "json"
     # Metadata configuration — applied uniformly across all datasets in this task
     metadata_auto_bin_method: AutoBinMethod | None = None
     metadata_exclude: list[str] = Field(default_factory=list)

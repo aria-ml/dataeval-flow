@@ -8,15 +8,14 @@ and converting them to MAITE-compatible objects for evaluation.
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TypeAlias
 
-if TYPE_CHECKING:
-    from maite_datasets.adapters import HFImageClassificationDataset, HFObjectDetectionDataset
+from maite_datasets.adapters import HFImageClassificationDataset, HFObjectDetectionDataset
 
-    MaiteDataset: TypeAlias = HFImageClassificationDataset | HFObjectDetectionDataset
+MaiteDataset: TypeAlias = HFImageClassificationDataset | HFObjectDetectionDataset
 
 
-def load_dataset_huggingface(path: Path, split: str | None = None) -> "MaiteDataset":
+def load_dataset_huggingface(path: Path, split: str | None = None) -> MaiteDataset:
     """Load a HuggingFace dataset and convert to MAITE format.
 
     Parameters

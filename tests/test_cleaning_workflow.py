@@ -428,8 +428,8 @@ class TestDataCleaningWorkflowExecute:
 
         result = wf.execute(ctx, self._make_exec_params("advisory"))
         assert result.success
-        assert result.metadata["mode"] == "advisory"
-        assert "flagged_indices" not in result.metadata
+        assert result.metadata.mode == "advisory"
+        assert not result.metadata.flagged_indices
 
     @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_app.metadata.Metadata")
@@ -453,10 +453,11 @@ class TestDataCleaningWorkflowExecute:
 
         result = wf.execute(ctx, self._make_exec_params("preparatory"))
         assert result.success
-        assert result.metadata["mode"] == "preparatory"
-        assert result.metadata["flagged_indices"] == [0, 1, 4]
-        assert result.metadata["removed_count"] == 3
-        assert len(result.metadata["clean_indices"]) == 7  # type: ignore[arg-type]
+        meta = result.metadata.model_dump()
+        assert meta["mode"] == "preparatory"
+        assert meta["flagged_indices"] == [0, 1, 4]
+        assert meta["removed_count"] == 3
+        assert len(meta["clean_indices"]) == 7
 
     @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_app.metadata.Metadata")
