@@ -1,5 +1,6 @@
 """Task orchestration — config → execution bridge."""
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
 
@@ -51,13 +52,76 @@ def _resolve_by_name(items: list[T] | None, name: str, kind: str) -> T:
     raise ValueError(f"Unknown {kind}: '{name}'. Available: {available}")
 
 
+def _resolve_optional_mapping(
+    mapping_or_name: str | Mapping[str, str] | None,
+    dataset_name: str,
+    items: list[T] | None,
+    kind: str,
+) -> T | None:
+    """Resolve a config reference that may be shared or per-dataset.
+
+    Parameters
+    ----------
+    mapping_or_name : str | Mapping[str, str] | None
+        - ``None`` → return ``None`` (not configured)
+        - ``str`` → shared across all datasets, resolve by name
+        - ``Mapping`` → per-dataset; look up *dataset_name* key
+    dataset_name : str
+        Current dataset name (used as key into mapping).
+    items : list[T] | None
+        Config list to resolve names against.
+    kind : str
+        Human-readable kind for error messages.
+
+    Returns
+    -------
+    T | None
+        Resolved config object, or ``None`` if not applicable.
+    """
+    if mapping_or_name is None:
+        return None
+    if isinstance(mapping_or_name, str):
+        return _resolve_by_name(items, mapping_or_name, kind)
+    # Mapping path — missing key means this dataset has no config
+    name = mapping_or_name.get(dataset_name)
+    if name is None:
+        return None
+    return _resolve_by_name(items, name, kind)
+
+
+def _validate_mapping_keys(
+    mapping: Mapping[str, str],
+    dataset_names: list[str],
+    kind: str,
+) -> None:
+    """Raise ValueError if mapping references unknown dataset names.
+
+    Parameters
+    ----------
+    mapping : Mapping[str, str]
+        Per-dataset config mapping to validate.
+    dataset_names : list[str]
+        Valid dataset names.
+    kind : str
+        Human-readable kind for error messages.
+    """
+    extra = set(mapping.keys()) - set(dataset_names)
+    if extra:
+        raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
+
+
 def run_task(task: TaskConfig, config: WorkflowConfig, output_dir: Path | None = None) -> "WorkflowResult":
     """Run a single task using config-driven resolution.
 
     This is the primary entry point for config-driven execution.
-    Resolves all ``TaskConfig`` references (dataset, model, preprocessor,
+    Resolves all ``TaskConfig`` references (datasets, model, preprocessor,
     selection) against ``WorkflowConfig`` lists, builds a
     ``WorkflowContext``, validates params, and runs the workflow.
+
+    Supports both single-dataset (``datasets`` as ``str``) and
+    multi-dataset (``datasets`` as ``list[str]``) modes. In
+    multi-dataset mode, model/preprocessor/selection may be a
+    ``Mapping[str, str]`` for per-dataset resolution.
 
     Parameters
     ----------
@@ -76,7 +140,8 @@ def run_task(task: TaskConfig, config: WorkflowConfig, output_dir: Path | None =
     Raises
     ------
     ValueError
-        If a referenced config (dataset, model, etc.) is not found.
+        If a referenced config (dataset, model, etc.) is not found,
+        or if a mapping references unknown dataset names.
     """
     from dataeval_app.config.models import ModelConfig
     from dataeval_app.config.schemas import (
@@ -86,60 +151,83 @@ def run_task(task: TaskConfig, config: WorkflowConfig, output_dir: Path | None =
     )
     from dataeval_app.dataset import load_dataset
     from dataeval_app.preprocessing import build_preprocessing
-    from dataeval_app.workflow import WorkflowContext, get_workflow
+    from dataeval_app.workflow import DatasetContext, WorkflowContext, get_workflow
 
-    # 1. Resolve dataset
-    ds_config: DatasetConfig = _resolve_by_name(config.datasets, task.dataset, "dataset")
-    # Future: use ds_config.format to select loader (currently only HuggingFace)
-    # Future: use ds_config.splits to select split (currently returns first split)
-    dataset = load_dataset(Path(ds_config.path))
+    # 1. Normalize datasets to list
+    dataset_names: list[str] = [task.datasets] if isinstance(task.datasets, str) else list(task.datasets)
 
-    # 2. Resolve preprocessor (optional)
-    transforms = None
-    if task.preprocessor:
-        pre_config: PreprocessorConfig = _resolve_by_name(config.preprocessors, task.preprocessor, "preprocessor")
-        transforms = build_preprocessing(pre_config.steps)
+    # 2. Validate mapping keys (if any config is a mapping)
+    for attr, kind in [("models", "models"), ("preprocessors", "preprocessors"), ("selections", "selections")]:
+        value = getattr(task, attr)
+        if isinstance(value, Mapping):
+            _validate_mapping_keys(value, dataset_names, kind)
 
-    # 3. Resolve model (optional)
-    extractor_config = None
-    if task.model:
-        model_config: ModelConfig = _resolve_by_name(config.models, task.model, "model")
-        extractor_config = model_config.extractor
+    # 3. Build a DatasetContext per dataset
+    dataset_contexts: dict[str, DatasetContext] = {}
+    for ds_name in dataset_names:
+        ds_config: DatasetConfig = _resolve_by_name(config.datasets, ds_name, "datasets")
+        dataset = load_dataset(Path(ds_config.path), split=ds_config.split)
 
-    # 4. Resolve selection (optional)
-    selection_steps = None
-    if task.selection:
-        sel_config: SelectionConfig = _resolve_by_name(config.selections, task.selection, "selection")
-        selection_steps = sel_config.steps
+        # Resolve model → extractor (optional)
+        extractor_config = None
+        model_config_obj: ModelConfig | None = _resolve_optional_mapping(task.models, ds_name, config.models, "models")
+        if model_config_obj is not None:
+            extractor_config = model_config_obj.extractor
 
-    # 5. Build WorkflowContext
+        # Resolve preprocessor → transforms (optional)
+        transforms = None
+        pre_config: PreprocessorConfig | None = _resolve_optional_mapping(
+            task.preprocessors, ds_name, config.preprocessors, "preprocessor"
+        )
+        if pre_config is not None:
+            transforms = build_preprocessing(pre_config.steps)
+
+        # Resolve selection → steps (optional)
+        selection_steps = None
+        sel_config: SelectionConfig | None = _resolve_optional_mapping(
+            task.selections, ds_name, config.selections, "selection"
+        )
+        if sel_config is not None:
+            selection_steps = sel_config.steps
+
+        dataset_contexts[ds_name] = DatasetContext(
+            name=ds_name,
+            dataset=dataset,
+            extractor=extractor_config,
+            transforms=transforms,
+            selection_steps=selection_steps,
+        )
+
+    # 4. Build WorkflowContext (metadata config is task-wide, not per-dataset)
     context = WorkflowContext(
-        dataset=dataset,
-        extractor=extractor_config,
-        transforms=transforms,
-        selection_steps=selection_steps,
-        metadata_auto_bin_method=ds_config.metadata_auto_bin_method,
-        metadata_exclude=ds_config.metadata_exclude or [],
-        metadata_continuous_factor_bins=ds_config.metadata_continuous_factor_bins,
+        dataset_contexts=dataset_contexts,
+        metadata_auto_bin_method=task.metadata_auto_bin_method,
+        metadata_exclude=task.metadata_exclude or [],
+        metadata_continuous_factor_bins=task.metadata_continuous_factor_bins,
     )
 
-    # 6. Validate params against workflow's params_schema
+    # 5. Validate params against workflow's params_schema
     workflow = get_workflow(task.workflow)
     params = None
     if workflow.params_schema is not None:
         params = workflow.params_schema.model_validate(task.params)
 
-    # 7. Run workflow
+    # 6. Run workflow
     result = workflow.execute(context, params)
 
-    # 8. Serialize output based on task.output_format (skip on failure)
+    # 7. Serialize output based on task.output_format (skip on failure)
     if result.success:
-        _write_output(result, task, output_dir=output_dir)
+        _write_output(result, task, dataset_names=dataset_names, output_dir=output_dir)
 
     return result
 
 
-def _write_output(result: "WorkflowResult", task: TaskConfig, output_dir: Path | None = None) -> None:
+def _write_output(
+    result: "WorkflowResult",
+    task: TaskConfig,
+    dataset_names: list[str] | None = None,
+    output_dir: Path | None = None,
+) -> None:
     """Serialize WorkflowResult based on task.output_format.
 
     Writes to *output_dir*/<task.name>/ if the output directory exists,
@@ -150,7 +238,9 @@ def _write_output(result: "WorkflowResult", task: TaskConfig, output_dir: Path |
     result : WorkflowResult
         Successful workflow result to serialize.
     task : TaskConfig
-        Task configuration (name, output_format, dataset).
+        Task configuration (name, output_format).
+    dataset_names : list[str] | None
+        Dataset names for metadata. Joined with comma for dataset_id.
     output_dir : Path | None
         Root output directory.  Defaults to ``/output``.
     """
@@ -188,4 +278,5 @@ def _write_output(result: "WorkflowResult", task: TaskConfig, output_dir: Path |
         results_file.write_text(yaml.dump(data_dict, default_flow_style=False), encoding="utf-8")
 
     # Write JATIC metadata.json alongside results
-    write_metadata(task_dir, task.dataset, data_dict)
+    dataset_id = ",".join(dataset_names) if dataset_names else "unknown"
+    write_metadata(task_dir, dataset_id, data_dict)

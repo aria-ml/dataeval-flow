@@ -30,13 +30,7 @@ class TestConfigToFactoryIntegration:
 
         # Multi-file config simulating real deployment
         (config_dir / "00-datasets.yaml").write_text(
-            "datasets:\n"
-            "  - name: test_dataset\n"
-            "    format: huggingface\n"
-            "    path: ./test\n"
-            "    splits:\n"
-            "      - train\n"
-            "      - test\n"
+            "datasets:\n  - name: test_dataset\n    format: huggingface\n    path: ./test\n    split: train\n"
         )
         (config_dir / "01-preprocessors.yaml").write_text(
             "preprocessors:\n  - name: basic\n    steps:\n      - step: ToTensor\n"
@@ -48,9 +42,9 @@ class TestConfigToFactoryIntegration:
             "tasks:\n"
             "  - name: clean_task\n"
             "    workflow: data-cleaning\n"
-            "    dataset: test_dataset\n"
-            "    preprocessor: basic\n"
-            "    selection: subset\n"
+            "    datasets: test_dataset\n"
+            "    preprocessors: basic\n"
+            "    selections: subset\n"
             "    params:\n"
             "      outlier_method: modzscore\n"
             "    output_format: json\n"
@@ -73,9 +67,9 @@ class TestConfigToFactoryIntegration:
         # Verify task content
         task = config.tasks[0]
         assert task.name == "clean_task"
-        assert task.dataset == "test_dataset"
-        assert task.preprocessor == "basic"
-        assert task.selection == "subset"
+        assert task.datasets == "test_dataset"
+        assert task.preprocessors == "basic"
+        assert task.selections == "subset"
         assert task.params == {"outlier_method": "modzscore"}
         assert task.output_format == "json"
 
@@ -89,11 +83,11 @@ class TestConfigToFactoryIntegration:
             "  - name: dataset_a\n"
             "    format: huggingface\n"
             "    path: ./a\n"
-            "    splits: [train]\n"
+            "    split: train\n"
             "  - name: dataset_b\n"
             "    format: coco\n"
             "    path: ./b\n"
-            "    splits: [val]\n"
+            "    split: val\n"
             "preprocessors:\n"
             "  - name: preproc_x\n"
             "    steps:\n"
@@ -112,13 +106,13 @@ class TestConfigToFactoryIntegration:
             "tasks:\n"
             "  - name: task1\n"
             "    workflow: data-cleaning\n"
-            "    dataset: dataset_a\n"
-            "    preprocessor: preproc_x\n"
-            "    selection: sel_1\n"
+            "    datasets: dataset_a\n"
+            "    preprocessors: preproc_x\n"
+            "    selections: sel_1\n"
             "  - name: task2\n"
             "    workflow: data-cleaning\n"
-            "    dataset: dataset_b\n"
-            "    preprocessor: preproc_y\n"
+            "    datasets: dataset_b\n"
+            "    preprocessors: preproc_y\n"
         )
 
         config = load_config_folder(config_dir)
@@ -133,24 +127,24 @@ class TestConfigToFactoryIntegration:
 
         # Verify task1 references resolve
         task1 = config.tasks[0]
-        assert task1.dataset in datasets_by_name
-        assert task1.preprocessor in preprocessors_by_name
-        assert task1.selection in selections_by_name
+        assert task1.datasets in datasets_by_name
+        assert task1.preprocessors in preprocessors_by_name
+        assert task1.selections in selections_by_name
 
         # Verify resolved config details
-        resolved_dataset = datasets_by_name[task1.dataset]
+        resolved_dataset = datasets_by_name[task1.datasets]
         assert resolved_dataset.format == "huggingface"
         assert resolved_dataset.path == "./a"
 
-        resolved_preproc = preprocessors_by_name[task1.preprocessor]
+        resolved_preproc = preprocessors_by_name[task1.preprocessors]
         assert len(resolved_preproc.steps) == 1
         assert resolved_preproc.steps[0].step == "ToTensor"
 
         # Verify task2 references (no selection)
         task2 = config.tasks[1]
-        assert task2.dataset in datasets_by_name
-        assert task2.preprocessor in preprocessors_by_name
-        assert task2.selection is None  # Optional, not set
+        assert task2.datasets in datasets_by_name
+        assert task2.preprocessors in preprocessors_by_name
+        assert task2.selections is None  # Optional, not set
 
     def test_multi_task_config(self, tmp_path: Path):
         """Multiple tasks sharing resources loaded correctly."""
@@ -162,7 +156,7 @@ class TestConfigToFactoryIntegration:
             "  - name: shared_dataset\n"
             "    format: huggingface\n"
             "    path: ./data\n"
-            "    splits: [train, test]\n"
+            "    split: train\n"
             "preprocessors:\n"
             "  - name: shared_preproc\n"
             "    steps:\n"
@@ -170,17 +164,17 @@ class TestConfigToFactoryIntegration:
             "tasks:\n"
             "  - name: outlier_detection\n"
             "    workflow: data-cleaning\n"
-            "    dataset: shared_dataset\n"
-            "    preprocessor: shared_preproc\n"
+            "    datasets: shared_dataset\n"
+            "    preprocessors: shared_preproc\n"
             "    params:\n"
             "      outlier_method: modzscore\n"
             "  - name: duplicate_detection\n"
             "    workflow: data-cleaning\n"
-            "    dataset: shared_dataset\n"
-            "    preprocessor: shared_preproc\n"
+            "    datasets: shared_dataset\n"
+            "    preprocessors: shared_preproc\n"
             "  - name: analysis_only\n"
             "    workflow: data-cleaning\n"
-            "    dataset: shared_dataset\n"
+            "    datasets: shared_dataset\n"
             "    output_format: terminal\n"
         )
 
@@ -191,7 +185,7 @@ class TestConfigToFactoryIntegration:
 
         # All tasks reference the same dataset
         for task in config.tasks:
-            assert task.dataset == "shared_dataset"
+            assert task.datasets == "shared_dataset"
 
         # Verify different output formats
         assert config.tasks[0].output_format == "json"  # default
@@ -255,11 +249,11 @@ class TestConfigMergeBehavior:
 
         # First file defines dataset A
         (config_dir / "00-first.yaml").write_text(
-            "datasets:\n  - name: dataset_a\n    format: huggingface\n    path: ./a\n    splits: [train]\n"
+            "datasets:\n  - name: dataset_a\n    format: huggingface\n    path: ./a\n    split: train\n"
         )
         # Second file defines dataset B
         (config_dir / "01-second.yaml").write_text(
-            "datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n    splits: [test]\n"
+            "datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n    split: test\n"
         )
 
         config = load_config_folder(config_dir)
@@ -277,7 +271,7 @@ class TestConfigMergeBehavior:
         config_dir.mkdir()
 
         # Create files with explicit ordering
-        task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    dataset: x\n"
+        task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    datasets: x\n"
         (config_dir / "02-second.yaml").write_text(task_yaml.format(name="task_second"))
         (config_dir / "01-first.yaml").write_text(task_yaml.format(name="task_first"))
 
@@ -349,11 +343,11 @@ class TestEndToEndCleaningWorkflow:
             "  - name: test_ds\n"
             "    format: huggingface\n"
             "    path: ./dataset\n"
-            "    splits: [train]\n"
+            "    split: train\n"
             "tasks:\n"
             "  - name: e2e_clean\n"
             "    workflow: data-cleaning\n"
-            "    dataset: test_ds\n"
+            "    datasets: test_ds\n"
             "    params:\n"
             "      outlier_method: modzscore\n"
             "      outlier_flags:\n"

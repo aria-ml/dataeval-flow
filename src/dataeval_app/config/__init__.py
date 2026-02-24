@@ -16,7 +16,6 @@ from dataeval_app.config.schemas import (
     PreprocessorConfig,
     SelectionConfig,
     SelectionStep,
-    SplitConfig,
     TaskConfig,
 )
 
@@ -30,7 +29,6 @@ __all__ = [
     "PreprocessorConfig",
     "SelectionConfig",
     "SelectionStep",
-    "SplitConfig",
     "TaskConfig",
     "TorchExtractorConfig",
     "UncertaintyExtractorConfig",
