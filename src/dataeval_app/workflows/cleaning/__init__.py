@@ -1,6 +1,7 @@
 """Data cleaning workflow - public re-exports."""
 
 from dataeval_app.workflows.cleaning.outputs import (
+    DataCleaningMetadata,
     DataCleaningOutputs,
     DataCleaningRawOutputs,
     DataCleaningReport,
@@ -14,5 +15,6 @@ __all__ = [
     "DataCleaningRawOutputs",
     "DataCleaningReport",
     "DataCleaningWorkflow",
+    "DataCleaningMetadata",
     "load_params",
 ]

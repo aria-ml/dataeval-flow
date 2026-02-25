@@ -114,45 +114,28 @@ class TestMainModule:
 
 
 @pytest.mark.optional
-class TestMetadata:
-    """Test the metadata output module [IR-3-H-12]."""
+class TestResultMetadata:
+    """Test the ResultMetadata schema [IR-3-H-12]."""
 
-    def test_write_metadata_creates_file(self, tmp_path: Path) -> None:
-        """Test that write_metadata creates metadata.json file."""
-        from dataeval_app._jatic_metadata import write_metadata
+    def test_defaults(self) -> None:
+        """ResultMetadata has sensible defaults for JATIC fields."""
+        from dataeval_app.config.schemas.metadata import ResultMetadata
 
-        output_dir = tmp_path / "output"
-        result = write_metadata(output_dir, "test_dataset", {"accuracy": 0.95})
+        meta = ResultMetadata()
+        assert meta.version == "1.0"
+        assert meta.tool == "dataeval-app"
+        assert meta.timestamp is not None
+        assert meta.datasets == []
 
-        assert result.exists()
-        assert result.name == "metadata.json"
+    def test_serializes_to_json(self) -> None:
+        """model_dump(mode='json') produces JSON-safe types."""
+        from dataeval_app.config.schemas.metadata import ResultMetadata
 
-    def test_write_metadata_content(self, tmp_path: Path) -> None:
-        """Test that metadata.json contains expected fields."""
-        import json
-
-        from dataeval_app._jatic_metadata import write_metadata
-
-        output_dir = tmp_path / "output"
-        result = write_metadata(output_dir, "cifar10", {"score": 0.9})
-
-        content = json.loads(result.read_text())
-        assert content["dataset_id"] == "cifar10"
-        assert content["tool"] == "dataeval-app"
-        assert content["results"] == {"score": 0.9}
-        assert "timestamp" in content
-        assert "version" in content
-        assert "tool_version" in content
-
-    def test_write_metadata_creates_parent_dirs(self, tmp_path: Path) -> None:
-        """Test that write_metadata creates parent directories if needed."""
-        from dataeval_app._jatic_metadata import write_metadata
-
-        nested_dir = tmp_path / "deeply" / "nested" / "output"
-        result = write_metadata(nested_dir, "test", {})
-
-        assert result.exists()
-        assert nested_dir.exists()
+        meta = ResultMetadata(dataset_id="cifar10", tool_version="0.1.0")
+        data = meta.model_dump(mode="json")
+        assert data["dataset_id"] == "cifar10"
+        assert data["tool"] == "dataeval-app"
+        assert isinstance(data["timestamp"], str)
 
 
 @pytest.mark.optional

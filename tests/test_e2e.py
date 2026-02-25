@@ -175,7 +175,7 @@ class TestConfigToFactoryIntegration:
             "  - name: analysis_only\n"
             "    workflow: data-cleaning\n"
             "    datasets: shared_dataset\n"
-            "    output_format: terminal\n"
+            "    output_format: text\n"
         )
 
         config = load_config_folder(config_dir)
@@ -189,7 +189,7 @@ class TestConfigToFactoryIntegration:
 
         # Verify different output formats
         assert config.tasks[0].output_format == "json"  # default
-        assert config.tasks[2].output_format == "terminal"
+        assert config.tasks[2].output_format == "text"
 
 
 class TestContainerMountPaths:
@@ -306,7 +306,7 @@ class TestEndToEndCleaningWorkflow:
                             _build_outliers, _build_duplicates,
                             _serialize_outlier_issues, _serialize_duplicates,
                             _compute_label_stats, _build_findings
-      _jatic_metadata.py    write_metadata
+      config/schemas/metadata  ResultMetadata
 
     Asserts (26 checks):
       - WorkflowResult: success, name, metadata (mode, evaluators)
@@ -424,24 +424,23 @@ class TestEndToEndCleaningWorkflow:
         assert config.tasks is not None
         task = config.tasks[0]
 
-        result = run_task(task, config, output_dir=output_dir)
+        result = run_task(task, config)
 
         # ── 6. Assert result ──────────────────────────────────────────
         assert result.success is True
         assert result.name == "data-cleaning"
-        assert result.metadata["mode"] == "advisory"
-        assert "outliers" in result.metadata["evaluators"]  # type: ignore[operator]
-        assert "duplicates" in result.metadata["evaluators"]  # type: ignore[operator]
+        meta_dump = result.metadata.model_dump()
+        assert meta_dump["mode"] == "advisory"
+        assert "outliers" in meta_dump["evaluators"]
+        assert "duplicates" in meta_dump["evaluators"]
 
-        # ── 7. Assert output files exist and have expected structure ──
-        task_dir = output_dir / "e2e_clean"
+        # ── 7. Write output via result.report() and verify ────────────
+        task_dir = output_dir / task.name
+        written_path = result.report(format="json", path=task_dir)
         results_file = task_dir / "results.json"
-        metadata_file = task_dir / "metadata.json"
+        assert written_path == results_file
 
-        assert results_file.exists(), "results.json not written"
-        assert metadata_file.exists(), "metadata.json not written"
-
-        # Verify results.json content
+        # Verify results.json content (now includes metadata envelope)
         results_data = json.loads(results_file.read_text())
         raw = results_data["raw"]
 
@@ -476,12 +475,13 @@ class TestEndToEndCleaningWorkflow:
         assert "Duplicates" in finding_titles
         assert "Label Distribution" in finding_titles
 
-        # Verify metadata.json (JATIC)
-        jatic = json.loads(metadata_file.read_text())
-        assert jatic["dataset_id"] == "test_ds"
-        assert jatic["tool"] == "dataeval-app"
-        assert "version" in jatic
-        assert "timestamp" in jatic
+        # Verify JATIC metadata is embedded in results.json
+        meta = results_data["metadata"]
+        assert meta["dataset_id"] == "test_ds"
+        assert meta["tool"] == "dataeval-app"
+        assert "version" in meta
+        assert "timestamp" in meta
+        assert meta["execution_time_s"] is not None
 
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_from_disk.assert_called_once()

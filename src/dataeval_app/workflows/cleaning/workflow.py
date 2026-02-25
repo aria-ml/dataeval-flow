@@ -7,11 +7,11 @@ from dataeval import Embeddings, Metadata
 from dataeval.flags import ImageStats
 from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
-from typing_extensions import TypedDict
 
 from dataeval_app.workflow import WorkflowContext, WorkflowResult
 from dataeval_app.workflow.base import Reportable
 from dataeval_app.workflows.cleaning.outputs import (
+    DataCleaningMetadata,
     DataCleaningOutputs,
     DataCleaningRawOutputs,
     DataCleaningReport,
@@ -29,21 +29,6 @@ if TYPE_CHECKING:
     from dataeval_app.dataset import MaiteDataset
 
 __all__ = ["DataCleaningWorkflow"]
-
-
-# ---------------------------------------------------------------------------
-# TypedDict for result metadata
-# ---------------------------------------------------------------------------
-
-
-class _CleaningResultMetadata(TypedDict, total=False):
-    """Metadata returned alongside cleaning results."""
-
-    mode: str
-    evaluators: list[str]
-    flagged_indices: list[int]
-    clean_indices: list[int]
-    removed_count: int
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +373,11 @@ class DataCleaningWorkflow:
         """Pydantic model for workflow output."""
         return DataCleaningOutputs
 
-    def execute(self, context: WorkflowContext, params: BaseModel | None = None) -> WorkflowResult:
+    def execute(
+        self,
+        context: WorkflowContext,
+        params: BaseModel | None = None,
+    ) -> WorkflowResult[DataCleaningMetadata]:
         """Run data cleaning workflow on dataset."""
         from dataeval_app.embeddings import build_embeddings
         from dataeval_app.metadata import build_metadata
@@ -455,17 +444,17 @@ class DataCleaningWorkflow:
             findings = _build_findings(raw, metadata)
 
             # 6. Preparatory mode: compute clean indices (exclude flagged items)
-            result_metadata: _CleaningResultMetadata = {
-                "mode": params.mode,
-                "evaluators": ["outliers", "duplicates"],
-            }
+            result_metadata = DataCleaningMetadata(
+                mode=params.mode,
+                evaluators=["outliers", "duplicates"],
+            )
             if params.mode == "preparatory":
                 flagged = _collect_flagged_indices(raw)
                 all_indices = set(range(raw.dataset_size))
                 clean_indices = sorted(all_indices - flagged)
-                result_metadata["flagged_indices"] = sorted(flagged)
-                result_metadata["clean_indices"] = clean_indices
-                result_metadata["removed_count"] = len(flagged)
+                result_metadata.flagged_indices = sorted(flagged)
+                result_metadata.clean_indices = clean_indices
+                result_metadata.removed_count = len(flagged)
                 findings.append(
                     Reportable(
                         report_type="key_value",
@@ -491,8 +480,7 @@ class DataCleaningWorkflow:
                 name=self.name,
                 success=True,
                 data=DataCleaningOutputs(raw=raw, report=report),
-                # TypedDict is a plain dict at runtime; no runtime enforcement.
-                metadata=result_metadata,  # type: ignore[arg-type]
+                metadata=result_metadata,
             )
         except Exception as e:  # noqa: BLE001
             return WorkflowResult(

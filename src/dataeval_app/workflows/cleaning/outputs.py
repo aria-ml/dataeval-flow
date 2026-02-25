@@ -1,11 +1,15 @@
 """Data cleaning workflow outputs."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
+from dataeval_app.config.schemas.metadata import ResultMetadata
 from dataeval_app.workflow.base import Reportable, WorkflowOutputsBase, WorkflowReportBase
 
 __all__ = [
+    "DataCleaningMetadata",
     "DataCleaningOutputs",
     "DataCleaningRawOutputs",
     "DataCleaningReport",
@@ -106,3 +110,13 @@ class DataCleaningOutputs(BaseModel):
 
     raw: DataCleaningRawOutputs
     report: DataCleaningReport
+
+
+class DataCleaningMetadata(ResultMetadata):
+    """Metadata for the data-cleaning workflow."""
+
+    mode: Literal["advisory", "preparatory"] = "advisory"
+    evaluators: list[str] = Field(default_factory=list)
+    flagged_indices: list[int] = Field(default_factory=list)
+    clean_indices: list[int] = Field(default_factory=list)
+    removed_count: int = 0

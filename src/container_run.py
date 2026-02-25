@@ -83,11 +83,19 @@ def main() -> int:
     print(f"Running {len(config.tasks)} task(s)...")
     exit_code = 0
     for task in config.tasks:
-        run_result = run_task(task, config, output_dir=output_path)
+        run_result = run_task(task, config)
         status = "OK" if run_result.success else "FAILED"
         print(f"  {task.name}: {status}")
         if not run_result.success:
             exit_code = 1
+            continue
+
+        task_dir = output_path / task.name
+        out = run_result.report(path=task_dir)
+        if isinstance(out, str):
+            print(out)
+        else:
+            print(f"  Wrote {out}")
 
     return exit_code
 
