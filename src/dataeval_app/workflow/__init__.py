@@ -1,18 +1,7 @@
 """Workflow framework - protocol, context, result, discovery."""
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
-
-from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from dataeval_app.config.models import ExtractorConfig
-    from dataeval_app.config.schemas.dataset import AutoBinMethod
-    from dataeval_app.config.schemas.selection import SelectionStep
-    from dataeval_app.dataset import MaiteDataset
-
 __all__ = [
+    "DatasetContext",
     "WorkflowContext",
     "WorkflowProtocol",
     "WorkflowResult",
@@ -21,20 +10,40 @@ __all__ = [
     "run_task",
 ]
 
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from dataeval_app.config.models import ExtractorConfig
+    from dataeval_app.config.schemas.selection import SelectionStep
+    from dataeval_app.config.schemas.task import AutoBinMethod
+    from dataeval_app.dataset import MaiteDataset
+
+
+@dataclass
+class DatasetContext:
+    """Per-dataset runtime context — groups a loaded dataset with its resolved configs."""
+
+    name: str
+    dataset: "MaiteDataset"
+    extractor: "ExtractorConfig | None" = None
+    transforms: Callable | None = None
+    selection_steps: "list[SelectionStep] | None" = None
+
 
 @dataclass
 class WorkflowContext:
     """Runtime context for workflow execution.
 
-    Provides the dataset, model config, and metadata config
-    that workflows need beyond just parameters. Fields mirror
-    DatasetConfig metadata fields from config schemas.
+    Provides per-dataset bundles and workflow-wide metadata config.
+    Metadata configuration (binning, exclusions) is set once at the
+    workflow level so that all datasets are processed uniformly.
     """
 
-    dataset: "MaiteDataset"
-    extractor: "ExtractorConfig | None" = None
-    transforms: Callable | None = None
-    selection_steps: list["SelectionStep"] | None = None
+    dataset_contexts: "dict[str, DatasetContext]" = field(default_factory=dict)
     metadata_auto_bin_method: "AutoBinMethod | None" = None
     metadata_exclude: list[str] = field(default_factory=list)
     metadata_continuous_factor_bins: dict[str, list[float]] | None = None

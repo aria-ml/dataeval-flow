@@ -43,7 +43,7 @@ class TestDatasetModule:
     """Test the dataset library module."""
 
     def test_load_dataset_huggingface_datasetdict(self, mock_hf_dataset: MagicMock) -> None:
-        """Test loading a DatasetDict uses first split automatically."""
+        """Test loading a DatasetDict with explicit split selection."""
         with (
             patch("datasets.load_from_disk") as mock_load,
             patch("maite_datasets.adapters.from_huggingface") as mock_adapter,
@@ -53,9 +53,9 @@ class TestDatasetModule:
 
             from dataeval_app import load_dataset_huggingface
 
-            load_dataset_huggingface(Path("dummy/path"))
+            load_dataset_huggingface(Path("dummy/path"), split="train")
 
-            # Should use first available split
+            # Should use the explicitly requested split
             mock_hf_dataset.__getitem__.assert_called_with("train")
             mock_adapter.assert_called()
 
@@ -67,7 +67,7 @@ class TestDatasetModule:
             from dataeval_app.dataset import load_dataset
 
             load_dataset(Path("/some/path"))
-            mock_hf.assert_called_once_with(Path("/some/path"))
+            mock_hf.assert_called_once_with(Path("/some/path"), split=None)
 
 
 @pytest.mark.required

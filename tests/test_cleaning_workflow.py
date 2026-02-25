@@ -10,7 +10,7 @@ import dataeval_app.metadata
 import dataeval_app.selection  # noqa: F401
 from dataeval_app.config.models import OnnxExtractorConfig
 from dataeval_app.config.schemas.selection import SelectionStep
-from dataeval_app.workflow import WorkflowContext
+from dataeval_app.workflow import DatasetContext, WorkflowContext
 from dataeval_app.workflows.cleaning.outputs import (
     DataCleaningOutputs,
     DataCleaningRawOutputs,
@@ -401,7 +401,7 @@ class TestDataCleaningWorkflowExecute:
     def test_execution_error_returns_failed_result(self, mock_meta_cls: MagicMock):  # noqa: ARG002
         """Runtime errors during execution return WorkflowResult(success=False)."""
         wf = DataCleaningWorkflow()
-        ctx = WorkflowContext(dataset=MagicMock())
+        ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=MagicMock())})
         result = wf.execute(ctx, self._make_exec_params())
         assert not result.success
         assert "Workflow execution failed" in result.errors[0]
@@ -412,7 +412,7 @@ class TestDataCleaningWorkflowExecute:
     def test_advisory_mode(self, mock_meta_cls: MagicMock, mock_run_clean: MagicMock):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
-        ctx = WorkflowContext(dataset=mock_dataset)
+        ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=mock_dataset)})
 
         mock_meta_cls.return_value = MagicMock()
         mock_run_clean.return_value = DataCleaningRawOutputs(
@@ -436,7 +436,7 @@ class TestDataCleaningWorkflowExecute:
     def test_preparatory_mode(self, mock_meta_cls: MagicMock, mock_run_clean: MagicMock):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
-        ctx = WorkflowContext(dataset=mock_dataset)
+        ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=mock_dataset)})
 
         mock_meta_cls.return_value = MagicMock()
         mock_run_clean.return_value = DataCleaningRawOutputs(
@@ -475,8 +475,13 @@ class TestDataCleaningWorkflowExecute:
         mock_select_cls.return_value = selected_dataset
 
         ctx = WorkflowContext(
-            dataset=mock_dataset,
-            selection_steps=[SelectionStep(type="Limit", params={"size": 50})],
+            dataset_contexts={
+                "default": DatasetContext(
+                    name="default",
+                    dataset=mock_dataset,
+                    selection_steps=[SelectionStep(type="Limit", params={"size": 50})],
+                )
+            },
         )
 
         mock_meta_cls.return_value = MagicMock()
@@ -508,8 +513,13 @@ class TestDataCleaningWorkflowExecute:
         mock_embed_cls.return_value = mock_embeddings
 
         ctx = WorkflowContext(
-            dataset=mock_dataset,
-            extractor=OnnxExtractorConfig(model_path="/model.onnx", output_name="layer4"),
+            dataset_contexts={
+                "default": DatasetContext(
+                    name="default",
+                    dataset=mock_dataset,
+                    extractor=OnnxExtractorConfig(model_path="/model.onnx", output_name="layer4"),
+                )
+            },
         )
 
         mock_meta_cls.return_value = MagicMock()

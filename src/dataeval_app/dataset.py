@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     MaiteDataset: TypeAlias = HFImageClassificationDataset | HFObjectDetectionDataset
 
 
-def load_dataset_huggingface(path: Path) -> "MaiteDataset":
+def load_dataset_huggingface(path: Path, split: str | None = None) -> "MaiteDataset":
     """Load a HuggingFace dataset and convert to MAITE format.
 
     Parameters
@@ -35,6 +35,8 @@ def load_dataset_huggingface(path: Path) -> "MaiteDataset":
         If required dependencies (datasets, maite_datasets) are missing.
     RuntimeError
         If dataset loading or conversion fails.
+    KeyError
+        If split is not specified for a multi-split dataset or the specified split is not found in the dataset.
 
     Examples
     --------
@@ -51,11 +53,11 @@ def load_dataset_huggingface(path: Path) -> "MaiteDataset":
     # union-attr: load_from_disk returns Dataset | DatasetDict; .keys() only on DatasetDict.
     if hasattr(dataset, "keys") and callable(dataset.keys):  # type: ignore[union-attr]
         available_splits = list(dataset.keys())  # type: ignore[union-attr]
-        if available_splits:
-            print(f"DatasetDict detected with {len(available_splits)} splits: {available_splits}")
-            print("Split selection will be handled by task config.")
-            # Return first split; config-driven split selection is a future enhancement
-            dataset = dataset[available_splits[0]]
+        if split is None or split not in available_splits:
+            raise KeyError(f"Requested split '{split}' not found in dataset. Available splits: {available_splits}")
+        print(f"DatasetDict detected with {len(available_splits)} splits: {available_splits}")
+        print(f"Selecting split '{split}' as specified in config.")
+        dataset = dataset[split]
     else:
         print("Dataset detected (single split)")
 
@@ -64,7 +66,7 @@ def load_dataset_huggingface(path: Path) -> "MaiteDataset":
     return from_huggingface(dataset)  # type: ignore[arg-type]
 
 
-def load_dataset(path: Path) -> "MaiteDataset":
+def load_dataset(path: Path, split: str | None = None) -> "MaiteDataset":
     """Load a dataset and convert to MAITE format.
 
     This is the main entry point for loading datasets. Currently delegates
@@ -74,11 +76,18 @@ def load_dataset(path: Path) -> "MaiteDataset":
     ----------
     path : Path
         Path to the dataset directory.
+    split : str | None
+        Optional split name to load (e.g. "train", "test").
 
     Returns
     -------
     MaiteDataset
         MAITE-compatible dataset object.
+
+    Raises
+    ------
+    KeyError
+        If split is not specified for a multi-split dataset or the specified split is not found in the dataset.
 
     Examples
     --------
@@ -86,4 +95,4 @@ def load_dataset(path: Path) -> "MaiteDataset":
     >>> from dataeval_app import load_dataset
     >>> ds = load_dataset(Path("/data/cifar10"))
     """
-    return load_dataset_huggingface(path)
+    return load_dataset_huggingface(path, split=split)

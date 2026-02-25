@@ -226,48 +226,6 @@
             }
           ],
           "title": "Splits"
-        },
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "items": {
-                  "type": "number"
-                },
-                "type": "array"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Metadata Continuous Factor Bins"
         }
       },
       "required": [
@@ -591,6 +549,48 @@
           ],
           "title": "Output Format",
           "type": "string"
+        },
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
         }
       },
       "required": [

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from dataeval import Metadata
 
 if TYPE_CHECKING:
-    from dataeval_app.config.schemas.dataset import AutoBinMethod
+    from dataeval_app.config.schemas.task import AutoBinMethod
     from dataeval_app.dataset import MaiteDataset
 
 __all__ = [

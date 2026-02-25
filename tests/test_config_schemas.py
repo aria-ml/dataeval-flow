@@ -587,77 +587,39 @@ class TestModelConfig:
 class TestP1SchemaClasses:
     """Test P1 schema classes (DatasetConfig, PreprocessorConfig, SelectionConfig, TaskConfig)."""
 
-    def test_split_config_defaults(self):
-        """SplitConfig has correct defaults."""
-        from dataeval_app.config.schemas import SplitConfig
-
-        split = SplitConfig()
-        assert split.num_folds is None
-        assert split.stratify is False
-        assert split.split_on is None
-        assert split.test_frac is None
-        assert split.val_frac is None
-
-    def test_split_config_custom(self):
-        """SplitConfig accepts custom values."""
-        from dataeval_app.config.schemas import SplitConfig
-
-        split = SplitConfig(
-            num_folds=5,
-            stratify=True,
-            split_on=["category_id"],
-            test_frac=0.2,
-            val_frac=0.1,
-        )
-        assert split.num_folds == 5
-        assert split.stratify is True
-        assert split.split_on == ["category_id"]
-        assert split.test_frac == 0.2
-        assert split.val_frac == 0.1
-
-    def test_dataset_config_with_list_splits(self):
-        """DatasetConfig with list of split names."""
+    def test_dataset_config_with_split(self):
+        """DatasetConfig with a split name."""
         from dataeval_app.config.schemas import DatasetConfig
 
         dataset = DatasetConfig(
             name="cppe5",
             format="huggingface",
             path="./cppe5",
-            splits=["train", "test", "validation"],
+            split="train",
         )
         assert dataset.name == "cppe5"
         assert dataset.format == "huggingface"
         assert dataset.path == "./cppe5"
-        assert dataset.splits == ["train", "test", "validation"]
-        assert dataset.metadata_auto_bin_method is None
-        assert dataset.metadata_exclude == []
-        assert dataset.metadata_continuous_factor_bins is None
+        assert dataset.split == "train"
 
-    def test_dataset_config_with_split_config(self):
-        """DatasetConfig with SplitConfig object."""
-        from dataeval_app.config.schemas import DatasetConfig, SplitConfig
+    def test_dataset_config_with_none_split(self):
+        """DatasetConfig with split=None (single-split dataset)."""
+        from dataeval_app.config.schemas import DatasetConfig
 
-        split = SplitConfig(num_folds=5, stratify=True)
         dataset = DatasetConfig(
             name="retail",
             format="coco",
             path="./retail",
-            splits=split,
-            metadata_auto_bin_method="clusters",
-            metadata_exclude=["id", "source"],
-            metadata_continuous_factor_bins={"age": [0.0, 18.0, 65.0, 100.0]},
+            split=None,
         )
-        assert dataset.splits == split
-        assert dataset.metadata_auto_bin_method == "clusters"
-        assert dataset.metadata_exclude == ["id", "source"]
-        assert dataset.metadata_continuous_factor_bins == {"age": [0.0, 18.0, 65.0, 100.0]}
+        assert dataset.split is None
 
     def test_dataset_config_missing_required_raises(self):
-        """DatasetConfig requires name, format, path, splits."""
+        """DatasetConfig requires name, format, path, split."""
         from dataeval_app.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="name"):
-            DatasetConfig(format="coco", path="./data", splits=["train"])  # type: ignore[call-arg]
+            DatasetConfig(format="coco", path="./data", split="train")  # type: ignore[call-arg]
 
     def test_dataset_config_invalid_format_raises(self):
         """DatasetConfig rejects invalid format."""
@@ -668,7 +630,7 @@ class TestP1SchemaClasses:
                 name="test",
                 format="invalid",  # type: ignore[arg-type]
                 path="./data",
-                splits=["train"],
+                split="train",
             )
 
     def test_preprocessor_config_valid(self):
@@ -727,33 +689,56 @@ class TestP1SchemaClasses:
         task = TaskConfig(
             name="data_cleaning",
             workflow="data-cleaning",
-            dataset="cppe5",
-            model="resnet50",
-            preprocessor="resnet50_preprocessor",
-            selection="training_subset",
+            datasets="cppe5",
+            models="resnet50",
+            preprocessors="resnet50_preprocessor",
+            selections="training_subset",
             params={"outlier_method": "modzscore"},
             output_format="json",
         )
         assert task.name == "data_cleaning"
         assert task.workflow == "data-cleaning"
-        assert task.dataset == "cppe5"
-        assert task.model == "resnet50"
-        assert task.preprocessor == "resnet50_preprocessor"
-        assert task.selection == "training_subset"
+        assert task.datasets == "cppe5"
+        assert task.models == "resnet50"
+        assert task.preprocessors == "resnet50_preprocessor"
+        assert task.selections == "training_subset"
         assert task.params == {"outlier_method": "modzscore"}
         assert task.output_format == "json"
+
+    def test_task_config_with_datasets_list(self):
+        """TaskConfig accepts datasets as a list."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(
+            name="multi",
+            workflow="data-cleaning",
+            datasets=["ds_a", "ds_b"],
+        )
+        assert task.datasets == ["ds_a", "ds_b"]
+
+    def test_task_config_with_model_mapping(self):
+        """TaskConfig accepts model as a per-dataset mapping."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(
+            name="mapped",
+            workflow="data-cleaning",
+            datasets=["ds_a", "ds_b"],
+            models={"ds_a": "m1", "ds_b": "m2"},
+        )
+        assert task.models == {"ds_a": "m1", "ds_b": "m2"}
 
     def test_task_config_minimal(self):
         """TaskConfig with only required fields."""
         from dataeval_app.config.schemas import TaskConfig
 
-        task = TaskConfig(name="minimal", workflow="data-cleaning", dataset="test")
+        task = TaskConfig(name="minimal", workflow="data-cleaning", datasets="test")
         assert task.name == "minimal"
         assert task.workflow == "data-cleaning"
-        assert task.dataset == "test"
-        assert task.model is None
-        assert task.preprocessor is None
-        assert task.selection is None
+        assert task.datasets == "test"
+        assert task.models is None
+        assert task.preprocessors is None
+        assert task.selections is None
         assert task.params == {}
         assert task.output_format == "json"
 
@@ -765,7 +750,7 @@ class TestP1SchemaClasses:
             TaskConfig(
                 name="test",
                 workflow="data-cleaning",
-                dataset="test",
+                datasets="test",
                 output_format="invalid",  # type: ignore[arg-type]
             )
 
@@ -777,9 +762,7 @@ class TestP1SchemaClasses:
             "  - name: cppe5\n"
             "    format: huggingface\n"
             "    path: ./cppe5\n"
-            "    splits:\n"
-            "      - train\n"
-            "      - test\n"
+            "    split: train\n"
             "preprocessors:\n"
             "  - name: basic\n"
             "    steps:\n"
@@ -793,9 +776,9 @@ class TestP1SchemaClasses:
             "tasks:\n"
             "  - name: clean\n"
             "    workflow: data-cleaning\n"
-            "    dataset: cppe5\n"
-            "    preprocessor: basic\n"
-            "    selection: subset\n"
+            "    datasets: cppe5\n"
+            "    preprocessors: basic\n"
+            "    selections: subset\n"
         )
 
         config = load_config_folder(tmp_path)
@@ -804,7 +787,7 @@ class TestP1SchemaClasses:
         assert config.datasets is not None
         assert len(config.datasets) == 1
         assert config.datasets[0].name == "cppe5"
-        assert config.datasets[0].splits == ["train", "test"]
+        assert config.datasets[0].split == "train"
 
         # Verify preprocessors
         assert config.preprocessors is not None
@@ -820,4 +803,4 @@ class TestP1SchemaClasses:
         assert config.tasks is not None
         assert len(config.tasks) == 1
         assert config.tasks[0].name == "clean"
-        assert config.tasks[0].dataset == "cppe5"
+        assert config.tasks[0].datasets == "cppe5"

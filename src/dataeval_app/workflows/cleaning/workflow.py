@@ -423,18 +423,21 @@ class DataCleaningWorkflow:
             # conforms to DataEval's dataset protocol at runtime via duck typing;
             # pyright can't verify cross-library structural conformance.
 
+            # Resolve the single dataset context (cleaning is single-dataset)
+            dc = next(iter(context.dataset_contexts.values()))
+
             # 1. Apply selection if configured
-            dataset = context.dataset
-            if context.selection_steps:
-                dataset = build_selection(dataset, context.selection_steps)  # type: ignore[arg-type]
+            dataset = dc.dataset
+            if dc.selection_steps:
+                dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
 
             # 2. Build embeddings if extractor configured
             embeddings = None
-            if context.extractor:
+            if dc.extractor:
                 embeddings = build_embeddings(
                     dataset,  # type: ignore[arg-type]
-                    extractor_config=context.extractor,
-                    transforms=context.transforms,
+                    extractor_config=dc.extractor,
+                    transforms=dc.transforms,
                 )
 
             # 3. Build metadata for label stats

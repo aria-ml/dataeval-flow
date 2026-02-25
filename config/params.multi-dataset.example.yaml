@@ -1,0 +1,125 @@
+# =============================================================================
+# Multi-Dataset Workflow Configuration Example
+# =============================================================================
+# Demonstrates how to configure multiple datasets with independent
+# models, preprocessors, and selections per dataset.
+#
+# yaml-language-server: $schema=params.schema.json
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# DATASETS
+# -----------------------------------------------------------------------------
+datasets:
+  - name: cifar10_train
+    format: huggingface
+    path: ./data/cifar10
+    split: train
+
+  - name: cifar10_test
+    format: huggingface
+    path: ./data/cifar10
+    split: test
+
+# -----------------------------------------------------------------------------
+# MODELS (optional)
+# -----------------------------------------------------------------------------
+models:
+  - name: resnet50
+    extractor:
+      type: onnx
+      model_path: "./resnet50-v2-7.onnx"
+      output_name: "resnetv24_flatten0_reshape0"
+
+  - name: flat
+    extractor:
+      type: flatten
+
+# -----------------------------------------------------------------------------
+# PREPROCESSORS (optional)
+# -----------------------------------------------------------------------------
+preprocessors:
+  - name: resnet_preprocess
+    steps:
+      - step: Resize
+        params:
+          size: [256, 256]
+          antialias: true
+      - step: CenterCrop
+        params:
+          size: [224, 224]
+      - step: ToDtype
+        params:
+          dtype: float32
+          scale: true
+      - step: Normalize
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+
+  - name: basic_preprocess
+    steps:
+      - step: Resize
+        params:
+          size: [32, 32]
+
+# -----------------------------------------------------------------------------
+# TASKS
+# -----------------------------------------------------------------------------
+tasks:
+  # Single dataset (backward-compatible string form)
+  - name: clean_train
+    workflow: data-cleaning
+    datasets: cifar10_train
+    models: flat
+    params:
+      outlier_method: modzscore
+      outlier_flags:
+        - dimension
+        - pixel
+
+  # Multi-dataset with a shared model (string applies to all)
+  - name: clean_both_shared_model
+    workflow: data-cleaning
+    datasets:
+      - cifar10_train
+      - cifar10_test
+    models: flat
+    params:
+      outlier_method: zscore
+      outlier_flags:
+        - dimension
+
+  # Multi-dataset with per-dataset model mapping
+  - name: clean_both_per_dataset_model
+    workflow: data-cleaning
+    datasets:
+      - cifar10_train
+      - cifar10_test
+    models:
+      cifar10_train: resnet50
+      cifar10_test: flat
+    preprocessors:
+      cifar10_train: resnet_preprocess
+      cifar10_test: basic_preprocess
+    params:
+      outlier_method: modzscore
+      outlier_flags:
+        - dimension
+        - pixel
+        - visual
+
+  # Partial mapping — only train gets a model, test gets none
+  - name: clean_partial
+    workflow: data-cleaning
+    datasets:
+      - cifar10_train
+      - cifar10_test
+    models:
+      cifar10_train: resnet50
+    preprocessors:
+      cifar10_train: resnet_preprocess
+    params:
+      outlier_method: iqr
+      outlier_flags:
+        - pixel
