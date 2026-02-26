@@ -695,6 +695,7 @@ class TestP1SchemaClasses:
             selections="training_subset",
             params={"outlier_method": "modzscore"},
             output_format="json",
+            batch_size=64,
         )
         assert task.name == "data_cleaning"
         assert task.workflow == "data-cleaning"
@@ -704,6 +705,19 @@ class TestP1SchemaClasses:
         assert task.selections == "training_subset"
         assert task.params == {"outlier_method": "modzscore"}
         assert task.output_format == "json"
+        assert task.batch_size == 64
+
+    def test_task_config_with_model_no_batch_size_raises(self):
+        """TaskConfig with model requiring batch_size but no batch_size raises ValidationError."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        with pytest.raises(ValidationError, match="batch_size"):
+            TaskConfig(
+                name="test_task",
+                workflow="data-cleaning",
+                datasets="cppe5",
+                models="bovw",
+            )
 
     def test_task_config_with_datasets_list(self):
         """TaskConfig accepts datasets as a list."""
@@ -725,6 +739,7 @@ class TestP1SchemaClasses:
             workflow="data-cleaning",
             datasets=["ds_a", "ds_b"],
             models={"ds_a": "m1", "ds_b": "m2"},
+            batch_size=64,
         )
         assert task.models == {"ds_a": "m1", "ds_b": "m2"}
 

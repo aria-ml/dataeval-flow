@@ -19,6 +19,7 @@ __all__ = [
     "NearDuplicateGroupDict",
     "OutlierIssueRecord",
     "OutlierIssuesDict",
+    "SourceIndexDict",
 ]
 
 
@@ -27,12 +28,22 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-class OutlierIssueRecord(TypedDict):
-    """Single outlier issue from DataEval OutliersOutput."""
+class _OutlierIssueRecordRequired(TypedDict):
+    """Required fields for an outlier issue record."""
 
     item_id: int
     metric_name: str
     metric_value: float
+
+
+class OutlierIssueRecord(_OutlierIssueRecordRequired, total=False):
+    """Single outlier issue from DataEval OutliersOutput.
+
+    ``target_id`` is present for target-level outliers (object detection datasets)
+    and absent or ``None`` for image-level outliers.
+    """
+
+    target_id: int | None
 
 
 class OutlierIssuesDict(TypedDict):
@@ -42,10 +53,23 @@ class OutlierIssuesDict(TypedDict):
     count: int
 
 
+class SourceIndexDict(TypedDict):
+    """Serialized SourceIndex from DataEval — identifies an item, target, and channel."""
+
+    item: int
+    target: int | None
+    channel: int | None
+
+
+#: An index value is either a plain ``int`` (image-level) or a
+#: :class:`SourceIndexDict` (target/channel-level).
+IndexValue = int | SourceIndexDict
+
+
 class NearDuplicateGroupDict(TypedDict):
     """Serialized near-duplicate group."""
 
-    indices: list[int]
+    indices: list[IndexValue]
     methods: list[str]
     orientation: str | None
 
@@ -53,7 +77,7 @@ class NearDuplicateGroupDict(TypedDict):
 class DetectionDict(TypedDict, total=False):
     """Serialized duplicate detection result (exact + near groups)."""
 
-    exact: list[list[int]]
+    exact: list[list[IndexValue]]
     near: list[NearDuplicateGroupDict]
 
 

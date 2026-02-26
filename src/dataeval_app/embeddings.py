@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "build_embeddings",
+    "build_extractor",
 ]
 
 
@@ -44,6 +45,33 @@ def build_embeddings(
     Embeddings
         DataEval Embeddings instance (implements FeatureExtractor).
     """
+
+    # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
+    # pyright can't verify cross-library structural conformance.
+    extractor = build_extractor(extractor_config, transforms)
+    return Embeddings(dataset, extractor=extractor, batch_size=batch_size)  # type: ignore[arg-type]
+
+
+def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | None = None) -> Callable:
+    """Build a standalone extractor (not wrapped in Embeddings).
+
+    Used for workflows that need to apply the extractor separately from embedding extraction
+    (e.g. to extract metadata features for evaluation).
+
+    Parameters
+    ----------
+    extractor_config : ExtractorConfig
+        Extractor configuration (discriminated union).
+    transforms : Callable | None
+        Preprocessing transforms to apply before encoding.
+        Only used by extractor types that accept it (onnx, torch, uncertainty).
+
+    Returns
+    -------
+    Callable
+        A callable extractor function that takes a dataset and returns extracted features.
+    """
+
     from dataeval_app.config.models import (
         BoVWExtractorConfig,
         FlattenExtractorConfig,
@@ -60,9 +88,7 @@ def build_embeddings(
             flatten=extractor_config.flatten,
         )
     elif isinstance(extractor_config, BoVWExtractorConfig):
-        bovw = BoVWExtractor(vocab_size=extractor_config.vocab_size)
-        bovw.fit(dataset)  # type: ignore[arg-type]  # MaiteDataset conforms at runtime
-        extractor = bovw
+        extractor = BoVWExtractor(vocab_size=extractor_config.vocab_size)
     elif isinstance(extractor_config, FlattenExtractorConfig):
         extractor = FlattenExtractor()
     else:
@@ -70,7 +96,4 @@ def build_embeddings(
             f"Extractor type '{extractor_config.type}' is not yet implemented. "
             f"Currently supported: onnx, bovw, flatten."
         )
-
-    # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
-    # pyright can't verify cross-library structural conformance.
-    return Embeddings(dataset, extractor=extractor, batch_size=batch_size)  # type: ignore[arg-type]
+    return extractor

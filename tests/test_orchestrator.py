@@ -168,6 +168,7 @@ class TestRunTask:
             workflow="data-cleaning",
             datasets="test_ds",
             models="resnet",
+            batch_size=64,
             params={
                 "outlier_method": "zscore",
                 "outlier_flags": ["dimension", "pixel"],
@@ -290,6 +291,7 @@ class TestRunTask:
             workflow="data-cleaning",
             datasets="test_ds",
             models="nonexistent",
+            batch_size=64,
         )
         mock_load_ds.return_value = MagicMock()
 
@@ -473,7 +475,7 @@ class TestRunTaskMultiDataset:
         config.models = [
             ModelConfig(name="resnet", extractor=OnnxExtractorConfig(model_path="/m.onnx", output_name="out")),
         ]
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"], models="resnet")
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"], models="resnet", batch_size=64)
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
@@ -503,6 +505,7 @@ class TestRunTaskMultiDataset:
             workflow="data-cleaning",
             datasets=["ds_a", "ds_b"],
             models={"ds_a": "onnx_m", "ds_b": "flat_m"},
+            batch_size=64,
         )
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -532,6 +535,7 @@ class TestRunTaskMultiDataset:
             workflow="data-cleaning",
             datasets=["ds_a", "ds_b"],
             models={"ds_a": "m"},
+            batch_size=64,
         )
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -554,6 +558,7 @@ class TestRunTaskMultiDataset:
             workflow="data-cleaning",
             datasets=["ds_a"],
             models={"ds_a": "m", "ds_unknown": "m"},
+            batch_size=64,
         )
 
         with pytest.raises(ValueError, match="unknown datasets"):

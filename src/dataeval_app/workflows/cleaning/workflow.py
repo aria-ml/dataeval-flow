@@ -11,6 +11,7 @@ from dataeval.flags import ImageStats
 from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
 
+from dataeval_app.embeddings import build_extractor
 from dataeval_app.workflow import WorkflowContext, WorkflowResult
 from dataeval_app.workflow.base import Reportable
 from dataeval_app.workflows.cleaning.outputs import (
@@ -20,8 +21,10 @@ from dataeval_app.workflows.cleaning.outputs import (
     DataCleaningReport,
     DetectionDict,
     DuplicatesDict,
+    IndexValue,
     LabelStatsDict,
     OutlierIssuesDict,
+    SourceIndexDict,
 )
 from dataeval_app.workflows.cleaning.params import DataCleaningParameters
 
@@ -144,21 +147,33 @@ def _build_duplicates(
 # ---------------------------------------------------------------------------
 
 
-def _to_int(idx: object) -> int:
-    """Convert an index to plain int, handling SourceIndex namedtuples."""
-    # SourceIndex is a NamedTuple with .item; plain ints pass through.
-    return idx.item if hasattr(idx, "item") else int(idx)  # type: ignore[union-attr]
+def _serialize_index(idx: object) -> IndexValue:
+    """Serialize an index, preserving SourceIndex target/channel fields when present.
+
+    Plain ``int`` indices (image-level) pass through unchanged.
+    ``SourceIndex`` namedtuples (target-level) are converted to
+    :class:`SourceIndexDict` so that ``target`` and ``channel`` information
+    is retained in the serialized output.
+    """
+    if hasattr(idx, "item") and hasattr(idx, "target"):
+        # SourceIndex namedtuple — preserve all fields
+        return SourceIndexDict(
+            item=idx.item,  # type: ignore[union-attr]
+            target=idx.target,  # type: ignore[union-attr]
+            channel=getattr(idx, "channel", None),
+        )
+    return int(idx)  # type: ignore[arg-type]  # runtime: idx is always int-like here
 
 
 def _serialize_detection(det: _DetectionResult) -> "DetectionDict":
     """Serialize a DuplicateDetectionResult to plain dict."""
     out: DetectionDict = {}
     if det.exact is not None:
-        out["exact"] = [[_to_int(i) for i in group] for group in det.exact]
+        out["exact"] = [[_serialize_index(i) for i in group] for group in det.exact]
     if det.near is not None:
         out["near"] = [
             {
-                "indices": [_to_int(i) for i in g.indices],
+                "indices": [_serialize_index(i) for i in g.indices],
                 "methods": sorted(g.methods),
                 "orientation": g.orientation,
             }
@@ -228,28 +243,30 @@ def _build_findings(
     """Generate human-readable findings from raw results."""
     findings: list[Reportable] = []
 
-    # Outlier findings
-    outlier_count = raw.img_outliers.get("count", 0)
-    if outlier_count > 0:
-        pct = (outlier_count / raw.dataset_size) * 100 if raw.dataset_size else 0
+    # Outlier findings — count distinct images, not total flags
+    outlier_issues = raw.img_outliers.get("issues", [])
+    outlier_image_count = len({issue["item_id"] for issue in outlier_issues})
+    if outlier_image_count > 0:
+        pct = (outlier_image_count / raw.dataset_size) * 100 if raw.dataset_size else 0
         findings.append(
             Reportable(
                 report_type="key_value",
                 title="Image Outliers",
-                data={"count": outlier_count, "percentage": round(pct, 1)},
-                description=f"{outlier_count} images ({pct:.1f}%) flagged as outliers.",
+                data={"count": outlier_image_count, "percentage": round(pct, 1)},
+                description=f"{outlier_image_count} images ({pct:.1f}%) flagged as outliers.",
             )
         )
 
-    # Target outlier findings
-    target_count = raw.target_outliers.get("count", 0) if raw.target_outliers else 0
-    if target_count > 0:
+    # Target outlier findings — count distinct (item, target) pairs
+    target_issues = raw.target_outliers.get("issues", []) if raw.target_outliers else []
+    target_pair_count = len({(issue["item_id"], issue.get("target_id")) for issue in target_issues})
+    if target_pair_count > 0:
         findings.append(
             Reportable(
                 report_type="key_value",
                 title="Target Outliers",
-                data={"count": target_count},
-                description=f"{target_count} bounding-box targets flagged as outliers.",
+                data={"count": target_pair_count},
+                description=f"{target_pair_count} bounding-box targets flagged as outliers.",
             )
         )
 
@@ -288,6 +305,17 @@ def _build_findings(
     return findings
 
 
+def _item_id_of(idx: IndexValue) -> int:
+    """Extract the item ID from an :class:`IndexValue`.
+
+    Returns the ``int`` directly for image-level indices, or the ``"item"``
+    field from a :class:`SourceIndexDict` for target-level indices.
+    """
+    if isinstance(idx, dict):
+        return idx["item"]
+    return idx
+
+
 def _collect_flagged_indices(raw: DataCleaningRawOutputs) -> set[int]:
     """Collect all unique item indices flagged by outlier or duplicate detection."""
     flagged: set[int] = set()
@@ -299,10 +327,10 @@ def _collect_flagged_indices(raw: DataCleaningRawOutputs) -> set[int]:
     # Duplicate-flagged items (keep first in each group, flag the rest)
     for group in raw.duplicates.get("items", {}).get("exact", []):
         for idx in group[1:]:  # keep first, flag rest
-            flagged.add(idx)
+            flagged.add(_item_id_of(idx))
     for group in raw.duplicates.get("items", {}).get("near", []):
         for idx in group["indices"][1:]:
-            flagged.add(idx)
+            flagged.add(_item_id_of(idx))
 
     return flagged
 
@@ -388,7 +416,6 @@ class DataCleaningWorkflow:
         params: BaseModel | None = None,
     ) -> WorkflowResult[DataCleaningMetadata]:
         """Run data cleaning workflow on dataset."""
-        from dataeval_app.embeddings import build_embeddings
         from dataeval_app.metadata import build_metadata
         from dataeval_app.selection import build_selection
 
@@ -434,11 +461,9 @@ class DataCleaningWorkflow:
             extractor = None
             if dc.extractor:
                 logger.info("Building extractor")
-                extractor = build_embeddings(
-                    dataset,  # type: ignore[arg-type]
+                extractor = build_extractor(
                     extractor_config=dc.extractor,
                     transforms=dc.transforms,
-                    batch_size=dc.batch_size,
                 )
                 logger.info("Extractor complete")
 

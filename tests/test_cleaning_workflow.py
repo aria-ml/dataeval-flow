@@ -25,7 +25,9 @@ from dataeval_app.workflows.cleaning.workflow import (
     _build_outliers,
     _collect_flagged_indices,
     _compute_label_stats,
+    _item_id_of,
     _serialize_duplicates,
+    _serialize_index,
     _serialize_outlier_issues,
 )
 
@@ -187,7 +189,7 @@ class TestSerializeDuplicates:
         assert out["targets"] == {}
 
     def test_source_index_targets(self):
-        """SourceIndex indices in target-level duplicates are converted to int."""
+        """SourceIndex indices in target-level duplicates preserve target/channel."""
         from dataeval.types import SourceIndex
 
         result = MagicMock()
@@ -198,7 +200,7 @@ class TestSerializeDuplicates:
         result.targets.exact = [[SourceIndex(0, 2), SourceIndex(1, 3)]]
         result.targets.near = [
             MagicMock(
-                indices=[SourceIndex(4, 0), SourceIndex(5, 1)],
+                indices=[SourceIndex(4, 0, 1), SourceIndex(5, 1)],
                 methods=frozenset({"hash"}),
                 orientation="same",
             )
@@ -208,10 +210,58 @@ class TestSerializeDuplicates:
 
         # item-level exact should remain plain ints
         assert out["items"]["exact"] == [[0, 1]]  # type: ignore[typeddict-item]
-        # target-level exact: SourceIndex.item extracted
-        assert out["targets"]["exact"] == [[0, 1]]  # type: ignore[typeddict-item]
-        # target-level near: SourceIndex.item extracted
-        assert out["targets"]["near"][0]["indices"] == [4, 5]  # type: ignore[typeddict-item]
+        # target-level exact: SourceIndex preserved as dicts
+        assert out["targets"]["exact"] == [  # type: ignore[typeddict-item]
+            [
+                {"item": 0, "target": 2, "channel": None},
+                {"item": 1, "target": 3, "channel": None},
+            ]
+        ]
+        # target-level near: SourceIndex preserved (including channel when set)
+        near_indices = out["targets"]["near"][0]["indices"]  # type: ignore[typeddict-item]
+        assert near_indices == [
+            {"item": 4, "target": 0, "channel": 1},
+            {"item": 5, "target": 1, "channel": None},
+        ]
+
+
+# ---------------------------------------------------------------------------
+# _serialize_index / _item_id_of
+# ---------------------------------------------------------------------------
+
+
+class TestSerializeIndex:
+    def test_plain_int_passthrough(self):
+        assert _serialize_index(7) == 7
+
+    def test_source_index_to_dict(self):
+        from dataeval.types import SourceIndex
+
+        result = _serialize_index(SourceIndex(3, 5, 2))
+        assert result == {"item": 3, "target": 5, "channel": 2}
+
+    def test_source_index_defaults(self):
+        from dataeval.types import SourceIndex
+
+        result = _serialize_index(SourceIndex(1))
+        assert result == {"item": 1, "target": None, "channel": None}
+
+    def test_source_index_target_only(self):
+        from dataeval.types import SourceIndex
+
+        result = _serialize_index(SourceIndex(2, 4))
+        assert result == {"item": 2, "target": 4, "channel": None}
+
+
+class TestItemIdOf:
+    def test_plain_int(self):
+        assert _item_id_of(5) == 5
+
+    def test_source_index_dict(self):
+        assert _item_id_of({"item": 3, "target": 1, "channel": None}) == 3
+
+    def test_source_index_dict_no_target(self):
+        assert _item_id_of({"item": 7, "target": None, "channel": None}) == 7
 
 
 # ---------------------------------------------------------------------------
@@ -277,15 +327,48 @@ class TestBuildFindings:
         titles = [f.title for f in findings]
         assert "Image Outliers" in titles
 
+    def test_outlier_finding_counts_distinct_images(self):
+        """Finding counts distinct images, not total flags (one image can trigger multiple metrics)."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=29,
+            img_outliers={
+                "count": 6,
+                "issues": [
+                    {"item_id": 0, "metric_name": "brightness", "metric_value": 0.1},
+                    {"item_id": 0, "metric_name": "entropy", "metric_value": 0.2},
+                    {"item_id": 0, "metric_name": "contrast", "metric_value": 0.3},
+                    {"item_id": 5, "metric_name": "brightness", "metric_value": 0.4},
+                    {"item_id": 5, "metric_name": "entropy", "metric_value": 0.5},
+                    {"item_id": 10, "metric_name": "contrast", "metric_value": 0.6},
+                ],
+            },
+        )
+        findings = _build_findings(raw, None)
+        img_finding = next(f for f in findings if f.title == "Image Outliers")
+        # 3 distinct images, not 6 total flags
+        assert img_finding.data["count"] == 3  # type: ignore[index]
+        assert img_finding.data["percentage"] == round(3 / 29 * 100, 1)  # type: ignore[index]
+
     def test_target_outlier_finding(self):
         raw = DataCleaningRawOutputs(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
-            target_outliers={"count": 3, "issues": []},
+            target_outliers={  # type: ignore[typeddict-item]  # target records include target_id
+                "count": 4,
+                "issues": [
+                    {"item_id": 0, "target_id": 0, "metric_name": "brightness", "metric_value": 0.1},
+                    {"item_id": 0, "target_id": 0, "metric_name": "contrast", "metric_value": 0.2},
+                    {"item_id": 0, "target_id": 1, "metric_name": "brightness", "metric_value": 0.3},
+                    {"item_id": 1, "target_id": 0, "metric_name": "brightness", "metric_value": 0.4},
+                ],
+            },
         )
         findings = _build_findings(raw, None)
         titles = [f.title for f in findings]
         assert "Target Outliers" in titles
+        target_finding = next(f for f in findings if f.title == "Target Outliers")
+        # 3 distinct (item_id, target_id) pairs, not 4 total flags
+        assert target_finding.data["count"] == 3  # type: ignore[index]
 
     def test_duplicate_finding(self):
         raw = DataCleaningRawOutputs(
@@ -535,19 +618,15 @@ class TestDataCleaningWorkflowExecute:
 
     @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_app.metadata.Metadata")
-    @patch("dataeval_app.embeddings.Embeddings")
     @patch("dataeval_app.embeddings.OnnxExtractor")
     def test_with_embeddings(
         self,
-        mock_encoder_cls: MagicMock,
-        mock_embed_cls: MagicMock,
+        mock_extractor_cls: MagicMock,
         mock_meta_cls: MagicMock,
         mock_run_clean: MagicMock,
     ):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
-        mock_embeddings = MagicMock()
-        mock_embed_cls.return_value = mock_embeddings
 
         ctx = WorkflowContext(
             dataset_contexts={
@@ -567,10 +646,7 @@ class TestDataCleaningWorkflowExecute:
 
         result = wf.execute(ctx, self._make_exec_params())
         assert result.success
-        mock_encoder_cls.assert_called_once()
-        # Embeddings instance passed directly to _run_cleaning as extractor
-        extractor_arg = mock_run_clean.call_args[0][2]
-        assert extractor_arg is mock_embeddings
+        mock_extractor_cls.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

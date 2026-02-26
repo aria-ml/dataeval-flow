@@ -80,7 +80,6 @@ class TestBuildEmbeddings:
         build_embeddings(mock_dataset, config)
 
         mock_bovw_cls.assert_called_once_with(vocab_size=1024)
-        mock_bovw.fit.assert_called_once_with(mock_dataset)
         mock_embed_cls.assert_called_once()
 
     def test_unsupported_extractor_raises(self):

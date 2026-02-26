@@ -13,4 +13,4 @@ class DatasetConfig(BaseModel):
     name: str
     format: DatasetFormat
     path: str
-    split: str | None
+    split: str | None = None
