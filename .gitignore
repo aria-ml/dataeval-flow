@@ -29,6 +29,7 @@ output/
 
 # Nox
 .nox/
+.cuda-version
 
 # OS
 .DS_Store
