@@ -12,7 +12,7 @@ from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
 
 from dataeval_app.embeddings import build_extractor
-from dataeval_app.workflow import WorkflowContext, WorkflowResult
+from dataeval_app.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_app.workflow.base import Reportable
 from dataeval_app.workflows.cleaning.outputs import (
     DataCleaningMetadata,
@@ -387,7 +387,7 @@ def _run_cleaning(
 # ---------------------------------------------------------------------------
 
 
-class DataCleaningWorkflow:
+class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
     """Data cleaning workflow using DataEval evaluators."""
 
     @property

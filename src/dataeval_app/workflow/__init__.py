@@ -13,7 +13,7 @@ __all__ = [
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar, overload, runtime_checkable
+from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -227,8 +227,11 @@ class WorkflowResult(Generic[TMetadata]):
         return dest
 
 
+TMetadata = TypeVar("TMetadata", bound="ResultMetadata")
+
+
 @runtime_checkable
-class WorkflowProtocol(Protocol):
+class WorkflowProtocol(Protocol[TMetadata]):
     """Workflow protocol with schema properties."""
 
     @property
@@ -251,7 +254,7 @@ class WorkflowProtocol(Protocol):
         """Pydantic model for workflow output."""
         ...
 
-    def execute(self, context: WorkflowContext, params: BaseModel | None = None) -> "WorkflowResult":
+    def execute(self, context: WorkflowContext, params: BaseModel | None = None) -> "WorkflowResult[TMetadata]":
         """Execute the workflow."""
         ...
 
@@ -260,7 +263,7 @@ class WorkflowProtocol(Protocol):
 # Workflow discovery (replaces WorkflowRegistry)
 # ---------------------------------------------------------------------------
 
-_WORKFLOWS: dict[str, WorkflowProtocol] = {}
+_WORKFLOWS: "dict[str, WorkflowProtocol[ResultMetadata]]" = {}
 _initialized: bool = False
 
 
@@ -270,11 +273,11 @@ def _ensure_initialized() -> None:
         from dataeval_app.workflows.cleaning.workflow import DataCleaningWorkflow
 
         wf = DataCleaningWorkflow()
-        _WORKFLOWS[wf.name] = wf
+        _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata]", wf)
         _initialized = True
 
 
-def get_workflow(name: str) -> WorkflowProtocol:
+def get_workflow(name: str) -> "WorkflowProtocol[ResultMetadata]":
     """Look up a workflow by name. Raises ValueError if unknown."""
     _ensure_initialized()
     if name not in _WORKFLOWS:

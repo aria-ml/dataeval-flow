@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-def build_selection(dataset: "MaiteDataset", steps: list["SelectionStep"]) -> Select:
+def build_selection(dataset: "MaiteDataset", steps: list["SelectionStep"]) -> "Select[MaiteDataset]":
     """Build selection pipeline from config.
 
     Pass-through to dataeval.selection - no custom logic.

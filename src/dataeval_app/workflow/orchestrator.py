@@ -9,6 +9,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_app.config.models import WorkflowConfig
+    from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.task import TaskConfig
     from dataeval_app.workflow import WorkflowResult
 
@@ -109,7 +110,7 @@ def _validate_mapping_keys(
         raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
 
 
-def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
+def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[ResultMetadata]":
     """Run a single task using config-driven resolution.
 
     This is the primary entry point for config-driven execution.
