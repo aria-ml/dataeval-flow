@@ -9,7 +9,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 RUN touch README.md
 
 # 2. Install PROD + DEV dependencies (needed for testing)
-RUN uv sync --frozen --group dev --no-install-project
+RUN uv sync --frozen --group dev --extra cpu --extra onnx --extra opencv --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -27,7 +27,7 @@ COPY tests/ ./tests/
 RUN nox
 
 # 4. Re-sync only prod dependencies (removes dev tools from final layer)
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --extra cpu --extra onnx --extra opencv --no-install-project
 
 # 5. Set PYTHONPATH for src layout (required since project not installed)
 ENV PYTHONPATH="/app/src"
@@ -49,6 +49,8 @@ LABEL org.opencontainers.image.title="DataEval Application (CPU)" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-app"
 
 USER dataeval
+
+ENV UV_EXTRAS_OVERRIDE=cpu
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]

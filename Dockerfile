@@ -1,5 +1,5 @@
 # DataEval Application Container - GPU variant
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 # Copy uv binary from official image (pin version for reproducibility)
 COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
@@ -15,7 +15,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 RUN touch README.md
 
 # 2. Install PROD + DEV dependencies (needed for testing)
-RUN uv sync --frozen --group dev --no-install-project
+RUN uv sync --frozen --group dev --extra cu118 --extra onnx-gpu --extra opencv --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -30,7 +30,7 @@ COPY tests/ ./tests/
 RUN nox
 
 # 4. Re-sync only prod dependencies (removes dev tools from final layer)
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --extra cu118 --extra onnx-gpu --extra opencv --no-install-project
 
 # 5. Set PYTHONPATH for src layout (required since project not installed)
 ENV PYTHONPATH="/app/src"
@@ -55,6 +55,8 @@ LABEL org.opencontainers.image.title="DataEval Application" \
 
 # Switch to non-root user
 USER dataeval
+
+ENV UV_EXTRAS_OVERRIDE=cu118
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]

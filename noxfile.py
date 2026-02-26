@@ -9,6 +9,16 @@ nox.options.default_venv_backend = "uv"
 nox.options.sessions = ["lint", "type", "test", "check"]  # Default sessions to run
 
 IS_CI = bool(os.environ.get("CI"))
+UV_EXTRAS_OVERRIDE = os.environ.get("DATAEVAL_NOX_UV_EXTRAS_OVERRIDE", "")
+if not UV_EXTRAS_OVERRIDE:
+    if os.path.exists(".cuda-version"):
+        with open(".cuda-version") as f:
+            UV_EXTRAS_OVERRIDE = f.read().strip()
+    if UV_EXTRAS_OVERRIDE not in ["cpu", "cu118", "cu124", "cu128"]:
+        UV_EXTRAS_OVERRIDE = "cu118"
+
+UV_EXTRAS = [UV_EXTRAS_OVERRIDE]
+UV_EXTRAS_WITH_ONNX = UV_EXTRAS + ["onnx" if UV_EXTRAS_OVERRIDE == "cpu" else "onnx-gpu"]
 
 
 @nox_uv.session(uv_only_groups=["lint"], uv_no_install_project=True)
@@ -19,7 +29,7 @@ def lint(session: nox.Session) -> None:
     session.run("codespell")
 
 
-@nox_uv.session(uv_groups=["type"])
+@nox_uv.session(uv_groups=["type"], uv_extras=["cpu", "onnx"])
 def type(session: nox.Session) -> None:  # noqa: A001
     """Run static type checking (Pyright).
 
@@ -46,7 +56,7 @@ def type(session: nox.Session) -> None:  # noqa: A001
     )
 
 
-@nox_uv.session(uv_groups=["test"])
+@nox_uv.session(uv_groups=["test"], uv_extras=UV_EXTRAS)
 def test(session: nox.Session) -> None:
     """Run tests with coverage (90% threshold enforced)."""
     session.run(
@@ -62,7 +72,7 @@ def test(session: nox.Session) -> None:
     )
 
 
-@nox_uv.session(uv_groups=["docs"])
+@nox_uv.session(uv_groups=["docs"], uv_extras=UV_EXTRAS_WITH_ONNX)
 def docs(session: nox.Session) -> None:
     """Build Sphinx documentation."""
     session.run(
