@@ -804,3 +804,32 @@ class TestP1SchemaClasses:
         assert len(config.tasks) == 1
         assert config.tasks[0].name == "clean"
         assert config.tasks[0].datasets == "cppe5"
+
+
+class TestLoggingConfig:
+    """Test LoggingConfig parsing via WorkflowConfig."""
+
+    def test_workflow_config_with_logging(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("logging:\n  app_level: INFO\n  lib_level: DEBUG\n")
+
+        config = load_config(config_file)
+        assert config.logging is not None
+        assert config.logging.app_level == "INFO"
+        assert config.logging.lib_level == "DEBUG"
+
+    def test_workflow_config_logging_defaults(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("logging: {}\n")
+
+        config = load_config(config_file)
+        assert config.logging is not None
+        assert config.logging.app_level == "DEBUG"
+        assert config.logging.lib_level == "WARNING"
+
+    def test_workflow_config_logging_invalid_level(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("logging:\n  app_level: TRACE\n")
+
+        with pytest.raises(ValidationError):
+            load_config(config_file)

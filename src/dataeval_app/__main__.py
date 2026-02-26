@@ -2,9 +2,12 @@
 """CLI entry point for standalone usage: python -m dataeval_app."""
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import NoReturn
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,8 +25,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=None,
-        help="Path to output directory (default: /output)",
+        required=True,
+        help="Path to output directory for results and log.txt",
     )
     return parser.parse_args()
 
@@ -38,39 +41,45 @@ def main() -> NoReturn:
         sys.exit(1)
 
 
-def _run_tasks(config_path: Path | None, output_dir: Path | None = None) -> NoReturn:
+def _run_tasks(config_path: Path | None, output_dir: Path) -> NoReturn:
     """Load config and run all tasks."""
+    from dataeval_app._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_app.config import load_config_folder
     from dataeval_app.workflow import run_task
 
+    setup_logging(output_dir)
+
     config = load_config_folder(config_path)
 
+    if config.logging:
+        configure_log_levels(config.logging.app_level, config.logging.lib_level)
+
     if not config.tasks:
-        print("No tasks defined in config.")
+        logger.info("No tasks defined in config.")
         sys.exit(0)
 
-    if output_dir is None:
-        output_dir = Path("/output")
-
-    print(f"Running {len(config.tasks)} task(s)...")
+    logger.info("Running %d task(s)...", len(config.tasks))
     failures = 0
     for task in config.tasks:
-        print(f"\n--- Task: {task.name} (workflow: {task.workflow}) ---")
+        logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
         result = run_task(task, config)
         if not result.success:
-            print(f"  FAILED: {result.errors}")
+            logger.error("  FAILED: %s", task.name)
+            for error in result.errors:
+                logger.error("    %s", error)
             failures += 1
+            flush_logs()
             continue
 
-        # Determine output path for file-based formats
-        path = output_dir / task.name if output_dir.exists() else None
+        path = output_dir / task.name
         out = result.report(path=path)
         if isinstance(out, str):
-            print(out)
+            logger.info(out)
         else:
-            print(f"  OK: wrote {out}")
+            logger.info("  OK: wrote %s", out)
+        flush_logs()
 
-    print(f"\nDone. {len(config.tasks) - failures}/{len(config.tasks)} succeeded.")
+    logger.info("Done. %d/%d succeeded.", len(config.tasks) - failures, len(config.tasks))
     sys.exit(1 if failures else 0)
 
 

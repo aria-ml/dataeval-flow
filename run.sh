@@ -1,6 +1,6 @@
 #!/bin/bash
 # DataEval Application Runner
-# Usage: ./run.sh -f PATH -d PATH [-o PATH] [--cpu]
+# Usage: ./run.sh -f PATH -d PATH -o PATH [--cpu]
 
 set -e
 
@@ -43,23 +43,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Show help if requested or missing required args
-if [[ "$SHOW_HELP" == true ]] || [[ -z "$DATASET_PATH" ]] || [[ -z "$CONFIG_PATH" ]]; then
+if [[ "$SHOW_HELP" == true ]] || [[ -z "$DATASET_PATH" ]] || [[ -z "$CONFIG_PATH" ]] || [[ -z "$OUTPUT_PATH" ]]; then
     echo "DataEval Application Runner"
     echo ""
     echo "Usage:"
-    echo "  ./run.sh -f PATH -d PATH [-o PATH] [--cpu]"
+    echo "  ./run.sh -f PATH -d PATH -o PATH [--cpu]"
     echo ""
     echo "Options:"
     echo "  -f, --config PATH    Path to config folder (required)"
     echo "  -d, --dataset PATH   Path to dataset (required)"
-    echo "  -o, --output PATH    Path for output files (optional)"
+    echo "  -o, --output PATH    Path for output files (required)"
     echo "  -c, --cpu            Use CPU container (default: GPU)"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Examples:"
-    echo "  ./run.sh --config /mnt/c/data/config --dataset /mnt/c/data/cifar10_test"
     echo "  ./run.sh -f /mnt/c/data/config -d /mnt/c/data/cifar10_test -o /mnt/c/data/output"
-    echo "  ./run.sh -f /mnt/c/data/config -d /mnt/c/data/cifar10_test --cpu"
+    echo "  ./run.sh -f /mnt/c/data/config -d /mnt/c/data/cifar10_test -o /mnt/c/data/output --cpu"
     echo ""
     exit 0
 fi
@@ -68,9 +67,7 @@ fi
 MOUNTS="--mount type=bind,source=$CONFIG_PATH,target=/data/config,readonly"
 MOUNTS="$MOUNTS --mount type=bind,source=$DATASET_PATH,target=/data/dataset,readonly"
 
-if [[ -n "$OUTPUT_PATH" ]]; then
-    MOUNTS="$MOUNTS --mount type=bind,source=$OUTPUT_PATH,target=/output"
-fi
+MOUNTS="$MOUNTS --mount type=bind,source=$OUTPUT_PATH,target=/output"
 
 # Select image and GPU flag
 if [[ "$USE_CPU" == true ]]; then

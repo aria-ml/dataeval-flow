@@ -32,9 +32,10 @@ REQUIRED:
   /data/config     YAML config files (read-only)
   /data/dataset    Reference dataset (read-only)
 
+  /output          Results and output files (read-write)
+
 OPTIONAL:
   /data/model      Model files (read-only)
-  /output          Results and output files (read-write)
 
 --------------------------------------------------------------------------------
 MOUNT SYNTAX
@@ -50,20 +51,14 @@ MOUNT SYNTAX
 EXAMPLES
 --------------------------------------------------------------------------------
 
-Minimal (config + dataset):
-    docker run --gpus all \
-        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
-        --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
-        dataeval:gpu
-
-With output directory:
+Minimal (config + dataset + output):
     docker run --gpus all \
         --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --mount type=bind,source=/home/user/results,target=/output \
         dataeval:gpu
 
-All mounts:
+All mounts (with model):
     docker run --gpus all \
         --mount type=bind,source=/home/user/config,target=/data/config,readonly \
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
@@ -113,6 +108,7 @@ TROUBLESHOOTING
 "No GPU detected"      -> Add --gpus all to command
 "No config mounted"    -> Add --mount for /data/config
 "No dataset mounted"   -> Add --mount for /data/dataset
+"Output not mounted"   -> Add --mount for /output
 "invalid mount config" -> Check source path exists on host
 "Permission denied"    -> Check host directory permissions
 
@@ -164,6 +160,19 @@ if [[ -z "$(ls -A /data/config 2>/dev/null)" ]]; then
     exit 1
 fi
 
+# ============== VALIDATE OUTPUT MOUNT (REQUIRED) ==============
+# Marker file exists = no mount attempted = show error
+if [[ -f "/output/.not_mounted" ]]; then
+    echo ""
+    echo "ERROR: Output directory not mounted at /output"
+    echo ""
+    echo "Mount an output directory:"
+    echo "  --mount type=bind,source=/path/to/output,target=/output"
+    echo ""
+    echo "Run with --help for usage information."
+    exit 1
+fi
+
 # ============== VALIDATE OPTIONAL MOUNTS ==============
 # Check if mount was attempted (no marker) but directory is empty (bad path)
 
@@ -178,8 +187,8 @@ if [[ ! -f "/data/model/.not_mounted" ]] && [[ -z "$(ls -A /data/model 2>/dev/nu
     exit 1
 fi
 
-# /output - Results (optional, check writability if mounted)
-if [[ -d "/output" ]] && [[ ! -w "/output" ]]; then
+# /output - Results (required, check writability)
+if [[ ! -w "/output" ]]; then
     echo ""
     echo "ERROR: Output mount at /output is not writable"
     echo ""
@@ -223,14 +232,6 @@ else
         echo "Run with --help for full usage."
         exit 1
     fi
-fi
-
-# ============== VALIDATE MOUNTS ==============
-echo "Checking volume mounts..."
-
-# Check output mount (warn only if not mounted, error for not writable handled above)
-if [[ ! -d "/output" ]]; then
-    echo "WARNING: /output not mounted. Results may not persist."
 fi
 
 # ============== SUCCESS ==============

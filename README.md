@@ -55,7 +55,7 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 | `/data/config` | ro | Config files (required) |
 | `/data/dataset` | ro | Dataset (required) |
 | `/data/model` | ro | Model files (optional) |
-| `/output` | rw | Results |
+| `/output` | rw | Results (required) |
 
 ## Dataset Formats
 

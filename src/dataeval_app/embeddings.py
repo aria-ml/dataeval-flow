@@ -1,10 +1,13 @@
 """Embeddings convenience builder wrapping DataEval."""
 
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from dataeval import Embeddings
 from dataeval.extractors import BoVWExtractor, FlattenExtractor, OnnxExtractor
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_app.config.models import ExtractorConfig
@@ -45,6 +48,8 @@ def build_embeddings(
         FlattenExtractorConfig,
         OnnxExtractorConfig,
     )
+
+    logger.debug("Building %s extractor", extractor_config.type)
 
     if isinstance(extractor_config, OnnxExtractorConfig):
         extractor = OnnxExtractor(

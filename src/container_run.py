@@ -8,12 +8,17 @@ The container expects these mount points:
 - /data/config: Config files (required)
 - /data/dataset: Input dataset (required)
 - /data/model: Model files (optional)
-- /output: Results directory (optional)
+- /output: Results directory (required)
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
+
+# Use explicit name — Dockerfile runs this as a script (python src/container_run.py)
+# so __name__ is "__main__", not "container_run".
+logger = logging.getLogger("container_run")
 
 # Container mount points (container-specific knowledge)
 CONTAINER_MOUNTS = {
@@ -67,6 +72,7 @@ def main() -> int:
         return 1
 
     try:
+        from dataeval_app._logging import configure_log_levels, setup_logging
         from dataeval_app.config import load_config_folder
         from dataeval_app.workflow import run_task
     except ImportError as e:
@@ -74,28 +80,40 @@ def main() -> int:
         print("Ensure dependencies are installed correctly.")
         return 1
 
+    output_path = get_output_path()
+    setup_logging(output_path)
+
     config = load_config_folder(config_path)
+
+    if config.logging:
+        configure_log_levels(config.logging.app_level, config.logging.lib_level)
+
     if not config.tasks:
-        print("No tasks defined in config.")
+        logger.info("No tasks defined in config.")
         return 0
 
-    output_path = get_output_path()
-    print(f"Running {len(config.tasks)} task(s)...")
+    from dataeval_app._logging import flush_logs
+
+    logger.info("Running %d task(s)...", len(config.tasks))
     exit_code = 0
     for task in config.tasks:
         run_result = run_task(task, config)
         status = "OK" if run_result.success else "FAILED"
-        print(f"  {task.name}: {status}")
+        logger.info("  %s: %s", task.name, status)
         if not run_result.success:
+            for error in run_result.errors:
+                logger.error("  %s error: %s", task.name, error)
             exit_code = 1
+            flush_logs()
             continue
 
         task_dir = output_path / task.name
         out = run_result.report(path=task_dir)
         if isinstance(out, str):
-            print(out)
+            logger.info(out)
         else:
-            print(f"  Wrote {out}")
+            logger.info("  Wrote %s", out)
+        flush_logs()
 
     return exit_code
 

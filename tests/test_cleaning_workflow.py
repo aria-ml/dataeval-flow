@@ -1,9 +1,11 @@
 """Tests for cleaning workflow — serializers, findings, flagged indices, execute."""
 
+import logging
 from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import polars as pl
+import pytest
 
 import dataeval_app.embeddings
 import dataeval_app.metadata
@@ -398,14 +400,21 @@ class TestDataCleaningWorkflowExecute:
         assert "DataCleaningParameters" in result.errors[0]
 
     @patch("dataeval_app.metadata.Metadata", side_effect=RuntimeError("model crashed"))
-    def test_execution_error_returns_failed_result(self, mock_meta_cls: MagicMock):  # noqa: ARG002
-        """Runtime errors during execution return WorkflowResult(success=False)."""
+    def test_execution_error_returns_failed_result(
+        self,
+        mock_meta_cls: MagicMock,  # noqa: ARG002
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Runtime errors during execution return WorkflowResult(success=False) and log traceback."""
         wf = DataCleaningWorkflow()
         ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=MagicMock())})
         result = wf.execute(ctx, self._make_exec_params())
         assert not result.success
         assert "Workflow execution failed" in result.errors[0]
         assert "model crashed" in result.errors[0]
+        # Verify traceback is logged
+        assert any("Workflow" in r.message and r.levelno == logging.ERROR for r in caplog.records)
+        assert "model crashed" in caplog.text
 
     @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_app.metadata.Metadata")

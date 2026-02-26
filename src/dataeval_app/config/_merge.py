@@ -1,9 +1,12 @@
 """Multi-file YAML configuration loader."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def merge_yaml_folder(config_path: Path) -> dict[str, Any]:
@@ -20,6 +23,7 @@ def merge_yaml_folder(config_path: Path) -> dict[str, Any]:
         raise ValueError(f"Config path is not a directory: {config_path}")
 
     yaml_files = sorted(list(config_path.glob("*.yaml")) + list(config_path.glob("*.yml")))
+    logger.debug("Found %d YAML file(s): %s", len(yaml_files), [f.name for f in yaml_files])
 
     for yaml_file in yaml_files:
         with open(yaml_file, encoding="utf-8") as f:

@@ -17,9 +17,12 @@ Example Python:
     >>> output = transform(input_tensor)
 """
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # TYPE_CHECKING-only: importing torchvision at module level is heavy (~2 s);
 # it is imported lazily inside build_preprocessing() instead.  The quoted
@@ -84,6 +87,8 @@ def build_preprocessing(steps: list[PreprocessingStep]) -> "v2.Compose":
         "dtype": _resolve_dtype,
         "interpolation": _resolve_interpolation,
     }
+
+    logger.debug("Building preprocessing pipeline: %s", [s.step for s in steps])
 
     ops = []
     for step in steps:
