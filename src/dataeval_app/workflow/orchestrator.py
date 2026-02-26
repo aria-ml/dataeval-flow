@@ -195,6 +195,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
             extractor=extractor_config,
             transforms=transforms,
             selection_steps=selection_steps,
+            batch_size=task.batch_size,
         )
 
     # 4. Build WorkflowContext (metadata config is task-wide, not per-dataset)
@@ -203,6 +204,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
         metadata_auto_bin_method=task.metadata_auto_bin_method,
         metadata_exclude=task.metadata_exclude or [],
         metadata_continuous_factor_bins=task.metadata_continuous_factor_bins,
+        batch_size=task.batch_size,
     )
 
     logger.debug("Task '%s': resolved %d dataset(s): %s", task.name, len(dataset_names), dataset_names)

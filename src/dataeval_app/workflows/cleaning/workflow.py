@@ -1,10 +1,12 @@
 """Data Cleaning Workflow — orchestration + processor + factory helpers."""
 
+__all__ = ["DataCleaningWorkflow"]
+
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Literal, Protocol
 
-from dataeval import Embeddings, Metadata
+from dataeval import Metadata
 from dataeval.flags import ImageStats
 from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
@@ -28,8 +30,6 @@ if TYPE_CHECKING:
     from dataeval.quality import DuplicatesOutput
 
     from dataeval_app.dataset import MaiteDataset
-
-__all__ = ["DataCleaningWorkflow"]
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ HASH_FLAG_MAP: dict[str, ImageStats] = {
 
 def _build_outliers(
     params: DataCleaningParameters,
-    extractor: Embeddings | None = None,
+    extractor: Callable | None = None,
 ) -> Outliers:
     """Build Outliers evaluator from cleaning parameters."""
     flags = ImageStats.NONE
@@ -104,7 +104,7 @@ def _build_outliers(
 
 def _build_duplicates(
     params: DataCleaningParameters,
-    extractor: Embeddings | None = None,
+    extractor: Callable | None = None,
 ) -> Duplicates:
     """Build Duplicates evaluator from cleaning parameters."""
     # Build hash flags
@@ -144,15 +144,21 @@ def _build_duplicates(
 # ---------------------------------------------------------------------------
 
 
+def _to_int(idx: object) -> int:
+    """Convert an index to plain int, handling SourceIndex namedtuples."""
+    # SourceIndex is a NamedTuple with .item; plain ints pass through.
+    return idx.item if hasattr(idx, "item") else int(idx)  # type: ignore[union-attr]
+
+
 def _serialize_detection(det: _DetectionResult) -> "DetectionDict":
     """Serialize a DuplicateDetectionResult to plain dict."""
     out: DetectionDict = {}
     if det.exact is not None:
-        out["exact"] = [list(group) for group in det.exact]
+        out["exact"] = [[_to_int(i) for i in group] for group in det.exact]
     if det.near is not None:
         out["near"] = [
             {
-                "indices": list(g.indices),
+                "indices": [_to_int(i) for i in g.indices],
                 "methods": sorted(g.methods),
                 "orientation": g.orientation,
             }
@@ -309,12 +315,12 @@ def _collect_flagged_indices(raw: DataCleaningRawOutputs) -> set[int]:
 def _run_cleaning(
     dataset: "MaiteDataset",
     params: DataCleaningParameters,
-    embeddings: Embeddings | None = None,
+    extractor: Callable | None = None,
     metadata: Metadata | None = None,
 ) -> DataCleaningRawOutputs:
     """Run outlier + duplicate detection on dataset."""
-    outliers = _build_outliers(params, extractor=embeddings)
-    duplicates = _build_duplicates(params, extractor=embeddings)
+    outliers = _build_outliers(params, extractor=extractor)
+    duplicates = _build_duplicates(params, extractor=extractor)
 
     # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
     # pyright can't verify cross-library structural conformance.
@@ -424,16 +430,17 @@ class DataCleaningWorkflow:
                 logger.info("Applying selection (%d steps)", len(dc.selection_steps))
                 dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
 
-            # 2. Build embeddings if extractor configured
-            embeddings = None
+            # 2. Build extractor if configured
+            extractor = None
             if dc.extractor:
-                logger.info("Building embeddings")
-                embeddings = build_embeddings(
+                logger.info("Building extractor")
+                extractor = build_embeddings(
                     dataset,  # type: ignore[arg-type]
                     extractor_config=dc.extractor,
                     transforms=dc.transforms,
+                    batch_size=dc.batch_size,
                 )
-                logger.info("Embeddings complete")
+                logger.info("Extractor complete")
 
             # 3. Build metadata for label stats
             logger.info("Building metadata")
@@ -446,7 +453,7 @@ class DataCleaningWorkflow:
 
             # 4. Run cleaning evaluators
             logger.info("Running outlier and duplicate detection on %d items", len(dataset))
-            raw = _run_cleaning(dataset, params, embeddings, metadata)  # type: ignore[arg-type]
+            raw = _run_cleaning(dataset, params, extractor, metadata)  # type: ignore[arg-type]
             logger.info(
                 "Detection complete: %d outliers, %d exact dup groups, %d near dup groups",
                 raw.img_outliers.get("count", 0),

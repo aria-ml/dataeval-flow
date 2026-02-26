@@ -90,8 +90,8 @@ class TestPreprocessingEndToEnd:
     """End-to-end tests for preprocessing pipeline."""
 
     def test_preprocessing_from_yaml_config(self, tmp_path):
-        """Load preprocessing from YAML config and apply to image tensor."""
-        import torch
+        """Load preprocessing from YAML config and apply to numpy CHW image."""
+        import numpy as np
         import yaml
 
         # Create YAML config with preprocessing steps
@@ -123,20 +123,22 @@ class TestPreprocessingEndToEnd:
         # Build pipeline
         transform = build_preprocessing(steps)
 
-        # Create test image (CHW format, uint8)
-        image = torch.randint(0, 255, (3, 224, 224), dtype=torch.uint8)
+        # Create test image (CHW format, uint8 numpy array)
+        rng = np.random.default_rng(42)
+        image = rng.integers(0, 255, (3, 224, 224), dtype=np.uint8)
 
         # Apply transform
         output = transform(image)
 
-        # Verify output
-        assert output.dtype == torch.float32
+        # Verify output is numpy CHW
+        assert isinstance(output, np.ndarray)
+        assert output.dtype == np.float32
         assert output.shape == (3, 224, 224)
         assert output.min() < 0  # Normalized values can be negative
 
     def test_resize_and_normalize_pipeline(self):
         """Full pipeline: resize, convert dtype, normalize."""
-        import torch
+        import numpy as np
 
         steps = [
             PreprocessingStep(step="Resize", params={"size": [128, 128], "antialias": True}),
@@ -145,15 +147,17 @@ class TestPreprocessingEndToEnd:
         ]
         transform = build_preprocessing(steps)
 
-        # Create test image (different size)
-        image = torch.randint(0, 255, (3, 256, 256), dtype=torch.uint8)
+        # Create test image (CHW format, uint8 numpy array)
+        rng = np.random.default_rng(42)
+        image = rng.integers(0, 255, (3, 256, 256), dtype=np.uint8)
 
         # Apply transform
         output = transform(image)
 
-        # Verify resize worked
+        # Verify output is numpy CHW with correct size
+        assert isinstance(output, np.ndarray)
         assert output.shape == (3, 128, 128)
-        assert output.dtype == torch.float32
+        assert output.dtype == np.float32
         # After normalize with mean=0.5, std=0.5: values in [-1, 1]
         assert output.min() >= -1.0
         assert output.max() <= 1.0

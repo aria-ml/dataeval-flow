@@ -186,6 +186,33 @@ class TestSerializeDuplicates:
         assert out["items"] == {}
         assert out["targets"] == {}
 
+    def test_source_index_targets(self):
+        """SourceIndex indices in target-level duplicates are converted to int."""
+        from dataeval.types import SourceIndex
+
+        result = MagicMock()
+        # items: plain int indices
+        result.items.exact = [[0, 1]]
+        result.items.near = None
+        # targets: SourceIndex indices (object detection)
+        result.targets.exact = [[SourceIndex(0, 2), SourceIndex(1, 3)]]
+        result.targets.near = [
+            MagicMock(
+                indices=[SourceIndex(4, 0), SourceIndex(5, 1)],
+                methods=frozenset({"hash"}),
+                orientation="same",
+            )
+        ]
+
+        out = _serialize_duplicates(result)
+
+        # item-level exact should remain plain ints
+        assert out["items"]["exact"] == [[0, 1]]  # type: ignore[typeddict-item]
+        # target-level exact: SourceIndex.item extracted
+        assert out["targets"]["exact"] == [[0, 1]]  # type: ignore[typeddict-item]
+        # target-level near: SourceIndex.item extracted
+        assert out["targets"]["near"][0]["indices"] == [4, 5]  # type: ignore[typeddict-item]
+
 
 # ---------------------------------------------------------------------------
 # _compute_label_stats
@@ -541,8 +568,9 @@ class TestDataCleaningWorkflowExecute:
         result = wf.execute(ctx, self._make_exec_params())
         assert result.success
         mock_encoder_cls.assert_called_once()
-        # embeddings passed to _run_cleaning
-        assert mock_run_clean.call_args[0][2] is mock_embeddings
+        # Embeddings instance passed directly to _run_cleaning as extractor
+        extractor_arg = mock_run_clean.call_args[0][2]
+        assert extractor_arg is mock_embeddings
 
 
 # ---------------------------------------------------------------------------

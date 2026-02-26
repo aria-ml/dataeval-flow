@@ -36,7 +36,7 @@ class TestBuildEmbeddings:
         result = build_embeddings(mock_dataset, config)
 
         mock_extractor_cls.assert_called_once_with("/model.onnx", transforms=None, output_name="layer4", flatten=True)
-        mock_embed_cls.assert_called_once_with(mock_dataset, extractor=mock_extractor)
+        mock_embed_cls.assert_called_once_with(mock_dataset, extractor=mock_extractor, batch_size=None)
         assert result is mock_embeddings
 
     @patch("dataeval_app.embeddings.Embeddings")

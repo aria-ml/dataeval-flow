@@ -22,6 +22,7 @@ def build_embeddings(
     dataset: "MaiteDataset",
     extractor_config: "ExtractorConfig",
     transforms: Callable | None = None,
+    batch_size: int | None = None,
 ) -> Embeddings:
     """Build Embeddings from dataset and extractor config.
 
@@ -72,4 +73,4 @@ def build_embeddings(
 
     # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
     # pyright can't verify cross-library structural conformance.
-    return Embeddings(dataset, extractor=extractor)  # type: ignore[arg-type]
+    return Embeddings(dataset, extractor=extractor, batch_size=batch_size)  # type: ignore[arg-type]

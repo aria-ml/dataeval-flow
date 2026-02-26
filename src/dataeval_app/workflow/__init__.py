@@ -36,6 +36,7 @@ class DatasetContext:
     extractor: "ExtractorConfig | None" = None
     transforms: Callable | None = None
     selection_steps: "list[SelectionStep] | None" = None
+    batch_size: int | None = None
 
 
 @dataclass
@@ -51,6 +52,7 @@ class WorkflowContext:
     metadata_auto_bin_method: "AutoBinMethod | None" = None
     metadata_exclude: list[str] = field(default_factory=list)
     metadata_continuous_factor_bins: dict[str, list[float]] | None = None
+    batch_size: int | None = None
 
 
 def _default_metadata() -> "ResultMetadata":

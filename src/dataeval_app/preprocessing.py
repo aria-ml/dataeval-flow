@@ -3,6 +3,10 @@
 Provides configuration-driven preprocessing using torchvision.transforms.v2.
 Any v2 transform can be specified by name in YAML config.
 
+The returned callable accepts a numpy CHW array, converts to a torch tensor
+for torchvision transforms, then converts back to a numpy CHW array so that
+ONNX extractors receive the format they expect.
+
 Example YAML:
     preprocessing:
       - step: Resize
@@ -14,23 +18,21 @@ Example Python:
     >>> from dataeval_app.preprocessing import PreprocessingStep, build_preprocessing
     >>> steps = [PreprocessingStep(step="Resize", params={"size": 256})]
     >>> transform = build_preprocessing(steps)
-    >>> output = transform(input_tensor)
+    >>> output = transform(input_array)  # numpy CHW -> numpy CHW
 """
 
-import logging
-from typing import TYPE_CHECKING, Any
+__all__ = ["PreprocessingStep", "build_preprocessing"]
 
+
+import logging
+from collections.abc import Callable
+from typing import Any
+
+import numpy as np
+from numpy.typing import NDArray
 from pydantic import BaseModel, Field
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-# TYPE_CHECKING-only: importing torchvision at module level is heavy (~2 s);
-# it is imported lazily inside build_preprocessing() instead.  The quoted
-# return annotation keeps full type-checker coverage with no runtime cost.
-if TYPE_CHECKING:
-    from torchvision.transforms import v2
-
-__all__ = ["PreprocessingStep", "build_preprocessing"]
 
 
 class PreprocessingStep(BaseModel):
@@ -49,10 +51,14 @@ class PreprocessingStep(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
-def build_preprocessing(steps: list[PreprocessingStep]) -> "v2.Compose":
+def build_preprocessing(steps: list[PreprocessingStep]) -> Callable[[NDArray[Any]], NDArray[Any]]:
     """Build preprocessing pipeline from config.
 
-    Pass-through to torchvision.transforms.v2 - no custom preprocessing logic.
+    Builds a torchvision.transforms.v2 pipeline and wraps it so the returned
+    callable accepts a **numpy CHW array** and returns a **numpy CHW array**.
+    Internally the image is converted to a torch tensor for the v2 transforms,
+    then converted back to numpy afterwards.
+
     See: https://pytorch.org/vision/stable/transforms.html
 
     Parameters
@@ -62,8 +68,8 @@ def build_preprocessing(steps: list[PreprocessingStep]) -> "v2.Compose":
 
     Returns
     -------
-    v2.Compose
-        Composed transform pipeline.
+    Callable[[NDArray[Any]], NDArray[Any]]
+        Wrapped transform: numpy CHW in, numpy CHW out.
     """
     import torch
     from torchvision.transforms import InterpolationMode, v2
@@ -90,7 +96,7 @@ def build_preprocessing(steps: list[PreprocessingStep]) -> "v2.Compose":
 
     logger.debug("Building preprocessing pipeline: %s", [s.step for s in steps])
 
-    ops = []
+    ops: list[Any] = []
     for step in steps:
         params = dict(step.params)
 
@@ -105,4 +111,13 @@ def build_preprocessing(steps: list[PreprocessingStep]) -> "v2.Compose":
             raise ValueError(f"Unknown transform: '{step.step}'. Check torchvision.transforms.v2 docs.")
         ops.append(transform_cls(**params))
 
-    return v2.Compose(ops)
+    composed = v2.Compose(ops)
+
+    def _apply(image: NDArray[Any]) -> NDArray[Any]:
+        # numpy CHW -> torch tensor (zero-copy when possible)
+        tensor = torch.as_tensor(np.ascontiguousarray(image))
+        result = composed(tensor)
+        # torch tensor -> numpy CHW (detach in case any transform tracked grads)
+        return np.asarray(result.detach().cpu())
+
+    return _apply
