@@ -7,10 +7,13 @@ This module provides functions for loading datasets in HuggingFace format
 and converting them to MAITE-compatible objects for evaluation.
 """
 
+import logging
 from pathlib import Path
 from typing import TypeAlias
 
 from maite_datasets.adapters import HFImageClassificationDataset, HFObjectDetectionDataset
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 MaiteDataset: TypeAlias = HFImageClassificationDataset | HFObjectDetectionDataset
 
@@ -48,17 +51,17 @@ def load_dataset_huggingface(path: Path, split: str | None = None) -> MaiteDatas
 
     dataset = load_from_disk(str(path))
 
-    print(f"Loaded type: {type(dataset).__name__}")
+    logger.info("Loaded type: %s", type(dataset).__name__)
     # union-attr: load_from_disk returns Dataset | DatasetDict; .keys() only on DatasetDict.
     if hasattr(dataset, "keys") and callable(dataset.keys):  # type: ignore[union-attr]
         available_splits = list(dataset.keys())  # type: ignore[union-attr]
         if split is None or split not in available_splits:
             raise KeyError(f"Requested split '{split}' not found in dataset. Available splits: {available_splits}")
-        print(f"DatasetDict detected with {len(available_splits)} splits: {available_splits}")
-        print(f"Selecting split '{split}' as specified in config.")
+        logger.info("DatasetDict detected with %d splits: %s", len(available_splits), available_splits)
+        logger.info("Selecting split '%s' as specified in config.", split)
         dataset = dataset[split]
     else:
-        print("Dataset detected (single split)")
+        logger.info("Dataset detected (single split)")
 
     # load_from_disk returns Dataset | DatasetDict; after the dict guard above
     # it's a single Dataset, but pyright can't narrow through hasattr.

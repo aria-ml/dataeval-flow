@@ -1,8 +1,11 @@
 """Task orchestration — config → execution bridge."""
 
+import logging
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_app.config.models import WorkflowConfig
@@ -147,6 +150,8 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
     from dataeval_app.preprocessing import build_preprocessing
     from dataeval_app.workflow import DatasetContext, WorkflowContext, get_workflow
 
+    logger.info("Task '%s': starting (workflow=%s)", task.name, task.workflow)
+
     # 1. Normalize datasets to list
     dataset_names: list[str] = [task.datasets] if isinstance(task.datasets, str) else list(task.datasets)
 
@@ -200,6 +205,8 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
         metadata_continuous_factor_bins=task.metadata_continuous_factor_bins,
     )
 
+    logger.debug("Task '%s': resolved %d dataset(s): %s", task.name, len(dataset_names), dataset_names)
+
     # 5. Validate params against workflow's params_schema
     workflow = get_workflow(task.workflow)
     params = None
@@ -209,9 +216,11 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult":
     # 6. Run workflow with timing
     import time
 
+    logger.debug("Task '%s': executing workflow", task.name)
     start = time.monotonic()
     result = workflow.execute(context, params)
     elapsed = time.monotonic() - start
+    logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Populate metadata envelope (JATIC fields + timing)
     from dataeval_app import __version__

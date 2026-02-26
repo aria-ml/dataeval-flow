@@ -19,6 +19,7 @@ DEFAULT_CONFIG_FOLDER = Path("/data/config")
 def load_config(config_path: Path | None = None) -> WorkflowConfig:
     """Load unified workflow configuration from a single YAML file."""
     path = config_path or DEFAULT_PARAMS_PATH
+    logger.debug("Loading config from %s", path)
 
     if not path.exists():
         msg = f"Config file not found: {path}"
@@ -35,6 +36,7 @@ def load_config_folder(config_path: Path | None = None) -> WorkflowConfig:
     from dataeval_app.config._merge import merge_yaml_folder
 
     path = config_path or DEFAULT_CONFIG_FOLDER
+    logger.debug("Loading config folder %s", path)
     merged = merge_yaml_folder(path)
     return WorkflowConfig.model_validate(merged)
 

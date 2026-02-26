@@ -74,19 +74,19 @@ class TestDatasetModule:
 class TestMainModule:
     """Test the __main__.py CLI module."""
 
-    def test_parse_args_no_args(self) -> None:
-        """Test parsing with no arguments succeeds (config defaults to None)."""
+    def test_parse_args_no_output_exits_error(self) -> None:
+        """--output is required; omitting it causes argparse to exit with error."""
         from dataeval_app.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app"]):
-            args = parse_args()
-            assert args.config is None
+        with patch("sys.argv", ["dataeval_app"]), pytest.raises(SystemExit) as exc_info:
+            parse_args()
+        assert exc_info.value.code == 2
 
     def test_parse_args_with_config(self) -> None:
         """Test parsing with --config flag."""
         from dataeval_app.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app", "--config", "/my/config"]):
+        with patch("sys.argv", ["dataeval_app", "--config", "/my/config", "--output", "/my/output"]):
             args = parse_args()
             assert args.config == Path("/my/config")
 
@@ -95,7 +95,7 @@ class TestMainModule:
         from dataeval_app.__main__ import main
 
         with (
-            patch("sys.argv", ["dataeval_app"]),
+            patch("sys.argv", ["dataeval_app", "--output", "/fake/output"]),
             patch("dataeval_app.__main__._run_tasks"),
         ):
             main()
@@ -105,7 +105,7 @@ class TestMainModule:
         from dataeval_app.__main__ import main
 
         with (
-            patch("sys.argv", ["dataeval_app"]),
+            patch("sys.argv", ["dataeval_app", "--output", "/fake/output"]),
             patch("dataeval_app.__main__._run_tasks", side_effect=FileNotFoundError("Not found")),
         ):
             with pytest.raises(SystemExit) as exc_info:

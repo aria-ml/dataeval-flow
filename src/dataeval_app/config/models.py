@@ -91,11 +91,21 @@ class ModelConfig(BaseModel):
     extractor: ExtractorConfig = Field(description="Extractor configuration")
 
 
+class LoggingConfig(BaseModel):
+    """Logging level configuration."""
+
+    app_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "DEBUG"
+    lib_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
+
+
 class WorkflowConfig(BaseModel):
     """Unified workflow configuration.
 
     One optional field per registered workflow.
     """
+
+    # Logging
+    logging: LoggingConfig | None = None
 
     # Workflow-specific params (one field per workflow)
     data_cleaning: DataCleaningParameters | None = None

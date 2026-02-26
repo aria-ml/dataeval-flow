@@ -1,5 +1,6 @@
 """Data Cleaning Workflow — orchestration + processor + factory helpers."""
 
+import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal, Protocol
 
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
     from dataeval_app.dataset import MaiteDataset
 
 __all__ = ["DataCleaningWorkflow"]
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -418,18 +421,22 @@ class DataCleaningWorkflow:
             # 1. Apply selection if configured
             dataset = dc.dataset
             if dc.selection_steps:
+                logger.info("Applying selection (%d steps)", len(dc.selection_steps))
                 dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
 
             # 2. Build embeddings if extractor configured
             embeddings = None
             if dc.extractor:
+                logger.info("Building embeddings")
                 embeddings = build_embeddings(
                     dataset,  # type: ignore[arg-type]
                     extractor_config=dc.extractor,
                     transforms=dc.transforms,
                 )
+                logger.info("Embeddings complete")
 
             # 3. Build metadata for label stats
+            logger.info("Building metadata")
             metadata = build_metadata(
                 dataset,  # type: ignore[arg-type]
                 auto_bin_method=context.metadata_auto_bin_method,
@@ -438,7 +445,14 @@ class DataCleaningWorkflow:
             )
 
             # 4. Run cleaning evaluators
+            logger.info("Running outlier and duplicate detection on %d items", len(dataset))
             raw = _run_cleaning(dataset, params, embeddings, metadata)  # type: ignore[arg-type]
+            logger.info(
+                "Detection complete: %d outliers, %d exact dup groups, %d near dup groups",
+                raw.img_outliers.get("count", 0),
+                len(raw.duplicates.get("items", {}).get("exact", [])),
+                len(raw.duplicates.get("items", {}).get("near", [])),
+            )
 
             # 5. Generate findings from raw results
             findings = _build_findings(raw, metadata)
@@ -482,7 +496,8 @@ class DataCleaningWorkflow:
                 data=DataCleaningOutputs(raw=raw, report=report),
                 metadata=result_metadata,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
+            logger.exception("Workflow '%s' failed", self.name)
             return WorkflowResult(
                 name=self.name,
                 success=False,
