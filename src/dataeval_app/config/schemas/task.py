@@ -23,7 +23,17 @@ class TaskConfig(BaseModel):
     # Metadata configuration — applied uniformly across all datasets in this task
     metadata_auto_bin_method: AutoBinMethod | None = None
     metadata_exclude: list[str] = Field(default_factory=list)
-    metadata_continuous_factor_bins: dict[str, list[float]] | None = None
+    metadata_continuous_factor_bins: dict[str, int | list[float]] | None = None
+    # Cache configuration - for caching expensive computations (embeddings, metadata stats) to disk across runs
+    cache_dir: str | None = Field(
+        default=None,
+        description=(
+            "Directory for disk-backed computation cache. "
+            "When set, expensive computations (embeddings, metadata, hash stats) "
+            "are cached to disk and reused across runs. "
+            "In containers, point to a mounted volume (e.g. /cache)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _require_batch_size_with_model(self) -> "TaskConfig":

@@ -235,6 +235,8 @@ class TestContainerMountPaths:
         for name, path in CONTAINER_MOUNTS.items():
             if name == "output":
                 assert path == Path("/output")
+            elif name == "cache":
+                assert path == Path("/cache")
             else:
                 assert str(path).startswith("/data/"), f"{name} should be under /data/"
 
@@ -286,10 +288,11 @@ class TestConfigMergeBehavior:
 class TestEndToEndCleaningWorkflow:
     """Full pipeline: config YAML → run_task() → dataset → evaluators → output files.
 
-    Mocks only at external boundaries (5 mocks):
+    Mocks only at external boundaries (6 mocks):
       - datasets.load_from_disk          (HuggingFace I/O)
       - maite_datasets.adapters.from_huggingface  (MAITE conversion)
       - dataeval.Metadata                 (metadata extraction)
+      - cache.get_or_compute_stats        (stats computation)
       - dataeval.quality.Outliers         (outlier evaluator)
       - dataeval.quality.Duplicates       (duplicate evaluator)
 
@@ -303,9 +306,9 @@ class TestEndToEndCleaningWorkflow:
       dataset.py            load_dataset, load_dataset_huggingface (split select)
       metadata.py           build_metadata
       workflows/cleaning/   DataCleaningWorkflow.execute, _run_cleaning,
-                            _build_outliers, _build_duplicates,
-                            _serialize_outlier_issues, _serialize_duplicates,
-                            _compute_label_stats, _build_findings
+                            _build_duplicates, _serialize_outlier_issues,
+                            _serialize_duplicates, _compute_label_stats,
+                            _build_findings
       config/schemas/metadata  ResultMetadata
 
     Asserts (26 checks):
@@ -319,6 +322,7 @@ class TestEndToEndCleaningWorkflow:
 
     @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
     @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_app.cache.get_or_compute_stats")
     @patch("dataeval_app.metadata.Metadata")
     @patch("maite_datasets.adapters.from_huggingface")
     @patch("datasets.load_from_disk")
@@ -327,6 +331,7 @@ class TestEndToEndCleaningWorkflow:
         mock_load_from_disk: MagicMock,
         mock_from_huggingface: MagicMock,
         mock_metadata_cls: MagicMock,
+        mock_get_stats: MagicMock,
         mock_outliers_cls: MagicMock,
         mock_duplicates_cls: MagicMock,
         tmp_path: Path,
@@ -385,7 +390,16 @@ class TestEndToEndCleaningWorkflow:
         mock_metadata.item_count = 10
         mock_metadata_cls.return_value = mock_metadata
 
-        # 4d. Outliers mock — produces Polars DataFrame matching OutliersOutput.issues
+        # 4d. Stats mock — centralized stats computation
+        mock_get_stats.return_value = {
+            "stats": {},
+            "source_index": [],
+            "object_count": [],
+            "invalid_box_count": [],
+            "image_count": 0,
+        }
+
+        # 4e. Outliers mock — from_stats() returns Polars DataFrame matching OutliersOutput.issues
         outlier_issues_df = pl.DataFrame(
             {
                 "item_id": [2, 7],
@@ -396,10 +410,10 @@ class TestEndToEndCleaningWorkflow:
         mock_outliers_result = MagicMock()
         mock_outliers_result.issues = outlier_issues_df
         mock_outliers_instance = MagicMock()
-        mock_outliers_instance.evaluate.return_value = mock_outliers_result
+        mock_outliers_instance.from_stats.return_value = mock_outliers_result
         mock_outliers_cls.return_value = mock_outliers_instance
 
-        # 4e. Duplicates mock — produces DuplicatesOutput-like structure
+        # 4f. Duplicates mock — from_stats() returns DuplicatesOutput-like structure
         mock_dup_items = MagicMock()
         mock_dup_items.exact = [[0, 5]]  # one exact duplicate group
         mock_near_group = MagicMock()
@@ -416,7 +430,7 @@ class TestEndToEndCleaningWorkflow:
         mock_dup_result.items = mock_dup_items
         mock_dup_result.targets = mock_dup_targets
         mock_dup_instance = MagicMock()
-        mock_dup_instance.evaluate.return_value = mock_dup_result
+        mock_dup_instance.from_stats.return_value = mock_dup_result
         mock_duplicates_cls.return_value = mock_dup_instance
 
         # ── 5. Load config and run task ───────────────────────────────
@@ -486,5 +500,6 @@ class TestEndToEndCleaningWorkflow:
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_from_disk.assert_called_once()
         mock_from_huggingface.assert_called_once()
-        mock_outliers_instance.evaluate.assert_called_once()
-        mock_dup_instance.evaluate.assert_called_once()
+        mock_get_stats.assert_called_once()
+        mock_outliers_instance.from_stats.assert_called_once()
+        mock_dup_instance.from_stats.assert_called_once()
