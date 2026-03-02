@@ -200,12 +200,23 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
         )
 
     # 4. Build WorkflowContext (metadata config is task-wide, not per-dataset)
+    cache = None
+    if task.cache_dir:
+        from dataeval_app.cache import WorkflowCache
+
+        cache_path = Path(task.cache_dir)
+        print(f"[run_task] Cache enabled: {cache_path}")
+        # Use a joined name so multi-dataset tasks get a unique cache dir
+        ds_id = dataset_names[0] if len(dataset_names) == 1 else "_".join(sorted(dataset_names))
+        cache = WorkflowCache(cache_dir=cache_path, dataset_name=ds_id)
+
     context = WorkflowContext(
         dataset_contexts=dataset_contexts,
         metadata_auto_bin_method=task.metadata_auto_bin_method,
         metadata_exclude=task.metadata_exclude or [],
         metadata_continuous_factor_bins=task.metadata_continuous_factor_bins,
         batch_size=task.batch_size,
+        cache=cache,
     )
 
     logger.debug("Task '%s': resolved %d dataset(s): %s", task.name, len(dataset_names), dataset_names)

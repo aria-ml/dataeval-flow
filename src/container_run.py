@@ -7,8 +7,9 @@ It knows about container mount points and maps them to library parameters.
 The container expects these mount points:
 - /data/config: Config files (required)
 - /data/dataset: Input dataset (required)
-- /data/model: Model files (optional)
 - /output: Results directory (required)
+- /data/model: Model files (optional)
+- /cache: Computation cache (optional)
 """
 
 import logging
@@ -26,6 +27,7 @@ CONTAINER_MOUNTS = {
     "dataset": Path("/data/dataset"),
     "model": Path("/data/model"),
     "output": Path("/output"),
+    "cache": Path("/cache"),
 }
 
 

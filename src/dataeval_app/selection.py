@@ -1,20 +1,20 @@
 """Selection convenience builder wrapping DataEval."""
 
-from typing import TYPE_CHECKING
+__all__ = ["build_selection"]
+
+from typing import TYPE_CHECKING, TypeVar
 
 import dataeval.selection as sel
+from dataeval.protocols import AnnotatedDataset
 from dataeval.selection import Select
 
 if TYPE_CHECKING:
     from dataeval_app.config.schemas.selection import SelectionStep
-    from dataeval_app.dataset import MaiteDataset
 
-__all__ = [
-    "build_selection",
-]
+T = TypeVar("T")
 
 
-def build_selection(dataset: "MaiteDataset", steps: list["SelectionStep"]) -> "Select[MaiteDataset]":
+def build_selection(dataset: AnnotatedDataset[T], steps: list["SelectionStep"]) -> Select[T]:
     """Build selection pipeline from config.
 
     Pass-through to dataeval.selection - no custom logic.
@@ -47,6 +47,4 @@ def build_selection(dataset: "MaiteDataset", steps: list["SelectionStep"]) -> "S
             raise ValueError(f"Unknown selection type: '{step.type}'. Check dataeval.selection docs.")
         selections.append(selection_cls(**step.params))
 
-    # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
-    # pyright can't verify cross-library structural conformance.
-    return Select(dataset, selections=selections)  # type: ignore[arg-type]
+    return Select(dataset, selections=selections)

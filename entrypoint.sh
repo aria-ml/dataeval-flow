@@ -31,11 +31,11 @@ VOLUME MOUNTS
 REQUIRED:
   /data/config     YAML config files (read-only)
   /data/dataset    Reference dataset (read-only)
-
   /output          Results and output files (read-write)
 
 OPTIONAL:
   /data/model      Model files (read-only)
+  /cache           Computation cache (read-write)
 
 --------------------------------------------------------------------------------
 MOUNT SYNTAX
@@ -64,6 +64,7 @@ All mounts (with model):
         --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
         --mount type=bind,source=/home/user/models,target=/data/model,readonly \
         --mount type=bind,source=/home/user/results,target=/output \
+        --mount type=bind,source=/home/user/cache,target=/cache \
         dataeval:gpu
 
 Windows PowerShell:
@@ -191,6 +192,15 @@ fi
 if [[ ! -w "/output" ]]; then
     echo ""
     echo "ERROR: Output mount at /output is not writable"
+    echo ""
+    echo "Check directory permissions on host."
+    exit 1
+fi
+
+# /cache - Computation cache (optional, check writability if mounted)
+if [[ -d "/cache" ]] && [[ ! -w "/cache" ]]; then
+    echo ""
+    echo "ERROR: Cache mount at /cache is not writable"
     echo ""
     echo "Check directory permissions on host."
     exit 1

@@ -1,26 +1,26 @@
 """Embeddings convenience builder wrapping DataEval."""
 
-import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING
-
-from dataeval import Embeddings
-from dataeval.extractors import BoVWExtractor, FlattenExtractor, OnnxExtractor
-
-logger: logging.Logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from dataeval_app.config.models import ExtractorConfig
-    from dataeval_app.dataset import MaiteDataset
-
 __all__ = [
     "build_embeddings",
     "build_extractor",
 ]
 
+import logging
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from dataeval import Embeddings
+from dataeval.extractors import BoVWExtractor, FlattenExtractor, OnnxExtractor
+from dataeval.protocols import AnnotatedDataset
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from dataeval_app.config.models import ExtractorConfig
+
 
 def build_embeddings(
-    dataset: "MaiteDataset",
+    dataset: AnnotatedDataset[Any],
     extractor_config: "ExtractorConfig",
     transforms: Callable | None = None,
     batch_size: int | None = None,
@@ -46,10 +46,8 @@ def build_embeddings(
         DataEval Embeddings instance (implements FeatureExtractor).
     """
 
-    # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
-    # pyright can't verify cross-library structural conformance.
     extractor = build_extractor(extractor_config, transforms)
-    return Embeddings(dataset, extractor=extractor, batch_size=batch_size)  # type: ignore[arg-type]
+    return Embeddings(dataset, extractor=extractor, batch_size=batch_size)
 
 
 def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | None = None) -> Callable:

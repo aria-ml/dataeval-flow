@@ -1,46 +1,42 @@
 """Metadata convenience builder wrapping DataEval."""
 
-from typing import TYPE_CHECKING
+__all__ = ["build_metadata"]
+
+from typing import TYPE_CHECKING, Any
 
 from dataeval import Metadata
+from dataeval.protocols import AnnotatedDataset
 
 if TYPE_CHECKING:
     from dataeval_app.config.schemas.task import AutoBinMethod
-    from dataeval_app.dataset import MaiteDataset
-
-__all__ = [
-    "build_metadata",
-]
 
 
 def build_metadata(
-    dataset: "MaiteDataset",
+    dataset: AnnotatedDataset[Any],
     auto_bin_method: "AutoBinMethod | None" = None,
     exclude: list[str] | None = None,
-    continuous_factor_bins: dict[str, list[float]] | None = None,
+    continuous_factor_bins: dict[str, int | list[float]] | None = None,
 ) -> Metadata:
     """Build Metadata from dataset and config.
 
     Parameters
     ----------
-    dataset : MaiteDataset
+    dataset : AnnotatedDataset
         Input dataset.
     auto_bin_method : AutoBinMethod | None
         Method for automatic binning of continuous values.
     exclude : list[str] | None
         Metadata columns to exclude.
-    continuous_factor_bins : dict[str, list[float]] | None
-        Manual bin edges for specific continuous factors.
+    continuous_factor_bins : dict[str, int | list[float]] | None
+        Number of uniform bins (int) or explicit bin edges (list[float])
+        for specific continuous factors.
 
     Returns
     -------
     Metadata
         DataEval Metadata instance.
     """
-    # Build kwargs dict, omitting None values so DataEval uses its own defaults.
-    # MaiteDataset conforms to DataEval's dataset protocol at runtime but
-    # pyright can't verify cross-library structural conformance.
-    kwargs: dict[str, object] = {}
+    kwargs = {}
     if auto_bin_method is not None:
         kwargs["auto_bin_method"] = auto_bin_method
     if exclude is not None:
@@ -48,4 +44,4 @@ def build_metadata(
     if continuous_factor_bins is not None:
         kwargs["continuous_factor_bins"] = continuous_factor_bins
 
-    return Metadata(dataset, **kwargs)  # type: ignore[arg-type]
+    return Metadata(dataset, **kwargs)

@@ -29,6 +29,7 @@ from dataeval_app.workflows.cleaning.workflow import (
     _serialize_duplicates,
     _serialize_index,
     _serialize_outlier_issues,
+    _validate_cluster_params,
 )
 
 
@@ -654,29 +655,59 @@ class TestDataCleaningWorkflowExecute:
 # ---------------------------------------------------------------------------
 
 
+class TestValidateClusterParams:
+    def test_outlier_cluster_without_extractor_raises(self):
+        params = _make_params(outlier_cluster_threshold=2.5)
+        with pytest.raises(ValueError, match="Cluster-based outlier detection requires an extractor"):
+            _validate_cluster_params(params, extractor=None)
+
+    def test_duplicate_cluster_without_extractor_raises(self):
+        params = _make_params(duplicate_cluster_threshold=2.5)
+        with pytest.raises(ValueError, match="Cluster-based duplicate detection requires an extractor"):
+            _validate_cluster_params(params, extractor=None)
+
+    def test_no_cluster_params_ok(self):
+        params = _make_params()
+        _validate_cluster_params(params, extractor=None)  # should not raise
+
+    def test_cluster_with_extractor_ok(self):
+        params = _make_params(outlier_cluster_threshold=2.5)
+        _validate_cluster_params(params, extractor=MagicMock())  # should not raise
+
+
 class TestRunCleaning:
-    @patch("dataeval_app.workflows.cleaning.workflow._build_duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow._build_outliers")
-    def test_run_cleaning_basic(self, mock_build_out: MagicMock, mock_build_dup: MagicMock):
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_app.cache.get_or_compute_stats")
+    def test_run_cleaning_basic(self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock):
         from dataeval_app.workflows.cleaning.workflow import _run_cleaning
 
         params = _make_params()
 
-        # Mock Outliers evaluator
+        # Mock centralized stats
+        mock_get_stats.return_value = {
+            "stats": {},
+            "source_index": [],
+            "object_count": [],
+            "invalid_box_count": [],
+            "image_count": 0,
+        }
+
+        # Mock Outliers.from_stats
         mock_outliers = MagicMock()
         issues_df = pl.DataFrame({"item_id": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
-        mock_outliers.evaluate.return_value = MagicMock(issues=issues_df)
-        mock_build_out.return_value = mock_outliers
+        mock_outliers.from_stats.return_value = MagicMock(issues=issues_df)
+        mock_outliers_cls.return_value = mock_outliers
 
-        # Mock Duplicates evaluator
+        # Mock Duplicates.from_stats
         mock_dups = MagicMock()
         mock_dup_result = MagicMock()
         mock_dup_result.items.exact = None
         mock_dup_result.items.near = None
         mock_dup_result.targets.exact = None
         mock_dup_result.targets.near = None
-        mock_dups.evaluate.return_value = mock_dup_result
-        mock_build_dup.return_value = mock_dups
+        mock_dups.from_stats.return_value = mock_dup_result
+        mock_dup_cls.return_value = mock_dups
 
         mock_dataset = MagicMock()
         mock_dataset.__len__ = MagicMock(return_value=100)
@@ -684,13 +715,25 @@ class TestRunCleaning:
         raw = _run_cleaning(mock_dataset, params)
         assert raw.dataset_size == 100
         assert raw.img_outliers["count"] == 1
+        mock_get_stats.assert_called_once()
 
-    @patch("dataeval_app.workflows.cleaning.workflow._build_duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow._build_outliers")
-    def test_run_cleaning_with_target_id(self, mock_build_out: MagicMock, mock_build_dup: MagicMock):
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_app.cache.get_or_compute_stats")
+    def test_run_cleaning_with_target_id(
+        self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock
+    ):
         from dataeval_app.workflows.cleaning.workflow import _run_cleaning
 
         params = _make_params(outlier_method="iqr", outlier_flags=["dimension"])
+
+        mock_get_stats.return_value = {
+            "stats": {},
+            "source_index": [],
+            "object_count": [],
+            "invalid_box_count": [],
+            "image_count": 0,
+        }
 
         # Issues DF with target_id column (OD dataset)
         issues_df = pl.DataFrame(
@@ -702,8 +745,8 @@ class TestRunCleaning:
             }
         )
         mock_outliers = MagicMock()
-        mock_outliers.evaluate.return_value = MagicMock(issues=issues_df)
-        mock_build_out.return_value = mock_outliers
+        mock_outliers.from_stats.return_value = MagicMock(issues=issues_df)
+        mock_outliers_cls.return_value = mock_outliers
 
         mock_dups = MagicMock()
         mock_dup_result = MagicMock()
@@ -711,8 +754,8 @@ class TestRunCleaning:
         mock_dup_result.items.near = None
         mock_dup_result.targets.exact = None
         mock_dup_result.targets.near = None
-        mock_dups.evaluate.return_value = mock_dup_result
-        mock_build_dup.return_value = mock_dups
+        mock_dups.from_stats.return_value = mock_dup_result
+        mock_dup_cls.return_value = mock_dups
 
         mock_dataset = MagicMock()
         mock_dataset.__len__ = MagicMock(return_value=50)
@@ -725,29 +768,40 @@ class TestRunCleaning:
         assert raw.target_outliers is not None
         assert raw.target_outliers["count"] == 1
 
-    @patch("dataeval_app.workflows.cleaning.workflow._build_duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow._build_outliers")
-    def test_run_cleaning_with_metadata(self, mock_build_out: MagicMock, mock_build_dup: MagicMock):
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_app.cache.get_or_compute_stats")
+    def test_run_cleaning_with_metadata(
+        self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock
+    ):
         """_run_cleaning computes label_stats when metadata is provided."""
         from dataeval_app.workflows.cleaning.workflow import _run_cleaning
 
         params = _make_params()
 
-        # Mock Outliers evaluator
+        mock_get_stats.return_value = {
+            "stats": {},
+            "source_index": [],
+            "object_count": [],
+            "invalid_box_count": [],
+            "image_count": 0,
+        }
+
+        # Mock Outliers.from_stats
         mock_outliers = MagicMock()
         issues_df = pl.DataFrame({"item_id": [], "metric_name": [], "metric_value": []})
-        mock_outliers.evaluate.return_value = MagicMock(issues=issues_df)
-        mock_build_out.return_value = mock_outliers
+        mock_outliers.from_stats.return_value = MagicMock(issues=issues_df)
+        mock_outliers_cls.return_value = mock_outliers
 
-        # Mock Duplicates evaluator
+        # Mock Duplicates.from_stats
         mock_dups = MagicMock()
         mock_dup_result = MagicMock()
         mock_dup_result.items.exact = None
         mock_dup_result.items.near = None
         mock_dup_result.targets.exact = None
         mock_dup_result.targets.near = None
-        mock_dups.evaluate.return_value = mock_dup_result
-        mock_build_dup.return_value = mock_dups
+        mock_dups.from_stats.return_value = mock_dup_result
+        mock_dup_cls.return_value = mock_dups
 
         mock_dataset = MagicMock()
         mock_dataset.__len__ = MagicMock(return_value=10)

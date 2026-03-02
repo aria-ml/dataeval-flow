@@ -4,13 +4,16 @@ __all__ = ["DataCleaningWorkflow"]
 
 import logging
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import Any, Literal, Protocol
 
+import polars as pl
 from dataeval import Metadata
 from dataeval.flags import ImageStats
-from dataeval.quality import Duplicates, Outliers
+from dataeval.protocols import AnnotatedDataset
+from dataeval.quality import Duplicates, DuplicatesOutput, Outliers
 from pydantic import BaseModel
 
+from dataeval_app.cache import WorkflowCache, get_or_compute_metadata
 from dataeval_app.embeddings import build_extractor
 from dataeval_app.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_app.workflow.base import Reportable
@@ -27,12 +30,6 @@ from dataeval_app.workflows.cleaning.outputs import (
     SourceIndexDict,
 )
 from dataeval_app.workflows.cleaning.params import DataCleaningParameters
-
-if TYPE_CHECKING:
-    import polars as pl
-    from dataeval.quality import DuplicatesOutput
-
-    from dataeval_app.dataset import MaiteDataset
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -340,35 +337,171 @@ def _collect_flagged_indices(raw: DataCleaningRawOutputs) -> set[int]:
 # ---------------------------------------------------------------------------
 
 
-def _run_cleaning(
-    dataset: "MaiteDataset",
-    params: DataCleaningParameters,
-    extractor: Callable | None = None,
-    metadata: Metadata | None = None,
-) -> DataCleaningRawOutputs:
-    """Run outlier + duplicate detection on dataset."""
-    outliers = _build_outliers(params, extractor=extractor)
-    duplicates = _build_duplicates(params, extractor=extractor)
+def _resolve_flags(params: DataCleaningParameters) -> tuple[ImageStats, ImageStats]:
+    """Resolve outlier and hash flags from cleaning parameters."""
+    outlier_flags = ImageStats.NONE
+    for name in params.outlier_flags:
+        outlier_flags |= FLAG_MAP[name]
 
-    # MaiteDataset conforms to DataEval's dataset protocol at runtime (duck typing);
-    # pyright can't verify cross-library structural conformance.
-    outliers_result = outliers.evaluate(dataset, per_image=True, per_target=True)  # type: ignore[arg-type]
+    hash_flags = ImageStats.NONE
+    if params.duplicate_flags is not None:
+        for name in params.duplicate_flags:
+            hash_flags |= HASH_FLAG_MAP[name]
+    else:
+        # DataEval default when no flags are specified
+        hash_flags = ImageStats.HASH_DUPLICATES_BASIC
 
-    # Split image vs target outliers from the issues DataFrame.
-    # Note: target_id column is omitted when all outliers are image-level
-    # (e.g. classification datasets with no bounding boxes).
-    issues_df = outliers_result.issues
+    return outlier_flags, hash_flags
+
+
+def _split_outlier_issues(
+    issues_df: "pl.DataFrame",
+) -> tuple["pl.DataFrame", "pl.DataFrame | None"]:
+    """Split outlier issues into image-level and target-level DataFrames."""
     if "target_id" in issues_df.columns:
         img_issues = issues_df.filter(issues_df["target_id"].is_null())
         target_issues = issues_df.filter(issues_df["target_id"].is_not_null())
     else:
         img_issues = issues_df
         target_issues = None
+    return img_issues, target_issues
 
-    duplicates_result = duplicates.evaluate(dataset)  # type: ignore[arg-type]  # same reason as above
 
-    # Compute label stats from Metadata (if available)
-    # Empty dict is valid at runtime; LabelStatsDict uses total=False so all keys are optional.
+def _validate_cluster_params(params: DataCleaningParameters, extractor: Callable | None) -> None:
+    """Validate that cluster-based detection params have an accompanying extractor."""
+    has_outlier_cluster = (
+        params.outlier_cluster_threshold is not None
+        or params.outlier_cluster_algorithm is not None
+        or params.outlier_n_clusters is not None
+    )
+    if has_outlier_cluster and extractor is None:
+        raise ValueError(
+            "Cluster-based outlier detection requires an extractor. "
+            "Configure a model/extractor or remove cluster params."
+        )
+
+    has_dup_cluster = (
+        params.duplicate_cluster_threshold is not None
+        or params.duplicate_cluster_algorithm is not None
+        or params.duplicate_n_clusters is not None
+    )
+    if has_dup_cluster and extractor is None:
+        raise ValueError(
+            "Cluster-based duplicate detection requires an extractor. "
+            "Configure a model/extractor or remove cluster params."
+        )
+
+
+def _run_cleaning(
+    dataset: AnnotatedDataset[Any],
+    params: DataCleaningParameters,
+    extractor: Callable | None = None,
+    metadata: Metadata | None = None,
+    cache: "WorkflowCache | None" = None,
+    sel_key: str | None = None,
+    extractor_config: Any = None,
+    transforms: Callable | None = None,
+    batch_size: int | None = None,
+) -> DataCleaningRawOutputs:
+    """Run outlier + duplicate detection on dataset.
+
+    Stats are obtained via :func:`~dataeval_app.cache.get_or_compute_stats`,
+    which transparently handles disk caching when *cache* and *sel_key* are
+    provided.  Evaluators consume pre-computed stats via ``from_stats()``;
+    cluster-based detection (when an extractor is configured) is handled
+    separately via ``from_clusters()`` / ``evaluate()``.
+    """
+    import polars as pl
+    from dataeval.quality import OutliersOutput
+
+    from dataeval_app.cache import get_or_compute_stats
+
+    _validate_cluster_params(params, extractor)
+
+    outlier_flags, hash_flags = _resolve_flags(params)
+
+    # --- Centralized stats: cache-aware load / compute / save ---
+    calc_result = get_or_compute_stats(
+        desired_flags=outlier_flags | hash_flags,
+        dataset=dataset,
+        cache=cache,
+        selection_key=sel_key,
+    )
+
+    # --- Outlier detection via from_stats() ---
+    outliers_eval = Outliers(
+        flags=outlier_flags,
+        outlier_threshold=(params.outlier_method, params.outlier_threshold),
+    )
+    outlier_output = outliers_eval.from_stats(calc_result)  # type: ignore[arg-type]
+
+    # Cluster-based outlier detection (separate path, uses embeddings)
+    has_outlier_cluster = extractor is not None and params.outlier_cluster_threshold is not None
+    if has_outlier_cluster:
+        from dataeval.core._clusterer import cluster
+
+        if extractor_config is not None:
+            from dataeval_app.cache import get_or_compute_embeddings
+
+            embeddings_array = get_or_compute_embeddings(
+                dataset,
+                extractor_config,
+                transforms,
+                batch_size,
+                cache=cache,
+                selection_key=sel_key,
+            )
+        else:
+            from dataeval.utils.arrays import flatten_samples, to_numpy
+
+            images = [item[0] if isinstance(item, tuple) else item for item in dataset]
+            embeddings = extractor(images)  # type: ignore[misc]
+            embeddings_array = flatten_samples(to_numpy(embeddings))
+
+        cluster_result = cluster(
+            embeddings_array,
+            algorithm=params.outlier_cluster_algorithm or "hdbscan",
+            n_clusters=params.outlier_n_clusters,
+        )
+        cluster_outlier_output = outliers_eval.from_clusters(
+            embeddings_array,
+            cluster_result,
+            cluster_threshold=params.outlier_cluster_threshold,
+        )
+
+        # Merge stats-based + cluster-based issues via concat
+        # Normalize column order to match DataEval's evaluate() behavior
+        column_order = ["item_id", "target_id", "metric_name", "metric_value"]
+        stats_issues = outlier_output.issues
+        cluster_issues = cluster_outlier_output.issues
+        dfs: list[pl.DataFrame] = []
+        for df in [stats_issues, cluster_issues]:
+            if "target_id" not in df.columns:
+                df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("target_id"))
+            dfs.append(df.select(column_order))
+        merged_issues = pl.concat(dfs).sort(["item_id", "metric_name"])
+        if merged_issues["target_id"].null_count() == len(merged_issues):
+            merged_issues = merged_issues.drop("target_id")
+        outlier_output = OutliersOutput(merged_issues)
+
+    img_issues, target_issues = _split_outlier_issues(outlier_output.issues)
+
+    # --- Duplicate detection ---
+    has_dup_cluster = extractor is not None and params.duplicate_cluster_threshold is not None
+    if has_dup_cluster:
+        # Fall back to evaluate() when cluster detection is configured, because
+        # the merge logic (_merge_item_results) is private in DataEval.
+        duplicates_full = _build_duplicates(params, extractor=extractor)
+        duplicates_result = duplicates_full.evaluate(dataset)  # type: ignore[arg-type]
+    else:
+        # Pure hash-based: use from_stats()
+        dup_kwargs: dict[str, object] = {"merge_near_duplicates": params.duplicate_merge_near}
+        if params.duplicate_flags is not None:
+            dup_kwargs["flags"] = hash_flags
+        duplicates_eval = Duplicates(**dup_kwargs)  # type: ignore[arg-type]
+        duplicates_result = duplicates_eval.from_stats(calc_result)  # type: ignore[arg-type]
+
+    # Label stats
     label_stats: LabelStatsDict = _compute_label_stats(metadata) if metadata else {}  # type: ignore[assignment]
 
     return DataCleaningRawOutputs(
@@ -416,7 +549,6 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
         params: BaseModel | None = None,
     ) -> WorkflowResult[DataCleaningMetadata]:
         """Run data cleaning workflow on dataset."""
-        from dataeval_app.metadata import build_metadata
         from dataeval_app.selection import build_selection
 
         if not isinstance(context, WorkflowContext):
@@ -447,6 +579,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
             # All arg-type suppressions in this block: MaiteDataset (and Select wrapper)
             # conforms to DataEval's dataset protocol at runtime via duck typing;
             # pyright can't verify cross-library structural conformance.
+            from dataeval_app.cache import selection_repr as _sel_repr
 
             # Resolve the single dataset context (cleaning is single-dataset)
             dc = next(iter(context.dataset_contexts.values()))
@@ -456,6 +589,9 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
             if dc.selection_steps:
                 logger.info("Applying selection (%d steps)", len(dc.selection_steps))
                 dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
+
+            # Compute selection key (shared by metadata + stats caching)
+            sel_key = _sel_repr(dataset)
 
             # 2. Build extractor if configured
             extractor = None
@@ -467,18 +603,29 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
                 )
                 logger.info("Extractor complete")
 
-            # 3. Build metadata for label stats
-            logger.info("Building metadata")
-            metadata = build_metadata(
-                dataset,  # type: ignore[arg-type]
+            # 3. Build metadata for label stats (with cache)
+            metadata = get_or_compute_metadata(
+                dataset,
                 auto_bin_method=context.metadata_auto_bin_method,
                 exclude=context.metadata_exclude or None,
                 continuous_factor_bins=context.metadata_continuous_factor_bins,
+                cache=context.cache,
+                selection_key=sel_key,
             )
 
-            # 4. Run cleaning evaluators
+            # 4. Run cleaning evaluators (cache-aware when cache is configured)
             logger.info("Running outlier and duplicate detection on %d items", len(dataset))
-            raw = _run_cleaning(dataset, params, extractor, metadata)  # type: ignore[arg-type]
+            raw = _run_cleaning(
+                dataset,
+                params,
+                extractor,
+                metadata,  # type: ignore[arg-type]
+                cache=context.cache,
+                sel_key=sel_key,
+                extractor_config=dc.extractor,
+                transforms=dc.transforms,
+                batch_size=dc.batch_size,
+            )
             logger.info(
                 "Detection complete: %d outliers, %d exact dup groups, %d near dup groups",
                 raw.img_outliers.get("count", 0),

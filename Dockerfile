@@ -43,9 +43,9 @@ RUN chmod +x entrypoint.sh
 RUN useradd --create-home --shell /bin/bash dataeval
 
 # Create mount points with correct ownership
-RUN mkdir -p /data/config /data/dataset /data/model /output \
+RUN mkdir -p /data/config /data/dataset /data/model /output /cache \
     && touch /data/config/.not_mounted /data/dataset/.not_mounted /data/model/.not_mounted /output/.not_mounted \
-    && chown -R dataeval:dataeval /data /output /app
+    && chown -R dataeval:dataeval /data /output /cache /app
 
 # Container labels
 LABEL org.opencontainers.image.title="DataEval Application" \

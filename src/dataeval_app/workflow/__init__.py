@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from dataeval_app.workflow.orchestrator import run_task
 
 if TYPE_CHECKING:
+    from dataeval_app.cache import WorkflowCache
     from dataeval_app.config.models import ExtractorConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.selection import SelectionStep
@@ -51,8 +52,9 @@ class WorkflowContext:
     dataset_contexts: "dict[str, DatasetContext]" = field(default_factory=dict)
     metadata_auto_bin_method: "AutoBinMethod | None" = None
     metadata_exclude: list[str] = field(default_factory=list)
-    metadata_continuous_factor_bins: dict[str, list[float]] | None = None
+    metadata_continuous_factor_bins: dict[str, int | list[float]] | None = None
     batch_size: int | None = None
+    cache: "WorkflowCache | None" = None
 
 
 def _default_metadata() -> "ResultMetadata":

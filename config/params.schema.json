@@ -578,10 +578,17 @@
           "anyOf": [
             {
               "additionalProperties": {
-                "items": {
-                  "type": "number"
-                },
-                "type": "array"
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
               },
               "type": "object"
             },
