@@ -1,5 +1,6 @@
 """Task orchestration — config → execution bridge."""
 
+import hashlib
 import logging
 from collections.abc import Mapping
 from pathlib import Path
@@ -14,6 +15,28 @@ if TYPE_CHECKING:
     from dataeval_app.workflow import WorkflowResult
 
 __all__ = ["run_task"]
+
+_MAX_DS_ID_BYTES = 100  # Conservative limit (ext4 NAME_MAX = 255 bytes)
+
+
+def _make_ds_id(dataset_names: list[str]) -> str:
+    """Build a cache-safe dataset identifier.
+
+    For a single dataset, uses the name directly. For multiple datasets,
+    joins sorted names. If the result exceeds _MAX_DS_ID_BYTES, truncates
+    to a human-readable prefix + SHA-256 hash suffix for uniqueness.
+    """
+    raw = dataset_names[0] if len(dataset_names) == 1 else "_".join(sorted(dataset_names))
+
+    if len(raw.encode("utf-8")) <= _MAX_DS_ID_BYTES:
+        return raw
+
+    # Hash the full identifier for uniqueness, keep a prefix for readability
+    full_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    # Truncate prefix to leave room for "_" + 16-char hash
+    max_prefix = _MAX_DS_ID_BYTES - 17  # 17 = 1 ("_") + 16 (hash)
+    prefix = raw.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
+    return f"{prefix}_{full_hash}"
 
 
 @runtime_checkable
@@ -205,9 +228,8 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
         from dataeval_app.cache import WorkflowCache
 
         cache_path = Path(task.cache_dir)
-        print(f"[run_task] Cache enabled: {cache_path}")
-        # Use a joined name so multi-dataset tasks get a unique cache dir
-        ds_id = dataset_names[0] if len(dataset_names) == 1 else "_".join(sorted(dataset_names))
+        logger.info("Cache enabled: %s", cache_path)
+        ds_id = _make_ds_id(dataset_names)
         cache = WorkflowCache(cache_dir=cache_path, dataset_name=ds_id)
 
     context = WorkflowContext(
