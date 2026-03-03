@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import polars as pl
+import pytest
 
 from dataeval_app.cache import (
     CACHE_VERSION,
@@ -184,6 +185,87 @@ class TestWorkflowCacheInit:
         dataset_dir = cache.dataset_dir
         assert dataset_dir == tmp_path / f"v{CACHE_VERSION}" / "ds1"
         assert dataset_dir.is_dir()
+
+    @pytest.mark.parametrize("name", ["../escape", "a/b", "a\\b", ".", ".."])
+    def test_rejects_path_traversal(self, tmp_path: Path, name: str):
+        with pytest.raises(ValueError, match="Invalid dataset_name"):
+            WorkflowCache(cache_dir=tmp_path, dataset_name=name)
+
+    def test_allows_dots_in_name(self, tmp_path: Path):
+        """Names like 'foo..bar' are valid directory names."""
+        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="foo..bar")
+        assert cache.dataset_name == "foo..bar"
+
+
+# ---------------------------------------------------------------------------
+# Corrupted cache resilience (load_* try/except)
+# ---------------------------------------------------------------------------
+
+
+class TestCorruptedCacheResilience:
+    """Corrupted cache files should return None instead of raising."""
+
+    def test_load_embeddings_corrupted_npy(self, tmp_path: Path):
+        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        # Save a valid embedding first to get the path, then corrupt it
+        arr = np.ones((2, 3), dtype=np.float32)
+        cache.save_embeddings("sel:all", "cfg", "none", arr)
+        path = cache._embeddings_path("sel:all", "cfg", "none")  # noqa: SLF001
+        path.write_bytes(b"corrupted data")
+
+        result = cache.load_embeddings("sel:all", "cfg", "none")
+        assert result is None
+
+    def test_load_stats_corrupted_parquet(self, tmp_path: Path):
+        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        s = _config_hash("sel:all")
+        h = _config_hash("img+tgt")
+        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
+        ds_dir.mkdir(parents=True)
+        # Write corrupted parquet and valid json
+        (ds_dir / f"stats_{s}_{h}.parquet").write_bytes(b"bad parquet")
+        (ds_dir / f"stats_{s}_{h}.json").write_text(
+            '{"source_index":[],"object_count":[],"invalid_box_count":[],"image_count":0}'
+        )
+
+        result = cache.load_stats("sel:all", "img+tgt")
+        assert result is None
+
+    def test_load_stats_corrupted_json(self, tmp_path: Path):
+        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        stats = _make_calc_result(3)
+        cache.save_stats("sel:all", "img+tgt", stats)
+        # Corrupt the json file
+        s = _config_hash("sel:all")
+        h = _config_hash("img+tgt")
+        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
+        (ds_dir / f"stats_{s}_{h}.json").write_text("not valid json{{{")
+
+        result = cache.load_stats("sel:all", "img+tgt")
+        assert result is None
+
+    def test_load_metadata_corrupted_parquet(self, tmp_path: Path):
+        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        s = _config_hash("sel:all")
+        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / f"metadata_{s}.parquet").write_bytes(b"bad parquet")
+        (ds_dir / f"metadata_{s}.json").write_text('{"item_count":0}')
+
+        result = cache.load_metadata("sel:all", MagicMock())
+        assert result is None
+
+    def test_load_metadata_corrupted_json(self, tmp_path: Path):
+        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        meta = _make_mock_metadata()
+        cache.save_metadata("sel:all", meta)
+        # Corrupt the json file
+        s = _config_hash("sel:all")
+        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
+        (ds_dir / f"metadata_{s}.json").write_text("{invalid json")
+
+        result = cache.load_metadata("sel:all", MagicMock())
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

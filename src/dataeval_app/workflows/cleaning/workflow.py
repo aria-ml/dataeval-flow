@@ -4,6 +4,7 @@ __all__ = ["DataCleaningWorkflow"]
 
 import logging
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 import polars as pl
@@ -392,24 +393,31 @@ def _validate_cluster_params(params: DataCleaningParameters, extractor: Callable
         )
 
 
+@dataclass(frozen=True)
+class CleaningRunContext:
+    """Cache and extractor plumbing passed from execute() to _run_cleaning()."""
+
+    cache: "WorkflowCache | None" = None
+    sel_key: str | None = None
+    extractor_config: Any = None
+    transforms: Callable | None = None
+    batch_size: int | None = None
+
+
 def _run_cleaning(
     dataset: AnnotatedDataset[Any],
     params: DataCleaningParameters,
     extractor: Callable | None = None,
     metadata: Metadata | None = None,
-    cache: "WorkflowCache | None" = None,
-    sel_key: str | None = None,
-    extractor_config: Any = None,
-    transforms: Callable | None = None,
-    batch_size: int | None = None,
+    run_ctx: CleaningRunContext | None = None,
 ) -> DataCleaningRawOutputs:
     """Run outlier + duplicate detection on dataset.
 
     Stats are obtained via :func:`~dataeval_app.cache.get_or_compute_stats`,
-    which transparently handles disk caching when *cache* and *sel_key* are
-    provided.  Evaluators consume pre-computed stats via ``from_stats()``;
-    cluster-based detection (when an extractor is configured) is handled
-    separately via ``from_clusters()`` / ``evaluate()``.
+    which transparently handles disk caching when *run_ctx* provides a cache
+    and selection key.  Evaluators consume pre-computed stats via
+    ``from_stats()``; cluster-based detection (when an extractor is
+    configured) is handled separately via ``from_clusters()`` / ``evaluate()``.
     """
     import polars as pl
     from dataeval.quality import OutliersOutput
@@ -421,11 +429,13 @@ def _run_cleaning(
     outlier_flags, hash_flags = _resolve_flags(params)
 
     # --- Centralized stats: cache-aware load / compute / save ---
+    _cache = run_ctx.cache if run_ctx else None
+    _sel_key = run_ctx.sel_key if run_ctx else None
     calc_result = get_or_compute_stats(
         desired_flags=outlier_flags | hash_flags,
         dataset=dataset,
-        cache=cache,
-        selection_key=sel_key,
+        cache=_cache,
+        selection_key=_sel_key,
     )
 
     # --- Outlier detection via from_stats() ---
@@ -440,16 +450,16 @@ def _run_cleaning(
     if has_outlier_cluster:
         from dataeval.core._clusterer import cluster
 
-        if extractor_config is not None:
+        if run_ctx is not None and run_ctx.extractor_config is not None:
             from dataeval_app.cache import get_or_compute_embeddings
 
             embeddings_array = get_or_compute_embeddings(
                 dataset,
-                extractor_config,
-                transforms,
-                batch_size,
-                cache=cache,
-                selection_key=sel_key,
+                run_ctx.extractor_config,
+                run_ctx.transforms,
+                run_ctx.batch_size,
+                cache=_cache,
+                selection_key=_sel_key,
             )
         else:
             from dataeval.utils.arrays import flatten_samples, to_numpy
@@ -615,16 +625,19 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
 
             # 4. Run cleaning evaluators (cache-aware when cache is configured)
             logger.info("Running outlier and duplicate detection on %d items", len(dataset))
-            raw = _run_cleaning(
-                dataset,
-                params,
-                extractor,
-                metadata,  # type: ignore[arg-type]
+            run_ctx = CleaningRunContext(
                 cache=context.cache,
                 sel_key=sel_key,
                 extractor_config=dc.extractor,
                 transforms=dc.transforms,
                 batch_size=dc.batch_size,
+            )
+            raw = _run_cleaning(
+                dataset,
+                params,
+                extractor,
+                metadata,  # type: ignore[arg-type]
+                run_ctx,
             )
             logger.info(
                 "Detection complete: %d outliers, %d exact dup groups, %d near dup groups",

@@ -41,7 +41,9 @@ __all__ = [
 import hashlib
 import json
 import logging
-from collections.abc import Mapping, Sequence
+import os
+import tempfile
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -115,6 +117,19 @@ FLAG_TO_METRIC: dict[ImageStats, str] = {v: k for k, v in METRIC_TO_FLAG.items()
 def _config_hash(config_data: str) -> str:
     """Generate an 8-char hex hash from a config string."""
     return hashlib.sha256(config_data.encode()).hexdigest()[:8]
+
+
+def _atomic_write(target: Path, data_fn: Callable[[Path], Any], *, suffix: str = ".tmp") -> None:
+    """Write to a temp file in the same directory, then atomically rename."""
+    fd, tmp = tempfile.mkstemp(dir=target.parent, suffix=suffix)
+    tmp_path = Path(tmp)
+    try:
+        os.close(fd)
+        data_fn(tmp_path)
+        tmp_path.rename(target)  # atomic on POSIX same-filesystem
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def selection_repr(dataset: Any) -> str:
@@ -400,6 +415,10 @@ class WorkflowCache:
 
     def __init__(self, cache_dir: Path, dataset_name: str) -> None:
         """Initialize the cache with the root directory and dataset name."""
+        if "/" in dataset_name or "\\" in dataset_name or dataset_name in (".", ".."):
+            raise ValueError(
+                f"Invalid dataset_name for cache (must not contain path separators or be '.'/'..'): {dataset_name!r}"
+            )
         self._cache_dir = cache_dir
         self._dataset_name = dataset_name
         self._dataset_dir = None
@@ -449,10 +468,19 @@ class WorkflowCache:
     ) -> NDArray[Any] | None:
         """Load cached embedding array, or ``None`` on miss."""
         path = self._embeddings_path(selection_repr, extractor_config_json, transforms_repr)
-        if path.exists():
-            _logger.info("Cache hit: embeddings for %s/%s", self._dataset_name, selection_repr)
+        if not path.exists():
+            return None
+        _logger.info("Cache hit: embeddings for %s/%s", self._dataset_name, selection_repr)
+        try:
             return np.load(path, allow_pickle=False)
-        return None
+        except Exception:  # noqa: BLE001
+            _logger.warning(
+                "Failed to load embeddings from cache for %s/%s — recomputing",
+                self._dataset_name,
+                selection_repr,
+                exc_info=True,
+            )
+            return None
 
     def save_embeddings(
         self,
@@ -463,7 +491,7 @@ class WorkflowCache:
     ) -> None:
         """Persist embedding array to cache."""
         path = self._embeddings_path(selection_repr, extractor_config_json, transforms_repr)
-        np.save(path, array)
+        _atomic_write(path, lambda p: np.save(p, array), suffix=".npy")
         _logger.info("Cache save: embeddings for %s/%s (%s)", self._dataset_name, selection_repr, path.name)
 
     def load_or_compute_embeddings(
@@ -546,36 +574,45 @@ class WorkflowCache:
 
         _logger.info("Cache hit: metadata for %s/%s", self._dataset_name, selection_repr)
 
-        df = pl.read_parquet(pq_path)
-        with open(json_path, encoding="utf-8") as f:
-            aux = json.load(f)
+        try:
+            df = pl.read_parquet(pq_path)
+            with open(json_path, encoding="utf-8") as f:
+                aux = json.load(f)
 
-        # Reconstruct Metadata without calling __init__ (which requires a dataset).
-        # We bypass __init__ and set internal attributes directly so that
-        # _structure() is never invoked (it requires a live dataset).
-        # _is_binned is False so _bin() will run lazily with the caller's config.
-        meta = object.__new__(MetadataClass)
-        meta._dataframe = df  # noqa: SLF001
-        meta._is_structured = True  # noqa: SLF001  # skip _structure()
-        meta._is_binned = False  # noqa: SLF001  # _bin() will run lazily
-        meta._dataset = dataset  # noqa: SLF001
-        meta._has_targets = aux.get("has_targets")  # noqa: SLF001
-        meta._count = aux["item_count"]  # noqa: SLF001
-        meta._class_labels = np.asarray(aux["class_labels"], dtype=np.intp)  # noqa: SLF001
-        meta._index2label = {int(k): v for k, v in aux["index2label"].items()}  # noqa: SLF001
-        meta._item_indices = np.asarray(aux["item_indices"], dtype=np.intp)  # noqa: SLF001
-        meta._dropped_factors = {}  # noqa: SLF001
-        meta._image_factors = set(aux.get("image_factors", []))  # noqa: SLF001
-        meta._target_factors = set(aux.get("target_factors", []))  # noqa: SLF001
-        meta._raw = []  # noqa: SLF001
-        meta._exclude = set(exclude or ())  # noqa: SLF001
-        meta._include = set()  # noqa: SLF001
-        meta._continuous_factor_bins = dict(continuous_factor_bins) if continuous_factor_bins else {}  # noqa: SLF001
-        meta._auto_bin_method = auto_bin_method or "uniform_width"  # noqa: SLF001
-        meta._target_factors_only = False  # noqa: SLF001
-        # Build _factors dict from image/target factor sets
-        meta._build_factors()  # noqa: SLF001
-        return meta
+            # Reconstruct Metadata without calling __init__ (which requires a dataset).
+            # We bypass __init__ and set internal attributes directly so that
+            # _structure() is never invoked (it requires a live dataset).
+            # _is_binned is False so _bin() will run lazily with the caller's config.
+            meta = object.__new__(MetadataClass)
+            meta._dataframe = df  # noqa: SLF001
+            meta._is_structured = True  # noqa: SLF001  # skip _structure()
+            meta._is_binned = False  # noqa: SLF001  # _bin() will run lazily
+            meta._dataset = dataset  # noqa: SLF001
+            meta._has_targets = aux.get("has_targets")  # noqa: SLF001
+            meta._count = aux["item_count"]  # noqa: SLF001
+            meta._class_labels = np.asarray(aux["class_labels"], dtype=np.intp)  # noqa: SLF001
+            meta._index2label = {int(k): v for k, v in aux["index2label"].items()}  # noqa: SLF001
+            meta._item_indices = np.asarray(aux["item_indices"], dtype=np.intp)  # noqa: SLF001
+            meta._dropped_factors = {}  # noqa: SLF001
+            meta._image_factors = set(aux.get("image_factors", []))  # noqa: SLF001
+            meta._target_factors = set(aux.get("target_factors", []))  # noqa: SLF001
+            meta._raw = []  # noqa: SLF001
+            meta._exclude = set(exclude or ())  # noqa: SLF001
+            meta._include = set()  # noqa: SLF001
+            meta._continuous_factor_bins = dict(continuous_factor_bins) if continuous_factor_bins else {}  # noqa: SLF001
+            meta._auto_bin_method = auto_bin_method or "uniform_width"  # noqa: SLF001
+            meta._target_factors_only = False  # noqa: SLF001
+            # Build _factors dict from image/target factor sets
+            meta._build_factors()  # noqa: SLF001
+            return meta
+        except Exception:  # noqa: BLE001
+            _logger.warning(
+                "Failed to load Metadata from cache for %s/%s — recomputing",
+                self._dataset_name,
+                selection_repr,
+                exc_info=True,
+            )
+            return None
 
     def save_metadata(
         self,
@@ -597,7 +634,7 @@ class WorkflowCache:
         drop_cols = [c for c in df.columns if c.endswith("↕") or c.endswith("#")]
         if drop_cols:
             df = df.drop(drop_cols)
-        df.write_parquet(pq_path)
+        _atomic_write(pq_path, lambda p: df.write_parquet(p))
 
         # Auxiliary attributes — factor sets instead of factor_info
         aux = {
@@ -609,7 +646,7 @@ class WorkflowCache:
             "target_factors": sorted(metadata._target_factors),  # noqa: SLF001
             "has_targets": metadata._has_targets,  # noqa: SLF001
         }
-        json_path.write_text(json.dumps(aux, sort_keys=True), encoding="utf-8")
+        _atomic_write(json_path, lambda p: p.write_text(json.dumps(aux, sort_keys=True), encoding="utf-8"))
 
         _logger.info("Cache save: metadata for %s/%s (%s)", self._dataset_name, selection_repr, pq_path.name)
 
@@ -697,31 +734,41 @@ class WorkflowCache:
 
         _logger.info("Cache hit: stats for %s/%s (scope=%s)", self._dataset_name, selection_repr, scope)
 
-        df = pl.read_parquet(pq_path)
-        with open(json_path, encoding="utf-8") as f:
-            aux = json.load(f)
+        try:
+            df = pl.read_parquet(pq_path)
+            with open(json_path, encoding="utf-8") as f:
+                aux = json.load(f)
 
-        stats: dict[str, NDArray[Any]] = {}
-        for col in df.columns:
-            series = df[col]
-            if series.dtype == pl.Utf8:
-                # Hash string columns
-                stats[col] = series.to_numpy(writable=False).astype(object)
-            elif series.dtype.base_type() == pl.List:
-                # 2D array columns (histogram, percentiles, center)
-                stats[col] = np.array(series.to_list())
-            else:
-                stats[col] = series.to_numpy(writable=False)
+            stats: dict[str, NDArray[Any]] = {}
+            for col in df.columns:
+                series = df[col]
+                if series.dtype == pl.Utf8:
+                    # Hash string columns
+                    stats[col] = series.to_numpy(writable=False).astype(object)
+                elif series.dtype.base_type() == pl.List:
+                    # 2D array columns (histogram, percentiles, center)
+                    stats[col] = np.array(series.to_list())
+                else:
+                    stats[col] = series.to_numpy(writable=False)
 
-        source_index = [SourceIndex(item=s[0], target=s[1], channel=s[2]) for s in aux["source_index"]]
+            source_index = [SourceIndex(item=s[0], target=s[1], channel=s[2]) for s in aux["source_index"]]
 
-        return {
-            "source_index": source_index,
-            "object_count": aux["object_count"],
-            "invalid_box_count": aux["invalid_box_count"],
-            "image_count": aux["image_count"],
-            "stats": stats,
-        }
+            return {
+                "source_index": source_index,
+                "object_count": aux["object_count"],
+                "invalid_box_count": aux["invalid_box_count"],
+                "image_count": aux["image_count"],
+                "stats": stats,
+            }
+        except Exception:  # noqa: BLE001
+            _logger.warning(
+                "Failed to load stats from cache for %s/%s (scope=%s) — recomputing",
+                self._dataset_name,
+                selection_repr,
+                scope,
+                exc_info=True,
+            )
+            return None
 
     def save_stats(
         self,
@@ -748,7 +795,7 @@ class WorkflowCache:
             else:
                 series_dict[name] = pl.Series(name, arr)
         df = pl.DataFrame(series_dict)
-        df.write_parquet(pq_path)
+        _atomic_write(pq_path, lambda p: df.write_parquet(p))
 
         aux = {
             "source_index": [[int(si.item), si.target, si.channel] for si in stats["source_index"]],
@@ -756,7 +803,7 @@ class WorkflowCache:
             "invalid_box_count": [int(v) for v in stats["invalid_box_count"]],
             "image_count": int(stats["image_count"]),
         }
-        json_path.write_text(json.dumps(aux), encoding="utf-8")
+        _atomic_write(json_path, lambda p: p.write_text(json.dumps(aux), encoding="utf-8"))
 
         _logger.info(
             "Cache save: stats for %s/%s (scope=%s, metrics=%s)",

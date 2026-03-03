@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dataeval_app.workflow.orchestrator import (
+    _make_ds_id,
     _resolve_by_name,
     _resolve_optional_mapping,
     _validate_mapping_keys,
@@ -628,3 +629,54 @@ class TestRunTaskMultiDataset:
 
         assert result.metadata.dataset_id == "ds_a,ds_b"
         assert result.metadata.datasets == ["ds_a", "ds_b"]
+
+
+# ---------------------------------------------------------------------------
+# _make_ds_id
+# ---------------------------------------------------------------------------
+
+
+class TestMakeDsId:
+    def test_single_dataset_passthrough(self):
+        assert _make_ds_id(["my_dataset"]) == "my_dataset"
+
+    def test_multiple_datasets_sorted_joined(self):
+        assert _make_ds_id(["bravo", "alpha"]) == "alpha_bravo"
+
+    def test_short_name_unchanged(self):
+        """Names under 100 bytes are returned as-is."""
+        names = ["ds_a", "ds_b", "ds_c"]
+        result = _make_ds_id(names)
+        assert result == "ds_a_ds_b_ds_c"
+
+    def test_long_name_hashed(self):
+        """Names exceeding 100 bytes get truncated prefix + hash."""
+        names = [f"dataset_{i:03d}" for i in range(20)]
+        raw = "_".join(sorted(names))
+        assert len(raw.encode("utf-8")) > 100
+
+        result = _make_ds_id(names)
+        assert len(result.encode("utf-8")) <= 100
+        # Should end with _<16-char hex hash>
+        assert "_" in result
+        hash_suffix = result.rsplit("_", 1)[-1]
+        assert len(hash_suffix) == 16
+        # All hex characters
+        int(hash_suffix, 16)
+
+    def test_deterministic(self):
+        """Same inputs always produce the same output."""
+        names = [f"dataset_{i:03d}" for i in range(20)]
+        assert _make_ds_id(names) == _make_ds_id(names)
+
+    def test_single_long_name_hashed(self):
+        """A single dataset with a very long name also gets hashed."""
+        name = "a" * 200
+        result = _make_ds_id([name])
+        assert len(result.encode("utf-8")) <= 100
+
+    def test_different_sets_different_ids(self):
+        """Different dataset sets produce different hashed IDs."""
+        names_a = [f"dataset_{i:03d}" for i in range(20)]
+        names_b = [f"dataset_{i:03d}" for i in range(21)]
+        assert _make_ds_id(names_a) != _make_ds_id(names_b)
