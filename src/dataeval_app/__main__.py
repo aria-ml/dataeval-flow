@@ -77,6 +77,12 @@ def _run_tasks(config_path: Path | None, output_dir: Path) -> NoReturn:
             logger.info(out)
         else:
             logger.info("  OK: wrote %s", out)
+
+        # Always write the text report alongside the primary output
+        text_report = result.report(format="text")
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "report.txt").write_text(text_report)
+
         flush_logs()
 
     logger.info("Done. %d/%d succeeded.", len(config.tasks) - failures, len(config.tasks))

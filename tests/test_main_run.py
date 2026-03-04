@@ -24,7 +24,9 @@ class TestRunTasks:
 
     @patch("dataeval_app.workflow.run_task")
     @patch("dataeval_app.config.load_config_folder")
-    def test_successful_tasks(self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture):
+    def test_successful_tasks(
+        self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
+    ):
         from dataeval_app.__main__ import _run_tasks
 
         task1 = MagicMock()
@@ -45,6 +47,7 @@ class TestRunTasks:
         result1.data = MagicMock()
         result1.data.report = MagicMock()
         result1.data.report.summary = "All clean"
+        result1.report.return_value = "text report 1"
 
         result2 = MagicMock()
         result2.success = True
@@ -52,14 +55,17 @@ class TestRunTasks:
         result2.data = MagicMock()
         result2.data.report = MagicMock()
         result2.data.report.summary = "Done"
+        result2.report.return_value = "text report 2"
 
         mock_run.side_effect = [result1, result2]
 
         with pytest.raises(SystemExit) as exc_info:
-            _run_tasks(Path("/fake/config"), Path("/fake/output"))
+            _run_tasks(Path("/fake/config"), tmp_path)
 
         assert exc_info.value.code == 0
         assert "2/2 succeeded" in caplog.text
+        assert (tmp_path / "task1" / "report.txt").exists()
+        assert (tmp_path / "task2" / "report.txt").exists()
 
     @patch("dataeval_app.workflow.run_task")
     @patch("dataeval_app.config.load_config_folder")
@@ -89,7 +95,9 @@ class TestRunTasks:
 
     @patch("dataeval_app.workflow.run_task")
     @patch("dataeval_app.config.load_config_folder")
-    def test_result_without_report(self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture):
+    def test_result_without_report(
+        self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
+    ):
         """Result.data without .report attribute still logs OK."""
         from dataeval_app.__main__ import _run_tasks
 
@@ -106,14 +114,16 @@ class TestRunTasks:
         result.success = True
         result.name = "task1"
         result.data = MagicMock(spec=[])  # No .report attribute
+        result.report.side_effect = [tmp_path / "task1" / "results.json", "text report"]
 
         mock_run.return_value = result
 
         with pytest.raises(SystemExit) as exc_info:
-            _run_tasks(Path("/fake/config"), Path("/fake/output"))
+            _run_tasks(Path("/fake/config"), tmp_path)
 
         assert exc_info.value.code == 0
         assert "OK" in caplog.text
+        assert (tmp_path / "task1" / "report.txt").exists()
 
     @patch("dataeval_app.config.load_config_folder")
     def test_uses_default_config_path(self, mock_load: MagicMock):

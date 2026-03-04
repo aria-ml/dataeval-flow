@@ -91,68 +91,72 @@ class TestReportFormatDispatch:
 
 class TestReportText:
     def test_no_report_attribute(self):
-        """data without .report returns 'no report available' (line 147)."""
+        """data without .report returns 'no report available'."""
         result = _make_result(data=_DummyOutputNoReport())
         out = result.report(format="text")
         assert "no report available" in out
 
     def test_empty_findings(self):
-        """Empty findings list shows 'No findings to report.' (lines 164-167)."""
+        """Empty findings list shows 'No findings to report.'."""
         result = _make_result()
         out = result.report(format="text")
         assert "No findings to report." in out
-        assert "Test Summary" in out
+        assert "TEST SUMMARY" in out  # summary is uppercased in the banner
 
     def test_findings_with_warnings(self):
-        """Findings with warnings show count in footer (lines 189-190)."""
+        """Findings with warnings show count in health line."""
         findings = [
-            Reportable(
-                report_type="text", severity="warning", title="Bad Image (train)", data="detail", description="desc1"
-            ),
-            Reportable(
-                report_type="text", severity="warning", title="Corrupt File (train)", data="detail", description=None
-            ),
-            Reportable(
-                report_type="text", severity="ok", title="All Good (train)", data="detail", description="ok desc"
-            ),
+            Reportable(report_type="text", severity="warning", title="Bad Image", data="detail", description="desc1"),
+            Reportable(report_type="text", severity="warning", title="Corrupt File", data="detail", description=None),
+            Reportable(report_type="text", severity="ok", title="All Good", data="detail", description="ok desc"),
         ]
         report = _DummyReport(summary="Findings Test", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        assert "2 issue(s) detected" in out
-        assert "Findings Test" in out
+        assert "2 warning(s)" in out
+        assert "FINDINGS TEST" in out
 
     def test_findings_no_warnings(self):
-        """Findings with no warnings show 'No issues detected' (lines 191-192)."""
+        """Findings with no warnings show 'No issues detected' in health line."""
         findings = [
-            Reportable(report_type="text", severity="ok", title="All Good (train)", data="detail", description="fine"),
+            Reportable(report_type="text", severity="ok", title="All Good", data="detail", description="fine"),
         ]
         report = _DummyReport(summary="Clean Report", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
         assert "No issues detected" in out
+        assert "informational" in out
 
-    def test_findings_group_separator(self):
-        """Blank line inserted between different context groups (lines 179-180)."""
+    def test_summary_section_present(self):
+        """Report includes a SUMMARY section with dotted lines."""
         findings = [
-            Reportable(report_type="text", severity="info", title="Check (train)", data="d"),
-            Reportable(report_type="text", severity="info", title="Check (val)", data="d"),
+            Reportable(report_type="text", severity="info", title="Check A", data="d", description="desc a"),
+            Reportable(report_type="text", severity="info", title="Check B", data="d", description="desc b"),
         ]
-        report = _DummyReport(summary="Grouped", findings=findings)
+        report = _DummyReport(summary="Summary Test", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        lines = out.split("\n")
-        # There should be a blank line between the two context groups
-        check_indices = [i for i, line in enumerate(lines) if "Check" in line]
-        assert len(check_indices) == 2
-        # A blank line should exist between them
-        assert any(lines[i] == "" for i in range(check_indices[0] + 1, check_indices[1]))
+        assert "SUMMARY" in out
+        assert "Check A" in out
+        assert "Check B" in out
+
+    def test_detail_sections_present(self):
+        """Each finding gets a detail section with uppercased title."""
+        findings = [
+            Reportable(report_type="text", severity="info", title="My Finding", data="d", description="some detail"),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "MY FINDING" in out
+        assert "some detail" in out
 
     def test_finding_without_description(self):
-        """Finding with no description omits the dash (line 184)."""
+        """Finding with no description still renders its detail section."""
         findings = [
             Reportable(report_type="text", severity="info", title="NoDesc", data="d", description=None),
         ]
@@ -160,19 +164,242 @@ class TestReportText:
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        assert "NoDesc" in out
-        assert "\u2014" not in out.split("NoDesc")[1].split("\n")[0]
+        assert "NODESC" in out
 
-    def test_finding_with_description(self):
-        """Finding with description includes the dash (line 184)."""
+    def test_outlier_per_metric_breakdown(self):
+        """Image Outliers finding renders per-metric table in detail section."""
         findings = [
-            Reportable(report_type="text", severity="info", title="WithDesc", data="d", description="some detail"),
+            Reportable(
+                report_type="key_value",
+                severity="warning",
+                title="Image Outliers",
+                data={
+                    "brief": "10 images (5.0%)",
+                    "multi_metric_subject": "images",
+                    "count": 10,
+                    "percentage": 5.0,
+                    "per_metric": {"brightness": 7, "contrast": 5},
+                    "total_flags": 12,
+                    "dataset_size": 200,
+                },
+                description="10 images (5.0%) flagged as outliers.",
+            ),
         ]
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        assert "\u2014 some detail" in out
+        assert "IMAGE OUTLIERS" in out
+        assert "brightness" in out
+        assert "contrast" in out
+        assert "multiple metrics" in out
+
+    def test_duplicate_detail_renders(self):
+        """Duplicate finding renders group details, methods, orientations."""
+        findings = [
+            Reportable(
+                report_type="key_value",
+                severity="info",
+                title="Duplicates",
+                data={
+                    "brief": "2 exact, 3 near",
+                    "detail_lines": [
+                        "2 exact-duplicate groups (6 images)",
+                        "3 near-duplicate groups (10 images)",
+                        "  Methods: dhash, phash",
+                        "  Orientations: 1 rotated, 2 same",
+                    ],
+                    "exact_groups": 2,
+                    "near_groups": 3,
+                    "exact_affected": 6,
+                    "near_affected": 10,
+                    "near_methods": ["dhash", "phash"],
+                    "near_orientations": {"same": 2, "rotated": 1},
+                },
+                description="2 exact duplicate groups, 3 near-duplicate groups found.",
+            ),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "DUPLICATES" in out
+        assert "2 exact-duplicate groups (6 images)" in out
+        assert "3 near-duplicate groups (10 images)" in out
+        assert "dhash, phash" in out
+        assert "rotated" in out
+
+    def test_label_distribution_bar_chart(self):
+        """Label Distribution finding renders bar chart with block characters."""
+        findings = [
+            Reportable(
+                report_type="table",
+                severity="info",
+                title="Label Distribution",
+                data={
+                    "brief": "2 classes, 150 items",
+                    "table_data": {"cat": 100, "dog": 50},
+                    "table_headers": ("Class", "Count"),
+                    "footer_lines": ["Imbalance ratio: 2.0 (max/min)"],
+                    "label_counts": {"cat": 100, "dog": 50},
+                    "class_count": 2,
+                    "item_count": 150,
+                    "imbalance_ratio": 2.0,
+                },
+                description="2 classes, 150 items.",
+            ),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "LABEL DISTRIBUTION" in out
+        assert "cat" in out
+        assert "dog" in out
+        assert "\u2588" in out  # bar chart block character
+        assert "Imbalance ratio: 2.0" in out
+
+    def test_health_line_with_warnings(self):
+        """Health line shows warning count when warnings exist."""
+        findings = [
+            Reportable(report_type="text", severity="warning", title="Issue", data="d", description="bad"),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "1 warning(s)" in out
+
+    def test_health_line_without_warnings(self):
+        """Health line shows 'No issues detected' when no warnings."""
+        findings = [
+            Reportable(report_type="text", severity="info", title="Info", data="d", description="ok"),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "Health: No issues detected" in out
+
+    def test_warning_marker_in_summary(self):
+        """Warning findings get [!] marker in summary line."""
+        findings = [
+            Reportable(report_type="text", severity="warning", title="Bad Thing", data="d", description="bad"),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "[!]" in out
+
+    def test_duplicate_exact_only_no_methods_line(self):
+        """Exact-only duplicates don't render Methods/Orientations lines."""
+        findings = [
+            Reportable(
+                report_type="key_value",
+                severity="info",
+                title="Duplicates",
+                data={
+                    "brief": "1 exact, 0 near",
+                    "detail_lines": [
+                        "1 exact-duplicate groups (3 images)",
+                    ],
+                    "exact_groups": 1,
+                    "near_groups": 0,
+                    "exact_affected": 3,
+                    "near_affected": 0,
+                    "near_methods": [],
+                    "near_orientations": {},
+                },
+                description="1 exact duplicate groups, 0 near-duplicate groups found.",
+            ),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "1 exact-duplicate groups (3 images)" in out
+        # No Methods/Orientations lines when near_groups=0
+        assert "Methods:" not in out
+        assert "Orientations:" not in out
+
+    def test_label_distribution_balanced_no_imbalance_line(self):
+        """Balanced labels (imbalance_ratio=1.0) suppress the imbalance line."""
+        findings = [
+            Reportable(
+                report_type="table",
+                severity="info",
+                title="Label Distribution",
+                data={
+                    "brief": "2 classes, 100 items",
+                    "table_data": {"a": 50, "b": 50},
+                    "table_headers": ("Class", "Count"),
+                    "footer_lines": [],
+                    "label_counts": {"a": 50, "b": 50},
+                    "class_count": 2,
+                    "item_count": 100,
+                    "imbalance_ratio": 1.0,
+                },
+                description="2 classes, 100 items.",
+            ),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "Imbalance" not in out
+
+    def test_target_outlier_multiple_metrics_message(self):
+        """Target outlier detail says 'targets' not 'images' in multiple-metrics message."""
+        findings = [
+            Reportable(
+                report_type="key_value",
+                severity="warning",
+                title="Target Outliers",
+                data={
+                    "brief": "2 targets",
+                    "multi_metric_subject": "targets",
+                    "count": 2,
+                    "per_metric": {"brightness": 2, "contrast": 1},
+                    "total_flags": 3,
+                },
+                description="2 bounding-box targets flagged as outliers.",
+            ),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        assert "Some targets trigger multiple metrics" in out
+        assert "Some images" not in out
+
+    def test_bar_chart_uses_left_filling_blocks(self):
+        """Bar chart uses left-filling fractional blocks, not bottom-filling."""
+        findings = [
+            Reportable(
+                report_type="table",
+                severity="info",
+                title="Label Distribution",
+                data={
+                    "brief": "2 classes, 175 items",
+                    "table_data": {"a": 100, "b": 75},
+                    "table_headers": ("Class", "Count"),
+                    "footer_lines": ["Imbalance ratio: 1.3 (max/min)"],
+                    "label_counts": {"a": 100, "b": 75},
+                    "class_count": 2,
+                    "item_count": 175,
+                    "imbalance_ratio": 1.3,
+                },
+                description="2 classes, 175 items.",
+            ),
+        ]
+        report = _DummyReport(summary="S", findings=findings)
+        data = _DummyOutputWithReport(report=report)
+        result = _make_result(data=data)
+        out = result.report(format="text")
+        # Ensure no bottom-filling blocks are present (U+2581-U+2587)
+        bottom_blocks = set("\u2581\u2582\u2583\u2584\u2585\u2586\u2587")
+        assert not any(ch in bottom_blocks for ch in out), "Should use left-filling blocks, not bottom-filling"
 
 
 # ---------------------------------------------------------------------------

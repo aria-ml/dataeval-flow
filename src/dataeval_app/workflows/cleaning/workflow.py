@@ -234,6 +234,83 @@ def _compute_label_stats(metadata: Metadata) -> "LabelStatsDict":
 # ---------------------------------------------------------------------------
 
 
+def _duplicate_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
+    """Build a Duplicates finding from raw results, or None if no duplicates."""
+    exact_groups = raw.duplicates.get("items", {}).get("exact", [])
+    near_groups = raw.duplicates.get("items", {}).get("near", [])
+    if not exact_groups and not near_groups:
+        return None
+
+    exact_affected = sum(len(g) for g in exact_groups)
+    near_affected = sum(len(g["indices"]) for g in near_groups)
+    # Collect methods and orientations from near groups
+    all_methods: set[str] = set()
+    orientations: dict[str, int] = {}
+    for g in near_groups:
+        all_methods.update(g.get("methods", []))
+        orient = g.get("orientation")
+        if orient is not None:
+            orientations[orient] = orientations.get(orient, 0) + 1
+    detail_lines: list[str] = []
+    if exact_groups:
+        detail_lines.append(f"{len(exact_groups)} exact-duplicate groups ({exact_affected} images)")
+    if near_groups:
+        detail_lines.append(f"{len(near_groups)} near-duplicate groups ({near_affected} images)")
+        if all_methods:
+            detail_lines.append(f"  Methods: {', '.join(sorted(all_methods))}")
+        if orientations:
+            parts = [f"{c} {o}" for o, c in sorted(orientations.items())]
+            detail_lines.append(f"  Orientations: {', '.join(parts)}")
+    return Reportable(
+        report_type="key_value",
+        title="Duplicates",
+        data={
+            "brief": f"{len(exact_groups)} exact, {len(near_groups)} near",
+            "detail_lines": detail_lines,
+            "exact_groups": len(exact_groups),
+            "near_groups": len(near_groups),
+            "exact_affected": exact_affected,
+            "near_affected": near_affected,
+            "near_methods": sorted(all_methods),
+            "near_orientations": orientations,
+        },
+        description=(f"{len(exact_groups)} exact duplicate groups, {len(near_groups)} near-duplicate groups found."),
+    )
+
+
+def _label_distribution_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
+    """Build a Label Distribution finding from raw results, or None if no label stats."""
+    if not raw.label_stats:
+        return None
+
+    label_counts = raw.label_stats.get("label_counts_per_class", {})
+    class_count = raw.label_stats.get("class_count", 0)
+    item_count = raw.label_stats.get("item_count", 0)
+    counts_list = list(label_counts.values()) if label_counts else []
+    imbalance_ratio = round(max(counts_list) / min(counts_list), 1) if counts_list and min(counts_list) > 0 else 0.0
+    footer_lines: list[str] = []
+    if imbalance_ratio == 1.0:
+        footer_lines.append("Balanced: all classes have equal counts")
+    elif imbalance_ratio != 0.0:
+        footer_lines.append(f"Imbalance ratio: {imbalance_ratio} (max/min)")
+    return Reportable(
+        report_type="table",
+        title="Label Distribution",
+        data={
+            "brief": f"{class_count} classes, {item_count} items",
+            "table_data": label_counts,
+            "table_headers": ("Class", "Count"),
+            "footer_lines": footer_lines,
+            # Keep existing keys for JSON/YAML consumers
+            "label_counts": label_counts,
+            "class_count": class_count,
+            "item_count": item_count,
+            "imbalance_ratio": imbalance_ratio,
+        },
+        description=(f"{class_count} classes, {item_count} items."),
+    )
+
+
 def _build_findings(
     raw: DataCleaningRawOutputs,
     metadata: Metadata | None,  # noqa: ARG001 - reserved for future metadata-based findings
@@ -246,11 +323,24 @@ def _build_findings(
     outlier_image_count = len({issue["item_id"] for issue in outlier_issues})
     if outlier_image_count > 0:
         pct = (outlier_image_count / raw.dataset_size) * 100 if raw.dataset_size else 0
+        # Per-metric breakdown: count distinct images per metric
+        _per_metric_sets: dict[str, set[int]] = {}
+        for issue in outlier_issues:
+            _per_metric_sets.setdefault(issue["metric_name"], set()).add(issue["item_id"])
+        per_metric = {k: len(v) for k, v in _per_metric_sets.items()}
         findings.append(
             Reportable(
                 report_type="key_value",
                 title="Image Outliers",
-                data={"count": outlier_image_count, "percentage": round(pct, 1)},
+                data={
+                    "brief": f"{outlier_image_count} images ({round(pct, 1)}%)",
+                    "multi_metric_subject": "images",
+                    "count": outlier_image_count,
+                    "percentage": round(pct, 1),
+                    "per_metric": per_metric,
+                    "total_flags": len(outlier_issues),
+                    "dataset_size": raw.dataset_size,
+                },
                 description=f"{outlier_image_count} images ({pct:.1f}%) flagged as outliers.",
             )
         )
@@ -259,46 +349,35 @@ def _build_findings(
     target_issues = raw.target_outliers.get("issues", []) if raw.target_outliers else []
     target_pair_count = len({(issue["item_id"], issue.get("target_id")) for issue in target_issues})
     if target_pair_count > 0:
+        # Per-metric breakdown for targets
+        _target_metric_sets: dict[str, set[tuple[int, int | None]]] = {}
+        for issue in target_issues:
+            _target_metric_sets.setdefault(issue["metric_name"], set()).add((issue["item_id"], issue.get("target_id")))
+        target_per_metric = {k: len(v) for k, v in _target_metric_sets.items()}
         findings.append(
             Reportable(
                 report_type="key_value",
                 title="Target Outliers",
-                data={"count": target_pair_count},
+                data={
+                    "brief": f"{target_pair_count} targets",
+                    "multi_metric_subject": "targets",
+                    "count": target_pair_count,
+                    "per_metric": target_per_metric,
+                    "total_flags": len(target_issues),
+                },
                 description=f"{target_pair_count} bounding-box targets flagged as outliers.",
             )
         )
 
     # Duplicate findings
-    exact_groups = raw.duplicates.get("items", {}).get("exact", [])
-    near_groups = raw.duplicates.get("items", {}).get("near", [])
-    if exact_groups or near_groups:
-        findings.append(
-            Reportable(
-                report_type="key_value",
-                title="Duplicates",
-                data={
-                    "exact_groups": len(exact_groups),
-                    "near_groups": len(near_groups),
-                },
-                description=(
-                    f"{len(exact_groups)} exact duplicate groups, {len(near_groups)} near-duplicate groups found."
-                ),
-            )
-        )
+    dup_finding = _duplicate_finding(raw)
+    if dup_finding:
+        findings.append(dup_finding)
 
     # Label distribution finding
-    if raw.label_stats:
-        findings.append(
-            Reportable(
-                report_type="table",
-                title="Label Distribution",
-                data=raw.label_stats.get("label_counts_per_class", {}),
-                description=(
-                    f"{raw.label_stats.get('class_count', '?')} classes, "
-                    f"{raw.label_stats.get('item_count', '?')} items."
-                ),
-            )
-        )
+    label_finding = _label_distribution_finding(raw)
+    if label_finding:
+        findings.append(label_finding)
 
     return findings
 
@@ -666,6 +745,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
                         report_type="key_value",
                         title="Preparatory Mode",
                         data={
+                            "brief": f"{len(flagged)} flagged, {len(clean_indices)} retained",
                             "flagged": len(flagged),
                             "retained": len(clean_indices),
                         },
