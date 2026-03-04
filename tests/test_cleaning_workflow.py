@@ -349,6 +349,18 @@ class TestBuildFindings:
         # 3 distinct images, not 6 total flags
         assert img_finding.data["count"] == 3  # type: ignore[index]
         assert img_finding.data["percentage"] == round(3 / 29 * 100, 1)  # type: ignore[index]
+        # Enriched per_metric breakdown
+        data = img_finding.data
+        assert isinstance(data, dict)
+        per_metric = data["per_metric"]
+        assert per_metric["brightness"] == 2  # images 0 and 5
+        assert per_metric["entropy"] == 2  # images 0 and 5
+        assert per_metric["contrast"] == 2  # images 0 and 10
+        assert data["total_flags"] == 6
+        assert data["dataset_size"] == 29
+        # Data-driven renderer keys
+        assert data["brief"] == f"3 images ({round(3 / 29 * 100, 1)}%)"
+        assert data["multi_metric_subject"] == "images"
 
     def test_target_outlier_finding(self):
         raw = DataCleaningRawOutputs(
@@ -370,6 +382,16 @@ class TestBuildFindings:
         target_finding = next(f for f in findings if f.title == "Target Outliers")
         # 3 distinct (item_id, target_id) pairs, not 4 total flags
         assert target_finding.data["count"] == 3  # type: ignore[index]
+        # Enriched per_metric and total_flags
+        data = target_finding.data
+        assert isinstance(data, dict)
+        assert data["total_flags"] == 4
+        per_metric = data["per_metric"]
+        assert per_metric["brightness"] == 3  # (0,0), (0,1), (1,0)
+        assert per_metric["contrast"] == 1  # (0,0)
+        # Data-driven renderer keys
+        assert data["brief"] == "3 targets"
+        assert data["multi_metric_subject"] == "targets"
 
     def test_duplicate_finding(self):
         raw = DataCleaningRawOutputs(
@@ -378,7 +400,7 @@ class TestBuildFindings:
             duplicates={
                 "items": {
                     "exact": [[0, 1]],
-                    "near": [{"indices": [2, 3], "methods": ["hash"], "orientation": None}],
+                    "near": [{"indices": [2, 3], "methods": ["hash"], "orientation": "same"}],
                 },
                 "targets": {},
             },
@@ -386,6 +408,64 @@ class TestBuildFindings:
         findings = _build_findings(raw, None)
         titles = [f.title for f in findings]
         assert "Duplicates" in titles
+        dup_finding = next(f for f in findings if f.title == "Duplicates")
+        assert dup_finding.data["exact_affected"] == 2  # type: ignore[index]
+        assert dup_finding.data["near_affected"] == 2  # type: ignore[index]
+        assert dup_finding.data["near_methods"] == ["hash"]  # type: ignore[index]
+        assert dup_finding.data["near_orientations"] == {"same": 1}  # type: ignore[index]
+        # Data-driven renderer keys
+        data = dup_finding.data
+        assert isinstance(data, dict)
+        assert data["brief"] == "1 exact, 1 near"
+        assert "detail_lines" in data
+        assert any("exact-duplicate" in line for line in data["detail_lines"])
+        assert any("near-duplicate" in line for line in data["detail_lines"])
+
+    def test_duplicate_finding_exact_only(self):
+        """Exact-only duplicates: near fields are empty."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            duplicates={"items": {"exact": [[0, 1, 2]], "near": []}, "targets": {}},
+        )
+        findings = _build_findings(raw, None)
+        dup_finding = next(f for f in findings if f.title == "Duplicates")
+        data = dup_finding.data
+        assert isinstance(data, dict)
+        assert data["exact_groups"] == 1
+        assert data["exact_affected"] == 3
+        assert data["near_groups"] == 0
+        assert data["near_affected"] == 0
+        assert data["near_methods"] == []
+        assert data["near_orientations"] == {}
+        assert data["brief"] == "1 exact, 0 near"
+        assert any("exact-duplicate" in line for line in data["detail_lines"])
+        assert not any("near-duplicate" in line for line in data["detail_lines"])
+
+    def test_duplicate_finding_null_orientation_skipped(self):
+        """Near groups with orientation=None are not counted in orientations."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            duplicates={
+                "items": {
+                    "exact": [],
+                    "near": [
+                        {"indices": [0, 1], "methods": ["hash"], "orientation": None},
+                        {"indices": [2, 3], "methods": ["hash"], "orientation": "same"},
+                    ],
+                },
+                "targets": {},
+            },
+        )
+        findings = _build_findings(raw, None)
+        dup_finding = next(f for f in findings if f.title == "Duplicates")
+        data = dup_finding.data
+        assert isinstance(data, dict)
+        assert data["near_orientations"] == {"same": 1}
+        # Data-driven renderer keys
+        assert data["brief"] == "0 exact, 2 near"
+        assert any("near-duplicate" in line for line in data["detail_lines"])
 
     def test_label_stats_finding(self):
         raw = DataCleaningRawOutputs(
@@ -400,6 +480,36 @@ class TestBuildFindings:
         findings = _build_findings(raw, None)
         titles = [f.title for f in findings]
         assert "Label Distribution" in titles
+        label_finding = next(f for f in findings if f.title == "Label Distribution")
+        assert label_finding.data["label_counts"] == {"cat": 50, "dog": 50}  # type: ignore[index]
+        assert label_finding.data["class_count"] == 2  # type: ignore[index]
+        assert label_finding.data["item_count"] == 100  # type: ignore[index]
+        assert label_finding.data["imbalance_ratio"] == 1.0  # type: ignore[index]
+        # Data-driven renderer keys
+        data = label_finding.data
+        assert isinstance(data, dict)
+        assert data["brief"] == "2 classes, 100 items"
+        assert data["table_data"] == {"cat": 50, "dog": 50}
+        assert data["table_headers"] == ("Class", "Count")
+        assert data["footer_lines"] == ["Balanced: all classes have equal counts"]
+
+    def test_label_stats_finding_imbalanced(self):
+        """Imbalanced labels produce non-empty footer_lines."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            label_stats={
+                "item_count": 100,
+                "class_count": 2,
+                "label_counts_per_class": {"cat": 80, "dog": 20},
+            },
+        )
+        findings = _build_findings(raw, None)
+        label_finding = next(f for f in findings if f.title == "Label Distribution")
+        data = label_finding.data
+        assert isinstance(data, dict)
+        assert data["imbalance_ratio"] == 4.0
+        assert data["footer_lines"] == ["Imbalance ratio: 4.0 (max/min)"]
 
     def test_no_findings_when_clean(self):
         raw = DataCleaningRawOutputs(
@@ -578,6 +688,10 @@ class TestDataCleaningWorkflowExecute:
         assert meta["flagged_indices"] == [0, 1, 4]
         assert meta["removed_count"] == 3
         assert len(meta["clean_indices"]) == 7
+        # Preparatory Mode finding has data-driven brief key
+        assert isinstance(result.data, DataCleaningOutputs)
+        prep_finding = next(f for f in result.data.report.findings if f.title == "Preparatory Mode")
+        assert prep_finding.data["brief"] == "3 flagged, 7 retained"  # type: ignore[index]
 
     @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_app.metadata.Metadata")

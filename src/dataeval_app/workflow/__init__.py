@@ -17,6 +17,11 @@ from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar, cast, ove
 
 from pydantic import BaseModel
 
+from dataeval_app.workflow._text_report import (
+    _WIDTH,
+    _render_detail_section,
+    _summary_line,
+)
 from dataeval_app.workflow.orchestrator import run_task
 
 if TYPE_CHECKING:
@@ -140,57 +145,52 @@ class WorkflowResult(Generic[TMetadata]):
         return lines
 
     def _report_text(self) -> str:
-        """Return compact findings summary as a string."""
-        lines: list[str] = []
+        """Return executive-summary text report."""
         report = getattr(self.data, "report", None)
         if report is None:
             return f"{self.name}: no report available"
 
         findings = getattr(report, "findings", [])
-        _prefix = {"ok": "  \u2713 ", "warning": "  ! ", "info": "    "}
+        lines: list[str] = []
 
-        # Header
+        # === Title banner ===
         lines.append("")
-        lines.append("=" * 64)
-        lines.append(f"  {report.summary}")
-        lines.append("=" * 64)
+        lines.append("=" * _WIDTH)
+        lines.append(f"  {report.summary.upper()}")
+        lines.append("=" * _WIDTH)
 
-        # Metadata summary
+        # Metadata block
         meta_lines = self._metadata_text_lines()
         if meta_lines:
             lines.extend(meta_lines)
-            lines.append("-" * 64)
+            lines.append("-" * _WIDTH)
 
         if not findings:
             lines.append("  No findings to report.")
-            lines.append("=" * 64)
+            lines.append("=" * _WIDTH)
             return "\n".join(lines)
 
-        # Findings, inserting blank lines between groups.
-        # Group by the parenthetical context in the title, e.g. "(train)".
-        last_ctx = None
-        warnings = 0
-        for finding in findings:
-            severity = getattr(finding, "severity", "info")
-            if severity == "warning":
-                warnings += 1
-
-            ctx = finding.title.rsplit("(", 1)[-1].rstrip(")") if "(" in finding.title else ""
-            if last_ctx is not None and ctx != last_ctx:
-                lines.append("")
-            last_ctx = ctx
-
-            prefix = _prefix.get(severity, "    ")
-            desc = f" \u2014 {finding.description}" if finding.description else ""
-            lines.append(f"{prefix}{finding.title}{desc}")
-
-        # Footer
+        # === SUMMARY section ===
+        warnings = sum(1 for f in findings if getattr(f, "severity", "info") == "warning")
+        lines.append("")
+        lines.append("  SUMMARY")
+        lines.append("  -------")
+        lines.extend(_summary_line(f) for f in findings)
+        # Health footer — counts findings marked severity="warning".
+        # Informational findings (outliers, duplicates, etc.) do not count.
         lines.append("")
         if warnings:
-            lines.append(f"  {warnings} issue(s) detected")
+            lines.append(f"  Health: {warnings} warning(s) — review flagged findings")
         else:
-            lines.append("  No issues detected")
-        lines.append("=" * 64)
+            lines.append("  Health: No issues detected")
+            lines.append("  (All findings above are informational; none are flagged as warnings.)")
+
+        # === Detail sections ===
+        for finding in findings:
+            lines.extend(_render_detail_section(finding))
+
+        lines.append("")
+        lines.append("=" * _WIDTH)
         return "\n".join(lines)
 
     def _report_serialized(
