@@ -84,3 +84,62 @@ def docs(session: nox.Session) -> None:
 def check(session: nox.Session) -> None:
     """Validate lock file is up to date."""
     session.run("uv", "lock", "--check")
+
+
+@nox_uv.session(uv_only_groups=["docker"], uv_no_install_project=True)
+def docker_gen(session: nox.Session) -> None:
+    """Generate Dockerfile.<variant> files from docker/Dockerfile.j2 template."""
+    session.run("python", "-c", DOCKER_GEN_SCRIPT)
+
+
+DOCKER_GEN_SCRIPT = """\
+from pathlib import Path
+
+import yaml
+from jinja2 import Environment, FileSystemLoader
+
+root = Path(".")
+config = yaml.safe_load((root / "docker" / "variants.yaml").read_text())
+
+# Read project version from pyproject.toml
+import tomllib
+pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+version = pyproject["project"]["version"]
+
+env = Environment(
+    loader=FileSystemLoader(root / "docker"),
+    keep_trailing_newline=True,
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
+template = env.get_template("Dockerfile.j2")
+
+uv_version = config["uv_version"]
+python_version = config["python_version"]
+
+# Pre-render the base_image values (they may reference uv_version/python_version)
+base_env = Environment()
+
+for name, variant in config["variants"].items():
+    base_image = base_env.from_string(variant["base_image"]).render(
+        uv_version=uv_version, python_version=python_version,
+    )
+    extras_flags = " ".join(f"--extra {e}" for e in variant["extras"])
+
+    rendered = template.render(
+        variant_name=name,
+        base_image=base_image,
+        needs_uv_install=variant.get("needs_uv_install", False),
+        needs_python_install=variant.get("needs_python_install", False),
+        uv_version=uv_version,
+        python_version=python_version,
+        extras_flags=extras_flags,
+        label_title=variant["label_title"],
+        label_description=variant["label_description"],
+        version=version,
+    )
+
+    out = root / f"Dockerfile.{name}"
+    out.write_text(rendered)
+    print(f"Generated {out}")
+"""

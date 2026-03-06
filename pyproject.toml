@@ -75,6 +75,11 @@ docs = [
     "ipykernel>=7.0",
     "pip>=24.0",
 ]
+docker = [
+    { include-group = "base" },
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+]
 dev = [
     { include-group = "lint" },
     { include-group = "type" },
@@ -82,6 +87,13 @@ dev = [
 ]
 
 [tool.uv]
+# Pin minimum versions for transitive deps with known CVEs
+constraint-dependencies = [
+    "pillow>=12.1.1",          # CVE-2026-25990: OOB write via PSD image
+    "jaraco-context>=6.1.0",   # CVE-2026-23949: path traversal in tarball()
+    "wheel>=0.46.2",           # CVE-2026-24049: privilege escalation via unpack
+]
+
 conflicts = [
   [
     { extra = "cpu" },
@@ -235,4 +247,4 @@ indent-style = "space"
 # --- Codespell ---
 
 [tool.codespell]
-skip = "./*env*,./output,./htmlcov,./.nox,uv.lock"
+skip = "./*env*,./output,./htmlcov,./.nox,./uv.lock,./cosign.pub,Dockerfile.*,*.onnx"

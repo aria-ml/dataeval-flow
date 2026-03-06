@@ -1,14 +1,21 @@
 # AUTO-GENERATED from docker/Dockerfile.j2 — do not edit directly.
 # Regenerate with: nox -s docker-gen
-# Variant: cpu
+# Variant: cu128
 
 # =============================================================================
 # Stage 1: Test — install dev deps, run nox, validate code
 # =============================================================================
-FROM ghcr.io/astral-sh/uv:0.9.18-python3.12-bookworm-slim AS test
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS test
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
+# Copy uv binary from official image (pin version for reproducibility)
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
+
+# Install Python 3.12 to /opt/python (accessible by all users)
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install 3.12
 
 WORKDIR /app
 
@@ -16,7 +23,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 RUN touch README.md
 
 # Install ALL dependencies (dev + prod) for testing
-RUN uv sync --frozen --group dev --extra cpu --extra onnx --extra opencv --no-install-project
+RUN uv sync --frozen --group dev --extra cu128 --extra onnx-gpu --extra opencv --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -32,10 +39,15 @@ RUN nox
 # =============================================================================
 # Stage 2: Production — clean image with only what's needed to run
 # =============================================================================
-FROM ghcr.io/astral-sh/uv:0.9.18-python3.12-bookworm-slim AS prod
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install 3.12
 
 WORKDIR /app
 
@@ -43,7 +55,7 @@ COPY pyproject.toml uv.lock ./
 RUN touch README.md
 
 # Install only production dependencies — no dev tools, no test frameworks
-RUN uv sync --frozen --no-dev --extra cpu --extra onnx --extra opencv --no-install-project
+RUN uv sync --frozen --no-dev --extra cu128 --extra onnx-gpu --extra opencv --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
@@ -60,14 +72,14 @@ RUN useradd --create-home --shell /bin/bash dataeval \
     && chown -R dataeval:dataeval /data /output /cache /app
 
 # Container labels
-LABEL org.opencontainers.image.title="DataEval Application (CPU)" \
-      org.opencontainers.image.description="DataEval Application container - CPU variant" \
+LABEL org.opencontainers.image.title="DataEval Application (CUDA 12.8)" \
+      org.opencontainers.image.description="DataEval Application container - CUDA 12.8 variant" \
       org.opencontainers.image.version="0.1.0" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-app"
 
 USER dataeval
 
-ENV UV_EXTRAS_OVERRIDE=cpu
+ENV UV_EXTRAS_OVERRIDE=cu128
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]

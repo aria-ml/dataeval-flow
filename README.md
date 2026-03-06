@@ -5,18 +5,18 @@ Minimal container for DataEval data evaluation with GPU support.
 ## Quick Start
 
 ```bash
-# 1. Build GPU container
-docker build -t dataeval:gpu .
+# 1. Build CUDA 11.8 container
+docker build -f Dockerfile.cu118 -t dataeval:cu118 .
 
 # 2. Show help
-docker run dataeval:gpu
+docker run dataeval:cu118
 
 # 3. Run with config and dataset
 docker run --gpus all \
   --mount type=bind,source=/path/to/config,target=/data/config,readonly \
   --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:gpu
+  dataeval:cu118
 ```
 
 ## Wrapper Scripts
