@@ -15,6 +15,27 @@
 #   lib_level: WARNING    # third-party: torch, datasets, PIL (DEBUG|INFO|WARNING|ERROR)
 
 # -----------------------------------------------------------------------------
+# DATASETS (optional — defaults to container-mounted path if omitted)
+# -----------------------------------------------------------------------------
+# datasets:
+#   - name: my-dataset
+#     format: huggingface        # huggingface | image_folder
+#     path: ./data/my-dataset
+#     split: train               # HuggingFace only (ignored for image_folder)
+#
+#   # Image folder — flat directory of images (unlabeled)
+#   - name: raw-photos
+#     format: image_folder
+#     path: /data/raw-photos
+#     recursive: false           # Scan subdirectories (default: false)
+#
+#   # Image folder — subdirectory names as class labels
+#   - name: classified-photos
+#     format: image_folder
+#     path: /data/classified-photos
+#     infer_labels: true         # Treat subdirs as class names (default: false)
+
+# -----------------------------------------------------------------------------
 # DATA CLEANING PARAMETERS (required)
 # -----------------------------------------------------------------------------
 data_cleaning:

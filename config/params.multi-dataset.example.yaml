@@ -28,6 +28,16 @@ datasets:
     path: ./data/cifar10
     split: test
 
+  - name: raw-photos
+    format: image_folder
+    path: /data/raw-photos
+    recursive: false
+
+  - name: classified-photos
+    format: image_folder
+    path: /data/classified-photos
+    infer_labels: true
+
 # -----------------------------------------------------------------------------
 # MODELS (optional)
 # -----------------------------------------------------------------------------

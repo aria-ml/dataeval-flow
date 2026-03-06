@@ -511,6 +511,22 @@ class TestBuildFindings:
         assert data["imbalance_ratio"] == 4.0
         assert data["footer_lines"] == ["Imbalance ratio: 4.0 (max/min)"]
 
+    def test_label_distribution_suppressed_when_no_classes(self):
+        """Label distribution finding is suppressed when class_count == 0 (unlabeled dataset)."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            label_stats={
+                "item_count": 100,
+                "class_count": 0,
+                "label_counts_per_class": {},
+                "index2label": {},
+            },
+        )
+        findings = _build_findings(raw, None)
+        titles = [f.title for f in findings]
+        assert "Label Distribution" not in titles
+
     def test_no_findings_when_clean(self):
         raw = DataCleaningRawOutputs(
             dataset_size=100,

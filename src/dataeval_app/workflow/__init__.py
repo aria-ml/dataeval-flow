@@ -13,7 +13,7 @@ __all__ = [
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -25,12 +25,13 @@ from dataeval_app.workflow._text_report import (
 from dataeval_app.workflow.orchestrator import run_task
 
 if TYPE_CHECKING:
+    from dataeval.protocols import AnnotatedDataset
+
     from dataeval_app.cache import WorkflowCache
     from dataeval_app.config.models import ExtractorConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.selection import SelectionStep
     from dataeval_app.config.schemas.task import AutoBinMethod
-    from dataeval_app.dataset import MaiteDataset
 
 
 @dataclass
@@ -38,11 +39,12 @@ class DatasetContext:
     """Per-dataset runtime context — groups a loaded dataset with its resolved configs."""
 
     name: str
-    dataset: "MaiteDataset"
+    dataset: "AnnotatedDataset[Any]"
     extractor: "ExtractorConfig | None" = None
     transforms: Callable | None = None
     selection_steps: "list[SelectionStep] | None" = None
     batch_size: int | None = None
+    label_source: str | None = None
 
 
 @dataclass
@@ -141,7 +143,10 @@ class WorkflowResult(Generic[TMetadata]):
         if meta.execution_time_s is not None:
             lines.append(f"  Duration:  {meta.execution_time_s:.2f}s")
         if meta.dataset_id:
-            lines.append(f"  Dataset:   {meta.dataset_id}")
+            ds_line = f"  Dataset:   {meta.dataset_id}"
+            if meta.dataset_source:
+                ds_line += f"  ({meta.dataset_source})"
+            lines.append(ds_line)
         return lines
 
     def _report_text(self) -> str:

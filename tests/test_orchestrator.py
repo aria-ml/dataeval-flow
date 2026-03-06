@@ -318,6 +318,43 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown selection"):
             run_task(task, config)
 
+    @patch("dataeval_app.dataset.load_dataset")
+    def test_run_task_passes_format_and_image_folder_params(self, mock_load_ds: MagicMock):
+        """run_task passes dataset_format, recursive, and infer_labels to load_dataset."""
+        from pathlib import Path
+
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_app.config.schemas.task import TaskConfig
+
+        ds_config = DatasetConfig(
+            name="photos",
+            format="image_folder",
+            path="/data/photos",
+            recursive=True,
+            infer_labels=True,
+        )
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets="photos")
+
+        config = MagicMock()
+        config.datasets = [ds_config]
+        config.preprocessors = None
+        config.models = None
+        config.selections = None
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = self._mock_workflow()
+
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+            run_task(task, config)
+
+        mock_load_ds.assert_called_once_with(
+            Path("/data/photos"),
+            split=None,
+            dataset_format="image_folder",
+            recursive=True,
+            infer_labels=True,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Workflow discovery (replaces WorkflowRegistry)

@@ -4,7 +4,7 @@ import hashlib
 import logging
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, TypeVar, runtime_checkable
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from dataeval_app.config.models import WorkflowConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.task import TaskConfig
-    from dataeval_app.workflow import WorkflowResult
+    from dataeval_app.workflow import DatasetContext, WorkflowResult
 
 __all__ = ["run_task"]
 
@@ -189,7 +189,13 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
     dataset_contexts: dict[str, DatasetContext] = {}
     for ds_name in dataset_names:
         ds_config: DatasetConfig = _resolve_by_name(config.datasets, ds_name, "datasets")
-        dataset = load_dataset(Path(ds_config.path), split=ds_config.split)
+        dataset = load_dataset(
+            Path(ds_config.path),
+            split=ds_config.split,
+            dataset_format=ds_config.format,
+            recursive=ds_config.recursive,
+            infer_labels=ds_config.infer_labels,
+        )
 
         # Resolve model → extractor (optional)
         extractor_config = None
@@ -213,13 +219,19 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
         if sel_config is not None:
             selection_steps = sel_config.steps
 
+        # Annotate label source for image folder datasets with inferred labels
+        label_source: str | None = None
+        if ds_config.format == "image_folder" and ds_config.infer_labels:
+            label_source = "inferred from directory names"
+
         dataset_contexts[ds_name] = DatasetContext(
             name=ds_name,
-            dataset=dataset,
+            dataset=dataset,  # type: ignore[arg-type]  # MaiteDataset | ImageFolderDataset → AnnotatedDataset
             extractor=extractor_config,
             transforms=transforms,
             selection_steps=selection_steps,
             batch_size=task.batch_size,
+            label_source=label_source,
         )
 
     # 4. Build WorkflowContext (metadata config is task-wide, not per-dataset)
@@ -259,12 +271,28 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
     logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Populate metadata envelope (JATIC fields + timing)
+    _populate_result_metadata(result, dataset_names, dataset_contexts, task.output_format, elapsed)
+
+    return result
+
+
+def _populate_result_metadata(
+    result: "WorkflowResult[ResultMetadata]",
+    dataset_names: list[str],
+    dataset_contexts: "dict[str, DatasetContext]",
+    output_format: "Literal['text', 'json', 'yaml']",
+    elapsed: float,
+) -> None:
+    """Fill in the JATIC metadata envelope and dataset source annotation."""
     from dataeval_app import __version__
 
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.datasets = dataset_names
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
-    result.format = task.output_format
+    result.format = output_format
 
-    return result
+    # Annotate dataset source for image-only datasets
+    dc = next(iter(dataset_contexts.values()))
+    if dc.label_source:
+        result.metadata.dataset_source = f"image folder, labels {dc.label_source}"
