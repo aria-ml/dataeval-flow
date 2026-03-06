@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 
@@ -60,7 +61,7 @@ class TestDatasetModule:
             mock_adapter.assert_called()
 
     def test_load_dataset_delegates(self) -> None:
-        """Test load_dataset delegates to load_dataset_huggingface."""
+        """Test load_dataset defaults to huggingface."""
         with patch("dataeval_app.dataset.load_dataset_huggingface") as mock_hf:
             mock_hf.return_value = MagicMock()
 
@@ -68,6 +69,263 @@ class TestDatasetModule:
 
             load_dataset(Path("/some/path"))
             mock_hf.assert_called_once_with(Path("/some/path"), split=None)
+
+    def test_load_dataset_image_folder_dispatch(self) -> None:
+        """Test load_dataset dispatches to image_folder loader."""
+        with patch("dataeval_app.dataset.load_dataset_image_folder") as mock_if:
+            mock_if.return_value = MagicMock()
+
+            from dataeval_app.dataset import load_dataset
+
+            load_dataset(Path("/some/path"), dataset_format="image_folder")
+            mock_if.assert_called_once_with(Path("/some/path"), recursive=False, infer_labels=False)
+
+    def test_load_dataset_image_folder_with_infer_labels(self) -> None:
+        """Test load_dataset passes infer_labels through."""
+        with patch("dataeval_app.dataset.load_dataset_image_folder") as mock_if:
+            mock_if.return_value = MagicMock()
+
+            from dataeval_app.dataset import load_dataset
+
+            load_dataset(Path("/some/path"), dataset_format="image_folder", infer_labels=True)
+            mock_if.assert_called_once_with(Path("/some/path"), recursive=False, infer_labels=True)
+
+    def test_load_dataset_unsupported_format_raises(self) -> None:
+        """Test load_dataset raises ValueError for unsupported formats."""
+        from dataeval_app.dataset import load_dataset
+
+        with pytest.raises(ValueError, match="Unsupported dataset format"):
+            load_dataset(Path("/some/path"), dataset_format="coco")  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# ImageFolderDataset — helpers
+# ---------------------------------------------------------------------------
+
+
+def _create_image(path: Path, width: int = 8, height: int = 8, mode: str = "RGB") -> None:
+    """Create a minimal test image at the given path."""
+    from PIL import Image
+
+    img = Image.new(mode, (width, height), color="red")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path)
+
+
+# ---------------------------------------------------------------------------
+# ImageFolderDataset — unlabeled
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestImageFolderDatasetUnlabeled:
+    """Tests for ImageFolderDataset in unlabeled mode (infer_labels=False)."""
+
+    def test_happy_path(self, tmp_path: Path) -> None:
+        """Discover images in a flat directory."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        for name in ["a.png", "b.jpg", "c.jpeg"]:
+            _create_image(tmp_path / name)
+
+        ds = ImageFolderDataset(tmp_path)
+        assert len(ds) == 3
+        img, target, meta = ds[0]
+        assert img.shape == (3, 8, 8)
+        assert img.dtype == np.float32
+        assert target.shape == (0,)
+        assert meta["filename"] == "a.png"
+        assert ds.metadata["index2label"] == {}
+
+    def test_missing_path_raises(self, tmp_path: Path) -> None:
+        """Non-existent path raises FileNotFoundError."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        with pytest.raises(FileNotFoundError, match="Image folder not found"):
+            ImageFolderDataset(tmp_path / "nonexistent")
+
+    def test_empty_dir_raises(self, tmp_path: Path) -> None:
+        """Empty directory raises FileNotFoundError."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        with pytest.raises(FileNotFoundError, match="No supported image files"):
+            ImageFolderDataset(tmp_path)
+
+    def test_mixed_files_filters(self, tmp_path: Path) -> None:
+        """Only image files are discovered; others are ignored."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "img.png")
+        (tmp_path / "data.txt").write_text("hello")
+        (tmp_path / "data.csv").write_text("a,b")
+
+        ds = ImageFolderDataset(tmp_path)
+        assert len(ds) == 1
+
+    def test_grayscale_image(self, tmp_path: Path) -> None:
+        """Grayscale image is converted to 3-channel RGB."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "gray.png", mode="L")
+        ds = ImageFolderDataset(tmp_path)
+        img, _, _ = ds[0]
+        assert img.shape == (3, 8, 8)
+
+    def test_rgba_image(self, tmp_path: Path) -> None:
+        """RGBA image drops alpha channel."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "rgba.png", mode="RGBA")
+        ds = ImageFolderDataset(tmp_path)
+        img, _, _ = ds[0]
+        assert img.shape == (3, 8, 8)
+
+    def test_negative_indexing(self, tmp_path: Path) -> None:
+        """Negative indices work correctly."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        for name in ["a.png", "b.png", "c.png"]:
+            _create_image(tmp_path / name)
+
+        ds = ImageFolderDataset(tmp_path)
+        _, _, meta_last = ds[-1]
+        assert meta_last["filename"] == "c.png"
+        _, _, meta_first = ds[-3]
+        assert meta_first["filename"] == "a.png"
+        with pytest.raises(IndexError):
+            ds[-4]
+
+    def test_recursive(self, tmp_path: Path) -> None:
+        """recursive=True finds images in subdirectories."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "top.png")
+        _create_image(tmp_path / "sub" / "deep.png")
+
+        ds_flat = ImageFolderDataset(tmp_path, recursive=False)
+        assert len(ds_flat) == 1
+
+        ds_recursive = ImageFolderDataset(tmp_path, recursive=True)
+        assert len(ds_recursive) == 2
+
+
+# ---------------------------------------------------------------------------
+# ImageFolderDataset — labeled
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestImageFolderDatasetLabeled:
+    """Tests for ImageFolderDataset in labeled mode (infer_labels=True)."""
+
+    def test_happy_path(self, tmp_path: Path) -> None:
+        """2 subdirs → 2 classes, one-hot targets, correct index2label."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "cats" / "c1.png")
+        _create_image(tmp_path / "cats" / "c2.png")
+        _create_image(tmp_path / "dogs" / "d1.png")
+        _create_image(tmp_path / "dogs" / "d2.png")
+
+        ds = ImageFolderDataset(tmp_path, infer_labels=True)
+        assert len(ds) == 4
+        assert ds.metadata["index2label"] == {0: "cats", 1: "dogs"}
+
+        # First two images are cats (class 0)
+        _, target0, _ = ds[0]
+        assert target0.dtype == np.float32
+        assert target0.tolist() == [1.0, 0.0]
+
+        # Last two images are dogs (class 1)
+        _, target3, _ = ds[3]
+        assert target3.tolist() == [0.0, 1.0]
+
+    def test_empty_subdir_skipped(self, tmp_path: Path) -> None:
+        """Empty subdirs are skipped; class indices remain dense."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "alpha" / "a1.png")
+        (tmp_path / "beta").mkdir()  # empty
+        _create_image(tmp_path / "gamma" / "g1.png")
+
+        ds = ImageFolderDataset(tmp_path, infer_labels=True)
+        assert len(ds) == 2
+        assert ds.metadata["index2label"] == {0: "alpha", 1: "gamma"}
+
+    def test_top_level_images_ignored(self, tmp_path: Path) -> None:
+        """Images directly in root are ignored in labeled mode."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "stray.png")  # top-level — ignored
+        _create_image(tmp_path / "cats" / "c1.png")
+
+        ds = ImageFolderDataset(tmp_path, infer_labels=True)
+        assert len(ds) == 1
+        _, _, meta = ds[0]
+        assert meta["filename"] == "c1.png"
+
+    def test_single_class(self, tmp_path: Path) -> None:
+        """Single class → num_classes=1, one-hot [1.0]."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "only_class" / "img.png")
+        ds = ImageFolderDataset(tmp_path, infer_labels=True)
+        assert len(ds) == 1
+        _, target, _ = ds[0]
+        assert target.tolist() == [1.0]
+
+    def test_no_subdirs_raises(self, tmp_path: Path) -> None:
+        """infer_labels=True on flat dir → FileNotFoundError."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        _create_image(tmp_path / "img.png")
+        with pytest.raises(FileNotFoundError, match="No class subdirectories"):
+            ImageFolderDataset(tmp_path, infer_labels=True)
+
+    def test_all_subdirs_empty_raises(self, tmp_path: Path) -> None:
+        """infer_labels=True, subdirs exist but no images → FileNotFoundError."""
+        from dataeval_app.dataset import ImageFolderDataset
+
+        (tmp_path / "empty_a").mkdir()
+        (tmp_path / "empty_b").mkdir()
+        with pytest.raises(FileNotFoundError, match="No supported image files"):
+            ImageFolderDataset(tmp_path, infer_labels=True)
+
+
+# ---------------------------------------------------------------------------
+# Config schema — image_folder
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestDatasetConfigImageFolder:
+    """Tests for DatasetConfig with image_folder format."""
+
+    def test_image_folder_format_accepted(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(name="test", format="image_folder", path="/data")
+        assert cfg.format == "image_folder"
+
+    def test_recursive_field(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(name="test", format="image_folder", path="/data", recursive=True)
+        assert cfg.recursive is True
+
+    def test_infer_labels_field(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(name="test", format="image_folder", path="/data", infer_labels=True)
+        assert cfg.infer_labels is True
+
+    def test_defaults_backward_compat(self) -> None:
+        """Existing configs without new fields still parse."""
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(name="test", format="huggingface", path="/data")
+        assert cfg.recursive is False
+        assert cfg.infer_labels is False
 
 
 @pytest.mark.required

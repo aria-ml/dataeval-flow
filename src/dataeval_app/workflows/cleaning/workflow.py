@@ -278,24 +278,32 @@ def _duplicate_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
     )
 
 
-def _label_distribution_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
+def _label_distribution_finding(
+    raw: DataCleaningRawOutputs,
+    label_source: str | None = None,
+) -> Reportable | None:
     """Build a Label Distribution finding from raw results, or None if no label stats."""
     if not raw.label_stats:
         return None
 
-    label_counts = raw.label_stats.get("label_counts_per_class", {})
     class_count = raw.label_stats.get("class_count", 0)
+    if class_count == 0:
+        return None  # No labels — suppress finding
+
+    label_counts = raw.label_stats.get("label_counts_per_class", {})
     item_count = raw.label_stats.get("item_count", 0)
     counts_list = list(label_counts.values()) if label_counts else []
     imbalance_ratio = round(max(counts_list) / min(counts_list), 1) if counts_list and min(counts_list) > 0 else 0.0
     footer_lines: list[str] = []
+    if label_source:
+        footer_lines.append(f"Labels {label_source}")
     if imbalance_ratio == 1.0:
         footer_lines.append("Balanced: all classes have equal counts")
     elif imbalance_ratio != 0.0:
         footer_lines.append(f"Imbalance ratio: {imbalance_ratio} (max/min)")
     return Reportable(
         report_type="table",
-        title="Label Distribution",
+        title="Label/Directory_Name Distribution" if label_source else "Label Distribution",
         data={
             "brief": f"{class_count} classes, {item_count} items",
             "table_data": label_counts,
@@ -306,6 +314,7 @@ def _label_distribution_finding(raw: DataCleaningRawOutputs) -> Reportable | Non
             "class_count": class_count,
             "item_count": item_count,
             "imbalance_ratio": imbalance_ratio,
+            "label_source": label_source,
         },
         description=(f"{class_count} classes, {item_count} items."),
     )
@@ -314,6 +323,7 @@ def _label_distribution_finding(raw: DataCleaningRawOutputs) -> Reportable | Non
 def _build_findings(
     raw: DataCleaningRawOutputs,
     metadata: Metadata | None,  # noqa: ARG001 - reserved for future metadata-based findings
+    label_source: str | None = None,
 ) -> list[Reportable]:
     """Generate human-readable findings from raw results."""
     findings: list[Reportable] = []
@@ -375,7 +385,7 @@ def _build_findings(
         findings.append(dup_finding)
 
     # Label distribution finding
-    label_finding = _label_distribution_finding(raw)
+    label_finding = _label_distribution_finding(raw, label_source=label_source)
     if label_finding:
         findings.append(label_finding)
 
@@ -726,7 +736,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
             )
 
             # 5. Generate findings from raw results
-            findings = _build_findings(raw, metadata)
+            findings = _build_findings(raw, metadata, label_source=dc.label_source)
 
             # 6. Preparatory mode: compute clean indices (exclude flagged items)
             result_metadata = DataCleaningMetadata(

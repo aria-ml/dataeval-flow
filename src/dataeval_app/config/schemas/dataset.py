@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-DatasetFormat = Literal["huggingface", "coco", "voc", "yolo"]
+DatasetFormat = Literal["huggingface", "coco", "voc", "yolo", "image_folder"]
 
 
 class DatasetConfig(BaseModel):
@@ -14,3 +14,5 @@ class DatasetConfig(BaseModel):
     format: DatasetFormat
     path: str
     split: str | None = None
+    recursive: bool = False
+    infer_labels: bool = False
