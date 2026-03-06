@@ -26,10 +26,11 @@ uv sync
 
 ## Docker
 
-### GPU (CUDA)
+### CUDA 11.8 (GPU)
 
 ```bash
-docker compose up
+docker build -f Dockerfile.cu118 -t dataeval-app:cu118 .
+docker run --gpus all dataeval-app:cu118
 ```
 
 ### CPU only

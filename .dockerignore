@@ -1,19 +1,60 @@
-# Reduce build context size (these files not needed in container)
+# =============================================================================
+# Docker build context — only include what Dockerfiles actually COPY:
+#   pyproject.toml, uv.lock, noxfile.py, src/, tests/, entrypoint.sh, README.md
+# =============================================================================
+
+# Version control
 .git
+.gitattributes
+.gitignore
 .github
-.env
+
+# CI/CD and Docker config (not needed inside images)
+.gitlab-ci.yml
+Dockerfile.*
+docker/
+
+# Python artifacts
 .venv
+.nox
 __pycache__
 *.pyc
 *.pyo
 *.egg-info
+.coverage
 .pytest_cache
 .ruff_cache
+
+# IDE and tooling
+.claude
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+cosign.pub
+cosign.key
+
+# Documentation and metadata (not needed at runtime)
+docs/
+LICENSE
+*.md
+!README.md
+
+# Build output
+output/
 htmlcov
 
-# Docs excluded (not needed at runtime; add back if you want /app/LICENSE in image)
-*.md
-LICENSE
+# Local data and config (mounted at runtime, not baked in)
+config/
+data/
 
-# Explicitly include README.md (required for package build by pyproject.toml)
-!README.md
+# Helper scripts (host-only)
+run.sh
+run.ps1
+
+# Misc
+.cuda-version

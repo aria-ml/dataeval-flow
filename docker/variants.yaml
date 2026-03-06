@@ -1,0 +1,44 @@
+# Docker variant definitions for DataEval App
+# Used by `nox -s docker-gen` to render Dockerfile.<variant> from Dockerfile.j2
+#
+# To add a new CUDA variant:
+#   1. Add the variant key below with the appropriate base_image and cuda version
+#   2. Ensure pyproject.toml has the matching extra and pytorch index
+#   3. Run `nox -s docker-gen` to generate the Dockerfile
+
+# Pinned tool versions (shared across all variants)
+uv_version: "0.9.18"
+python_version: "3.12"
+
+variants:
+  cpu:
+    base_image: "ghcr.io/astral-sh/uv:{{ uv_version }}-python{{ python_version }}-bookworm-slim"
+    needs_uv_install: false
+    needs_python_install: false
+    extras: ["cpu", "onnx", "opencv"]
+    label_title: "DataEval Application (CPU)"
+    label_description: "DataEval Application container - CPU variant"
+
+  cu118:
+    base_image: "nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04"
+    needs_uv_install: true
+    needs_python_install: true
+    extras: ["cu118", "onnx-gpu", "opencv"]
+    label_title: "DataEval Application (CUDA 11.8)"
+    label_description: "DataEval Application container - CUDA 11.8 variant"
+
+  cu124:
+    base_image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
+    needs_uv_install: true
+    needs_python_install: true
+    extras: ["cu124", "onnx-gpu", "opencv"]
+    label_title: "DataEval Application (CUDA 12.4)"
+    label_description: "DataEval Application container - CUDA 12.4 variant"
+
+  cu128:
+    base_image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04"
+    needs_uv_install: true
+    needs_python_install: true
+    extras: ["cu128", "onnx-gpu", "opencv"]
+    label_title: "DataEval Application (CUDA 12.8)"
+    label_description: "DataEval Application container - CUDA 12.8 variant"
