@@ -12,33 +12,35 @@ python_version: "3.12"
 
 variants:
   cpu:
-    base_image: "ghcr.io/astral-sh/uv:{{ uv_version }}-python{{ python_version }}-bookworm-slim"
-    needs_uv_install: false
-    needs_python_install: false
+    base_image: "ubuntu:24.04"
+
     extras: ["cpu", "onnx", "opencv"]
     label_title: "DataEval Application (CPU)"
     label_description: "DataEval Application container - CPU variant"
 
   cu118:
     base_image: "nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04"
-    needs_uv_install: true
-    needs_python_install: true
+
     extras: ["cu118", "onnx-gpu", "opencv"]
     label_title: "DataEval Application (CUDA 11.8)"
     label_description: "DataEval Application container - CUDA 11.8 variant"
+    security_patches:
+      - "apt-get purge -y linux-libc-dev && apt-get autoremove -y"
 
   cu124:
     base_image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
-    needs_uv_install: true
-    needs_python_install: true
+
     extras: ["cu124", "onnx-gpu", "opencv"]
     label_title: "DataEval Application (CUDA 12.4)"
     label_description: "DataEval Application container - CUDA 12.4 variant"
+    security_patches:
+      - "apt-get purge -y linux-libc-dev && apt-get autoremove -y"
 
   cu128:
     base_image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04"
-    needs_uv_install: true
-    needs_python_install: true
+
     extras: ["cu128", "onnx-gpu", "opencv"]
     label_title: "DataEval Application (CUDA 12.8)"
     label_description: "DataEval Application container - CUDA 12.8 variant"
+    security_patches:
+      - "apt-get purge -y --allow-remove-essential '*nsight*' && apt-get autoremove -y"

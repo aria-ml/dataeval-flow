@@ -154,6 +154,8 @@ pages:
     COSIGN_PASSWORD: ""
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ /^container/
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^container/
   before_script:
     - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$dataeval+dataeval-app' --password-stdin
   after_script:
@@ -233,7 +235,7 @@ scan:docker:
   script:
     - docker pull "${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-${VARIANT}"
     - IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-${VARIANT}")
-    - ./bin/trivy image "${IMAGE_DIGEST}" --scanners vuln --format template --template "@junit.tpl" -o trivy-${VARIANT}.xml --severity HIGH,CRITICAL --exit-code 1
+    - ./bin/trivy image "${IMAGE_DIGEST}" --scanners vuln --format template --template "@junit.tpl" -o trivy-${VARIANT}.xml --severity HIGH,CRITICAL --exit-code 1 --timeout 30m
   artifacts:
     when: on_failure
     paths:

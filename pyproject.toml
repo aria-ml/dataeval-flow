@@ -90,8 +90,8 @@ dev = [
 # Pin minimum versions for transitive deps with known CVEs
 constraint-dependencies = [
     "pillow>=12.1.1",          # CVE-2026-25990: OOB write via PSD image
-    "jaraco-context>=6.1.0",   # CVE-2026-23949: path traversal in tarball()
-    "wheel>=0.46.2",           # CVE-2026-24049: privilege escalation via unpack
+    "setuptools>=82.0.0",      # CVE-2026-23949: (jaraco_context) path traversal in tarball()
+                               # CVE-2026-24049: (wheel) privilege escalation via unpack
 ]
 
 conflicts = [

@@ -129,14 +129,13 @@ for name, variant in config["variants"].items():
     rendered = template.render(
         variant_name=name,
         base_image=base_image,
-        needs_uv_install=variant.get("needs_uv_install", False),
-        needs_python_install=variant.get("needs_python_install", False),
         uv_version=uv_version,
         python_version=python_version,
         extras_flags=extras_flags,
         label_title=variant["label_title"],
         label_description=variant["label_description"],
         version=version,
+        security_patches=variant.get("security_patches", []),
     )
 
     out = root / f"Dockerfile.{name}"
