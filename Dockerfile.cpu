@@ -5,10 +5,20 @@
 # =============================================================================
 # Stage 1: Test — install dev deps, run nox, validate code
 # =============================================================================
-FROM ghcr.io/astral-sh/uv:0.9.18-python3.12-bookworm-slim AS test
+FROM ubuntu:24.04 AS test
 
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy uv binary from official image (pin version for reproducibility)
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
+
+# Install Python 3.12 to /opt/python (accessible by all users)
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install 3.12
 
 WORKDIR /app
 
@@ -32,10 +42,18 @@ RUN nox
 # =============================================================================
 # Stage 2: Production — clean image with only what's needed to run
 # =============================================================================
-FROM ghcr.io/astral-sh/uv:0.9.18-python3.12-bookworm-slim AS prod
+FROM ubuntu:24.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install 3.12
 
 WORKDIR /app
 

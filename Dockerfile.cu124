@@ -8,7 +8,10 @@
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS test
 
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy uv binary from official image (pin version for reproducibility)
 COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
@@ -42,7 +45,10 @@ RUN nox
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
 
@@ -77,6 +83,8 @@ LABEL org.opencontainers.image.title="DataEval Application (CUDA 12.4)" \
       org.opencontainers.image.version="0.1.0" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-app"
 
+# Security patching: purge flagged OS packages
+RUN apt-get purge -y linux-libc-dev && apt-get autoremove -y
 USER dataeval
 
 ENV UV_EXTRAS_OVERRIDE=cu124

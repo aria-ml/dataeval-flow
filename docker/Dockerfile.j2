@@ -8,18 +8,17 @@
 FROM {{ base_image }} AS test
 
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
-{% if needs_uv_install %}
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy uv binary from official image (pin version for reproducibility)
 COPY --from=ghcr.io/astral-sh/uv:{{ uv_version }} /uv /uvx /bin/
-{% endif %}
-{% if needs_python_install %}
 
 # Install Python {{ python_version }} to /opt/python (accessible by all users)
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 RUN uv python install {{ python_version }}
-{% endif %}
 
 WORKDIR /app
 
@@ -46,16 +45,15 @@ RUN nox
 FROM {{ base_image }} AS prod
 
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
-{% if needs_uv_install %}
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:{{ uv_version }} /uv /uvx /bin/
-{% endif %}
-{% if needs_python_install %}
 
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 RUN uv python install {{ python_version }}
-{% endif %}
 
 WORKDIR /app
 
@@ -85,6 +83,12 @@ LABEL org.opencontainers.image.title="{{ label_title }}" \
       org.opencontainers.image.version="{{ version }}" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-app"
 
+{% if security_patches %}
+# Security patching: purge flagged OS packages
+{% for patch in security_patches %}
+RUN {{ patch }}
+{% endfor %}
+{% endif %}
 USER dataeval
 
 ENV UV_EXTRAS_OVERRIDE={{ variant_name }}
