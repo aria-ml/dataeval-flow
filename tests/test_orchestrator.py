@@ -353,7 +353,204 @@ class TestRunTask:
             dataset_format="image_folder",
             recursive=True,
             infer_labels=True,
+            annotations_file=None,
+            images_dir=None,
+            labels_dir=None,
+            classes_file=None,
         )
+
+    @patch("dataeval_app.dataset.load_dataset")
+    def test_run_task_passes_coco_params(self, mock_load_ds: MagicMock):
+        """run_task passes COCO-specific config fields to load_dataset."""
+        from pathlib import Path
+
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_app.config.schemas.task import TaskConfig
+
+        ds_config = DatasetConfig(
+            name="coco_ds",
+            format="coco",
+            path="/data/coco",
+            annotations_file="instances.json",
+            images_dir="train2017",
+            classes_file="classes.txt",
+        )
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets="coco_ds")
+
+        config = MagicMock()
+        config.datasets = [ds_config]
+        config.preprocessors = None
+        config.models = None
+        config.selections = None
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = self._mock_workflow()
+
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+            run_task(task, config)
+
+        mock_load_ds.assert_called_once_with(
+            Path("/data/coco"),
+            split=None,
+            dataset_format="coco",
+            recursive=False,
+            infer_labels=False,
+            annotations_file="instances.json",
+            images_dir="train2017",
+            labels_dir=None,
+            classes_file="classes.txt",
+        )
+
+    @patch("dataeval_app.dataset.load_dataset")
+    def test_run_task_passes_yolo_params(self, mock_load_ds: MagicMock):
+        """run_task passes YOLO-specific config fields to load_dataset."""
+        from pathlib import Path
+
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_app.config.schemas.task import TaskConfig
+
+        ds_config = DatasetConfig(
+            name="yolo_ds",
+            format="yolo",
+            path="/data/yolo",
+            images_dir="imgs",
+            labels_dir="lbls",
+            classes_file="cls.txt",
+        )
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets="yolo_ds")
+
+        config = MagicMock()
+        config.datasets = [ds_config]
+        config.preprocessors = None
+        config.models = None
+        config.selections = None
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = self._mock_workflow()
+
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+            run_task(task, config)
+
+        mock_load_ds.assert_called_once_with(
+            Path("/data/yolo"),
+            split=None,
+            dataset_format="yolo",
+            recursive=False,
+            infer_labels=False,
+            annotations_file=None,
+            images_dir="imgs",
+            labels_dir="lbls",
+            classes_file="cls.txt",
+        )
+
+    @patch("dataeval_app.dataset.load_dataset")
+    def test_run_task_coco_sets_label_source(self, mock_load_ds: MagicMock):
+        """run_task sets label_source='from annotations' for COCO datasets."""
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_app.config.schemas.task import TaskConfig
+
+        ds_config = DatasetConfig(name="coco_ds", format="coco", path="/data/coco")
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets="coco_ds")
+
+        config = MagicMock()
+        config.datasets = [ds_config]
+        config.preprocessors = None
+        config.models = None
+        config.selections = None
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = self._mock_workflow()
+
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+            run_task(task, config)
+
+        context = mock_wf.execute.call_args[0][0]
+        dc = context.dataset_contexts["coco_ds"]
+        assert dc.label_source == "from annotations"
+
+    @patch("dataeval_app.dataset.load_dataset")
+    def test_run_task_yolo_sets_label_source(self, mock_load_ds: MagicMock):
+        """run_task sets label_source='from annotations' for YOLO datasets."""
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_app.config.schemas.task import TaskConfig
+
+        ds_config = DatasetConfig(name="yolo_ds", format="yolo", path="/data/yolo")
+        task = TaskConfig(name="t", workflow="data-cleaning", datasets="yolo_ds")
+
+        config = MagicMock()
+        config.datasets = [ds_config]
+        config.preprocessors = None
+        config.models = None
+        config.selections = None
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = self._mock_workflow()
+
+        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+            run_task(task, config)
+
+        context = mock_wf.execute.call_args[0][0]
+        dc = context.dataset_contexts["yolo_ds"]
+        assert dc.label_source == "from annotations"
+
+
+# ---------------------------------------------------------------------------
+# _infer_label_source unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestInferLabelSource:
+    """Direct unit tests for the _infer_label_source helper."""
+
+    @staticmethod
+    def _make_config(fmt: str, **kwargs: object) -> Any:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        return DatasetConfig(name="ds", format=fmt, path="/data/ds", **kwargs)  # type: ignore[arg-type]
+
+    def test_huggingface_returns_none(self) -> None:
+        from dataeval_app.workflow.orchestrator import _infer_label_source
+
+        assert _infer_label_source(self._make_config("huggingface")) is None
+
+    def test_image_folder_no_infer_returns_none(self) -> None:
+        from dataeval_app.workflow.orchestrator import _infer_label_source
+
+        assert _infer_label_source(self._make_config("image_folder")) is None
+
+    def test_image_folder_infer_labels_returns_directory(self) -> None:
+        from dataeval_app.workflow.orchestrator import _infer_label_source
+
+        result = _infer_label_source(self._make_config("image_folder", infer_labels=True))
+        assert result == "inferred from directory names"
+
+    def test_coco_returns_from_annotations(self) -> None:
+        from dataeval_app.workflow.orchestrator import _infer_label_source
+
+        assert _infer_label_source(self._make_config("coco")) == "from annotations"
+
+    def test_yolo_returns_from_annotations(self) -> None:
+        from dataeval_app.workflow.orchestrator import _infer_label_source
+
+        assert _infer_label_source(self._make_config("yolo")) == "from annotations"
+
+    def test_coco_rejects_infer_labels(self) -> None:
+        """Schema rejects infer_labels=True for COCO (it's image_folder-only)."""
+        from pydantic import ValidationError
+
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        with pytest.raises(ValidationError, match="infer_labels"):
+            DatasetConfig(name="ds", format="coco", path="/data/ds", infer_labels=True)
+
+    def test_yolo_rejects_infer_labels(self) -> None:
+        """Schema rejects infer_labels=True for YOLO (it's image_folder-only)."""
+        from pydantic import ValidationError
+
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        with pytest.raises(ValidationError, match="infer_labels"):
+            DatasetConfig(name="ds", format="yolo", path="/data/ds", infer_labels=True)
 
 
 # ---------------------------------------------------------------------------

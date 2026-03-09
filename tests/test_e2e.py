@@ -87,7 +87,6 @@ class TestConfigToFactoryIntegration:
             "  - name: dataset_b\n"
             "    format: coco\n"
             "    path: ./b\n"
-            "    split: val\n"
             "preprocessors:\n"
             "  - name: preproc_x\n"
             "    steps:\n"
@@ -254,9 +253,7 @@ class TestConfigMergeBehavior:
             "datasets:\n  - name: dataset_a\n    format: huggingface\n    path: ./a\n    split: train\n"
         )
         # Second file defines dataset B
-        (config_dir / "01-second.yaml").write_text(
-            "datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n    split: test\n"
-        )
+        (config_dir / "01-second.yaml").write_text("datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n")
 
         config = load_config_folder(config_dir)
 

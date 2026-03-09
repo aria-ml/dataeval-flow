@@ -633,6 +633,34 @@ class TestP1SchemaClasses:
                 split="train",
             )
 
+    def test_dataset_config_rejects_labels_dir_for_coco(self):
+        """DatasetConfig rejects labels_dir for COCO format."""
+        from dataeval_app.config.schemas import DatasetConfig
+
+        with pytest.raises(ValidationError, match="labels_dir"):
+            DatasetConfig(name="ds", format="coco", path="./data", labels_dir="labels")
+
+    def test_dataset_config_rejects_annotations_file_for_yolo(self):
+        """DatasetConfig rejects annotations_file for YOLO format."""
+        from dataeval_app.config.schemas import DatasetConfig
+
+        with pytest.raises(ValidationError, match="annotations_file"):
+            DatasetConfig(name="ds", format="yolo", path="./data", annotations_file="ann.json")
+
+    def test_dataset_config_rejects_split_for_image_folder(self):
+        """DatasetConfig rejects split for image_folder format."""
+        from dataeval_app.config.schemas import DatasetConfig
+
+        with pytest.raises(ValidationError, match="split"):
+            DatasetConfig(name="ds", format="image_folder", path="./data", split="train")
+
+    def test_dataset_config_rejects_recursive_for_huggingface(self):
+        """DatasetConfig rejects recursive for huggingface format."""
+        from dataeval_app.config.schemas import DatasetConfig
+
+        with pytest.raises(ValidationError, match="recursive"):
+            DatasetConfig(name="ds", format="huggingface", path="./data", recursive=True)
+
     def test_preprocessor_config_valid(self):
         """PreprocessorConfig with valid steps."""
         from dataeval_app.config.schemas import PreprocessorConfig

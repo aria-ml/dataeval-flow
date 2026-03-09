@@ -527,6 +527,30 @@ class TestBuildFindings:
         titles = [f.title for f in findings]
         assert "Label Distribution" not in titles
 
+    def test_label_title_with_inferred_directory_labels(self):
+        """image_folder with inferred labels uses 'Label/Directory_Name Distribution' title."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=10,
+            img_outliers={"count": 0, "issues": []},
+            label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
+        )
+        findings = _build_findings(raw, None, label_source="inferred from directory names")
+        label_finding = next(f for f in findings if "Distribution" in f.title)
+        assert label_finding.title == "Label/Directory_Name Distribution"
+
+    def test_label_title_with_annotation_labels(self):
+        """COCO/YOLO annotation labels use 'Label Distribution' title (not directory-name variant)."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=10,
+            img_outliers={"count": 0, "issues": []},
+            label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
+        )
+        findings = _build_findings(raw, None, label_source="from annotations")
+        label_finding = next(f for f in findings if "Distribution" in f.title)
+        assert label_finding.title == "Label Distribution"
+        # Footer should still show the label_source annotation
+        assert any("from annotations" in line for line in label_finding.data["footer_lines"])  # type: ignore[union-attr]
+
     def test_no_findings_when_clean(self):
         raw = DataCleaningRawOutputs(
             dataset_size=100,

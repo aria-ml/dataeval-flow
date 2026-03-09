@@ -303,7 +303,11 @@ def _label_distribution_finding(
         footer_lines.append(f"Imbalance ratio: {imbalance_ratio} (max/min)")
     return Reportable(
         report_type="table",
-        title="Label/Directory_Name Distribution" if label_source else "Label Distribution",
+        title=(
+            "Label/Directory_Name Distribution"
+            if label_source == "inferred from directory names"
+            else "Label Distribution"
+        ),
         data={
             "brief": f"{class_count} classes, {item_count} items",
             "table_data": label_counts,

@@ -10,6 +10,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_app.config.models import WorkflowConfig
+    from dataeval_app.config.schemas.dataset import DatasetConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.task import TaskConfig
     from dataeval_app.workflow import DatasetContext, WorkflowResult
@@ -133,6 +134,15 @@ def _validate_mapping_keys(
         raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
 
 
+def _infer_label_source(ds_config: "DatasetConfig") -> str | None:
+    """Determine label provenance annotation for the dataset format."""
+    if ds_config.format == "image_folder" and ds_config.infer_labels:
+        return "inferred from directory names"
+    if ds_config.format in ("coco", "yolo"):
+        return "from annotations"
+    return None
+
+
 def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[ResultMetadata]":
     """Run a single task using config-driven resolution.
 
@@ -195,6 +205,10 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
             dataset_format=ds_config.format,
             recursive=ds_config.recursive,
             infer_labels=ds_config.infer_labels,
+            annotations_file=ds_config.annotations_file,
+            images_dir=ds_config.images_dir,
+            labels_dir=ds_config.labels_dir,
+            classes_file=ds_config.classes_file,
         )
 
         # Resolve model → extractor (optional)
@@ -219,10 +233,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
         if sel_config is not None:
             selection_steps = sel_config.steps
 
-        # Annotate label source for image folder datasets with inferred labels
-        label_source: str | None = None
-        if ds_config.format == "image_folder" and ds_config.infer_labels:
-            label_source = "inferred from directory names"
+        label_source = _infer_label_source(ds_config)
 
         dataset_contexts[ds_name] = DatasetContext(
             name=ds_name,
@@ -292,7 +303,7 @@ def _populate_result_metadata(
     result.metadata.execution_time_s = round(elapsed, 3)
     result.format = output_format
 
-    # Annotate dataset source for image-only datasets
+    # Annotate dataset source when label provenance is known
     dc = next(iter(dataset_contexts.values()))
     if dc.label_source:
-        result.metadata.dataset_source = f"image folder, labels {dc.label_source}"
+        result.metadata.dataset_source = dc.label_source
