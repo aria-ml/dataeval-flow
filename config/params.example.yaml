@@ -19,7 +19,7 @@
 # -----------------------------------------------------------------------------
 # datasets:
 #   - name: my-dataset
-#     format: huggingface        # huggingface | image_folder
+#     format: huggingface        # huggingface | image_folder | coco | yolo
 #     path: ./data/my-dataset
 #     split: train               # HuggingFace only (ignored for image_folder)
 #
@@ -34,6 +34,22 @@
 #     format: image_folder
 #     path: /data/classified-photos
 #     infer_labels: true         # Treat subdirs as class names (default: false)
+#
+#   # COCO object detection dataset
+#   - name: coco-train
+#     format: coco
+#     path: /data/coco-train
+#     annotations_file: annotations.json  # optional (default: annotations.json)
+#     images_dir: images                  # optional (default: images)
+#     classes_file: classes.txt           # optional (default: classes.txt)
+#
+#   # YOLO object detection dataset
+#   - name: yolo-train
+#     format: yolo
+#     path: /data/yolo-train
+#     images_dir: images                  # optional (default: images)
+#     labels_dir: labels                  # optional (default: labels)
+#     classes_file: classes.txt           # optional (default: classes.txt)
 
 # -----------------------------------------------------------------------------
 # DATA CLEANING PARAMETERS (required)

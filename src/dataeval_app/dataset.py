@@ -3,8 +3,8 @@
 
 All functions accept parameters. No hardcoded container paths.
 
-This module provides functions for loading datasets in HuggingFace format,
-image folder format, and converting them to MAITE-compatible objects for evaluation.
+This module provides functions for loading datasets in HuggingFace, image folder,
+COCO, and YOLO formats, converting them to MAITE-compatible objects for evaluation.
 """
 
 from __future__ import annotations
@@ -216,6 +216,86 @@ def load_dataset_image_folder(path: Path, *, recursive: bool = False, infer_labe
     return ImageFolderDataset(path, recursive=recursive, infer_labels=infer_labels)
 
 
+def load_dataset_coco(
+    path: Path,
+    *,
+    annotations_file: str | None = None,
+    images_dir: str | None = None,
+    classes_file: str | None = None,
+) -> Any:
+    """Load a COCO-format object detection dataset.
+
+    Parameters
+    ----------
+    path : Path
+        Root directory of the COCO dataset.
+    annotations_file : str | None
+        Name of the annotations JSON file (default: reader's default).
+    images_dir : str | None
+        Name of the images subdirectory (default: reader's default).
+    classes_file : str | None
+        Name of the classes text file (default: reader's default).
+
+    Returns
+    -------
+    Any
+        MAITE-compatible object detection dataset (``COCODataset``).
+    """
+    from maite_datasets.object_detection import COCODatasetReader
+
+    kwargs: dict[str, str] = {}
+    if annotations_file is not None:
+        kwargs["annotation_file"] = annotations_file  # reader uses singular
+    if images_dir is not None:
+        kwargs["images_dir"] = images_dir
+    if classes_file is not None:
+        kwargs["classes_file"] = classes_file
+    reader = COCODatasetReader(path, **kwargs)
+    dataset = reader.create_dataset()
+    logger.info("COCODataset: loaded %d images from %s", len(dataset), path)
+    return dataset
+
+
+def load_dataset_yolo(
+    path: Path,
+    *,
+    images_dir: str | None = None,
+    labels_dir: str | None = None,
+    classes_file: str | None = None,
+) -> Any:
+    """Load a YOLO-format object detection dataset.
+
+    Parameters
+    ----------
+    path : Path
+        Root directory of the YOLO dataset.
+    images_dir : str | None
+        Name of the images subdirectory (default: reader's default).
+    labels_dir : str | None
+        Name of the labels subdirectory (default: reader's default).
+    classes_file : str | None
+        Name of the classes text file (default: reader's default).
+
+    Returns
+    -------
+    Any
+        MAITE-compatible object detection dataset (``YOLODataset``).
+    """
+    from maite_datasets.object_detection import YOLODatasetReader
+
+    kwargs: dict[str, str] = {}
+    if images_dir is not None:
+        kwargs["images_dir"] = images_dir
+    if labels_dir is not None:
+        kwargs["labels_dir"] = labels_dir
+    if classes_file is not None:
+        kwargs["classes_file"] = classes_file
+    reader = YOLODatasetReader(path, **kwargs)  # type: ignore[arg-type]  # kwargs are all str; pyright flags image_extensions
+    dataset = reader.create_dataset()
+    logger.info("YOLODataset: loaded %d images from %s", len(dataset), path)
+    return dataset
+
+
 def load_dataset(
     path: Path,
     split: str | None = None,
@@ -223,7 +303,11 @@ def load_dataset(
     *,
     recursive: bool = False,
     infer_labels: bool = False,
-) -> MaiteDataset | ImageFolderDataset:
+    annotations_file: str | None = None,
+    images_dir: str | None = None,
+    labels_dir: str | None = None,
+    classes_file: str | None = None,
+) -> Any:
     """Load a dataset and convert to MAITE format.
 
     This is the main entry point for loading datasets. Dispatches to the
@@ -241,10 +325,18 @@ def load_dataset(
         Scan subdirectories for images (image_folder only).
     infer_labels : bool
         Treat subdirectories as class labels (image_folder only).
+    annotations_file : str | None
+        Annotations file name (COCO only).
+    images_dir : str | None
+        Images subdirectory name (COCO/YOLO only).
+    labels_dir : str | None
+        Labels subdirectory name (YOLO only).
+    classes_file : str | None
+        Classes file name (COCO/YOLO only).
 
     Returns
     -------
-    MaiteDataset | ImageFolderDataset
+    MaiteDataset | ImageFolderDataset | Any
         MAITE-compatible dataset object.
 
     Raises
@@ -264,5 +356,11 @@ def load_dataset(
         return load_dataset_huggingface(path, split=split)
     if dataset_format == "image_folder":
         return load_dataset_image_folder(path, recursive=recursive, infer_labels=infer_labels)
+    if dataset_format == "coco":
+        return load_dataset_coco(
+            path, annotations_file=annotations_file, images_dir=images_dir, classes_file=classes_file
+        )
+    if dataset_format == "yolo":
+        return load_dataset_yolo(path, images_dir=images_dir, labels_dir=labels_dir, classes_file=classes_file)
     msg = f"Unsupported dataset format: {dataset_format!r}"
     raise ValueError(msg)

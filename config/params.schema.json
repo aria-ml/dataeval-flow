@@ -203,8 +203,8 @@
           "enum": [
             "huggingface",
             "coco",
-            "voc",
-            "yolo"
+            "yolo",
+            "image_folder"
           ],
           "title": "Format",
           "type": "string"
@@ -213,26 +213,81 @@
           "title": "Path",
           "type": "string"
         },
-        "splits": {
+        "split": {
           "anyOf": [
             {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
+              "type": "string"
             },
             {
-              "$ref": "#/$defs/SplitConfig"
+              "type": "null"
             }
           ],
-          "title": "Splits"
+          "default": null,
+          "title": "Split"
+        },
+        "recursive": {
+          "default": false,
+          "title": "Recursive",
+          "type": "boolean"
+        },
+        "infer_labels": {
+          "default": false,
+          "title": "Infer Labels",
+          "type": "boolean"
+        },
+        "annotations_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotations File"
+        },
+        "images_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Images Dir"
+        },
+        "labels_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Labels Dir"
+        },
+        "classes_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes File"
         }
       },
       "required": [
         "name",
         "format",
-        "path",
-        "splits"
+        "path"
       ],
       "title": "DatasetConfig",
       "type": "object"
@@ -248,6 +303,35 @@
         }
       },
       "title": "FlattenExtractorConfig",
+      "type": "object"
+    },
+    "LoggingConfig": {
+      "description": "Logging level configuration.",
+      "properties": {
+        "app_level": {
+          "default": "DEBUG",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR"
+          ],
+          "title": "App Level",
+          "type": "string"
+        },
+        "lib_level": {
+          "default": "WARNING",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR"
+          ],
+          "title": "Lib Level",
+          "type": "string"
+        }
+      },
+      "title": "LoggingConfig",
       "type": "object"
     },
     "ModelConfig": {
@@ -421,69 +505,6 @@
       "title": "SelectionStep",
       "type": "object"
     },
-    "SplitConfig": {
-      "description": "Dataset split configuration.",
-      "properties": {
-        "num_folds": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Num Folds"
-        },
-        "stratify": {
-          "default": false,
-          "title": "Stratify",
-          "type": "boolean"
-        },
-        "split_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Split On"
-        },
-        "test_frac": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Test Frac"
-        },
-        "val_frac": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Val Frac"
-        }
-      },
-      "title": "SplitConfig",
-      "type": "object"
-    },
     "TaskConfig": {
       "description": "Task/workflow configuration schema.",
       "properties": {
@@ -495,50 +516,90 @@
           "title": "Workflow",
           "type": "string"
         },
-        "dataset": {
-          "title": "Dataset",
-          "type": "string"
-        },
-        "model": {
+        "datasets": {
           "anyOf": [
             {
               "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "title": "Datasets"
+        },
+        "models": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Model"
+          "title": "Models"
         },
-        "preprocessor": {
+        "preprocessors": {
           "anyOf": [
             {
               "type": "string"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Preprocessor"
+          "title": "Preprocessors"
         },
-        "selection": {
+        "selections": {
           "anyOf": [
             {
               "type": "string"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Selection"
+          "title": "Selections"
         },
         "params": {
           "additionalProperties": true,
           "title": "Params",
           "type": "object"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Size"
         },
         "output_format": {
           "default": "json",
@@ -598,12 +659,25 @@
           ],
           "default": null,
           "title": "Metadata Continuous Factor Bins"
+        },
+        "cache_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory for disk-backed computation cache. When set, expensive computations (embeddings, metadata, hash stats) are cached to disk and reused across runs. In containers, point to a mounted volume (e.g. /cache).",
+          "title": "Cache Dir"
         }
       },
       "required": [
         "name",
         "workflow",
-        "dataset"
+        "datasets"
       ],
       "title": "TaskConfig",
       "type": "object"
@@ -714,6 +788,17 @@
   },
   "description": "Unified workflow configuration.\n\nOne optional field per registered workflow.",
   "properties": {
+    "logging": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LoggingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "data_cleaning": {
       "anyOf": [
         {

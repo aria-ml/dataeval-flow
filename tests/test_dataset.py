@@ -95,7 +95,49 @@ class TestDatasetModule:
         from dataeval_app.dataset import load_dataset
 
         with pytest.raises(ValueError, match="Unsupported dataset format"):
-            load_dataset(Path("/some/path"), dataset_format="coco")  # type: ignore[arg-type]
+            load_dataset(Path("/some/path"), dataset_format="unknown")  # type: ignore[arg-type]
+
+    def test_load_dataset_coco_dispatch(self) -> None:
+        """Test load_dataset dispatches to COCO loader."""
+        with patch("dataeval_app.dataset.load_dataset_coco") as mock_coco:
+            mock_coco.return_value = MagicMock()
+
+            from dataeval_app.dataset import load_dataset
+
+            load_dataset(
+                Path("/some/path"),
+                dataset_format="coco",
+                annotations_file="ann.json",
+                images_dir="imgs",
+                classes_file="cls.txt",
+            )
+            mock_coco.assert_called_once_with(
+                Path("/some/path"),
+                annotations_file="ann.json",
+                images_dir="imgs",
+                classes_file="cls.txt",
+            )
+
+    def test_load_dataset_yolo_dispatch(self) -> None:
+        """Test load_dataset dispatches to YOLO loader."""
+        with patch("dataeval_app.dataset.load_dataset_yolo") as mock_yolo:
+            mock_yolo.return_value = MagicMock()
+
+            from dataeval_app.dataset import load_dataset
+
+            load_dataset(
+                Path("/some/path"),
+                dataset_format="yolo",
+                images_dir="imgs",
+                labels_dir="lbls",
+                classes_file="cls.txt",
+            )
+            mock_yolo.assert_called_once_with(
+                Path("/some/path"),
+                images_dir="imgs",
+                labels_dir="lbls",
+                classes_file="cls.txt",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +368,117 @@ class TestDatasetConfigImageFolder:
         cfg = DatasetConfig(name="test", format="huggingface", path="/data")
         assert cfg.recursive is False
         assert cfg.infer_labels is False
+
+
+@pytest.mark.required
+class TestDatasetConfigNewFields:
+    """Tests for COCO/YOLO config fields."""
+
+    def test_coco_fields_parse(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(
+            name="coco-ds",
+            format="coco",
+            path="/data/coco",
+            annotations_file="ann.json",
+            images_dir="imgs",
+            classes_file="cls.txt",
+        )
+        assert cfg.annotations_file == "ann.json"
+        assert cfg.images_dir == "imgs"
+        assert cfg.classes_file == "cls.txt"
+
+    def test_yolo_fields_parse(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(
+            name="yolo-ds",
+            format="yolo",
+            path="/data/yolo",
+            images_dir="imgs",
+            labels_dir="lbls",
+            classes_file="cls.txt",
+        )
+        assert cfg.images_dir == "imgs"
+        assert cfg.labels_dir == "lbls"
+        assert cfg.classes_file == "cls.txt"
+
+    def test_new_fields_default_to_none(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        cfg = DatasetConfig(name="test", format="huggingface", path="/data")
+        assert cfg.annotations_file is None
+        assert cfg.images_dir is None
+        assert cfg.labels_dir is None
+        assert cfg.classes_file is None
+
+
+# ---------------------------------------------------------------------------
+# COCO / YOLO fixture-based round-trip tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestCocoDatasetFixture:
+    """Test COCO dataset loading with real fixtures."""
+
+    def test_load_dataset_coco_with_fixtures(self, tmp_path: Path) -> None:
+        """Round-trip: create tiny COCO dataset, load via load_dataset_coco."""
+        import json
+
+        from dataeval_app.dataset import load_dataset_coco
+
+        # Create a minimal 1x1 PNG image
+        _create_image(tmp_path / "images" / "img_0.png", width=1, height=1)
+
+        # Minimal COCO annotations JSON
+        annotations = {
+            "images": [{"id": 0, "file_name": "img_0.png", "width": 1, "height": 1}],
+            "annotations": [{"id": 0, "image_id": 0, "category_id": 0, "bbox": [0, 0, 1, 1], "area": 1, "iscrowd": 0}],
+            "categories": [{"id": 0, "name": "cat"}],
+        }
+        ann_path = tmp_path / "annotations.json"
+        ann_path.write_text(json.dumps(annotations))
+
+        # classes.txt
+        (tmp_path / "classes.txt").write_text("cat\n")
+
+        ds = load_dataset_coco(tmp_path)
+        assert len(ds) == 1
+        img, target, meta = ds[0]
+        assert len(img.shape) == 3  # CHW array
+        assert img.shape[0] == 3  # RGB channels
+        assert hasattr(target, "boxes")  # OD target has bounding boxes
+        assert isinstance(meta, dict)
+
+
+@pytest.mark.required
+class TestYoloDatasetFixture:
+    """Test YOLO dataset loading with real fixtures."""
+
+    def test_load_dataset_yolo_with_fixtures(self, tmp_path: Path) -> None:
+        """Round-trip: create tiny YOLO dataset, load via load_dataset_yolo."""
+        from dataeval_app.dataset import load_dataset_yolo
+
+        # Create a minimal 1x1 PNG image
+        _create_image(tmp_path / "images" / "img_0.png", width=1, height=1)
+
+        # YOLO label file (class_id cx cy w h, normalized)
+        labels_dir = tmp_path / "labels"
+        labels_dir.mkdir()
+        (labels_dir / "img_0.txt").write_text("0 0.5 0.5 1.0 1.0\n")
+
+        # classes.txt
+        (tmp_path / "classes.txt").write_text("cat\n")
+
+        ds = load_dataset_yolo(tmp_path)
+        assert len(ds) == 1
+        img, target, meta = ds[0]
+        assert len(img.shape) == 3  # CHW array
+        assert img.shape[0] == 3  # RGB channels
+        assert hasattr(target, "boxes")  # OD target has bounding boxes
+        assert isinstance(meta, dict)
 
 
 @pytest.mark.required
