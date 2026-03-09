@@ -56,7 +56,7 @@
 # -----------------------------------------------------------------------------
 data_cleaning:
   # Outlier detection method (required)
-  outlier_method: "modzscore"  # Options: zscore, modzscore, iqr
+  outlier_method: "adaptive"  # Options: adaptive, zscore, modzscore, iqr
 
   # Image statistics groups for outlier detection (required, at least one)
   outlier_flags:
@@ -81,7 +81,7 @@ data_cleaning:
   # duplicate_merge_near: true
 
   # Cluster-based duplicate detection (optional, requires a model/extractor)
-  # duplicate_cluster_threshold: 2.0  # Threshold for near-duplicate clusters
+  # duplicate_cluster_sensitivity: 2.0  # Threshold for near-duplicate clusters
   # duplicate_cluster_algorithm: kmeans # Options: kmeans, hdbscan
   # duplicate_n_clusters: null          # null = auto-detect
 

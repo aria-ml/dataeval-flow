@@ -107,7 +107,7 @@ tasks:
     models: flat
     batch_size: 64
     params:
-      outlier_method: modzscore
+      outlier_method: adaptive
       outlier_flags:
         - dimension
         - pixel

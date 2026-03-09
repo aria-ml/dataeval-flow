@@ -138,14 +138,6 @@ class TestMissingFlags:
         # mean is already cached so it should NOT be in the result
         assert ImageStats.PIXEL_MEAN not in result
 
-    def test_resolves_dependencies(self):
-        from dataeval.flags import ImageStats
-
-        # entropy depends on histogram
-        cached: set[str] = set()
-        result = missing_flags(cached, ImageStats.PIXEL_ENTROPY)
-        assert ImageStats.PIXEL_HISTOGRAM in result
-
 
 # ---------------------------------------------------------------------------
 # METRIC_TO_FLAG / FLAG_TO_METRIC mappings
@@ -554,7 +546,7 @@ class TestGetOrComputeEmbeddings:
 
 
 def _make_calc_result(n: int = 5, include_2d: bool = False, include_hashes: bool = False) -> dict[str, Any]:
-    """Build a minimal CalculationResult-shaped dict for testing."""
+    """Build a minimal StatsResult-shaped dict for testing."""
     from dataeval.types import SourceIndex
 
     rng = np.random.default_rng(42)
@@ -719,7 +711,7 @@ class TestStatsCache:
 
 
 class TestLoadOrComputeStats:
-    _CALC_STATS_PATH = "dataeval.core._calculate_stats.calculate_stats"
+    _CALC_STATS_PATH = "dataeval.core._compute_stats.compute_stats"
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         from dataeval.flags import ImageStats
@@ -749,7 +741,7 @@ class TestLoadOrComputeStats:
             result = cache.load_or_compute_stats(
                 "sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True, False
             )
-            # Should NOT call calculate_stats — full cache hit
+            # Should NOT call compute_stats — full cache hit
             mock_calc.assert_not_called()
 
         assert "mean" in result["stats"]
@@ -774,7 +766,7 @@ class TestLoadOrComputeStats:
             mock_calc.assert_called_once()
             # Should request only PIXEL_STD (mean is cached)
             call_args = mock_calc.call_args
-            requested_flags = call_args[0][2]
+            requested_flags = call_args[1]["stats"]
             assert ImageStats.PIXEL_STD in requested_flags
             assert ImageStats.PIXEL_MEAN not in requested_flags
 
@@ -810,7 +802,7 @@ class TestLoadOrComputeStats:
 class TestGetOrComputeStats:
     """Tests for the centralized get_or_compute_stats() entry point."""
 
-    _CALC_STATS_PATH = "dataeval.core._calculate_stats.calculate_stats"
+    _CALC_STATS_PATH = "dataeval.core._compute_stats.compute_stats"
 
     def test_without_cache_computes_directly(self):
         from dataeval.flags import ImageStats

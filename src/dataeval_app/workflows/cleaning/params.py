@@ -23,7 +23,7 @@ class DataCleaningParameters(WorkflowParametersBase):
     """
 
     # --- Outlier detection params ---
-    outlier_method: Literal["zscore", "modzscore", "iqr"] = Field(
+    outlier_method: Literal["adaptive", "zscore", "modzscore", "iqr"] = Field(
         description="Statistical method for outlier detection",
     )
     outlier_flags: list[Literal["dimension", "pixel", "visual"]] = Field(
@@ -61,7 +61,7 @@ class DataCleaningParameters(WorkflowParametersBase):
         default=True,
         description="Merge overlapping near-duplicate groups from different detection methods.",
     )
-    duplicate_cluster_threshold: float | None = Field(
+    duplicate_cluster_sensitivity: float | None = Field(
         default=None,
         description=(
             "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection."
