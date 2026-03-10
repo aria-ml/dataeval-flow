@@ -551,36 +551,33 @@ def _build_class_labels_df(
 
 
 def _compute_classwise_pivot(
-    outlier_output: Any,
+    target_issues: "pl.DataFrame | None",
+    img_issues: "pl.DataFrame",
     metadata: "Metadata | None",
 ) -> "ClasswisePivotDict | None":
-    """Compute classwise outlier pivot from stats-based outlier output.
+    """Compute classwise outlier pivot from the globally-detected outlier issues.
 
-    Must be called *before* cluster merge, because ``classwise()`` requires
-    stored statistics from ``from_stats()``.
+    Groups the same target (or image) outlier issues used for the headline
+    count by class, so the per-class rows sum to the headline total.
 
     Returns a simplified summary with count and % of labels flagged per class.
     """
     if metadata is None:
         return None
     try:
-        classwise_output = outlier_output.classwise(metadata)
-        if classwise_output.data().shape[0] == 0:
-            return None
+        # Use target-level issues for OD datasets, image-level otherwise
+        has_targets = metadata.has_targets()
+        if has_targets:
+            if target_issues is None or target_issues.shape[0] == 0:
+                return None
+            issues_df = target_issues
+        else:
+            if img_issues.shape[0] == 0:
+                return None
+            issues_df = img_issues
 
         labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
         total_labels = sum(label_counts.values())
-
-        # Cast join keys to matching types
-        issues_df = classwise_output.data()
-
-        # For OD datasets, keep only target-level entries for classwise pivot.
-        # Image-level entries (target_index is null) from multi-class images
-        # can't be attributed to a single class and would show as None.
-        if metadata.has_targets() and "target_index" in issues_df.columns:
-            issues_df = issues_df.filter(pl.col("target_index").is_not_null())
-            if issues_df.shape[0] == 0:
-                return None
 
         for col in id_cols:
             if col in issues_df.columns and issues_df[col].dtype != labels_df[col].dtype:
@@ -610,7 +607,7 @@ def _compute_classwise_pivot(
         rows.append({"class_name": "Total", "count": grand_total, "pct": total_pct})
 
         return ClasswisePivotDict(
-            level="target" if metadata.has_targets() else "image",
+            level="target" if has_targets else "image",
             rows=rows,
         )
     except Exception:  # noqa: BLE001
@@ -658,9 +655,6 @@ def _run_cleaning(
         outlier_threshold=(params.outlier_method, params.outlier_threshold),
     )
     outlier_output = outliers_eval.from_stats(calc_result, per_target=True)  # type: ignore[arg-type]
-
-    # --- Classwise outlier pivot (before cluster merge, needs stored stats) ---
-    classwise_pivot = _compute_classwise_pivot(outlier_output, metadata)
 
     # Cluster-based outlier detection (separate path, uses embeddings)
     has_outlier_cluster = extractor is not None and params.outlier_cluster_threshold is not None
@@ -712,6 +706,9 @@ def _run_cleaning(
         outlier_output = OutliersOutput(merged_issues)
 
     img_issues, target_issues = _split_outlier_issues(outlier_output.data())
+
+    # --- Classwise outlier pivot (uses the same globally-detected issues as the headline count) ---
+    classwise_pivot = _compute_classwise_pivot(target_issues, img_issues, metadata)
 
     # --- Duplicate detection ---
     has_dup_cluster = extractor is not None and params.duplicate_cluster_sensitivity is not None
