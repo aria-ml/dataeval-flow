@@ -871,46 +871,61 @@ class TestRunTaskMultiDataset:
 
 
 class TestMakeDsId:
-    def test_single_dataset_passthrough(self):
-        assert _make_ds_id(["my_dataset"]) == "my_dataset"
+    @staticmethod
+    def _cfg(name: str, **kwargs: Any) -> Any:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
 
-    def test_multiple_datasets_sorted_joined(self):
-        assert _make_ds_id(["bravo", "alpha"]) == "alpha_bravo"
+        defaults = {"format": "huggingface", "path": f"/data/{name}", "split": "train"}
+        defaults.update(kwargs)
+        return DatasetConfig(name=name, **defaults)  # type: ignore[call-arg]
 
-    def test_short_name_unchanged(self):
-        """Names under 100 bytes are returned as-is."""
-        names = ["ds_a", "ds_b", "ds_c"]
-        result = _make_ds_id(names)
-        assert result == "ds_a_ds_b_ds_c"
-
-    def test_long_name_hashed(self):
-        """Names exceeding 100 bytes get truncated prefix + hash."""
-        names = [f"dataset_{i:03d}" for i in range(20)]
-        raw = "_".join(sorted(names))
-        assert len(raw.encode("utf-8")) > 100
-
-        result = _make_ds_id(names)
-        assert len(result.encode("utf-8")) <= 100
-        # Should end with _<16-char hex hash>
-        assert "_" in result
+    def test_single_dataset_has_name_prefix_and_hash(self):
+        result = _make_ds_id([self._cfg("my_dataset")])
+        assert result.startswith("my_dataset_")
         hash_suffix = result.rsplit("_", 1)[-1]
         assert len(hash_suffix) == 16
-        # All hex characters
+        int(hash_suffix, 16)
+
+    def test_different_split_different_id(self):
+        """Changing split (but keeping name) must produce a different cache id."""
+        train = _make_ds_id([self._cfg("ds", split="train")])
+        test = _make_ds_id([self._cfg("ds", split="test")])
+        assert train != test
+
+    def test_different_path_different_id(self):
+        """Changing path (but keeping name) must produce a different cache id."""
+        a = _make_ds_id([self._cfg("ds", path="/data/a")])
+        b = _make_ds_id([self._cfg("ds", path="/data/b")])
+        assert a != b
+
+    def test_multiple_datasets_sorted(self):
+        """Order of configs should not matter — sorted by name."""
+        a = _make_ds_id([self._cfg("bravo"), self._cfg("alpha")])
+        b = _make_ds_id([self._cfg("alpha"), self._cfg("bravo")])
+        assert a == b
+        assert "alpha_bravo_" in a
+
+    def test_long_name_truncated(self):
+        """Result must fit within _MAX_DS_ID_BYTES."""
+        configs = [self._cfg(f"dataset_{i:03d}") for i in range(20)]
+        result = _make_ds_id(configs)
+        assert len(result.encode("utf-8")) <= 100
+        hash_suffix = result.rsplit("_", 1)[-1]
+        assert len(hash_suffix) == 16
         int(hash_suffix, 16)
 
     def test_deterministic(self):
         """Same inputs always produce the same output."""
-        names = [f"dataset_{i:03d}" for i in range(20)]
-        assert _make_ds_id(names) == _make_ds_id(names)
+        configs = [self._cfg(f"dataset_{i:03d}") for i in range(20)]
+        assert _make_ds_id(configs) == _make_ds_id(configs)
 
     def test_single_long_name_hashed(self):
-        """A single dataset with a very long name also gets hashed."""
-        name = "a" * 200
-        result = _make_ds_id([name])
+        """A single dataset with a very long name also fits within limit."""
+        result = _make_ds_id([self._cfg("a" * 200)])
         assert len(result.encode("utf-8")) <= 100
 
     def test_different_sets_different_ids(self):
         """Different dataset sets produce different hashed IDs."""
-        names_a = [f"dataset_{i:03d}" for i in range(20)]
-        names_b = [f"dataset_{i:03d}" for i in range(21)]
-        assert _make_ds_id(names_a) != _make_ds_id(names_b)
+        configs_a = [self._cfg(f"dataset_{i:03d}") for i in range(20)]
+        configs_b = [self._cfg(f"dataset_{i:03d}") for i in range(21)]
+        assert _make_ds_id(configs_a) != _make_ds_id(configs_b)

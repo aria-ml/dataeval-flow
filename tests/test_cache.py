@@ -212,11 +212,11 @@ class TestCorruptedCacheResilience:
         cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
         s = _config_hash("sel:all")
         h = _config_hash("img+tgt")
-        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
-        ds_dir.mkdir(parents=True)
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        sel_dir.mkdir(parents=True)
         # Write corrupted parquet and valid json
-        (ds_dir / f"stats_{s}_{h}.parquet").write_bytes(b"bad parquet")
-        (ds_dir / f"stats_{s}_{h}.json").write_text(
+        (sel_dir / f"stats_{h}.parquet").write_bytes(b"bad parquet")
+        (sel_dir / f"stats_{h}.json").write_text(
             '{"source_index":[],"object_count":[],"invalid_box_count":[],"image_count":0}'
         )
 
@@ -230,8 +230,8 @@ class TestCorruptedCacheResilience:
         # Corrupt the json file
         s = _config_hash("sel:all")
         h = _config_hash("img+tgt")
-        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
-        (ds_dir / f"stats_{s}_{h}.json").write_text("not valid json{{{")
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        (sel_dir / f"stats_{h}.json").write_text("not valid json{{{")
 
         result = cache.load_stats("sel:all", "img+tgt")
         assert result is None
@@ -239,10 +239,10 @@ class TestCorruptedCacheResilience:
     def test_load_metadata_corrupted_parquet(self, tmp_path: Path):
         cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
         s = _config_hash("sel:all")
-        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / f"metadata_{s}.parquet").write_bytes(b"bad parquet")
-        (ds_dir / f"metadata_{s}.json").write_text('{"item_count":0}')
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        sel_dir.mkdir(parents=True)
+        (sel_dir / "metadata.parquet").write_bytes(b"bad parquet")
+        (sel_dir / "metadata.json").write_text('{"item_count":0}')
 
         result = cache.load_metadata("sel:all", MagicMock())
         assert result is None
@@ -253,8 +253,8 @@ class TestCorruptedCacheResilience:
         cache.save_metadata("sel:all", meta)
         # Corrupt the json file
         s = _config_hash("sel:all")
-        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
-        (ds_dir / f"metadata_{s}.json").write_text("{invalid json")
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        (sel_dir / "metadata.json").write_text("{invalid json")
 
         result = cache.load_metadata("sel:all", MagicMock())
         assert result is None
@@ -328,7 +328,7 @@ class TestEmbeddingsCache:
 
         s = _config_hash("sel:all")
         h = _config_hash("cfg|tfm")
-        expected = tmp_path / f"v{CACHE_VERSION}" / "my_ds" / f"embeddings_{s}_{h}.npy"
+        expected = tmp_path / f"v{CACHE_VERSION}" / "my_ds" / f"sel_{s}" / f"embeddings_{h}.npy"
         assert expected.exists()
 
 
@@ -696,8 +696,9 @@ class TestStatsCache:
 
         s = _config_hash("sel:all")
         h = _config_hash("img+tgt")
-        pq = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"stats_{s}_{h}.parquet"
-        js = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"stats_{s}_{h}.json"
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        pq = sel_dir / f"stats_{h}.parquet"
+        js = sel_dir / f"stats_{h}.json"
         assert pq.exists()
         assert js.exists()
         # Verify parquet is readable
@@ -907,8 +908,9 @@ class TestMetadataCache:
         cache.save_metadata("sel:all", meta)
 
         s = _config_hash("sel:all")
-        pq = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"metadata_{s}.parquet"
-        js = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"metadata_{s}.json"
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        pq = sel_dir / "metadata.parquet"
+        js = sel_dir / "metadata.json"
         assert pq.exists()
         assert js.exists()
 
@@ -919,7 +921,7 @@ class TestMetadataCache:
         cache.save_metadata("sel:all", meta)
 
         s = _config_hash("sel:all")
-        df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"metadata_{s}.parquet")
+        df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.parquet")
         assert "brightness" in df.columns
         assert len(df) == 5
 
@@ -936,7 +938,7 @@ class TestMetadataCache:
         cache.save_metadata("sel:all", meta)
 
         s = _config_hash("sel:all")
-        df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"metadata_{s}.parquet")
+        df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.parquet")
         assert "brightness" in df.columns
         assert "brightness↕" not in df.columns
         assert "brightness#" not in df.columns
@@ -950,7 +952,7 @@ class TestMetadataCache:
         cache.save_metadata("sel:all", meta)
 
         s = _config_hash("sel:all")
-        with open(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"metadata_{s}.json") as f:
+        with open(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.json") as f:
             aux = json.load(f)
 
         assert aux["item_count"] == 5
@@ -970,9 +972,9 @@ class TestMetadataCache:
 
         # Create just the parquet file in the versioned path
         s = _config_hash("sel:all")
-        ds_dir = tmp_path / f"v{CACHE_VERSION}" / "ds"
-        ds_dir.mkdir(parents=True)
-        pl.DataFrame({"x": [1]}).write_parquet(ds_dir / f"metadata_{s}.parquet")
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        sel_dir.mkdir(parents=True)
+        pl.DataFrame({"x": [1]}).write_parquet(sel_dir / "metadata.parquet")
 
         assert cache.load_metadata("sel:all", MagicMock()) is None
 

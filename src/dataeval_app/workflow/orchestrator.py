@@ -23,24 +23,24 @@ __all__ = ["run_task"]
 _MAX_DS_ID_BYTES = 100  # Conservative limit (ext4 NAME_MAX = 255 bytes)
 
 
-def _make_ds_id(dataset_names: list[str]) -> str:
-    """Build a cache-safe dataset identifier.
+def _make_ds_id(dataset_configs: list["DatasetConfig"]) -> str:
+    """Build a cache-safe dataset identifier from full dataset configs.
 
-    For a single dataset, uses the name directly. For multiple datasets,
-    joins sorted names. If the result exceeds _MAX_DS_ID_BYTES, truncates
-    to a human-readable prefix + SHA-256 hash suffix for uniqueness.
+    Hashes the full serialized config (name, path, split, format, etc.)
+    so that changes to *any* config field — not just the name — produce
+    a distinct cache directory.  The result is ``{name_prefix}_{hash}``
+    where the prefix keeps it human-readable and the hash guarantees
+    uniqueness.
     """
-    raw = dataset_names[0] if len(dataset_names) == 1 else "_".join(sorted(dataset_names))
+    configs = sorted(dataset_configs, key=lambda c: c.name)
+    raw_json = "|".join(c.model_dump_json(exclude_defaults=False) for c in configs)
+    config_hash = hashlib.sha256(raw_json.encode("utf-8")).hexdigest()[:16]
 
-    if len(raw.encode("utf-8")) <= _MAX_DS_ID_BYTES:
-        return raw
-
-    # Hash the full identifier for uniqueness, keep a prefix for readability
-    full_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
-    # Truncate prefix to leave room for "_" + 16-char hash
+    # Human-readable prefix from dataset names
+    names = "_".join(c.name for c in configs)
     max_prefix = _MAX_DS_ID_BYTES - 17  # 17 = 1 ("_") + 16 (hash)
-    prefix = raw.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
-    return f"{prefix}_{full_hash}"
+    prefix = names.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
+    return f"{prefix}_{config_hash}"
 
 
 @runtime_checkable
@@ -208,8 +208,10 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
 
     # 3. Build a DatasetContext per dataset
     dataset_contexts: dict[str, DatasetContext] = {}
+    resolved_ds_configs: list[DatasetConfig] = []
     for ds_name in dataset_names:
         ds_config: DatasetConfig = _resolve_by_name(config.datasets, ds_name, "datasets")
+        resolved_ds_configs.append(ds_config)
         dataset = load_dataset(
             Path(ds_config.path),
             split=ds_config.split,
@@ -263,7 +265,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
 
         cache_path = Path(task.cache_dir)
         logger.info("Cache enabled: %s", cache_path)
-        ds_id = _make_ds_id(dataset_names)
+        ds_id = _make_ds_id(resolved_ds_configs)
         cache = WorkflowCache(cache_dir=cache_path, dataset_name=ds_id)
 
     context = WorkflowContext(
