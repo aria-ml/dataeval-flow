@@ -4,16 +4,19 @@ import hashlib
 import logging
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, overload, runtime_checkable
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from dataeval_app.config.models import WorkflowConfig
     from dataeval_app.config.schemas.dataset import DatasetConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
-    from dataeval_app.config.schemas.task import TaskConfig
+    from dataeval_app.config.schemas.task import DataCleaningTaskConfig, TaskConfig
     from dataeval_app.workflow import DatasetContext, WorkflowResult
+    from dataeval_app.workflows.cleaning.outputs import DataCleaningResult
 
 __all__ = ["run_task"]
 
@@ -143,7 +146,15 @@ def _infer_label_source(ds_config: "DatasetConfig") -> str | None:
     return None
 
 
-def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[ResultMetadata]":
+@overload
+def run_task(  # pyright: ignore[reportOverlappingOverload]
+    task: "DataCleaningTaskConfig", config: "WorkflowConfig"
+) -> "DataCleaningResult": ...
+@overload
+def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[ResultMetadata, BaseModel]": ...
+
+
+def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Any, Any]":
     """Run a single task using config-driven resolution.
 
     This is the primary entry point for config-driven execution.
@@ -288,7 +299,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Re
 
 
 def _populate_result_metadata(
-    result: "WorkflowResult[ResultMetadata]",
+    result: "WorkflowResult[Any, Any]",
     dataset_names: list[str],
     dataset_contexts: "dict[str, DatasetContext]",
     output_format: "Literal['text', 'json', 'yaml']",

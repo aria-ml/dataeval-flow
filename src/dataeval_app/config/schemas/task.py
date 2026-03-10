@@ -1,9 +1,12 @@
 """Task configuration schema."""
 
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+if TYPE_CHECKING:
+    from dataeval_app.workflows.cleaning.params import DataCleaningParameters
 
 AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
 
@@ -42,3 +45,32 @@ class TaskConfig(BaseModel):
                 "batch_size is required when models is specified (embedding extraction needs a batch size)"
             )
         return self
+
+
+class DataCleaningTaskConfig(TaskConfig):
+    """Typed task config for the ``data-cleaning`` workflow.
+
+    Provides static type narrowing: when passed to ``run_task()``, the
+    return type is ``DataCleaningResult`` with fully typed ``metadata``
+    and ``data`` fields.
+    """
+
+    workflow: str = "data-cleaning"
+    params: "DataCleaningParameters"  # type: ignore[assignment]  # narrowed from dict[str, Any]
+
+    @model_validator(mode="after")
+    def _enforce_workflow(self) -> "DataCleaningTaskConfig":
+        if self.workflow != "data-cleaning":
+            raise ValueError(f"DataCleaningTaskConfig requires workflow='data-cleaning', got '{self.workflow}'")
+        return self
+
+
+def _rebuild_deferred_models() -> None:
+    """Rebuild models that use deferred forward references.
+
+    Must be called once before ``DataCleaningTaskConfig`` is used for
+    validation.  The workflow registry calls this during initialization.
+    """
+    from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+
+    DataCleaningTaskConfig.model_rebuild(_types_namespace={"DataCleaningParameters": DataCleaningParameters})

@@ -5,16 +5,20 @@ from dataeval_app.workflows.cleaning.outputs import (
     DataCleaningOutputs,
     DataCleaningRawOutputs,
     DataCleaningReport,
+    DataCleaningResult,
+    is_cleaning_result,
 )
 from dataeval_app.workflows.cleaning.params import DataCleaningParameters, load_params
 from dataeval_app.workflows.cleaning.workflow import DataCleaningWorkflow
 
 __all__ = [
+    "DataCleaningMetadata",
     "DataCleaningOutputs",
     "DataCleaningParameters",
     "DataCleaningRawOutputs",
     "DataCleaningReport",
+    "DataCleaningResult",
     "DataCleaningWorkflow",
-    "DataCleaningMetadata",
+    "is_cleaning_result",
     "load_params",
 ]

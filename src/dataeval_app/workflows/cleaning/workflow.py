@@ -320,15 +320,12 @@ def _classwise_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
         report_type="pivot_table",
         title="Classwise Outliers",
         data={
-            "brief": f"{total_count} {subject} ({total_pct}%) across {len(class_rows)} classes",
+            "brief": f"{len(class_rows)} classes, {total_count} {subject} ({total_pct}%)",
             "level": level,
             "table_data": rows,
             "table_headers": ["class_name", "count", "%"],
         },
-        description=(
-            f"Classwise outlier detection ({level}-level): "
-            f"{total_count} {subject} flagged across {len(class_rows)} classes."
-        ),
+        description=(f"{total_count} {subject} ({total_pct}%) flagged as outliers across {len(class_rows)} classes."),
     )
 
 
@@ -576,6 +573,15 @@ def _compute_classwise_pivot(
 
         # Cast join keys to matching types
         issues_df = classwise_output.data()
+
+        # For OD datasets, keep only target-level entries for classwise pivot.
+        # Image-level entries (target_index is null) from multi-class images
+        # can't be attributed to a single class and would show as None.
+        if metadata.has_targets() and "target_index" in issues_df.columns:
+            issues_df = issues_df.filter(pl.col("target_index").is_not_null())
+            if issues_df.shape[0] == 0:
+                return None
+
         for col in id_cols:
             if col in issues_df.columns and issues_df[col].dtype != labels_df[col].dtype:
                 labels_df = labels_df.with_columns(pl.col(col).cast(issues_df[col].dtype))
@@ -743,7 +749,7 @@ def _run_cleaning(
 # ---------------------------------------------------------------------------
 
 
-class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
+class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOutputs]):
     """Data cleaning workflow using DataEval evaluators."""
 
     @property
@@ -770,7 +776,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata]):
         self,
         context: WorkflowContext,
         params: BaseModel | None = None,
-    ) -> WorkflowResult[DataCleaningMetadata]:
+    ) -> WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]:
         """Run data cleaning workflow on dataset."""
         from dataeval_app.selection import build_selection
 
