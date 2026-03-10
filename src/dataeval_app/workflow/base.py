@@ -29,7 +29,7 @@ class WorkflowParametersBase(BaseModel):
 class Reportable(BaseModel):
     """Human-readable report item."""
 
-    report_type: Literal["table", "key_value", "image", "text"]
+    report_type: Literal["table", "key_value", "image", "text", "pivot_table"]
     severity: Literal["ok", "info", "warning"] = "info"
     title: str
     data: dict[str, Any] | list[dict[str, Any]] | str

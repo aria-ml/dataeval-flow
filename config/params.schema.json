@@ -37,6 +37,7 @@
         "outlier_method": {
           "description": "Statistical method for outlier detection",
           "enum": [
+            "adaptive",
             "zscore",
             "modzscore",
             "iqr"
@@ -141,7 +142,7 @@
           "title": "Duplicate Merge Near",
           "type": "boolean"
         },
-        "duplicate_cluster_threshold": {
+        "duplicate_cluster_sensitivity": {
           "anyOf": [
             {
               "type": "number"
@@ -152,7 +153,7 @@
           ],
           "default": null,
           "description": "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection.",
-          "title": "Duplicate Cluster Threshold"
+          "title": "Duplicate Cluster Sensitivity"
         },
         "duplicate_cluster_algorithm": {
           "anyOf": [

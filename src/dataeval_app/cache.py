@@ -3,7 +3,7 @@
 Provides load/save methods for three component types:
 - **Embeddings** — Dense numpy arrays stored as ``.npy``
 - **Metadata** — Polars DataFrame as ``.parquet`` + auxiliary attributes as ``.json``
-- **Stats** — Unified ``CalculationResult`` stored as ``.parquet`` + ``.json``.
+- **Stats** — Unified ``StatsResult`` stored as ``.parquet`` + ``.json``.
 Metrics accumulate incrementally: different workflows requesting different ``ImageStats``
 flags share the same cache entry and only compute the missing metrics.
 
@@ -49,7 +49,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
-from dataeval.flags import ImageStats, resolve_dependencies
+from dataeval.flags import ImageStats
 from dataeval.protocols import AnnotatedDataset
 from numpy.typing import NDArray
 
@@ -195,16 +195,15 @@ def missing_flags(cached_metrics: set[str], desired_flags: ImageStats) -> ImageS
         Flags that still need to be computed.  ``ImageStats.NONE`` if all
         desired metrics are already cached.
     """
-    resolved = resolve_dependencies(desired_flags)
     uncovered = ImageStats.NONE
     for flag in ImageStats:
         # Only consider individual (atomic, single-bit) flags
-        if flag.value and (flag.value & (flag.value - 1)) == 0 and flag in resolved:
+        if flag.value and (flag.value & (flag.value - 1)) == 0 and flag in desired_flags:
             metric_name = FLAG_TO_METRIC.get(flag)
             if metric_name and metric_name not in cached_metrics:
                 uncovered |= flag
     # Re-resolve so that dependencies of missing flags are included
-    return ImageStats(resolve_dependencies(uncovered)) if uncovered else ImageStats.NONE
+    return uncovered if uncovered else ImageStats.NONE
 
 
 def get_or_compute_stats(
@@ -222,10 +221,10 @@ def get_or_compute_stats(
     When *cache* and *selection_key* are provided, consults the disk cache
     first: only metrics not yet cached are computed, and the merged result
     is saved back.  Without a cache, stats are computed directly via
-    ``calculate_stats()``.
+    ``compute_stats()``.
 
     This is the single entry-point that workflows should use to obtain
-    a ``CalculationResult``-shaped dict.
+    a ``StatsResult``-shaped dict.
 
     Parameters
     ----------
@@ -234,7 +233,7 @@ def get_or_compute_stats(
     dataset
         The dataset to compute stats from (must conform to DataEval protocol).
     per_image, per_target, per_channel
-        Scope settings passed to ``calculate_stats()``.
+        Scope settings passed to ``compute_stats()``.
     cache : WorkflowCache | None
         Optional disk cache.  When ``None``, stats are always computed fresh.
     selection_key : str | None
@@ -244,7 +243,7 @@ def get_or_compute_stats(
     Returns
     -------
     dict[str, Any]
-        A ``CalculationResult``-shaped dict with at least all the
+        A ``StatsResult``-shaped dict with at least all the
         requested metrics.
     """
     if cache is not None and selection_key is not None:
@@ -259,13 +258,12 @@ def get_or_compute_stats(
             per_channel=per_channel,
         )
 
-    from dataeval.core._calculate_stats import calculate_stats
+    from dataeval.core._compute_stats import compute_stats
 
     return dict(
-        calculate_stats(
+        compute_stats(
             dataset,
-            None,
-            desired_flags,
+            stats=desired_flags,
             per_image=per_image,
             per_target=per_target,
             per_channel=per_channel,
@@ -721,7 +719,7 @@ class WorkflowCache:
         selection_repr: str,
         scope: str,
     ) -> dict[str, Any] | None:
-        """Load cached ``CalculationResult``, or ``None`` on miss.
+        """Load cached ``StatsResult``, or ``None`` on miss.
 
         Returns the full dict with whatever metrics are currently cached.
         Inspect ``result["stats"].keys()`` to see which metrics are present.
@@ -776,7 +774,7 @@ class WorkflowCache:
         scope: str,
         stats: dict[str, Any],
     ) -> None:
-        """Persist ``CalculationResult`` to cache as parquet + JSON sidecar.
+        """Persist ``StatsResult`` to cache as parquet + JSON sidecar.
 
         Handles scalar arrays, object-dtype hash strings, and 2D arrays
         (histogram, percentiles, center) via Polars list columns.
@@ -834,17 +832,17 @@ class WorkflowCache:
         desired_flags : ImageStats
             All flags the caller needs.
         dataset
-            The dataset to pass to ``calculate_stats()`` on miss.
+            The dataset to pass to ``compute_stats()`` on miss.
         per_image, per_target, per_channel
-            Scope settings for ``calculate_stats()``.
+            Scope settings for ``compute_stats()``.
 
         Returns
         -------
         dict[str, Any]
-            A ``CalculationResult``-shaped dict with at least all the
+            A ``StatsResult``-shaped dict with at least all the
             requested metrics.
         """
-        from dataeval.core._calculate_stats import calculate_stats
+        from dataeval.core._compute_stats import compute_stats
 
         cached = self.load_stats(selection_repr, scope)
         if cached is not None:
@@ -864,10 +862,9 @@ class WorkflowCache:
             )
 
         # Compute the missing stats
-        fresh = calculate_stats(
+        fresh = compute_stats(
             dataset,
-            None,
-            to_compute,
+            stats=to_compute,
             per_image=per_image,
             per_target=per_target,
             per_channel=per_channel,

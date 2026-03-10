@@ -1,18 +1,23 @@
 """Data cleaning workflow outputs."""
 
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, TypeIs
 
 from dataeval_app.config.schemas.metadata import ResultMetadata
 from dataeval_app.workflow.base import Reportable, WorkflowOutputsBase, WorkflowReportBase
 
+if TYPE_CHECKING:
+    from dataeval_app.workflow import WorkflowResult
+
 __all__ = [
+    "ClasswisePivotDict",
     "DataCleaningMetadata",
     "DataCleaningOutputs",
     "DataCleaningRawOutputs",
     "DataCleaningReport",
+    "DataCleaningResult",
     "DetectionDict",
     "DuplicatesDict",
     "LabelStatsDict",
@@ -20,6 +25,7 @@ __all__ = [
     "OutlierIssueRecord",
     "OutlierIssuesDict",
     "SourceIndexDict",
+    "is_cleaning_result",
 ]
 
 
@@ -31,7 +37,7 @@ __all__ = [
 class _OutlierIssueRecordRequired(TypedDict):
     """Required fields for an outlier issue record."""
 
-    item_id: int
+    item_index: int
     metric_name: str
     metric_value: float
 
@@ -39,11 +45,11 @@ class _OutlierIssueRecordRequired(TypedDict):
 class OutlierIssueRecord(_OutlierIssueRecordRequired, total=False):
     """Single outlier issue from DataEval OutliersOutput.
 
-    ``target_id`` is present for target-level outliers (object detection datasets)
+    ``target_index`` is present for target-level outliers (object detection datasets)
     and absent or ``None`` for image-level outliers.
     """
 
-    target_id: int | None
+    target_index: int | None
 
 
 class OutlierIssuesDict(TypedDict):
@@ -97,6 +103,27 @@ class LabelStatsDict(TypedDict, total=False):
     label_counts_per_class: dict[str, int]
 
 
+class ClasswiseRowDict(TypedDict):
+    """Single row in the classwise outlier summary."""
+
+    class_name: str
+    count: int
+    pct: float  # percentage of that class's labels flagged
+
+
+class ClasswisePivotDict(TypedDict, total=False):
+    """Classwise outlier summary — count and % of labels flagged per class.
+
+    For classification datasets this summarises image outliers per class;
+    for object-detection datasets this summarises target-level outliers per
+    class (image-level entries are excluded since they cannot be attributed
+    to a single class).
+    """
+
+    level: str  # "image" or "target"
+    rows: list[ClasswiseRowDict]  # one per class + Total row
+
+
 # ---------------------------------------------------------------------------
 # Pydantic output models
 # ---------------------------------------------------------------------------
@@ -121,6 +148,10 @@ class DataCleaningRawOutputs(WorkflowOutputsBase):
         default=None,
         description="OutliersOutput for bounding boxes (OD datasets only)",
     )
+    classwise_outliers: ClasswisePivotDict | None = Field(
+        default=None,
+        description="Classwise outlier pivot — image-level for classification, target-level for OD",
+    )
 
 
 class DataCleaningReport(WorkflowReportBase):
@@ -144,3 +175,26 @@ class DataCleaningMetadata(ResultMetadata):
     flagged_indices: list[int] = Field(default_factory=list)
     clean_indices: list[int] = Field(default_factory=list)
     removed_count: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Type alias and TypeIs guard for type narrowing
+# ---------------------------------------------------------------------------
+
+#: Fully typed result alias for the data-cleaning workflow.
+DataCleaningResult: TypeAlias = "WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]"
+
+
+def is_cleaning_result(
+    result: "WorkflowResult[Any, Any]",
+) -> TypeIs["WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]"]:
+    """Narrow a generic ``WorkflowResult`` to a data-cleaning result.
+
+    Useful in the CLI loop or any code that receives a generic result::
+
+        result = run_task(task, config)
+        if is_cleaning_result(result):
+            result.metadata.flagged_indices  # ✓ typed
+            result.data.raw.img_outliers     # ✓ typed
+    """
+    return isinstance(result.metadata, DataCleaningMetadata)

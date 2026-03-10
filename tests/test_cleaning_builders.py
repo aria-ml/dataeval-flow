@@ -13,7 +13,7 @@ from dataeval_app.workflows.cleaning.workflow import (
 def _make_params(**overrides: object) -> DataCleaningParameters:
     """Build DataCleaningParameters with defaults for testing."""
     defaults: dict[str, object] = {
-        "outlier_method": "modzscore",
+        "outlier_method": "adaptive",
         "outlier_flags": ["dimension", "pixel", "visual"],
         "outlier_threshold": None,
     }
@@ -88,6 +88,6 @@ class TestBuildDuplicates:
 
     def test_cluster_without_extractor_raises(self):
         """Cluster params without extractor raises ValueError."""
-        params = _make_params(duplicate_cluster_threshold=2.5)
+        params = _make_params(duplicate_cluster_sensitivity=2.5)
         with pytest.raises(ValueError, match="requires an extractor"):
             _build_duplicates(params)

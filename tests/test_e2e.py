@@ -396,36 +396,34 @@ class TestEndToEndCleaningWorkflow:
             "image_count": 0,
         }
 
-        # 4e. Outliers mock — from_stats() returns Polars DataFrame matching OutliersOutput.issues
+        # 4e. Outliers mock — from_stats() returns object with .data() returning DataFrame
         outlier_issues_df = pl.DataFrame(
             {
-                "item_id": [2, 7],
+                "item_index": [2, 7],
                 "metric_name": ["brightness", "contrast"],
                 "metric_value": [3.5, -2.8],
             }
         )
         mock_outliers_result = MagicMock()
-        mock_outliers_result.issues = outlier_issues_df
+        mock_outliers_result.data.return_value = outlier_issues_df
         mock_outliers_instance = MagicMock()
         mock_outliers_instance.from_stats.return_value = mock_outliers_result
         mock_outliers_cls.return_value = mock_outliers_instance
 
-        # 4f. Duplicates mock — from_stats() returns DuplicatesOutput-like structure
-        mock_dup_items = MagicMock()
-        mock_dup_items.exact = [[0, 5]]  # one exact duplicate group
-        mock_near_group = MagicMock()
-        mock_near_group.indices = [3, 8]
-        mock_near_group.methods = frozenset({"hash"})
-        mock_near_group.orientation = "same"
-        mock_dup_items.near = [mock_near_group]
-
-        mock_dup_targets = MagicMock()
-        mock_dup_targets.exact = None
-        mock_dup_targets.near = None
-
+        # 4f. Duplicates mock — from_stats() returns object with .data() returning DataFrame
+        dup_df = pl.DataFrame(
+            {
+                "group_id": [0, 1],
+                "level": ["item", "item"],
+                "dup_type": ["exact", "near"],
+                "item_indices": [[0, 5], [3, 8]],
+                "target_indices": [None, None],
+                "methods": [None, ["hash"]],
+                "orientation": [None, "same"],
+            }
+        )
         mock_dup_result = MagicMock()
-        mock_dup_result.items = mock_dup_items
-        mock_dup_result.targets = mock_dup_targets
+        mock_dup_result.data.return_value = dup_df
         mock_dup_instance = MagicMock()
         mock_dup_instance.from_stats.return_value = mock_dup_result
         mock_duplicates_cls.return_value = mock_dup_instance
@@ -458,9 +456,9 @@ class TestEndToEndCleaningWorkflow:
         # Outlier results
         assert raw["img_outliers"]["count"] == 2
         assert len(raw["img_outliers"]["issues"]) == 2
-        assert raw["img_outliers"]["issues"][0]["item_id"] == 2
+        assert raw["img_outliers"]["issues"][0]["item_index"] == 2
 
-        # No target outliers (no target_id column)
+        # No target outliers (no target_index column)
         assert raw["target_outliers"] is None
 
         # Duplicate results

@@ -72,10 +72,11 @@ def _default_metadata() -> "ResultMetadata":
 
 
 TMetadata = TypeVar("TMetadata", bound="ResultMetadata")
+TData = TypeVar("TData", bound=BaseModel)
 
 
 @dataclass
-class WorkflowResult(Generic[TMetadata]):
+class WorkflowResult(Generic[TMetadata, TData]):
     """Standardized workflow result.
 
     ``metadata`` carries the JATIC-required envelope (timestamp, tool info,
@@ -83,13 +84,14 @@ class WorkflowResult(Generic[TMetadata]):
     populates timing and dataset fields after execution; workflows construct
     the appropriate ``ResultMetadata`` subclass at creation time.
 
-    Parameterize with a metadata subclass for typed access to
-    workflow-specific fields, e.g. ``WorkflowResult[DataCleaningMetadata]``.
+    Parameterize with metadata and data subclasses for typed access to
+    workflow-specific fields, e.g.
+    ``WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]``.
     """
 
     name: str
     success: bool
-    data: BaseModel
+    data: TData
     errors: list[str] = field(default_factory=list)
     metadata: TMetadata = field(default_factory=_default_metadata)  # type: ignore[assignment]
     format: Literal["text", "json", "yaml"] = "text"
@@ -234,11 +236,8 @@ class WorkflowResult(Generic[TMetadata]):
         return dest
 
 
-TMetadata = TypeVar("TMetadata", bound="ResultMetadata")
-
-
 @runtime_checkable
-class WorkflowProtocol(Protocol[TMetadata]):
+class WorkflowProtocol(Protocol[TMetadata, TData]):
     """Workflow protocol with schema properties."""
 
     @property
@@ -261,7 +260,7 @@ class WorkflowProtocol(Protocol[TMetadata]):
         """Pydantic model for workflow output."""
         ...
 
-    def execute(self, context: WorkflowContext, params: BaseModel | None = None) -> "WorkflowResult[TMetadata]":
+    def execute(self, context: WorkflowContext, params: BaseModel | None = None) -> "WorkflowResult[TMetadata, TData]":
         """Execute the workflow."""
         ...
 
@@ -270,21 +269,23 @@ class WorkflowProtocol(Protocol[TMetadata]):
 # Workflow discovery (replaces WorkflowRegistry)
 # ---------------------------------------------------------------------------
 
-_WORKFLOWS: "dict[str, WorkflowProtocol[ResultMetadata]]" = {}
+_WORKFLOWS: "dict[str, WorkflowProtocol[ResultMetadata, BaseModel]]" = {}
 _initialized: bool = False
 
 
 def _ensure_initialized() -> None:
     global _initialized
     if not _initialized:
+        from dataeval_app.config.schemas.task import _rebuild_deferred_models
         from dataeval_app.workflows.cleaning.workflow import DataCleaningWorkflow
 
+        _rebuild_deferred_models()
         wf = DataCleaningWorkflow()
-        _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata]", wf)
+        _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf)
         _initialized = True
 
 
-def get_workflow(name: str) -> "WorkflowProtocol[ResultMetadata]":
+def get_workflow(name: str) -> "WorkflowProtocol[ResultMetadata, BaseModel]":
     """Look up a workflow by name. Raises ValueError if unknown."""
     _ensure_initialized()
     if name not in _WORKFLOWS:

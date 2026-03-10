@@ -27,7 +27,6 @@ from dataeval_app.workflows.cleaning.workflow import (
     _compute_label_stats,
     _item_id_of,
     _serialize_duplicates,
-    _serialize_index,
     _serialize_outlier_issues,
     _validate_cluster_params,
 )
@@ -36,7 +35,7 @@ from dataeval_app.workflows.cleaning.workflow import (
 def _make_params(**overrides: object) -> DataCleaningParameters:
     """Build DataCleaningParameters with defaults for testing."""
     defaults: dict[str, object] = {
-        "outlier_method": "zscore",
+        "outlier_method": "adaptive",
         "outlier_flags": ["dimension", "pixel"],
         "outlier_threshold": None,
     }
@@ -56,7 +55,7 @@ class TestBuildOutliers:
         _build_outliers(params)
         mock_outliers_cls.assert_called_once()
         call_kwargs = mock_outliers_cls.call_args[1]
-        assert call_kwargs["outlier_threshold"] == ("zscore", None)
+        assert call_kwargs["outlier_threshold"] == ("adaptive", None)
 
     @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
     def test_with_extractor(self, mock_outliers_cls: MagicMock):
@@ -71,7 +70,7 @@ class TestBuildOutliers:
         params = _make_params(outlier_flags=["dimension"], outlier_threshold=2.5)
         _build_outliers(params)
         call_kwargs = mock_outliers_cls.call_args[1]
-        assert call_kwargs["outlier_threshold"] == ("zscore", 2.5)
+        assert call_kwargs["outlier_threshold"] == ("adaptive", 2.5)
 
     @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
     def test_cluster_params_passed(self, mock_outliers_cls: MagicMock):
@@ -138,7 +137,7 @@ class TestBuildDuplicates:
     def test_cluster_without_extractor_raises(self):
         import pytest
 
-        params = _make_params(duplicate_cluster_threshold=2.5)
+        params = _make_params(duplicate_cluster_sensitivity=2.5)
         with pytest.raises(ValueError, match="requires an extractor"):
             _build_duplicates(params)
 
@@ -150,14 +149,14 @@ class TestBuildDuplicates:
 
 class TestSerializeOutlierIssues:
     def test_serializes_polars_df(self):
-        df = pl.DataFrame({"item_id": [0, 1, 2], "metric_name": ["brightness"] * 3, "metric_value": [0.1, 0.2, 0.3]})
+        df = pl.DataFrame({"item_index": [0, 1, 2], "metric_name": ["brightness"] * 3, "metric_value": [0.1, 0.2, 0.3]})
         out = _serialize_outlier_issues(df)
         assert out["count"] == 3
         assert len(out["issues"]) == 3
-        assert out["issues"][0]["item_id"] == 0
+        assert out["issues"][0]["item_index"] == 0
 
     def test_empty_df(self):
-        df = pl.DataFrame({"item_id": [], "metric_name": [], "metric_value": []})
+        df = pl.DataFrame({"item_index": [], "metric_name": [], "metric_value": []})
         out = _serialize_outlier_issues(df)
         assert out["count"] == 0
         assert out["issues"] == []
@@ -165,13 +164,19 @@ class TestSerializeOutlierIssues:
 
 class TestSerializeDuplicates:
     def test_exact_and_near(self):
+        df = pl.DataFrame(
+            {
+                "group_id": [0, 1, 2],
+                "level": ["item", "item", "item"],
+                "dup_type": ["exact", "exact", "near"],
+                "item_indices": [[0, 1], [2, 3], [4, 5]],
+                "target_indices": [None, None, None],
+                "methods": [None, None, ["hash"]],
+                "orientation": [None, None, "same"],
+            }
+        )
         result = MagicMock()
-        # items
-        result.items.exact = [[0, 1], [2, 3]]
-        result.items.near = [MagicMock(indices=[4, 5], methods=frozenset({"hash"}), orientation="same")]
-        # targets
-        result.targets.exact = None
-        result.targets.near = None
+        result.data.return_value = df
 
         out = _serialize_duplicates(result)
         assert len(out["items"]["exact"]) == 2  # type: ignore[typeddict-item]
@@ -179,79 +184,62 @@ class TestSerializeDuplicates:
         assert "exact" not in out["targets"]
 
     def test_no_duplicates(self):
+        df = pl.DataFrame(
+            {
+                "group_id": [],
+                "level": [],
+                "dup_type": [],
+                "item_indices": [],
+                "target_indices": [],
+                "methods": [],
+                "orientation": [],
+            }
+        )
         result = MagicMock()
-        result.items.exact = None
-        result.items.near = None
-        result.targets.exact = None
-        result.targets.near = None
+        result.data.return_value = df
 
         out = _serialize_duplicates(result)
         assert out["items"] == {}
         assert out["targets"] == {}
 
     def test_source_index_targets(self):
-        """SourceIndex indices in target-level duplicates preserve target/channel."""
-        from dataeval.types import SourceIndex
-
+        """Target-level duplicates with target_indices produce SourceIndexDict entries."""
+        df = pl.DataFrame(
+            {
+                "group_id": [0, 1, 2],
+                "level": ["item", "target", "target"],
+                "dup_type": ["exact", "exact", "near"],
+                "item_indices": [[0, 1], [0, 1], [4, 5]],
+                "target_indices": [None, [2, 3], [0, 1]],
+                "methods": [None, None, ["hash"]],
+                "orientation": [None, None, "same"],
+            }
+        )
         result = MagicMock()
-        # items: plain int indices
-        result.items.exact = [[0, 1]]
-        result.items.near = None
-        # targets: SourceIndex indices (object detection)
-        result.targets.exact = [[SourceIndex(0, 2), SourceIndex(1, 3)]]
-        result.targets.near = [
-            MagicMock(
-                indices=[SourceIndex(4, 0, 1), SourceIndex(5, 1)],
-                methods=frozenset({"hash"}),
-                orientation="same",
-            )
-        ]
+        result.data.return_value = df
 
         out = _serialize_duplicates(result)
 
         # item-level exact should remain plain ints
         assert out["items"]["exact"] == [[0, 1]]  # type: ignore[typeddict-item]
-        # target-level exact: SourceIndex preserved as dicts
+        # target-level exact: SourceIndexDict entries
         assert out["targets"]["exact"] == [  # type: ignore[typeddict-item]
             [
                 {"item": 0, "target": 2, "channel": None},
                 {"item": 1, "target": 3, "channel": None},
             ]
         ]
-        # target-level near: SourceIndex preserved (including channel when set)
+        # target-level near: SourceIndexDict entries
         near_indices = out["targets"]["near"][0]["indices"]  # type: ignore[typeddict-item]
         assert near_indices == [
-            {"item": 4, "target": 0, "channel": 1},
+            {"item": 4, "target": 0, "channel": None},
             {"item": 5, "target": 1, "channel": None},
         ]
 
 
 # ---------------------------------------------------------------------------
-# _serialize_index / _item_id_of
+# _item_id_of
 # ---------------------------------------------------------------------------
-
-
-class TestSerializeIndex:
-    def test_plain_int_passthrough(self):
-        assert _serialize_index(7) == 7
-
-    def test_source_index_to_dict(self):
-        from dataeval.types import SourceIndex
-
-        result = _serialize_index(SourceIndex(3, 5, 2))
-        assert result == {"item": 3, "target": 5, "channel": 2}
-
-    def test_source_index_defaults(self):
-        from dataeval.types import SourceIndex
-
-        result = _serialize_index(SourceIndex(1))
-        assert result == {"item": 1, "target": None, "channel": None}
-
-    def test_source_index_target_only(self):
-        from dataeval.types import SourceIndex
-
-        result = _serialize_index(SourceIndex(2, 4))
-        assert result == {"item": 2, "target": 4, "channel": None}
 
 
 class TestItemIdOf:
@@ -321,7 +309,7 @@ class TestBuildFindings:
             dataset_size=100,
             img_outliers={
                 "count": 5,
-                "issues": [{"item_id": i, "metric_name": "m", "metric_value": 0.0} for i in range(5)],
+                "issues": [{"item_index": i, "metric_name": "m", "metric_value": 0.0} for i in range(5)],
             },
         )
         findings = _build_findings(raw, None)
@@ -335,12 +323,12 @@ class TestBuildFindings:
             img_outliers={
                 "count": 6,
                 "issues": [
-                    {"item_id": 0, "metric_name": "brightness", "metric_value": 0.1},
-                    {"item_id": 0, "metric_name": "entropy", "metric_value": 0.2},
-                    {"item_id": 0, "metric_name": "contrast", "metric_value": 0.3},
-                    {"item_id": 5, "metric_name": "brightness", "metric_value": 0.4},
-                    {"item_id": 5, "metric_name": "entropy", "metric_value": 0.5},
-                    {"item_id": 10, "metric_name": "contrast", "metric_value": 0.6},
+                    {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1},
+                    {"item_index": 0, "metric_name": "entropy", "metric_value": 0.2},
+                    {"item_index": 0, "metric_name": "contrast", "metric_value": 0.3},
+                    {"item_index": 5, "metric_name": "brightness", "metric_value": 0.4},
+                    {"item_index": 5, "metric_name": "entropy", "metric_value": 0.5},
+                    {"item_index": 10, "metric_name": "contrast", "metric_value": 0.6},
                 ],
             },
         )
@@ -369,10 +357,10 @@ class TestBuildFindings:
             target_outliers={  # type: ignore[typeddict-item]  # target records include target_id
                 "count": 4,
                 "issues": [
-                    {"item_id": 0, "target_id": 0, "metric_name": "brightness", "metric_value": 0.1},
-                    {"item_id": 0, "target_id": 0, "metric_name": "contrast", "metric_value": 0.2},
-                    {"item_id": 0, "target_id": 1, "metric_name": "brightness", "metric_value": 0.3},
-                    {"item_id": 1, "target_id": 0, "metric_name": "brightness", "metric_value": 0.4},
+                    {"item_index": 0, "target_index": 0, "metric_name": "brightness", "metric_value": 0.1},
+                    {"item_index": 0, "target_index": 0, "metric_name": "contrast", "metric_value": 0.2},
+                    {"item_index": 0, "target_index": 1, "metric_name": "brightness", "metric_value": 0.3},
+                    {"item_index": 1, "target_index": 0, "metric_name": "brightness", "metric_value": 0.4},
                 ],
             },
         )
@@ -390,7 +378,7 @@ class TestBuildFindings:
         assert per_metric["brightness"] == 3  # (0,0), (0,1), (1,0)
         assert per_metric["contrast"] == 1  # (0,0)
         # Data-driven renderer keys
-        assert data["brief"] == "3 targets"
+        assert data["brief"] == "3 targets (0.0%)"
         assert data["multi_metric_subject"] == "targets"
 
     def test_duplicate_finding(self):
@@ -571,8 +559,8 @@ class TestCollectFlaggedIndices:
             dataset_size=10,
             img_outliers={
                 "issues": [
-                    {"item_id": 2, "metric_name": "m", "metric_value": 0.0},
-                    {"item_id": 5, "metric_name": "m", "metric_value": 0.0},
+                    {"item_index": 2, "metric_name": "m", "metric_value": 0.0},
+                    {"item_index": 5, "metric_name": "m", "metric_value": 0.0},
                 ],
                 "count": 2,
             },
@@ -609,7 +597,7 @@ class TestCollectFlaggedIndices:
         raw = DataCleaningRawOutputs(
             dataset_size=10,
             img_outliers={
-                "issues": [{"item_id": 0, "metric_name": "m", "metric_value": 0.0}],
+                "issues": [{"item_index": 0, "metric_name": "m", "metric_value": 0.0}],
                 "count": 1,
             },
             duplicates={
@@ -690,8 +678,8 @@ class TestDataCleaningWorkflowExecute:
             img_outliers={
                 "count": 2,
                 "issues": [
-                    {"item_id": 0, "metric_name": "m", "metric_value": 0.0},
-                    {"item_id": 1, "metric_name": "m", "metric_value": 0.0},
+                    {"item_index": 0, "metric_name": "m", "metric_value": 0.0},
+                    {"item_index": 1, "metric_name": "m", "metric_value": 0.0},
                 ],
             },
         )
@@ -714,8 +702,8 @@ class TestDataCleaningWorkflowExecute:
             img_outliers={
                 "count": 2,
                 "issues": [
-                    {"item_id": 0, "metric_name": "m", "metric_value": 0.0},
-                    {"item_id": 1, "metric_name": "m", "metric_value": 0.0},
+                    {"item_index": 0, "metric_name": "m", "metric_value": 0.0},
+                    {"item_index": 1, "metric_name": "m", "metric_value": 0.0},
                 ],
             },
             duplicates={"items": {"exact": [[3, 4]], "near": []}, "targets": {}},
@@ -816,7 +804,7 @@ class TestValidateClusterParams:
             _validate_cluster_params(params, extractor=None)
 
     def test_duplicate_cluster_without_extractor_raises(self):
-        params = _make_params(duplicate_cluster_threshold=2.5)
+        params = _make_params(duplicate_cluster_sensitivity=2.5)
         with pytest.raises(ValueError, match="Cluster-based duplicate detection requires an extractor"):
             _validate_cluster_params(params, extractor=None)
 
@@ -847,19 +835,29 @@ class TestRunCleaning:
             "image_count": 0,
         }
 
-        # Mock Outliers.from_stats
+        # Mock Outliers.from_stats — return object with .data() returning DataFrame
         mock_outliers = MagicMock()
-        issues_df = pl.DataFrame({"item_id": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
-        mock_outliers.from_stats.return_value = MagicMock(issues=issues_df)
+        issues_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
+        mock_outlier_output = MagicMock()
+        mock_outlier_output.data.return_value = issues_df
+        mock_outliers.from_stats.return_value = mock_outlier_output
         mock_outliers_cls.return_value = mock_outliers
 
-        # Mock Duplicates.from_stats
+        # Mock Duplicates.from_stats — return object with .data() returning empty DataFrame
         mock_dups = MagicMock()
+        empty_dup_df = pl.DataFrame(
+            {
+                "group_id": [],
+                "level": [],
+                "dup_type": [],
+                "item_indices": [],
+                "target_indices": [],
+                "methods": [],
+                "orientation": [],
+            }
+        )
         mock_dup_result = MagicMock()
-        mock_dup_result.items.exact = None
-        mock_dup_result.items.near = None
-        mock_dup_result.targets.exact = None
-        mock_dup_result.targets.near = None
+        mock_dup_result.data.return_value = empty_dup_df
         mock_dups.from_stats.return_value = mock_dup_result
         mock_dup_cls.return_value = mock_dups
 
@@ -874,7 +872,7 @@ class TestRunCleaning:
     @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
     @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
     @patch("dataeval_app.cache.get_or_compute_stats")
-    def test_run_cleaning_with_target_id(
+    def test_run_cleaning_with_target_index(
         self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock
     ):
         from dataeval_app.workflows.cleaning.workflow import _run_cleaning
@@ -889,25 +887,36 @@ class TestRunCleaning:
             "image_count": 0,
         }
 
-        # Issues DF with target_id column (OD dataset)
+        # Issues DF with target_index column (OD dataset)
         issues_df = pl.DataFrame(
             {
-                "item_id": [0, 0, 1],
+                "item_index": [0, 0, 1],
                 "metric_name": ["brightness", "brightness", "size"],
                 "metric_value": [0.1, 0.2, 0.3],
-                "target_id": [None, 5, None],
+                "target_index": [None, 5, None],
             }
         )
         mock_outliers = MagicMock()
-        mock_outliers.from_stats.return_value = MagicMock(issues=issues_df)
+        mock_outlier_output = MagicMock()
+        mock_outlier_output.data.return_value = issues_df
+        mock_outliers.from_stats.return_value = mock_outlier_output
         mock_outliers_cls.return_value = mock_outliers
 
+        # Mock Duplicates.from_stats
         mock_dups = MagicMock()
+        empty_dup_df = pl.DataFrame(
+            {
+                "group_id": [],
+                "level": [],
+                "dup_type": [],
+                "item_indices": [],
+                "target_indices": [],
+                "methods": [],
+                "orientation": [],
+            }
+        )
         mock_dup_result = MagicMock()
-        mock_dup_result.items.exact = None
-        mock_dup_result.items.near = None
-        mock_dup_result.targets.exact = None
-        mock_dup_result.targets.near = None
+        mock_dup_result.data.return_value = empty_dup_df
         mock_dups.from_stats.return_value = mock_dup_result
         mock_dup_cls.return_value = mock_dups
 
@@ -941,19 +950,29 @@ class TestRunCleaning:
             "image_count": 0,
         }
 
-        # Mock Outliers.from_stats
+        # Mock Outliers.from_stats — return object with .data() returning DataFrame
         mock_outliers = MagicMock()
-        issues_df = pl.DataFrame({"item_id": [], "metric_name": [], "metric_value": []})
-        mock_outliers.from_stats.return_value = MagicMock(issues=issues_df)
+        issues_df = pl.DataFrame({"item_index": [], "metric_name": [], "metric_value": []})
+        mock_outlier_output = MagicMock()
+        mock_outlier_output.data.return_value = issues_df
+        mock_outliers.from_stats.return_value = mock_outlier_output
         mock_outliers_cls.return_value = mock_outliers
 
-        # Mock Duplicates.from_stats
+        # Mock Duplicates.from_stats — return object with .data() returning empty DataFrame
         mock_dups = MagicMock()
+        empty_dup_df = pl.DataFrame(
+            {
+                "group_id": [],
+                "level": [],
+                "dup_type": [],
+                "item_indices": [],
+                "target_indices": [],
+                "methods": [],
+                "orientation": [],
+            }
+        )
         mock_dup_result = MagicMock()
-        mock_dup_result.items.exact = None
-        mock_dup_result.items.near = None
-        mock_dup_result.targets.exact = None
-        mock_dup_result.targets.near = None
+        mock_dup_result.data.return_value = empty_dup_df
         mock_dups.from_stats.return_value = mock_dup_result
         mock_dup_cls.return_value = mock_dups
 

@@ -80,7 +80,9 @@ def _render_detail_section(finding: Reportable) -> list[str]:
 
     rt = finding.report_type
 
-    if rt == "table":
+    if rt == "pivot_table":
+        lines.extend(_render_pivot_table(data))
+    elif rt == "table":
         lines.extend(_render_table(data))
     elif rt == "key_value":
         lines.extend(_render_key_value(data))
@@ -123,6 +125,57 @@ def _render_key_value(data: dict[str, Any]) -> list[str]:
     if detail_lines:
         lines.append("")
         lines.extend(f"  {line}" for line in detail_lines)
+
+    return lines
+
+
+def _render_pivot_table(data: dict[str, Any]) -> list[str]:
+    """Render pivot-table findings — multi-column tables like classwise outliers.
+
+    ``table_headers`` are display names; row dicts use field keys.  A
+    ``field_keys`` list in *data* maps each header to its row-dict key
+    (defaults to headers themselves).  The ``%`` header is special-cased
+    to read the ``pct`` field and format with one decimal + ``%`` suffix.
+    """
+    lines: list[str] = []
+    rows: list[dict[str, Any]] = data.get("table_data", [])
+    headers: list[str] = data.get("table_headers", [])
+    if not rows or not headers:
+        return lines
+
+    # Map display header → row-dict key
+    key_aliases: dict[str, str] = {"%": "pct"}
+    keys = [key_aliases.get(h, h) for h in headers]
+
+    # Format cell values: pct → "12.3%", others → str
+    def _fmt(key: str, val: object) -> str:
+        if key == "pct" and isinstance(val, (int, float)):
+            return f"{val:.1f}%"
+        return str(val) if val is not None else ""
+
+    # Pre-format all cells for width calculation
+    formatted: list[list[str]] = [[_fmt(k, row.get(k, "")) for k in keys] for row in rows]
+
+    # Compute column widths
+    col_widths = [len(h) for h in headers]
+    for cells in formatted:
+        for i, cell in enumerate(cells):
+            col_widths[i] = max(col_widths[i], len(cell))
+
+    # Header
+    lines.append("")
+    header_line = "  " + "  ".join(
+        f"{h:<{w}}" if i == 0 else f"{h:>{w}}" for i, (h, w) in enumerate(zip(headers, col_widths, strict=False))
+    )
+    lines.append(header_line)
+    lines.append("  " + "  ".join("-" * w for w in col_widths))
+
+    # Data rows
+    for cells in formatted:
+        parts: list[str] = []
+        for i, (cell, w) in enumerate(zip(cells, col_widths, strict=False)):
+            parts.append(f"{cell:<{w}}" if i == 0 else f"{cell:>{w}}")
+        lines.append("  " + "  ".join(parts))
 
     return lines
 
