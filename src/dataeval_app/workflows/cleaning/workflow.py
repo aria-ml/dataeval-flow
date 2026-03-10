@@ -14,7 +14,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, DuplicatesOutput, Outliers
 from pydantic import BaseModel
 
-from dataeval_app.cache import WorkflowCache, get_or_compute_metadata
+from dataeval_app.cache import DatasetCache, get_or_compute_metadata
 from dataeval_app.embeddings import build_extractor
 from dataeval_app.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_app.workflow.base import Reportable
@@ -506,7 +506,7 @@ def _validate_cluster_params(params: DataCleaningParameters, extractor: Callable
 class CleaningRunContext:
     """Cache and extractor plumbing passed from execute() to _run_cleaning()."""
 
-    cache: "WorkflowCache | None" = None
+    cache: "DatasetCache | None" = None
     sel_key: str | None = None
     extractor_config: Any = None
     transforms: Callable | None = None
@@ -835,14 +835,14 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 auto_bin_method=context.metadata_auto_bin_method,
                 exclude=context.metadata_exclude or None,
                 continuous_factor_bins=context.metadata_continuous_factor_bins,
-                cache=context.cache,
+                cache=dc.cache,
                 selection_key=sel_key,
             )
 
             # 4. Run cleaning evaluators (cache-aware when cache is configured)
             logger.info("Running outlier and duplicate detection on %d items", len(dataset))
             run_ctx = CleaningRunContext(
-                cache=context.cache,
+                cache=dc.cache,
                 sel_key=sel_key,
                 extractor_config=dc.extractor,
                 transforms=dc.transforms,

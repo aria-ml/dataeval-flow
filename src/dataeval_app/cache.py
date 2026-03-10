@@ -2,23 +2,32 @@
 
 Provides load/save methods for three component types:
 - **Embeddings** — Dense numpy arrays stored as ``.npy``
-- **Metadata** — Polars DataFrame as ``.parquet`` + auxiliary attributes as ``.json``
-- **Stats** — Unified ``StatsResult`` stored as ``.parquet`` + ``.json``.
-Metrics accumulate incrementally: different workflows requesting different ``ImageStats``
-flags share the same cache entry and only compute the missing metrics.
+- **Metadata** — Polars DataFrame as ``.parquet`` + auxiliary attributes as
+``.json`` - **Stats** — Unified ``StatsResult`` stored as ``.parquet`` +
+``.json``. Metrics accumulate incrementally: different workflows requesting
+different ``ImageStats`` flags share the same cache entry and only compute the
+missing metrics.
 
 Cache layout::
 
     cache_dir/
       v{CACHE_VERSION}/
-        {dataset_name}/
-          embeddings_{selection_hash}_{config_hash}.npy
-          metadata_{selection_hash}.parquet
-          metadata_{selection_hash}.json
-          stats_{selection_hash}_{scope_hash}.parquet
-          stats_{selection_hash}_{scope_hash}.json
+        {dataset_name}_{dataset_config_hash}/
+          sel_{selection_hash}/
+            embeddings_{embeddings_config_hash}.npy
+            metadata.parquet
+            metadata.json
+            stats_{scope_hash}.parquet
+            stats_{scope_hash}.json
 
-Cache artefacts are stored under a ``v{CACHE_VERSION}`` subdirectory so
+The dataset directory name is ``{dataset_name}_{dataset_config_hash}``,
+where the hash is derived from the full serialized ``DatasetConfig``
+(name, path, split, format, etc.).  This ensures that changing *any*
+config field — e.g. switching from ``split="train"`` to ``split="test"``
+— produces a distinct cache directory, even if the dataset name is
+unchanged.
+
+Cache artifacts are stored under a ``v{CACHE_VERSION}`` subdirectory so
 that different versions can coexist side-by-side.  When the cache format
 changes in a backwards-incompatible way, bump ``CACHE_VERSION`` and old
 data is simply ignored.  Users can clean up stale versions by removing the
@@ -29,7 +38,7 @@ __all__ = [
     "CACHE_VERSION",
     "FLAG_TO_METRIC",
     "METRIC_TO_FLAG",
-    "WorkflowCache",
+    "DatasetCache",
     "get_or_compute_embeddings",
     "get_or_compute_metadata",
     "get_or_compute_stats",
@@ -59,7 +68,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 # Bump this when the on-disk cache format changes in a backwards-incompatible
-# way.  Cached artefacts are stored under ``v{CACHE_VERSION}/`` so different
+# way.  Cached artifacts are stored under ``v{CACHE_VERSION}/`` so different
 # versions coexist and users can ``rm -rf`` old directories to reclaim space.
 CACHE_VERSION = "0"
 
@@ -213,7 +222,7 @@ def get_or_compute_stats(
     per_target: bool = True,
     per_channel: bool = False,
     *,
-    cache: "WorkflowCache | None" = None,
+    cache: "DatasetCache | None" = None,
     selection_key: str | None = None,
 ) -> dict[str, Any]:
     """Centralized stats computation with optional disk caching.
@@ -234,7 +243,7 @@ def get_or_compute_stats(
         The dataset to compute stats from (must conform to DataEval protocol).
     per_image, per_target, per_channel
         Scope settings passed to ``compute_stats()``.
-    cache : WorkflowCache | None
+    cache : DatasetCache | None
         Optional disk cache.  When ``None``, stats are always computed fresh.
     selection_key : str | None
         Selection key (from :func:`selection_repr`).  Required when *cache*
@@ -277,7 +286,7 @@ def get_or_compute_metadata(
     exclude: list[str] | None = None,
     continuous_factor_bins: dict[str, int | list[float]] | None = None,
     *,
-    cache: "WorkflowCache | None" = None,
+    cache: "DatasetCache | None" = None,
     selection_key: str | None = None,
 ) -> "Metadata":
     """Build metadata with optional disk caching.
@@ -298,7 +307,7 @@ def get_or_compute_metadata(
     continuous_factor_bins : dict[str, int | list[float]] | None
         Number of uniform bins (int) or explicit bin edges (list[float])
         for specific continuous factors.
-    cache : WorkflowCache | None
+    cache : DatasetCache | None
         Optional disk cache.
     selection_key : str | None
         Selection key (from :func:`selection_repr`).  Required when
@@ -334,7 +343,7 @@ def get_or_compute_embeddings(
     transforms: Any = None,
     batch_size: int | None = None,
     *,
-    cache: "WorkflowCache | None" = None,
+    cache: "DatasetCache | None" = None,
     selection_key: str | None = None,
 ) -> NDArray[Any]:
     """Extract embeddings with optional disk caching.
@@ -357,7 +366,7 @@ def get_or_compute_embeddings(
         Optional preprocessing transforms.
     batch_size : int | None
         Batch size for extraction.
-    cache : WorkflowCache | None
+    cache : DatasetCache | None
         Optional disk cache.
     selection_key : str | None
         Selection key (from :func:`selection_repr`).  Required when
@@ -392,16 +401,16 @@ def get_or_compute_embeddings(
 
 
 # ---------------------------------------------------------------------------
-# WorkflowCache
+# DatasetCache
 # ---------------------------------------------------------------------------
 
 
-class WorkflowCache:
-    """Disk-backed cache for workflow computations.
+class DatasetCache:
+    """Disk-backed cache for dataset computations.
 
-    Organises cached artefacts under::
+    Organises cached artifacts under::
 
-        cache_dir / v{CACHE_VERSION} / dataset_name / {component}_{sel}_{cfg}.{ext}
+        cache_dir / v{CACHE_VERSION} / dataset_name / sel_{hash} / {component}_{cfg}.{ext}
 
     Parameters
     ----------
@@ -448,15 +457,21 @@ class WorkflowCache:
     # Embeddings (.npy)
     # =====================================================================
 
+    def _selection_dir(self, selection_repr: str) -> Path:
+        """Return (and create) the selection-specific subdirectory."""
+        s = _config_hash(selection_repr)
+        d = self.dataset_dir / f"sel_{s}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
     def _embeddings_path(
         self,
         selection_repr: str,
         extractor_config_json: str,
         transforms_repr: str,
     ) -> Path:
-        s = _config_hash(selection_repr)
         h = _config_hash(extractor_config_json + "|" + transforms_repr)
-        return self.dataset_dir / f"embeddings_{s}_{h}.npy"
+        return self._selection_dir(selection_repr) / f"embeddings_{h}.npy"
 
     def load_embeddings(
         self,
@@ -546,8 +561,8 @@ class WorkflowCache:
     # =====================================================================
 
     def _metadata_paths(self, selection_repr: str) -> tuple[Path, Path]:
-        s = _config_hash(selection_repr)
-        return self.dataset_dir / f"metadata_{s}.parquet", self.dataset_dir / f"metadata_{s}.json"
+        sel_dir = self._selection_dir(selection_repr)
+        return sel_dir / "metadata.parquet", sel_dir / "metadata.json"
 
     def load_metadata(
         self,
@@ -710,9 +725,9 @@ class WorkflowCache:
     # =====================================================================
 
     def _stats_paths(self, selection_repr: str, scope: str) -> tuple[Path, Path]:
-        s = _config_hash(selection_repr)
+        sel_dir = self._selection_dir(selection_repr)
         h = _config_hash(scope)
-        return self.dataset_dir / f"stats_{s}_{h}.parquet", self.dataset_dir / f"stats_{s}_{h}.json"
+        return sel_dir / f"stats_{h}.parquet", sel_dir / f"stats_{h}.json"
 
     def load_stats(
         self,
