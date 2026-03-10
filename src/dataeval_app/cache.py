@@ -38,7 +38,7 @@ __all__ = [
     "CACHE_VERSION",
     "FLAG_TO_METRIC",
     "METRIC_TO_FLAG",
-    "WorkflowCache",
+    "DatasetCache",
     "get_or_compute_embeddings",
     "get_or_compute_metadata",
     "get_or_compute_stats",
@@ -222,7 +222,7 @@ def get_or_compute_stats(
     per_target: bool = True,
     per_channel: bool = False,
     *,
-    cache: "WorkflowCache | None" = None,
+    cache: "DatasetCache | None" = None,
     selection_key: str | None = None,
 ) -> dict[str, Any]:
     """Centralized stats computation with optional disk caching.
@@ -243,7 +243,7 @@ def get_or_compute_stats(
         The dataset to compute stats from (must conform to DataEval protocol).
     per_image, per_target, per_channel
         Scope settings passed to ``compute_stats()``.
-    cache : WorkflowCache | None
+    cache : DatasetCache | None
         Optional disk cache.  When ``None``, stats are always computed fresh.
     selection_key : str | None
         Selection key (from :func:`selection_repr`).  Required when *cache*
@@ -286,7 +286,7 @@ def get_or_compute_metadata(
     exclude: list[str] | None = None,
     continuous_factor_bins: dict[str, int | list[float]] | None = None,
     *,
-    cache: "WorkflowCache | None" = None,
+    cache: "DatasetCache | None" = None,
     selection_key: str | None = None,
 ) -> "Metadata":
     """Build metadata with optional disk caching.
@@ -307,7 +307,7 @@ def get_or_compute_metadata(
     continuous_factor_bins : dict[str, int | list[float]] | None
         Number of uniform bins (int) or explicit bin edges (list[float])
         for specific continuous factors.
-    cache : WorkflowCache | None
+    cache : DatasetCache | None
         Optional disk cache.
     selection_key : str | None
         Selection key (from :func:`selection_repr`).  Required when
@@ -343,7 +343,7 @@ def get_or_compute_embeddings(
     transforms: Any = None,
     batch_size: int | None = None,
     *,
-    cache: "WorkflowCache | None" = None,
+    cache: "DatasetCache | None" = None,
     selection_key: str | None = None,
 ) -> NDArray[Any]:
     """Extract embeddings with optional disk caching.
@@ -366,7 +366,7 @@ def get_or_compute_embeddings(
         Optional preprocessing transforms.
     batch_size : int | None
         Batch size for extraction.
-    cache : WorkflowCache | None
+    cache : DatasetCache | None
         Optional disk cache.
     selection_key : str | None
         Selection key (from :func:`selection_repr`).  Required when
@@ -401,12 +401,12 @@ def get_or_compute_embeddings(
 
 
 # ---------------------------------------------------------------------------
-# WorkflowCache
+# DatasetCache
 # ---------------------------------------------------------------------------
 
 
-class WorkflowCache:
-    """Disk-backed cache for workflow computations.
+class DatasetCache:
+    """Disk-backed cache for dataset computations.
 
     Organises cached artifacts under::
 

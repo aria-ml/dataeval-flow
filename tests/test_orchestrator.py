@@ -880,7 +880,7 @@ class TestMakeDsId:
         return DatasetConfig(name=name, **defaults)  # type: ignore[call-arg]
 
     def test_single_dataset_has_name_prefix_and_hash(self):
-        result = _make_ds_id([self._cfg("my_dataset")])
+        result = _make_ds_id(self._cfg("my_dataset"))
         assert result.startswith("my_dataset_")
         hash_suffix = result.rsplit("_", 1)[-1]
         assert len(hash_suffix) == 16
@@ -888,44 +888,31 @@ class TestMakeDsId:
 
     def test_different_split_different_id(self):
         """Changing split (but keeping name) must produce a different cache id."""
-        train = _make_ds_id([self._cfg("ds", split="train")])
-        test = _make_ds_id([self._cfg("ds", split="test")])
+        train = _make_ds_id(self._cfg("ds", split="train"))
+        test = _make_ds_id(self._cfg("ds", split="test"))
         assert train != test
 
     def test_different_path_different_id(self):
         """Changing path (but keeping name) must produce a different cache id."""
-        a = _make_ds_id([self._cfg("ds", path="/data/a")])
-        b = _make_ds_id([self._cfg("ds", path="/data/b")])
+        a = _make_ds_id(self._cfg("ds", path="/data/a"))
+        b = _make_ds_id(self._cfg("ds", path="/data/b"))
         assert a != b
 
-    def test_multiple_datasets_sorted(self):
-        """Order of configs should not matter — sorted by name."""
-        a = _make_ds_id([self._cfg("bravo"), self._cfg("alpha")])
-        b = _make_ds_id([self._cfg("alpha"), self._cfg("bravo")])
-        assert a == b
-        assert "alpha_bravo_" in a
+    def test_same_config_deterministic(self):
+        """Same config always produces the same output."""
+        cfg = self._cfg("my_dataset")
+        assert _make_ds_id(cfg) == _make_ds_id(cfg)
 
     def test_long_name_truncated(self):
         """Result must fit within _MAX_DS_ID_BYTES."""
-        configs = [self._cfg(f"dataset_{i:03d}") for i in range(20)]
-        result = _make_ds_id(configs)
+        result = _make_ds_id(self._cfg("a" * 200))
         assert len(result.encode("utf-8")) <= 100
         hash_suffix = result.rsplit("_", 1)[-1]
         assert len(hash_suffix) == 16
         int(hash_suffix, 16)
 
-    def test_deterministic(self):
-        """Same inputs always produce the same output."""
-        configs = [self._cfg(f"dataset_{i:03d}") for i in range(20)]
-        assert _make_ds_id(configs) == _make_ds_id(configs)
-
-    def test_single_long_name_hashed(self):
-        """A single dataset with a very long name also fits within limit."""
-        result = _make_ds_id([self._cfg("a" * 200)])
-        assert len(result.encode("utf-8")) <= 100
-
-    def test_different_sets_different_ids(self):
-        """Different dataset sets produce different hashed IDs."""
-        configs_a = [self._cfg(f"dataset_{i:03d}") for i in range(20)]
-        configs_b = [self._cfg(f"dataset_{i:03d}") for i in range(21)]
-        assert _make_ds_id(configs_a) != _make_ds_id(configs_b)
+    def test_different_configs_different_ids(self):
+        """Different dataset configs produce different hashed IDs."""
+        a = _make_ds_id(self._cfg("dataset_a"))
+        b = _make_ds_id(self._cfg("dataset_b"))
+        assert a != b

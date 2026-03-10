@@ -27,7 +27,7 @@ from dataeval_app.workflow.orchestrator import run_task
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
 
-    from dataeval_app.cache import WorkflowCache
+    from dataeval_app.cache import DatasetCache
     from dataeval_app.config.models import ExtractorConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.selection import SelectionStep
@@ -45,6 +45,7 @@ class DatasetContext:
     selection_steps: "list[SelectionStep] | None" = None
     batch_size: int | None = None
     label_source: str | None = None
+    cache: "DatasetCache | None" = None
 
 
 @dataclass
@@ -61,7 +62,6 @@ class WorkflowContext:
     metadata_exclude: list[str] = field(default_factory=list)
     metadata_continuous_factor_bins: dict[str, int | list[float]] | None = None
     batch_size: int | None = None
-    cache: "WorkflowCache | None" = None
 
 
 def _default_metadata() -> "ResultMetadata":

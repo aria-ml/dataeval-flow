@@ -23,8 +23,8 @@ __all__ = ["run_task"]
 _MAX_DS_ID_BYTES = 100  # Conservative limit (ext4 NAME_MAX = 255 bytes)
 
 
-def _make_ds_id(dataset_configs: list["DatasetConfig"]) -> str:
-    """Build a cache-safe dataset identifier from full dataset configs.
+def _make_ds_id(dataset_config: "DatasetConfig") -> str:
+    """Build a cache-safe dataset identifier from a single dataset config.
 
     Hashes the full serialized config (name, path, split, format, etc.)
     so that changes to *any* config field — not just the name — produce
@@ -32,14 +32,12 @@ def _make_ds_id(dataset_configs: list["DatasetConfig"]) -> str:
     where the prefix keeps it human-readable and the hash guarantees
     uniqueness.
     """
-    configs = sorted(dataset_configs, key=lambda c: c.name)
-    raw_json = "|".join(c.model_dump_json(exclude_defaults=False) for c in configs)
+    raw_json = dataset_config.model_dump_json(exclude_defaults=False)
     config_hash = hashlib.sha256(raw_json.encode("utf-8")).hexdigest()[:16]
 
-    # Human-readable prefix from dataset names
-    names = "_".join(c.name for c in configs)
+    # Human-readable prefix from dataset name
     max_prefix = _MAX_DS_ID_BYTES - 17  # 17 = 1 ("_") + 16 (hash)
-    prefix = names.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
+    prefix = dataset_config.name.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
     return f"{prefix}_{config_hash}"
 
 
@@ -206,12 +204,11 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
         if isinstance(value, Mapping):
             _validate_mapping_keys(value, dataset_names, kind)
 
-    # 3. Build a DatasetContext per dataset
+    # 3. Build a DatasetContext per dataset (cache is per-dataset so that
+    #    different workflows sharing the same dataset can reuse cached results)
     dataset_contexts: dict[str, DatasetContext] = {}
-    resolved_ds_configs: list[DatasetConfig] = []
     for ds_name in dataset_names:
         ds_config: DatasetConfig = _resolve_by_name(config.datasets, ds_name, "datasets")
-        resolved_ds_configs.append(ds_config)
         dataset = load_dataset(
             Path(ds_config.path),
             split=ds_config.split,
@@ -248,6 +245,15 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
 
         label_source = _infer_label_source(ds_config)
 
+        # Build per-dataset cache (keyed to this dataset's config only)
+        ds_cache = None
+        if task.cache_dir:
+            from dataeval_app.cache import DatasetCache
+
+            cache_path = Path(task.cache_dir)
+            ds_id = _make_ds_id(ds_config)
+            ds_cache = DatasetCache(cache_dir=cache_path, dataset_name=ds_id)
+
         dataset_contexts[ds_name] = DatasetContext(
             name=ds_name,
             dataset=dataset,  # type: ignore[arg-type]  # MaiteDataset | ImageFolderDataset → AnnotatedDataset
@@ -256,25 +262,19 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
             selection_steps=selection_steps,
             batch_size=task.batch_size,
             label_source=label_source,
+            cache=ds_cache,
         )
 
-    # 4. Build WorkflowContext (metadata config is task-wide, not per-dataset)
-    cache = None
     if task.cache_dir:
-        from dataeval_app.cache import WorkflowCache
+        logger.info("Cache enabled: %s", Path(task.cache_dir))
 
-        cache_path = Path(task.cache_dir)
-        logger.info("Cache enabled: %s", cache_path)
-        ds_id = _make_ds_id(resolved_ds_configs)
-        cache = WorkflowCache(cache_dir=cache_path, dataset_name=ds_id)
-
+    # 4. Build WorkflowContext (metadata config is task-wide, not per-dataset)
     context = WorkflowContext(
         dataset_contexts=dataset_contexts,
         metadata_auto_bin_method=task.metadata_auto_bin_method,
         metadata_exclude=task.metadata_exclude or [],
         metadata_continuous_factor_bins=task.metadata_continuous_factor_bins,
         batch_size=task.batch_size,
-        cache=cache,
     )
 
     logger.debug("Task '%s': resolved %d dataset(s): %s", task.name, len(dataset_names), dataset_names)

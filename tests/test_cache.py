@@ -1,4 +1,4 @@
-"""Tests for WorkflowCache — disk-backed caching of workflow computations."""
+"""Tests for DatasetCache — disk-backed caching of workflow computations."""
 
 from pathlib import Path
 from typing import Any
@@ -12,7 +12,7 @@ from dataeval_app.cache import (
     CACHE_VERSION,
     FLAG_TO_METRIC,
     METRIC_TO_FLAG,
-    WorkflowCache,
+    DatasetCache,
     _config_hash,
     get_or_compute_embeddings,
     get_or_compute_metadata,
@@ -162,18 +162,18 @@ class TestFlagMetricMappings:
 
 
 # ---------------------------------------------------------------------------
-# WorkflowCache — construction and directory layout
+# DatasetCache — construction and directory layout
 # ---------------------------------------------------------------------------
 
 
-class TestWorkflowCacheInit:
+class TestDatasetCacheInit:
     def test_stores_config(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="my_ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="my_ds")
         assert cache.cache_dir == tmp_path
         assert cache.dataset_name == "my_ds"
 
     def test_dataset_dir_creates_hierarchy(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds1")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds1")
         dataset_dir = cache.dataset_dir
         assert dataset_dir == tmp_path / f"v{CACHE_VERSION}" / "ds1"
         assert dataset_dir.is_dir()
@@ -181,11 +181,11 @@ class TestWorkflowCacheInit:
     @pytest.mark.parametrize("name", ["../escape", "a/b", "a\\b", ".", ".."])
     def test_rejects_path_traversal(self, tmp_path: Path, name: str):
         with pytest.raises(ValueError, match="Invalid dataset_name"):
-            WorkflowCache(cache_dir=tmp_path, dataset_name=name)
+            DatasetCache(cache_dir=tmp_path, dataset_name=name)
 
     def test_allows_dots_in_name(self, tmp_path: Path):
         """Names like 'foo..bar' are valid directory names."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="foo..bar")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="foo..bar")
         assert cache.dataset_name == "foo..bar"
 
 
@@ -198,7 +198,7 @@ class TestCorruptedCacheResilience:
     """Corrupted cache files should return None instead of raising."""
 
     def test_load_embeddings_corrupted_npy(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Save a valid embedding first to get the path, then corrupt it
         arr = np.ones((2, 3), dtype=np.float32)
         cache.save_embeddings("sel:all", "cfg", "none", arr)
@@ -209,7 +209,7 @@ class TestCorruptedCacheResilience:
         assert result is None
 
     def test_load_stats_corrupted_parquet(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         s = _config_hash("sel:all")
         h = _config_hash("img+tgt")
         sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
@@ -224,7 +224,7 @@ class TestCorruptedCacheResilience:
         assert result is None
 
     def test_load_stats_corrupted_json(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
         # Corrupt the json file
@@ -237,7 +237,7 @@ class TestCorruptedCacheResilience:
         assert result is None
 
     def test_load_metadata_corrupted_parquet(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         s = _config_hash("sel:all")
         sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
         sel_dir.mkdir(parents=True)
@@ -248,7 +248,7 @@ class TestCorruptedCacheResilience:
         assert result is None
 
     def test_load_metadata_corrupted_json(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_mock_metadata()
         cache.save_metadata("sel:all", meta)
         # Corrupt the json file
@@ -267,7 +267,7 @@ class TestCorruptedCacheResilience:
 
 class TestEmbeddingsCache:
     def test_save_and_load_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         arr = np.random.default_rng(42).random((100, 512)).astype(np.float32)
 
         cache.save_embeddings("sel:all", '{"type":"onnx"}', "none", arr)
@@ -277,11 +277,11 @@ class TestEmbeddingsCache:
         np.testing.assert_array_equal(loaded, arr)
 
     def test_load_returns_none_on_miss(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         assert cache.load_embeddings("sel:all", '{"type":"onnx"}') is None
 
     def test_different_config_different_file(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         arr1 = np.ones((10, 4), dtype=np.float32)
         arr2 = np.zeros((10, 4), dtype=np.float32)
 
@@ -297,7 +297,7 @@ class TestEmbeddingsCache:
         np.testing.assert_array_equal(loaded2, arr2)
 
     def test_different_selections_independent(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = '{"type":"flat"}'
         arr_a = np.ones((5, 3), dtype=np.float32)
         arr_b = np.zeros((5, 3), dtype=np.float32)
@@ -314,7 +314,7 @@ class TestEmbeddingsCache:
         np.testing.assert_array_equal(loaded_b, arr_b)
 
     def test_preserves_dtype(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         arr = np.array([[1.0, 2.0]], dtype=np.float64)
         cache.save_embeddings("sel:all", "cfg", "none", arr)
         loaded = cache.load_embeddings("sel:all", "cfg", "none")
@@ -322,7 +322,7 @@ class TestEmbeddingsCache:
         assert loaded.dtype == np.float64
 
     def test_file_goes_to_correct_path(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="my_ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="my_ds")
         arr = np.ones((2, 2))
         cache.save_embeddings("sel:all", "cfg", "tfm", arr)
 
@@ -346,7 +346,7 @@ class TestLoadOrComputeEmbeddings:
         return cfg
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = self._mock_extractor_config()
         mock_array = np.random.default_rng(42).random((10, 64)).astype(np.float32)
 
@@ -372,7 +372,7 @@ class TestLoadOrComputeEmbeddings:
         np.testing.assert_array_equal(cached, mock_array)
 
     def test_full_hit_skips_compute(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = self._mock_extractor_config()
         arr = np.ones((5, 32), dtype=np.float32)
 
@@ -394,7 +394,7 @@ class TestLoadOrComputeEmbeddings:
         np.testing.assert_array_equal(result, arr)
 
     def test_flattens_high_dimensional_output(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = self._mock_extractor_config()
         # Simulate 3-D output (N, H, W)
         mock_array = np.random.default_rng(42).random((5, 4, 8)).astype(np.float32)
@@ -441,7 +441,7 @@ class TestGetOrComputeEmbeddings:
         np.testing.assert_array_equal(result, mock_array)
 
     def test_with_cache_delegates_to_workflow_cache(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = self._mock_extractor_config()
         mock_array = np.ones((5, 16), dtype=np.float32)
         mock_embeddings = MagicMock()
@@ -462,7 +462,7 @@ class TestGetOrComputeEmbeddings:
         assert cached is not None
 
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = self._mock_extractor_config()
         arr = np.ones((5, 16), dtype=np.float32)
 
@@ -481,7 +481,7 @@ class TestGetOrComputeEmbeddings:
         np.testing.assert_array_equal(result, arr)
 
     def test_different_transforms_different_cache_keys(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cfg = self._mock_extractor_config()
 
         arr_a = np.ones((3, 8), dtype=np.float32)
@@ -572,7 +572,7 @@ def _make_calc_result(n: int = 5, include_2d: bool = False, include_hashes: bool
 
 class TestStatsCache:
     def test_save_and_load_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(5)
 
         cache.save_stats("sel:all", "img+tgt", stats)
@@ -586,11 +586,11 @@ class TestStatsCache:
         assert set(loaded["stats"].keys()) == {"mean", "brightness"}
 
     def test_load_returns_none_on_miss(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         assert cache.load_stats("sel:all", "img+tgt") is None
 
     def test_float_arrays_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
@@ -600,7 +600,7 @@ class TestStatsCache:
         np.testing.assert_array_almost_equal(loaded["stats"]["brightness"], stats["stats"]["brightness"])
 
     def test_string_arrays_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3, include_hashes=True)
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
@@ -611,7 +611,7 @@ class TestStatsCache:
         assert original_hashes == loaded_hashes
 
     def test_2d_histogram_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3, include_2d=True)
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
@@ -621,7 +621,7 @@ class TestStatsCache:
         assert loaded["stats"]["histogram"].shape == (3, 256)
 
     def test_2d_percentiles_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3, include_2d=True)
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
@@ -631,7 +631,7 @@ class TestStatsCache:
         assert loaded["stats"]["percentiles"].shape == (3, 5)
 
     def test_2d_center_round_trip(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3, include_2d=True)
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
@@ -643,7 +643,7 @@ class TestStatsCache:
     def test_source_index_round_trip(self, tmp_path: Path):
         from dataeval.types import SourceIndex
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
@@ -658,7 +658,7 @@ class TestStatsCache:
     def test_source_index_with_targets(self, tmp_path: Path):
         from dataeval.types import SourceIndex
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(2)
         # Override source_index with target/channel data
         stats["source_index"] = [
@@ -674,7 +674,7 @@ class TestStatsCache:
         assert loaded["source_index"][1].channel == 2
 
     def test_different_scopes_different_files(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats_a = _make_calc_result(3)
         stats_b = _make_calc_result(3)
         stats_b["stats"]["mean"] = np.zeros(3)  # different data
@@ -691,7 +691,7 @@ class TestStatsCache:
         assert not np.array_equal(loaded_a["stats"]["mean"], loaded_b["stats"]["mean"])
 
     def test_files_are_parquet_and_json(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cache.save_stats("sel:all", "img+tgt", _make_calc_result(2))
 
         s = _config_hash("sel:all")
@@ -717,7 +717,7 @@ class TestLoadOrComputeStats:
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
@@ -734,7 +734,7 @@ class TestLoadOrComputeStats:
     def test_full_hit_returns_cached(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
 
@@ -750,7 +750,7 @@ class TestLoadOrComputeStats:
     def test_partial_hit_computes_missing_only(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Pre-populate cache with "mean" only
         stats = _make_calc_result(3)
         stats["stats"] = {"mean": stats["stats"]["mean"]}
@@ -778,7 +778,7 @@ class TestLoadOrComputeStats:
     def test_merged_result_persisted(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Pre-populate with "mean"
         stats = _make_calc_result(3)
         stats["stats"] = {"mean": stats["stats"]["mean"]}
@@ -822,7 +822,7 @@ class TestGetOrComputeStats:
     def test_with_cache_delegates_to_workflow_cache(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
@@ -842,7 +842,7 @@ class TestGetOrComputeStats:
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
 
@@ -881,7 +881,7 @@ class TestGetOrComputeStats:
 
 
 def _make_mock_metadata() -> MagicMock:
-    """Build a mock Metadata with the attributes WorkflowCache serializes."""
+    """Build a mock Metadata with the attributes DatasetCache serializes."""
     meta = MagicMock()
     meta.dataframe = pl.DataFrame(
         {
@@ -902,7 +902,7 @@ def _make_mock_metadata() -> MagicMock:
 
 class TestMetadataCache:
     def test_save_creates_files(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", meta)
@@ -915,7 +915,7 @@ class TestMetadataCache:
         assert js.exists()
 
     def test_save_parquet_contains_dataframe(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", meta)
@@ -927,7 +927,7 @@ class TestMetadataCache:
 
     def test_save_strips_binned_columns(self, tmp_path: Path):
         """Binned (↕) and digitized (#) columns are dropped before saving."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_mock_metadata()
         # Add binned/digitized columns to the mock dataframe
         meta.dataframe = meta.dataframe.with_columns(
@@ -946,7 +946,7 @@ class TestMetadataCache:
     def test_save_json_contains_auxiliary(self, tmp_path: Path):
         import json
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", meta)
@@ -963,12 +963,12 @@ class TestMetadataCache:
         assert aux["has_targets"] is False
 
     def test_load_returns_none_on_miss(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         assert cache.load_metadata("sel:all", MagicMock()) is None
 
     def test_load_returns_none_when_only_parquet_exists(self, tmp_path: Path):
         """Both files must exist for a cache hit."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
 
         # Create just the parquet file in the versioned path
         s = _config_hash("sel:all")
@@ -980,7 +980,7 @@ class TestMetadataCache:
 
     def test_load_reconstructs_metadata(self, tmp_path: Path):
         """Full save → load round trip with real Metadata reconstruction."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
@@ -999,7 +999,7 @@ class TestMetadataCache:
 
     def test_load_sets_is_binned_false(self, tmp_path: Path):
         """Loaded metadata has _is_binned=False so _bin() runs lazily."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
@@ -1011,7 +1011,7 @@ class TestMetadataCache:
 
     def test_load_applies_caller_config(self, tmp_path: Path):
         """Loaded metadata has the caller's binning config applied."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
@@ -1030,7 +1030,7 @@ class TestMetadataCache:
 
     def test_load_sets_has_targets(self, tmp_path: Path):
         """Loaded metadata preserves the has_targets flag."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
@@ -1041,7 +1041,7 @@ class TestMetadataCache:
 
     def test_load_dataframe_accessible(self, tmp_path: Path):
         """Loaded metadata exposes the cached DataFrame."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
@@ -1054,7 +1054,7 @@ class TestMetadataCache:
 
     def test_same_cache_entry_reused_across_configs(self, tmp_path: Path):
         """Different binning configs reuse the same raw cache entry."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
@@ -1071,7 +1071,7 @@ class TestMetadataCache:
 
 
 # ---------------------------------------------------------------------------
-# WorkflowCache.load_or_compute_metadata
+# DatasetCache.load_or_compute_metadata
 # ---------------------------------------------------------------------------
 
 
@@ -1079,7 +1079,7 @@ class TestLoadOrComputeMetadata:
     _BUILD_METADATA_PATH = "dataeval_app.metadata.build_metadata"
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
@@ -1093,7 +1093,7 @@ class TestLoadOrComputeMetadata:
         assert cached.item_count == 5
 
     def test_full_hit_skips_compute(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         # Pre-populate cache
@@ -1107,7 +1107,7 @@ class TestLoadOrComputeMetadata:
         assert result.item_count == 5
 
     def test_passes_config_kwargs_to_build(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
         dataset = MagicMock()
 
@@ -1128,7 +1128,7 @@ class TestLoadOrComputeMetadata:
 
     def test_different_configs_share_same_cache_entry(self, tmp_path: Path):
         """Different binning configs reuse the same raw cache entry."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         # First call — cache miss, computes and saves
@@ -1163,7 +1163,7 @@ class TestGetOrComputeMetadata:
         assert result is mock_meta
 
     def test_with_cache_delegates_to_workflow_cache(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
@@ -1180,7 +1180,7 @@ class TestGetOrComputeMetadata:
         assert cached is not None
 
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
         # Pre-populate cache
@@ -1211,7 +1211,7 @@ class TestGetOrComputeMetadata:
         assert result is mock_meta
 
     def test_config_kwargs_forwarded(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
         dataset = MagicMock()
 
@@ -1239,8 +1239,8 @@ class TestGetOrComputeMetadata:
 
 class TestCacheIsolation:
     def test_different_datasets_independent(self, tmp_path: Path):
-        cache_a = WorkflowCache(cache_dir=tmp_path, dataset_name="ds_a")
-        cache_b = WorkflowCache(cache_dir=tmp_path, dataset_name="ds_b")
+        cache_a = DatasetCache(cache_dir=tmp_path, dataset_name="ds_a")
+        cache_b = DatasetCache(cache_dir=tmp_path, dataset_name="ds_b")
 
         arr_a = np.ones((3, 4))
         arr_b = np.zeros((3, 4))
@@ -1258,7 +1258,7 @@ class TestCacheIsolation:
 
     def test_all_component_types_in_same_cache(self, tmp_path: Path):
         """All component types can coexist in the same dataset directory."""
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
 
         # Embeddings
         cache.save_embeddings("sel:all", "cfg", "none", np.ones((2, 3)))
@@ -1280,7 +1280,7 @@ class TestCacheIsolation:
 
 class TestCacheVersioning:
     def test_data_stored_under_version_directory(self, tmp_path: Path):
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cache.save_embeddings("sel:all", "cfg", "none", np.ones((2, 3)))
         assert (tmp_path / f"v{CACHE_VERSION}" / "ds").is_dir()
 
@@ -1290,13 +1290,13 @@ class TestCacheVersioning:
 
         # Save with current version
         monkeypatch.setattr(cache_mod, "CACHE_VERSION", "1")
-        cache_v1 = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache_v1 = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         arr_v1 = np.ones((2, 3))
         cache_v1.save_embeddings("sel:all", "cfg", "none", arr_v1)
 
         # Simulate a version bump
         monkeypatch.setattr(cache_mod, "CACHE_VERSION", "2")
-        cache_v2 = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache_v2 = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         arr_v2 = np.zeros((2, 3))
         cache_v2.save_embeddings("sel:all", "cfg", "none", arr_v2)
 
@@ -1311,7 +1311,7 @@ class TestCacheVersioning:
 
         # Restore original version and verify v1 data
         monkeypatch.setattr(cache_mod, "CACHE_VERSION", "1")
-        cache_v1_reload = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache_v1_reload = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         loaded_v1 = cache_v1_reload.load_embeddings("sel:all", "cfg", "none")
         assert loaded_v1 is not None
         np.testing.assert_array_equal(loaded_v1, arr_v1)
@@ -1320,12 +1320,12 @@ class TestCacheVersioning:
         """After a version bump, old data is not returned."""
         import dataeval_app.cache as cache_mod
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cache.save_embeddings("sel:all", "cfg", "none", np.ones((2, 3)))
 
         # Bump version — old cache should miss
         monkeypatch.setattr(cache_mod, "CACHE_VERSION", "99")
-        cache_new = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
+        cache_new = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         assert cache_new.load_embeddings("sel:all", "cfg", "none") is None
 
 
@@ -1356,15 +1356,19 @@ class TestConfigIntegration:
         )
         assert task.cache_dir is None
 
-    def test_workflow_context_accepts_cache(self, tmp_path: Path):
-        from dataeval_app.workflow import WorkflowContext
+    def test_dataset_context_accepts_cache(self, tmp_path: Path):
+        from unittest.mock import MagicMock
 
-        cache = WorkflowCache(cache_dir=tmp_path, dataset_name="ds")
-        ctx = WorkflowContext(cache=cache)
-        assert ctx.cache is cache
+        from dataeval_app.workflow import DatasetContext
 
-    def test_workflow_context_cache_defaults_none(self):
-        from dataeval_app.workflow import WorkflowContext
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dc = DatasetContext(name="ds", dataset=MagicMock(), cache=cache)
+        assert dc.cache is cache
 
-        ctx = WorkflowContext()
-        assert ctx.cache is None
+    def test_dataset_context_cache_defaults_none(self):
+        from unittest.mock import MagicMock
+
+        from dataeval_app.workflow import DatasetContext
+
+        dc = DatasetContext(name="ds", dataset=MagicMock())
+        assert dc.cache is None
