@@ -27,7 +27,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "autoapi.extension",
-    "myst_parser",
+    "myst_nb",
     "sphinx_design",
     "sphinx_immaterial",
     "sphinx_new_tab_link",
@@ -35,10 +35,19 @@ extensions = [
 
 source_suffix = [".rst", ".md"]
 
+nb_custom_formats = {
+    ".py": ["jupytext.reads", {"fmt": "py:percent"}],
+}
+
 exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "build",
+    "notebooks/*.ipynb",
+    "cache",
+    "data",
+    "models",
+    "conf.py",
 ]
 
 suppress_warnings = ["ref.python", "autoapi.python_import_resolution"]
@@ -74,6 +83,9 @@ myst_enable_extensions = [
     "html_admonition",
 ]
 myst_heading_anchors = 4
+
+nb_execution_mode = "auto"  # "off" to disable execution, "auto" to execute only if outputs are missing
+nb_execution_timeout = -1  # No timeout for notebook execution
 
 # -----------------------------------------------------------------------------
 # HTML output

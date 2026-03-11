@@ -19,6 +19,7 @@ if not UV_EXTRAS_OVERRIDE:
 
 UV_EXTRAS = [UV_EXTRAS_OVERRIDE]
 UV_EXTRAS_WITH_ONNX = UV_EXTRAS + ["onnx" if UV_EXTRAS_OVERRIDE == "cpu" else "onnx-gpu"]
+UV_EXTRAS_WITH_ONNX_AND_OPENCV = UV_EXTRAS_WITH_ONNX + ["opencv"]
 
 
 @nox_uv.session(uv_only_groups=["lint"], uv_no_install_project=True)
@@ -65,7 +66,32 @@ def test(session: nox.Session) -> None:
     )
 
 
-@nox_uv.session(uv_groups=["docs"], uv_extras=UV_EXTRAS_WITH_ONNX)
+@nox_uv.session(uv_only_groups=["docs"], uv_no_install_project=True)
+def docsync(session: nox.Session) -> None:
+    """Sync notebook .py (percent) files with .ipynb via jupytext.
+
+    For each .py file in docs/source/notebooks/:
+      - If no .ipynb exists, generate one from the .py file.
+      - If .ipynb exists and is newer than .py, sync ipynb -> py.
+      - Otherwise, sync py -> ipynb.
+    """
+    from pathlib import Path
+
+    nb_dir = Path("docs/source/notebooks")
+    for py_file in sorted(nb_dir.glob("*.py")):
+        ipynb_file = py_file.with_suffix(".ipynb")
+        if not ipynb_file.exists():
+            session.log(f"{ipynb_file.name} missing — generating from {py_file.name}")
+            session.run("jupytext", "--to", "ipynb", str(py_file))
+        elif ipynb_file.stat().st_mtime > py_file.stat().st_mtime:
+            session.log(f"{ipynb_file.name} is newer — syncing ipynb -> py")
+            session.run("jupytext", "--sync", str(ipynb_file))
+        else:
+            session.log(f"{py_file.name} is newer — syncing py -> ipynb")
+            session.run("jupytext", "--sync", str(py_file))
+
+
+@nox_uv.session(uv_groups=["docs"], uv_extras=UV_EXTRAS_WITH_ONNX_AND_OPENCV)
 def docs(session: nox.Session) -> None:
     """Build Sphinx documentation."""
     session.run(

@@ -118,7 +118,7 @@ class TestReportText:
         assert "FINDINGS TEST" in out
 
     def test_findings_no_warnings(self):
-        """Findings with no warnings show 'No issues detected' in health line."""
+        """Findings with no warnings show 'All checks passed' in health line."""
         findings = [
             Reportable(report_type="text", severity="ok", title="All Good", data="detail", description="fine"),
         ]
@@ -126,8 +126,7 @@ class TestReportText:
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        assert "No issues detected" in out
-        assert "informational" in out
+        assert "All checks passed [ok]" in out
 
     def test_summary_section_present(self):
         """Report includes a SUMMARY section with dotted lines."""
@@ -279,10 +278,10 @@ class TestReportText:
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        assert "Health: No issues detected" in out
+        assert "Health: All checks passed [ok]" in out
 
     def test_warning_marker_in_summary(self):
-        """Warning findings get [!] marker in summary line."""
+        """Warning findings get [!!] marker in summary line."""
         findings = [
             Reportable(report_type="text", severity="warning", title="Bad Thing", data="d", description="bad"),
         ]
@@ -290,7 +289,7 @@ class TestReportText:
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
         out = result.report(format="text")
-        assert "[!]" in out
+        assert "[!!]" in out
 
     def test_duplicate_exact_only_no_methods_line(self):
         """Exact-only duplicates don't render Methods/Orientations lines."""
@@ -426,12 +425,42 @@ class TestMetadataTextLines:
         meta.timestamp = None
         meta.execution_time_s = None
         meta.dataset_id = ""
+        meta.model_id = None
+        meta.preprocessor_id = None
+        meta.selection_id = None
         meta.model_dump = MagicMock(return_value={})
         result = _make_result(metadata=meta)
         out = result.report(format="text")
         assert "Timestamp" not in out
         assert "Duration" not in out
         assert "Dataset" not in out
+        assert "Model" not in out
+        assert "Preprocessor" not in out
+        assert "Selection" not in out
+
+    def test_metadata_with_model(self):
+        """Model ID appears in metadata block."""
+        meta = ResultMetadata(model_id="resnet50")
+        result = _make_result(metadata=meta)
+        out = result.report(format="text")
+        assert "Model:" in out
+        assert "resnet50" in out
+
+    def test_metadata_with_preprocessor(self):
+        """Preprocessor ID appears in metadata block."""
+        meta = ResultMetadata(preprocessor_id="resnet50_preprocessor")
+        result = _make_result(metadata=meta)
+        out = result.report(format="text")
+        assert "Preprocessor:" in out
+        assert "resnet50_preprocessor" in out
+
+    def test_metadata_with_selection(self):
+        """Selection ID appears in metadata block."""
+        meta = ResultMetadata(selection_id="training_subset")
+        result = _make_result(metadata=meta)
+        out = result.report(format="text")
+        assert "Selection:" in out
+        assert "training_subset" in out
 
 
 # ---------------------------------------------------------------------------

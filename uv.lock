@@ -1004,6 +1004,7 @@ docker = [
     { name = "uv" },
 ]
 docs = [
+    { name = "dataeval-plots" },
     { name = "ipykernel" },
     { name = "jupytext" },
     { name = "matplotlib" },
@@ -1091,6 +1092,7 @@ docker = [
     { name = "uv", specifier = ">=0.8.0" },
 ]
 docs = [
+    { name = "dataeval-plots", specifier = ">=0.0.7" },
     { name = "ipykernel", specifier = ">=7.0" },
     { name = "jupytext", specifier = ">=1.19.1" },
     { name = "matplotlib", specifier = ">=3.8" },
@@ -1126,6 +1128,20 @@ type = [
     { name = "nox-uv", specifier = ">=0.6.2" },
     { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.400" },
     { name = "uv", specifier = ">=0.8.0" },
+]
+
+[[package]]
+name = "dataeval-plots"
+version = "0.0.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "polars" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/83/f4/06128808fbcc422bd7d1a30ae39865648935c3b366fe4600bb66f7711d40/dataeval_plots-0.0.7.tar.gz", hash = "sha256:a15d5bab6bacac658d4d80f7de964ba9b9dd9e00333e2578f25e5b850ece993c", size = 33773, upload-time = "2026-03-11T02:38:03.986Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/91/fdbddb2b5d199e2d6ebf916128d78978fe9fedf7d714cdf546a75251143b/dataeval_plots-0.0.7-py3-none-any.whl", hash = "sha256:7e45d4f5ebd1f51039c4639b86eabe37f2c1a2bc354b151c799456e81d31a905", size = 42244, upload-time = "2026-03-11T02:38:02.08Z" },
 ]
 
 [[package]]

@@ -117,9 +117,11 @@ def _validate_mapping_keys(
 def _infer_label_source(ds_config: "DatasetConfig") -> str | None:
     """Determine label provenance annotation for the dataset format."""
     if ds_config.format == "image_folder" and ds_config.infer_labels:
-        return "inferred from directory names"
+        return "filepath"
     if ds_config.format in ("coco", "yolo"):
-        return "from annotations"
+        return "annotations"
+    if ds_config.format == "huggingface":
+        return "huggingface"
     return None
 
 
@@ -272,7 +274,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
     logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Populate metadata envelope (JATIC fields + timing)
-    _populate_result_metadata(result, dataset_names, dataset_contexts, task.output_format, elapsed)
+    _populate_result_metadata(result, dataset_names, dataset_contexts, task, task.output_format, elapsed)
 
     return result
 
@@ -281,6 +283,7 @@ def _populate_result_metadata(
     result: "WorkflowResult[Any, Any]",
     dataset_names: list[str],
     dataset_contexts: "dict[str, DatasetContext]",
+    task: "TaskConfig",
     output_format: "Literal['text', 'json', 'yaml']",
     elapsed: float,
 ) -> None:
@@ -288,12 +291,23 @@ def _populate_result_metadata(
     from dataeval_app import __version__
 
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
-    result.metadata.datasets = dataset_names
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
     result.format = output_format
 
+    # Config reference names
+    if task.models is not None:
+        result.metadata.model_id = task.models if isinstance(task.models, str) else ", ".join(task.models.values())
+    if task.preprocessors is not None:
+        result.metadata.preprocessor_id = (
+            task.preprocessors if isinstance(task.preprocessors, str) else ", ".join(task.preprocessors.values())
+        )
+    if task.selections is not None:
+        result.metadata.selection_id = (
+            task.selections if isinstance(task.selections, str) else ", ".join(task.selections.values())
+        )
+
     # Annotate dataset source when label provenance is known
     dc = next(iter(dataset_contexts.values()))
     if dc.label_source:
-        result.metadata.dataset_source = dc.label_source
+        result.metadata.label_source = dc.label_source

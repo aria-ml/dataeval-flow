@@ -536,7 +536,6 @@ class TestResultMetadata:
         assert meta.version == "1.0"
         assert meta.tool == "dataeval-app"
         assert meta.timestamp is not None
-        assert meta.datasets == []
 
     def test_serializes_to_json(self) -> None:
         """model_dump(mode='json') produces JSON-safe types."""

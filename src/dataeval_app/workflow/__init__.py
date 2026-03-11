@@ -87,6 +87,11 @@ class WorkflowResult(Generic[TMetadata, TData]):
     Parameterize with metadata and data subclasses for typed access to
     workflow-specific fields, e.g.
     ``WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]``.
+
+    The optional ``dataset`` field holds the resolved, post-selection dataset
+    used during workflow execution.  This is *not* serialized by
+    :meth:`report`; it is provided purely for downstream programmatic use
+    (visualization, filtering, export).
     """
 
     name: str
@@ -95,6 +100,7 @@ class WorkflowResult(Generic[TMetadata, TData]):
     errors: list[str] = field(default_factory=list)
     metadata: TMetadata = field(default_factory=_default_metadata)  # type: ignore[assignment]
     format: Literal["text", "json", "yaml"] = "text"
+    dataset: "AnnotatedDataset[Any] | None" = None
 
     @overload
     def report(self, *, format: Literal["text", "json", "yaml"] | None = None, path: None = None) -> str: ...
@@ -141,14 +147,20 @@ class WorkflowResult(Generic[TMetadata, TData]):
         meta = self.metadata
         lines: list[str] = []
         if meta.timestamp:
-            lines.append(f"  Timestamp: {meta.timestamp.isoformat()}")
+            lines.append(f"  Timestamp:    {meta.timestamp.isoformat()}")
         if meta.execution_time_s is not None:
-            lines.append(f"  Duration:  {meta.execution_time_s:.2f}s")
+            lines.append(f"  Duration:     {meta.execution_time_s:.2f}s")
         if meta.dataset_id:
-            ds_line = f"  Dataset:   {meta.dataset_id}"
-            if meta.dataset_source:
-                ds_line += f"  ({meta.dataset_source})"
+            ds_line = f"  Dataset:      {meta.dataset_id}"
+            if meta.label_source:
+                ds_line += f"  ({meta.label_source})"
             lines.append(ds_line)
+        if meta.model_id:
+            lines.append(f"  Model:        {meta.model_id}")
+        if meta.preprocessor_id:
+            lines.append(f"  Preprocessor: {meta.preprocessor_id}")
+        if meta.selection_id:
+            lines.append(f"  Selection:    {meta.selection_id}")
         return lines
 
     def _report_text(self) -> str:
@@ -187,10 +199,9 @@ class WorkflowResult(Generic[TMetadata, TData]):
         # Informational findings (outliers, duplicates, etc.) do not count.
         lines.append("")
         if warnings:
-            lines.append(f"  Health: {warnings} warning(s) — review flagged findings")
+            lines.append(f"  Health: {warnings} warning(s) [!!] — review flagged findings")
         else:
-            lines.append("  Health: No issues detected")
-            lines.append("  (All findings above are informational; none are flagged as warnings.)")
+            lines.append("  Health: All checks passed [ok]")
 
         # === Detail sections ===
         for finding in findings:

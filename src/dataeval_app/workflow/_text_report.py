@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 __all__ = ["_WIDTH", "_render_detail_section", "_summary_line"]
 
 # Width of the report (matches the === bars).
-_WIDTH = 64
+_WIDTH = 80
 # Maximum bar chart width in characters.
 _BAR_MAX = 30
 # Unicode left-filling fractional block characters (index 1 = 1/8 .. 7 = 7/8).
@@ -37,7 +37,7 @@ def _summary_line(finding: Reportable) -> str:
     label = finding.title
     value = _brief_value(finding)
     severity = getattr(finding, "severity", "info")
-    marker = "  [!]" if severity == "warning" else ""
+    marker = "  [!!]" if severity == "warning" else "  [ok]"
 
     # Dotted fill between label and value
     dots_len = _WIDTH - 4 - len(label) - len(value) - len(marker)
@@ -144,7 +144,7 @@ def _render_pivot_table(data: dict[str, Any]) -> list[str]:
         return lines
 
     # Map display header → row-dict key
-    key_aliases: dict[str, str] = {"%": "pct"}
+    key_aliases: dict[str, str] = {"%": "pct", "Class Name": "class_name", "Count": "count"}
     keys = [key_aliases.get(h, h) for h in headers]
 
     # Format cell values: pct → "12.3%", others → str

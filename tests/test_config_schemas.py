@@ -849,6 +849,162 @@ class TestP1SchemaClasses:
         assert config.tasks[0].datasets == "cppe5"
 
 
+class TestFormatDict:
+    """Test _format_dict helper."""
+
+    def test_empty_dict(self):
+        """Empty dict returns empty list."""
+        from dataeval_app.config.schemas.task import _format_dict
+
+        assert _format_dict({}) == []
+
+    def test_flat_dict(self):
+        """Flat dict returns aligned key: value lines."""
+        from dataeval_app.config.schemas.task import _format_dict
+
+        result = _format_dict({"alpha": 1, "beta": "two"})
+        assert len(result) == 2
+        assert "alpha" in result[0]
+        assert "1" in result[0]
+        assert "beta" in result[1]
+        assert "two" in result[1]
+
+    def test_nested_dict(self):
+        """Nested dict adds indented sub-keys."""
+        from dataeval_app.config.schemas.task import _format_dict
+
+        result = _format_dict({"outer": {"inner": 42}})
+        assert len(result) == 2
+        assert "outer" in result[0]
+        assert "inner" in result[1]
+        assert "42" in result[1]
+
+    def test_indent_parameter(self):
+        """Indent parameter adds leading spaces."""
+        from dataeval_app.config.schemas.task import _format_dict
+
+        result = _format_dict({"key": "val"}, indent=4)
+        assert result[0].startswith("    ")
+
+
+class TestTaskConfigSummary:
+    """Test TaskConfig.summary() and __str__."""
+
+    def test_summary_minimal(self):
+        """Summary with only required fields."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="clean", workflow="data-cleaning", datasets="ds1")
+        s = task.summary()
+        assert "Task: clean (data-cleaning)" in s
+        assert "ds1" in s
+
+    def test_summary_with_datasets_list(self):
+        """Summary lists multiple datasets."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets=["a", "b"])
+        assert "a, b" in task.summary()
+
+    def test_summary_with_models_string(self):
+        """Summary includes model name."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", models="m1", batch_size=32)
+        s = task.summary()
+        assert "m1" in s
+
+    def test_summary_with_models_mapping(self):
+        """Summary includes model mapping keys."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets=["a", "b"], models={"a": "m1", "b": "m2"}, batch_size=32)
+        s = task.summary()
+        assert "m1" in s or "a" in s
+
+    def test_summary_with_selections(self):
+        """Summary includes selections."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", selections="sel1")
+        assert "sel1" in task.summary()
+
+    def test_summary_with_selections_mapping(self):
+        """Summary includes selection config names (values, not dataset keys)."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", selections={"d": "s1"})
+        assert "s1" in task.summary()
+
+    def test_summary_with_preprocessors(self):
+        """Summary includes preprocessor name."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", preprocessors="prep1")
+        assert "prep1" in task.summary()
+
+    def test_summary_with_batch_size(self):
+        """Summary includes batch_size."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", models="m", batch_size=64)
+        assert "64" in task.summary()
+
+    def test_summary_with_cache_dir(self):
+        """Summary includes cache_dir."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", cache_dir="/cache")
+        assert "/cache" in task.summary()
+
+    def test_summary_with_params(self):
+        """Summary includes params section."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d", params={"outlier_method": "iqr"})
+        s = task.summary()
+        assert "params:" in s
+        assert "outlier_method" in s
+        assert "iqr" in s
+
+    def test_str_returns_summary(self):
+        """__str__ returns same as summary()."""
+        from dataeval_app.config.schemas import TaskConfig
+
+        task = TaskConfig(name="t", workflow="w", datasets="d")
+        assert str(task) == task.summary()
+
+
+class TestDataCleaningTaskConfig:
+    """Test DataCleaningTaskConfig schema."""
+
+    def test_wrong_workflow_raises(self):
+        """DataCleaningTaskConfig rejects wrong workflow name."""
+        from dataeval_app.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
+
+        _rebuild_deferred_models()
+        with pytest.raises(ValidationError, match="data-cleaning"):
+            DataCleaningTaskConfig(
+                name="test",
+                workflow="wrong-workflow",
+                datasets="ds",
+                params=DataCleaningParameters(outlier_method="modzscore", outlier_flags=["dimension"]),
+            )
+
+    def test_valid_data_cleaning_task_config(self):
+        """DataCleaningTaskConfig accepts valid config."""
+        from dataeval_app.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
+
+        _rebuild_deferred_models()
+        task = DataCleaningTaskConfig(
+            name="clean",
+            datasets="ds",
+            params=DataCleaningParameters(outlier_method="modzscore", outlier_flags=["dimension"]),
+        )
+        assert task.workflow == "data-cleaning"
+        assert task.name == "clean"
+
+
 class TestLoggingConfig:
     """Test LoggingConfig parsing via WorkflowConfig."""
 

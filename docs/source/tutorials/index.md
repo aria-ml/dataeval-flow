@@ -2,13 +2,13 @@
 
 Learning-oriented guides that walk you through using DataEval App step by step.
 
-```{admonition} Coming Soon
-Tutorials are being developed. Check back for guided walkthroughs of
-dataset evaluation workflows.
+```{toctree}
+:maxdepth: 1
+
+../notebooks/data_cleaning
 ```
 
-Planned tutorials:
+## Planned tutorials
 
-- **Getting Started** — Load a dataset and run your first evaluation
-- **Data Cleaning Workflow** — Configure and run a complete cleaning pipeline
+- **Data Analysis** — Load a dataset and run your first evaluation
 - **Container Deployment** — Deploy DataEval App with Docker

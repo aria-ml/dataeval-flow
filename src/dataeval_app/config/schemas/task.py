@@ -11,6 +11,22 @@ if TYPE_CHECKING:
 AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
 
 
+def _format_dict(d: dict[str, Any], indent: int = 0) -> list[str]:
+    """Format a nested dict as aligned key: value lines."""
+    lines: list[str] = []
+    if not d:
+        return lines
+    pad = max(len(str(k)) for k in d) + 1
+    spaces = " " * indent
+    for k, v in d.items():
+        if isinstance(v, dict):
+            lines.append(f"{spaces}{k:<{pad}}:")
+            lines.extend(_format_dict(v, indent + 2))
+        else:
+            lines.append(f"{spaces}{k:<{pad}}: {v}")
+    return lines
+
+
 class TaskConfig(BaseModel):
     """Task/workflow configuration schema."""
 
@@ -45,6 +61,57 @@ class TaskConfig(BaseModel):
                 "batch_size is required when models is specified (embedding extraction needs a batch size)"
             )
         return self
+
+    def summary(self) -> str:
+        """Return a formatted summary of the task configuration."""
+        lines = [f"Task: {self.name} ({self.workflow})"]
+
+        # Collect key-value entries
+        ds = self.datasets if isinstance(self.datasets, list) else [self.datasets]
+        entries: list[tuple[str, str]] = [("datasets", ", ".join(ds))]
+        if self.models is not None:
+            entries.append(
+                (
+                    "models",
+                    self.models if isinstance(self.models, str) else ", ".join(self.models.values()),
+                )
+            )
+        if self.preprocessors is not None:
+            entries.append(
+                (
+                    "preprocessors",
+                    self.preprocessors
+                    if isinstance(self.preprocessors, str)
+                    else ", ".join(self.preprocessors.values()),
+                )
+            )
+        if self.selections is not None:
+            entries.append(
+                (
+                    "selections",
+                    self.selections if isinstance(self.selections, str) else ", ".join(self.selections.values()),
+                )
+            )
+        if self.batch_size is not None:
+            entries.append(("batch_size", str(self.batch_size)))
+        if self.cache_dir is not None:
+            entries.append(("cache_dir", self.cache_dir))
+
+        pad = max(len(k) for k, _ in entries)
+        for key, val in entries:
+            lines.append(f"  {key:<{pad}} : {val}")
+
+        # Params
+        params_data = self.params if isinstance(self.params, dict) else self.params.model_dump(mode="json")
+        if params_data:
+            lines.append("  params:")
+            lines.extend(_format_dict(params_data, indent=4))
+
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        """Return the summary as the string representation of the config."""
+        return self.summary()
 
 
 class DataCleaningTaskConfig(TaskConfig):

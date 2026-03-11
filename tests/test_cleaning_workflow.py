@@ -17,17 +17,27 @@ from dataeval_app.workflows.cleaning.outputs import (
     DataCleaningOutputs,
     DataCleaningRawOutputs,
 )
-from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+from dataeval_app.workflows.cleaning.params import DataCleaningHealthThresholds, DataCleaningParameters
 from dataeval_app.workflows.cleaning.workflow import (
+    CleaningRunContext,
     DataCleaningWorkflow,
+    _build_class_labels_df,
     _build_duplicates,
     _build_findings,
     _build_outliers,
+    _classwise_finding,
     _collect_flagged_indices,
+    _compute_classwise_pivot,
+    _compute_embeddings,
     _compute_label_stats,
     _item_id_of,
+    _merge_duplicate_results,
+    _merge_outlier_outputs,
+    _resolve_flags,
+    _run_duplicate_detection,
     _serialize_duplicates,
     _serialize_outlier_issues,
+    _split_outlier_issues,
     _validate_cluster_params,
 )
 
@@ -312,7 +322,7 @@ class TestBuildFindings:
                 "issues": [{"item_index": i, "metric_name": "m", "metric_value": 0.0} for i in range(5)],
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Image Outliers" in titles
 
@@ -332,7 +342,7 @@ class TestBuildFindings:
                 ],
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         img_finding = next(f for f in findings if f.title == "Image Outliers")
         # 3 distinct images, not 6 total flags
         assert img_finding.data["count"] == 3  # type: ignore[index]
@@ -364,7 +374,7 @@ class TestBuildFindings:
                 ],
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Target Outliers" in titles
         target_finding = next(f for f in findings if f.title == "Target Outliers")
@@ -393,7 +403,7 @@ class TestBuildFindings:
                 "targets": {},
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Duplicates" in titles
         dup_finding = next(f for f in findings if f.title == "Duplicates")
@@ -404,7 +414,7 @@ class TestBuildFindings:
         # Data-driven renderer keys
         data = dup_finding.data
         assert isinstance(data, dict)
-        assert data["brief"] == "1 exact, 1 near"
+        assert data["brief"] == "2 exact (2.0%), 2 near (2.0%)"
         assert "detail_lines" in data
         assert any("exact-duplicate" in line for line in data["detail_lines"])
         assert any("near-duplicate" in line for line in data["detail_lines"])
@@ -416,7 +426,7 @@ class TestBuildFindings:
             img_outliers={"count": 0, "issues": []},
             duplicates={"items": {"exact": [[0, 1, 2]], "near": []}, "targets": {}},
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         dup_finding = next(f for f in findings if f.title == "Duplicates")
         data = dup_finding.data
         assert isinstance(data, dict)
@@ -426,7 +436,7 @@ class TestBuildFindings:
         assert data["near_affected"] == 0
         assert data["near_methods"] == []
         assert data["near_orientations"] == {}
-        assert data["brief"] == "1 exact, 0 near"
+        assert data["brief"] == "3 exact (3.0%), 0 near (0.0%)"
         assert any("exact-duplicate" in line for line in data["detail_lines"])
         assert not any("near-duplicate" in line for line in data["detail_lines"])
 
@@ -446,13 +456,13 @@ class TestBuildFindings:
                 "targets": {},
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         dup_finding = next(f for f in findings if f.title == "Duplicates")
         data = dup_finding.data
         assert isinstance(data, dict)
         assert data["near_orientations"] == {"same": 1}
         # Data-driven renderer keys
-        assert data["brief"] == "0 exact, 2 near"
+        assert data["brief"] == "0 exact (0.0%), 4 near (4.0%)"
         assert any("near-duplicate" in line for line in data["detail_lines"])
 
     def test_label_stats_finding(self):
@@ -465,7 +475,7 @@ class TestBuildFindings:
                 "label_counts_per_class": {"cat": 50, "dog": 50},
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Label Distribution" in titles
         label_finding = next(f for f in findings if f.title == "Label Distribution")
@@ -476,7 +486,7 @@ class TestBuildFindings:
         # Data-driven renderer keys
         data = label_finding.data
         assert isinstance(data, dict)
-        assert data["brief"] == "2 classes, 100 items"
+        assert data["brief"] == "2 classes, 100 items, imbalance 1.0:1"
         assert data["table_data"] == {"cat": 50, "dog": 50}
         assert data["table_headers"] == ("Class", "Count")
         assert data["footer_lines"] == ["Balanced: all classes have equal counts"]
@@ -492,7 +502,7 @@ class TestBuildFindings:
                 "label_counts_per_class": {"cat": 80, "dog": 20},
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         label_finding = next(f for f in findings if f.title == "Label Distribution")
         data = label_finding.data
         assert isinstance(data, dict)
@@ -511,9 +521,25 @@ class TestBuildFindings:
                 "index2label": {},
             },
         )
-        findings = _build_findings(raw, None)
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Label Distribution" not in titles
+
+    def test_label_distribution_warning_when_empty_class(self):
+        """A class with zero items triggers a warning even if imbalance_ratio is 0."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            label_stats={
+                "item_count": 100,
+                "class_count": 3,
+                "label_counts_per_class": {"cat": 50, "dog": 50, "bird": 0},
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
+        label_finding = next(f for f in findings if "Distribution" in f.title)
+        assert label_finding.severity == "warning"
+        assert any("zero items" in line for line in label_finding.data["footer_lines"])  # type: ignore[union-attr]
 
     def test_label_title_with_inferred_directory_labels(self):
         """image_folder with inferred labels uses 'Label/Directory_Name Distribution' title."""
@@ -522,7 +548,7 @@ class TestBuildFindings:
             img_outliers={"count": 0, "issues": []},
             label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
         )
-        findings = _build_findings(raw, None, label_source="inferred from directory names")
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(), label_source="filepath")
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.title == "Label/Directory_Name Distribution"
 
@@ -533,19 +559,180 @@ class TestBuildFindings:
             img_outliers={"count": 0, "issues": []},
             label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
         )
-        findings = _build_findings(raw, None, label_source="from annotations")
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(), label_source="annotations")
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.title == "Label Distribution"
         # Footer should still show the label_source annotation
-        assert any("from annotations" in line for line in label_finding.data["footer_lines"])  # type: ignore[union-attr]
+        assert any("annotations" in line for line in label_finding.data["footer_lines"])  # type: ignore[union-attr]
 
-    def test_no_findings_when_clean(self):
+    def test_clean_data_shows_ok_findings(self):
+        """Clean data still produces Image Outliers and Classwise Outliers with severity='ok'."""
         raw = DataCleaningRawOutputs(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
         )
-        findings = _build_findings(raw, None)
-        assert findings == []
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
+        titles = [f.title for f in findings]
+        assert "Image Outliers" in titles
+        assert "Classwise Outliers" in titles
+        for f in findings:
+            assert f.severity == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Health threshold severity tests
+# ---------------------------------------------------------------------------
+
+
+class TestHealthThresholdSeverity:
+    """Verify findings are elevated to warning when thresholds are exceeded."""
+
+    def test_image_outliers_info_within_threshold(self):
+        """3% outliers with 5% threshold → info."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={
+                "count": 3,
+                "issues": [{"item_index": i, "metric_name": "brightness", "metric_value": 0.1} for i in range(3)],
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(image_outliers=5.0))
+        f = next(f for f in findings if f.title == "Image Outliers")
+        assert f.severity == "info"
+
+    def test_image_outliers_warning_exceeds_threshold(self):
+        """10% outliers with 5% threshold → warning."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={
+                "count": 10,
+                "issues": [{"item_index": i, "metric_name": "brightness", "metric_value": 0.1} for i in range(10)],
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(image_outliers=5.0))
+        f = next(f for f in findings if f.title == "Image Outliers")
+        assert f.severity == "warning"
+
+    def test_target_outliers_warning_exceeds_threshold(self):
+        """Target outlier % exceeds threshold → warning."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            target_outliers={
+                "count": 6,
+                "issues": [
+                    {"item_index": i, "target_index": 0, "metric_name": "area", "metric_value": 0.1} for i in range(6)
+                ],
+            },
+            label_stats={"item_count": 100, "class_count": 1, "label_counts_per_class": {"a": 100}},
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(target_outliers=5.0))
+        f = next(f for f in findings if f.title == "Target Outliers")
+        assert f.severity == "warning"
+
+    def test_exact_duplicates_warning_at_zero_threshold(self):
+        """Any exact duplicates with 0% threshold → warning."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            duplicates={
+                "items": {"exact": [[0, 1]], "near": []},
+                "targets": {},
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(exact_duplicates=0.0))
+        f = next(f for f in findings if f.title == "Duplicates")
+        assert f.severity == "warning"
+
+    def test_near_duplicates_info_within_threshold(self):
+        """2% near duplicates with 5% threshold → info."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            duplicates={
+                "items": {
+                    "exact": [],
+                    "near": [{"indices": [0, 1], "methods": ["phash"], "orientation": None}],
+                },
+                "targets": {},
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(near_duplicates=5.0))
+        f = next(f for f in findings if f.title == "Duplicates")
+        assert f.severity == "info"
+
+    def test_near_duplicates_warning_exceeds_threshold(self):
+        """10% near duplicates with 5% threshold → warning."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            duplicates={
+                "items": {
+                    "exact": [],
+                    "near": [
+                        {"indices": list(range(10)), "methods": ["phash"], "orientation": None},
+                    ],
+                },
+                "targets": {},
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(near_duplicates=5.0))
+        f = next(f for f in findings if f.title == "Duplicates")
+        assert f.severity == "warning"
+
+    def test_label_imbalance_info_within_threshold(self):
+        """Imbalance ratio 2.0 with threshold 10.0 → info."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            label_stats={"item_count": 30, "class_count": 2, "label_counts_per_class": {"a": 20, "b": 10}},
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(class_label_imbalance=10.0))
+        f = next(f for f in findings if "Distribution" in f.title)
+        assert f.severity == "info"
+
+    def test_label_imbalance_warning_exceeds_threshold(self):
+        """Imbalance ratio 10.0 with threshold 5.0 → warning."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            label_stats={"item_count": 110, "class_count": 2, "label_counts_per_class": {"a": 100, "b": 10}},
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds(class_label_imbalance=5.0))
+        f = next(f for f in findings if "Distribution" in f.title)
+        assert f.severity == "warning"
+
+    def test_default_thresholds_exact_dup_always_warns(self):
+        """Default exact_duplicates=0.0 means any exact dups trigger warning."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=1000,
+            duplicates={
+                "items": {"exact": [[0, 1]], "near": []},
+                "targets": {},
+            },
+        )
+        findings = _build_findings(raw, None, DataCleaningHealthThresholds())
+        f = next(f for f in findings if f.title == "Duplicates")
+        assert f.severity == "warning"
+
+    def test_relaxed_thresholds_all_info(self):
+        """Very high thresholds → everything stays info."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={
+                "count": 50,
+                "issues": [{"item_index": i, "metric_name": "brightness", "metric_value": 0.1} for i in range(50)],
+            },
+            duplicates={
+                "items": {"exact": [[0, 1, 2]], "near": []},
+                "targets": {},
+            },
+            label_stats={"item_count": 100, "class_count": 2, "label_counts_per_class": {"a": 90, "b": 10}},
+        )
+        thresholds = DataCleaningHealthThresholds(
+            exact_duplicates=100.0,
+            near_duplicates=100.0,
+            image_outliers=100.0,
+            target_outliers=100.0,
+            classwise_outliers=100.0,
+            class_label_imbalance=100.0,
+        )
+        findings = _build_findings(raw, None, thresholds)
+        assert all(f.severity in ("ok", "info") for f in findings)
 
 
 # ---------------------------------------------------------------------------
@@ -992,3 +1179,443 @@ class TestRunCleaning:
         assert raw.label_stats["index2label"] == {0: "cat", 1: "dog"}  # type: ignore[typeddict-item]
         assert raw.label_stats["label_counts_per_class"]["cat"] == 2  # type: ignore[typeddict-item]
         assert raw.label_stats["label_counts_per_class"]["dog"] == 1  # type: ignore[typeddict-item]
+
+
+# ---------------------------------------------------------------------------
+# _classwise_finding (non-empty rows path)
+# ---------------------------------------------------------------------------
+
+
+class TestClasswiseFinding:
+    def test_with_rows(self):
+        """Classwise finding with rows produces worst-class summary."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            classwise_outliers={
+                "level": "image",
+                "rows": [
+                    {"class_name": "cat", "count": 5, "pct": 10.0},
+                    {"class_name": "dog", "count": 2, "pct": 4.0},
+                    {"class_name": "Total", "count": 7, "pct": 7.0},
+                ],
+            },
+        )
+        finding = _classwise_finding(raw, DataCleaningHealthThresholds())
+        assert finding.title == "Classwise Outliers"
+        assert finding.data["worst_class"] == "cat"  # type: ignore[index]
+        assert finding.data["worst_pct"] == 10.0  # type: ignore[index]
+        assert finding.data["level"] == "image"  # type: ignore[index]
+
+    def test_warning_when_total_exceeds_threshold(self):
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            classwise_outliers={
+                "level": "target",
+                "rows": [
+                    {"class_name": "a", "count": 20, "pct": 40.0},
+                    {"class_name": "Total", "count": 20, "pct": 40.0},
+                ],
+            },
+        )
+        finding = _classwise_finding(raw, DataCleaningHealthThresholds(classwise_outliers=5.0))
+        assert finding.severity == "warning"
+        assert finding.data["classes_over_threshold"] == 1  # type: ignore[index]
+
+
+# ---------------------------------------------------------------------------
+# _resolve_flags
+# ---------------------------------------------------------------------------
+
+
+class TestResolveFlags:
+    def test_default_hash_flags(self):
+        """No duplicate_flags → default HASH_DUPLICATES_BASIC."""
+        from dataeval.flags import ImageStats
+
+        params = _make_params()
+        _, hash_flags = _resolve_flags(params)
+        assert hash_flags == ImageStats.HASH_DUPLICATES_BASIC
+
+    def test_explicit_duplicate_flags(self):
+        """Explicit duplicate_flags are resolved via HASH_FLAG_MAP."""
+        from dataeval.flags import ImageStats
+
+        params = _make_params(duplicate_flags=["hash_basic", "hash_d4"])
+        _, hash_flags = _resolve_flags(params)
+        assert hash_flags & ImageStats.HASH_DUPLICATES_BASIC
+        assert hash_flags & ImageStats.HASH_DUPLICATES_D4
+
+
+# ---------------------------------------------------------------------------
+# _split_outlier_issues
+# ---------------------------------------------------------------------------
+
+
+class TestSplitOutlierIssues:
+    def test_with_target_index_column(self):
+        df = pl.DataFrame(
+            {
+                "item_index": [0, 1, 2],
+                "metric_name": ["a", "b", "c"],
+                "metric_value": [0.1, 0.2, 0.3],
+                "target_index": [None, 5, None],
+            }
+        )
+        img, tgt = _split_outlier_issues(df)
+        assert img.shape[0] == 2
+        assert tgt is not None
+        assert tgt.shape[0] == 1
+
+    def test_without_target_index_column(self):
+        df = pl.DataFrame(
+            {
+                "item_index": [0, 1],
+                "metric_name": ["a", "b"],
+                "metric_value": [0.1, 0.2],
+            }
+        )
+        img, tgt = _split_outlier_issues(df)
+        assert img.shape[0] == 2
+        assert tgt is None
+
+
+# ---------------------------------------------------------------------------
+# _build_class_labels_df
+# ---------------------------------------------------------------------------
+
+
+class TestBuildClassLabelsDf:
+    def test_classification_dataset(self):
+        """Non-target dataset builds labels_df with item_index only."""
+        metadata = MagicMock()
+        metadata.class_labels = [0, 0, 1, 2]
+        metadata.index2label = {0: "cat", 1: "dog", 2: "bird"}
+        metadata.has_targets.return_value = False
+        metadata.item_indices = [0, 1, 2, 3]
+
+        labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
+        assert id_cols == ["item_index"]
+        assert labels_df.shape[0] == 4
+        assert "class_name" in labels_df.columns
+        assert label_counts == {"cat": 2, "dog": 1, "bird": 1}
+
+    def test_od_dataset_with_targets(self):
+        """Object-detection dataset with target_data uses target_index."""
+        metadata = MagicMock()
+        metadata.class_labels = [0, 1]
+        metadata.index2label = {0: "cat", 1: "dog"}
+        metadata.has_targets.return_value = True
+        metadata.target_data = pl.DataFrame(
+            {
+                "item_index": [0, 0, 1],
+                "target_index": [0, 1, 0],
+                "class_label": [0, 1, 0],
+            }
+        )
+
+        labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
+        assert id_cols == ["item_index", "target_index"]
+        assert "class_name" in labels_df.columns
+        assert labels_df.shape[0] == 3
+
+
+# ---------------------------------------------------------------------------
+# _compute_classwise_pivot
+# ---------------------------------------------------------------------------
+
+
+class TestComputeClasswisePivot:
+    def test_returns_none_when_no_metadata(self):
+        img_issues = pl.DataFrame({"item_index": [0], "metric_name": ["a"], "metric_value": [0.1]})
+        assert _compute_classwise_pivot(None, img_issues, metadata=None) is None
+
+    def test_returns_none_when_no_issues(self):
+        metadata = MagicMock()
+        metadata.has_targets.return_value = False
+        empty = pl.DataFrame({"item_index": [], "metric_name": [], "metric_value": []})
+        assert _compute_classwise_pivot(None, empty, metadata=metadata) is None
+
+    def test_classification_pivot(self):
+        """Image-level issues are grouped by class."""
+        metadata = MagicMock()
+        metadata.has_targets.return_value = False
+        metadata.class_labels = [0, 0, 1, 1]
+        metadata.index2label = {0: "cat", 1: "dog"}
+        metadata.item_indices = [0, 1, 2, 3]
+
+        img_issues = pl.DataFrame(
+            {
+                "item_index": [0, 2],
+                "metric_name": ["brightness", "brightness"],
+                "metric_value": [0.1, 0.2],
+            }
+        )
+        result = _compute_classwise_pivot(None, img_issues, metadata=metadata)
+        assert result is not None
+        assert "level" in result
+        assert "rows" in result
+        assert result["level"] == "image"
+        rows = result["rows"]
+        # Last row is Total
+        assert rows[-1]["class_name"] == "Total"
+        assert rows[-1]["count"] == 2
+
+    def test_od_pivot_uses_target_issues(self):
+        """Object-detection datasets use target_issues for pivot."""
+        metadata = MagicMock()
+        metadata.has_targets.return_value = True
+        metadata.class_labels = [0, 1]
+        metadata.index2label = {0: "cat", 1: "dog"}
+        metadata.target_data = pl.DataFrame(
+            {
+                "item_index": [0, 0, 1],
+                "target_index": [0, 1, 0],
+                "class_label": [0, 1, 0],
+            }
+        )
+
+        target_issues = pl.DataFrame(
+            {
+                "item_index": [0, 0],
+                "target_index": [0, 1],
+                "metric_name": ["area", "area"],
+                "metric_value": [0.1, 0.2],
+            }
+        )
+        img_issues = pl.DataFrame({"item_index": [], "metric_name": [], "metric_value": []})
+        result = _compute_classwise_pivot(target_issues, img_issues, metadata=metadata)
+        assert result is not None
+        assert "level" in result
+        assert "rows" in result
+        assert result["level"] == "target"
+        assert result["rows"][-1]["class_name"] == "Total"
+
+
+# ---------------------------------------------------------------------------
+# _compute_embeddings
+# ---------------------------------------------------------------------------
+
+
+class TestComputeEmbeddings:
+    @patch("dataeval_app.cache.get_or_compute_embeddings")
+    def test_with_extractor_config(self, mock_get_emb: MagicMock):
+        """Uses cached embeddings when extractor_config is available."""
+        mock_get_emb.return_value = "cached_embeddings"
+        dataset = MagicMock()
+        run_ctx = CleaningRunContext(extractor_config=MagicMock(), transforms=None, batch_size=32)
+
+        result = _compute_embeddings(dataset, MagicMock(), run_ctx)
+        assert result == "cached_embeddings"
+        mock_get_emb.assert_called_once()
+
+    def test_without_extractor_config(self):
+        """Falls back to direct extractor call when no extractor_config."""
+        import sys
+        import types
+
+        import numpy as np
+
+        # Stub the lazy-imported module
+        arrays_mod = types.ModuleType("dataeval.utils.arrays")
+        arrays_mod.flatten_samples = lambda x: x  # type: ignore[attr-defined]
+        arrays_mod.to_numpy = lambda x: x  # type: ignore[attr-defined]
+        sys.modules["dataeval.utils.arrays"] = arrays_mod
+        try:
+            dataset = [(np.zeros((3, 32, 32)),), (np.zeros((3, 32, 32)),)]
+            extractor = MagicMock(return_value=np.zeros((2, 64)))
+
+            result = _compute_embeddings(dataset, extractor, run_ctx=None)  # type: ignore
+            assert result is not None
+            extractor.assert_called_once()
+        finally:
+            sys.modules.pop("dataeval.utils.arrays", None)
+
+
+# ---------------------------------------------------------------------------
+# _merge_outlier_outputs
+# ---------------------------------------------------------------------------
+
+
+class TestMergeOutlierOutputs:
+    @patch("dataeval_app.cache.get_or_compute_cluster_result")
+    def test_merges_stats_and_cluster(self, mock_cluster: MagicMock):
+        """Stats-based and cluster-based outlier issues are concatenated."""
+        import numpy as np
+
+        # Mock stats output
+        stats_df = pl.DataFrame(
+            {
+                "item_index": [0],
+                "metric_name": ["brightness"],
+                "metric_value": [0.1],
+            }
+        )
+        stats_output = MagicMock()
+        stats_output.data.return_value = stats_df
+
+        # Mock cluster output via outliers_eval.from_clusters
+        cluster_df = pl.DataFrame(
+            {
+                "item_index": [1],
+                "metric_name": ["cluster_dist"],
+                "metric_value": [0.9],
+            }
+        )
+        outliers_eval = MagicMock()
+        cluster_output = MagicMock()
+        cluster_output.data.return_value = cluster_df
+        outliers_eval.from_clusters.return_value = cluster_output
+
+        mock_cluster.return_value = MagicMock()
+        params = _make_params(outlier_cluster_threshold=2.5, outlier_cluster_algorithm="hdbscan")
+        embeddings = np.zeros((10, 64))
+
+        result = _merge_outlier_outputs(outliers_eval, stats_output, embeddings, params, run_ctx=None)
+        # Result is an OutliersOutput wrapping the merged DataFrame
+        merged = result.data()
+        assert merged.shape[0] == 2
+        assert set(merged["item_index"].to_list()) == {0, 1}
+
+
+# ---------------------------------------------------------------------------
+# _run_duplicate_detection
+# ---------------------------------------------------------------------------
+
+
+class TestRunDuplicateDetection:
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    def test_hash_only(self, mock_dup_cls: MagicMock):
+        """Hash-only detection (no cluster) returns hash result directly."""
+        from dataeval.flags import ImageStats
+
+        hash_result = MagicMock()
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.from_stats.return_value = hash_result
+        mock_dup_cls.return_value = mock_dup_instance
+
+        params = _make_params()
+        result = _run_duplicate_detection(
+            params, ImageStats.HASH_DUPLICATES_BASIC, MagicMock(), embeddings_array=None, run_ctx=None
+        )
+        assert result is hash_result
+
+    @patch("dataeval_app.workflows.cleaning.workflow._merge_duplicate_results")
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    def test_with_cluster(self, mock_dup_cls: MagicMock, mock_merge: MagicMock):
+        """Cluster-based detection triggers merge."""
+        import numpy as np
+        from dataeval.flags import ImageStats
+
+        hash_result = MagicMock()
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.from_stats.return_value = hash_result
+        mock_dup_cls.return_value = mock_dup_instance
+        mock_merge.return_value = MagicMock()
+
+        params = _make_params(duplicate_cluster_sensitivity=0.5)
+        embeddings = np.zeros((10, 64))
+        _run_duplicate_detection(params, ImageStats.HASH_DUPLICATES_BASIC, MagicMock(), embeddings, run_ctx=None)
+        mock_merge.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _merge_duplicate_results
+# ---------------------------------------------------------------------------
+
+
+class TestMergeDuplicateResults:
+    @patch("dataeval_app.cache.get_or_compute_cluster_result")
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    def test_merge_hash_and_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
+        """Hash and cluster duplicate results are merged with re-numbered group IDs."""
+        hash_df = pl.DataFrame(
+            {
+                "group_id": [0, 0],
+                "level": ["item", "item"],
+                "dup_type": ["exact", "exact"],
+                "item_indices": [[0, 1], [0, 1]],
+            }
+        )
+        hash_result = MagicMock()
+        hash_result.data.return_value = hash_df
+
+        cluster_df = pl.DataFrame(
+            {
+                "group_id": [0, 0],
+                "level": ["item", "item"],
+                "dup_type": ["near", "near"],
+                "item_indices": [[2, 3], [2, 3]],
+            }
+        )
+        cluster_result = MagicMock()
+        cluster_result.data.return_value = cluster_df
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.from_clusters.return_value = cluster_result
+        mock_dup_cls.return_value = mock_dup_instance
+        mock_cluster.return_value = MagicMock()
+
+        params = _make_params(duplicate_cluster_sensitivity=0.5)
+        result = _merge_duplicate_results(hash_result, "embeddings", params, run_ctx=None)
+        merged = result.data()
+        # Cluster group IDs should be re-numbered to avoid collision
+        assert merged.shape[0] == 4
+        group_ids = set(merged["group_id"].to_list())
+        assert len(group_ids) == 2  # original 0 + re-numbered 1
+
+    @patch("dataeval_app.cache.get_or_compute_cluster_result")
+    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    def test_empty_cluster_returns_hash(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
+        """Empty cluster result returns hash result as-is."""
+        hash_result = MagicMock()
+        hash_result.data.return_value = pl.DataFrame(
+            {
+                "group_id": [0],
+                "level": ["item"],
+                "dup_type": ["exact"],
+                "item_indices": [[0, 1]],
+            }
+        )
+
+        empty_cluster = MagicMock()
+        empty_cluster.data.return_value = pl.DataFrame(
+            {
+                "group_id": [],
+                "level": [],
+                "dup_type": [],
+                "item_indices": [],
+            }
+        )
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.from_clusters.return_value = empty_cluster
+        mock_dup_cls.return_value = mock_dup_instance
+        mock_cluster.return_value = MagicMock()
+
+        params = _make_params(duplicate_cluster_sensitivity=0.5)
+        result = _merge_duplicate_results(hash_result, "embeddings", params, run_ctx=None)
+        assert result is hash_result
+
+
+# ---------------------------------------------------------------------------
+# _collect_flagged_indices — target duplicates
+# ---------------------------------------------------------------------------
+
+
+class TestCollectFlaggedIndicesTargetDups:
+    def test_target_exact_duplicates(self):
+        """Target-level exact duplicates with SourceIndexDict entries."""
+        raw = DataCleaningRawOutputs(
+            dataset_size=10,
+            img_outliers={"issues": [], "count": 0},
+            duplicates={
+                "items": {
+                    "exact": [[{"item": 0, "target": 0, "channel": None}, {"item": 1, "target": 0, "channel": None}]],
+                    "near": [],
+                },
+                "targets": {},
+            },
+        )
+        flagged = _collect_flagged_indices(raw)
+        # Keep first (item 0), flag rest (item 1)
+        assert flagged == {1}

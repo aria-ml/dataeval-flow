@@ -74,6 +74,7 @@ docs = [
     "jupytext>=1.19.1",
     "ipykernel>=7.0",
     "pip>=24.0",
+    "dataeval-plots>=0.0.7",
 ]
 docker = [
     { include-group = "base" },
@@ -232,7 +233,7 @@ ignore = [
     "C416",
 ]
 fixable = ["ALL"]
-per-file-ignores = { "tests/*" = ["ANN", "S101", "D"] }
+per-file-ignores = { "tests/*" = ["ANN", "S101", "D"], "docs/*" = ["D", "E402", "S101"] }
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
@@ -247,4 +248,4 @@ indent-style = "space"
 # --- Codespell ---
 
 [tool.codespell]
-skip = "./*env*,./output,./htmlcov,./.nox,./uv.lock,./cosign.pub,Dockerfile.*,*.onnx"
+skip = "./*env*,./output,./htmlcov,./.nox,uv.lock,./docs/source/notebooks/*,./cosign.pub,Dockerfile.*,*.onnx"
