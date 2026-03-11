@@ -6,7 +6,7 @@ import contextlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, cast
 
 import polars as pl
 from dataeval import Metadata
@@ -33,7 +33,7 @@ from dataeval_app.workflows.cleaning.outputs import (
     OutlierIssuesDict,
     SourceIndexDict,
 )
-from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+from dataeval_app.workflows.cleaning.params import DataCleaningHealthThresholds, DataCleaningParameters
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -208,7 +208,7 @@ def _compute_label_stats(metadata: Metadata) -> "LabelStatsDict":
 # ---------------------------------------------------------------------------
 
 
-def _duplicate_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
+def _duplicate_finding(raw: DataCleaningRawOutputs, thresholds: DataCleaningHealthThresholds) -> Reportable | None:
     """Build a Duplicates finding from raw results, or None if no duplicates."""
     exact_groups = raw.duplicates.get("items", {}).get("exact", [])
     near_groups = raw.duplicates.get("items", {}).get("near", [])
@@ -235,11 +235,19 @@ def _duplicate_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
         if orientations:
             parts = [f"{c} {o}" for o, c in sorted(orientations.items())]
             detail_lines.append(f"  Orientations: {', '.join(parts)}")
+    # Determine severity from thresholds
+    exact_pct = (exact_affected / raw.dataset_size) * 100 if raw.dataset_size else 0.0
+    near_pct = (near_affected / raw.dataset_size) * 100 if raw.dataset_size else 0.0
+    severity: Literal["ok", "info", "warning"] = "info"
+    if exact_pct > thresholds.exact_duplicates or near_pct > thresholds.near_duplicates:
+        severity = "warning"
+
     return Reportable(
         report_type="key_value",
+        severity=severity,
         title="Duplicates",
         data={
-            "brief": f"{len(exact_groups)} exact, {len(near_groups)} near",
+            "brief": (f"{exact_affected} exact ({round(exact_pct, 1)}%), {near_affected} near ({round(near_pct, 1)}%)"),
             "detail_lines": detail_lines,
             "exact_groups": len(exact_groups),
             "near_groups": len(near_groups),
@@ -254,6 +262,7 @@ def _duplicate_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
 
 def _label_distribution_finding(
     raw: DataCleaningRawOutputs,
+    thresholds: DataCleaningHealthThresholds,
     label_source: str | None = None,
 ) -> Reportable | None:
     """Build a Label Distribution finding from raw results, or None if no label stats."""
@@ -267,23 +276,27 @@ def _label_distribution_finding(
     label_counts = raw.label_stats.get("label_counts_per_class", {})
     item_count = raw.label_stats.get("item_count", 0)
     counts_list = list(label_counts.values()) if label_counts else []
-    imbalance_ratio = round(max(counts_list) / min(counts_list), 1) if counts_list and min(counts_list) > 0 else 0.0
+    has_empty_class = bool(counts_list) and min(counts_list) == 0
+    imbalance_ratio = round(max(counts_list) / min(counts_list), 1) if counts_list and not has_empty_class else 0.0
     footer_lines: list[str] = []
     if label_source:
         footer_lines.append(f"Labels {label_source}")
-    if imbalance_ratio == 1.0:
+    if has_empty_class:
+        footer_lines.append("Warning: one or more classes have zero items")
+    elif imbalance_ratio == 1.0:
         footer_lines.append("Balanced: all classes have equal counts")
     elif imbalance_ratio != 0.0:
         footer_lines.append(f"Imbalance ratio: {imbalance_ratio} (max/min)")
+    severity: Literal["ok", "info", "warning"] = "info"
+    if has_empty_class or imbalance_ratio > thresholds.class_label_imbalance:
+        severity = "warning"
+
     return Reportable(
         report_type="table",
-        title=(
-            "Label/Directory_Name Distribution"
-            if label_source == "inferred from directory names"
-            else "Label Distribution"
-        ),
+        severity=severity,
+        title=("Label/Directory_Name Distribution" if label_source == "filepath" else "Label Distribution"),
         data={
-            "brief": f"{class_count} classes, {item_count} items",
+            "brief": f"{class_count} classes, {item_count} items, imbalance {imbalance_ratio}:1",
             "table_data": label_counts,
             "table_headers": ("Class", "Count"),
             "footer_lines": footer_lines,
@@ -298,41 +311,77 @@ def _label_distribution_finding(
     )
 
 
-def _classwise_finding(raw: DataCleaningRawOutputs) -> Reportable | None:
-    """Build a Classwise Outliers finding from raw results, or None if unavailable."""
+def _classwise_finding(raw: DataCleaningRawOutputs, thresholds: DataCleaningHealthThresholds) -> Reportable:
+    """Build a Classwise Outliers finding from raw results."""
     pivot = raw.classwise_outliers
-    if pivot is None:
-        return None
+    rows = pivot.get("rows", None) if pivot else None
 
-    rows = pivot.get("rows", None)
     if not rows:
-        return None
+        return Reportable(
+            report_type="pivot_table",
+            severity="ok",
+            title="Classwise Outliers",
+            data={
+                "brief": "no outliers detected",
+                "level": "image",
+                "table_data": [],
+                "table_headers": ["Class Name", "Count", "%"],
+                "worst_class": None,
+                "worst_pct": 0.0,
+                "classes_over_threshold": 0,
+            },
+            description="No outliers detected — classwise breakdown not applicable.",
+        )
 
-    level = pivot.get("level", "image")
+    level = pivot.get("level", "image")  # type: ignore[union-attr]
 
     # The last row is the "Total" row
     total_row = rows[-1] if rows else {}
     class_rows = rows[:-1] if len(rows) > 1 else rows
-    total_count = total_row.get("count", 0)
     total_pct = total_row.get("pct", 0.0)
-    subject = "targets" if level == "target" else "images"
+
+    severity: Literal["ok", "info", "warning"] = "info"
+    if total_pct > thresholds.classwise_outliers:
+        severity = "warning"
+
+    # Identify the worst class and how many classes exceed the threshold
+    class_pcts = [r.get("pct", 0.0) for r in class_rows]
+    worst_row = max(class_rows, key=lambda r: r.get("pct", 0.0))
+    worst_name = worst_row.get("class_name", "?")
+    worst_pct = worst_row.get("pct", 0.0)
+    classes_over = sum(1 for p in class_pcts if p > thresholds.classwise_outliers)
+    brief_prefix = f"worst: {worst_name} ({worst_pct}%), "
+
+    # Brief: focus on concentration — which class is worst and how many are over threshold
+    if classes_over > 0:
+        brief = f"{brief_prefix}{classes_over}/{len(class_rows)} classes over {thresholds.classwise_outliers}%"
+    else:
+        brief = f"{brief_prefix}all classes within {thresholds.classwise_outliers}%"
 
     return Reportable(
         report_type="pivot_table",
+        severity=severity,
         title="Classwise Outliers",
         data={
-            "brief": f"{len(class_rows)} classes, {total_count} {subject} ({total_pct}%)",
+            "brief": brief,
             "level": level,
             "table_data": rows,
-            "table_headers": ["class_name", "count", "%"],
+            "table_headers": ["Class Name", "Count", "%"],
+            "worst_class": worst_name,
+            "worst_pct": worst_pct,
+            "classes_over_threshold": classes_over,
         },
-        description=(f"{total_count} {subject} ({total_pct}%) flagged as outliers across {len(class_rows)} classes."),
+        description=(
+            f"Most outliers in {worst_name} ({worst_pct}%). "
+            f"{classes_over}/{len(class_rows)} classes exceed {thresholds.classwise_outliers}% threshold."
+        ),
     )
 
 
 def _build_findings(
     raw: DataCleaningRawOutputs,
     metadata: Metadata | None,  # noqa: ARG001 - reserved for future metadata-based findings
+    thresholds: DataCleaningHealthThresholds,
     label_source: str | None = None,
 ) -> list[Reportable]:
     """Generate human-readable findings from raw results."""
@@ -341,29 +390,35 @@ def _build_findings(
     # Outlier findings — count distinct images, not total flags
     outlier_issues = raw.img_outliers.get("issues", [])
     outlier_image_count = len({issue["item_index"] for issue in outlier_issues})
+    pct = (outlier_image_count / raw.dataset_size) * 100 if raw.dataset_size else 0
+    # Per-metric breakdown: count distinct images per metric
+    _per_metric_sets: dict[str, set[int]] = {}
+    for issue in outlier_issues:
+        _per_metric_sets.setdefault(issue["metric_name"], set()).add(issue["item_index"])
+    per_metric = {k: len(v) for k, v in _per_metric_sets.items()}
     if outlier_image_count > 0:
-        pct = (outlier_image_count / raw.dataset_size) * 100 if raw.dataset_size else 0
-        # Per-metric breakdown: count distinct images per metric
-        _per_metric_sets: dict[str, set[int]] = {}
-        for issue in outlier_issues:
-            _per_metric_sets.setdefault(issue["metric_name"], set()).add(issue["item_index"])
-        per_metric = {k: len(v) for k, v in _per_metric_sets.items()}
-        findings.append(
-            Reportable(
-                report_type="key_value",
-                title="Image Outliers",
-                data={
-                    "brief": f"{outlier_image_count} images ({round(pct, 1)}%)",
-                    "multi_metric_subject": "images",
-                    "count": outlier_image_count,
-                    "percentage": round(pct, 1),
-                    "per_metric": per_metric,
-                    "total_flags": len(outlier_issues),
-                    "dataset_size": raw.dataset_size,
-                },
-                description=f"{outlier_image_count} images ({pct:.1f}%) flagged as outliers.",
-            )
+        img_severity: Literal["ok", "info", "warning"] = "warning" if pct > thresholds.image_outliers else "info"
+        img_description = f"{outlier_image_count} images ({pct:.1f}%) flagged as outliers."
+    else:
+        img_severity = "ok"
+        img_description = "No images flagged as outliers."
+    findings.append(
+        Reportable(
+            report_type="key_value",
+            severity=img_severity,
+            title="Image Outliers",
+            data={
+                "brief": f"{outlier_image_count} images ({round(pct, 1)}%)",
+                "multi_metric_subject": "images",
+                "count": outlier_image_count,
+                "percentage": round(pct, 1),
+                "per_metric": per_metric,
+                "total_flags": len(outlier_issues),
+                "dataset_size": raw.dataset_size,
+            },
+            description=img_description,
         )
+    )
 
     # Target outlier findings — count distinct (item, target) pairs
     target_issues = raw.target_outliers.get("issues", []) if raw.target_outliers else []
@@ -378,9 +433,13 @@ def _build_findings(
             key = (issue["item_index"], issue.get("target_index"))
             _target_metric_sets.setdefault(issue["metric_name"], set()).add(key)
         target_per_metric = {k: len(v) for k, v in _target_metric_sets.items()}
+        tgt_severity: Literal["ok", "info", "warning"] = (
+            "warning" if target_pct > thresholds.target_outliers else "info"
+        )
         findings.append(
             Reportable(
                 report_type="key_value",
+                severity=tgt_severity,
                 title="Target Outliers",
                 data={
                     "brief": f"{target_pair_count} targets ({target_pct}%)",
@@ -396,17 +455,15 @@ def _build_findings(
         )
 
     # Classwise outlier pivot — right after image/target outliers
-    classwise = _classwise_finding(raw)
-    if classwise:
-        findings.append(classwise)
+    findings.append(_classwise_finding(raw, thresholds))
 
     # Duplicate findings
-    dup_finding = _duplicate_finding(raw)
+    dup_finding = _duplicate_finding(raw, thresholds)
     if dup_finding:
         findings.append(dup_finding)
 
     # Label distribution finding
-    label_finding = _label_distribution_finding(raw, label_source=label_source)
+    label_finding = _label_distribution_finding(raw, thresholds, label_source=label_source)
     if label_finding:
         findings.append(label_finding)
 
@@ -541,7 +598,7 @@ def _build_class_labels_df(
         labels_df = td.with_columns(pl.Series("class_name", names)).select("item_index", "target_index", "class_name")
         id_cols = ["item_index", "target_index"]
     else:
-        item_ids = getattr(metadata, "item_indices", None) or list(range(len(metadata.class_labels)))
+        item_ids = getattr(metadata, "item_indices", list(range(len(metadata.class_labels))))
         names = [index2label.get(lbl, str(lbl)) for lbl in metadata.class_labels]
         labels_df = pl.DataFrame({"item_index": item_ids, "class_name": names})
         id_cols = ["item_index"]
@@ -614,6 +671,157 @@ def _compute_classwise_pivot(
     return None
 
 
+def _compute_embeddings(
+    dataset: AnnotatedDataset[Any],
+    extractor: Callable,
+    run_ctx: CleaningRunContext | None,
+) -> Any:
+    """Compute or load cached embeddings for cluster-based detection."""
+    import time as _time
+
+    logger.info("  [4c] Loading embeddings for cluster-based detection…")
+    _t0 = _time.monotonic()
+    if run_ctx is not None and run_ctx.extractor_config is not None:
+        from dataeval_app.cache import get_or_compute_embeddings
+
+        embeddings_array = get_or_compute_embeddings(
+            dataset,
+            run_ctx.extractor_config,
+            run_ctx.transforms,
+            run_ctx.batch_size,
+        )
+    else:
+        from dataeval.utils.arrays import flatten_samples, to_numpy
+
+        images = [item[0] if isinstance(item, tuple) else item for item in dataset]
+        embeddings = extractor(images)  # type: ignore[misc]
+        embeddings_array = flatten_samples(to_numpy(embeddings))
+    logger.info("  [4c] Embeddings ready in %.1fs", _time.monotonic() - _t0)
+    return embeddings_array
+
+
+def _merge_outlier_outputs(
+    outliers_eval: Outliers,
+    stats_output: Any,
+    embeddings_array: Any,
+    params: DataCleaningParameters,
+    run_ctx: CleaningRunContext | None,
+) -> Any:
+    """Run cluster-based outlier detection and merge with stats-based results.
+
+    Returns the merged OutliersOutput combining stats-based and cluster-based issues.
+    """
+    import time as _time
+
+    from dataeval.quality import OutliersOutput
+
+    from dataeval_app.cache import get_or_compute_cluster_result
+
+    logger.info("  [4d] Running cluster-based outlier detection…")
+    _t0 = _time.monotonic()
+    outlier_cluster_result = get_or_compute_cluster_result(
+        embeddings_array,
+        algorithm=params.outlier_cluster_algorithm or "hdbscan",
+        n_clusters=params.outlier_n_clusters,
+        extractor_config=run_ctx.extractor_config if run_ctx else None,
+        transforms=run_ctx.transforms if run_ctx else None,
+    )
+    cluster_outlier_output = outliers_eval.from_clusters(
+        embeddings_array,
+        outlier_cluster_result,
+        cluster_threshold=params.outlier_cluster_threshold,
+    )
+    logger.info("  [4d] Cluster-based outlier detection done in %.1fs", _time.monotonic() - _t0)
+
+    # Merge stats-based + cluster-based issues via concat
+    column_order = ["item_index", "target_index", "metric_name", "metric_value"]
+    stats_issues = stats_output.data()
+    cluster_issues = cluster_outlier_output.data()
+    dfs: list[pl.DataFrame] = []
+    for df in [stats_issues, cluster_issues]:
+        if "target_index" not in df.columns:
+            df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("target_index"))
+        dfs.append(df.select(column_order))
+    merged_issues = pl.concat(dfs).sort(["item_index", "metric_name"])
+    if merged_issues["target_index"].null_count() == len(merged_issues):
+        merged_issues = merged_issues.drop("target_index")
+    return OutliersOutput(merged_issues)
+
+
+def _run_duplicate_detection(
+    params: DataCleaningParameters,
+    hash_flags: ImageStats,
+    calc_result: Any,
+    embeddings_array: Any | None,
+    run_ctx: CleaningRunContext | None,
+) -> DuplicatesOutput:
+    """Run hash-based and optionally cluster-based duplicate detection.
+
+    Returns the final DuplicatesOutput (merged if cluster-based detection is used).
+    """
+    import time as _time
+
+    logger.info("  [4e] Running duplicate detection…")
+    _t0 = _time.monotonic()
+
+    # Hash-based duplicate detection (always, using cached stats)
+    dup_kwargs: dict[str, object] = {"merge_near_duplicates": params.duplicate_merge_near}
+    if params.duplicate_flags is not None:
+        dup_kwargs["flags"] = hash_flags
+    duplicates_eval = Duplicates(**dup_kwargs)  # type: ignore[arg-type]
+    hash_dup_result = duplicates_eval.from_stats(calc_result)  # type: ignore[arg-type]
+
+    has_dup_cluster = embeddings_array is not None and params.duplicate_cluster_sensitivity is not None
+    if has_dup_cluster:
+        duplicates_result = _merge_duplicate_results(hash_dup_result, embeddings_array, params, run_ctx)
+    else:
+        duplicates_result = hash_dup_result
+
+    logger.info("  [4e] Duplicate detection done in %.1fs", _time.monotonic() - _t0)
+    return duplicates_result
+
+
+def _merge_duplicate_results(
+    hash_dup_result: DuplicatesOutput,
+    embeddings_array: Any,
+    params: DataCleaningParameters,
+    run_ctx: CleaningRunContext | None,
+) -> DuplicatesOutput:
+    """Run cluster-based duplicate detection and merge with hash-based results."""
+    from dataeval_app.cache import get_or_compute_cluster_result
+
+    dup_cluster_result = get_or_compute_cluster_result(
+        embeddings_array,
+        algorithm=params.duplicate_cluster_algorithm or "hdbscan",
+        n_clusters=params.duplicate_n_clusters,
+        extractor_config=run_ctx.extractor_config if run_ctx else None,
+        transforms=run_ctx.transforms if run_ctx else None,
+    )
+    dup_cluster_eval = Duplicates(
+        merge_near_duplicates=params.duplicate_merge_near,
+        cluster_sensitivity=params.duplicate_cluster_sensitivity,
+    )
+    cluster_dup_result = dup_cluster_eval.from_clusters(dup_cluster_result)
+
+    hash_df = hash_dup_result.data()
+    cluster_df = cluster_dup_result.data()
+    if len(cluster_df) == 0:
+        return hash_dup_result
+
+    # Re-number cluster group_ids to avoid collision with hash group_ids
+    max_group_id = cast(int, hash_df["group_id"].max()) + 1 if len(hash_df) > 0 else 0
+    cluster_df = cluster_df.with_columns(pl.col("group_id") + max_group_id)
+    # Align columns before concat
+    for col in hash_df.columns:
+        if col not in cluster_df.columns:
+            cluster_df = cluster_df.with_columns(pl.lit(None).alias(col).cast(hash_df[col].dtype))
+    for col in cluster_df.columns:
+        if col not in hash_df.columns:
+            hash_df = hash_df.with_columns(pl.lit(None).alias(col).cast(cluster_df[col].dtype))
+    merged_df = pl.concat([hash_df.select(sorted(hash_df.columns)), cluster_df.select(sorted(hash_df.columns))])
+    return DuplicatesOutput(merged_df)
+
+
 def _run_cleaning(
     dataset: AnnotatedDataset[Any],
     params: DataCleaningParameters,
@@ -629,8 +837,7 @@ def _run_cleaning(
     detection (when an extractor is configured) is handled separately via
     ``from_clusters()`` / ``evaluate()``.
     """
-    import polars as pl
-    from dataeval.quality import OutliersOutput
+    import time as _time
 
     from dataeval_app.cache import get_or_compute_stats
 
@@ -639,85 +846,42 @@ def _run_cleaning(
     outlier_flags, hash_flags = _resolve_flags(params)
 
     # --- Centralized stats: cache-aware load / compute / save ---
+    _t0 = _time.monotonic()
     calc_result = get_or_compute_stats(
         desired_flags=outlier_flags | hash_flags,
         dataset=dataset,
     )
+    logger.info("  [4a] Image stats ready in %.1fs", _time.monotonic() - _t0)
 
     # --- Outlier detection via from_stats() ---
+    logger.info("  [4b] Running stats-based outlier detection…")
+    _t0 = _time.monotonic()
     outliers_eval = Outliers(
         flags=outlier_flags,
         outlier_threshold=(params.outlier_method, params.outlier_threshold),
     )
     outlier_output = outliers_eval.from_stats(calc_result, per_target=True)  # type: ignore[arg-type]
+    logger.info("  [4b] Stats-based outlier detection done in %.1fs", _time.monotonic() - _t0)
 
-    # Cluster-based outlier detection (separate path, uses embeddings)
+    # --- Shared embeddings for cluster-based detection ---
     has_outlier_cluster = extractor is not None and params.outlier_cluster_threshold is not None
-    if has_outlier_cluster:
-        from dataeval.core._clusterer import cluster
+    has_dup_cluster = extractor is not None and params.duplicate_cluster_sensitivity is not None
+    embeddings_array = None
 
-        if run_ctx is not None and run_ctx.extractor_config is not None:
-            from dataeval_app.cache import get_or_compute_embeddings
+    if (has_outlier_cluster or has_dup_cluster) and extractor is not None:
+        embeddings_array = _compute_embeddings(dataset, extractor, run_ctx)
 
-            embeddings_array = get_or_compute_embeddings(
-                dataset,
-                run_ctx.extractor_config,
-                run_ctx.transforms,
-                run_ctx.batch_size,
-            )
-        else:
-            from dataeval.utils.arrays import flatten_samples, to_numpy
-
-            images = [item[0] if isinstance(item, tuple) else item for item in dataset]
-            embeddings = extractor(images)  # type: ignore[misc]
-            embeddings_array = flatten_samples(to_numpy(embeddings))
-
-        cluster_result = cluster(
-            embeddings_array,
-            algorithm=params.outlier_cluster_algorithm or "hdbscan",
-            n_clusters=params.outlier_n_clusters,
-        )
-        cluster_outlier_output = outliers_eval.from_clusters(
-            embeddings_array,
-            cluster_result,
-            cluster_threshold=params.outlier_cluster_threshold,
-        )
-
-        # Merge stats-based + cluster-based issues via concat
-        # Normalize column order to match DataEval's evaluate() behavior
-        column_order = ["item_index", "target_index", "metric_name", "metric_value"]
-        stats_issues = outlier_output.data()
-        cluster_issues = cluster_outlier_output.data()
-        dfs: list[pl.DataFrame] = []
-        for df in [stats_issues, cluster_issues]:
-            if "target_index" not in df.columns:
-                df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("target_index"))
-            dfs.append(df.select(column_order))
-        merged_issues = pl.concat(dfs).sort(["item_index", "metric_name"])
-        if merged_issues["target_index"].null_count() == len(merged_issues):
-            merged_issues = merged_issues.drop("target_index")
-        outlier_output = OutliersOutput(merged_issues)
+    # --- Cluster-based outlier detection ---
+    if has_outlier_cluster and embeddings_array is not None:
+        outlier_output = _merge_outlier_outputs(outliers_eval, outlier_output, embeddings_array, params, run_ctx)
 
     img_issues, target_issues = _split_outlier_issues(outlier_output.data())
 
-    # --- Classwise outlier pivot (uses the same globally-detected issues as the headline count) ---
+    # --- Classwise outlier pivot ---
     classwise_pivot = _compute_classwise_pivot(target_issues, img_issues, metadata)
 
     # --- Duplicate detection ---
-    has_dup_cluster = extractor is not None and params.duplicate_cluster_sensitivity is not None
-    if has_dup_cluster:
-        # Fall back to evaluate() when cluster detection is configured, because
-        # the merge logic (_merge_item_results) is private in DataEval.
-        _batch = run_ctx.batch_size if run_ctx else None
-        duplicates_full = _build_duplicates(params, extractor=extractor, batch_size=_batch)
-        duplicates_result = duplicates_full.evaluate(dataset)  # type: ignore[arg-type]
-    else:
-        # Pure hash-based: use from_stats()
-        dup_kwargs: dict[str, object] = {"merge_near_duplicates": params.duplicate_merge_near}
-        if params.duplicate_flags is not None:
-            dup_kwargs["flags"] = hash_flags
-        duplicates_eval = Duplicates(**dup_kwargs)  # type: ignore[arg-type]
-        duplicates_result = duplicates_eval.from_stats(calc_result)  # type: ignore[arg-type]
+    duplicates_result = _run_duplicate_detection(params, hash_flags, calc_result, embeddings_array, run_ctx)
 
     # Label stats
     label_stats: LabelStatsDict = _compute_label_stats(metadata) if metadata else {}  # type: ignore[assignment]
@@ -776,6 +940,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 success=False,
                 data=self._empty_outputs(),
                 errors=[f"Expected WorkflowContext, got {type(context).__name__}"],
+                metadata=DataCleaningMetadata(),
             )
 
         if params is None:
@@ -784,6 +949,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 success=False,
                 data=self._empty_outputs(),
                 errors=["DataCleaningParameters required (no defaults per CR-4.14-G-1)"],
+                metadata=DataCleaningMetadata(),
             )
 
         if not isinstance(params, DataCleaningParameters):
@@ -792,9 +958,12 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 success=False,
                 data=self._empty_outputs(),
                 errors=[f"Expected DataCleaningParameters, got {type(params).__name__}"],
+                metadata=DataCleaningMetadata(),
             )
 
         try:
+            import time as _time
+
             # All arg-type suppressions in this block: MaiteDataset (and Select wrapper)
             # conforms to DataEval's dataset protocol at runtime via duck typing;
             # pyright can't verify cross-library structural conformance.
@@ -806,8 +975,10 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
             # 1. Apply selection if configured
             dataset = dc.dataset
             if dc.selection_steps:
-                logger.info("Applying selection (%d steps)", len(dc.selection_steps))
+                logger.info("[1/4] Applying selection (%d steps)…", len(dc.selection_steps))
+                _t0 = _time.monotonic()
                 dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
+                logger.info("[1/4] Selection applied in %.1fs", _time.monotonic() - _t0)
 
             # Compute selection key (shared by metadata + stats caching)
             sel_key = _sel_repr(dataset)
@@ -815,12 +986,13 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
             # 2. Build extractor if configured
             extractor = None
             if dc.extractor:
-                logger.info("Building extractor")
+                logger.info("[2/4] Building extractor…")
+                _t0 = _time.monotonic()
                 extractor = build_extractor(
                     extractor_config=dc.extractor,
                     transforms=dc.transforms,
                 )
-                logger.info("Extractor complete")
+                logger.info("[2/4] Extractor built in %.1fs", _time.monotonic() - _t0)
 
             # 3–4. Activate cache context so all downstream get_or_compute_*
             # calls automatically use the cache without explicit threading.
@@ -833,14 +1005,20 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 if dc.cache is not None:
                     stack.enter_context(active_cache(dc.cache, sel_key))
 
+                # 3. Build metadata for label stats (cache-aware via active_cache)
+                logger.info("[3/4] Loading metadata…")
+                _t0 = _time.monotonic()
                 metadata = get_or_compute_metadata(
                     dataset,
                     auto_bin_method=context.metadata_auto_bin_method,
                     exclude=context.metadata_exclude or None,
                     continuous_factor_bins=context.metadata_continuous_factor_bins,
                 )
+                logger.info("[3/4] Metadata ready in %.1fs", _time.monotonic() - _t0)
 
-                logger.info("Running outlier and duplicate detection on %d items", len(dataset))
+                # 4. Run cleaning evaluators (cache-aware via active_cache)
+                logger.info("[4/4] Running outlier and duplicate detection on %d items…", len(dataset))
+                _t0 = _time.monotonic()
                 raw = _run_cleaning(
                     dataset,
                     params,
@@ -849,14 +1027,15 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                     run_ctx,
                 )
             logger.info(
-                "Detection complete: %d outliers, %d exact dup groups, %d near dup groups",
+                "[4/4] Detection complete in %.1fs: %d outliers, %d exact dup groups, %d near dup groups",
+                _time.monotonic() - _t0,
                 raw.img_outliers.get("count", 0),
                 len(raw.duplicates.get("items", {}).get("exact", [])),
                 len(raw.duplicates.get("items", {}).get("near", [])),
             )
 
             # 5. Generate findings from raw results
-            findings = _build_findings(raw, metadata, label_source=dc.label_source)
+            findings = _build_findings(raw, metadata, params.health_thresholds, label_source=dc.label_source)
 
             # 6. Preparatory mode: compute clean indices (exclude flagged items)
             result_metadata = DataCleaningMetadata(
@@ -897,6 +1076,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 success=True,
                 data=DataCleaningOutputs(raw=raw, report=report),
                 metadata=result_metadata,
+                dataset=dataset,
             )
         except Exception as e:
             logger.exception("Workflow '%s' failed", self.name)
@@ -905,6 +1085,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 success=False,
                 data=self._empty_outputs(),
                 errors=[f"Workflow execution failed: {e}"],
+                metadata=DataCleaningMetadata(),
             )
 
     def _empty_outputs(self) -> DataCleaningOutputs:

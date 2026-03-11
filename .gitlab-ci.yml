@@ -124,6 +124,15 @@ test:
 docs:preview:
   extends: [.nox, .rules_mr_only]
   stage: build
+  cache:
+    - key:
+        files:
+          - uv.lock
+      paths:
+        - $UV_CACHE_DIR
+    - key: docs-notebook-cache
+      paths:
+        - docs/source/notebooks/cache/
   script:
     - uvx --with nox-uv nox -s docs
   artifacts:
@@ -136,6 +145,15 @@ docs:preview:
 pages:
   extends: [.nox, .rules_main_only]
   stage: build
+  cache:
+    - key:
+        files:
+          - uv.lock
+      paths:
+        - $UV_CACHE_DIR
+    - key: docs-notebook-cache
+      paths:
+        - docs/source/notebooks/cache/
   script:
     - uvx --with nox-uv nox -s docs
     - mv output/docs public

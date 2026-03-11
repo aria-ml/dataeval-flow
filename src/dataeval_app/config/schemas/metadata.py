@@ -15,8 +15,10 @@ class ResultMetadata(BaseModel):
     version: str = "1.0"
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     dataset_id: str | list[str] = ""
-    dataset_source: str | None = None
-    datasets: list[str] = Field(default_factory=list)
+    label_source: str | None = None
+    model_id: str | None = None
+    preprocessor_id: str | None = None
+    selection_id: str | None = None
     tool: str = "dataeval-app"
     tool_version: str = ""
     execution_time_s: float | None = None

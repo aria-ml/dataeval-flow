@@ -52,12 +52,12 @@ class TestSummaryLine:
     def test_warning_marker(self):
         finding = Reportable(report_type="text", severity="warning", title="Issue", data={"brief": "5"})
         line = _summary_line(finding)
-        assert "[!]" in line
+        assert "[!!]" in line
 
     def test_no_marker_for_ok(self):
         finding = Reportable(report_type="text", severity="ok", title="Good", data={"brief": "0"})
         line = _summary_line(finding)
-        assert "[!]" not in line
+        assert "[!!]" not in line
 
 
 # ---------------------------------------------------------------------------

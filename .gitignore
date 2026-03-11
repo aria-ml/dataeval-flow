@@ -21,11 +21,15 @@ build/
 .ruff_cache/
 .mypy_cache/
 .cache/
+.dataeval_cache/
 
 # Test/Build output
 output/
 .coverage
 .coverage.*
+
+# Generated notebooks (source of truth is MyST markdown)
+*.ipynb
 
 # Nox
 .nox/
@@ -45,5 +49,6 @@ Thumbs.db
 *.log
 
 # Data (should be mounted, not committed)
+docs/source/notebooks/**/
 /data/
 /output/

@@ -444,7 +444,7 @@ class TestRunTask:
 
     @patch("dataeval_app.dataset.load_dataset")
     def test_run_task_coco_sets_label_source(self, mock_load_ds: MagicMock):
-        """run_task sets label_source='from annotations' for COCO datasets."""
+        """run_task sets label_source='annotations' for COCO datasets."""
         from dataeval_app.config.schemas.dataset import DatasetConfig
         from dataeval_app.config.schemas.task import TaskConfig
 
@@ -465,11 +465,11 @@ class TestRunTask:
 
         context = mock_wf.execute.call_args[0][0]
         dc = context.dataset_contexts["coco_ds"]
-        assert dc.label_source == "from annotations"
+        assert dc.label_source == "annotations"
 
     @patch("dataeval_app.dataset.load_dataset")
     def test_run_task_yolo_sets_label_source(self, mock_load_ds: MagicMock):
-        """run_task sets label_source='from annotations' for YOLO datasets."""
+        """run_task sets label_source='annotations' for YOLO datasets."""
         from dataeval_app.config.schemas.dataset import DatasetConfig
         from dataeval_app.config.schemas.task import TaskConfig
 
@@ -490,7 +490,7 @@ class TestRunTask:
 
         context = mock_wf.execute.call_args[0][0]
         dc = context.dataset_contexts["yolo_ds"]
-        assert dc.label_source == "from annotations"
+        assert dc.label_source == "annotations"
 
 
 # ---------------------------------------------------------------------------
@@ -507,31 +507,30 @@ class TestInferLabelSource:
 
         return DatasetConfig(name="ds", format=fmt, path="/data/ds", **kwargs)  # type: ignore[arg-type]
 
-    def test_huggingface_returns_none(self) -> None:
+    def test_huggingface_returns_huggingface(self) -> None:
         from dataeval_app.workflow.orchestrator import _infer_label_source
 
-        assert _infer_label_source(self._make_config("huggingface")) is None
+        assert _infer_label_source(self._make_config("huggingface")) == "huggingface"
 
     def test_image_folder_no_infer_returns_none(self) -> None:
         from dataeval_app.workflow.orchestrator import _infer_label_source
 
         assert _infer_label_source(self._make_config("image_folder")) is None
 
-    def test_image_folder_infer_labels_returns_directory(self) -> None:
+    def test_image_folder_infer_labels_returns_filepath(self) -> None:
         from dataeval_app.workflow.orchestrator import _infer_label_source
 
-        result = _infer_label_source(self._make_config("image_folder", infer_labels=True))
-        assert result == "inferred from directory names"
+        assert _infer_label_source(self._make_config("image_folder", infer_labels=True)) == "filepath"
 
-    def test_coco_returns_from_annotations(self) -> None:
+    def test_coco_returns_annotations(self) -> None:
         from dataeval_app.workflow.orchestrator import _infer_label_source
 
-        assert _infer_label_source(self._make_config("coco")) == "from annotations"
+        assert _infer_label_source(self._make_config("coco")) == "annotations"
 
-    def test_yolo_returns_from_annotations(self) -> None:
+    def test_yolo_returns_annotations(self) -> None:
         from dataeval_app.workflow.orchestrator import _infer_label_source
 
-        assert _infer_label_source(self._make_config("yolo")) == "from annotations"
+        assert _infer_label_source(self._make_config("yolo")) == "annotations"
 
     def test_coco_rejects_infer_labels(self) -> None:
         """Schema rejects infer_labels=True for COCO (it's image_folder-only)."""
@@ -861,4 +860,3 @@ class TestRunTaskMultiDataset:
             result = run_task(task, config)
 
         assert result.metadata.dataset_id == "ds_a,ds_b"
-        assert result.metadata.datasets == ["ds_a", "ds_b"]
