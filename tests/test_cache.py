@@ -30,9 +30,9 @@ from dataeval_app.cache import (
 @pytest.fixture(autouse=True)
 def _reset_singleton_registry():
     """Reset the singleton registry between tests."""
-    DatasetCache._instances.clear()  # noqa: SLF001
+    DatasetCache._instances.clear()
     yield
-    DatasetCache._instances.clear()  # noqa: SLF001
+    DatasetCache._instances.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -216,11 +216,11 @@ class TestCorruptedCacheResilience:
         # Save a valid embedding first to get the path, then corrupt it
         arr = np.ones((2, 3), dtype=np.float32)
         cache.save_embeddings("sel:all", "cfg", "none", arr)
-        path = cache._embeddings_path("sel:all", "cfg", "none")  # noqa: SLF001
+        path = cache._embeddings_path("sel:all", "cfg", "none")
         assert path is not None
         path.write_bytes(b"corrupted data")
         # Clear in-memory cache so the disk corruption is actually tested
-        cache._memory.clear()  # noqa: SLF001
+        cache._memory.clear()
 
         result = cache.load_embeddings("sel:all", "cfg", "none")
         assert result is None
@@ -250,7 +250,7 @@ class TestCorruptedCacheResilience:
         sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
         (sel_dir / f"stats_{h}.json").write_text("not valid json{{{")
         # Clear in-memory cache so the disk corruption is actually tested
-        cache._memory.clear()  # noqa: SLF001
+        cache._memory.clear()
 
         result = cache.load_stats("sel:all", "img+tgt")
         assert result is None
@@ -275,7 +275,7 @@ class TestCorruptedCacheResilience:
         sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
         (sel_dir / "metadata.json").write_text("{invalid json")
         # Clear in-memory cache so the disk corruption is actually tested
-        cache._memory.clear()  # noqa: SLF001
+        cache._memory.clear()
 
         result = cache.load_metadata("sel:all", MagicMock())
         assert result is None
@@ -904,9 +904,9 @@ def _make_mock_metadata() -> MagicMock:
     meta.index2label = {0: "cat", 1: "dog", 2: "bird"}
     meta.item_indices = np.array([0, 1, 2, 3, 4], dtype=np.intp)
     meta.item_count = 5
-    meta._image_factors = {"brightness"}  # noqa: SLF001
-    meta._target_factors = set()  # noqa: SLF001
-    meta._has_targets = False  # noqa: SLF001
+    meta._image_factors = {"brightness"}
+    meta._target_factors = set()
+    meta._has_targets = False
     return meta
 
 
@@ -994,7 +994,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
-        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
+        cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
@@ -1006,7 +1006,7 @@ class TestMetadataCache:
         assert loaded.index2label[2] == "bird"
         np.testing.assert_array_equal(loaded.item_indices, np.array([0, 1, 2, 3, 4], dtype=np.intp))
         # Loaded metadata is unbinned — factor_names comes from _factors dict
-        assert "brightness" in loaded._factors  # noqa: SLF001
+        assert "brightness" in loaded._factors
 
     def test_load_sets_is_binned_false(self, tmp_path: Path):
         """Loaded metadata has _is_binned=False so _bin() runs lazily."""
@@ -1014,12 +1014,12 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
-        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
+        cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
-        assert loaded._is_binned is False  # noqa: SLF001
-        assert loaded._is_structured is True  # noqa: SLF001
+        assert loaded._is_binned is False
+        assert loaded._is_structured is True
 
     def test_load_applies_caller_config(self, tmp_path: Path):
         """Loaded metadata has the caller's binning config applied."""
@@ -1027,7 +1027,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
-        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
+        cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata(
             "sel:all",
             MagicMock(),
@@ -1037,9 +1037,9 @@ class TestMetadataCache:
         )
 
         assert loaded is not None
-        assert loaded._auto_bin_method == "clusters"  # noqa: SLF001
-        assert loaded._exclude == {"x"}  # noqa: SLF001
-        assert loaded._continuous_factor_bins == {"y": [0.0, 1.0]}  # noqa: SLF001
+        assert loaded._auto_bin_method == "clusters"
+        assert loaded._exclude == {"x"}
+        assert loaded._continuous_factor_bins == {"y": [0.0, 1.0]}
 
     def test_load_sets_has_targets(self, tmp_path: Path):
         """Loaded metadata preserves the has_targets flag."""
@@ -1047,11 +1047,11 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
-        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
+        cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
-        assert loaded._has_targets is False  # noqa: SLF001
+        assert loaded._has_targets is False
 
     def test_load_dataframe_accessible(self, tmp_path: Path):
         """Loaded metadata exposes the cached DataFrame."""
@@ -1059,11 +1059,11 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
-        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
+        cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
-        df = loaded._dataframe  # noqa: SLF001
+        df = loaded._dataframe
         assert "brightness" in df.columns
         assert len(df) == 5
 
@@ -1073,16 +1073,16 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
-        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
+        cache._memory.clear()  # Force disk round-trip
 
         loaded_a = cache.load_metadata("sel:all", MagicMock(), auto_bin_method="uniform_width")
-        cache._memory.clear()  # noqa: SLF001  # Force second disk read with different config
+        cache._memory.clear()  # Force second disk read with different config
         loaded_b = cache.load_metadata("sel:all", MagicMock(), auto_bin_method="clusters")
 
         assert loaded_a is not None
         assert loaded_b is not None
-        assert loaded_a._auto_bin_method == "uniform_width"  # noqa: SLF001
-        assert loaded_b._auto_bin_method == "clusters"  # noqa: SLF001
+        assert loaded_a._auto_bin_method == "uniform_width"
+        assert loaded_b._auto_bin_method == "clusters"
         # Both loaded from the same cache files
         assert loaded_a.item_count == loaded_b.item_count
 
@@ -1154,7 +1154,7 @@ class TestLoadOrComputeMetadata:
             mock_build.assert_called_once()
 
         # Clear memory to force disk round-trip with different config
-        cache._memory.clear()  # noqa: SLF001
+        cache._memory.clear()
 
         # Second call with different config — disk hit, skips compute
         with patch(self._BUILD_METADATA_PATH) as mock_build:
@@ -1162,7 +1162,7 @@ class TestLoadOrComputeMetadata:
             mock_build.assert_not_called()
 
         assert result is not None
-        assert result._auto_bin_method == "clusters"  # noqa: SLF001
+        assert result._auto_bin_method == "clusters"
 
 
 # ---------------------------------------------------------------------------
@@ -1473,13 +1473,13 @@ class TestPersistMemoryDisabled:
     def test_mem_get_returns_none_when_disabled(self):
         cache = DatasetCache(cache_dir=None, dataset_name="ds", persist_memory=False)
         # Manually store something to prove _mem_get bypasses it
-        cache._memory.setdefault("sel:all", {})["key"] = "value"  # noqa: SLF001
-        assert cache._mem_get("sel:all", "key") is None  # noqa: SLF001
+        cache._memory.setdefault("sel:all", {})["key"] = "value"
+        assert cache._mem_get("sel:all", "key") is None
 
     def test_mem_set_is_noop_when_disabled(self):
         cache = DatasetCache(cache_dir=None, dataset_name="ds", persist_memory=False)
-        cache._mem_set("sel:all", "key", "value")  # noqa: SLF001
-        assert cache._memory == {}  # noqa: SLF001
+        cache._mem_set("sel:all", "key", "value")
+        assert cache._memory == {}
 
 
 # ---------------------------------------------------------------------------
@@ -1553,10 +1553,10 @@ class TestClusterResultCache:
         cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, result)
 
         # Corrupt the file
-        path = cache._cluster_path("sel:all", "cfg", "none", "hdbscan", None)  # noqa: SLF001
+        path = cache._cluster_path("sel:all", "cfg", "none", "hdbscan", None)
         assert path is not None
         path.write_bytes(b"corrupted data")
-        cache._memory.clear()  # noqa: SLF001
+        cache._memory.clear()
 
         loaded = cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
         assert loaded is None

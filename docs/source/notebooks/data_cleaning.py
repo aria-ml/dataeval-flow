@@ -14,7 +14,7 @@
 # ---
 
 # %% [markdown]
-# # Clean a dataset with DataEval App
+# # Clean a dataset
 #
 # Flag outliers and duplicates in CPPE-5 using the config-driven `data-cleaning` workflow.
 

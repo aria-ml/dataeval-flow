@@ -6,6 +6,7 @@ Learning-oriented guides that walk you through using DataEval App step by step.
 :maxdepth: 1
 
 ../notebooks/data_cleaning
+../notebooks/drift_monitoring
 ```
 
 ## Planned tutorials

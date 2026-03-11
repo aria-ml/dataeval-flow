@@ -24,7 +24,7 @@ def _reset_logging():
     yield
     import dataeval_app._logging as log_mod
 
-    log_mod._initialized = False  # noqa: SLF001
+    log_mod._initialized = False
     root = logging.getLogger()
     for h in root.handlers[:]:
         h.close()

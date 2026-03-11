@@ -233,7 +233,7 @@ ignore = [
     "C416",
 ]
 fixable = ["ALL"]
-per-file-ignores = { "tests/*" = ["ANN", "S101", "D"], "docs/*" = ["D", "E402", "S101"] }
+per-file-ignores = { "tests/*" = ["ANN", "S101", "D", "SLF001"], "docs/*" = ["D", "E402", "S101"] }
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"

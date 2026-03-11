@@ -23,6 +23,7 @@ from dataeval_app.config.schemas import (
     TaskConfig,
 )
 from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+from dataeval_app.workflows.drift.params import DriftMonitoringParameters
 
 
 class OnnxExtractorConfig(BaseModel):
@@ -110,6 +111,7 @@ class WorkflowConfig(BaseModel):
 
     # Workflow-specific params (one field per workflow)
     data_cleaning: DataCleaningParameters | None = None
+    drift_monitoring: DriftMonitoringParameters | None = None
 
     # Shared config
     models: list[ModelConfig] | None = Field(

@@ -14,9 +14,10 @@ if TYPE_CHECKING:
 
     from dataeval_app.config.models import WorkflowConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
-    from dataeval_app.config.schemas.task import DataCleaningTaskConfig, TaskConfig
+    from dataeval_app.config.schemas.task import DataCleaningTaskConfig, DriftMonitoringTaskConfig, TaskConfig
     from dataeval_app.workflow import DatasetContext, WorkflowResult
     from dataeval_app.workflows.cleaning.outputs import DataCleaningResult
+    from dataeval_app.workflows.drift.outputs import DriftMonitoringResult
 
 
 @runtime_checkable
@@ -113,6 +114,10 @@ def _validate_mapping_keys(
         raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
 
 
+@overload
+def run_task(  # pyright: ignore[reportOverlappingOverload]
+    task: "DriftMonitoringTaskConfig", config: "WorkflowConfig"
+) -> "DriftMonitoringResult": ...
 @overload
 def run_task(  # pyright: ignore[reportOverlappingOverload]
     task: "DataCleaningTaskConfig", config: "WorkflowConfig"
