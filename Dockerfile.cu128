@@ -88,6 +88,7 @@ RUN apt-get purge -y --allow-remove-essential '*nsight*' && apt-get autoremove -
 USER dataeval
 
 ENV UV_EXTRAS_OVERRIDE=cu128
+ENV CONTAINER_MODE=gpu
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]

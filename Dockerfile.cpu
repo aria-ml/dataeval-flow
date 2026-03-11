@@ -86,6 +86,7 @@ LABEL org.opencontainers.image.title="DataEval Application (CPU)" \
 USER dataeval
 
 ENV UV_EXTRAS_OVERRIDE=cpu
+ENV CONTAINER_MODE=cpu
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]

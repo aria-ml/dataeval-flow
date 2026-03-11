@@ -92,6 +92,7 @@ RUN {{ patch }}
 USER dataeval
 
 ENV UV_EXTRAS_OVERRIDE={{ variant_name }}
+ENV CONTAINER_MODE={{ "cpu" if variant_name == "cpu" else "gpu" }}
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]
