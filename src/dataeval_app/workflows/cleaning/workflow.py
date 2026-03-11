@@ -2,6 +2,7 @@
 
 __all__ = ["DataCleaningWorkflow"]
 
+import contextlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, DuplicatesOutput, Outliers
 from pydantic import BaseModel
 
-from dataeval_app.cache import DatasetCache, get_or_compute_metadata
+from dataeval_app.cache import active_cache, get_or_compute_metadata
 from dataeval_app.embeddings import build_extractor
 from dataeval_app.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_app.workflow.base import Reportable
@@ -504,10 +505,8 @@ def _validate_cluster_params(params: DataCleaningParameters, extractor: Callable
 
 @dataclass(frozen=True)
 class CleaningRunContext:
-    """Cache and extractor plumbing passed from execute() to _run_cleaning()."""
+    """Extractor plumbing passed from execute() to _run_cleaning()."""
 
-    cache: "DatasetCache | None" = None
-    sel_key: str | None = None
     extractor_config: Any = None
     transforms: Callable | None = None
     batch_size: int | None = None
@@ -625,10 +624,10 @@ def _run_cleaning(
     """Run outlier + duplicate detection on dataset.
 
     Stats are obtained via :func:`~dataeval_app.cache.get_or_compute_stats`,
-    which transparently handles disk caching when *run_ctx* provides a cache
-    and selection key.  Evaluators consume pre-computed stats via
-    ``from_stats()``; cluster-based detection (when an extractor is
-    configured) is handled separately via ``from_clusters()`` / ``evaluate()``.
+    which transparently handles caching via the :func:`active_cache` context.
+    Evaluators consume pre-computed stats via ``from_stats()``; cluster-based
+    detection (when an extractor is configured) is handled separately via
+    ``from_clusters()`` / ``evaluate()``.
     """
     import polars as pl
     from dataeval.quality import OutliersOutput
@@ -640,13 +639,9 @@ def _run_cleaning(
     outlier_flags, hash_flags = _resolve_flags(params)
 
     # --- Centralized stats: cache-aware load / compute / save ---
-    _cache = run_ctx.cache if run_ctx else None
-    _sel_key = run_ctx.sel_key if run_ctx else None
     calc_result = get_or_compute_stats(
         desired_flags=outlier_flags | hash_flags,
         dataset=dataset,
-        cache=_cache,
-        selection_key=_sel_key,
     )
 
     # --- Outlier detection via from_stats() ---
@@ -669,8 +664,6 @@ def _run_cleaning(
                 run_ctx.extractor_config,
                 run_ctx.transforms,
                 run_ctx.batch_size,
-                cache=_cache,
-                selection_key=_sel_key,
             )
         else:
             from dataeval.utils.arrays import flatten_samples, to_numpy
@@ -829,32 +822,32 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 )
                 logger.info("Extractor complete")
 
-            # 3. Build metadata for label stats (with cache)
-            metadata = get_or_compute_metadata(
-                dataset,
-                auto_bin_method=context.metadata_auto_bin_method,
-                exclude=context.metadata_exclude or None,
-                continuous_factor_bins=context.metadata_continuous_factor_bins,
-                cache=dc.cache,
-                selection_key=sel_key,
-            )
-
-            # 4. Run cleaning evaluators (cache-aware when cache is configured)
-            logger.info("Running outlier and duplicate detection on %d items", len(dataset))
+            # 3–4. Activate cache context so all downstream get_or_compute_*
+            # calls automatically use the cache without explicit threading.
             run_ctx = CleaningRunContext(
-                cache=dc.cache,
-                sel_key=sel_key,
                 extractor_config=dc.extractor,
                 transforms=dc.transforms,
                 batch_size=dc.batch_size,
             )
-            raw = _run_cleaning(
-                dataset,
-                params,
-                extractor,
-                metadata,  # type: ignore[arg-type]
-                run_ctx,
-            )
+            with contextlib.ExitStack() as stack:
+                if dc.cache is not None:
+                    stack.enter_context(active_cache(dc.cache, sel_key))
+
+                metadata = get_or_compute_metadata(
+                    dataset,
+                    auto_bin_method=context.metadata_auto_bin_method,
+                    exclude=context.metadata_exclude or None,
+                    continuous_factor_bins=context.metadata_continuous_factor_bins,
+                )
+
+                logger.info("Running outlier and duplicate detection on %d items", len(dataset))
+                raw = _run_cleaning(
+                    dataset,
+                    params,
+                    extractor,
+                    metadata,  # type: ignore[arg-type]
+                    run_ctx,
+                )
             logger.info(
                 "Detection complete: %d outliers, %d exact dup groups, %d near dup groups",
                 raw.img_outliers.get("count", 0),

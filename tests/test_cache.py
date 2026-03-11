@@ -13,7 +13,11 @@ from dataeval_app.cache import (
     FLAG_TO_METRIC,
     METRIC_TO_FLAG,
     DatasetCache,
+    _atomic_write,
     _config_hash,
+    _make_dataset_id,
+    active_cache,
+    get_or_compute_cluster_result,
     get_or_compute_embeddings,
     get_or_compute_metadata,
     get_or_compute_stats,
@@ -21,6 +25,15 @@ from dataeval_app.cache import (
     scope_key,
     selection_repr,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_singleton_registry():
+    """Reset the singleton registry between tests."""
+    DatasetCache._instances.clear()  # noqa: SLF001
+    yield
+    DatasetCache._instances.clear()  # noqa: SLF001
+
 
 # ---------------------------------------------------------------------------
 # _config_hash helper
@@ -175,6 +188,7 @@ class TestDatasetCacheInit:
     def test_dataset_dir_creates_hierarchy(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds1")
         dataset_dir = cache.dataset_dir
+        assert dataset_dir is not None
         assert dataset_dir == tmp_path / f"v{CACHE_VERSION}" / "ds1"
         assert dataset_dir.is_dir()
 
@@ -203,7 +217,10 @@ class TestCorruptedCacheResilience:
         arr = np.ones((2, 3), dtype=np.float32)
         cache.save_embeddings("sel:all", "cfg", "none", arr)
         path = cache._embeddings_path("sel:all", "cfg", "none")  # noqa: SLF001
+        assert path is not None
         path.write_bytes(b"corrupted data")
+        # Clear in-memory cache so the disk corruption is actually tested
+        cache._memory.clear()  # noqa: SLF001
 
         result = cache.load_embeddings("sel:all", "cfg", "none")
         assert result is None
@@ -232,6 +249,8 @@ class TestCorruptedCacheResilience:
         h = _config_hash("img+tgt")
         sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
         (sel_dir / f"stats_{h}.json").write_text("not valid json{{{")
+        # Clear in-memory cache so the disk corruption is actually tested
+        cache._memory.clear()  # noqa: SLF001
 
         result = cache.load_stats("sel:all", "img+tgt")
         assert result is None
@@ -255,6 +274,8 @@ class TestCorruptedCacheResilience:
         s = _config_hash("sel:all")
         sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
         (sel_dir / "metadata.json").write_text("{invalid json")
+        # Clear in-memory cache so the disk corruption is actually tested
+        cache._memory.clear()  # noqa: SLF001
 
         result = cache.load_metadata("sel:all", MagicMock())
         assert result is None
@@ -447,12 +468,13 @@ class TestGetOrComputeEmbeddings:
         mock_embeddings = MagicMock()
         mock_embeddings.__array__ = MagicMock(return_value=mock_array)
 
-        with patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings) as mock_build:
+        with (
+            active_cache(cache, "sel:all"),
+            patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings) as mock_build,
+        ):
             result = get_or_compute_embeddings(
                 dataset=MagicMock(),
                 extractor_config=cfg,
-                cache=cache,
-                selection_key="sel:all",
             )
             mock_build.assert_called_once()
 
@@ -469,12 +491,10 @@ class TestGetOrComputeEmbeddings:
         # Pre-populate cache
         cache.save_embeddings("sel:all", cfg.model_dump_json(), "none", arr)
 
-        with patch(self._BUILD_EMBEDDINGS_PATH) as mock_build:
+        with active_cache(cache, "sel:all"), patch(self._BUILD_EMBEDDINGS_PATH) as mock_build:
             result = get_or_compute_embeddings(
                 dataset=MagicMock(),
                 extractor_config=cfg,
-                cache=cache,
-                selection_key="sel:all",
             )
             mock_build.assert_not_called()
 
@@ -497,22 +517,19 @@ class TestGetOrComputeEmbeddings:
         transform_b = MagicMock()
         transform_b.__repr__ = MagicMock(return_value="transform_b")
 
-        with patch(self._BUILD_EMBEDDINGS_PATH, return_value=make_mock_embeddings(arr_a)):
-            get_or_compute_embeddings(
-                MagicMock(),
-                cfg,
-                transforms=transform_a,
-                cache=cache,
-                selection_key="sel:all",
-            )
-        with patch(self._BUILD_EMBEDDINGS_PATH, return_value=make_mock_embeddings(arr_b)):
-            get_or_compute_embeddings(
-                MagicMock(),
-                cfg,
-                transforms=transform_b,
-                cache=cache,
-                selection_key="sel:all",
-            )
+        with active_cache(cache, "sel:all"):
+            with patch(self._BUILD_EMBEDDINGS_PATH, return_value=make_mock_embeddings(arr_a)):
+                get_or_compute_embeddings(
+                    MagicMock(),
+                    cfg,
+                    transforms=transform_a,
+                )
+            with patch(self._BUILD_EMBEDDINGS_PATH, return_value=make_mock_embeddings(arr_b)):
+                get_or_compute_embeddings(
+                    MagicMock(),
+                    cfg,
+                    transforms=transform_b,
+                )
 
         # Both should be independently cached
         loaded_a = cache.load_embeddings("sel:all", cfg.model_dump_json(), "transform_a")
@@ -522,7 +539,8 @@ class TestGetOrComputeEmbeddings:
         np.testing.assert_array_equal(loaded_a, arr_a)
         np.testing.assert_array_equal(loaded_b, arr_b)
 
-    def test_cache_none_selection_key_provided_computes_directly(self):
+    def test_no_active_cache_computes_directly(self):
+        """When no active_cache context is set, computes directly without caching."""
         cfg = self._mock_extractor_config()
         mock_array = np.ones((3, 8), dtype=np.float32)
         mock_embeddings = MagicMock()
@@ -532,8 +550,6 @@ class TestGetOrComputeEmbeddings:
             result = get_or_compute_embeddings(
                 dataset=MagicMock(),
                 extractor_config=cfg,
-                cache=None,
-                selection_key="sel:all",
             )
             mock_build.assert_called_once()
 
@@ -825,12 +841,10 @@ class TestGetOrComputeStats:
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
 
-        with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
+        with active_cache(cache, "sel:all"), patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
             result = get_or_compute_stats(
                 desired_flags=ImageStats.PIXEL_MEAN,
                 dataset=MagicMock(),
-                cache=cache,
-                selection_key="sel:all",
             )
             mock_calc.assert_called_once()
 
@@ -846,19 +860,17 @@ class TestGetOrComputeStats:
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
 
-        with patch(self._CALC_STATS_PATH) as mock_calc:
+        with active_cache(cache, "sel:all"), patch(self._CALC_STATS_PATH) as mock_calc:
             result = get_or_compute_stats(
                 desired_flags=ImageStats.PIXEL_MEAN,
                 dataset=MagicMock(),
-                cache=cache,
-                selection_key="sel:all",
             )
             mock_calc.assert_not_called()
 
         assert "mean" in result["stats"]
 
-    def test_cache_none_selection_key_provided_computes_directly(self):
-        """When cache is None but selection_key is provided, computes directly."""
+    def test_no_active_cache_computes_directly(self):
+        """When no active_cache context is set, computes directly without caching."""
         from dataeval.flags import ImageStats
 
         mock_result = _make_calc_result(3)
@@ -867,8 +879,6 @@ class TestGetOrComputeStats:
             result = get_or_compute_stats(
                 desired_flags=ImageStats.PIXEL_MEAN,
                 dataset=MagicMock(),
-                cache=None,
-                selection_key="sel:all",
             )
             mock_calc.assert_called_once()
 
@@ -984,6 +994,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
+        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
@@ -1003,6 +1014,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
+        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
@@ -1015,6 +1027,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
+        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
         loaded = cache.load_metadata(
             "sel:all",
             MagicMock(),
@@ -1034,6 +1047,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
+        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
@@ -1045,6 +1059,7 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
+        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", MagicMock())
 
         assert loaded is not None
@@ -1058,8 +1073,10 @@ class TestMetadataCache:
         mock_meta = _make_mock_metadata()
 
         cache.save_metadata("sel:all", mock_meta)
+        cache._memory.clear()  # noqa: SLF001  # Force disk round-trip
 
         loaded_a = cache.load_metadata("sel:all", MagicMock(), auto_bin_method="uniform_width")
+        cache._memory.clear()  # noqa: SLF001  # Force second disk read with different config
         loaded_b = cache.load_metadata("sel:all", MagicMock(), auto_bin_method="clusters")
 
         assert loaded_a is not None
@@ -1136,7 +1153,10 @@ class TestLoadOrComputeMetadata:
             cache.load_or_compute_metadata("sel:all", MagicMock(), auto_bin_method="uniform_width")
             mock_build.assert_called_once()
 
-        # Second call with different config — cache hit, skips compute
+        # Clear memory to force disk round-trip with different config
+        cache._memory.clear()  # noqa: SLF001
+
+        # Second call with different config — disk hit, skips compute
         with patch(self._BUILD_METADATA_PATH) as mock_build:
             result = cache.load_or_compute_metadata("sel:all", MagicMock(), auto_bin_method="clusters")
             mock_build.assert_not_called()
@@ -1166,12 +1186,8 @@ class TestGetOrComputeMetadata:
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_meta = _make_mock_metadata()
 
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
-            result = get_or_compute_metadata(
-                dataset=MagicMock(),
-                cache=cache,
-                selection_key="sel:all",
-            )
+        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+            result = get_or_compute_metadata(dataset=MagicMock())
             mock_build.assert_called_once()
 
         assert result is mock_meta
@@ -1186,26 +1202,19 @@ class TestGetOrComputeMetadata:
         # Pre-populate cache
         cache.save_metadata("sel:all", mock_meta)
 
-        with patch(self._BUILD_METADATA_PATH) as mock_build:
-            result = get_or_compute_metadata(
-                dataset=MagicMock(),
-                cache=cache,
-                selection_key="sel:all",
-            )
+        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH) as mock_build:
+            result = get_or_compute_metadata(dataset=MagicMock())
             mock_build.assert_not_called()
 
         assert result is not None
         assert result.item_count == 5
 
-    def test_cache_none_selection_key_provided_computes_directly(self):
+    def test_no_active_cache_computes_directly(self):
+        """When no active_cache context is set, computes directly without caching."""
         mock_meta = _make_mock_metadata()
 
         with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
-            result = get_or_compute_metadata(
-                dataset=MagicMock(),
-                cache=None,
-                selection_key="sel:all",
-            )
+            result = get_or_compute_metadata(dataset=MagicMock())
             mock_build.assert_called_once()
 
         assert result is mock_meta
@@ -1215,14 +1224,12 @@ class TestGetOrComputeMetadata:
         mock_meta = _make_mock_metadata()
         dataset = MagicMock()
 
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
             get_or_compute_metadata(
                 dataset=dataset,
                 auto_bin_method="uniform_width",
                 exclude=["a"],
                 continuous_factor_bins={"b": [0.0, 0.5, 1.0]},
-                cache=cache,
-                selection_key="sel:all",
             )
             mock_build.assert_called_once_with(
                 dataset,
@@ -1372,3 +1379,302 @@ class TestConfigIntegration:
 
         dc = DatasetContext(name="ds", dataset=MagicMock())
         assert dc.cache is None
+
+
+# ---------------------------------------------------------------------------
+# _atomic_write — exception cleanup path (lines 167-169)
+# ---------------------------------------------------------------------------
+
+
+class TestAtomicWrite:
+    def test_cleans_up_temp_file_on_error(self, tmp_path: Path):
+        """If the data_fn raises, the temp file is removed."""
+        target = tmp_path / "output.npy"
+
+        def failing_fn(p: Path) -> None:
+            p.write_text("partial")
+            raise RuntimeError("write failed")
+
+        with pytest.raises(RuntimeError, match="write failed"):
+            _atomic_write(target, failing_fn)
+
+        assert not target.exists()
+        # Temp file should also be cleaned up
+        assert list(tmp_path.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# get_or_compute_cluster_result (top-level function, lines 374-377)
+# ---------------------------------------------------------------------------
+
+
+class TestGetOrComputeClusterResult:
+    _CLUSTER_PATH = "dataeval.core._clusterer.cluster"
+
+    def test_without_cache_computes_directly(self):
+        embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
+        mock_result = _MockClusterResult()
+
+        with patch(self._CLUSTER_PATH, return_value=mock_result) as mock_cluster:
+            result = get_or_compute_cluster_result(
+                embeddings=embeddings,
+                algorithm="hdbscan",
+                n_clusters=None,
+            )
+            mock_cluster.assert_called_once()
+
+        assert result is mock_result
+
+    def test_with_extractor_config_and_transforms(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
+        mock_result = _MockClusterResult()
+
+        ext_cfg = MagicMock()
+        ext_cfg.model_dump_json.return_value = '{"type":"onnx"}'
+        transforms = MagicMock()
+        transforms.__repr__ = MagicMock(return_value="my_transforms")
+
+        with active_cache(cache, "sel:all"), patch(self._CLUSTER_PATH, return_value=mock_result) as mock_cluster:
+            result = get_or_compute_cluster_result(
+                embeddings=embeddings,
+                algorithm="kmeans",
+                n_clusters=5,
+                extractor_config=ext_cfg,
+                transforms=transforms,
+            )
+            mock_cluster.assert_called_once()
+
+        assert result is mock_result
+
+
+# ---------------------------------------------------------------------------
+# DatasetCache.get_or_create with cache_dir (line 438)
+# ---------------------------------------------------------------------------
+
+
+class TestGetOrCreateDiskBacked:
+    def test_disk_backed_returns_fresh_instance(self, tmp_path: Path):
+        ds_cfg = MagicMock()
+        ds_cfg.model_dump_json.return_value = '{"name":"ds","path":"/data"}'
+        ds_cfg.name = "myds"
+
+        cache1 = DatasetCache.get_or_create(tmp_path, ds_cfg)
+        cache2 = DatasetCache.get_or_create(tmp_path, ds_cfg)
+
+        # Disk-backed always creates fresh instances (not singletons)
+        assert cache1 is not cache2
+        assert cache1.disk_backed is True
+        assert cache1.cache_dir == tmp_path
+
+
+# ---------------------------------------------------------------------------
+# persist_memory=False (instance attribute)
+# ---------------------------------------------------------------------------
+
+
+class TestPersistMemoryDisabled:
+    def test_mem_get_returns_none_when_disabled(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds", persist_memory=False)
+        # Manually store something to prove _mem_get bypasses it
+        cache._memory.setdefault("sel:all", {})["key"] = "value"  # noqa: SLF001
+        assert cache._mem_get("sel:all", "key") is None  # noqa: SLF001
+
+    def test_mem_set_is_noop_when_disabled(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds", persist_memory=False)
+        cache._mem_set("sel:all", "key", "value")  # noqa: SLF001
+        assert cache._memory == {}  # noqa: SLF001
+
+
+# ---------------------------------------------------------------------------
+# disk_backed property (line 484)
+# ---------------------------------------------------------------------------
+
+
+class TestDiskBackedProperty:
+    def test_disk_backed_true(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        assert cache.disk_backed is True
+
+    def test_disk_backed_false(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds")
+        assert cache.disk_backed is False
+
+
+# ---------------------------------------------------------------------------
+# Cluster result cache (lines 644-754)
+# ---------------------------------------------------------------------------
+
+
+class _MockClusterResult:
+    """dict()-compatible mock that mimics ClusterResult for save_cluster_result."""
+
+    def __init__(self) -> None:
+        self._data = _make_cluster_dict()
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __getitem__(self, key: str):
+        return self._data[key]
+
+    def keys(self):
+        return self._data.keys()
+
+
+def _make_cluster_dict() -> dict[str, Any]:
+    """Build a minimal cluster result dict for testing."""
+    rng = np.random.default_rng(42)
+    return {
+        "clusters": rng.integers(0, 3, size=10),
+        "mst": rng.random((9, 3)),
+        "linkage_tree": rng.random((9, 4)),
+        "membership_strengths": rng.random(10),
+        "k_neighbors": rng.integers(0, 10, size=(10, 5)),
+        "k_distances": rng.random((10, 5)),
+    }
+
+
+class TestClusterResultCache:
+    def test_save_and_load_round_trip(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        result = _make_cluster_dict()
+
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, result)
+        loaded = cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
+
+        assert loaded is not None
+        for key in result:
+            np.testing.assert_array_equal(loaded[key], result[key])
+
+    def test_load_returns_none_on_miss(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        assert cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None) is None
+
+    def test_load_returns_none_on_corrupted_file(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        result = _make_cluster_dict()
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, result)
+
+        # Corrupt the file
+        path = cache._cluster_path("sel:all", "cfg", "none", "hdbscan", None)  # noqa: SLF001
+        assert path is not None
+        path.write_bytes(b"corrupted data")
+        cache._memory.clear()  # noqa: SLF001
+
+        loaded = cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
+        assert loaded is None
+
+    def test_memory_hit_skips_disk(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        result = _make_cluster_dict()
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, result)
+
+        # Second load should hit memory (no disk read needed)
+        loaded = cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
+        assert loaded is not None
+
+    def test_save_no_disk_when_not_disk_backed(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds")
+        result = _make_cluster_dict()
+        # Should not raise — save is a no-op for disk
+        cache.save_cluster_result("sel:all", "cfg", "none", "kmeans", 3, result)
+        # But memory cache should still work
+        loaded = cache.load_cluster_result("sel:all", "cfg", "none", "kmeans", 3)
+        assert loaded is not None
+
+    def test_different_algorithms_different_keys(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        result_a = _make_cluster_dict()
+        result_b = _make_cluster_dict()
+        result_b["clusters"] = np.zeros(10, dtype=int)
+
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, result_a)
+        cache.save_cluster_result("sel:all", "cfg", "none", "kmeans", 5, result_b)
+
+        loaded_a = cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
+        loaded_b = cache.load_cluster_result("sel:all", "cfg", "none", "kmeans", 5)
+
+        assert loaded_a is not None
+        assert loaded_b is not None
+        assert not np.array_equal(loaded_a["clusters"], loaded_b["clusters"])
+
+
+class TestLoadOrComputeClusterResult:
+    _CLUSTER_PATH = "dataeval.core._clusterer.cluster"
+
+    def test_miss_computes_and_caches(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
+
+        mock_cr = _MockClusterResult()
+
+        with patch(self._CLUSTER_PATH, return_value=mock_cr) as mock_cluster:
+            cache.load_or_compute_cluster_result("sel:all", "cfg", "none", embeddings, "hdbscan", None)
+            mock_cluster.assert_called_once()
+
+    def test_hit_skips_compute(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        result = _make_cluster_dict()
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, result)
+
+        embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
+
+        with patch(self._CLUSTER_PATH) as mock_cluster:
+            loaded = cache.load_or_compute_cluster_result("sel:all", "cfg", "none", embeddings, "hdbscan", None)
+            mock_cluster.assert_not_called()
+
+        assert loaded is not None
+
+
+# ---------------------------------------------------------------------------
+# _make_dataset_id
+# ---------------------------------------------------------------------------
+
+
+class TestMakeDsId:
+    @staticmethod
+    def _cfg(name: str, **kwargs: Any) -> Any:
+        from dataeval_app.config.schemas.dataset import DatasetConfig
+
+        defaults = {"format": "huggingface", "path": f"/data/{name}", "split": "train"}
+        defaults.update(kwargs)
+        return DatasetConfig(name=name, **defaults)  # type: ignore[call-arg]
+
+    def test_single_dataset_has_name_prefix_and_hash(self):
+        result = _make_dataset_id(self._cfg("my_dataset"))
+        assert result.startswith("my_dataset_")
+        hash_suffix = result.rsplit("_", 1)[-1]
+        assert len(hash_suffix) == 16
+        int(hash_suffix, 16)
+
+    def test_different_split_different_id(self):
+        """Changing split (but keeping name) must produce a different cache id."""
+        train = _make_dataset_id(self._cfg("ds", split="train"))
+        test = _make_dataset_id(self._cfg("ds", split="test"))
+        assert train != test
+
+    def test_different_path_different_id(self):
+        """Changing path (but keeping name) must produce a different cache id."""
+        a = _make_dataset_id(self._cfg("ds", path="/data/a"))
+        b = _make_dataset_id(self._cfg("ds", path="/data/b"))
+        assert a != b
+
+    def test_same_config_deterministic(self):
+        """Same config always produces the same output."""
+        cfg = self._cfg("my_dataset")
+        assert _make_dataset_id(cfg) == _make_dataset_id(cfg)
+
+    def test_long_name_truncated(self):
+        """Result must fit within _MAX_DS_ID_BYTES."""
+        result = _make_dataset_id(self._cfg("a" * 200))
+        assert len(result.encode("utf-8")) <= 100
+        hash_suffix = result.rsplit("_", 1)[-1]
+        assert len(hash_suffix) == 16
+        int(hash_suffix, 16)
+
+    def test_different_configs_different_ids(self):
+        """Different dataset configs produce different hashed IDs."""
+        a = _make_dataset_id(self._cfg("dataset_a"))
+        b = _make_dataset_id(self._cfg("dataset_b"))
+        assert a != b

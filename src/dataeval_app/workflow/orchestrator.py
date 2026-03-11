@@ -1,6 +1,5 @@
 """Task orchestration — config → execution bridge."""
 
-import hashlib
 import logging
 from collections.abc import Mapping
 from pathlib import Path
@@ -19,26 +18,6 @@ if TYPE_CHECKING:
     from dataeval_app.workflows.cleaning.outputs import DataCleaningResult
 
 __all__ = ["run_task"]
-
-_MAX_DS_ID_BYTES = 100  # Conservative limit (ext4 NAME_MAX = 255 bytes)
-
-
-def _make_ds_id(dataset_config: "DatasetConfig") -> str:
-    """Build a cache-safe dataset identifier from a single dataset config.
-
-    Hashes the full serialized config (name, path, split, format, etc.)
-    so that changes to *any* config field — not just the name — produce
-    a distinct cache directory.  The result is ``{name_prefix}_{hash}``
-    where the prefix keeps it human-readable and the hash guarantees
-    uniqueness.
-    """
-    raw_json = dataset_config.model_dump_json(exclude_defaults=False)
-    config_hash = hashlib.sha256(raw_json.encode("utf-8")).hexdigest()[:16]
-
-    # Human-readable prefix from dataset name
-    max_prefix = _MAX_DS_ID_BYTES - 17  # 17 = 1 ("_") + 16 (hash)
-    prefix = dataset_config.name.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
-    return f"{prefix}_{config_hash}"
 
 
 @runtime_checkable
@@ -183,6 +162,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
         If a referenced config (dataset, model, etc.) is not found,
         or if a mapping references unknown dataset names.
     """
+    from dataeval_app.cache import DatasetCache
     from dataeval_app.config.models import ModelConfig
     from dataeval_app.config.schemas import (
         DatasetConfig,
@@ -245,14 +225,11 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
 
         label_source = _infer_label_source(ds_config)
 
-        # Build per-dataset cache (keyed to this dataset's config only)
-        ds_cache = None
-        if task.cache_dir:
-            from dataeval_app.cache import DatasetCache
-
-            cache_path = Path(task.cache_dir)
-            ds_id = _make_ds_id(ds_config)
-            ds_cache = DatasetCache(cache_dir=cache_path, dataset_name=ds_id)
+        # Build per-dataset cache (keyed to this dataset's config only).
+        # Always instantiated — disk-backed when cache_dir is set,
+        # memory-only otherwise (singleton via get_or_create).
+        cache_path = Path(task.cache_dir) if task.cache_dir else None
+        ds_cache = DatasetCache.get_or_create(cache_dir=cache_path, dataset_config=ds_config)
 
         dataset_contexts[ds_name] = DatasetContext(
             name=ds_name,
