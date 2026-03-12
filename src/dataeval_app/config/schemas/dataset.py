@@ -54,7 +54,7 @@ class DatasetConfig(BaseModel):
 
 
 class DatasetProtocolConfig(BaseModel):
-    """Configuration for an in-memory dataset that conforms to a known protocol."""
+    """Dataset Configuration schema for an in-memory dataset."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 

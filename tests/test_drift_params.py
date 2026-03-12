@@ -317,7 +317,7 @@ class TestDriftMonitoringParameters:
         params = DriftMonitoringParameters.model_validate({"detectors": [{"method": "mmd"}]})
         assert len(params.detectors) == 1
         assert params.detectors[0].chunking is None
-        assert params.classwise is False
+        assert params.detectors[0].classwise is False
         assert params.update_strategy is None
         assert params.mode == "advisory"
 
@@ -326,10 +326,14 @@ class TestDriftMonitoringParameters:
             {
                 "mode": "preparatory",
                 "detectors": [
-                    {"method": "univariate", "test": "ks", "chunking": {"enabled": True, "chunk_size": 100}},
-                    {"method": "mmd", "n_permutations": 200},
+                    {
+                        "method": "univariate",
+                        "test": "ks",
+                        "classwise": True,
+                        "chunking": {"enabled": True, "chunk_size": 100},
+                    },
+                    {"method": "mmd", "n_permutations": 200, "classwise": True},
                 ],
-                "classwise": True,
                 "update_strategy": {"type": "last_seen", "n": 500},
                 "health_thresholds": {
                     "any_drift_is_warning": False,
@@ -342,7 +346,8 @@ class TestDriftMonitoringParameters:
         assert params.detectors[0].chunking is not None
         assert params.detectors[0].chunking.chunk_size == 100
         assert params.detectors[1].chunking is None
-        assert params.classwise is True
+        assert params.detectors[0].classwise is True
+        assert params.detectors[1].classwise is True
         assert params.update_strategy is not None
         assert params.update_strategy.type == "last_seen"
         assert params.health_thresholds.any_drift_is_warning is False

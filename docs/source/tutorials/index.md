@@ -7,6 +7,7 @@ Learning-oriented guides that walk you through using DataEval App step by step.
 
 ../notebooks/data_cleaning
 ../notebooks/drift_monitoring
+../notebooks/classwise_drift
 ```
 
 ## Planned tutorials
