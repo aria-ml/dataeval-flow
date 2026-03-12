@@ -172,8 +172,7 @@ pages:
     COSIGN_PASSWORD: ""
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH =~ /^container/
-    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^container/
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
     - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$dataeval+dataeval-app' --password-stdin
   after_script:
@@ -216,7 +215,11 @@ push:docker:
       -t ${CI_APPLICATION_REPOSITORY}:${VARIANT}
       .
     - docker push ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-${VARIANT}
-    - docker push ${CI_APPLICATION_REPOSITORY}:${VARIANT}
+    # Only update the "latest" variant tag (e.g. :cpu) on main
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker push "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
+      fi
 
     # Sign with cosign
     - printf '%s' "$COSIGN_PRIVATE_KEY_B64" | base64 -d > cosign.key
@@ -280,15 +283,15 @@ container-test:
     - mkdir -p /tmp/test-dataset
     - echo "test" > /tmp/test-dataset/dummy.txt
 
-    # Pull CPU image from Harbor
-    - docker pull ${CI_APPLICATION_REPOSITORY}:cpu
+    # Pull CPU image from Harbor (use SHA tag so this works on both main and tag pipelines)
+    - docker pull ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-cpu
 
     # Smoke test: Run with --help flag (triggers entrypoint help display)
     - |
       docker run --rm \
         -v /tmp/test-config:/data/config:ro \
         -v /tmp/test-dataset:/data/dataset:ro \
-        ${CI_APPLICATION_REPOSITORY}:cpu --help
+        ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-cpu --help
 
     - echo "Container smoke test passed"
 
@@ -342,11 +345,25 @@ sbom:
 # -----------------------------------------------------------------------------
 
 release:tag:
-  extends: .container-setup
+  extends: .push-setup
   stage: release
+  needs: [push:docker]
+  parallel:
+    matrix: *variants
   rules:
-    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
-    - docker pull ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}
-    - docker tag ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG} ${CI_APPLICATION_REPOSITORY}:${CI_COMMIT_TAG}
-    - docker push ${CI_APPLICATION_REPOSITORY}:${CI_COMMIT_TAG}
+    - VERSION=${CI_COMMIT_TAG#v}
+
+    # Re-tag SHA image with version-variant tag (e.g. dataeval:0.0.5-cpu)
+    - docker pull ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-${VARIANT}
+    - docker tag ${CI_APPLICATION_REPOSITORY}:${CI_APPLICATION_TAG}-${VARIANT} ${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}
+    - docker push ${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}
+
+    # Sign with cosign
+    - printf '%s' "$COSIGN_PRIVATE_KEY_B64" | base64 -d > cosign.key
+    - chmod 600 cosign.key
+    - docker pull "${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}"
+    - IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}")
+    - cosign sign --key cosign.key --yes "$IMAGE_DIGEST"
+    - rm -f cosign.key
