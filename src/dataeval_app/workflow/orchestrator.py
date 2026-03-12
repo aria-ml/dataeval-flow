@@ -1,5 +1,7 @@
 """Task orchestration — config → execution bridge."""
 
+__all__ = ["run_task"]
+
 import logging
 from collections.abc import Mapping
 from pathlib import Path
@@ -11,13 +13,10 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from dataeval_app.config.models import WorkflowConfig
-    from dataeval_app.config.schemas.dataset import DatasetConfig
     from dataeval_app.config.schemas.metadata import ResultMetadata
     from dataeval_app.config.schemas.task import DataCleaningTaskConfig, TaskConfig
     from dataeval_app.workflow import DatasetContext, WorkflowResult
     from dataeval_app.workflows.cleaning.outputs import DataCleaningResult
-
-__all__ = ["run_task"]
 
 
 @runtime_checkable
@@ -114,17 +113,6 @@ def _validate_mapping_keys(
         raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
 
 
-def _infer_label_source(ds_config: "DatasetConfig") -> str | None:
-    """Determine label provenance annotation for the dataset format."""
-    if ds_config.format == "image_folder" and ds_config.infer_labels:
-        return "filepath"
-    if ds_config.format in ("coco", "yolo"):
-        return "annotations"
-    if ds_config.format == "huggingface":
-        return "huggingface"
-    return None
-
-
 @overload
 def run_task(  # pyright: ignore[reportOverlappingOverload]
     task: "DataCleaningTaskConfig", config: "WorkflowConfig"
@@ -167,11 +155,10 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
     from dataeval_app.cache import DatasetCache
     from dataeval_app.config.models import ModelConfig
     from dataeval_app.config.schemas import (
-        DatasetConfig,
         PreprocessorConfig,
         SelectionConfig,
     )
-    from dataeval_app.dataset import load_dataset
+    from dataeval_app.dataset import resolve_dataset
     from dataeval_app.preprocessing import build_preprocessing
     from dataeval_app.workflow import DatasetContext, WorkflowContext, get_workflow
 
@@ -190,18 +177,8 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
     #    different workflows sharing the same dataset can reuse cached results)
     dataset_contexts: dict[str, DatasetContext] = {}
     for ds_name in dataset_names:
-        ds_config: DatasetConfig = _resolve_by_name(config.datasets, ds_name, "datasets")
-        dataset = load_dataset(
-            Path(ds_config.path),
-            split=ds_config.split,
-            dataset_format=ds_config.format,
-            recursive=ds_config.recursive,
-            infer_labels=ds_config.infer_labels,
-            annotations_file=ds_config.annotations_file,
-            images_dir=ds_config.images_dir,
-            labels_dir=ds_config.labels_dir,
-            classes_file=ds_config.classes_file,
-        )
+        ds_config = _resolve_by_name(config.datasets, ds_name, "datasets")
+        resolved = resolve_dataset(ds_config)
 
         # Resolve model → extractor (optional)
         extractor_config = None
@@ -225,22 +202,24 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
         if sel_config is not None:
             selection_steps = sel_config.steps
 
-        label_source = _infer_label_source(ds_config)
-
         # Build per-dataset cache (keyed to this dataset's config only).
         # Always instantiated — disk-backed when cache_dir is set,
         # memory-only otherwise (singleton via get_or_create).
         cache_path = Path(task.cache_dir) if task.cache_dir else None
-        ds_cache = DatasetCache.get_or_create(cache_dir=cache_path, dataset_config=ds_config)
+        ds_cache = DatasetCache.get_or_create(
+            cache_dir=cache_path,
+            name=resolved.name,
+            cache_key=resolved.cache_key,
+        )
 
         dataset_contexts[ds_name] = DatasetContext(
             name=ds_name,
-            dataset=dataset,  # type: ignore[arg-type]  # MaiteDataset | ImageFolderDataset → AnnotatedDataset
+            dataset=resolved.dataset,
             extractor=extractor_config,
             transforms=transforms,
             selection_steps=selection_steps,
             batch_size=task.batch_size,
-            label_source=label_source,
+            label_source=resolved.label_source,
             cache=ds_cache,
         )
 

@@ -1455,12 +1455,8 @@ class TestGetOrComputeClusterResult:
 
 class TestGetOrCreateDiskBacked:
     def test_disk_backed_returns_fresh_instance(self, tmp_path: Path):
-        ds_cfg = MagicMock()
-        ds_cfg.model_dump_json.return_value = '{"name":"ds","path":"/data"}'
-        ds_cfg.name = "myds"
-
-        cache1 = DatasetCache.get_or_create(tmp_path, ds_cfg)
-        cache2 = DatasetCache.get_or_create(tmp_path, ds_cfg)
+        cache1 = DatasetCache.get_or_create(tmp_path, name="myds", cache_key='{"name":"ds","path":"/data"}')
+        cache2 = DatasetCache.get_or_create(tmp_path, name="myds", cache_key='{"name":"ds","path":"/data"}')
 
         # Disk-backed always creates fresh instances (not singletons)
         assert cache1 is not cache2
@@ -1634,15 +1630,17 @@ class TestLoadOrComputeClusterResult:
 
 class TestMakeDsId:
     @staticmethod
-    def _cfg(name: str, **kwargs: Any) -> Any:
+    def _key(name: str, **kwargs: Any) -> tuple[str, str]:
+        """Return (name, cache_key) for _make_dataset_id."""
         from dataeval_app.config.schemas.dataset import DatasetConfig
 
-        defaults = {"format": "huggingface", "path": f"/data/{name}", "split": "train"}
+        defaults: dict[str, Any] = {"format": "huggingface", "path": f"/data/{name}", "split": "train"}
         defaults.update(kwargs)
-        return DatasetConfig(name=name, **defaults)  # type: ignore[call-arg]
+        cfg = DatasetConfig(name=name, **defaults)  # type: ignore[call-arg]
+        return name, cfg.model_dump_json(exclude_defaults=False)
 
     def test_single_dataset_has_name_prefix_and_hash(self):
-        result = _make_dataset_id(self._cfg("my_dataset"))
+        result = _make_dataset_id(*self._key("my_dataset"))
         assert result.startswith("my_dataset_")
         hash_suffix = result.rsplit("_", 1)[-1]
         assert len(hash_suffix) == 16
@@ -1650,24 +1648,24 @@ class TestMakeDsId:
 
     def test_different_split_different_id(self):
         """Changing split (but keeping name) must produce a different cache id."""
-        train = _make_dataset_id(self._cfg("ds", split="train"))
-        test = _make_dataset_id(self._cfg("ds", split="test"))
+        train = _make_dataset_id(*self._key("ds", split="train"))
+        test = _make_dataset_id(*self._key("ds", split="test"))
         assert train != test
 
     def test_different_path_different_id(self):
         """Changing path (but keeping name) must produce a different cache id."""
-        a = _make_dataset_id(self._cfg("ds", path="/data/a"))
-        b = _make_dataset_id(self._cfg("ds", path="/data/b"))
+        a = _make_dataset_id(*self._key("ds", path="/data/a"))
+        b = _make_dataset_id(*self._key("ds", path="/data/b"))
         assert a != b
 
     def test_same_config_deterministic(self):
         """Same config always produces the same output."""
-        cfg = self._cfg("my_dataset")
-        assert _make_dataset_id(cfg) == _make_dataset_id(cfg)
+        key = self._key("my_dataset")
+        assert _make_dataset_id(*key) == _make_dataset_id(*key)
 
     def test_long_name_truncated(self):
         """Result must fit within _MAX_DS_ID_BYTES."""
-        result = _make_dataset_id(self._cfg("a" * 200))
+        result = _make_dataset_id(*self._key("a" * 200))
         assert len(result.encode("utf-8")) <= 100
         hash_suffix = result.rsplit("_", 1)[-1]
         assert len(hash_suffix) == 16
@@ -1675,6 +1673,6 @@ class TestMakeDsId:
 
     def test_different_configs_different_ids(self):
         """Different dataset configs produce different hashed IDs."""
-        a = _make_dataset_id(self._cfg("dataset_a"))
-        b = _make_dataset_id(self._cfg("dataset_b"))
+        a = _make_dataset_id(*self._key("dataset_a"))
+        b = _make_dataset_id(*self._key("dataset_b"))
         assert a != b

@@ -12,6 +12,7 @@ from dataeval_app.config import (
     load_config,
     load_config_folder,
 )
+from dataeval_app.config.schemas.dataset import DatasetConfig
 from dataeval_app.workflow.base import (
     Reportable,
     WorkflowOutputsBase,
@@ -829,6 +830,7 @@ class TestP1SchemaClasses:
         # Verify datasets
         assert config.datasets is not None
         assert len(config.datasets) == 1
+        assert isinstance(config.datasets[0], DatasetConfig)
         assert config.datasets[0].name == "cppe5"
         assert config.datasets[0].split == "train"
 

@@ -18,6 +18,7 @@ import dataeval_app.dataset
 import dataeval_app.metadata
 import dataeval_app.workflows.cleaning.workflow  # noqa: F401
 from dataeval_app.config import load_config_folder
+from dataeval_app.config.schemas.dataset import DatasetConfig
 
 
 class TestConfigToFactoryIntegration:
@@ -132,6 +133,7 @@ class TestConfigToFactoryIntegration:
 
         # Verify resolved config details
         resolved_dataset = datasets_by_name[task1.datasets]
+        assert isinstance(resolved_dataset, DatasetConfig)
         assert resolved_dataset.format == "huggingface"
         assert resolved_dataset.path == "./a"
 

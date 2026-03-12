@@ -87,8 +87,6 @@ from numpy.typing import NDArray
 if TYPE_CHECKING:
     from dataeval import Metadata
 
-    from dataeval_app.config.schemas.dataset import DatasetConfig
-
 _logger = logging.getLogger(__name__)
 
 # Bump this when the on-disk cache format changes in a backwards-incompatible
@@ -239,21 +237,26 @@ def _atomic_write_pair(
 _MAX_DS_ID_BYTES = 100  # Conservative limit (ext4 NAME_MAX = 255 bytes)
 
 
-def _make_dataset_id(dataset_config: "DatasetConfig") -> str:
-    """Build a cache-safe dataset identifier from a dataset config.
+def _make_dataset_id(name: str, cache_key: str) -> str:
+    """Build a cache-safe dataset identifier.
 
-    Hashes the full serialized config (name, path, split, format, etc.)
-    so that changes to *any* config field — not just the name — produce
-    a distinct cache directory.  The result is ``{name_prefix}_{hash}``
+    Hashes *cache_key* so that changes to any config field produce a
+    distinct cache directory.  The result is ``{name_prefix}_{hash}``
     where the prefix keeps it human-readable and the hash guarantees
     uniqueness.
-    """
-    raw_json = dataset_config.model_dump_json(exclude_defaults=False)
-    config_hash = hashlib.sha256(raw_json.encode("utf-8")).hexdigest()[:16]
 
-    # Human-readable prefix from dataset name
+    Parameters
+    ----------
+    name : str
+        Human-readable dataset name (used as prefix).
+    cache_key : str
+        Opaque string whose content uniquely identifies the dataset
+        configuration.  Provided by :func:`resolve_dataset`.
+    """
+    config_hash = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
+
     max_prefix = _MAX_DS_ID_BYTES - 17  # 17 = 1 ("_") + 16 (hash)
-    prefix = dataset_config.name.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
+    prefix = name.encode("utf-8")[:max_prefix].decode("utf-8", errors="ignore")
     return f"{prefix}_{config_hash}"
 
 
@@ -547,10 +550,10 @@ class DatasetCache:
     _instances_lock: threading.Lock = threading.Lock()
 
     @classmethod
-    def get_or_create(cls, cache_dir: Path | None, dataset_config: "DatasetConfig") -> "DatasetCache":
+    def get_or_create(cls, cache_dir: Path | None, name: str, cache_key: str) -> "DatasetCache":
         """Return an existing instance for this key, or create a new one.
 
-        Derives the dataset identifier from *dataset_config* via
+        Derives the dataset identifier from *name* and *cache_key* via
         :func:`_make_dataset_id`.
 
         For **non-disk-backed** caches (``cache_dir is None``), a global
@@ -560,7 +563,7 @@ class DatasetCache:
         For **disk-backed** caches, a fresh instance is always created
         (the disk itself provides persistence).
         """
-        dataset_name = _make_dataset_id(dataset_config)
+        dataset_name = _make_dataset_id(name, cache_key)
         if cache_dir is not None:
             return cls(cache_dir, dataset_name)
         with cls._instances_lock:

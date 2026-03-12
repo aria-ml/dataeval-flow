@@ -1,12 +1,8 @@
 """Dataset configuration schema."""
 
-from __future__ import annotations
+from typing import Any, ClassVar, Literal
 
-from typing import Literal
-
-from pydantic import BaseModel, model_validator
-
-DatasetFormat = Literal["huggingface", "coco", "yolo", "image_folder"]
+from pydantic import BaseModel, ConfigDict, model_validator
 
 # Which optional fields are relevant for each format.
 _FORMAT_FIELDS: dict[str, frozenset[str]] = {
@@ -34,7 +30,7 @@ class DatasetConfig(BaseModel):
     """Dataset configuration schema."""
 
     name: str
-    format: DatasetFormat
+    format: Literal["huggingface", "coco", "yolo", "image_folder"]
     path: str
     split: str | None = None
     recursive: bool = False
@@ -45,7 +41,7 @@ class DatasetConfig(BaseModel):
     classes_file: str | None = None
 
     @model_validator(mode="after")
-    def _reject_irrelevant_fields(self) -> DatasetConfig:
+    def _reject_irrelevant_fields(self) -> "DatasetConfig":
         """Raise if format-specific fields are set for a format that ignores them."""
         allowed = _FORMAT_FIELDS.get(self.format, frozenset())
         for field_name in _OPTIONAL_FIELDS - allowed:
@@ -55,3 +51,14 @@ class DatasetConfig(BaseModel):
                 msg = f"'{field_name}' is not supported for format='{self.format}'"
                 raise ValueError(msg)
         return self
+
+
+class DatasetProtocolConfig(BaseModel):
+    """Configuration for an in-memory dataset that conforms to a known protocol."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+
+    name: str
+    format: Literal["maite", "torchvision"] = "maite"
+    dataset: Any
+    version: str = "1"

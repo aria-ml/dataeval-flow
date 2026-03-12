@@ -498,39 +498,36 @@ class TestRunTask:
 # ---------------------------------------------------------------------------
 
 
-class TestInferLabelSource:
-    """Direct unit tests for the _infer_label_source helper."""
+class TestLabelSourceResolution:
+    """Tests for label_source resolution via _LABEL_SOURCE and resolve_dataset."""
 
-    @staticmethod
-    def _make_config(fmt: str, **kwargs: object) -> Any:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+    def test_label_source_table_huggingface(self) -> None:
+        from dataeval_app.dataset import _LABEL_SOURCE
 
-        return DatasetConfig(name="ds", format=fmt, path="/data/ds", **kwargs)  # type: ignore[arg-type]
+        assert _LABEL_SOURCE["huggingface"] == "huggingface"
 
-    def test_huggingface_returns_huggingface(self) -> None:
-        from dataeval_app.workflow.orchestrator import _infer_label_source
+    def test_label_source_table_coco(self) -> None:
+        from dataeval_app.dataset import _LABEL_SOURCE
 
-        assert _infer_label_source(self._make_config("huggingface")) == "huggingface"
+        assert _LABEL_SOURCE["coco"] == "annotations"
 
-    def test_image_folder_no_infer_returns_none(self) -> None:
-        from dataeval_app.workflow.orchestrator import _infer_label_source
+    def test_label_source_table_yolo(self) -> None:
+        from dataeval_app.dataset import _LABEL_SOURCE
 
-        assert _infer_label_source(self._make_config("image_folder")) is None
+        assert _LABEL_SOURCE["yolo"] == "annotations"
 
-    def test_image_folder_infer_labels_returns_filepath(self) -> None:
-        from dataeval_app.workflow.orchestrator import _infer_label_source
+    def test_label_source_table_image_folder_absent(self) -> None:
+        from dataeval_app.dataset import _LABEL_SOURCE
 
-        assert _infer_label_source(self._make_config("image_folder", infer_labels=True)) == "filepath"
+        assert "image_folder" not in _LABEL_SOURCE
 
-    def test_coco_returns_annotations(self) -> None:
-        from dataeval_app.workflow.orchestrator import _infer_label_source
+    def test_protocol_config_returns_protocol(self) -> None:
+        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_app.dataset import resolve_dataset
 
-        assert _infer_label_source(self._make_config("coco")) == "annotations"
-
-    def test_yolo_returns_annotations(self) -> None:
-        from dataeval_app.workflow.orchestrator import _infer_label_source
-
-        assert _infer_label_source(self._make_config("yolo")) == "annotations"
+        cfg = DatasetProtocolConfig(name="ds", dataset=[1, 2, 3])
+        resolved = resolve_dataset(cfg)
+        assert resolved.label_source == "protocol"
 
     def test_coco_rejects_infer_labels(self) -> None:
         """Schema rejects infer_labels=True for COCO (it's image_folder-only)."""

@@ -1,10 +1,12 @@
 """Tests for the dataeval_app package."""
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from torchvision.tv_tensors import BoundingBoxes
 
 
 @pytest.mark.required
@@ -479,6 +481,520 @@ class TestYoloDatasetFixture:
         assert img.shape[0] == 3  # RGB channels
         assert hasattr(target, "boxes")  # OD target has bounding boxes
         assert isinstance(meta, dict)
+
+
+# ---------------------------------------------------------------------------
+# TorchvisionDataset — classification
+# ---------------------------------------------------------------------------
+
+
+def _make_cls_dataset(num_samples: int = 10, classes: list[str] | None = None):
+    """Create a fake torchvision classification dataset."""
+
+    class _FakeCls:
+        def __init__(self):
+            self.classes = classes
+
+        def __len__(self):
+            return num_samples
+
+        def __getitem__(self, i):
+            from PIL import Image
+
+            rng = np.random.RandomState(i)
+            img = Image.fromarray(rng.randint(0, 255, (16, 16, 3), dtype=np.uint8))
+            return img, i % max(len(classes), 1) if classes else i
+
+    return _FakeCls()
+
+
+def _make_bboxes(
+    data: Any,
+    format: Any,  # noqa: A002
+    canvas_size: tuple[int, int],
+) -> BoundingBoxes:
+    """Typed wrapper around BoundingBoxes() to satisfy pyright."""
+    return BoundingBoxes(data, format=format, canvas_size=canvas_size)  # pyright: ignore[reportCallIssue]
+
+
+def _make_od_dataset(num_samples: int = 5, classes: list[str] | None = None, box_format: str = "XYXY"):
+    """Create a fake torchvision v2-wrapped object detection dataset."""
+    import torch
+    from torchvision.tv_tensors import BoundingBoxFormat
+
+    fmt = BoundingBoxFormat[box_format]
+
+    class _FakeOD:
+        def __init__(self):
+            self.classes = classes
+
+        def __len__(self):
+            return num_samples
+
+        def __getitem__(self, i):
+            from PIL import Image
+
+            rng = np.random.RandomState(i)
+            img = Image.fromarray(rng.randint(0, 255, (64, 64, 3), dtype=np.uint8))
+            n_boxes = rng.randint(1, 4)
+            raw_boxes = rng.randint(1, 50, (n_boxes, 4)).astype(np.float32)
+            boxes = _make_bboxes(torch.tensor(raw_boxes), format=fmt, canvas_size=(64, 64))
+            labels = torch.tensor(rng.randint(0, max(len(classes), 2) if classes else 2, n_boxes))
+            return img, {"boxes": boxes, "labels": labels}
+
+    return _FakeOD()
+
+
+@pytest.mark.required
+class TestTorchvisionDatasetClassification:
+    """Tests for TorchvisionDataset with classification datasets."""
+
+    def test_len(self) -> None:
+        """Adapter preserves dataset length."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(num_samples=7, classes=["a", "b"]))
+        assert len(ds) == 7
+
+    def test_getitem_returns_three_tuple(self) -> None:
+        """__getitem__ returns (image, target, metadata) tuple."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(classes=["a", "b"]))
+        result = ds[0]
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+
+    def test_image_chw_float32(self) -> None:
+        """Image is converted to CHW float32 numpy array."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(classes=["a"]))
+        img, _, _ = ds[0]
+        assert isinstance(img, np.ndarray)
+        assert img.dtype == np.float32
+        assert img.shape == (3, 16, 16)
+
+    def test_one_hot_target_with_classes(self) -> None:
+        """Integer label → one-hot vector when classes is available."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(num_samples=4, classes=["cat", "dog", "bird"]))
+        # sample 0 → label 0 → [1, 0, 0]
+        _, tgt0, _ = ds[0]
+        assert tgt0.shape == (3,)
+        assert tgt0.dtype == np.float32
+        assert tgt0[0] == 1.0
+        assert tgt0[1] == 0.0
+        assert tgt0[2] == 0.0
+
+        # sample 1 → label 1 → [0, 1, 0]
+        _, tgt1, _ = ds[1]
+        assert tgt1[1] == 1.0
+
+    def test_scalar_target_without_classes(self) -> None:
+        """Without classes, target is passed through as float32 array."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(classes=None))
+        _, tgt, _ = ds[0]
+        assert tgt.dtype == np.float32
+
+    def test_metadata_has_id(self) -> None:
+        """Datum metadata contains the sample index."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(classes=["a"]))
+        _, _, meta = ds[3]
+        assert meta["id"] == 3
+
+    def test_dataset_metadata_index2label(self) -> None:
+        """Dataset-level metadata exposes index2label from classes."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(classes=["airplane", "ship"]))
+        m = ds.metadata
+        assert m["index2label"] == {0: "airplane", 1: "ship"}  # type: ignore
+        assert isinstance(m["id"], str)
+
+    def test_dataset_metadata_empty_without_classes(self) -> None:
+        """index2label is empty when dataset has no classes attribute."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_cls_dataset(classes=None))
+        assert ds.metadata["index2label"] == {}  # type: ignore
+
+    def test_torch_tensor_image(self) -> None:
+        """Adapter handles torch Tensor images (CHW)."""
+        import torch
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _TensorDs:
+            classes = ["a", "b"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                return torch.randn(3, 32, 32), 0
+
+        ds = TorchvisionDataset(_TensorDs())
+        img, _, _ = ds[0]
+        assert img.shape == (3, 32, 32)
+        assert img.dtype == np.float32
+
+    def test_hwc_tensor_image(self) -> None:
+        """Adapter transposes HWC tensors to CHW."""
+        import torch
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _HWCDs:
+            classes = ["a"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                return torch.randn(32, 32, 3), 0  # HWC
+
+        ds = TorchvisionDataset(_HWCDs())
+        img, _, _ = ds[0]
+        assert img.shape == (3, 32, 32)
+
+    def test_grayscale_pil_image(self) -> None:
+        """Grayscale PIL image is converted to 3-channel RGB CHW."""
+        from PIL import Image
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _GrayDs:
+            classes = ["a"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                return Image.new("L", (8, 8)), 0
+
+        ds = TorchvisionDataset(_GrayDs())
+        img, _, _ = ds[0]
+        assert img.shape == (3, 8, 8)
+
+
+# ---------------------------------------------------------------------------
+# TorchvisionDataset — object detection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestTorchvisionDatasetObjectDetection:
+    """Tests for TorchvisionDataset with object detection datasets."""
+
+    def test_od_target_type(self) -> None:
+        """OD targets conform to ObjectDetectionTarget protocol."""
+        from dataeval.protocols import ObjectDetectionTarget
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_od_dataset(classes=["a", "b"]))
+        _, tgt, _ = ds[0]
+        assert isinstance(tgt, ObjectDetectionTarget)
+
+    def test_od_target_has_boxes_labels_scores(self) -> None:
+        """OD target exposes boxes, labels, and scores as numpy arrays."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_od_dataset(classes=["a", "b"]))
+        _, tgt, _ = ds[0]
+        assert isinstance(tgt.boxes, np.ndarray)
+        assert isinstance(tgt.labels, np.ndarray)
+        assert isinstance(tgt.scores, np.ndarray)
+
+    def test_od_boxes_shape(self) -> None:
+        """Boxes are (N, 4) float32."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_od_dataset(classes=["a", "b"]))
+        _, tgt, _ = ds[0]
+        assert tgt.boxes.ndim == 2
+        assert tgt.boxes.shape[1] == 4
+        assert tgt.boxes.dtype == np.float32
+
+    def test_od_scores_one_hot(self) -> None:
+        """Scores are one-hot with correct shape (N, num_classes)."""
+        from dataeval_app.dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset(_make_od_dataset(classes=["cat", "dog", "bird"]))
+        _, tgt, _ = ds[0]
+        n_boxes = len(tgt.labels)
+        assert tgt.scores.shape == (n_boxes, 3)
+        # Each row sums to 1.0 (one-hot)
+        np.testing.assert_array_equal(tgt.scores.sum(axis=1), np.ones(n_boxes))
+
+    def test_xywh_converted_to_xyxy(self) -> None:
+        """XYWH bounding boxes are converted to XYXY."""
+        import torch
+        from torchvision.tv_tensors import BoundingBoxFormat
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _XYWHDs:
+            classes = ["a"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                from PIL import Image
+
+                img = Image.new("RGB", (100, 100))
+                # XYWH (10, 20, 30, 40) → XYXY (10, 20, 40, 60)
+                boxes = _make_bboxes(
+                    torch.tensor([[10.0, 20.0, 30.0, 40.0]]),
+                    format=BoundingBoxFormat.XYWH,
+                    canvas_size=(100, 100),
+                )
+                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+
+        ds = TorchvisionDataset(_XYWHDs())
+        _, tgt, _ = ds[0]
+        np.testing.assert_allclose(tgt.boxes[0], [10.0, 20.0, 40.0, 60.0])
+
+    def test_cxcywh_converted_to_xyxy(self) -> None:
+        """CXCYWH bounding boxes are converted to XYXY."""
+        import torch
+        from torchvision.tv_tensors import BoundingBoxFormat
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _CXCYWHDs:
+            classes = ["a"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                from PIL import Image
+
+                img = Image.new("RGB", (100, 100))
+                # CXCYWH (50, 50, 20, 30) → XYXY (40, 35, 60, 65)
+                boxes = _make_bboxes(
+                    torch.tensor([[50.0, 50.0, 20.0, 30.0]]),
+                    format=BoundingBoxFormat.CXCYWH,
+                    canvas_size=(100, 100),
+                )
+                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+
+        ds = TorchvisionDataset(_CXCYWHDs())
+        _, tgt, _ = ds[0]
+        np.testing.assert_allclose(tgt.boxes[0], [40.0, 35.0, 60.0, 65.0])
+
+    def test_xyxy_passed_through(self) -> None:
+        """XYXY bounding boxes are not modified."""
+        import torch
+        from torchvision.tv_tensors import BoundingBoxFormat
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _XYXYDs:
+            classes = ["a"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                from PIL import Image
+
+                img = Image.new("RGB", (100, 100))
+                boxes = _make_bboxes(
+                    torch.tensor([[10.0, 20.0, 50.0, 60.0]]),
+                    format=BoundingBoxFormat.XYXY,
+                    canvas_size=(100, 100),
+                )
+                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+
+        ds = TorchvisionDataset(_XYXYDs())
+        _, tgt, _ = ds[0]
+        np.testing.assert_allclose(tgt.boxes[0], [10.0, 20.0, 50.0, 60.0])
+
+    def test_plain_tensor_boxes(self) -> None:
+        """Plain torch tensors (no BoundingBoxes) are assumed XYXY."""
+        import torch
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _PlainDs:
+            classes = ["a"]
+
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                from PIL import Image
+
+                img = Image.new("RGB", (100, 100))
+                boxes = torch.tensor([[10.0, 20.0, 50.0, 60.0]])
+                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+
+        ds = TorchvisionDataset(_PlainDs())
+        _, tgt, _ = ds[0]
+        np.testing.assert_allclose(tgt.boxes[0], [10.0, 20.0, 50.0, 60.0])
+
+    def test_od_num_classes_from_labels_when_no_classes_attr(self) -> None:
+        """Without .classes, num_classes is inferred from max label."""
+        import torch
+        from torchvision.tv_tensors import BoundingBoxFormat
+
+        from dataeval_app.dataset import TorchvisionDataset
+
+        class _NoClassesDs:
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, i):
+                from PIL import Image
+
+                img = Image.new("RGB", (64, 64))
+                boxes = _make_bboxes(
+                    torch.tensor([[0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 20.0, 20.0]]),
+                    format=BoundingBoxFormat.XYXY,
+                    canvas_size=(64, 64),
+                )
+                return img, {"boxes": boxes, "labels": torch.tensor([0, 2])}
+
+        ds = TorchvisionDataset(_NoClassesDs())
+        _, tgt, _ = ds[0]
+        # max label is 2 → num_classes = 3
+        assert tgt.scores.shape == (2, 3)
+
+
+# ---------------------------------------------------------------------------
+# _ObjectDetectionTarget
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestObjectDetectionTarget:
+    """Tests for the _ObjectDetectionTarget helper class."""
+
+    def test_protocol_conformance(self) -> None:
+        """_ObjectDetectionTarget satisfies the ObjectDetectionTarget protocol."""
+        from dataeval.protocols import ObjectDetectionTarget
+
+        from dataeval_app.dataset import _ObjectDetectionTarget
+
+        t = _ObjectDetectionTarget(
+            boxes=np.zeros((2, 4), dtype=np.float32),
+            labels=np.array([0, 1], dtype=np.intp),
+            scores=np.eye(2, dtype=np.float32),
+        )
+        assert isinstance(t, ObjectDetectionTarget)
+
+    def test_properties(self) -> None:
+        """Properties return the arrays passed at construction."""
+        from dataeval_app.dataset import _ObjectDetectionTarget
+
+        boxes = np.array([[1, 2, 3, 4]], dtype=np.float32)
+        labels = np.array([0], dtype=np.intp)
+        scores = np.array([[1.0, 0.0]], dtype=np.float32)
+        t = _ObjectDetectionTarget(boxes=boxes, labels=labels, scores=scores)
+        np.testing.assert_array_equal(t.boxes, boxes)
+        np.testing.assert_array_equal(t.labels, labels)
+        np.testing.assert_array_equal(t.scores, scores)
+
+
+# ---------------------------------------------------------------------------
+# DatasetProtocolConfig with format="torchvision"
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestDatasetProtocolConfigTorchvision:
+    """Tests for DatasetProtocolConfig with torchvision format."""
+
+    def test_format_torchvision_accepted(self) -> None:
+        """format='torchvision' is a valid literal."""
+        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+
+        cfg = DatasetProtocolConfig(
+            name="test",
+            format="torchvision",
+            dataset=_make_cls_dataset(classes=["a"]),
+        )
+        assert cfg.format == "torchvision"
+
+    def test_format_maite_still_works(self) -> None:
+        """format='maite' (default) is still valid."""
+        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+
+        cfg = DatasetProtocolConfig(name="test", dataset=MagicMock())
+        assert cfg.format == "maite"
+
+    def test_resolve_torchvision_wraps_dataset(self) -> None:
+        """resolve_dataset wraps torchvision datasets in TorchvisionDataset."""
+        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_app.dataset import TorchvisionDataset, resolve_dataset
+
+        cfg = DatasetProtocolConfig(
+            name="tv-test",
+            format="torchvision",
+            dataset=_make_cls_dataset(classes=["a", "b"]),
+        )
+        resolved = resolve_dataset(cfg)
+        assert isinstance(resolved.dataset, TorchvisionDataset)
+        assert resolved.name == "tv-test"
+        assert resolved.label_source == "torchvision"
+        assert resolved.cache_key == "tv-test:torchvision:1"
+
+    def test_resolve_maite_passes_through(self) -> None:
+        """resolve_dataset does not wrap maite datasets."""
+        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_app.dataset import TorchvisionDataset, resolve_dataset
+
+        raw = MagicMock()
+        cfg = DatasetProtocolConfig(name="m-test", format="maite", dataset=raw)
+        resolved = resolve_dataset(cfg)
+        assert resolved.dataset is raw
+        assert not isinstance(resolved.dataset, TorchvisionDataset)
+
+    def test_resolve_cache_key_includes_version(self) -> None:
+        """cache_key changes when version changes."""
+        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_app.dataset import resolve_dataset
+
+        cfg1 = DatasetProtocolConfig(
+            name="ds", format="torchvision", dataset=_make_cls_dataset(classes=["a"]), version="1"
+        )
+        cfg2 = DatasetProtocolConfig(
+            name="ds", format="torchvision", dataset=_make_cls_dataset(classes=["a"]), version="2"
+        )
+        assert resolve_dataset(cfg1).cache_key != resolve_dataset(cfg2).cache_key
+
+
+# ---------------------------------------------------------------------------
+# load_dataset_torchvision
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestLoadDatasetTorchvision:
+    """Tests for the load_dataset_torchvision convenience function."""
+
+    def test_returns_torchvision_dataset(self) -> None:
+        from dataeval_app.dataset import TorchvisionDataset, load_dataset_torchvision
+
+        result = load_dataset_torchvision(_make_cls_dataset(classes=["a"]))
+        assert isinstance(result, TorchvisionDataset)
+
+    def test_preserves_dataset_data(self) -> None:
+        from dataeval_app.dataset import load_dataset_torchvision
+
+        raw = _make_cls_dataset(num_samples=3, classes=["x", "y"])
+        ds = load_dataset_torchvision(raw)
+        assert len(ds) == 3
+        assert ds.metadata["index2label"] == {0: "x", 1: "y"}  # type: ignore
 
 
 @pytest.mark.required

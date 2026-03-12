@@ -1,27 +1,9 @@
 """Config layer - public re-exports."""
 
-from dataeval_app.config.loader import export_params_schema, load_config, load_config_folder
-from dataeval_app.config.models import (
-    BoVWExtractorConfig,
-    ExtractorConfig,
-    FlattenExtractorConfig,
-    ModelConfig,
-    OnnxExtractorConfig,
-    TorchExtractorConfig,
-    UncertaintyExtractorConfig,
-    WorkflowConfig,
-)
-from dataeval_app.config.schemas import (
-    DatasetConfig,
-    PreprocessorConfig,
-    SelectionConfig,
-    SelectionStep,
-    TaskConfig,
-)
-
 __all__ = [
     "BoVWExtractorConfig",
     "DatasetConfig",
+    "DatasetProtocolConfig",
     "ExtractorConfig",
     "FlattenExtractorConfig",
     "ModelConfig",
@@ -37,3 +19,24 @@ __all__ = [
     "load_config",
     "load_config_folder",
 ]
+
+
+from dataeval_app.config.loader import export_params_schema, load_config, load_config_folder
+from dataeval_app.config.models import (
+    BoVWExtractorConfig,
+    ExtractorConfig,
+    FlattenExtractorConfig,
+    ModelConfig,
+    OnnxExtractorConfig,
+    TorchExtractorConfig,
+    UncertaintyExtractorConfig,
+    WorkflowConfig,
+)
+from dataeval_app.config.schemas import (
+    DatasetConfig,
+    DatasetProtocolConfig,
+    PreprocessorConfig,
+    SelectionConfig,
+    SelectionStep,
+    TaskConfig,
+)

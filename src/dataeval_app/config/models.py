@@ -1,17 +1,5 @@
 """Workflow configuration models."""
 
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, Field
-
-from dataeval_app.config.schemas import (
-    DatasetConfig,
-    PreprocessorConfig,
-    SelectionConfig,
-    TaskConfig,
-)
-from dataeval_app.workflows.cleaning.params import DataCleaningParameters
-
 __all__ = [
     "BoVWExtractorConfig",
     "ExtractorConfig",
@@ -22,6 +10,19 @@ __all__ = [
     "UncertaintyExtractorConfig",
     "WorkflowConfig",
 ]
+
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
+
+from dataeval_app.config.schemas import (
+    DatasetConfig,
+    DatasetProtocolConfig,
+    PreprocessorConfig,
+    SelectionConfig,
+    TaskConfig,
+)
+from dataeval_app.workflows.cleaning.params import DataCleaningParameters
 
 
 class OnnxExtractorConfig(BaseModel):
@@ -115,7 +116,7 @@ class WorkflowConfig(BaseModel):
         default=None,
         description="Optional list of models for embedding extraction",
     )
-    datasets: list[DatasetConfig] | None = None
+    datasets: list[DatasetConfig | DatasetProtocolConfig] | None = None
     preprocessors: list[PreprocessorConfig] | None = None
     selections: list[SelectionConfig] | None = None
     tasks: list[TaskConfig] | None = None
