@@ -507,9 +507,11 @@ class TestMainModule:
 
         with (
             patch("sys.argv", ["dataeval_app", "--output", "/fake/output"]),
-            patch("dataeval_app.__main__._run_tasks"),
+            patch("dataeval_app.runner.run_all_tasks", return_value=0),
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
+        assert exc_info.value.code == 0
 
     def test_main_file_not_found(self) -> None:
         """Test main() with FileNotFoundError."""
@@ -517,7 +519,7 @@ class TestMainModule:
 
         with (
             patch("sys.argv", ["dataeval_app", "--output", "/fake/output"]),
-            patch("dataeval_app.__main__._run_tasks", side_effect=FileNotFoundError("Not found")),
+            patch("dataeval_app.runner.run_all_tasks", side_effect=FileNotFoundError("Not found")),
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
@@ -551,38 +553,6 @@ class TestResultMetadata:
 @pytest.mark.optional
 class TestContainerRun:
     """Test the container landing script."""
-
-    def test_get_dataset_path_default(self) -> None:
-        """Test default container mount path."""
-        from container_run import get_dataset_path
-
-        with patch.dict("os.environ", {}, clear=True):
-            path = get_dataset_path()
-            assert path == Path("/data/dataset")
-
-    def test_get_dataset_path_env_override(self) -> None:
-        """Test environment variable override."""
-        from container_run import get_dataset_path
-
-        with patch.dict("os.environ", {"DATASET_PATH": "/custom/path"}):
-            path = get_dataset_path()
-            assert path == Path("/custom/path")
-
-    def test_get_output_path_default(self) -> None:
-        """Test default output mount path."""
-        from container_run import get_output_path
-
-        with patch.dict("os.environ", {}, clear=True):
-            path = get_output_path()
-            assert path == Path("/output")
-
-    def test_get_output_path_env_override(self) -> None:
-        """Test output path environment override."""
-        from container_run import get_output_path
-
-        with patch.dict("os.environ", {"OUTPUT_PATH": "/custom/output"}):
-            path = get_output_path()
-            assert path == Path("/custom/output")
 
     def test_main_config_not_found(self) -> None:
         """Test main() when config path doesn't exist."""

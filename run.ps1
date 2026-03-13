@@ -1,14 +1,19 @@
 # DataEval Application Runner (PowerShell)
-# Usage: .\run.ps1 -Config "C:\path\to\config" -Dataset "C:\path\to\dataset" [-Output "C:\path\to\output"] [-CPU]
+# Usage: .\run.ps1 -Config PATH -Dataset PATH -Output PATH [-Model PATH] [-Cache PATH] [-CPU]
 
 param(
+    [Parameter(Mandatory=$true)]
     [string]$Config,
 
-    [Parameter(Position=0)]
+    [Parameter(Mandatory=$true)]
     [string]$Dataset,
 
-    [Parameter(Position=1)]
+    [Parameter(Mandatory=$true)]
     [string]$Output,
+
+    [string]$Model,
+
+    [string]$Cache,
 
     [switch]$CPU,
 
@@ -16,39 +21,47 @@ param(
 )
 
 # Show help
-if ($Help -or [string]::IsNullOrEmpty($Dataset) -or [string]::IsNullOrEmpty($Config)) {
+if ($Help) {
     Write-Host "DataEval Application Runner"
     Write-Host ""
     Write-Host "Usage:"
-    Write-Host "  .\run.ps1 -Config PATH -Dataset PATH [-Output PATH] [-CPU]"
+    Write-Host "  .\run.ps1 -Config PATH -Dataset PATH -Output PATH [-Model PATH] [-Cache PATH] [-CPU]"
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -Config   Path to config folder (required)"
     Write-Host "  -Dataset  Path to dataset (required)"
-    Write-Host "  -Output   Path for output files (optional)"
+    Write-Host "  -Output   Path for output files (required)"
+    Write-Host "  -Model    Path to model files (optional)"
+    Write-Host "  -Cache    Path for computation cache (optional)"
     Write-Host "  -CPU      Use CPU container (default: GPU)"
     Write-Host ""
     Write-Host "Examples:"
-    Write-Host "  .\run.ps1 -Config C:\data\config -Dataset C:\data\cifar10_test"
     Write-Host "  .\run.ps1 -Config C:\data\config -Dataset C:\data\cifar10_test -Output C:\data\output"
-    Write-Host "  .\run.ps1 -Config C:\data\config -Dataset C:\data\cifar10_test -CPU"
+    Write-Host "  .\run.ps1 -Config C:\data\config -Dataset C:\data\cifar10_test -Output C:\data\output -Model C:\data\model -Cache C:\data\cache -CPU"
     Write-Host ""
     exit 0
 }
 
-# Build mount arguments (config and dataset are required)
-$Mounts = "--mount type=bind,source=$Config,target=/data/config,readonly"
-$Mounts = "$Mounts --mount type=bind,source=$Dataset,target=/data/dataset,readonly"
+# Build mount arguments
+$Mounts = @(
+    "-v", "${Config}:/data/config:ro",
+    "-v", "${Dataset}:/data/dataset:ro",
+    "-v", "${Output}:/output"
+)
 
-if (-not [string]::IsNullOrEmpty($Output)) {
-    $Mounts = "$Mounts --mount type=bind,source=$Output,target=/output"
+if (-not [string]::IsNullOrEmpty($Model)) {
+    $Mounts += "-v", "${Model}:/data/model:ro"
+}
+
+if (-not [string]::IsNullOrEmpty($Cache)) {
+    $Mounts += "-v", "${Cache}:/cache"
 }
 
 # Run container
 if ($CPU) {
     Write-Host "Running with CPU..."
-    Invoke-Expression "docker run $Mounts dataeval:cpu"
+    docker run --rm @Mounts dataeval-app:cpu
 } else {
     Write-Host "Running with GPU..."
-    Invoke-Expression "docker run --gpus all $Mounts dataeval:gpu"
+    docker run --rm --gpus all @Mounts dataeval-app:gpu
 }

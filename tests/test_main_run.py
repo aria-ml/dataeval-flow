@@ -1,4 +1,4 @@
-"""Tests for __main__.py — _run_tasks path."""
+"""Tests for runner.py and __main__.py."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -10,24 +10,21 @@ class TestRunTasks:
     @patch("dataeval_app.workflow.run_task")
     @patch("dataeval_app.config.load_config_folder")
     def test_no_tasks_exits_zero(self, mock_load: MagicMock, mock_run: MagicMock):  # noqa: ARG002
-        from dataeval_app.__main__ import _run_tasks
+        from dataeval_app.runner import run_all_tasks
 
         config = MagicMock()
         config.tasks = []
         config.logging = None
         mock_load.return_value = config
 
-        with pytest.raises(SystemExit) as exc_info:
-            _run_tasks(Path("/fake/config"), Path("/fake/output"))
-
-        assert exc_info.value.code == 0
+        assert run_all_tasks(Path("/fake/config"), Path("/fake/output")) == 0
 
     @patch("dataeval_app.workflow.run_task")
     @patch("dataeval_app.config.load_config_folder")
     def test_successful_tasks(
         self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
     ):
-        from dataeval_app.__main__ import _run_tasks
+        from dataeval_app.runner import run_all_tasks
 
         task1 = MagicMock()
         task1.name = "task1"
@@ -59,10 +56,7 @@ class TestRunTasks:
 
         mock_run.side_effect = [result1, result2]
 
-        with pytest.raises(SystemExit) as exc_info:
-            _run_tasks(Path("/fake/config"), tmp_path)
-
-        assert exc_info.value.code == 0
+        assert run_all_tasks(Path("/fake/config"), tmp_path) == 0
         assert "2/2 succeeded" in caplog.text
         assert (tmp_path / "task1" / "report.txt").exists()
         assert (tmp_path / "task2" / "report.txt").exists()
@@ -70,7 +64,7 @@ class TestRunTasks:
     @patch("dataeval_app.workflow.run_task")
     @patch("dataeval_app.config.load_config_folder")
     def test_failed_task_exits_one(self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture):
-        from dataeval_app.__main__ import _run_tasks
+        from dataeval_app.runner import run_all_tasks
 
         task1 = MagicMock()
         task1.name = "task1"
@@ -86,10 +80,7 @@ class TestRunTasks:
         result.errors = ["Something went wrong"]
         mock_run.return_value = result
 
-        with pytest.raises(SystemExit) as exc_info:
-            _run_tasks(Path("/fake/config"), Path("/fake/output"))
-
-        assert exc_info.value.code == 1
+        assert run_all_tasks(Path("/fake/config"), Path("/fake/output")) == 1
         assert "FAILED" in caplog.text
         assert "Something went wrong" in caplog.text
 
@@ -99,7 +90,7 @@ class TestRunTasks:
         self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
     ):
         """Result.data without .report attribute still logs OK."""
-        from dataeval_app.__main__ import _run_tasks
+        from dataeval_app.runner import run_all_tasks
 
         task = MagicMock()
         task.name = "task1"
@@ -118,24 +109,20 @@ class TestRunTasks:
 
         mock_run.return_value = result
 
-        with pytest.raises(SystemExit) as exc_info:
-            _run_tasks(Path("/fake/config"), tmp_path)
-
-        assert exc_info.value.code == 0
+        assert run_all_tasks(Path("/fake/config"), tmp_path) == 0
         assert "OK" in caplog.text
         assert (tmp_path / "task1" / "report.txt").exists()
 
     @patch("dataeval_app.config.load_config_folder")
     def test_uses_default_config_path(self, mock_load: MagicMock):
-        from dataeval_app.__main__ import _run_tasks
+        from dataeval_app.runner import run_all_tasks
 
         config = MagicMock()
         config.tasks = []
         config.logging = None
         mock_load.return_value = config
 
-        with pytest.raises(SystemExit):
-            _run_tasks(None, Path("/fake/output"))
+        run_all_tasks(None, Path("/fake/output"))
 
         mock_load.assert_called_once_with(None)
 
@@ -143,7 +130,7 @@ class TestRunTasks:
     @patch("dataeval_app.config.load_config_folder")
     def test_logging_config_applies_levels(self, mock_load: MagicMock, mock_configure: MagicMock):
         """config.logging triggers configure_log_levels after config loads."""
-        from dataeval_app.__main__ import _run_tasks
+        from dataeval_app.runner import run_all_tasks
 
         config = MagicMock()
         config.tasks = []
@@ -151,8 +138,7 @@ class TestRunTasks:
         config.logging.lib_level = "ERROR"
         mock_load.return_value = config
 
-        with pytest.raises(SystemExit):
-            _run_tasks(Path("/fake/config"), Path("/fake/output"))
+        run_all_tasks(Path("/fake/config"), Path("/fake/output"))
 
         mock_configure.assert_called_once_with("WARNING", "ERROR")
 
@@ -183,7 +169,7 @@ class TestParseArgs:
 
 
 class TestMain:
-    @patch("dataeval_app.__main__._run_tasks")
+    @patch("dataeval_app.runner.run_all_tasks")
     @patch("dataeval_app.__main__.parse_args")
     def test_main_calls_run_tasks(self, mock_parse: MagicMock, mock_run_tasks: MagicMock):
         from dataeval_app.__main__ import main
@@ -192,23 +178,25 @@ class TestMain:
         args.config = Path("/cfg")
         args.output = Path("/out")
         mock_parse.return_value = args
+        mock_run_tasks.return_value = 0
 
-        main()
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 0
         mock_run_tasks.assert_called_once_with(Path("/cfg"), Path("/out"))
 
+    @patch("dataeval_app.runner.run_all_tasks")
     @patch("dataeval_app.__main__.parse_args")
-    def test_main_handles_errors(self, mock_parse: MagicMock, capsys: pytest.CaptureFixture):
+    def test_main_handles_errors(self, mock_parse: MagicMock, mock_run_tasks: MagicMock, capsys: pytest.CaptureFixture):
         from dataeval_app.__main__ import main
 
         args = MagicMock()
         args.config = None
         args.output = None
         mock_parse.return_value = args
+        mock_run_tasks.side_effect = FileNotFoundError("not found")
 
-        with (
-            patch("dataeval_app.__main__._run_tasks", side_effect=FileNotFoundError("not found")),
-            pytest.raises(SystemExit) as exc_info,
-        ):
+        with pytest.raises(SystemExit) as exc_info:
             main()
 
         assert exc_info.value.code == 1
