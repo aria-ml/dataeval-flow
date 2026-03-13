@@ -10,8 +10,8 @@ import polars as pl
 import pytest
 from numpy.typing import NDArray
 
-from dataeval_app.workflow import DatasetContext, WorkflowContext, WorkflowResult
-from dataeval_app.workflows.drift.outputs import (
+from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowResult
+from dataeval_flow.workflows.drift.outputs import (
     ChunkResultDict,
     ClasswiseDriftDict,
     ClasswiseDriftRowDict,
@@ -22,7 +22,7 @@ from dataeval_app.workflows.drift.outputs import (
     DriftMonitoringReport,
     is_drift_result,
 )
-from dataeval_app.workflows.drift.params import (
+from dataeval_flow.workflows.drift.params import (
     DriftDetectorDomainClassifier,
     DriftDetectorKNeighbors,
     DriftDetectorMMD,
@@ -30,7 +30,7 @@ from dataeval_app.workflows.drift.params import (
     DriftHealthThresholds,
     DriftMonitoringParameters,
 )
-from dataeval_app.workflows.drift.workflow import (
+from dataeval_flow.workflows.drift.workflow import (
     DriftMonitoringWorkflow,
     _build_chunked_finding,
     _build_detector,
@@ -572,16 +572,16 @@ class TestRunClasswiseDrift:
 
 class TestGetEmbeddingsForContext:
     def test_raises_without_extractor(self):
-        from dataeval_app.workflows.drift.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
         with pytest.raises(ValueError, match="requires a model/extractor"):
             _get_embeddings_for_context(dc, MagicMock())
 
-    @patch("dataeval_app.workflows.drift.workflow.get_or_compute_embeddings")
-    @patch("dataeval_app.workflows.drift.workflow.selection_repr", return_value="sel:all")
+    @patch("dataeval_flow.workflows.drift.workflow.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.drift.workflow.selection_repr", return_value="sel:all")
     def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):  # noqa: ARG002
-        from dataeval_app.workflows.drift.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
 
         expected = _make_embeddings(10)
         mock_emb.return_value = expected
@@ -686,8 +686,8 @@ class TestBuildDetectorFindingClasswise:
 
 
 class TestDriftWorkflowExecuteEdgeCases:
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
-    @patch("dataeval_app.workflows.drift.workflow._extract_labels")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._extract_labels")
     def test_classwise_skipped_when_no_labels(self, mock_labels: MagicMock, mock_get_emb: MagicMock):
         """Cover the 'labels not available' warning branch."""
         mock_get_emb.side_effect = [_make_embeddings(100, seed=1), _make_embeddings(50, seed=2)]
@@ -706,7 +706,7 @@ class TestDriftWorkflowExecuteEdgeCases:
         assert result.success
         assert result.data.raw.classwise is None
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_exception_in_run_returns_error_result(self, mock_get_emb: MagicMock):
         """Cover the top-level except in execute()."""
         mock_get_emb.side_effect = RuntimeError("unexpected")
@@ -754,7 +754,7 @@ class TestDriftMonitoringOutputs:
         assert is_drift_result(result)
 
     def test_is_drift_result_false_for_other(self):
-        from dataeval_app.workflows.cleaning.outputs import DataCleaningMetadata
+        from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata
 
         meta = DataCleaningMetadata()
         result = WorkflowResult(name="data-cleaning", success=True, data=MagicMock(), metadata=meta)
@@ -837,7 +837,7 @@ class TestDriftMonitoringWorkflowExecute:
         assert not result.success
         assert "at least 2" in result.errors[0]
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_successful_execution(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -856,7 +856,7 @@ class TestDriftMonitoringWorkflowExecute:
         assert isinstance(result.metadata, DriftMonitoringMetadata)
         assert result.metadata.detectors_used == ["univariate"]
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_multiple_test_datasets_concatenated(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb1 = _make_embeddings(30, seed=2)
@@ -871,7 +871,7 @@ class TestDriftMonitoringWorkflowExecute:
         assert result.data.raw.reference_size == 100
         assert result.data.raw.test_size == 50  # 30 + 20
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_chunked_execution(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(200, seed=1)
         test_emb = _make_embeddings(100, seed=2)
@@ -890,8 +890,8 @@ class TestDriftMonitoringWorkflowExecute:
         assert "chunks" in det_result
         assert len(det_result["chunks"]) == 4  # type: ignore[reportTypedDictNotRequiredAccess]  # 100 / 25
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
-    @patch("dataeval_app.workflows.drift.workflow._extract_labels")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._extract_labels")
     def test_classwise_execution(self, mock_labels: MagicMock, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -913,7 +913,7 @@ class TestDriftMonitoringWorkflowExecute:
         assert result.data.raw.classwise is not None
         assert len(result.data.raw.classwise) == 1
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_detector_error_isolation(self, mock_get_emb: MagicMock):
         """One detector failing should not prevent others from running."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -931,7 +931,7 @@ class TestDriftMonitoringWorkflowExecute:
             ]
         )
 
-        with patch("dataeval_app.workflows.drift.workflow._build_detector") as mock_build:
+        with patch("dataeval_flow.workflows.drift.workflow._build_detector") as mock_build:
             good_detector = MagicMock()
             good_detector.fit.return_value = good_detector
             from dataeval.shift import DriftOutput
@@ -957,7 +957,7 @@ class TestDriftMonitoringWorkflowExecute:
         assert result.errors is not None
         assert len(result.errors) == 1
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_update_strategy_logged_but_ignored(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -978,7 +978,7 @@ class TestDriftMonitoringWorkflowExecute:
         assert outputs.raw.dataset_size == 0
         assert outputs.report.summary == "Workflow failed"
 
-    @patch("dataeval_app.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
     def test_summary_line(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2) + 5.0  # large shift
@@ -1001,19 +1001,19 @@ class TestDriftMonitoringWorkflowExecute:
 
 class TestWorkflowRegistration:
     def test_get_workflow_returns_drift(self):
-        from dataeval_app.workflow import get_workflow
+        from dataeval_flow.workflow import get_workflow
 
         wf = get_workflow("drift-monitoring")
         assert wf.name == "drift-monitoring"
 
     def test_list_workflows_includes_drift(self):
-        from dataeval_app.workflow import list_workflows
+        from dataeval_flow.workflow import list_workflows
 
         names = [w["name"] for w in list_workflows()]
         assert "drift-monitoring" in names
 
     def test_unknown_workflow_raises(self):
-        from dataeval_app.workflow import get_workflow
+        from dataeval_flow.workflow import get_workflow
 
         with pytest.raises(ValueError, match="Unknown workflow"):
             get_workflow("nonexistent")

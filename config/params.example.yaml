@@ -1,7 +1,7 @@
 # =============================================================================
 # Workflow Configuration
 # =============================================================================
-# Schema: WorkflowConfig (see src/dataeval_app/config/models.py)
+# Schema: WorkflowConfig (see src/dataeval_flow/config/models.py)
 # Copy to /data/config/params.yaml in container (or use --config CLI option)
 #
 # yaml-language-server: $schema=params.schema.json
@@ -11,7 +11,7 @@
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:
-#   app_level: DEBUG      # dataeval_app and container_run (DEBUG|INFO|WARNING|ERROR)
+#   app_level: DEBUG      # dataeval_flow and container_run (DEBUG|INFO|WARNING|ERROR)
 #   lib_level: WARNING    # third-party: torch, datasets, PIL (DEBUG|INFO|WARNING|ERROR)
 
 # -----------------------------------------------------------------------------

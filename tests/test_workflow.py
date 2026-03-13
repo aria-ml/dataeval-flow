@@ -8,9 +8,9 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel
 
-from dataeval_app.config.schemas.metadata import ResultMetadata
-from dataeval_app.workflow import WorkflowResult, get_workflow, list_workflows
-from dataeval_app.workflow.base import Reportable, WorkflowReportBase
+from dataeval_flow.config.schemas.metadata import ResultMetadata
+from dataeval_flow.workflow import WorkflowResult, get_workflow, list_workflows
+from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
 
 # ---------------------------------------------------------------------------
 # Helpers

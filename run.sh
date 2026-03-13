@@ -1,5 +1,5 @@
 #!/bin/bash
-# DataEval Application Runner
+# DataEval Workflows Runner
 # Usage: ./run.sh -f PATH -d PATH -o PATH [-m PATH] [-k PATH] [--cpu]
 
 set -e
@@ -54,7 +54,7 @@ done
 
 # Show help if requested or missing required args
 if [[ "$SHOW_HELP" == true ]] || [[ -z "$DATASET_PATH" ]] || [[ -z "$CONFIG_PATH" ]] || [[ -z "$OUTPUT_PATH" ]]; then
-    echo "DataEval Application Runner"
+    echo "DataEval Workflows Runner"
     echo ""
     echo "Usage:"
     echo "  ./run.sh -f PATH -d PATH -o PATH [-m PATH] [-k PATH] [--cpu]"
@@ -93,8 +93,8 @@ fi
 # Select image and GPU flag
 if [[ "$USE_CPU" == true ]]; then
     echo "Running with CPU..."
-    docker run --rm "${MOUNTS[@]}" dataeval-app:cpu
+    docker run --rm "${MOUNTS[@]}" dataeval:cpu
 else
     echo "Running with GPU..."
-    docker run --rm --gpus all "${MOUNTS[@]}" dataeval-app:gpu
+    docker run --rm --gpus all "${MOUNTS[@]}" dataeval:gpu
 fi

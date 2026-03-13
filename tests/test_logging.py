@@ -1,11 +1,11 @@
-"""Tests for dataeval_app._logging module."""
+"""Tests for dataeval_flow._logging module."""
 
 import logging
 from pathlib import Path
 
 import pytest
 
-from dataeval_app._logging import configure_log_levels, setup_logging
+from dataeval_flow._logging import configure_log_levels, setup_logging
 
 
 class TestSetupLogging:
@@ -15,7 +15,7 @@ class TestSetupLogging:
         log_file = tmp_path / "log.txt"
         assert log_file.exists()
 
-        logging.getLogger("dataeval_app").info("hello from test")
+        logging.getLogger("dataeval_flow").info("hello from test")
         # Flush handlers to ensure content is written
         for h in logging.getLogger().handlers:
             h.flush()
@@ -42,7 +42,7 @@ class TestSetupLogging:
     def test_unwritable_dir_fallback(self, tmp_path: Path):
         from unittest.mock import patch
 
-        with patch("dataeval_app._logging.os.makedirs", side_effect=OSError("Permission denied")):
+        with patch("dataeval_flow._logging.os.makedirs", side_effect=OSError("Permission denied")):
             setup_logging(tmp_path)
 
         root = logging.getLogger()
@@ -52,7 +52,7 @@ class TestSetupLogging:
 
     def test_file_captures_debug_stream_filters_debug(self, tmp_path: Path, capsys: pytest.CaptureFixture):
         setup_logging(tmp_path)
-        app_logger = logging.getLogger("dataeval_app.test")
+        app_logger = logging.getLogger("dataeval_flow.test")
 
         app_logger.debug("debug-only-msg")
         app_logger.info("info-msg")
@@ -89,7 +89,7 @@ class TestConfigureLogLevels:
         setup_logging(tmp_path)
         configure_log_levels(app_level="WARNING")
 
-        assert logging.getLogger("dataeval_app").level == logging.WARNING
+        assert logging.getLogger("dataeval_flow").level == logging.WARNING
         assert logging.getLogger("container_run").level == logging.WARNING
 
     def test_configure_log_levels_lib(self, tmp_path: Path):

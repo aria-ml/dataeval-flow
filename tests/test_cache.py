@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from dataeval_app.cache import (
+from dataeval_flow.cache import (
     CACHE_VERSION,
     FLAG_TO_METRIC,
     METRIC_TO_FLAG,
@@ -359,7 +359,7 @@ class TestEmbeddingsCache:
 
 
 class TestLoadOrComputeEmbeddings:
-    _BUILD_EMBEDDINGS_PATH = "dataeval_app.embeddings.build_embeddings"
+    _BUILD_EMBEDDINGS_PATH = "dataeval_flow.embeddings.build_embeddings"
 
     def _mock_extractor_config(self) -> MagicMock:
         cfg = MagicMock()
@@ -439,7 +439,7 @@ class TestLoadOrComputeEmbeddings:
 
 
 class TestGetOrComputeEmbeddings:
-    _BUILD_EMBEDDINGS_PATH = "dataeval_app.embeddings.build_embeddings"
+    _BUILD_EMBEDDINGS_PATH = "dataeval_flow.embeddings.build_embeddings"
 
     def _mock_extractor_config(self) -> MagicMock:
         cfg = MagicMock()
@@ -1093,7 +1093,7 @@ class TestMetadataCache:
 
 
 class TestLoadOrComputeMetadata:
-    _BUILD_METADATA_PATH = "dataeval_app.metadata.build_metadata"
+    _BUILD_METADATA_PATH = "dataeval_flow.metadata.build_metadata"
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
@@ -1171,7 +1171,7 @@ class TestLoadOrComputeMetadata:
 
 
 class TestGetOrComputeMetadata:
-    _BUILD_METADATA_PATH = "dataeval_app.metadata.build_metadata"
+    _BUILD_METADATA_PATH = "dataeval_flow.metadata.build_metadata"
 
     def test_without_cache_computes_directly(self):
         mock_meta = _make_mock_metadata()
@@ -1293,7 +1293,7 @@ class TestCacheVersioning:
 
     def test_different_versions_are_isolated(self, tmp_path: Path, monkeypatch: Any):
         """Bumping CACHE_VERSION produces a separate directory."""
-        import dataeval_app.cache as cache_mod
+        import dataeval_flow.cache as cache_mod
 
         # Save with current version
         monkeypatch.setattr(cache_mod, "CACHE_VERSION", "1")
@@ -1325,7 +1325,7 @@ class TestCacheVersioning:
 
     def test_version_miss_after_bump(self, tmp_path: Path, monkeypatch: Any):
         """After a version bump, old data is not returned."""
-        import dataeval_app.cache as cache_mod
+        import dataeval_flow.cache as cache_mod
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cache.save_embeddings("sel:all", "cfg", "none", np.ones((2, 3)))
@@ -1343,7 +1343,7 @@ class TestCacheVersioning:
 
 class TestConfigIntegration:
     def test_task_config_accepts_cache_dir(self):
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         task = TaskConfig(
             name="test",
@@ -1354,7 +1354,7 @@ class TestConfigIntegration:
         assert task.cache_dir == "/cache"
 
     def test_task_config_cache_dir_defaults_none(self):
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         task = TaskConfig(
             name="test",
@@ -1366,7 +1366,7 @@ class TestConfigIntegration:
     def test_dataset_context_accepts_cache(self, tmp_path: Path):
         from unittest.mock import MagicMock
 
-        from dataeval_app.workflow import DatasetContext
+        from dataeval_flow.workflow import DatasetContext
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dc = DatasetContext(name="ds", dataset=MagicMock(), cache=cache)
@@ -1375,7 +1375,7 @@ class TestConfigIntegration:
     def test_dataset_context_cache_defaults_none(self):
         from unittest.mock import MagicMock
 
-        from dataeval_app.workflow import DatasetContext
+        from dataeval_flow.workflow import DatasetContext
 
         dc = DatasetContext(name="ds", dataset=MagicMock())
         assert dc.cache is None
@@ -1632,7 +1632,7 @@ class TestMakeDsId:
     @staticmethod
     def _key(name: str, **kwargs: Any) -> tuple[str, str]:
         """Return (name, cache_key) for _make_dataset_id."""
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         defaults: dict[str, Any] = {"format": "huggingface", "path": f"/data/{name}", "split": "train"}
         defaults.update(kwargs)

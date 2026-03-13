@@ -2,7 +2,7 @@
 
 import pytest
 
-from dataeval_app.preprocessing import PreprocessingStep, build_preprocessing
+from dataeval_flow.preprocessing import PreprocessingStep, build_preprocessing
 
 
 class TestPreprocessingStep:

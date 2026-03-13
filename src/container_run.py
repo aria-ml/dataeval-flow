@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Container entry point - maps container mounts to library calls.
 
-This script is container-specific and NOT part of the dataeval_app package.
+This script is container-specific and NOT part of the dataeval_flow package.
 It knows about container mount points and maps them to library parameters.
 
 The container expects these mount points:
@@ -42,9 +42,9 @@ def main() -> int:
         return 1
 
     try:
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
     except ImportError as e:
-        print(f"ERROR: Failed to import dataeval_app: {e}")
+        print(f"ERROR: Failed to import dataeval_flow: {e}")
         print("Ensure dependencies are installed correctly.")
         return 1
 

@@ -14,11 +14,11 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 
 # Ensure target modules are in sys.modules for @patch with xdist
-import dataeval_app.dataset
-import dataeval_app.metadata
-import dataeval_app.workflows.cleaning.workflow  # noqa: F401
-from dataeval_app.config import load_config_folder
-from dataeval_app.config.schemas.dataset import DatasetConfig
+import dataeval_flow.dataset
+import dataeval_flow.metadata
+import dataeval_flow.workflows.cleaning.workflow  # noqa: F401
+from dataeval_flow.config import load_config_folder
+from dataeval_flow.config.schemas.dataset import DatasetConfig
 
 
 class TestConfigToFactoryIntegration:
@@ -214,7 +214,7 @@ class TestContainerMountPaths:
 
     def test_default_paths_match_container_mounts(self):
         """DEFAULT_CONFIG_FOLDER and DEFAULT_PARAMS_PATH align with container mounts."""
-        from dataeval_app.config.loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
+        from dataeval_flow.config.loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
 
         # Verify paths use /data/config pattern
         assert Path("/data/config") == DEFAULT_CONFIG_FOLDER
@@ -319,10 +319,10 @@ class TestEndToEndCleaningWorkflow:
       - Mock calls: each external mock called exactly once
     """
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
-    @patch("dataeval_app.cache.get_or_compute_stats")
-    @patch("dataeval_app.metadata.Metadata")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.cache.get_or_compute_stats")
+    @patch("dataeval_flow.metadata.Metadata")
     @patch("maite_datasets.adapters.from_huggingface")
     @patch("datasets.load_from_disk")
     def test_config_to_output(
@@ -336,7 +336,7 @@ class TestEndToEndCleaningWorkflow:
         tmp_path: Path,
     ):
         """Config YAML → run_task() produces results.json + metadata.json."""
-        from dataeval_app.workflow import run_task
+        from dataeval_flow.workflow import run_task
 
         # ── 1. Write config YAML ──────────────────────────────────────
         config_dir = tmp_path / "config"
@@ -489,7 +489,7 @@ class TestEndToEndCleaningWorkflow:
         # Verify JATIC metadata is embedded in results.json
         meta = results_data["metadata"]
         assert meta["dataset_id"] == "test_ds"
-        assert meta["tool"] == "dataeval-app"
+        assert meta["tool"] == "dataeval-flow"
         assert "version" in meta
         assert "timestamp" in meta
         assert meta["execution_time_s"] is not None

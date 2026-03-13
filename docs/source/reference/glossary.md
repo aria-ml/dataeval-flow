@@ -3,7 +3,7 @@
 ```{glossary}
 DataEval
     The core evaluation library that provides statistical analysis, outlier detection,
-    and data quality metrics. DataEval App wraps this library.
+    and data quality metrics. DataEval Workflows wraps this library.
 
 MAITE
     Modular AI Trustworthy Engineering — a protocol for interoperable AI/ML components
@@ -19,7 +19,7 @@ Data Cleaning
 
 Workflow Configuration
     A YAML file that specifies data cleaning parameters, model configurations, and
-    preprocessing steps for a DataEval App evaluation run.
+    preprocessing steps for a DataEval Workflows evaluation run.
 
 ONNX
     Open Neural Network Exchange — an open format for representing ML models. DataEval

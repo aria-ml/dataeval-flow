@@ -1,4 +1,4 @@
-"""Nox automation for DataEval App."""
+"""Nox automation for DataEval Workflows."""
 
 import os
 
@@ -6,6 +6,7 @@ import nox
 import nox_uv
 
 nox.options.default_venv_backend = "uv"
+nox.options.reuse_venv = "always"
 nox.options.sessions = ["lint", "type", "test", "check"]  # Default sessions to run
 
 IS_CI = bool(os.environ.get("CI"))
@@ -46,7 +47,7 @@ def type(session: nox.Session) -> None:  # noqa: A001
         "pyright",
         "--ignoreexternal",
         "--verifytypes",
-        "dataeval_app",
+        "dataeval_flow",
     )
 
 
@@ -57,7 +58,7 @@ def test(session: nox.Session) -> None:
         "pytest",
         "-n4",
         "--dist=loadfile",
-        "--cov=src/dataeval_app",
+        "--cov=src/dataeval_flow",
         "--cov-report=term",
         "--cov-report=xml:output/coverage.xml",
         "--cov-report=html:output/htmlcov",

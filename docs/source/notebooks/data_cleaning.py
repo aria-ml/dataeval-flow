@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: dataeval-application
+#     display_name: dataeval-flow
 #     language: python
 #     name: python3
 # ---
@@ -42,7 +42,7 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-app` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
 # - `dataeval-plots` (for visualizing flagged images)
 # - Internet connection (to download CPPE-5 from HuggingFace Hub on first run)
 
@@ -86,11 +86,11 @@ cppe5_train.save_to_disk(str(data_path))
 # %%
 from dataeval.config import set_max_processes
 
-from dataeval_app.config.models import BoVWExtractorConfig, DataCleaningParameters, ModelConfig, WorkflowConfig
-from dataeval_app.config.schemas.dataset import DatasetConfig
-from dataeval_app.config.schemas.selection import SelectionConfig, SelectionStep
-from dataeval_app.config.schemas.task import DataCleaningTaskConfig
-from dataeval_app.workflows.cleaning.params import DataCleaningHealthThresholds
+from dataeval_flow.config.models import BoVWExtractorConfig, DataCleaningParameters, ModelConfig, WorkflowConfig
+from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
+from dataeval_flow.config.schemas.task import DataCleaningTaskConfig
+from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 
 set_max_processes(8)  # Set max processes for parallel execution (adjust as needed)
 
@@ -154,7 +154,7 @@ print(task.summary())
 # ## Step 2: Run the data cleaning workflow
 
 # %%
-from dataeval_app.workflow.orchestrator import run_task
+from dataeval_flow.workflow.orchestrator import run_task
 
 result = run_task(task, config)
 
@@ -196,7 +196,7 @@ print(result.report(format="text"))
 # To tighten thresholds for a stricter audit:
 #
 # ```python
-# from dataeval_app.workflows.cleaning.params import DataCleaningHealthThresholds
+# from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 #
 # strict = DataCleaningHealthThresholds(
 #     exact_duplicates=0.0,   # no exact duplicates (default)

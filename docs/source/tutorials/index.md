@@ -1,6 +1,6 @@
 # Tutorials
 
-Learning-oriented guides that walk you through using DataEval App step by step.
+Learning-oriented guides that walk you through using DataEval Workflows step by step.
 
 ```{toctree}
 :maxdepth: 1
@@ -13,4 +13,4 @@ Learning-oriented guides that walk you through using DataEval App step by step.
 ## Planned tutorials
 
 - **Data Analysis** — Load a dataset and run your first evaluation
-- **Container Deployment** — Deploy DataEval App with Docker
+- **Container Deployment** — Deploy DataEval Workflows with Docker

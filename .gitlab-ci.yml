@@ -174,7 +174,7 @@ pages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
-    - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$dataeval+dataeval-app' --password-stdin
+    - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$dataeval+dataeval-flow' --password-stdin
   after_script:
     - docker logout ${HARBOR_URL}:${HARBOR_PORT} || true
 

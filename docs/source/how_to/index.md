@@ -1,6 +1,6 @@
 # How-to Guides
 
-Task-oriented guides for accomplishing specific goals with DataEval App.
+Task-oriented guides for accomplishing specific goals with DataEval Workflows.
 
 ```{toctree}
 :maxdepth: 1

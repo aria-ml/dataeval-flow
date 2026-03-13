@@ -7,20 +7,20 @@ Installation guide is a place-holder.  Official installation notes will be updat
 ## Using pip
 
 ```bash
-pip install dataeval-app
+pip install dataeval-flow
 ```
 
 ## Using uv
 
 ```bash
-uv add dataeval-app
+uv add dataeval-flow
 ```
 
 ## From source
 
 ```bash
-git clone https://gitlab.jatic.net/jatic/aria/dataeval-app.git
-cd dataeval-app
+git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
+cd dataeval-flow
 uv sync
 ```
 
@@ -29,16 +29,16 @@ uv sync
 ### CUDA 11.8 (GPU)
 
 ```bash
-docker build -f Dockerfile.cu118 -t dataeval-app:cu118 .
-docker run --gpus all dataeval-app:cu118
+docker build -f Dockerfile.cu118 -t dataeval-flow:cu118 .
+docker run --gpus all dataeval-flow:cu118
 ```
 
 ### CPU only
 
 ```bash
-docker build -f Dockerfile.cpu -t dataeval-app:cpu .
-docker run dataeval-app:cpu
+docker build -f Dockerfile.cpu -t dataeval-flow:cpu .
+docker run dataeval-flow:cpu
 ```
 
-See the project [README](https://gitlab.jatic.net/jatic/aria/dataeval-app) for full
+See the project [README](https://gitlab.jatic.net/jatic/aria/dataeval-flow) for full
 Docker configuration options and environment variables.

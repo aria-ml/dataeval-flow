@@ -9,7 +9,7 @@ import container_run
 
 
 class TestContainerRunMain:
-    @patch("dataeval_app.runner.run_all_tasks")
+    @patch("dataeval_flow.runner.run_all_tasks")
     @patch.dict(container_run.CONTAINER_MOUNTS, {"config": Path("/tmp"), "output": Path("/tmp/out")})  # noqa: S108
     def test_failed_task_returns_one(
         self,
@@ -22,7 +22,7 @@ class TestContainerRunMain:
         assert exit_code == 1
         mock_run_all.assert_called_once_with(Path("/tmp"), Path("/tmp/out"))  # noqa: S108
 
-    @patch("dataeval_app.runner.run_all_tasks")
+    @patch("dataeval_flow.runner.run_all_tasks")
     @patch.dict(container_run.CONTAINER_MOUNTS, {"config": Path("/tmp"), "output": Path("/tmp/out")})  # noqa: S108
     def test_successful_task_returns_zero(
         self,
@@ -45,7 +45,7 @@ class TestContainerRunMain:
 
     @patch.dict(container_run.CONTAINER_MOUNTS, {"config": Path("/tmp")})  # noqa: S108
     def test_import_error_returns_one(self, capsys: pytest.CaptureFixture):
-        with patch.dict("sys.modules", {"dataeval_app.runner": None}):
+        with patch.dict("sys.modules", {"dataeval_flow.runner": None}):
             exit_code = container_run.main()
 
         assert exit_code == 1

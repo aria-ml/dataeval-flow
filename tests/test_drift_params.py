@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from dataeval_app.workflows.drift.params import (
+from dataeval_flow.workflows.drift.params import (
     ChunkingConfig,
     DriftDetectorDomainClassifier,
     DriftDetectorKNeighbors,

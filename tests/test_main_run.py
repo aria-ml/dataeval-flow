@@ -7,10 +7,10 @@ import pytest
 
 
 class TestRunTasks:
-    @patch("dataeval_app.workflow.run_task")
-    @patch("dataeval_app.config.load_config_folder")
+    @patch("dataeval_flow.workflow.run_task")
+    @patch("dataeval_flow.config.load_config_folder")
     def test_no_tasks_exits_zero(self, mock_load: MagicMock, mock_run: MagicMock):  # noqa: ARG002
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
 
         config = MagicMock()
         config.tasks = []
@@ -19,12 +19,12 @@ class TestRunTasks:
 
         assert run_all_tasks(Path("/fake/config"), Path("/fake/output")) == 0
 
-    @patch("dataeval_app.workflow.run_task")
-    @patch("dataeval_app.config.load_config_folder")
+    @patch("dataeval_flow.workflow.run_task")
+    @patch("dataeval_flow.config.load_config_folder")
     def test_successful_tasks(
         self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
     ):
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
 
         task1 = MagicMock()
         task1.name = "task1"
@@ -61,10 +61,10 @@ class TestRunTasks:
         assert (tmp_path / "task1" / "report.txt").exists()
         assert (tmp_path / "task2" / "report.txt").exists()
 
-    @patch("dataeval_app.workflow.run_task")
-    @patch("dataeval_app.config.load_config_folder")
+    @patch("dataeval_flow.workflow.run_task")
+    @patch("dataeval_flow.config.load_config_folder")
     def test_failed_task_exits_one(self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture):
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
 
         task1 = MagicMock()
         task1.name = "task1"
@@ -84,13 +84,13 @@ class TestRunTasks:
         assert "FAILED" in caplog.text
         assert "Something went wrong" in caplog.text
 
-    @patch("dataeval_app.workflow.run_task")
-    @patch("dataeval_app.config.load_config_folder")
+    @patch("dataeval_flow.workflow.run_task")
+    @patch("dataeval_flow.config.load_config_folder")
     def test_result_without_report(
         self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
     ):
         """Result.data without .report attribute still logs OK."""
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
 
         task = MagicMock()
         task.name = "task1"
@@ -113,9 +113,9 @@ class TestRunTasks:
         assert "OK" in caplog.text
         assert (tmp_path / "task1" / "report.txt").exists()
 
-    @patch("dataeval_app.config.load_config_folder")
+    @patch("dataeval_flow.config.load_config_folder")
     def test_uses_default_config_path(self, mock_load: MagicMock):
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
 
         config = MagicMock()
         config.tasks = []
@@ -126,11 +126,11 @@ class TestRunTasks:
 
         mock_load.assert_called_once_with(None)
 
-    @patch("dataeval_app._logging.configure_log_levels")
-    @patch("dataeval_app.config.load_config_folder")
+    @patch("dataeval_flow._logging.configure_log_levels")
+    @patch("dataeval_flow.config.load_config_folder")
     def test_logging_config_applies_levels(self, mock_load: MagicMock, mock_configure: MagicMock):
         """config.logging triggers configure_log_levels after config loads."""
-        from dataeval_app.runner import run_all_tasks
+        from dataeval_flow.runner import run_all_tasks
 
         config = MagicMock()
         config.tasks = []
@@ -146,33 +146,33 @@ class TestRunTasks:
 class TestParseArgs:
     def test_no_args_exits_error(self):
         """--output is required; omitting it causes argparse to exit with error."""
-        from dataeval_app.__main__ import parse_args
+        from dataeval_flow.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app"]), pytest.raises(SystemExit) as exc_info:
+        with patch("sys.argv", ["dataeval_flow"]), pytest.raises(SystemExit) as exc_info:
             parse_args()
         assert exc_info.value.code == 2  # argparse exits with code 2 for missing required args
 
     def test_with_config(self):
-        from dataeval_app.__main__ import parse_args
+        from dataeval_flow.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app", "--config", "/my/config", "--output", "/my/output"]):
+        with patch("sys.argv", ["dataeval_flow", "--config", "/my/config", "--output", "/my/output"]):
             args = parse_args()
         assert args.config == Path("/my/config")
         assert args.output == Path("/my/output")
 
     def test_with_output(self):
-        from dataeval_app.__main__ import parse_args
+        from dataeval_flow.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app", "--output", "/my/output"]):
+        with patch("sys.argv", ["dataeval_flow", "--output", "/my/output"]):
             args = parse_args()
         assert args.output == Path("/my/output")
 
 
 class TestMain:
-    @patch("dataeval_app.runner.run_all_tasks")
-    @patch("dataeval_app.__main__.parse_args")
+    @patch("dataeval_flow.runner.run_all_tasks")
+    @patch("dataeval_flow.__main__.parse_args")
     def test_main_calls_run_tasks(self, mock_parse: MagicMock, mock_run_tasks: MagicMock):
-        from dataeval_app.__main__ import main
+        from dataeval_flow.__main__ import main
 
         args = MagicMock()
         args.config = Path("/cfg")
@@ -185,10 +185,10 @@ class TestMain:
         assert exc_info.value.code == 0
         mock_run_tasks.assert_called_once_with(Path("/cfg"), Path("/out"))
 
-    @patch("dataeval_app.runner.run_all_tasks")
-    @patch("dataeval_app.__main__.parse_args")
+    @patch("dataeval_flow.runner.run_all_tasks")
+    @patch("dataeval_flow.__main__.parse_args")
     def test_main_handles_errors(self, mock_parse: MagicMock, mock_run_tasks: MagicMock, capsys: pytest.CaptureFixture):
-        from dataeval_app.__main__ import main
+        from dataeval_flow.__main__ import main
 
         args = MagicMock()
         args.config = None

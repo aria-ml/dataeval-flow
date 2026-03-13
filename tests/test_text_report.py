@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataeval_app.workflow._text_report import (
+from dataeval_flow.workflow._text_report import (
     _WIDTH,
     _brief_value,
     _render_chunk_table,
@@ -13,7 +13,7 @@ from dataeval_app.workflow._text_report import (
     _section_header,
     _summary_line,
 )
-from dataeval_app.workflow.base import Reportable
+from dataeval_flow.workflow.base import Reportable
 
 # ---------------------------------------------------------------------------
 # _brief_value

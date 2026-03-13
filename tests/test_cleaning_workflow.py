@@ -7,18 +7,18 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 import pytest
 
-import dataeval_app.embeddings
-import dataeval_app.metadata
-import dataeval_app.selection  # noqa: F401
-from dataeval_app.config.models import OnnxExtractorConfig
-from dataeval_app.config.schemas.selection import SelectionStep
-from dataeval_app.workflow import DatasetContext, WorkflowContext
-from dataeval_app.workflows.cleaning.outputs import (
+import dataeval_flow.embeddings
+import dataeval_flow.metadata
+import dataeval_flow.selection  # noqa: F401
+from dataeval_flow.config.models import OnnxExtractorConfig
+from dataeval_flow.config.schemas.selection import SelectionStep
+from dataeval_flow.workflow import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.cleaning.outputs import (
     DataCleaningOutputs,
     DataCleaningRawOutputs,
 )
-from dataeval_app.workflows.cleaning.params import DataCleaningHealthThresholds, DataCleaningParameters
-from dataeval_app.workflows.cleaning.workflow import (
+from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds, DataCleaningParameters
+from dataeval_flow.workflows.cleaning.workflow import (
     CleaningRunContext,
     DataCleaningWorkflow,
     _build_class_labels_df,
@@ -59,7 +59,7 @@ def _make_params(**overrides: object) -> DataCleaningParameters:
 
 
 class TestBuildOutliers:
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
     def test_basic_flags(self, mock_outliers_cls: MagicMock):
         params = _make_params(outlier_flags=["dimension", "visual"])
         _build_outliers(params)
@@ -67,7 +67,7 @@ class TestBuildOutliers:
         call_kwargs = mock_outliers_cls.call_args[1]
         assert call_kwargs["outlier_threshold"] == ("adaptive", None)
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
     def test_with_extractor(self, mock_outliers_cls: MagicMock):
         mock_fe = MagicMock()
         params = _make_params()
@@ -75,14 +75,14 @@ class TestBuildOutliers:
         call_kwargs = mock_outliers_cls.call_args[1]
         assert call_kwargs["extractor"] is mock_fe
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
     def test_with_threshold(self, mock_outliers_cls: MagicMock):
         params = _make_params(outlier_flags=["dimension"], outlier_threshold=2.5)
         _build_outliers(params)
         call_kwargs = mock_outliers_cls.call_args[1]
         assert call_kwargs["outlier_threshold"] == ("adaptive", 2.5)
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
     def test_cluster_params_passed(self, mock_outliers_cls: MagicMock):
         """Cluster params are passed through to Outliers when extractor provided."""
         mock_fe = MagicMock()
@@ -97,7 +97,7 @@ class TestBuildOutliers:
         assert call_kwargs["cluster_algorithm"] == "kmeans"
         assert call_kwargs["n_clusters"] == 5
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
     def test_cluster_threshold_none_passed_explicitly(self, mock_outliers_cls: MagicMock):
         """cluster_threshold=None is passed explicitly to override DataEval default."""
         params = _make_params()
@@ -115,13 +115,13 @@ class TestBuildOutliers:
 
 
 class TestBuildDuplicates:
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_basic(self, mock_dup_cls: MagicMock):
         params = _make_params()
         _build_duplicates(params)
         mock_dup_cls.assert_called_once()
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_with_extractor(self, mock_dup_cls: MagicMock):
         mock_fe = MagicMock()
         params = _make_params()
@@ -129,7 +129,7 @@ class TestBuildDuplicates:
         call_kwargs = mock_dup_cls.call_args[1]
         assert call_kwargs["extractor"] is mock_fe
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_with_flags(self, mock_dup_cls: MagicMock):
         """Explicit duplicate_flags are passed through."""
         params = _make_params(duplicate_flags=["hash_basic", "hash_d4"])
@@ -137,7 +137,7 @@ class TestBuildDuplicates:
         call_kwargs = mock_dup_cls.call_args[1]
         assert "flags" in call_kwargs
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_merge_near_false(self, mock_dup_cls: MagicMock):
         params = _make_params(duplicate_merge_near=False)
         _build_duplicates(params)
@@ -835,7 +835,7 @@ class TestDataCleaningWorkflowExecute:
         assert not result.success
         assert "DataCleaningParameters" in result.errors[0]
 
-    @patch("dataeval_app.metadata.Metadata", side_effect=RuntimeError("model crashed"))
+    @patch("dataeval_flow.metadata.Metadata", side_effect=RuntimeError("model crashed"))
     def test_execution_error_returns_failed_result(
         self,
         mock_meta_cls: MagicMock,  # noqa: ARG002
@@ -852,8 +852,8 @@ class TestDataCleaningWorkflowExecute:
         assert any("Workflow" in r.message and r.levelno == logging.ERROR for r in caplog.records)
         assert "model crashed" in caplog.text
 
-    @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
-    @patch("dataeval_app.metadata.Metadata")
+    @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
+    @patch("dataeval_flow.metadata.Metadata")
     def test_advisory_mode(self, mock_meta_cls: MagicMock, mock_run_clean: MagicMock):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
@@ -876,8 +876,8 @@ class TestDataCleaningWorkflowExecute:
         assert result.metadata.mode == "advisory"
         assert not result.metadata.flagged_indices
 
-    @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
-    @patch("dataeval_app.metadata.Metadata")
+    @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
+    @patch("dataeval_flow.metadata.Metadata")
     def test_preparatory_mode(self, mock_meta_cls: MagicMock, mock_run_clean: MagicMock):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
@@ -908,10 +908,10 @@ class TestDataCleaningWorkflowExecute:
         prep_finding = next(f for f in result.data.report.findings if f.title == "Preparatory Mode")
         assert prep_finding.data["brief"] == "3 flagged, 7 retained"  # type: ignore[index]
 
-    @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
-    @patch("dataeval_app.metadata.Metadata")
-    @patch("dataeval_app.selection.Select")
-    @patch("dataeval_app.selection.sel")
+    @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
+    @patch("dataeval_flow.metadata.Metadata")
+    @patch("dataeval_flow.selection.Select")
+    @patch("dataeval_flow.selection.sel")
     def test_with_selection(
         self,
         mock_sel_module: MagicMock,  # noqa: ARG002
@@ -946,9 +946,9 @@ class TestDataCleaningWorkflowExecute:
         # _run_cleaning should receive the selected dataset
         assert mock_run_clean.call_args[0][0] is selected_dataset
 
-    @patch("dataeval_app.workflows.cleaning.workflow._run_cleaning")
-    @patch("dataeval_app.metadata.Metadata")
-    @patch("dataeval_app.embeddings.OnnxExtractor")
+    @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
+    @patch("dataeval_flow.metadata.Metadata")
+    @patch("dataeval_flow.embeddings.OnnxExtractor")
     def test_with_embeddings(
         self,
         mock_extractor_cls: MagicMock,
@@ -1005,11 +1005,11 @@ class TestValidateClusterParams:
 
 
 class TestRunCleaning:
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
-    @patch("dataeval_app.cache.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.cache.get_or_compute_stats")
     def test_run_cleaning_basic(self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock):
-        from dataeval_app.workflows.cleaning.workflow import _run_cleaning
+        from dataeval_flow.workflows.cleaning.workflow import _run_cleaning
 
         params = _make_params()
 
@@ -1056,13 +1056,13 @@ class TestRunCleaning:
         assert raw.img_outliers["count"] == 1
         mock_get_stats.assert_called_once()
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
-    @patch("dataeval_app.cache.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.cache.get_or_compute_stats")
     def test_run_cleaning_with_target_index(
         self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock
     ):
-        from dataeval_app.workflows.cleaning.workflow import _run_cleaning
+        from dataeval_flow.workflows.cleaning.workflow import _run_cleaning
 
         params = _make_params(outlier_method="iqr", outlier_flags=["dimension"])
 
@@ -1118,14 +1118,14 @@ class TestRunCleaning:
         assert raw.target_outliers is not None
         assert raw.target_outliers["count"] == 1
 
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
-    @patch("dataeval_app.workflows.cleaning.workflow.Outliers")
-    @patch("dataeval_app.cache.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.cache.get_or_compute_stats")
     def test_run_cleaning_with_metadata(
         self, mock_get_stats: MagicMock, mock_outliers_cls: MagicMock, mock_dup_cls: MagicMock
     ):
         """_run_cleaning computes label_stats when metadata is provided."""
-        from dataeval_app.workflows.cleaning.workflow import _run_cleaning
+        from dataeval_flow.workflows.cleaning.workflow import _run_cleaning
 
         params = _make_params()
 
@@ -1399,7 +1399,7 @@ class TestComputeClasswisePivot:
 
 
 class TestComputeEmbeddings:
-    @patch("dataeval_app.cache.get_or_compute_embeddings")
+    @patch("dataeval_flow.cache.get_or_compute_embeddings")
     def test_with_extractor_config(self, mock_get_emb: MagicMock):
         """Uses cached embeddings when extractor_config is available."""
         mock_get_emb.return_value = "cached_embeddings"
@@ -1439,7 +1439,7 @@ class TestComputeEmbeddings:
 
 
 class TestMergeOutlierOutputs:
-    @patch("dataeval_app.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
     def test_merges_stats_and_cluster(self, mock_cluster: MagicMock):
         """Stats-based and cluster-based outlier issues are concatenated."""
         import numpy as np
@@ -1485,7 +1485,7 @@ class TestMergeOutlierOutputs:
 
 
 class TestRunDuplicateDetection:
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_hash_only(self, mock_dup_cls: MagicMock):
         """Hash-only detection (no cluster) returns hash result directly."""
         from dataeval.flags import ImageStats
@@ -1501,8 +1501,8 @@ class TestRunDuplicateDetection:
         )
         assert result is hash_result
 
-    @patch("dataeval_app.workflows.cleaning.workflow._merge_duplicate_results")
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow._merge_duplicate_results")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_with_cluster(self, mock_dup_cls: MagicMock, mock_merge: MagicMock):
         """Cluster-based detection triggers merge."""
         import numpy as np
@@ -1526,8 +1526,8 @@ class TestRunDuplicateDetection:
 
 
 class TestMergeDuplicateResults:
-    @patch("dataeval_app.cache.get_or_compute_cluster_result")
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_merge_hash_and_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Hash and cluster duplicate results are merged with re-numbered group IDs."""
         hash_df = pl.DataFrame(
@@ -1564,8 +1564,8 @@ class TestMergeDuplicateResults:
         group_ids = set(merged["group_id"].to_list())
         assert len(group_ids) == 2  # original 0 + re-numbered 1
 
-    @patch("dataeval_app.cache.get_or_compute_cluster_result")
-    @patch("dataeval_app.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_empty_cluster_returns_hash(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Empty cluster result returns hash result as-is."""
         hash_result = MagicMock()

@@ -3,8 +3,8 @@
 import pytest
 from dataeval.quality import Duplicates, Outliers
 
-from dataeval_app.workflows.cleaning.params import DataCleaningParameters
-from dataeval_app.workflows.cleaning.workflow import (
+from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+from dataeval_flow.workflows.cleaning.workflow import (
     _build_duplicates,
     _build_outliers,
 )

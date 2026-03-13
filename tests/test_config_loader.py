@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from dataeval_app.config._merge import _deep_merge, merge_yaml_folder
+from dataeval_flow.config._merge import _deep_merge, merge_yaml_folder
 
 
 class TestDeepMerge:

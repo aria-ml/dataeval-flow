@@ -78,10 +78,10 @@ RUN useradd --create-home --shell /bin/bash dataeval \
     && chown -R dataeval:dataeval /data /output /cache /app
 
 # Container labels
-LABEL org.opencontainers.image.title="DataEval Application (CUDA 11.8)" \
-      org.opencontainers.image.description="DataEval Application container - CUDA 11.8 variant" \
+LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 11.8)" \
+      org.opencontainers.image.description="DataEval Workflows container - CUDA 11.8 variant" \
       org.opencontainers.image.version="0.1.0" \
-      org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-app"
+      org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 
 # Security patching: purge flagged OS packages
 RUN apt-get purge -y linux-libc-dev && apt-get autoremove -y

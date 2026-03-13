@@ -1,10 +1,10 @@
 # Explanation
 
-Understanding the concepts and design decisions behind DataEval App.
+Understanding the concepts and design decisions behind DataEval Workflows.
 
 ## Architecture
 
-DataEval App wraps the [DataEval](https://github.com/aria-ml/dataeval/) library into
+DataEval Workflows wraps the [DataEval](https://github.com/aria-ml/dataeval/) library into
 a configurable application with YAML-driven workflows and containerized deployment.
 It bridges dataset loading, preprocessing, evaluation, and result reporting into a
 single pipeline.

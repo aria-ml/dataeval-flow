@@ -1,1 +1,1 @@
-"""DataEval App Test Suite."""
+"""DataEval Workflows Test Suite."""

@@ -11,7 +11,7 @@
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:
-#   app_level: DEBUG      # dataeval_app and container_run (DEBUG|INFO|WARNING|ERROR)
+#   app_level: DEBUG      # dataeval_flow and container_run (DEBUG|INFO|WARNING|ERROR)
 #   lib_level: WARNING    # third-party: torch, datasets, PIL (DEBUG|INFO|WARNING|ERROR)
 
 # -----------------------------------------------------------------------------

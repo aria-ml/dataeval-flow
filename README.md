@@ -1,6 +1,6 @@
-# DataEval Application
+# DataEval Workflows
 
-Minimal container for DataEval data evaluation with GPU support.
+Workflow orchestration for DataEval with GPU support.
 
 ## Quick Start
 
@@ -107,24 +107,24 @@ The Docker build may appear frozen during the `uv sync` step:
 
 ## Running Without Container
 
-The `dataeval_app` package can be used standalone without Docker.
+The `dataeval_flow` package can be used standalone without Docker.
 
 **Installation:**
 ```bash
-git clone https://gitlab.jatic.net/jatic/aria/dataeval-app.git
-cd dataeval-app
+git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
+cd dataeval-flow
 uv sync
 ```
 
 **CLI Usage:**
 ```bash
-python -m dataeval_app --config /path/to/config --output /path/to/output
+python -m dataeval_flow --config /path/to/config --output /path/to/output
 ```
 
 **Python API Usage:**
 ```python
 from pathlib import Path
-from dataeval_app import load_dataset
+from dataeval_flow import load_dataset
 
 dataset = load_dataset(Path("/path/to/dataset"))
 ```

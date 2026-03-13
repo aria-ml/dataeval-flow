@@ -1,8 +1,8 @@
-# DataEval App
+# DataEval Workflows
 
 Data evaluation and quality inspection tools, built on [DataEval](https://github.com/aria-ml/dataeval/).
 
-DataEval App wraps the DataEval library into a configurable, containerized application
+DataEval Workflows wraps the DataEval library into a configurable, containerized application
 for dataset loading, quality analysis, and data cleaning workflows.
 
 ## Key Features
@@ -48,6 +48,6 @@ Overview <concepts/index>
 :caption: Reference
 :hidden:
 
-API Reference <reference/autoapi/dataeval_app/index>
+API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::

@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: dataeval-application
+#     display_name: dataeval-flow
 #     language: python
 #     name: python3
 # ---
@@ -41,7 +41,7 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-app` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -172,10 +172,11 @@ plt.show()
 # (distance-based) and **MMD** (distribution-wide kernel test).
 
 # %%
-from dataeval_app.config.models import FlattenExtractorConfig, ModelConfig, WorkflowConfig
-from dataeval_app.config.schemas.dataset import DatasetConfig
-from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig
-from dataeval_app.workflows.drift.params import (
+
+from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, WorkflowConfig
+from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+from dataeval_flow.workflows.drift.params import (
     ChunkingConfig,
     DriftDetectorKNeighbors,
     DriftDetectorMMD,
@@ -276,7 +277,7 @@ print(task.summary())
 # ## Step 2: Run the drift monitoring workflow
 
 # %%
-from dataeval_app.workflow.orchestrator import run_task
+from dataeval_flow.workflow.orchestrator import run_task
 
 result = run_task(task, config)
 

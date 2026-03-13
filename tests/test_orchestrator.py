@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dataeval_app.workflow.orchestrator import (
+from dataeval_flow.workflow.orchestrator import (
     _resolve_by_name,
     _resolve_optional_mapping,
     _validate_mapping_keys,
@@ -54,14 +54,14 @@ class TestRunTask:
     """Tests for run_task().
 
     Note: run_task() uses lazy imports inside the function body, so we
-    patch at the source module level (e.g. dataeval_app.dataset.load_dataset)
+    patch at the source module level (e.g. dataeval_flow.dataset.load_dataset)
     rather than on orchestrator.
     """
 
     def _build_config_and_task(self) -> tuple[MagicMock, Any]:
         """Build minimal config + task for run_task testing."""
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(
             name="test_ds",
@@ -97,7 +97,7 @@ class TestRunTask:
         mock_workflow.execute.return_value = mock_result
         return mock_workflow
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_basic(self, mock_load_ds: MagicMock):
         """run_task resolves config, runs workflow, returns result."""
         config, task = self._build_config_and_task()
@@ -105,20 +105,20 @@ class TestRunTask:
 
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
         mock_load_ds.assert_called_once()
         mock_wf.execute.assert_called_once()
 
-    @patch("dataeval_app.dataset.load_dataset")
-    @patch("dataeval_app.preprocessing.build_preprocessing")
+    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow.preprocessing.build_preprocessing")
     def test_run_task_with_preprocessor(self, mock_build_pre: MagicMock, mock_load_ds: MagicMock):
         """run_task resolves preprocessor when task references one."""
-        from dataeval_app.config.schemas.preprocessor import PreprocessorConfig
-        from dataeval_app.config.schemas.task import TaskConfig
-        from dataeval_app.preprocessing import PreprocessingStep
+        from dataeval_flow.config.schemas.preprocessor import PreprocessorConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
+        from dataeval_flow.preprocessing import PreprocessingStep
 
         config, _ = self._build_config_and_task()
         config.preprocessors = [
@@ -141,20 +141,20 @@ class TestRunTask:
         mock_build_pre.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
         mock_build_pre.assert_called_once()
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_with_model(self, mock_load_ds: MagicMock):
         """run_task resolves model when task references one."""
-        from dataeval_app.config.models import ModelConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.models import ModelConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config, _ = self._build_config_and_task()
-        from dataeval_app.config.models import OnnxExtractorConfig
+        from dataeval_flow.config.models import OnnxExtractorConfig
 
         config.models = [
             ModelConfig(
@@ -179,7 +179,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -190,11 +190,11 @@ class TestRunTask:
         assert dc.extractor.model_path == "/model.onnx"
         assert dc.extractor.output_name == "layer4"
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_with_selection(self, mock_load_ds: MagicMock):
         """run_task resolves selection config."""
-        from dataeval_app.config.schemas.selection import SelectionConfig, SelectionStep
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config, _ = self._build_config_and_task()
         config.selections = [
@@ -216,7 +216,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -227,17 +227,17 @@ class TestRunTask:
         assert dc.selection_steps[0].type == "Limit"
         assert dc.selection_steps[0].params == {"size": 100}
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_validates_params(self, mock_load_ds: MagicMock):
         """run_task validates params against workflow.params_schema."""
-        from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 
         config, task = self._build_config_and_task()
         mock_load_ds.return_value = MagicMock()
 
         mock_wf = self._mock_workflow(params_schema=DataCleaningParameters)
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -250,7 +250,7 @@ class TestRunTask:
 
     def test_run_task_raises_on_missing_dataset(self):
         """run_task raises ValueError when dataset not found."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = MagicMock()
         config.datasets = []
@@ -259,10 +259,10 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown dataset"):
             run_task(task, config)
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_raises_on_missing_preprocessor(self, mock_load_ds: MagicMock):
         """run_task raises ValueError when preprocessor not found."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config, _ = self._build_config_and_task()
         config.preprocessors = []  # Empty list — no preprocessors defined
@@ -278,10 +278,10 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown preprocessor"):
             run_task(task, config)
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_raises_on_missing_model(self, mock_load_ds: MagicMock):
         """run_task raises ValueError when model not found."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config, _ = self._build_config_and_task()
         config.models = []  # Empty list — no models defined
@@ -298,10 +298,10 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown model"):
             run_task(task, config)
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_raises_on_missing_selection(self, mock_load_ds: MagicMock):
         """run_task raises ValueError when selection not found."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config, _ = self._build_config_and_task()
         config.selections = []  # Empty list — no selections defined
@@ -317,13 +317,13 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown selection"):
             run_task(task, config)
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_format_and_image_folder_params(self, mock_load_ds: MagicMock):
         """run_task passes dataset_format, recursive, and infer_labels to load_dataset."""
         from pathlib import Path
 
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(
             name="photos",
@@ -343,7 +343,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         mock_load_ds.assert_called_once_with(
@@ -358,13 +358,13 @@ class TestRunTask:
             classes_file=None,
         )
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_coco_params(self, mock_load_ds: MagicMock):
         """run_task passes COCO-specific config fields to load_dataset."""
         from pathlib import Path
 
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(
             name="coco_ds",
@@ -385,7 +385,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         mock_load_ds.assert_called_once_with(
@@ -400,13 +400,13 @@ class TestRunTask:
             classes_file="classes.txt",
         )
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_yolo_params(self, mock_load_ds: MagicMock):
         """run_task passes YOLO-specific config fields to load_dataset."""
         from pathlib import Path
 
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(
             name="yolo_ds",
@@ -427,7 +427,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         mock_load_ds.assert_called_once_with(
@@ -442,11 +442,11 @@ class TestRunTask:
             classes_file="cls.txt",
         )
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_coco_sets_label_source(self, mock_load_ds: MagicMock):
         """run_task sets label_source='annotations' for COCO datasets."""
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(name="coco_ds", format="coco", path="/data/coco")
         task = TaskConfig(name="t", workflow="data-cleaning", datasets="coco_ds")
@@ -460,18 +460,18 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         context = mock_wf.execute.call_args[0][0]
         dc = context.dataset_contexts["coco_ds"]
         assert dc.label_source == "annotations"
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_yolo_sets_label_source(self, mock_load_ds: MagicMock):
         """run_task sets label_source='annotations' for YOLO datasets."""
-        from dataeval_app.config.schemas.dataset import DatasetConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(name="yolo_ds", format="yolo", path="/data/yolo")
         task = TaskConfig(name="t", workflow="data-cleaning", datasets="yolo_ds")
@@ -485,7 +485,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         context = mock_wf.execute.call_args[0][0]
@@ -502,28 +502,28 @@ class TestLabelSourceResolution:
     """Tests for label_source resolution via _LABEL_SOURCE and resolve_dataset."""
 
     def test_label_source_table_huggingface(self) -> None:
-        from dataeval_app.dataset import _LABEL_SOURCE
+        from dataeval_flow.dataset import _LABEL_SOURCE
 
         assert _LABEL_SOURCE["huggingface"] == "huggingface"
 
     def test_label_source_table_coco(self) -> None:
-        from dataeval_app.dataset import _LABEL_SOURCE
+        from dataeval_flow.dataset import _LABEL_SOURCE
 
         assert _LABEL_SOURCE["coco"] == "annotations"
 
     def test_label_source_table_yolo(self) -> None:
-        from dataeval_app.dataset import _LABEL_SOURCE
+        from dataeval_flow.dataset import _LABEL_SOURCE
 
         assert _LABEL_SOURCE["yolo"] == "annotations"
 
     def test_label_source_table_image_folder_absent(self) -> None:
-        from dataeval_app.dataset import _LABEL_SOURCE
+        from dataeval_flow.dataset import _LABEL_SOURCE
 
         assert "image_folder" not in _LABEL_SOURCE
 
     def test_protocol_config_returns_protocol(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
-        from dataeval_app.dataset import resolve_dataset
+        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.dataset import resolve_dataset
 
         cfg = DatasetProtocolConfig(name="ds", dataset=[1, 2, 3])
         resolved = resolve_dataset(cfg)
@@ -533,7 +533,7 @@ class TestLabelSourceResolution:
         """Schema rejects infer_labels=True for COCO (it's image_folder-only)."""
         from pydantic import ValidationError
 
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         with pytest.raises(ValidationError, match="infer_labels"):
             DatasetConfig(name="ds", format="coco", path="/data/ds", infer_labels=True)
@@ -542,7 +542,7 @@ class TestLabelSourceResolution:
         """Schema rejects infer_labels=True for YOLO (it's image_folder-only)."""
         from pydantic import ValidationError
 
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         with pytest.raises(ValidationError, match="infer_labels"):
             DatasetConfig(name="ds", format="yolo", path="/data/ds", infer_labels=True)
@@ -555,19 +555,19 @@ class TestLabelSourceResolution:
 
 class TestWorkflowDiscovery:
     def test_get_workflow_returns_registered(self):
-        from dataeval_app.workflow import WorkflowProtocol, get_workflow
+        from dataeval_flow.workflow import WorkflowProtocol, get_workflow
 
         wf = get_workflow("data-cleaning")
         assert isinstance(wf, WorkflowProtocol)
 
     def test_get_workflow_unknown_raises(self):
-        from dataeval_app.workflow import get_workflow
+        from dataeval_flow.workflow import get_workflow
 
         with pytest.raises(ValueError, match="Unknown workflow: 'nope'"):
             get_workflow("nope")
 
     def test_list_workflows(self):
-        from dataeval_app.workflow import list_workflows
+        from dataeval_flow.workflow import list_workflows
 
         workflows = list_workflows()
         names = [w["name"] for w in workflows]
@@ -645,7 +645,7 @@ class TestRunTaskMultiDataset:
     """Tests for multi-dataset run_task behaviour."""
 
     def _make_config(self, ds_names: list[str]) -> MagicMock:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         datasets = [DatasetConfig(name=n, format="huggingface", path=f"./{n}", split="train") for n in ds_names]
         config = MagicMock()
@@ -663,43 +663,43 @@ class TestRunTaskMultiDataset:
         mock_wf.execute.return_value = mock_result
         return mock_wf
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_datasets_string_backward_compat(self, mock_load_ds: MagicMock):
         """datasets as a plain string works (single dataset)."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds"])
         task = TaskConfig(name="t", workflow="data-cleaning", datasets="ds")
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
         mock_load_ds.assert_called_once()
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_datasets_list_loads_multiple(self, mock_load_ds: MagicMock):
         """datasets as a list loads each dataset."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
         task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"])
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
         assert mock_load_ds.call_count == 2
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_shared_model_string_applies_to_all(self, mock_load_ds: MagicMock):
         """A model specified as string is shared across all datasets."""
-        from dataeval_app.config.models import ModelConfig, OnnxExtractorConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.models import ModelConfig, OnnxExtractorConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
         config.models = [
@@ -709,7 +709,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -719,11 +719,11 @@ class TestRunTaskMultiDataset:
             assert dc.extractor is not None
             assert dc.extractor.model_path == "/m.onnx"
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_per_dataset_model_mapping(self, mock_load_ds: MagicMock):
         """Per-dataset model mapping gives each dataset its own extractor."""
-        from dataeval_app.config.models import FlattenExtractorConfig, ModelConfig, OnnxExtractorConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, OnnxExtractorConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
         config.models = [
@@ -740,7 +740,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -749,11 +749,11 @@ class TestRunTaskMultiDataset:
         assert context.dataset_contexts["ds_a"].extractor.model_path == "/m.onnx"
         assert context.dataset_contexts["ds_b"].extractor is not None
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_mapping_missing_key_gives_none(self, mock_load_ds: MagicMock):
         """A mapping that omits a dataset key means that dataset gets None."""
-        from dataeval_app.config.models import ModelConfig, OnnxExtractorConfig
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.models import ModelConfig, OnnxExtractorConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
         config.models = [
@@ -770,7 +770,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
@@ -780,7 +780,7 @@ class TestRunTaskMultiDataset:
 
     def test_mapping_unknown_dataset_raises(self):
         """A mapping referencing an unknown dataset raises ValueError."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a"])
         task = TaskConfig(
@@ -794,13 +794,13 @@ class TestRunTaskMultiDataset:
         with pytest.raises(ValueError, match="unknown datasets"):
             run_task(task, config)
 
-    @patch("dataeval_app.dataset.load_dataset")
-    @patch("dataeval_app.preprocessing.build_preprocessing")
+    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow.preprocessing.build_preprocessing")
     def test_per_dataset_preprocessor_mapping(self, mock_build_pre: MagicMock, mock_load_ds: MagicMock):
         """Per-dataset preprocessor mapping works."""
-        from dataeval_app.config.schemas.preprocessor import PreprocessorConfig
-        from dataeval_app.config.schemas.task import TaskConfig
-        from dataeval_app.preprocessing import PreprocessingStep
+        from dataeval_flow.config.schemas.preprocessor import PreprocessorConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
+        from dataeval_flow.preprocessing import PreprocessingStep
 
         config = self._make_config(["ds_a", "ds_b"])
         config.preprocessors = [
@@ -817,16 +817,16 @@ class TestRunTaskMultiDataset:
         mock_build_pre.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
         assert mock_build_pre.call_count == 2
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_single_dataset_context_fields(self, mock_load_ds: MagicMock):
         """Single-dataset WorkflowContext populates dataset_contexts correctly."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds"])
         task = TaskConfig(name="t", workflow="data-cleaning", datasets="ds")
@@ -834,7 +834,7 @@ class TestRunTaskMultiDataset:
         mock_load_ds.return_value = mock_dataset
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             run_task(task, config)
 
         context = mock_wf.execute.call_args[0][0]
@@ -843,17 +843,17 @@ class TestRunTaskMultiDataset:
         assert "ds" in context.dataset_contexts
         assert context.dataset_contexts["ds"].dataset is mock_dataset
 
-    @patch("dataeval_app.dataset.load_dataset")
+    @patch("dataeval_flow.dataset.load_dataset")
     def test_multi_dataset_metadata_has_comma_joined_id(self, mock_load_ds: MagicMock):
         """run_task populates metadata.dataset_id with comma-joined names for multi-dataset."""
-        from dataeval_app.config.schemas.task import TaskConfig
+        from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
         task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"])
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_app.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.metadata.dataset_id == "ds_a,ds_b"

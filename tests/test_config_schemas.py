@@ -5,21 +5,21 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from dataeval_app.config import (
+from dataeval_flow.config import (
     ModelConfig,
     WorkflowConfig,
     export_params_schema,
     load_config,
     load_config_folder,
 )
-from dataeval_app.config.schemas.dataset import DatasetConfig
-from dataeval_app.workflow.base import (
+from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.workflow.base import (
     Reportable,
     WorkflowOutputsBase,
     WorkflowParametersBase,
     WorkflowReportBase,
 )
-from dataeval_app.workflows.cleaning import (
+from dataeval_flow.workflows.cleaning import (
     DataCleaningOutputs,
     DataCleaningParameters,
     DataCleaningRawOutputs,
@@ -416,7 +416,7 @@ class TestModelConfig:
 
     def test_model_config_valid_onnx(self):
         """ModelConfig accepts valid OnnxExtractorConfig."""
-        from dataeval_app.config.models import OnnxExtractorConfig
+        from dataeval_flow.config.models import OnnxExtractorConfig
 
         model = ModelConfig(
             name="resnet50",
@@ -431,14 +431,14 @@ class TestModelConfig:
 
     def test_model_config_valid_flatten(self):
         """ModelConfig accepts FlattenExtractorConfig."""
-        from dataeval_app.config.models import FlattenExtractorConfig
+        from dataeval_flow.config.models import FlattenExtractorConfig
 
         model = ModelConfig(name="flat", extractor=FlattenExtractorConfig())
         assert model.extractor.type == "flatten"
 
     def test_model_config_valid_bovw(self):
         """ModelConfig accepts BoVWExtractorConfig."""
-        from dataeval_app.config.models import BoVWExtractorConfig
+        from dataeval_flow.config.models import BoVWExtractorConfig
 
         model = ModelConfig(name="bovw", extractor=BoVWExtractorConfig(vocab_size=1024))
         assert model.extractor.type == "bovw"
@@ -446,14 +446,14 @@ class TestModelConfig:
 
     def test_model_config_valid_bovw_default(self):
         """BoVWExtractorConfig has default vocab_size."""
-        from dataeval_app.config.models import BoVWExtractorConfig
+        from dataeval_flow.config.models import BoVWExtractorConfig
 
         config = BoVWExtractorConfig()
         assert config.vocab_size == 2048
 
     def test_bovw_vocab_size_out_of_range_raises(self):
         """BoVWExtractorConfig rejects vocab_size outside 256-4096."""
-        from dataeval_app.config.models import BoVWExtractorConfig
+        from dataeval_flow.config.models import BoVWExtractorConfig
 
         with pytest.raises(ValidationError, match="vocab_size"):
             BoVWExtractorConfig(vocab_size=1)
@@ -462,7 +462,7 @@ class TestModelConfig:
 
     def test_model_config_valid_torch(self):
         """ModelConfig accepts TorchExtractorConfig."""
-        from dataeval_app.config.models import TorchExtractorConfig
+        from dataeval_flow.config.models import TorchExtractorConfig
 
         model = ModelConfig(
             name="resnet_torch",
@@ -478,7 +478,7 @@ class TestModelConfig:
 
     def test_model_config_valid_uncertainty(self):
         """ModelConfig accepts UncertaintyExtractorConfig."""
-        from dataeval_app.config.models import UncertaintyExtractorConfig
+        from dataeval_flow.config.models import UncertaintyExtractorConfig
 
         model = ModelConfig(
             name="classifier",
@@ -514,7 +514,7 @@ class TestModelConfig:
         assert config.models is not None
         assert len(config.models) == 3
 
-        from dataeval_app.config.models import (
+        from dataeval_flow.config.models import (
             BoVWExtractorConfig,
             FlattenExtractorConfig,
             OnnxExtractorConfig,
@@ -590,7 +590,7 @@ class TestP1SchemaClasses:
 
     def test_dataset_config_with_split(self):
         """DatasetConfig with a split name."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         dataset = DatasetConfig(
             name="cppe5",
@@ -605,7 +605,7 @@ class TestP1SchemaClasses:
 
     def test_dataset_config_with_none_split(self):
         """DatasetConfig with split=None (single-split dataset)."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         dataset = DatasetConfig(
             name="retail",
@@ -617,14 +617,14 @@ class TestP1SchemaClasses:
 
     def test_dataset_config_missing_required_raises(self):
         """DatasetConfig requires name, format, path, split."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="name"):
             DatasetConfig(format="coco", path="./data", split="train")  # type: ignore[call-arg]
 
     def test_dataset_config_invalid_format_raises(self):
         """DatasetConfig rejects invalid format."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="format"):
             DatasetConfig(
@@ -636,36 +636,36 @@ class TestP1SchemaClasses:
 
     def test_dataset_config_rejects_labels_dir_for_coco(self):
         """DatasetConfig rejects labels_dir for COCO format."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="labels_dir"):
             DatasetConfig(name="ds", format="coco", path="./data", labels_dir="labels")
 
     def test_dataset_config_rejects_annotations_file_for_yolo(self):
         """DatasetConfig rejects annotations_file for YOLO format."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="annotations_file"):
             DatasetConfig(name="ds", format="yolo", path="./data", annotations_file="ann.json")
 
     def test_dataset_config_rejects_split_for_image_folder(self):
         """DatasetConfig rejects split for image_folder format."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="split"):
             DatasetConfig(name="ds", format="image_folder", path="./data", split="train")
 
     def test_dataset_config_rejects_recursive_for_huggingface(self):
         """DatasetConfig rejects recursive for huggingface format."""
-        from dataeval_app.config.schemas import DatasetConfig
+        from dataeval_flow.config.schemas import DatasetConfig
 
         with pytest.raises(ValidationError, match="recursive"):
             DatasetConfig(name="ds", format="huggingface", path="./data", recursive=True)
 
     def test_preprocessor_config_valid(self):
         """PreprocessorConfig with valid steps."""
-        from dataeval_app.config.schemas import PreprocessorConfig
-        from dataeval_app.preprocessing import PreprocessingStep
+        from dataeval_flow.config.schemas import PreprocessorConfig
+        from dataeval_flow.preprocessing import PreprocessingStep
 
         config = PreprocessorConfig(
             name="resnet50_preprocessor",
@@ -681,7 +681,7 @@ class TestP1SchemaClasses:
 
     def test_selection_step_valid(self):
         """SelectionStep with type and params."""
-        from dataeval_app.config.schemas import SelectionStep
+        from dataeval_flow.config.schemas import SelectionStep
 
         step = SelectionStep(type="Limit", params={"size": 10000})
         assert step.type == "Limit"
@@ -689,7 +689,7 @@ class TestP1SchemaClasses:
 
     def test_selection_step_default_params(self):
         """SelectionStep params defaults to empty dict."""
-        from dataeval_app.config.schemas import SelectionStep
+        from dataeval_flow.config.schemas import SelectionStep
 
         step = SelectionStep(type="ClassBalance")
         assert step.type == "ClassBalance"
@@ -697,7 +697,7 @@ class TestP1SchemaClasses:
 
     def test_selection_config_valid(self):
         """SelectionConfig with named pipeline."""
-        from dataeval_app.config.schemas import SelectionConfig, SelectionStep
+        from dataeval_flow.config.schemas import SelectionConfig, SelectionStep
 
         config = SelectionConfig(
             name="training_subset",
@@ -713,7 +713,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_valid(self):
         """TaskConfig with all optional fields."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(
             name="data_cleaning",
@@ -738,7 +738,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_with_model_no_batch_size_raises(self):
         """TaskConfig with model requiring batch_size but no batch_size raises ValidationError."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         with pytest.raises(ValidationError, match="batch_size"):
             TaskConfig(
@@ -750,7 +750,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_with_datasets_list(self):
         """TaskConfig accepts datasets as a list."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(
             name="multi",
@@ -761,7 +761,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_with_model_mapping(self):
         """TaskConfig accepts model as a per-dataset mapping."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(
             name="mapped",
@@ -774,7 +774,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_minimal(self):
         """TaskConfig with only required fields."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="minimal", workflow="data-cleaning", datasets="test")
         assert task.name == "minimal"
@@ -788,7 +788,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_invalid_output_format_raises(self):
         """TaskConfig rejects invalid output_format."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         with pytest.raises(ValidationError, match="output_format"):
             TaskConfig(
@@ -856,7 +856,7 @@ class TestFormatList:
 
     def test_plain_items(self):
         """Plain items are indented."""
-        from dataeval_app.config.schemas.task import _format_list
+        from dataeval_flow.config.schemas.task import _format_list
 
         result = _format_list(["a", "b", "c"])
         assert len(result) == 3
@@ -865,7 +865,7 @@ class TestFormatList:
 
     def test_dict_items(self):
         """Dict items are formatted as compact {k=v} strings."""
-        from dataeval_app.config.schemas.task import _format_list
+        from dataeval_flow.config.schemas.task import _format_list
 
         result = _format_list([{"x": 1, "y": 2}])
         assert len(result) == 1
@@ -873,7 +873,7 @@ class TestFormatList:
 
     def test_nested_list_items(self):
         """Nested lists are recursively formatted with extra indent."""
-        from dataeval_app.config.schemas.task import _format_list
+        from dataeval_flow.config.schemas.task import _format_list
 
         result = _format_list([["inner1", "inner2"]])
         assert len(result) == 2
@@ -887,13 +887,13 @@ class TestFormatDict:
 
     def test_empty_dict(self):
         """Empty dict returns empty list."""
-        from dataeval_app.config.schemas.task import _format_dict
+        from dataeval_flow.config.schemas.task import _format_dict
 
         assert _format_dict({}) == []
 
     def test_flat_dict(self):
         """Flat dict returns aligned key: value lines."""
-        from dataeval_app.config.schemas.task import _format_dict
+        from dataeval_flow.config.schemas.task import _format_dict
 
         result = _format_dict({"alpha": 1, "beta": "two"})
         assert len(result) == 2
@@ -904,7 +904,7 @@ class TestFormatDict:
 
     def test_nested_dict(self):
         """Nested dict adds indented sub-keys."""
-        from dataeval_app.config.schemas.task import _format_dict
+        from dataeval_flow.config.schemas.task import _format_dict
 
         result = _format_dict({"outer": {"inner": 42}})
         assert len(result) == 2
@@ -914,14 +914,14 @@ class TestFormatDict:
 
     def test_indent_parameter(self):
         """Indent parameter adds leading spaces."""
-        from dataeval_app.config.schemas.task import _format_dict
+        from dataeval_flow.config.schemas.task import _format_dict
 
         result = _format_dict({"key": "val"}, indent=4)
         assert result[0].startswith("    ")
 
     def test_dict_with_list_value(self):
         """Dict with list value delegates to _format_list."""
-        from dataeval_app.config.schemas.task import _format_dict
+        from dataeval_flow.config.schemas.task import _format_dict
 
         result = _format_dict({"items": [1, 2, 3]})
         assert any("items" in line for line in result)
@@ -933,7 +933,7 @@ class TestTaskConfigSummary:
 
     def test_summary_minimal(self):
         """Summary with only required fields."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="clean", workflow="data-cleaning", datasets="ds1")
         s = task.summary()
@@ -942,14 +942,14 @@ class TestTaskConfigSummary:
 
     def test_summary_with_datasets_list(self):
         """Summary lists multiple datasets."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets=["a", "b"])
         assert "a, b" in task.summary()
 
     def test_summary_with_models_string(self):
         """Summary includes model name."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", models="m1", batch_size=32)
         s = task.summary()
@@ -957,7 +957,7 @@ class TestTaskConfigSummary:
 
     def test_summary_with_models_mapping(self):
         """Summary includes model mapping keys."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets=["a", "b"], models={"a": "m1", "b": "m2"}, batch_size=32)
         s = task.summary()
@@ -965,42 +965,42 @@ class TestTaskConfigSummary:
 
     def test_summary_with_selections(self):
         """Summary includes selections."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", selections="sel1")
         assert "sel1" in task.summary()
 
     def test_summary_with_selections_mapping(self):
         """Summary includes selection config names (values, not dataset keys)."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", selections={"d": "s1"})
         assert "s1" in task.summary()
 
     def test_summary_with_preprocessors(self):
         """Summary includes preprocessor name."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", preprocessors="prep1")
         assert "prep1" in task.summary()
 
     def test_summary_with_batch_size(self):
         """Summary includes batch_size."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", models="m", batch_size=64)
         assert "64" in task.summary()
 
     def test_summary_with_cache_dir(self):
         """Summary includes cache_dir."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", cache_dir="/cache")
         assert "/cache" in task.summary()
 
     def test_summary_with_params(self):
         """Summary includes params section."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d", params={"outlier_method": "iqr"})
         s = task.summary()
@@ -1010,7 +1010,7 @@ class TestTaskConfigSummary:
 
     def test_str_returns_summary(self):
         """__str__ returns same as summary()."""
-        from dataeval_app.config.schemas import TaskConfig
+        from dataeval_flow.config.schemas import TaskConfig
 
         task = TaskConfig(name="t", workflow="w", datasets="d")
         assert str(task) == task.summary()
@@ -1021,7 +1021,7 @@ class TestDataCleaningTaskConfig:
 
     def test_wrong_workflow_raises(self):
         """DataCleaningTaskConfig rejects wrong workflow name."""
-        from dataeval_app.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
+        from dataeval_flow.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
 
         _rebuild_deferred_models()
         with pytest.raises(ValidationError, match="data-cleaning"):
@@ -1034,7 +1034,7 @@ class TestDataCleaningTaskConfig:
 
     def test_valid_data_cleaning_task_config(self):
         """DataCleaningTaskConfig accepts valid config."""
-        from dataeval_app.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
+        from dataeval_flow.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
 
         _rebuild_deferred_models()
         task = DataCleaningTaskConfig(
@@ -1051,8 +1051,8 @@ class TestDriftMonitoringTaskConfig:
 
     def test_wrong_workflow_raises(self):
         """DriftMonitoringTaskConfig rejects wrong workflow name."""
-        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 
         _rebuild_deferred_models()
         with pytest.raises(ValidationError, match="drift-monitoring"):
@@ -1065,8 +1065,8 @@ class TestDriftMonitoringTaskConfig:
 
     def test_single_dataset_raises(self):
         """DriftMonitoringTaskConfig requires at least 2 datasets."""
-        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 
         _rebuild_deferred_models()
         with pytest.raises(ValidationError, match="at least 2 datasets"):
@@ -1078,8 +1078,8 @@ class TestDriftMonitoringTaskConfig:
 
     def test_single_dataset_in_list_raises(self):
         """DriftMonitoringTaskConfig rejects a list with only one dataset."""
-        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 
         _rebuild_deferred_models()
         with pytest.raises(ValidationError, match="at least 2 datasets"):
@@ -1091,8 +1091,8 @@ class TestDriftMonitoringTaskConfig:
 
     def test_valid_drift_task_config(self):
         """DriftMonitoringTaskConfig accepts valid config with 2 datasets."""
-        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 
         _rebuild_deferred_models()
         task = DriftMonitoringTaskConfig(

@@ -1,4 +1,4 @@
-# Use a torchvision dataset with DataEval App
+# Use a torchvision dataset with DataEval Workflows
 
 This guide shows how to pass a torchvision dataset into the `data-cleaning`
 workflow using the `"torchvision"` adapter.  The adapter converts both
@@ -10,11 +10,12 @@ protocol that DataEval expects.
 ```python
 from torchvision.datasets import CIFAR10
 
-from dataeval_app.config.models import BoVWExtractorConfig, ModelConfig, WorkflowConfig
-from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
-from dataeval_app.config.schemas.task import DataCleaningTaskConfig
-from dataeval_app.workflow.orchestrator import run_task
-from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+
+from dataeval_flow.config.models import BoVWExtractorConfig, ModelConfig, WorkflowConfig
+from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+from dataeval_flow.config.schemas.task import DataCleaningTaskConfig
+from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 
 # 1. Create the torchvision dataset (no transforms — the adapter handles conversion)
 tv_dataset = CIFAR10(root="./data", train=True, download=True)
@@ -76,7 +77,7 @@ targets into a dict with `"boxes"` (as `BoundingBoxes`) and `"labels"`:
 ```python
 from torchvision.datasets import CocoDetection, wrap_dataset_for_transforms_v2
 
-from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
 
 # 1. Create the raw torchvision detection dataset
 raw_ds = CocoDetection(

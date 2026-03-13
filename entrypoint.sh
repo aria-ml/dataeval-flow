@@ -1,5 +1,5 @@
 #!/bin/bash
-# DataEval Application Container Entrypoint
+# DataEval Workflows Container Entrypoint
 # Validates environment and provides helpful usage info
 
 set -e
@@ -8,14 +8,14 @@ set -e
 show_help() {
     if [[ "$CONTAINER_MODE" == "cpu" ]]; then
         cat << 'EOF'
-DataEval Application Container - CPU Version
+DataEval Workflows Container - CPU Version
 
 USAGE:
     docker run [OPTIONS] dataeval:cpu [COMMAND]
 EOF
     else
         cat << 'EOF'
-DataEval Application Container - GPU Version
+DataEval Workflows Container - GPU Version
 
 USAGE:
     docker run --gpus all [OPTIONS] dataeval:gpu [COMMAND]

@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: dataeval-app
+#     display_name: dataeval-flow
 #     language: python
 #     name: python3
 # ---
@@ -46,7 +46,7 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-app` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -223,11 +223,12 @@ plt.show()
 # with `Indices` to subset the reference to the first 4 000 images.
 
 # %%
-from dataeval_app.config.models import FlattenExtractorConfig, ModelConfig, WorkflowConfig
-from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
-from dataeval_app.config.schemas.selection import SelectionConfig, SelectionStep
-from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig
-from dataeval_app.workflows.drift.params import (
+
+from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, WorkflowConfig
+from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
+from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+from dataeval_flow.workflows.drift.params import (
     ChunkingConfig,
     DriftDetectorKNeighbors,
     DriftDetectorMMD,
@@ -297,7 +298,7 @@ print(overall_task.summary())
 # ## Step 2: Run overall drift detection
 
 # %%
-from dataeval_app.workflow.orchestrator import run_task
+from dataeval_flow.workflow.orchestrator import run_task
 
 overall_result = run_task(overall_task, overall_config)
 

@@ -1,4 +1,4 @@
-"""Tests for the dataeval_app package."""
+"""Tests for the dataeval_flow package."""
 
 from pathlib import Path
 from typing import Any
@@ -20,21 +20,21 @@ class TestImports:
         assert dataeval is not None
 
     def test_package_import(self) -> None:
-        """Verify the dataeval_app package can be imported."""
-        import dataeval_app
+        """Verify the dataeval_flow package can be imported."""
+        import dataeval_flow
 
-        assert hasattr(dataeval_app, "__version__")
+        assert hasattr(dataeval_flow, "__version__")
 
     def test_public_api_exports(self) -> None:
         """Verify __all__ exports are available from package root."""
-        from dataeval_app import load_dataset, load_dataset_huggingface
+        from dataeval_flow import load_dataset, load_dataset_huggingface
 
         assert callable(load_dataset)
         assert callable(load_dataset_huggingface)
 
     def test_workflow_api_exports(self) -> None:
         """Verify workflow exports are available from package root."""
-        from dataeval_app import get_workflow, list_workflows, run_task
+        from dataeval_flow import get_workflow, list_workflows, run_task
 
         assert callable(get_workflow)
         assert callable(list_workflows)
@@ -54,7 +54,7 @@ class TestDatasetModule:
             mock_load.return_value = mock_hf_dataset
             mock_adapter.return_value = MagicMock()
 
-            from dataeval_app import load_dataset_huggingface
+            from dataeval_flow import load_dataset_huggingface
 
             load_dataset_huggingface(Path("dummy/path"), split="train")
 
@@ -64,47 +64,47 @@ class TestDatasetModule:
 
     def test_load_dataset_delegates(self) -> None:
         """Test load_dataset defaults to huggingface."""
-        with patch("dataeval_app.dataset.load_dataset_huggingface") as mock_hf:
+        with patch("dataeval_flow.dataset.load_dataset_huggingface") as mock_hf:
             mock_hf.return_value = MagicMock()
 
-            from dataeval_app.dataset import load_dataset
+            from dataeval_flow.dataset import load_dataset
 
             load_dataset(Path("/some/path"))
             mock_hf.assert_called_once_with(Path("/some/path"), split=None)
 
     def test_load_dataset_image_folder_dispatch(self) -> None:
         """Test load_dataset dispatches to image_folder loader."""
-        with patch("dataeval_app.dataset.load_dataset_image_folder") as mock_if:
+        with patch("dataeval_flow.dataset.load_dataset_image_folder") as mock_if:
             mock_if.return_value = MagicMock()
 
-            from dataeval_app.dataset import load_dataset
+            from dataeval_flow.dataset import load_dataset
 
             load_dataset(Path("/some/path"), dataset_format="image_folder")
             mock_if.assert_called_once_with(Path("/some/path"), recursive=False, infer_labels=False)
 
     def test_load_dataset_image_folder_with_infer_labels(self) -> None:
         """Test load_dataset passes infer_labels through."""
-        with patch("dataeval_app.dataset.load_dataset_image_folder") as mock_if:
+        with patch("dataeval_flow.dataset.load_dataset_image_folder") as mock_if:
             mock_if.return_value = MagicMock()
 
-            from dataeval_app.dataset import load_dataset
+            from dataeval_flow.dataset import load_dataset
 
             load_dataset(Path("/some/path"), dataset_format="image_folder", infer_labels=True)
             mock_if.assert_called_once_with(Path("/some/path"), recursive=False, infer_labels=True)
 
     def test_load_dataset_unsupported_format_raises(self) -> None:
         """Test load_dataset raises ValueError for unsupported formats."""
-        from dataeval_app.dataset import load_dataset
+        from dataeval_flow.dataset import load_dataset
 
         with pytest.raises(ValueError, match="Unsupported dataset format"):
             load_dataset(Path("/some/path"), dataset_format="unknown")  # type: ignore[arg-type]
 
     def test_load_dataset_coco_dispatch(self) -> None:
         """Test load_dataset dispatches to COCO loader."""
-        with patch("dataeval_app.dataset.load_dataset_coco") as mock_coco:
+        with patch("dataeval_flow.dataset.load_dataset_coco") as mock_coco:
             mock_coco.return_value = MagicMock()
 
-            from dataeval_app.dataset import load_dataset
+            from dataeval_flow.dataset import load_dataset
 
             load_dataset(
                 Path("/some/path"),
@@ -122,10 +122,10 @@ class TestDatasetModule:
 
     def test_load_dataset_yolo_dispatch(self) -> None:
         """Test load_dataset dispatches to YOLO loader."""
-        with patch("dataeval_app.dataset.load_dataset_yolo") as mock_yolo:
+        with patch("dataeval_flow.dataset.load_dataset_yolo") as mock_yolo:
             mock_yolo.return_value = MagicMock()
 
-            from dataeval_app.dataset import load_dataset
+            from dataeval_flow.dataset import load_dataset
 
             load_dataset(
                 Path("/some/path"),
@@ -167,7 +167,7 @@ class TestImageFolderDatasetUnlabeled:
 
     def test_happy_path(self, tmp_path: Path) -> None:
         """Discover images in a flat directory."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         for name in ["a.png", "b.jpg", "c.jpeg"]:
             _create_image(tmp_path / name)
@@ -183,21 +183,21 @@ class TestImageFolderDatasetUnlabeled:
 
     def test_missing_path_raises(self, tmp_path: Path) -> None:
         """Non-existent path raises FileNotFoundError."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         with pytest.raises(FileNotFoundError, match="Image folder not found"):
             ImageFolderDataset(tmp_path / "nonexistent")
 
     def test_empty_dir_raises(self, tmp_path: Path) -> None:
         """Empty directory raises FileNotFoundError."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         with pytest.raises(FileNotFoundError, match="No supported image files"):
             ImageFolderDataset(tmp_path)
 
     def test_mixed_files_filters(self, tmp_path: Path) -> None:
         """Only image files are discovered; others are ignored."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "img.png")
         (tmp_path / "data.txt").write_text("hello")
@@ -208,7 +208,7 @@ class TestImageFolderDatasetUnlabeled:
 
     def test_grayscale_image(self, tmp_path: Path) -> None:
         """Grayscale image is converted to 3-channel RGB."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "gray.png", mode="L")
         ds = ImageFolderDataset(tmp_path)
@@ -217,7 +217,7 @@ class TestImageFolderDatasetUnlabeled:
 
     def test_rgba_image(self, tmp_path: Path) -> None:
         """RGBA image drops alpha channel."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "rgba.png", mode="RGBA")
         ds = ImageFolderDataset(tmp_path)
@@ -226,7 +226,7 @@ class TestImageFolderDatasetUnlabeled:
 
     def test_negative_indexing(self, tmp_path: Path) -> None:
         """Negative indices work correctly."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         for name in ["a.png", "b.png", "c.png"]:
             _create_image(tmp_path / name)
@@ -241,7 +241,7 @@ class TestImageFolderDatasetUnlabeled:
 
     def test_recursive(self, tmp_path: Path) -> None:
         """recursive=True finds images in subdirectories."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "top.png")
         _create_image(tmp_path / "sub" / "deep.png")
@@ -264,7 +264,7 @@ class TestImageFolderDatasetLabeled:
 
     def test_happy_path(self, tmp_path: Path) -> None:
         """2 subdirs → 2 classes, one-hot targets, correct index2label."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "cats" / "c1.png")
         _create_image(tmp_path / "cats" / "c2.png")
@@ -286,7 +286,7 @@ class TestImageFolderDatasetLabeled:
 
     def test_empty_subdir_skipped(self, tmp_path: Path) -> None:
         """Empty subdirs are skipped; class indices remain dense."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "alpha" / "a1.png")
         (tmp_path / "beta").mkdir()  # empty
@@ -298,7 +298,7 @@ class TestImageFolderDatasetLabeled:
 
     def test_top_level_images_ignored(self, tmp_path: Path) -> None:
         """Images directly in root are ignored in labeled mode."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "stray.png")  # top-level — ignored
         _create_image(tmp_path / "cats" / "c1.png")
@@ -310,7 +310,7 @@ class TestImageFolderDatasetLabeled:
 
     def test_single_class(self, tmp_path: Path) -> None:
         """Single class → num_classes=1, one-hot [1.0]."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "only_class" / "img.png")
         ds = ImageFolderDataset(tmp_path, infer_labels=True)
@@ -320,7 +320,7 @@ class TestImageFolderDatasetLabeled:
 
     def test_no_subdirs_raises(self, tmp_path: Path) -> None:
         """infer_labels=True on flat dir → FileNotFoundError."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         _create_image(tmp_path / "img.png")
         with pytest.raises(FileNotFoundError, match="No class subdirectories"):
@@ -328,7 +328,7 @@ class TestImageFolderDatasetLabeled:
 
     def test_all_subdirs_empty_raises(self, tmp_path: Path) -> None:
         """infer_labels=True, subdirs exist but no images → FileNotFoundError."""
-        from dataeval_app.dataset import ImageFolderDataset
+        from dataeval_flow.dataset import ImageFolderDataset
 
         (tmp_path / "empty_a").mkdir()
         (tmp_path / "empty_b").mkdir()
@@ -346,26 +346,26 @@ class TestDatasetConfigImageFolder:
     """Tests for DatasetConfig with image_folder format."""
 
     def test_image_folder_format_accepted(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(name="test", format="image_folder", path="/data")
         assert cfg.format == "image_folder"
 
     def test_recursive_field(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(name="test", format="image_folder", path="/data", recursive=True)
         assert cfg.recursive is True
 
     def test_infer_labels_field(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(name="test", format="image_folder", path="/data", infer_labels=True)
         assert cfg.infer_labels is True
 
     def test_defaults_backward_compat(self) -> None:
         """Existing configs without new fields still parse."""
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(name="test", format="huggingface", path="/data")
         assert cfg.recursive is False
@@ -377,7 +377,7 @@ class TestDatasetConfigNewFields:
     """Tests for COCO/YOLO config fields."""
 
     def test_coco_fields_parse(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(
             name="coco-ds",
@@ -392,7 +392,7 @@ class TestDatasetConfigNewFields:
         assert cfg.classes_file == "cls.txt"
 
     def test_yolo_fields_parse(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(
             name="yolo-ds",
@@ -407,7 +407,7 @@ class TestDatasetConfigNewFields:
         assert cfg.classes_file == "cls.txt"
 
     def test_new_fields_default_to_none(self) -> None:
-        from dataeval_app.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
         cfg = DatasetConfig(name="test", format="huggingface", path="/data")
         assert cfg.annotations_file is None
@@ -429,7 +429,7 @@ class TestCocoDatasetFixture:
         """Round-trip: create tiny COCO dataset, load via load_dataset_coco."""
         import json
 
-        from dataeval_app.dataset import load_dataset_coco
+        from dataeval_flow.dataset import load_dataset_coco
 
         # Create a minimal 1x1 PNG image
         _create_image(tmp_path / "images" / "img_0.png", width=1, height=1)
@@ -461,7 +461,7 @@ class TestYoloDatasetFixture:
 
     def test_load_dataset_yolo_with_fixtures(self, tmp_path: Path) -> None:
         """Round-trip: create tiny YOLO dataset, load via load_dataset_yolo."""
-        from dataeval_app.dataset import load_dataset_yolo
+        from dataeval_flow.dataset import load_dataset_yolo
 
         # Create a minimal 1x1 PNG image
         _create_image(tmp_path / "images" / "img_0.png", width=1, height=1)
@@ -551,14 +551,14 @@ class TestTorchvisionDatasetClassification:
 
     def test_len(self) -> None:
         """Adapter preserves dataset length."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(num_samples=7, classes=["a", "b"]))
         assert len(ds) == 7
 
     def test_getitem_returns_three_tuple(self) -> None:
         """__getitem__ returns (image, target, metadata) tuple."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(classes=["a", "b"]))
         result = ds[0]
@@ -567,7 +567,7 @@ class TestTorchvisionDatasetClassification:
 
     def test_image_chw_float32(self) -> None:
         """Image is converted to CHW float32 numpy array."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(classes=["a"]))
         img, _, _ = ds[0]
@@ -577,7 +577,7 @@ class TestTorchvisionDatasetClassification:
 
     def test_one_hot_target_with_classes(self) -> None:
         """Integer label → one-hot vector when classes is available."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(num_samples=4, classes=["cat", "dog", "bird"]))
         # sample 0 → label 0 → [1, 0, 0]
@@ -594,7 +594,7 @@ class TestTorchvisionDatasetClassification:
 
     def test_scalar_target_without_classes(self) -> None:
         """Without classes, target is passed through as float32 array."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(classes=None))
         _, tgt, _ = ds[0]
@@ -602,7 +602,7 @@ class TestTorchvisionDatasetClassification:
 
     def test_metadata_has_id(self) -> None:
         """Datum metadata contains the sample index."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(classes=["a"]))
         _, _, meta = ds[3]
@@ -610,7 +610,7 @@ class TestTorchvisionDatasetClassification:
 
     def test_dataset_metadata_index2label(self) -> None:
         """Dataset-level metadata exposes index2label from classes."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(classes=["airplane", "ship"]))
         m = ds.metadata
@@ -619,7 +619,7 @@ class TestTorchvisionDatasetClassification:
 
     def test_dataset_metadata_empty_without_classes(self) -> None:
         """index2label is empty when dataset has no classes attribute."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_cls_dataset(classes=None))
         assert ds.metadata["index2label"] == {}  # type: ignore
@@ -628,7 +628,7 @@ class TestTorchvisionDatasetClassification:
         """Adapter handles torch Tensor images (CHW)."""
         import torch
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _TensorDs:
             classes = ["a", "b"]
@@ -648,7 +648,7 @@ class TestTorchvisionDatasetClassification:
         """Adapter transposes HWC tensors to CHW."""
         import torch
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _HWCDs:
             classes = ["a"]
@@ -667,7 +667,7 @@ class TestTorchvisionDatasetClassification:
         """Grayscale PIL image is converted to 3-channel RGB CHW."""
         from PIL import Image
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _GrayDs:
             classes = ["a"]
@@ -696,7 +696,7 @@ class TestTorchvisionDatasetObjectDetection:
         """OD targets conform to ObjectDetectionTarget protocol."""
         from dataeval.protocols import ObjectDetectionTarget
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_od_dataset(classes=["a", "b"]))
         _, tgt, _ = ds[0]
@@ -704,7 +704,7 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_od_target_has_boxes_labels_scores(self) -> None:
         """OD target exposes boxes, labels, and scores as numpy arrays."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_od_dataset(classes=["a", "b"]))
         _, tgt, _ = ds[0]
@@ -714,7 +714,7 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_od_boxes_shape(self) -> None:
         """Boxes are (N, 4) float32."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_od_dataset(classes=["a", "b"]))
         _, tgt, _ = ds[0]
@@ -724,7 +724,7 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_od_scores_one_hot(self) -> None:
         """Scores are one-hot with correct shape (N, num_classes)."""
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         ds = TorchvisionDataset(_make_od_dataset(classes=["cat", "dog", "bird"]))
         _, tgt, _ = ds[0]
@@ -738,7 +738,7 @@ class TestTorchvisionDatasetObjectDetection:
         import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _XYWHDs:
             classes = ["a"]
@@ -767,7 +767,7 @@ class TestTorchvisionDatasetObjectDetection:
         import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _CXCYWHDs:
             classes = ["a"]
@@ -796,7 +796,7 @@ class TestTorchvisionDatasetObjectDetection:
         import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _XYXYDs:
             classes = ["a"]
@@ -823,7 +823,7 @@ class TestTorchvisionDatasetObjectDetection:
         """Plain torch tensors (no BoundingBoxes) are assumed XYXY."""
         import torch
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _PlainDs:
             classes = ["a"]
@@ -847,7 +847,7 @@ class TestTorchvisionDatasetObjectDetection:
         import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
-        from dataeval_app.dataset import TorchvisionDataset
+        from dataeval_flow.dataset import TorchvisionDataset
 
         class _NoClassesDs:
             def __len__(self):
@@ -883,7 +883,7 @@ class TestObjectDetectionTarget:
         """_ObjectDetectionTarget satisfies the ObjectDetectionTarget protocol."""
         from dataeval.protocols import ObjectDetectionTarget
 
-        from dataeval_app.dataset import _ObjectDetectionTarget
+        from dataeval_flow.dataset import _ObjectDetectionTarget
 
         t = _ObjectDetectionTarget(
             boxes=np.zeros((2, 4), dtype=np.float32),
@@ -894,7 +894,7 @@ class TestObjectDetectionTarget:
 
     def test_properties(self) -> None:
         """Properties return the arrays passed at construction."""
-        from dataeval_app.dataset import _ObjectDetectionTarget
+        from dataeval_flow.dataset import _ObjectDetectionTarget
 
         boxes = np.array([[1, 2, 3, 4]], dtype=np.float32)
         labels = np.array([0], dtype=np.intp)
@@ -916,7 +916,7 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_format_torchvision_accepted(self) -> None:
         """format='torchvision' is a valid literal."""
-        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
 
         cfg = DatasetProtocolConfig(
             name="test",
@@ -927,15 +927,15 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_format_maite_still_works(self) -> None:
         """format='maite' (default) is still valid."""
-        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
 
         cfg = DatasetProtocolConfig(name="test", dataset=MagicMock())
         assert cfg.format == "maite"
 
     def test_resolve_torchvision_wraps_dataset(self) -> None:
         """resolve_dataset wraps torchvision datasets in TorchvisionDataset."""
-        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
-        from dataeval_app.dataset import TorchvisionDataset, resolve_dataset
+        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.dataset import TorchvisionDataset, resolve_dataset
 
         cfg = DatasetProtocolConfig(
             name="tv-test",
@@ -950,8 +950,8 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_resolve_maite_passes_through(self) -> None:
         """resolve_dataset does not wrap maite datasets."""
-        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
-        from dataeval_app.dataset import TorchvisionDataset, resolve_dataset
+        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.dataset import TorchvisionDataset, resolve_dataset
 
         raw = MagicMock()
         cfg = DatasetProtocolConfig(name="m-test", format="maite", dataset=raw)
@@ -961,8 +961,8 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_resolve_cache_key_includes_version(self) -> None:
         """cache_key changes when version changes."""
-        from dataeval_app.config.schemas.dataset import DatasetProtocolConfig
-        from dataeval_app.dataset import resolve_dataset
+        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.dataset import resolve_dataset
 
         cfg1 = DatasetProtocolConfig(
             name="ds", format="torchvision", dataset=_make_cls_dataset(classes=["a"]), version="1"
@@ -983,13 +983,13 @@ class TestLoadDatasetTorchvision:
     """Tests for the load_dataset_torchvision convenience function."""
 
     def test_returns_torchvision_dataset(self) -> None:
-        from dataeval_app.dataset import TorchvisionDataset, load_dataset_torchvision
+        from dataeval_flow.dataset import TorchvisionDataset, load_dataset_torchvision
 
         result = load_dataset_torchvision(_make_cls_dataset(classes=["a"]))
         assert isinstance(result, TorchvisionDataset)
 
     def test_preserves_dataset_data(self) -> None:
-        from dataeval_app.dataset import load_dataset_torchvision
+        from dataeval_flow.dataset import load_dataset_torchvision
 
         raw = _make_cls_dataset(num_samples=3, classes=["x", "y"])
         ds = load_dataset_torchvision(raw)
@@ -1003,27 +1003,27 @@ class TestMainModule:
 
     def test_parse_args_no_output_exits_error(self) -> None:
         """--output is required; omitting it causes argparse to exit with error."""
-        from dataeval_app.__main__ import parse_args
+        from dataeval_flow.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app"]), pytest.raises(SystemExit) as exc_info:
+        with patch("sys.argv", ["dataeval_flow"]), pytest.raises(SystemExit) as exc_info:
             parse_args()
         assert exc_info.value.code == 2
 
     def test_parse_args_with_config(self) -> None:
         """Test parsing with --config flag."""
-        from dataeval_app.__main__ import parse_args
+        from dataeval_flow.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_app", "--config", "/my/config", "--output", "/my/output"]):
+        with patch("sys.argv", ["dataeval_flow", "--config", "/my/config", "--output", "/my/output"]):
             args = parse_args()
             assert args.config == Path("/my/config")
 
     def test_main_success(self) -> None:
         """Test main() with successful execution."""
-        from dataeval_app.__main__ import main
+        from dataeval_flow.__main__ import main
 
         with (
-            patch("sys.argv", ["dataeval_app", "--output", "/fake/output"]),
-            patch("dataeval_app.runner.run_all_tasks", return_value=0),
+            patch("sys.argv", ["dataeval_flow", "--output", "/fake/output"]),
+            patch("dataeval_flow.runner.run_all_tasks", return_value=0),
             pytest.raises(SystemExit) as exc_info,
         ):
             main()
@@ -1031,11 +1031,11 @@ class TestMainModule:
 
     def test_main_file_not_found(self) -> None:
         """Test main() with FileNotFoundError."""
-        from dataeval_app.__main__ import main
+        from dataeval_flow.__main__ import main
 
         with (
-            patch("sys.argv", ["dataeval_app", "--output", "/fake/output"]),
-            patch("dataeval_app.runner.run_all_tasks", side_effect=FileNotFoundError("Not found")),
+            patch("sys.argv", ["dataeval_flow", "--output", "/fake/output"]),
+            patch("dataeval_flow.runner.run_all_tasks", side_effect=FileNotFoundError("Not found")),
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
@@ -1048,21 +1048,21 @@ class TestResultMetadata:
 
     def test_defaults(self) -> None:
         """ResultMetadata has sensible defaults for JATIC fields."""
-        from dataeval_app.config.schemas.metadata import ResultMetadata
+        from dataeval_flow.config.schemas.metadata import ResultMetadata
 
         meta = ResultMetadata()
         assert meta.version == "1.0"
-        assert meta.tool == "dataeval-app"
+        assert meta.tool == "dataeval-flow"
         assert meta.timestamp is not None
 
     def test_serializes_to_json(self) -> None:
         """model_dump(mode='json') produces JSON-safe types."""
-        from dataeval_app.config.schemas.metadata import ResultMetadata
+        from dataeval_flow.config.schemas.metadata import ResultMetadata
 
         meta = ResultMetadata(dataset_id="cifar10", tool_version="0.1.0")
         data = meta.model_dump(mode="json")
         assert data["dataset_id"] == "cifar10"
-        assert data["tool"] == "dataeval-app"
+        assert data["tool"] == "dataeval-flow"
         assert isinstance(data["timestamp"], str)
 
 

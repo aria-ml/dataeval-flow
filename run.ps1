@@ -1,4 +1,4 @@
-# DataEval Application Runner (PowerShell)
+# DataEval Workflows Runner (PowerShell)
 # Usage: .\run.ps1 -Config PATH -Dataset PATH -Output PATH [-Model PATH] [-Cache PATH] [-CPU]
 
 param(
@@ -22,7 +22,7 @@ param(
 
 # Show help
 if ($Help) {
-    Write-Host "DataEval Application Runner"
+    Write-Host "DataEval Workflows Runner"
     Write-Host ""
     Write-Host "Usage:"
     Write-Host "  .\run.ps1 -Config PATH -Dataset PATH -Output PATH [-Model PATH] [-Cache PATH] [-CPU]"
@@ -60,8 +60,8 @@ if (-not [string]::IsNullOrEmpty($Cache)) {
 # Run container
 if ($CPU) {
     Write-Host "Running with CPU..."
-    docker run --rm @Mounts dataeval-app:cpu
+    docker run --rm @Mounts dataeval:cpu
 } else {
     Write-Host "Running with GPU..."
-    docker run --rm --gpus all @Mounts dataeval-app:gpu
+    docker run --rm --gpus all @Mounts dataeval:gpu
 }

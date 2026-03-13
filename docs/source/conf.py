@@ -12,7 +12,7 @@ from typing import Any
 # Project configuration
 # -----------------------------------------------------------------------------
 
-project = "DataEval App"
+project = "DataEval Workflows"
 copyright = f"{datetime.date.today().year}, ARiA"  # noqa: A001
 author = "ARiA"
 
@@ -56,7 +56,7 @@ suppress_warnings = ["ref.python", "autoapi.python_import_resolution"]
 # AutoAPI settings
 # -----------------------------------------------------------------------------
 
-autoapi_dirs = ["../../src/dataeval_app/"]
+autoapi_dirs = ["../../src/dataeval_flow/"]
 autoapi_type = "python"
 autoapi_root = "reference/autoapi"
 autoapi_file_pattern = "*.py"
