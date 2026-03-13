@@ -7,8 +7,24 @@ from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+    from dataeval_app.workflows.drift.params import DriftMonitoringParameters
 
 AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
+
+
+def _format_list(items: list[Any], indent: int = 0) -> list[str]:
+    """Format a list with each element on its own line, indented by *indent* + 2."""
+    lines: list[str] = []
+    spaces = " " * (indent + 2)
+    for item in items:
+        if isinstance(item, dict):
+            compact = ", ".join(f"{k}={v}" for k, v in item.items())
+            lines.append(f"{spaces}{{{compact}}}")
+        elif isinstance(item, list):
+            lines.extend(_format_list(item, indent + 2))
+        else:
+            lines.append(f"{spaces}{item}")
+    return lines
 
 
 def _format_dict(d: dict[str, Any], indent: int = 0) -> list[str]:
@@ -22,6 +38,9 @@ def _format_dict(d: dict[str, Any], indent: int = 0) -> list[str]:
         if isinstance(v, dict):
             lines.append(f"{spaces}{k:<{pad}}:")
             lines.extend(_format_dict(v, indent + 2))
+        elif isinstance(v, list):
+            lines.append(f"{spaces}{k:<{pad}}:")
+            lines.extend(_format_list(v, indent))
         else:
             lines.append(f"{spaces}{k:<{pad}}: {v}")
     return lines
@@ -132,12 +151,38 @@ class DataCleaningTaskConfig(TaskConfig):
         return self
 
 
+class DriftMonitoringTaskConfig(TaskConfig):
+    """Typed task config for the ``drift-monitoring`` workflow.
+
+    Provides static type narrowing and validates that at least two
+    datasets are specified (reference + test).
+    """
+
+    workflow: str = "drift-monitoring"
+    params: "DriftMonitoringParameters"  # type: ignore[assignment]  # narrowed from dict[str, Any]
+
+    @model_validator(mode="after")
+    def _enforce_workflow(self) -> "DriftMonitoringTaskConfig":
+        if self.workflow != "drift-monitoring":
+            raise ValueError(f"DriftMonitoringTaskConfig requires workflow='drift-monitoring', got '{self.workflow}'")
+        return self
+
+    @model_validator(mode="after")
+    def _require_multiple_datasets(self) -> "DriftMonitoringTaskConfig":
+        ds = self.datasets if isinstance(self.datasets, list) else [self.datasets]
+        if len(ds) < 2:
+            raise ValueError(f"drift-monitoring requires at least 2 datasets (reference + test), got {len(ds)}: {ds}")
+        return self
+
+
 def _rebuild_deferred_models() -> None:
     """Rebuild models that use deferred forward references.
 
-    Must be called once before ``DataCleaningTaskConfig`` is used for
-    validation.  The workflow registry calls this during initialization.
+    Must be called once before typed task configs are used for validation.
+    The workflow registry calls this during initialization.
     """
     from dataeval_app.workflows.cleaning.params import DataCleaningParameters
+    from dataeval_app.workflows.drift.params import DriftMonitoringParameters
 
     DataCleaningTaskConfig.model_rebuild(_types_namespace={"DataCleaningParameters": DataCleaningParameters})
+    DriftMonitoringTaskConfig.model_rebuild(_types_namespace={"DriftMonitoringParameters": DriftMonitoringParameters})

@@ -851,6 +851,37 @@ class TestP1SchemaClasses:
         assert config.tasks[0].datasets == "cppe5"
 
 
+class TestFormatList:
+    """Test _format_list helper."""
+
+    def test_plain_items(self):
+        """Plain items are indented."""
+        from dataeval_app.config.schemas.task import _format_list
+
+        result = _format_list(["a", "b", "c"])
+        assert len(result) == 3
+        assert result[0] == "  a"
+        assert result[1] == "  b"
+
+    def test_dict_items(self):
+        """Dict items are formatted as compact {k=v} strings."""
+        from dataeval_app.config.schemas.task import _format_list
+
+        result = _format_list([{"x": 1, "y": 2}])
+        assert len(result) == 1
+        assert "{x=1, y=2}" in result[0]
+
+    def test_nested_list_items(self):
+        """Nested lists are recursively formatted with extra indent."""
+        from dataeval_app.config.schemas.task import _format_list
+
+        result = _format_list([["inner1", "inner2"]])
+        assert len(result) == 2
+        # nested list gets indent+2 more spaces
+        assert "inner1" in result[0]
+        assert "inner2" in result[1]
+
+
 class TestFormatDict:
     """Test _format_dict helper."""
 
@@ -887,6 +918,14 @@ class TestFormatDict:
 
         result = _format_dict({"key": "val"}, indent=4)
         assert result[0].startswith("    ")
+
+    def test_dict_with_list_value(self):
+        """Dict with list value delegates to _format_list."""
+        from dataeval_app.config.schemas.task import _format_dict
+
+        result = _format_dict({"items": [1, 2, 3]})
+        assert any("items" in line for line in result)
+        assert any("1" in line for line in result)
 
 
 class TestTaskConfigSummary:
@@ -1005,6 +1044,65 @@ class TestDataCleaningTaskConfig:
         )
         assert task.workflow == "data-cleaning"
         assert task.name == "clean"
+
+
+class TestDriftMonitoringTaskConfig:
+    """Test DriftMonitoringTaskConfig schema."""
+
+    def test_wrong_workflow_raises(self):
+        """DriftMonitoringTaskConfig rejects wrong workflow name."""
+        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+
+        _rebuild_deferred_models()
+        with pytest.raises(ValidationError, match="drift-monitoring"):
+            DriftMonitoringTaskConfig(
+                name="test",
+                workflow="wrong-workflow",
+                datasets=["ref", "test"],
+                params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
+            )
+
+    def test_single_dataset_raises(self):
+        """DriftMonitoringTaskConfig requires at least 2 datasets."""
+        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+
+        _rebuild_deferred_models()
+        with pytest.raises(ValidationError, match="at least 2 datasets"):
+            DriftMonitoringTaskConfig(
+                name="test",
+                datasets="single_ds",
+                params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
+            )
+
+    def test_single_dataset_in_list_raises(self):
+        """DriftMonitoringTaskConfig rejects a list with only one dataset."""
+        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+
+        _rebuild_deferred_models()
+        with pytest.raises(ValidationError, match="at least 2 datasets"):
+            DriftMonitoringTaskConfig(
+                name="test",
+                datasets=["only_one"],
+                params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
+            )
+
+    def test_valid_drift_task_config(self):
+        """DriftMonitoringTaskConfig accepts valid config with 2 datasets."""
+        from dataeval_app.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
+        from dataeval_app.workflows.drift.params import DriftMonitoringParameters
+
+        _rebuild_deferred_models()
+        task = DriftMonitoringTaskConfig(
+            name="drift",
+            datasets=["ref_ds", "test_ds"],
+            params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
+        )
+        assert task.workflow == "drift-monitoring"
+        assert task.name == "drift"
+        assert len(task.datasets) == 2
 
 
 class TestLoggingConfig:

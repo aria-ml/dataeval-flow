@@ -82,6 +82,8 @@ def _render_detail_section(finding: Reportable) -> list[str]:
 
     if rt == "pivot_table":
         lines.extend(_render_pivot_table(data))
+    elif rt == "chunk_table":
+        lines.extend(_render_chunk_table(data))
     elif rt == "table":
         lines.extend(_render_table(data))
     elif rt == "key_value":
@@ -176,6 +178,104 @@ def _render_pivot_table(data: dict[str, Any]) -> list[str]:
         for i, (cell, w) in enumerate(zip(cells, col_widths, strict=False)):
             parts.append(f"{cell:<{w}}" if i == 0 else f"{cell:>{w}}")
         lines.append("  " + "  ".join(parts))
+
+    return lines
+
+
+def _render_chunk_table(data: dict[str, Any]) -> list[str]:
+    """Render chunked drift results — bar chart with threshold scale."""
+    lines: list[str] = []
+    rows: list[dict[str, Any]] = data.get("table_rows", [])
+    if not rows:
+        return lines
+
+    # --- Bar chart with threshold scale ---
+    bar_width = _BAR_MAX
+
+    # Collect all values for scale calculation
+    distances = [r["Distance"] for r in rows]
+    upper_thresholds = [r["UpperThreshold"] for r in rows if r.get("UpperThreshold") is not None]
+    lower_thresholds = [r["LowerThreshold"] for r in rows if r.get("LowerThreshold") is not None]
+
+    # Thresholds (use first row's as representative)
+    lower_thresh = lower_thresholds[0] if lower_thresholds else None
+    upper_thresh = upper_thresholds[0] if upper_thresholds else None
+
+    # Scale range: extend to cover both thresholds and all distances
+    all_vals = distances + upper_thresholds + lower_thresholds
+    scale_min = min(min(all_vals), 0.0)
+    scale_max = max(all_vals) if all_vals else 1.0
+    scale_range = scale_max - scale_min or 1.0
+
+    def _val_to_pos(val: float) -> int:
+        return int(((val - scale_min) / scale_range) * bar_width)
+
+    # Threshold positions on the bar
+    lower_pos = _val_to_pos(lower_thresh) if lower_thresh is not None else None
+    upper_pos = _val_to_pos(upper_thresh) if upper_thresh is not None else None
+
+    # Column widths
+    w_chunk = max(5, *(len(str(r["Chunk"])) for r in rows))
+    w_dist = max(8, *(len(f"{r['Distance']:.4f}") for r in rows))
+
+    lines.append("")
+    hdr = f"  {'Chunk':<{w_chunk}}  {'Distance':>{w_dist}}  {'':>{bar_width}}  Status"
+    lines.append(hdr)
+    lines.append(f"  {'-' * w_chunk}  {'-' * w_dist}  {'-' * bar_width}  ------")
+
+    for row in rows:
+        dist = row["Distance"]
+        status = row["Status"]
+
+        # Bar: █ from zero to distance, ░ elsewhere
+        zero_pos = max(0, min(_val_to_pos(0.0), bar_width))
+        dist_pos = max(0, min(_val_to_pos(dist), bar_width))
+        bar_chars = ["\u2591"] * bar_width
+        lo, hi = min(zero_pos, dist_pos), max(zero_pos, dist_pos)
+        for p in range(lo, hi):
+            bar_chars[p] = "\u2588"
+        bar = "".join(bar_chars)
+
+        lines.append(f"  {row['Chunk']:<{w_chunk}}  {dist:>{w_dist}.4f}  {bar}  {status}")
+
+    # --- Threshold scale line: "(lower)|--------|(upper)" ---
+    # The lower label can extend left into the prefix area (Threshold + Distance cols).
+    if lower_pos is not None or upper_pos is not None:
+        lower_label = f"({lower_thresh:.4f})" if lower_thresh is not None else ""
+        upper_label = f"({upper_thresh:.4f})" if upper_thresh is not None else ""
+
+        # prefix_width = indentation + Chunk col + gap + Distance col + gap before bar
+        prefix_width = 2 + w_chunk + 2 + w_dist + 2
+        # "Threshold" label takes up the first part of the prefix
+        thresh_label = "  Threshold"
+        min_prefix = len(thresh_label) + 1  # at least one space after "Threshold"
+
+        if lower_pos is not None and upper_pos is not None:
+            lp = min(max(lower_pos, 0), bar_width - 1)
+            up = min(max(upper_pos, 0), bar_width - 1)
+            if lp == up:
+                scale_core = f"{lower_label}|{upper_label}"
+            else:
+                gap = "-" * max(0, up - lp - 1)
+                scale_core = f"{lower_label}|{gap}|{upper_label}"
+            # Position of first | in scale_core
+            pipe_idx = len(lower_label)
+            # We want pipe_idx to land at (prefix_width + lp) in the full line
+            line_start = prefix_width + lp - pipe_idx
+        elif upper_pos is not None:
+            up = min(max(upper_pos, 0), bar_width - 1)
+            scale_core = "-" * up + f"|{upper_label}"
+            line_start = prefix_width
+        else:
+            lp = min(max(lower_pos, 0), bar_width - 1)  # type: ignore[arg-type]
+            scale_core = f"{lower_label}|"
+            pipe_idx = len(lower_label)
+            line_start = prefix_width + lp - pipe_idx
+
+        # Build the full line, ensuring "Threshold" label is visible
+        line_start = max(line_start, min_prefix)
+        full_line = thresh_label + " " * (line_start - len(thresh_label)) + scale_core
+        lines.append(full_line)
 
     return lines
 

@@ -289,10 +289,13 @@ def _ensure_initialized() -> None:
     if not _initialized:
         from dataeval_app.config.schemas.task import _rebuild_deferred_models
         from dataeval_app.workflows.cleaning.workflow import DataCleaningWorkflow
+        from dataeval_app.workflows.drift.workflow import DriftMonitoringWorkflow
 
         _rebuild_deferred_models()
         wf = DataCleaningWorkflow()
         _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf)
+        wf_drift = DriftMonitoringWorkflow()
+        _WORKFLOWS[wf_drift.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf_drift)
         _initialized = True
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataeval_app.workflow._text_report import (
     _WIDTH,
     _brief_value,
+    _render_chunk_table,
     _render_detail_section,
     _render_key_value,
     _render_pivot_table,
@@ -179,6 +180,122 @@ class TestRenderPivotTable:
         }
         lines = _render_pivot_table(data)
         assert len(lines) > 0
+
+
+# ---------------------------------------------------------------------------
+# _render_chunk_table
+# ---------------------------------------------------------------------------
+
+
+class TestRenderChunkTable:
+    def _make_data(self, drifted_indices=None, lower_thresh=0.05, upper_thresh=0.35):
+        """Build chunk_table data with 5 chunks."""
+        drifted_indices = drifted_indices or set()
+        rows = []
+        flags = []
+        for i in range(5):
+            d = i in drifted_indices
+            rows.append(
+                {
+                    "Chunk": f"[{i * 100}:{(i + 1) * 100}]",
+                    "Distance": 0.45 if d else 0.15,
+                    "UpperThreshold": upper_thresh,
+                    "LowerThreshold": lower_thresh,
+                    "Status": "DRIFT" if d else "ok",
+                }
+            )
+            flags.append(d)
+        return {"table_rows": rows, "drift_flags": flags}
+
+    def test_table_columns_present(self):
+        data = self._make_data({0})
+        lines = _render_chunk_table(data)
+        text = "\n".join(lines)
+        assert "Distance" in text
+        assert "Status" in text
+        assert "DRIFT" in text
+        assert "ok" in text
+
+    def test_threshold_scale_present(self):
+        data = self._make_data({0})
+        lines = _render_chunk_table(data)
+        text = "\n".join(lines)
+        assert "Threshold" in text
+        assert "|(0.3500)" in text
+
+    def test_both_thresholds_shown(self):
+        data = self._make_data({0}, lower_thresh=0.05, upper_thresh=0.35)
+        lines = _render_chunk_table(data)
+        text = "\n".join(lines)
+        assert "(0.0500)|" in text
+        assert "|(0.3500)" in text
+        assert "---" in text  # dashes between thresholds
+
+    def test_bar_characters(self):
+        data = self._make_data({0})
+        lines = _render_chunk_table(data)
+        text = "\n".join(lines)
+        assert "\u2588" in text  # filled block
+        assert "\u2591" in text  # light shade (remainder)
+
+    def test_empty_rows(self):
+        assert _render_chunk_table({"table_rows": [], "drift_flags": []}) == []
+
+    def test_threshold_scale_equal_positions(self):
+        """When lower and upper thresholds are identical, scale shows single pipe."""
+        data = self._make_data({0}, lower_thresh=0.20, upper_thresh=0.20)
+        lines = _render_chunk_table(data)
+        text = "\n".join(lines)
+        assert "Threshold" in text
+        # Both labels around a single pipe (lp == up branch)
+        assert "(0.2000)|" in text
+
+    def test_threshold_scale_upper_only(self):
+        """When only upper threshold is present, scale shows dashes up to pipe."""
+        rows = [
+            {
+                "Chunk": f"[{i * 100}:{(i + 1) * 100}]",
+                "Distance": 0.40 if i == 0 else 0.10,
+                "UpperThreshold": 0.35,
+                "LowerThreshold": None,
+                "Status": "DRIFT" if i == 0 else "ok",
+            }
+            for i in range(3)
+        ]
+        lines = _render_chunk_table({"table_rows": rows})
+        text = "\n".join(lines)
+        assert "Threshold" in text
+        assert "|(0.3500)" in text
+
+    def test_threshold_scale_lower_only(self):
+        """When only lower threshold is present, scale shows label and pipe."""
+        rows = [
+            {
+                "Chunk": f"[{i * 100}:{(i + 1) * 100}]",
+                "Distance": 0.10,
+                "UpperThreshold": None,
+                "LowerThreshold": 0.05,
+                "Status": "ok",
+            }
+            for i in range(3)
+        ]
+        lines = _render_chunk_table({"table_rows": rows})
+        text = "\n".join(lines)
+        assert "Threshold" in text
+        assert "(0.0500)|" in text
+
+    def test_dispatch_from_detail_section(self):
+        data = self._make_data({2, 3})
+        finding = Reportable(
+            report_type="chunk_table",
+            title="MMD — Chunks",
+            data=data,
+            description="2/5 chunks drifted (40%) | max consecutive: 2",
+        )
+        lines = _render_detail_section(finding)
+        text = "\n".join(lines)
+        assert "Threshold" in text
+        assert "2/5 chunks drifted" in text
 
 
 # ---------------------------------------------------------------------------
