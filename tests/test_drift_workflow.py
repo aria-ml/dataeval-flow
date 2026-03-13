@@ -33,7 +33,6 @@ from dataeval_app.workflows.drift.params import (
 from dataeval_app.workflows.drift.workflow import (
     DriftMonitoringWorkflow,
     _build_chunked_finding,
-    _build_classwise_finding,
     _build_detector,
     _build_detector_finding,
     _build_findings,
@@ -425,7 +424,7 @@ class TestBuildChunkedFinding:
         finding = _build_chunked_finding("KS Univariate", result, t)
 
         assert finding.report_type == "chunk_table"
-        assert finding.title == "KS Univariate — Chunks"
+        assert finding.title == "KS Univariate"
         assert isinstance(finding.data, dict)
         rows = finding.data["table_rows"]
         assert len(rows) == 5
@@ -447,50 +446,6 @@ class TestBuildChunkedFinding:
         assert finding.description is not None
         assert "3/10" in finding.description
         assert "max consecutive: 3" in finding.description
-
-
-class TestBuildClasswiseFinding:
-    def test_pivot_table_structure(self):
-        classwise = [
-            ClasswiseDriftDict(
-                detector="KS Univariate",
-                rows=[
-                    ClasswiseDriftRowDict(class_name="cat", drifted=True, distance=0.5, p_val=0.001),
-                    ClasswiseDriftRowDict(class_name="dog", drifted=False, distance=0.1, p_val=0.4),
-                ],
-            ),
-            ClasswiseDriftDict(
-                detector="MMD",
-                rows=[
-                    ClasswiseDriftRowDict(class_name="cat", drifted=False, distance=0.02, p_val=0.3),
-                    ClasswiseDriftRowDict(class_name="dog", drifted=False, distance=0.01, p_val=0.8),
-                ],
-            ),
-        ]
-        t = DriftHealthThresholds()
-        finding = _build_classwise_finding(classwise, t)
-
-        assert finding.report_type == "pivot_table"
-        assert finding.title == "Class-wise Drift Summary"
-        assert finding.severity == "warning"  # cat drifted in univariate
-        assert isinstance(finding.data, list)
-        assert len(finding.data) == 2  # cat, dog
-        assert finding.data[0]["Class"] == "cat"
-        assert finding.data[0]["KS Univariate"] == "DRIFT"
-        assert finding.data[0]["MMD"] == "ok"
-
-    def test_no_drift_severity_ok(self):
-        classwise = [
-            ClasswiseDriftDict(
-                detector="MMD",
-                rows=[
-                    ClasswiseDriftRowDict(class_name="a", drifted=False, distance=0.01, p_val=0.5),
-                ],
-            ),
-        ]
-        t = DriftHealthThresholds()
-        finding = _build_classwise_finding(classwise, t)
-        assert finding.severity == "ok"
 
 
 class TestBuildFindings:
@@ -540,10 +495,14 @@ class TestBuildFindings:
                 )
             ],
         )
-        params = _make_params(classwise=True)
+        params = _make_params(detectors=[{"method": "univariate", "classwise": True}])
         names = {"univariate": "KS Univariate"}
         findings = _build_findings(raw, params, names)
-        assert any(f.report_type == "pivot_table" for f in findings)
+        # Classwise data is rendered as a classwise_table within the detector finding
+        assert len(findings) == 1
+        assert findings[0].title == "KS Univariate"
+        assert findings[0].report_type == "classwise_table"
+        assert "table_rows" in findings[0].data
 
 
 # ---------------------------------------------------------------------------
@@ -562,7 +521,7 @@ class TestRunClasswiseDrift:
         ref_labels = np.array([0] * 100 + [1] * 100, dtype=np.intp)
         test_labels = np.array([0] * 50 + [1] * 50, dtype=np.intp)
 
-        params = _make_params(detectors=[{"method": "univariate", "test": "ks"}])
+        params = _make_params(detectors=[{"method": "univariate", "test": "ks", "classwise": True}])
         names = {"univariate": "KS Univariate"}
         results = _run_classwise_drift(ref, test, ref_labels, test_labels, params, names)
 
@@ -579,7 +538,7 @@ class TestRunClasswiseDrift:
         ref_labels = np.array([0] * 50 + [1] * 49 + [2], dtype=np.intp)
         test_labels = np.array([0] * 5 + [1] * 4 + [2], dtype=np.intp)
 
-        params = _make_params(detectors=[{"method": "kneighbors", "k": 5}])
+        params = _make_params(detectors=[{"method": "kneighbors", "k": 5, "classwise": True}])
         names = {"kneighbors": "K-Neighbors"}
         results = _run_classwise_drift(ref, test, ref_labels, test_labels, params, names)
 
@@ -593,7 +552,12 @@ class TestRunClasswiseDrift:
         ref_labels = np.array([0] * 50 + [1] * 50, dtype=np.intp)
         test_labels = np.array([0] * 25 + [1] * 25, dtype=np.intp)
 
-        params = _make_params(detectors=[{"method": "univariate"}, {"method": "kneighbors", "k": 5}])
+        params = _make_params(
+            detectors=[
+                {"method": "univariate", "classwise": True},
+                {"method": "kneighbors", "k": 5, "classwise": True},
+            ]
+        )
         names = {"univariate": "KS Univariate", "kneighbors": "K-Neighbors"}
         results = _run_classwise_drift(ref, test, ref_labels, test_labels, params, names)
         assert len(results) == 2
@@ -662,43 +626,58 @@ class TestSerializeResultEdgeCases:
 
 
 # ---------------------------------------------------------------------------
-# _build_classwise_finding edge cases
+# _build_detector_finding with classwise data
 # ---------------------------------------------------------------------------
 
 
-class TestBuildClasswiseFindingEdgeCases:
-    def test_missing_class_in_detector_shows_dash(self):
-        """Cover the '—' branch when a class is missing from a detector."""
-        classwise = [
-            ClasswiseDriftDict(
-                detector="D1",
-                rows=[ClasswiseDriftRowDict(class_name="a", drifted=False, distance=0.1, p_val=0.5)],
-            ),
-            ClasswiseDriftDict(
-                detector="D2",
-                rows=[
-                    ClasswiseDriftRowDict(class_name="a", drifted=False, distance=0.1, p_val=0.5),
-                    ClasswiseDriftRowDict(class_name="b", drifted=True, distance=0.8, p_val=0.001),
-                ],
-            ),
+class TestBuildDetectorFindingClasswise:
+    def test_classwise_table_structure(self):
+        """Classwise rows produce a classwise_table finding with table_rows."""
+        result = _make_detector_result(drifted=True)
+        cw_rows = [
+            ClasswiseDriftRowDict(class_name="cat", drifted=True, distance=0.5, p_val=0.001),
+            ClasswiseDriftRowDict(class_name="dog", drifted=False, distance=0.1, p_val=0.4),
         ]
         t = DriftHealthThresholds()
-        finding = _build_classwise_finding(classwise, t)
-        # Class "b" should have "—" for D1
-        assert isinstance(finding.data, list)
-        b_row = next(r for r in finding.data if r["Class"] == "b")
-        assert b_row["D1"] == "—"
+        finding = _build_detector_finding("KS Univariate", result, t, classwise_rows=cw_rows)
+
+        assert finding.report_type == "classwise_table"
+        assert isinstance(finding.data, dict)
+        table_rows = finding.data.get("table_rows")
+        assert isinstance(table_rows, list)
+        assert len(table_rows) == 2
+        assert table_rows[0]["Class"] == "cat"
+        assert table_rows[0]["Status"] == "DRIFT"
+        assert finding.description == "Classes drifted: cat"
+
+    def test_classwise_warning_severity(self):
+        """When classwise drift is detected, severity is elevated to warning."""
+        result = _make_detector_result(drifted=False)
+        cw_rows = [
+            ClasswiseDriftRowDict(class_name="a", drifted=True, distance=0.5, p_val=0.01),
+        ]
+        t = DriftHealthThresholds(classwise_any_drift_is_warning=True)
+        finding = _build_detector_finding("MMD", result, t, classwise_rows=cw_rows)
+        assert finding.severity == "warning"
 
     def test_classwise_warning_disabled(self):
-        classwise = [
-            ClasswiseDriftDict(
-                detector="D1",
-                rows=[ClasswiseDriftRowDict(class_name="a", drifted=True, distance=0.5, p_val=0.01)],
-            ),
+        """When classwise_any_drift_is_warning is False, severity is not elevated."""
+        result = _make_detector_result(drifted=False)
+        cw_rows = [
+            ClasswiseDriftRowDict(class_name="a", drifted=True, distance=0.5, p_val=0.01),
         ]
         t = DriftHealthThresholds(classwise_any_drift_is_warning=False)
-        finding = _build_classwise_finding(classwise, t)
+        finding = _build_detector_finding("MMD", result, t, classwise_rows=cw_rows)
+        # Overall detector didn't drift, classwise warning disabled → stays "ok"
         assert finding.severity == "ok"
+
+    def test_no_classwise_rows(self):
+        """Without classwise rows, finding is key_value with no table_rows."""
+        result = _make_detector_result()
+        t = DriftHealthThresholds()
+        finding = _build_detector_finding("MMD", result, t)
+        assert finding.report_type == "key_value"
+        assert "table_rows" not in finding.data
 
 
 # ---------------------------------------------------------------------------
@@ -722,7 +701,7 @@ class TestDriftWorkflowExecuteEdgeCases:
                 "test": DatasetContext(name="test", dataset=ds, extractor=MagicMock(), batch_size=32),  # type: ignore[call-arg]
             }
         )
-        params = _make_params(detectors=[{"method": "univariate"}], classwise=True)
+        params = _make_params(detectors=[{"method": "univariate", "classwise": True}])
         result = wf.execute(ctx, params)
         assert result.success
         assert result.data.raw.classwise is None
@@ -925,8 +904,7 @@ class TestDriftMonitoringWorkflowExecute:
         wf = self._make_workflow()
         ctx = self._make_context()
         params = _make_params(
-            detectors=[{"method": "kneighbors", "k": 5}],
-            classwise=True,
+            detectors=[{"method": "kneighbors", "k": 5, "classwise": True}],
         )
         result = wf.execute(ctx, params)
 

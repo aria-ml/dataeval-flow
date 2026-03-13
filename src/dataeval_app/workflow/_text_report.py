@@ -84,6 +84,8 @@ def _render_detail_section(finding: Reportable) -> list[str]:
         lines.extend(_render_pivot_table(data))
     elif rt == "chunk_table":
         lines.extend(_render_chunk_table(data))
+    elif rt == "classwise_table":
+        lines.extend(_render_classwise_table(data))
     elif rt == "table":
         lines.extend(_render_table(data))
     elif rt == "key_value":
@@ -276,6 +278,64 @@ def _render_chunk_table(data: dict[str, Any]) -> list[str]:
         line_start = max(line_start, min_prefix)
         full_line = thresh_label + " " * (line_start - len(thresh_label)) + scale_core
         lines.append(full_line)
+
+    return lines
+
+
+def _render_classwise_table(data: dict[str, Any]) -> list[str]:
+    """Render classwise drift results — bar chart per class."""
+    lines: list[str] = []
+    rows: list[dict[str, Any]] = data.get("table_rows", [])
+    if not rows:
+        return lines
+
+    bar_width = _BAR_MAX
+
+    # Collect distances for scale
+    distances = [abs(r["Distance"]) for r in rows]
+    scale_max = max(distances) if distances else 1.0
+    scale_max = scale_max or 1.0  # avoid division by zero
+
+    def _val_to_pos(val: float) -> int:
+        return int((val / scale_max) * bar_width)
+
+    # Column widths
+    w_class = max(5, *(len(str(r["Class"])) for r in rows))
+    w_dist = max(8, *(len(f"{r['Distance']:.4f}") for r in rows))
+
+    # Optional p_val column
+    has_pval = any(r.get("PVal") is not None for r in rows)
+    w_pval = 6
+    if has_pval:
+        w_pval = max(w_pval, *(len(f"{r['PVal']:.2f}") for r in rows if r.get("PVal") is not None))
+
+    lines.append("")
+    hdr = f"  {'Class':<{w_class}}  {'Distance':>{w_dist}}"
+    sep = f"  {'-' * w_class}  {'-' * w_dist}"
+    if has_pval:
+        hdr += f"  {'PVal':>{w_pval}}"
+        sep += f"  {'-' * w_pval}"
+    hdr += f"  {'':>{bar_width}}  Status"
+    sep += f"  {'-' * bar_width}  ------"
+    lines.append(hdr)
+    lines.append(sep)
+
+    for row in rows:
+        dist = abs(row["Distance"])
+        status = row["Status"]
+        drifted = status == "DRIFT"
+
+        # Bar: █ for distance, ░ for remainder
+        dist_pos = max(0, min(_val_to_pos(dist), bar_width))
+        fill_char = "\u2588" if drifted else "\u2591"
+        bar = fill_char * dist_pos + "\u2591" * (bar_width - dist_pos)
+
+        line = f"  {row['Class']:<{w_class}}  {row['Distance']:>{w_dist}.4f}"
+        if has_pval:
+            pval = row.get("PVal")
+            line += f"  {pval:>{w_pval}.2f}" if pval is not None else f"  {'':>{w_pval}}"
+        line += f"  {bar}  {status}"
+        lines.append(line)
 
     return lines
 

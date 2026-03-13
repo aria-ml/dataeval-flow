@@ -50,7 +50,7 @@
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Step 1: Load and prepare the dataset
+# ## Data Preparation: Load and prepare the dataset
 #
 # Download [CPPE-5](https://huggingface.co/datasets/rishitdagli/cppe-5) from HuggingFace and save it
 # to disk. CPPE-5 is a well-known object detection dataset with 5 classes and 1K images.
@@ -72,7 +72,7 @@ data_path = Path("./data/cppe5/train")
 cppe5_train.save_to_disk(str(data_path))
 
 # %% [markdown]
-# ## Step 2: Build the workflow configuration
+# ## Step 1: Build the workflow configuration
 #
 # The `data-cleaning` workflow requires explicit parameters (no hidden defaults). We'll configure
 # outlier detection using **adaptive** thresholding across dimension, pixel, and visual statistics,
@@ -151,7 +151,7 @@ config = WorkflowConfig(
 print(task.summary())
 
 # %% [markdown]
-# ## Step 3: Run the data cleaning workflow
+# ## Step 2: Run the data cleaning workflow
 
 # %%
 from dataeval_app.workflow.orchestrator import run_task
@@ -282,7 +282,7 @@ for i, group in enumerate(near_groups[:3]):
     _ = plot(ds, indices=indices, images_per_row=len(indices), figsize=(4 * len(indices), 4), show_labels=True)
 
 # %% [markdown]
-# ## Step 4: Preparatory mode — get clean indices
+# ## Step 3: Preparatory mode — get clean indices
 #
 # Re-run with `mode="preparatory"` to compute which indices to keep and which to remove.
 # This is useful for building a filtered dataset downstream.
@@ -294,7 +294,7 @@ task_prep = DataCleaningTaskConfig(
     models="bovw",
     selections="first500",
     batch_size=32,
-    cache_dir="./cache",  # Reuses cached embeddings from Step 3
+    cache_dir="./cache",  # Reuses cached embeddings from Step 2
     params=task_params.model_copy(update={"mode": "preparatory"}),
 )
 
@@ -315,7 +315,7 @@ if meta.flagged_indices:
     print(f"\nFirst 20 flagged indices: {meta.flagged_indices[:20]}")
 
 # %% [markdown]
-# ## Step 5: Export results
+# ## Results Exploration: Export results
 
 # %%
 json_str = result.report(format="json")

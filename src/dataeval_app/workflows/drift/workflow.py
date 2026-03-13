@@ -84,7 +84,7 @@ def _build_detector(config: DriftDetectorConfig) -> _DriftDetector:  # type: ign
 
 
 def _detector_display_name(config: DriftDetectorConfig) -> str:  # type: ignore[type-arg]
-    """Human-readable name for a detector config."""
+    """Human-readable name for a detector config, including non-default parameters."""
     names: dict[str, str] = {
         "univariate": "Univariate",
         "mmd": "MMD",
@@ -93,7 +93,32 @@ def _detector_display_name(config: DriftDetectorConfig) -> str:  # type: ignore[
     }
     base = names.get(config.method, config.method)
     if isinstance(config, DriftDetectorUnivariate):
-        return f"{config.test.upper()} {base}"
+        base = f"{config.test.upper()} {base}"
+
+    # Collect non-default, non-internal parameters as a compact suffix
+    parts: list[str] = []
+    defaults = {name: field.default for name, field in config.model_fields.items()}
+    for name in config.model_fields:
+        if name in ("method", "chunking"):
+            continue
+        # 'test' is already in the base name for Univariate
+        if name == "test" and isinstance(config, DriftDetectorUnivariate):
+            continue
+        value = getattr(config, name)
+        if value != defaults[name]:
+            parts.append(f"{name}={value}")
+
+    # Add chunking params that differ from ChunkingConfig defaults
+    if config.chunking is not None:
+        chunking_defaults = {n: f.default for n, f in config.chunking.model_fields.items()}
+        for name in config.chunking.model_fields:
+            value = getattr(config.chunking, name)
+            if value != chunking_defaults[name]:
+                label = "z" if name == "threshold_multiplier" else name
+                parts.append(f"{label}={value}")
+
+    if parts:
+        base = f"{base} ({', '.join(parts)})"
     return base
 
 
@@ -252,6 +277,7 @@ def _build_detector_finding(
     name: str,
     result: DetectorResultDict,
     thresholds: DriftHealthThresholds,
+    classwise_rows: list[ClasswiseDriftRowDict] | None = None,
 ) -> Reportable:
     """Build a finding for a single detector (non-chunked)."""
     drifted = result["drifted"]
@@ -281,6 +307,36 @@ def _build_detector_finding(
     description = f"{name}: distance={data['distance']}, threshold={data['threshold']}"
     if "p_val" in data:
         description += f", p={data['p_val']}"
+
+    # Classwise breakdown → render as a classwise_table instead of key_value
+    if classwise_rows:
+        drifted_classes = [r["class_name"] for r in classwise_rows if r["drifted"]]
+        n_cls_drifted = len(drifted_classes)
+        n_total = len(classwise_rows)
+        description = f"Classes drifted: {', '.join(drifted_classes)}" if drifted_classes else "No classes drifted"
+        if n_cls_drifted > 0 and thresholds.classwise_any_drift_is_warning:
+            severity = "warning"
+
+        table_rows = [
+            {
+                "Class": r["class_name"],
+                "Distance": round(r["distance"], 4),
+                "PVal": round(r["p_val"], 6) if r["p_val"] is not None else None,
+                "Status": "DRIFT" if r["drifted"] else "ok",
+            }
+            for r in classwise_rows
+        ]
+
+        data["table_rows"] = table_rows
+        data["brief"] = f"{n_cls_drifted}/{n_total} classes drifted"
+
+        return Reportable(
+            report_type="classwise_table",
+            severity=severity,
+            title=name,
+            data=data,
+            description=description,
+        )
 
     return Reportable(
         report_type="key_value",
@@ -322,58 +378,11 @@ def _build_chunked_finding(
     return Reportable(
         report_type="chunk_table",
         severity=severity,
-        title=f"{name} — Chunks",
+        title=name,
         data={
             "table_rows": rows,
             "drift_flags": [c["drifted"] for c in chunks],
         },
-        description=description,
-    )
-
-
-def _build_classwise_finding(
-    classwise_results: list[ClasswiseDriftDict],
-    thresholds: DriftHealthThresholds,
-) -> Reportable:
-    """Build a pivot-table finding for classwise drift results."""
-    # Build a pivot: rows=classes, columns=detectors
-    all_classes: list[str] = []
-    for cw in classwise_results:
-        for row in cw["rows"]:
-            if row["class_name"] not in all_classes:
-                all_classes.append(row["class_name"])
-
-    rows: list[dict[str, Any]] = []
-    any_drifted = False
-    for cls in all_classes:
-        row_data: dict[str, Any] = {"Class": cls}
-        for cw in classwise_results:
-            det_name = cw["detector"]
-            match = next((r for r in cw["rows"] if r["class_name"] == cls), None)
-            if match is not None:
-                row_data[det_name] = "DRIFT" if match["drifted"] else "ok"
-                if match["drifted"]:
-                    any_drifted = True
-            else:
-                row_data[det_name] = "—"
-        rows.append(row_data)
-
-    severity = "warning" if any_drifted and thresholds.classwise_any_drift_is_warning else "ok"
-    n_drifted_classes = sum(
-        1
-        for cls in all_classes
-        if any(
-            next((r for r in cw["rows"] if r["class_name"] == cls), {}).get("drifted", False)
-            for cw in classwise_results
-        )
-    )
-    description = f"{n_drifted_classes}/{len(all_classes)} classes show drift in at least one detector"
-
-    return Reportable(
-        report_type="pivot_table",
-        severity=severity,
-        title="Class-wise Drift Summary",
-        data=rows,
         description=description,
     )
 
@@ -386,15 +395,19 @@ def _build_findings(
     """Build all report findings from raw results."""
     findings: list[Reportable] = []
 
+    # Index classwise results by detector display name for per-detector lookup
+    classwise_by_detector: dict[str, list[ClasswiseDriftRowDict]] = {}
+    if raw.classwise:
+        for cw in raw.classwise:
+            classwise_by_detector[cw["detector"]] = cw["rows"]
+
     for method_key, result in raw.detectors.items():
         name = detector_names.get(method_key, method_key)
+        cw_rows = classwise_by_detector.get(name)
         if result.get("chunks"):
             findings.append(_build_chunked_finding(name, result, params.health_thresholds))
         else:
-            findings.append(_build_detector_finding(name, result, params.health_thresholds))
-
-    if raw.classwise:
-        findings.append(_build_classwise_finding(raw.classwise, params.health_thresholds))
+            findings.append(_build_detector_finding(name, result, params.health_thresholds, cw_rows))
 
     return findings
 
@@ -402,6 +415,11 @@ def _build_findings(
 # ---------------------------------------------------------------------------
 # Classwise drift detection
 # ---------------------------------------------------------------------------
+
+
+def _any_classwise(detectors: list[DriftDetectorConfig]) -> bool:  # type: ignore[type-arg]
+    """Return True if any detector has classwise enabled."""
+    return any(d.classwise for d in detectors)
 
 
 def _run_classwise_drift(
@@ -412,12 +430,16 @@ def _run_classwise_drift(
     params: DriftMonitoringParameters,
     detector_names: dict[str, str],
 ) -> list[ClasswiseDriftDict]:
-    """Run drift detection per class."""
+    """Run drift detection per class (only for detectors with classwise=True)."""
     unique_classes = np.unique(np.concatenate([ref_labels, test_labels]))
     results: list[ClasswiseDriftDict] = []
 
-    for det_config in params.detectors:
-        method_key = det_config.method
+    method_keys = _unique_method_keys(params.detectors)
+
+    for det_config, method_key in zip(params.detectors, method_keys, strict=True):
+        if not det_config.classwise:
+            continue
+
         name = detector_names.get(method_key, method_key)
         rows: list[ClasswiseDriftRowDict] = []
 
@@ -468,6 +490,28 @@ def _run_classwise_drift(
 # ---------------------------------------------------------------------------
 
 
+def _unique_method_keys(
+    detectors: list[DriftDetectorConfig],  # type: ignore[type-arg]
+) -> list[str]:
+    """Return a unique key for each detector, appending a numeric suffix for duplicates."""
+    counts: dict[str, int] = {}
+    keys: list[str] = []
+    for det in detectors:
+        base = det.method
+        counts[base] = counts.get(base, 0) + 1
+    # Second pass: assign suffixes only when a method appears more than once
+    seen: dict[str, int] = {}
+    for det in detectors:
+        base = det.method
+        if counts[base] == 1:
+            keys.append(base)
+        else:
+            idx = seen.get(base, 0) + 1
+            seen[base] = idx
+            keys.append(f"{base}_{idx}")
+    return keys
+
+
 def _run_all_detectors(
     params: DriftMonitoringParameters,
     ref_embeddings: NDArray[np.float32],
@@ -480,9 +524,9 @@ def _run_all_detectors(
     detector_results: dict[str, DetectorResultDict] = {}
     detector_names: dict[str, str] = {}
     detector_errors: list[str] = []
+    method_keys = _unique_method_keys(params.detectors)
 
-    for det_config in params.detectors:
-        method_key = det_config.method
+    for det_config, method_key in zip(params.detectors, method_keys, strict=True):
         display = _detector_display_name(det_config)
         detector_names[method_key] = display
 
@@ -525,7 +569,7 @@ def _handle_classwise(
     detector_names: dict[str, str],
 ) -> list[ClasswiseDriftDict] | None:
     """Run classwise drift detection if enabled and labels are available."""
-    if not params.classwise:
+    if not _any_classwise(params.detectors):
         logger.info("[4/4] Classwise drift not enabled — skipping.")
         return None
 
@@ -723,7 +767,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
             test_embedding_parts.append(emb)
             logger.info("  Test embeddings (%s): %s", t_name, emb.shape)
 
-            if params.classwise:
+            if _any_classwise(params.detectors):
                 t_labels = _extract_labels(t_ds)
                 if t_labels is not None:
                     test_label_parts.append(t_labels)
@@ -732,7 +776,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
             np.concatenate(test_embedding_parts, axis=0) if len(test_embedding_parts) > 1 else test_embedding_parts[0]
         )
 
-        ref_labels = _extract_labels(ref_dataset) if params.classwise else None
+        ref_labels = _extract_labels(ref_dataset) if _any_classwise(params.detectors) else None
 
         logger.info(
             "[2/4] Embeddings ready in %.1fs (ref=%d, test=%d)",
@@ -772,7 +816,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
             mode=params.mode,
             detectors_used=list(detector_results.keys()),
             chunking_enabled=any(d.chunking is not None for d in params.detectors),
-            classwise_enabled=params.classwise,
+            classwise_enabled=_any_classwise(params.detectors),
         )
 
         return WorkflowResult(

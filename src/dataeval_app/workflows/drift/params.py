@@ -113,6 +113,12 @@ class DriftDetectorUnivariate(BaseModel):
         gt=0,
         description="Expected number of features. None = infer from reference data.",
     )
+    classwise: bool = Field(
+        default=False,
+        description=(
+            "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only."
+        ),
+    )
     chunking: ChunkingConfig | None = Field(
         default=None,
         description="Chunked (temporal) drift analysis for this detector. None disables chunking.",
@@ -144,6 +150,12 @@ class DriftDetectorMMD(BaseModel):
         default=None,
         description="PyTorch device for kernel computation (e.g. 'cpu', 'cuda:0'). None = auto.",
     )
+    classwise: bool = Field(
+        default=False,
+        description=(
+            "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only."
+        ),
+    )
     chunking: ChunkingConfig | None = Field(
         default=None,
         description="Chunked (temporal) drift analysis for this detector. None disables chunking.",
@@ -171,6 +183,12 @@ class DriftDetectorDomainClassifier(BaseModel):
         gt=0.5,
         le=1.0,
         description="AUROC threshold above which drift is declared.",
+    )
+    classwise: bool = Field(
+        default=False,
+        description=(
+            "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only."
+        ),
     )
     chunking: ChunkingConfig | None = Field(
         default=None,
@@ -203,6 +221,12 @@ class DriftDetectorKNeighbors(BaseModel):
         gt=0.0,
         lt=1.0,
         description="Significance level for the Mann-Whitney U test.",
+    )
+    classwise: bool = Field(
+        default=False,
+        description=(
+            "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only."
+        ),
     )
     chunking: ChunkingConfig | None = Field(
         default=None,
@@ -293,12 +317,6 @@ class DriftMonitoringParameters(WorkflowParametersBase):
     detectors: list[DriftDetectorConfig] = Field(
         min_length=1,
         description="List of drift detectors to run. At least one required.",
-    )
-    classwise: bool = Field(
-        default=False,
-        description=(
-            "Run drift detection per class in addition to overall. Requires labelled datasets. Runs non-chunked only."
-        ),
     )
     update_strategy: UpdateStrategyConfig | None = Field(
         default=None,

@@ -48,7 +48,7 @@
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Step 1: Download MNIST and prepare image folders
+# ## Data Preparation: Download MNIST and prepare image folders
 #
 # We'll download the MNIST test split (10 000 images) from HuggingFace and use
 # 2 000 as our **reference** dataset — clean, unmodified digit images.
@@ -157,7 +157,7 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ## Step 2: Build the workflow configuration
+# ## Step 1: Build the workflow configuration
 #
 # The `drift-monitoring` workflow needs:
 #
@@ -273,7 +273,7 @@ config = WorkflowConfig(
 print(task.summary())
 
 # %% [markdown]
-# ## Step 3: Run the drift monitoring workflow
+# ## Step 2: Run the drift monitoring workflow
 
 # %%
 from dataeval_app.workflow.orchestrator import run_task
@@ -281,7 +281,7 @@ from dataeval_app.workflow.orchestrator import run_task
 result = run_task(task, config)
 
 # %% [markdown]
-# ## Step 4: Review the drift report
+# ## Results Exploration: Drift report
 #
 # The workflow produces a text report summarizing each detector's findings. With
 # chunking enabled, you'll see a per-chunk breakdown showing exactly which windows
@@ -391,7 +391,7 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ## Step 5: Export results
+# ## Results Exploration: Export results
 #
 # The JSON output contains all raw detector results, chunk data, and metadata —
 # ready for integration with monitoring dashboards or automated pipelines.
