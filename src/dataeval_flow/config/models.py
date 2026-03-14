@@ -1,29 +1,34 @@
-"""Workflow configuration models."""
+"""Pipeline and workflow configuration models."""
 
 __all__ = [
     "BoVWExtractorConfig",
+    "DataCleaningWorkflowConfig",
+    "DriftMonitoringWorkflowConfig",
     "ExtractorConfig",
     "FlattenExtractorConfig",
     "ModelConfig",
     "OnnxExtractorConfig",
+    "PipelineConfig",
     "TorchExtractorConfig",
     "UncertaintyExtractorConfig",
     "WorkflowConfig",
 ]
 
+from collections.abc import Sequence
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from dataeval_flow.config.schemas import (
+    DataCleaningWorkflowConfig,
     DatasetConfig,
     DatasetProtocolConfig,
+    DriftMonitoringWorkflowConfig,
     PreprocessorConfig,
     SelectionConfig,
     TaskConfig,
+    WorkflowConfig,
 )
-from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
-from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 
 
 class OnnxExtractorConfig(BaseModel):
@@ -100,25 +105,27 @@ class LoggingConfig(BaseModel):
     lib_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
 
 
-class WorkflowConfig(BaseModel):
-    """Unified workflow configuration.
+class PipelineConfig(BaseModel):
+    """Top-level pipeline configuration.
 
-    One optional field per registered workflow.
+    All sections use a define-once, reference-by-name pattern.
+    Workflows bind a workflow type to specific parameters;
+    tasks reference workflows and resource pools by name.
     """
 
     # Logging
     logging: LoggingConfig | None = None
 
-    # Workflow-specific params (one field per workflow)
-    data_cleaning: DataCleaningParameters | None = None
-    drift_monitoring: DriftMonitoringParameters | None = None
-
-    # Shared config
-    models: list[ModelConfig] | None = Field(
+    # Named resource pools
+    datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = None
+    models: Sequence[ModelConfig] | None = Field(
         default=None,
-        description="Optional list of models for embedding extraction",
+        description="Named models for embedding extraction",
     )
-    datasets: list[DatasetConfig | DatasetProtocolConfig] | None = None
-    preprocessors: list[PreprocessorConfig] | None = None
-    selections: list[SelectionConfig] | None = None
-    tasks: list[TaskConfig] | None = None
+    preprocessors: Sequence[PreprocessorConfig] | None = None
+    selections: Sequence[SelectionConfig] | None = None
+    workflows: Sequence[WorkflowConfig] | None = Field(
+        default=None,
+        description="Named workflow configurations (type + params), referenced by tasks",
+    )
+    tasks: Sequence[TaskConfig] | None = None

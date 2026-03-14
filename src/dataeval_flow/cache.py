@@ -357,8 +357,8 @@ def _do_compute_stats(
 def _do_compute_metadata(
     dataset: AnnotatedDataset[Any],
     auto_bin_method: Any = None,
-    exclude: list[str] | None = None,
-    continuous_factor_bins: dict[str, int | list[float]] | None = None,
+    exclude: Sequence[str] | None = None,
+    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
 ) -> "Metadata":
     """Build metadata from a dataset."""
     from dataeval_flow.metadata import build_metadata
@@ -431,8 +431,8 @@ def get_or_compute_stats(
 def get_or_compute_metadata(
     dataset: AnnotatedDataset[Any],
     auto_bin_method: Any = None,
-    exclude: list[str] | None = None,
-    continuous_factor_bins: dict[str, int | list[float]] | None = None,
+    exclude: Sequence[str] | None = None,
+    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
 ) -> "Metadata":
     """Build metadata with context-aware caching.
 
@@ -908,7 +908,7 @@ class DatasetCache:
         selection_repr: str,
         dataset: AnnotatedDataset[Any],
         auto_bin_method: Any = None,
-        exclude: list[str] | None = None,
+        exclude: Sequence[str] | None = None,
         continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
     ) -> "Metadata | None":
         """Load cached raw Metadata, or ``None`` on miss.
@@ -1031,8 +1031,8 @@ class DatasetCache:
         selection_repr: str,
         dataset: AnnotatedDataset[Any],
         auto_bin_method: Any = None,
-        exclude: list[str] | None = None,
-        continuous_factor_bins: dict[str, int | list[float]] | None = None,
+        exclude: Sequence[str] | None = None,
+        continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
     ) -> "Metadata":
         """Load cached metadata or build, cache, and return it.
 

@@ -1,11 +1,23 @@
 # =============================================================================
-# Workflow Configuration
+# Pipeline Configuration
 # =============================================================================
-# Schema: WorkflowConfig (see src/dataeval_flow/config/models.py)
+# Schema: PipelineConfig (see src/dataeval_flow/config/models.py)
 # Copy to /data/config/params.yaml in container (or use --config CLI option)
 #
 # yaml-language-server: $schema=params.schema.json
 # =============================================================================
+#
+# Configuration follows a define-once, reference-by-name pattern:
+#
+#   datasets:    → named dataset definitions
+#   models:      → named model/extractor definitions
+#   workflows:   → named workflow instances (type + params)
+#   tasks:       → lightweight composition by name
+#
+# Workflow instances bind a workflow type (e.g. "data-cleaning") to a
+# specific set of parameters, giving the combination a reusable name.
+# Tasks reference workflow instances and resource pools by name —
+# keeping tasks lightweight and configs centralized.
 
 # -----------------------------------------------------------------------------
 # LOGGING (optional)
@@ -15,84 +27,44 @@
 #   lib_level: WARNING    # third-party: torch, datasets, PIL (DEBUG|INFO|WARNING|ERROR)
 
 # -----------------------------------------------------------------------------
-# DATASETS (optional — defaults to container-mounted path if omitted)
+# DATASETS
 # -----------------------------------------------------------------------------
+# Named dataset definitions. Tasks reference these by name.
+#
 # datasets:
 #   - name: my-dataset
 #     format: huggingface        # huggingface | image_folder | coco | yolo
 #     path: ./data/my-dataset
-#     split: train               # HuggingFace only (ignored for image_folder)
+#     split: train               # HuggingFace only
 #
-#   # Image folder — flat directory of images (unlabeled)
 #   - name: raw-photos
 #     format: image_folder
 #     path: /data/raw-photos
-#     recursive: false           # Scan subdirectories (default: false)
+#     recursive: false
 #
-#   # Image folder — subdirectory names as class labels
 #   - name: classified-photos
 #     format: image_folder
 #     path: /data/classified-photos
-#     infer_labels: true         # Treat subdirs as class names (default: false)
+#     infer_labels: true
 #
-#   # COCO object detection dataset
 #   - name: coco-train
 #     format: coco
 #     path: /data/coco-train
-#     annotations_file: annotations.json  # optional (default: annotations.json)
-#     images_dir: images                  # optional (default: images)
-#     classes_file: classes.txt           # optional (default: classes.txt)
+#     annotations_file: annotations.json
+#     images_dir: images
+#     classes_file: classes.txt
 #
-#   # YOLO object detection dataset
 #   - name: yolo-train
 #     format: yolo
 #     path: /data/yolo-train
-#     images_dir: images                  # optional (default: images)
-#     labels_dir: labels                  # optional (default: labels)
-#     classes_file: classes.txt           # optional (default: classes.txt)
+#     images_dir: images
+#     labels_dir: labels
+#     classes_file: classes.txt
 
 # -----------------------------------------------------------------------------
-# DATA CLEANING PARAMETERS (required)
+# MODELS (optional)
 # -----------------------------------------------------------------------------
-data_cleaning:
-  # Outlier detection method (required)
-  outlier_method: "adaptive"  # Options: adaptive, zscore, modzscore, iqr
-
-  # Image statistics groups for outlier detection (required, at least one)
-  outlier_flags:
-    - dimension  # Dimension statistics
-    - pixel      # Pixel statistics
-    - visual     # Visual statistics
-
-  # Outlier threshold (optional, default: null = DataEval default for chosen method)
-  # outlier_threshold: 3.0
-
-  # Cluster-based outlier detection (optional, requires a model/extractor)
-  # outlier_cluster_threshold: 2.5   # Std devs from cluster center to flag
-  # outlier_cluster_algorithm: kmeans # Options: kmeans, hdbscan
-  # outlier_n_clusters: null          # null = auto-detect
-
-  # Duplicate detection hash flags (optional, default: null = DataEval default)
-  # duplicate_flags:
-  #   - hash_basic  # xxhash + phash + dhash
-  #   - hash_d4     # phash_d4 + dhash_d4 (rotation-invariant)
-
-  # Merge overlapping near-duplicate groups (optional, default: true)
-  # duplicate_merge_near: true
-
-  # Cluster-based duplicate detection (optional, requires a model/extractor)
-  # duplicate_cluster_sensitivity: 2.0  # Threshold for near-duplicate clusters
-  # duplicate_cluster_algorithm: kmeans # Options: kmeans, hdbscan
-  # duplicate_n_clusters: null          # null = auto-detect
-
-  # Execution mode (optional, default: "advisory")
-  # mode: "advisory"  # Options: advisory (report only), preparatory (modify dataset)
-
-# -----------------------------------------------------------------------------
-# MODEL CONFIGURATION (optional)
-# -----------------------------------------------------------------------------
-# List of models for embedding extraction.
-# Each model has a name and an extractor config with a `type` discriminator.
+# Named model/extractor definitions. Tasks reference these by name.
 #
 # models:
 #   - name: resnet50
@@ -111,18 +83,11 @@ data_cleaning:
 #       vocab_size: 2048
 
 # -----------------------------------------------------------------------------
-# PREPROCESSING (optional, applied in order)
+# PREPROCESSING (optional)
 # -----------------------------------------------------------------------------
-# Pass-through to torchvision.transforms.v2 - any transform name is allowed.
+# Named preprocessor definitions. Tasks reference these by name.
+# Steps are pass-through to torchvision.transforms.v2.
 # See: https://pytorch.org/vision/stable/transforms.html
-#
-# Supported transforms (pass-through from YAML):
-# Resize, CenterCrop, RandomCrop, RandomResizedCrop, FiveCrop, TenCrop,
-# RandomHorizontalFlip, RandomVerticalFlip, Pad, RandomRotation,
-# RandomAffine, RandomPerspective, ElasticTransform, ColorJitter,
-# Grayscale, RandomGrayscale, GaussianBlur, RandomInvert, RandomPosterize,
-# RandomSolarize, RandomAutocontrast, RandomEqualize, RandomAdjustSharpness,
-# Normalize, ToImage, ToDtype, ConvertImageDtype, ToPureTensor
 #
 # preprocessors:
 #   - name: resnet50_preprocessor
@@ -142,3 +107,51 @@ data_cleaning:
 #         params:
 #           mean: [0.485, 0.456, 0.406]
 #           std: [0.229, 0.224, 0.225]
+
+# -----------------------------------------------------------------------------
+# WORKFLOWS — Named workflow instances (type + params)
+# -----------------------------------------------------------------------------
+# Each workflow instance binds a workflow type to specific parameters.
+# Tasks reference these instances by name.
+#
+# workflows:
+#   - name: standard_clean
+#     type: data-cleaning
+#     outlier_method: adaptive
+#     outlier_flags: [dimension, pixel, visual]
+#
+#   - name: strict_clean
+#     type: data-cleaning
+#     outlier_method: zscore
+#     outlier_flags: [dimension, pixel, visual]
+#     outlier_threshold: 2.0
+#     health_thresholds:
+#       exact_duplicates: 0.0
+#       near_duplicates: 1.0
+#       image_outliers: 1.0
+#
+#   - name: basic_drift
+#     type: drift-monitoring
+#     detectors:
+#       - method: univariate
+#         test: ks
+#         p_val: 0.05
+
+# -----------------------------------------------------------------------------
+# TASKS — Lightweight composition by name
+# -----------------------------------------------------------------------------
+# Each task references a workflow instance and named datasets/models.
+# The workflow instance determines the workflow type and parameters.
+#
+# tasks:
+#   - name: clean_train
+#     workflow: standard_clean        # ← reference workflow instance by name
+#     datasets: my-dataset
+#     output_format: json
+#
+#   - name: clean_strict
+#     workflow: strict_clean          # ← different instance, different params
+#     datasets: my-dataset
+#     models: resnet50
+#     batch_size: 64
+#     output_format: json

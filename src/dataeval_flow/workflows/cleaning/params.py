@@ -1,18 +1,13 @@
 """Data cleaning workflow parameters."""
 
-from pathlib import Path
+from collections.abc import Sequence
 from typing import Literal
 
-import yaml
 from pydantic import BaseModel, Field
 
 from dataeval_flow.workflow.base import WorkflowParametersBase
 
-__all__ = ["DataCleaningParameters", "DataCleaningHealthThresholds", "load_params"]
-
-# Duplicated from config.loader to avoid circular import
-# (params → config.loader → config.models → params)
-DEFAULT_PARAMS_PATH = Path("/data/config/params.yaml")
+__all__ = ["DataCleaningParameters", "DataCleaningHealthThresholds"]
 
 
 class DataCleaningHealthThresholds(BaseModel):
@@ -108,7 +103,7 @@ class DataCleaningParameters(WorkflowParametersBase):
     outlier_method: Literal["adaptive", "zscore", "modzscore", "iqr"] = Field(
         description="Statistical method for outlier detection",
     )
-    outlier_flags: list[Literal["dimension", "pixel", "visual"]] = Field(
+    outlier_flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
         min_length=1,
         description="Image statistics groups for outlier detection. At least one required.",
     )
@@ -133,7 +128,7 @@ class DataCleaningParameters(WorkflowParametersBase):
     )
 
     # --- Duplicate detection params ---
-    duplicate_flags: list[Literal["hash_basic", "hash_d4"]] | None = Field(
+    duplicate_flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
         default=None,
         description=(
             "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash)."
@@ -163,24 +158,3 @@ class DataCleaningParameters(WorkflowParametersBase):
         default_factory=DataCleaningHealthThresholds,
         description="Warning thresholds for dataset health status. Findings are flagged as warnings.",
     )
-
-
-def load_params(params_path: Path | None = None) -> DataCleaningParameters:
-    """Load data cleaning parameters from 'data_cleaning' section."""
-    path = params_path or DEFAULT_PARAMS_PATH
-
-    if not path.exists():
-        msg = f"Parameters file not found: {path}"
-        raise FileNotFoundError(msg)
-
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-
-    if "data_cleaning" not in data:
-        msg = (
-            f"'data_cleaning' section not found in {path}. "
-            f"Config must have 'data_cleaning:' section with required fields."
-        )
-        raise ValueError(msg)
-
-    return DataCleaningParameters.model_validate(data["data_cleaning"])

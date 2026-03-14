@@ -14,7 +14,7 @@
 # ---
 
 # %% [markdown]
-# # Detect classwise drift — which classes are degrading?
+# # Detect classwise drift — which classes are changing?
 #
 # Detect distribution drift that affects **specific classes** rather than the
 # dataset as a whole. This tutorial simulates progressive sensor degradation
@@ -224,18 +224,13 @@ plt.show()
 
 # %%
 
-from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, WorkflowConfig
+from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, PipelineConfig
 from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
 from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
 from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
-from dataeval_flow.workflows.drift.params import (
-    ChunkingConfig,
-    DriftDetectorKNeighbors,
-    DriftDetectorMMD,
-    DriftDetectorUnivariate,
-    DriftHealthThresholds,
-    DriftMonitoringParameters,
-)
+from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKNeighbors, DriftHealthThresholds
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
 ref_config = DatasetProtocolConfig(
@@ -264,42 +259,38 @@ model_config = ModelConfig(
 )
 
 # --- Phase 1: Overall drift with chunking (no classwise) ---
-chunking = ChunkingConfig(chunk_count=5, threshold_multiplier=1.5)
-
-overall_params = DriftMonitoringParameters(
-    detectors=[
-        DriftDetectorKNeighbors(k=10, chunking=chunking),
+overall_config = PipelineConfig(
+    datasets=[ref_config, incoming_config],
+    models=[model_config],
+    selections=[ref_selection],
+    workflows=[
+        DriftMonitoringWorkflowConfig(
+            name="overall-drift",
+            detectors=[
+                DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_count=5, threshold_multiplier=1.5)),
+            ],
+            health_thresholds=DriftHealthThresholds(
+                chunk_drift_pct_warning=15.0,
+                consecutive_chunks_warning=2,
+            ),
+        ),
     ],
-    health_thresholds=DriftHealthThresholds(
-        chunk_drift_pct_warning=15.0,
-        consecutive_chunks_warning=2,
-    ),
 )
 
 overall_task = DriftMonitoringTaskConfig(
     name="mnist-overall-drift",
+    workflow="overall-drift",
     datasets=["reference", "incoming"],
     models="flatten",
     selections={"reference": "ref-first-2k"},
     batch_size=64,
     cache_dir="./cache",
-    params=overall_params,
 )
-
-overall_config = WorkflowConfig(
-    datasets=[ref_config, incoming_config],
-    models=[model_config],
-    selections=[ref_selection],
-)
-
-print(overall_task.summary())
 
 # %% [markdown]
 # ## Step 2: Run overall drift detection
 
 # %%
-from dataeval_flow.workflow.orchestrator import run_task
-
 overall_result = run_task(overall_task, overall_config)
 
 # %% [markdown]
@@ -325,33 +316,35 @@ print(overall_result.report(format="text"))
 #   giving a per-feature breakdown of where the shift occurs.
 
 # %%
-classwise_params = DriftMonitoringParameters(
-    detectors=[
-        DriftDetectorMMD(n_permutations=100, classwise=True),
-        DriftDetectorUnivariate(test="cvm", classwise=True),
+from dataeval_flow.workflows.drift.params import DriftDetectorMMD, DriftDetectorUnivariate
+
+classwise_config = PipelineConfig(
+    datasets=[ref_config, incoming_config],
+    models=[model_config],
+    selections=[ref_selection],
+    workflows=[
+        DriftMonitoringWorkflowConfig(
+            name="classwise-drift",
+            detectors=[
+                DriftDetectorMMD(n_permutations=100, classwise=True),
+                DriftDetectorUnivariate(test="cvm", classwise=True),
+            ],
+            health_thresholds=DriftHealthThresholds(
+                classwise_any_drift_is_warning=True,
+            ),
+        ),
     ],
-    health_thresholds=DriftHealthThresholds(
-        classwise_any_drift_is_warning=True,
-    ),
 )
 
 classwise_task = DriftMonitoringTaskConfig(
     name="mnist-classwise-drift",
+    workflow="classwise-drift",
     datasets=["reference", "incoming"],
     models="flatten",
     selections={"reference": "ref-first-2k"},
     batch_size=64,
     cache_dir="./cache",
-    params=classwise_params,
 )
-
-classwise_config = WorkflowConfig(
-    datasets=[ref_config, incoming_config],
-    models=[model_config],
-    selections=[ref_selection],
-)
-
-print(classwise_task.summary())
 
 # %% [markdown]
 # ## Step 4: Run classwise drift detection

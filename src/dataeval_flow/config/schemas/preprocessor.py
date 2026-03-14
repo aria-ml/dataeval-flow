@@ -1,5 +1,7 @@
 """Preprocessor configuration schema."""
 
+from collections.abc import Sequence
+
 from pydantic import BaseModel
 
 from dataeval_flow.preprocessing import PreprocessingStep
@@ -12,4 +14,4 @@ class PreprocessorConfig(BaseModel):
     """
 
     name: str
-    steps: list[PreprocessingStep]  # Reuses existing PreprocessingStep
+    steps: Sequence[PreprocessingStep]  # Reuses existing PreprocessingStep

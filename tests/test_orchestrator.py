@@ -5,11 +5,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig
 from dataeval_flow.workflow.orchestrator import (
     _resolve_by_name,
     _resolve_optional_mapping,
     _validate_mapping_keys,
     run_task,
+)
+
+# Shared workflow instance used across tests
+_CLEAN_INSTANCE = DataCleaningWorkflowConfig(
+    name="clean",
+    outlier_method="zscore",
+    outlier_flags=["dimension", "pixel"],
 )
 
 # ---------------------------------------------------------------------------
@@ -71,13 +79,8 @@ class TestRunTask:
         )
         task_config = TaskConfig(
             name="test_task",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
-            params={
-                "outlier_method": "zscore",
-                "outlier_flags": ["dimension", "pixel"],
-                "outlier_threshold": None,
-            },
         )
 
         config = MagicMock()
@@ -85,6 +88,7 @@ class TestRunTask:
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
 
         return config, task_config
 
@@ -127,14 +131,9 @@ class TestRunTask:
 
         task = TaskConfig(
             name="test_task",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
             preprocessors="basic",
-            params={
-                "outlier_method": "zscore",
-                "outlier_flags": ["dimension", "pixel"],
-                "outlier_threshold": None,
-            },
         )
 
         mock_load_ds.return_value = MagicMock()
@@ -165,15 +164,10 @@ class TestRunTask:
 
         task = TaskConfig(
             name="test_task",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
             models="resnet",
             batch_size=64,
-            params={
-                "outlier_method": "zscore",
-                "outlier_flags": ["dimension", "pixel"],
-                "outlier_threshold": None,
-            },
         )
 
         mock_load_ds.return_value = MagicMock()
@@ -203,14 +197,9 @@ class TestRunTask:
 
         task = TaskConfig(
             name="test_task",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
             selections="sub",
-            params={
-                "outlier_method": "zscore",
-                "outlier_flags": ["dimension", "pixel"],
-                "outlier_threshold": None,
-            },
         )
 
         mock_load_ds.return_value = MagicMock()
@@ -229,7 +218,7 @@ class TestRunTask:
 
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_validates_params(self, mock_load_ds: MagicMock):
-        """run_task validates params against workflow.params_schema."""
+        """run_task validates workflow instance params against workflow.params_schema."""
         from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 
         config, task = self._build_config_and_task()
@@ -241,7 +230,7 @@ class TestRunTask:
             result = run_task(task, config)
 
         assert result.success
-        # Verify the params were validated
+        # Verify the instance params were validated against the schema
         mock_wf.execute.assert_called_once()
         call_args = mock_wf.execute.call_args
         params = call_args[0][1]
@@ -254,7 +243,8 @@ class TestRunTask:
 
         config = MagicMock()
         config.datasets = []
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="nonexistent")
+        config.workflows = [_CLEAN_INSTANCE]
+        task = TaskConfig(name="t", workflow="clean", datasets="nonexistent")
 
         with pytest.raises(ValueError, match="Unknown dataset"):
             run_task(task, config)
@@ -269,7 +259,7 @@ class TestRunTask:
 
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
             preprocessors="nonexistent",
         )
@@ -288,7 +278,7 @@ class TestRunTask:
 
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
             models="nonexistent",
             batch_size=64,
@@ -308,7 +298,7 @@ class TestRunTask:
 
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets="test_ds",
             selections="nonexistent",
         )
@@ -332,13 +322,14 @@ class TestRunTask:
             recursive=True,
             infer_labels=True,
         )
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="photos")
+        task = TaskConfig(name="t", workflow="clean", datasets="photos")
 
         config = MagicMock()
         config.datasets = [ds_config]
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -374,13 +365,14 @@ class TestRunTask:
             images_dir="train2017",
             classes_file="classes.txt",
         )
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="coco_ds")
+        task = TaskConfig(name="t", workflow="clean", datasets="coco_ds")
 
         config = MagicMock()
         config.datasets = [ds_config]
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -416,13 +408,14 @@ class TestRunTask:
             labels_dir="lbls",
             classes_file="cls.txt",
         )
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="yolo_ds")
+        task = TaskConfig(name="t", workflow="clean", datasets="yolo_ds")
 
         config = MagicMock()
         config.datasets = [ds_config]
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -449,13 +442,14 @@ class TestRunTask:
         from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(name="coco_ds", format="coco", path="/data/coco")
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="coco_ds")
+        task = TaskConfig(name="t", workflow="clean", datasets="coco_ds")
 
         config = MagicMock()
         config.datasets = [ds_config]
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -474,13 +468,14 @@ class TestRunTask:
         from dataeval_flow.config.schemas.task import TaskConfig
 
         ds_config = DatasetConfig(name="yolo_ds", format="yolo", path="/data/yolo")
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="yolo_ds")
+        task = TaskConfig(name="t", workflow="clean", datasets="yolo_ds")
 
         config = MagicMock()
         config.datasets = [ds_config]
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
@@ -653,6 +648,7 @@ class TestRunTaskMultiDataset:
         config.preprocessors = None
         config.models = None
         config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
         return config
 
     def _mock_workflow(self) -> MagicMock:
@@ -669,7 +665,7 @@ class TestRunTaskMultiDataset:
         from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds"])
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="ds")
+        task = TaskConfig(name="t", workflow="clean", datasets="ds")
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
@@ -685,7 +681,7 @@ class TestRunTaskMultiDataset:
         from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"])
+        task = TaskConfig(name="t", workflow="clean", datasets=["ds_a", "ds_b"])
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
@@ -705,7 +701,7 @@ class TestRunTaskMultiDataset:
         config.models = [
             ModelConfig(name="resnet", extractor=OnnxExtractorConfig(model_path="/m.onnx", output_name="out")),
         ]
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"], models="resnet", batch_size=64)
+        task = TaskConfig(name="t", workflow="clean", datasets=["ds_a", "ds_b"], models="resnet", batch_size=64)
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
@@ -732,7 +728,7 @@ class TestRunTaskMultiDataset:
         ]
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets=["ds_a", "ds_b"],
             models={"ds_a": "onnx_m", "ds_b": "flat_m"},
             batch_size=64,
@@ -762,7 +758,7 @@ class TestRunTaskMultiDataset:
         # Only ds_a has a model; ds_b is absent from the mapping
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets=["ds_a", "ds_b"],
             models={"ds_a": "m"},
             batch_size=64,
@@ -785,7 +781,7 @@ class TestRunTaskMultiDataset:
         config = self._make_config(["ds_a"])
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets=["ds_a"],
             models={"ds_a": "m", "ds_unknown": "m"},
             batch_size=64,
@@ -809,7 +805,7 @@ class TestRunTaskMultiDataset:
         ]
         task = TaskConfig(
             name="t",
-            workflow="data-cleaning",
+            workflow="clean",
             datasets=["ds_a", "ds_b"],
             preprocessors={"ds_a": "pre_a", "ds_b": "pre_b"},
         )
@@ -829,7 +825,7 @@ class TestRunTaskMultiDataset:
         from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds"])
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets="ds")
+        task = TaskConfig(name="t", workflow="clean", datasets="ds")
         mock_dataset = MagicMock()
         mock_load_ds.return_value = mock_dataset
         mock_wf = self._mock_workflow()
@@ -849,7 +845,7 @@ class TestRunTaskMultiDataset:
         from dataeval_flow.config.schemas.task import TaskConfig
 
         config = self._make_config(["ds_a", "ds_b"])
-        task = TaskConfig(name="t", workflow="data-cleaning", datasets=["ds_a", "ds_b"])
+        task = TaskConfig(name="t", workflow="clean", datasets=["ds_a", "ds_b"])
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 

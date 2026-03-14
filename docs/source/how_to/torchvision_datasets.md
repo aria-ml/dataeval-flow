@@ -11,47 +11,44 @@ protocol that DataEval expects.
 from torchvision.datasets import CIFAR10
 
 
-from dataeval_flow.config.models import BoVWExtractorConfig, ModelConfig, WorkflowConfig
+from dataeval_flow.config.models import BoVWExtractorConfig, ModelConfig, PipelineConfig
 from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
-from dataeval_flow.config.schemas.task import DataCleaningTaskConfig
-from dataeval_flow.workflow.orchestrator import run_task
-from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig
+from dataeval_flow.config.schemas.task import TaskConfig
+from dataeval_flow.workflow.orchestrator import run_pipeline
 
 # 1. Create the torchvision dataset (no transforms — the adapter handles conversion)
 tv_dataset = CIFAR10(root="./data", train=True, download=True)
 
-# 2. Wrap it in a DatasetProtocolConfig with format="torchvision"
-dataset_config = DatasetProtocolConfig(
-    name="cifar10-train",
-    format="torchvision",
-    dataset=tv_dataset,
+# 2. Build the full pipeline config
+config = PipelineConfig(
+    datasets=[
+        DatasetProtocolConfig(name="cifar10-train", format="torchvision", dataset=tv_dataset),
+    ],
+    models=[
+        ModelConfig(name="bovw", extractor=BoVWExtractorConfig(vocab_size=512)),
+    ],
+    workflows=[
+        DataCleaningWorkflowConfig(
+            name="adaptive_clean",
+            outlier_method="adaptive",
+            outlier_threshold=3.5,
+            outlier_flags=["dimension", "pixel", "visual"],
+        ),
+    ],
+    tasks=[
+        TaskConfig(
+            name="cifar10-clean",
+            workflow="adaptive_clean",
+            datasets=["cifar10-train"],
+            models="bovw",
+            batch_size=64,
+        ),
+    ],
 )
 
-# 3. Build the rest of the workflow config as usual
-model_config = ModelConfig(
-    name="bovw",
-    extractor=BoVWExtractorConfig(vocab_size=512),
-)
-
-task = DataCleaningTaskConfig(
-    name="cifar10-clean",
-    datasets=["cifar10-train"],
-    models="bovw",
-    batch_size=64,
-    params=DataCleaningParameters(
-        outlier_method="adaptive",
-        outlier_threshold=3.5,
-        outlier_flags=["dimension", "pixel", "visual"],
-    ),
-)
-
-config = WorkflowConfig(
-    datasets=[dataset_config],
-    models=[model_config],
-)
-
-# 4. Run
-result = run_task(task, config)
+# 3. Run
+(result,) = run_pipeline(config)
 print(result.report(format="text"))
 ```
 

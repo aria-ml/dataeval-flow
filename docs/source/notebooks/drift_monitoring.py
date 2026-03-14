@@ -172,18 +172,8 @@ plt.show()
 # (distance-based) and **MMD** (distribution-wide kernel test).
 
 # %%
-
-from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, WorkflowConfig
+from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, PipelineConfig
 from dataeval_flow.config.schemas.dataset import DatasetConfig
-from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
-from dataeval_flow.workflows.drift.params import (
-    ChunkingConfig,
-    DriftDetectorKNeighbors,
-    DriftDetectorMMD,
-    DriftDetectorUnivariate,
-    DriftHealthThresholds,
-    DriftMonitoringParameters,
-)
 
 # --- Datasets ---
 # First dataset = reference, second = incoming test data
@@ -236,50 +226,53 @@ model_config = ModelConfig(
 # to show drift while the first half remains clean.
 
 # %%
-# --- Drift parameters ---
+from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
+from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.workflows.drift.params import (
+    ChunkingConfig,
+    DriftDetectorKNeighbors,
+    DriftDetectorMMD,
+    DriftDetectorUnivariate,
+    DriftHealthThresholds,
+)
+
+# --- Drift workflow ---
 # Chunking is configured per detector — K-Neighbors and MMD get chunked,
 # while the univariate CVM detector runs a single overall test.
-chunking = ChunkingConfig(
-    chunk_size=200,  # 5 chunks of 200 images each
-    threshold_multiplier=4.0,  # more sensitive z-score threshold
-)
-
-drift_params = DriftMonitoringParameters(
-    detectors=[
-        DriftDetectorKNeighbors(k=10, chunking=chunking),
-        DriftDetectorMMD(n_permutations=100, chunking=chunking),
-        DriftDetectorUnivariate(test="cvm"),  # non-chunked overall test
+config = PipelineConfig(
+    datasets=[ref_dataset, incoming_dataset],
+    models=[model_config],
+    workflows=[
+        DriftMonitoringWorkflowConfig(
+            name="mnist-drift",
+            detectors=[
+                DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
+                DriftDetectorMMD(n_permutations=100, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
+                DriftDetectorUnivariate(test="cvm"),  # non-chunked overall test
+            ],
+            health_thresholds=DriftHealthThresholds(
+                chunk_drift_pct_warning=15.0,  # warn if >15% of chunks drift
+                consecutive_chunks_warning=2,  # warn on 2+ consecutive drifted chunks
+            ),
+        ),
     ],
-    health_thresholds=DriftHealthThresholds(
-        chunk_drift_pct_warning=15.0,  # warn if >15% of chunks drift
-        consecutive_chunks_warning=2,  # warn on 2+ consecutive drifted chunks
-    ),
 )
 
-# --- Task ---
-task = DriftMonitoringTaskConfig(
-    name="mnist-drift-check",
+drift_overall = DriftMonitoringTaskConfig(
+    name="mnist-drift-overall",
+    workflow="mnist-drift",
     datasets=["reference", "incoming"],
     models="flatten",
     batch_size=64,
     cache_dir="./cache",
-    params=drift_params,
 )
-
-config = WorkflowConfig(
-    datasets=[ref_dataset, incoming_dataset],
-    models=[model_config],
-)
-
-print(task.summary())
 
 # %% [markdown]
 # ## Step 2: Run the drift monitoring workflow
 
 # %%
-from dataeval_flow.workflow.orchestrator import run_task
-
-result = run_task(task, config)
+result = run_task(drift_overall, config)
 
 # %% [markdown]
 # ## Results Exploration: Drift report

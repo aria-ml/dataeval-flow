@@ -7,10 +7,11 @@ __all__ = [
     "WorkflowResult",
     "get_workflow",
     "list_workflows",
+    "run_pipeline",
     "run_task",
 ]
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
@@ -22,7 +23,7 @@ from dataeval_flow.workflow._text_report import (
     _render_detail_section,
     _summary_line,
 )
-from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.workflow.orchestrator import run_pipeline, run_task
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -42,7 +43,7 @@ class DatasetContext:
     dataset: "AnnotatedDataset[Any]"
     extractor: "ExtractorConfig | None" = None
     transforms: Callable | None = None
-    selection_steps: "list[SelectionStep] | None" = None
+    selection_steps: "Sequence[SelectionStep] | None" = None
     batch_size: int | None = None
     label_source: str | None = None
     cache: "DatasetCache | None" = None
@@ -57,10 +58,10 @@ class WorkflowContext:
     workflow level so that all datasets are processed uniformly.
     """
 
-    dataset_contexts: "dict[str, DatasetContext]" = field(default_factory=dict)
+    dataset_contexts: "Mapping[str, DatasetContext]" = field(default_factory=dict)
     metadata_auto_bin_method: "AutoBinMethod | None" = None
-    metadata_exclude: list[str] = field(default_factory=list)
-    metadata_continuous_factor_bins: dict[str, int | list[float]] | None = None
+    metadata_exclude: Sequence[str] = field(default_factory=list)
+    metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None
     batch_size: int | None = None
 
 
@@ -97,7 +98,7 @@ class WorkflowResult(Generic[TMetadata, TData]):
     name: str
     success: bool
     data: TData
-    errors: list[str] = field(default_factory=list)
+    errors: Sequence[str] = field(default_factory=list)
     metadata: TMetadata = field(default_factory=_default_metadata)  # type: ignore[assignment]
     format: Literal["text", "json", "yaml"] = "text"
     dataset: "AnnotatedDataset[Any] | None" = None
@@ -287,11 +288,9 @@ _initialized: bool = False
 def _ensure_initialized() -> None:
     global _initialized
     if not _initialized:
-        from dataeval_flow.config.schemas.task import _rebuild_deferred_models
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
 
-        _rebuild_deferred_models()
         wf = DataCleaningWorkflow()
         _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf)
         wf_drift = DriftMonitoringWorkflow()

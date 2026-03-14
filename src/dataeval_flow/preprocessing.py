@@ -25,7 +25,7 @@ __all__ = ["PreprocessingStep", "build_preprocessing"]
 
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
@@ -51,7 +51,7 @@ class PreprocessingStep(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
-def build_preprocessing(steps: list[PreprocessingStep]) -> Callable[[NDArray[Any]], NDArray[Any]]:
+def build_preprocessing(steps: Sequence[PreprocessingStep]) -> Callable[[NDArray[Any]], NDArray[Any]]:
     """Build preprocessing pipeline from config.
 
     Builds a torchvision.transforms.v2 pipeline and wraps it so the returned

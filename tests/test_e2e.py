@@ -25,7 +25,7 @@ class TestConfigToFactoryIntegration:
     """Test config loading → factory instantiation flow."""
 
     def test_full_config_with_all_p1_sections(self, tmp_path: Path):
-        """Load WorkflowConfig with datasets, preprocessors, selections, tasks."""
+        """Load PipelineConfig with datasets, preprocessors, selections, tasks."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
 
@@ -39,15 +39,20 @@ class TestConfigToFactoryIntegration:
         (config_dir / "02-selections.yaml").write_text(
             "selections:\n  - name: subset\n    steps:\n      - type: Limit\n        params:\n          size: 100\n"
         )
-        (config_dir / "03-tasks.yaml").write_text(
+        (config_dir / "03-workflows.yaml").write_text(
+            "workflows:\n"
+            "  - name: modzscore_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: modzscore\n"
+            "    outlier_flags: [dimension, pixel]\n"
+        )
+        (config_dir / "04-tasks.yaml").write_text(
             "tasks:\n"
             "  - name: clean_task\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: modzscore_clean\n"
             "    datasets: test_dataset\n"
             "    preprocessors: basic\n"
             "    selections: subset\n"
-            "    params:\n"
-            "      outlier_method: modzscore\n"
             "    output_format: json\n"
         )
 
@@ -57,21 +62,23 @@ class TestConfigToFactoryIntegration:
         assert config.datasets is not None
         assert config.preprocessors is not None
         assert config.selections is not None
+        assert config.workflows is not None
         assert config.tasks is not None
 
         # Verify counts
         assert len(config.datasets) == 1
         assert len(config.preprocessors) == 1
         assert len(config.selections) == 1
+        assert len(config.workflows) == 1
         assert len(config.tasks) == 1
 
         # Verify task content
         task = config.tasks[0]
         assert task.name == "clean_task"
+        assert task.workflow == "modzscore_clean"
         assert task.datasets == "test_dataset"
         assert task.preprocessors == "basic"
         assert task.selections == "subset"
-        assert task.params == {"outlier_method": "modzscore"}
         assert task.output_format == "json"
 
     def test_task_reference_resolution(self, tmp_path: Path):
@@ -132,6 +139,7 @@ class TestConfigToFactoryIntegration:
         assert task1.selections in selections_by_name
 
         # Verify resolved config details
+        assert isinstance(task1.datasets, str)
         resolved_dataset = datasets_by_name[task1.datasets]
         assert isinstance(resolved_dataset, DatasetConfig)
         assert resolved_dataset.format == "huggingface"
@@ -162,19 +170,22 @@ class TestConfigToFactoryIntegration:
             "  - name: shared_preproc\n"
             "    steps:\n"
             "      - step: ToTensor\n"
+            "workflows:\n"
+            "  - name: modzscore_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: modzscore\n"
+            "    outlier_flags: [dimension, pixel]\n"
             "tasks:\n"
             "  - name: outlier_detection\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: modzscore_clean\n"
             "    datasets: shared_dataset\n"
             "    preprocessors: shared_preproc\n"
-            "    params:\n"
-            "      outlier_method: modzscore\n"
             "  - name: duplicate_detection\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: modzscore_clean\n"
             "    datasets: shared_dataset\n"
             "    preprocessors: shared_preproc\n"
             "  - name: analysis_only\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: modzscore_clean\n"
             "    datasets: shared_dataset\n"
             "    output_format: text\n"
         )
@@ -298,7 +309,7 @@ class TestEndToEndCleaningWorkflow:
     Runs for real across 10 source files (20 functions):
       config/loader.py      load_config_folder, YAML parsing, file merge
       config/_merge.py      merge_config_dicts
-      config/models.py      WorkflowConfig.model_validate
+      config/models.py      PipelineConfig.model_validate
       config/schemas/       DatasetConfig, TaskConfig validation
       workflow/orchestrator  run_task, _resolve_by_name, _write_output
       workflow/__init__      get_workflow, WorkflowContext, WorkflowResult
@@ -348,16 +359,18 @@ class TestEndToEndCleaningWorkflow:
             "    format: huggingface\n"
             "    path: ./dataset\n"
             "    split: train\n"
+            "workflows:\n"
+            "  - name: modzscore_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: modzscore\n"
+            "    outlier_flags:\n"
+            "      - dimension\n"
+            "      - pixel\n"
+            "    outlier_threshold: null\n"
             "tasks:\n"
             "  - name: e2e_clean\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: modzscore_clean\n"
             "    datasets: test_ds\n"
-            "    params:\n"
-            "      outlier_method: modzscore\n"
-            "      outlier_flags:\n"
-            "        - dimension\n"
-            "        - pixel\n"
-            "      outlier_threshold: null\n"
             "    output_format: json\n"
         )
 

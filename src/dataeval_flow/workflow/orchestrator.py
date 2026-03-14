@@ -1,9 +1,9 @@
 """Task orchestration — config → execution bridge."""
 
-__all__ = ["run_task"]
+__all__ = ["run_pipeline", "run_task"]
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, overload, runtime_checkable
 
@@ -12,8 +12,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from dataeval_flow.config.models import WorkflowConfig
+    from dataeval_flow.config.models import PipelineConfig
     from dataeval_flow.config.schemas.metadata import ResultMetadata
+    from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig, DriftMonitoringWorkflowConfig
     from dataeval_flow.config.schemas.task import DataCleaningTaskConfig, DriftMonitoringTaskConfig, TaskConfig
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningResult
@@ -30,7 +31,7 @@ class _Named(Protocol):
 T = TypeVar("T", bound=_Named)
 
 
-def _resolve_by_name(items: list[T] | None, name: str, kind: str) -> T:
+def _resolve_by_name(items: Sequence[T] | None, name: str, kind: str) -> T:
     """Find a config object by name.
 
     Parameters
@@ -59,7 +60,7 @@ def _resolve_by_name(items: list[T] | None, name: str, kind: str) -> T:
 def _resolve_optional_mapping(
     mapping_or_name: str | Mapping[str, str] | None,
     dataset_name: str,
-    items: list[T] | None,
+    items: Sequence[T] | None,
     kind: str,
 ) -> T | None:
     """Resolve a config reference that may be shared or per-dataset.
@@ -72,7 +73,7 @@ def _resolve_optional_mapping(
         - ``Mapping`` → per-dataset; look up *dataset_name* key
     dataset_name : str
         Current dataset name (used as key into mapping).
-    items : list[T] | None
+    items : Sequence[T] | None
         Config list to resolve names against.
     kind : str
         Human-readable kind for error messages.
@@ -114,24 +115,50 @@ def _validate_mapping_keys(
         raise ValueError(f"{kind} mapping references unknown datasets: {sorted(extra)}")
 
 
+def _resolve_workflow(
+    workflow_name: str,
+    config: "PipelineConfig",
+) -> "DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig":
+    """Resolve a workflow by name from ``config.workflows``.
+
+    Parameters
+    ----------
+    workflow_name : str
+        Name referencing a workflow in ``config.workflows``.
+    config : PipelineConfig
+        Full config containing the ``workflows`` list for name resolution.
+
+    Returns
+    -------
+    DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig
+        The resolved workflow configuration.
+
+    Raises
+    ------
+    ValueError
+        If no matching workflow is found.
+    """
+    return _resolve_by_name(config.workflows, workflow_name, "workflow")
+
+
 @overload
 def run_task(  # pyright: ignore[reportOverlappingOverload]
-    task: "DriftMonitoringTaskConfig", config: "WorkflowConfig"
-) -> "DriftMonitoringResult": ...
-@overload
-def run_task(  # pyright: ignore[reportOverlappingOverload]
-    task: "DataCleaningTaskConfig", config: "WorkflowConfig"
+    task: "DataCleaningTaskConfig", config: "PipelineConfig"
 ) -> "DataCleaningResult": ...
 @overload
-def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[ResultMetadata, BaseModel]": ...
+def run_task(  # pyright: ignore[reportOverlappingOverload]
+    task: "DriftMonitoringTaskConfig", config: "PipelineConfig"
+) -> "DriftMonitoringResult": ...
+@overload
+def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[ResultMetadata, BaseModel]": ...
 
 
-def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[Any, Any]":
+def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[Any, Any]":
     """Run a single task using config-driven resolution.
 
     This is the primary entry point for config-driven execution.
     Resolves all ``TaskConfig`` references (datasets, model, preprocessor,
-    selection) against ``WorkflowConfig`` lists, builds a
+    selection) against ``PipelineConfig`` lists, builds a
     ``WorkflowContext``, validates params, and runs the workflow.
 
     Supports both single-dataset (``datasets`` as ``str``) and
@@ -143,8 +170,8 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
     ----------
     task : TaskConfig
         Task to execute. References are resolved against *config*.
-    config : WorkflowConfig
-        Full workflow configuration containing datasets, models, etc.
+    config : PipelineConfig
+        Pipeline configuration containing datasets, models, etc.
 
     Returns
     -------
@@ -167,7 +194,7 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
     from dataeval_flow.preprocessing import build_preprocessing
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
 
-    logger.info("Task '%s': starting (workflow=%s)", task.name, task.workflow)
+    logger.info("Task '%s': starting (workflow_instance=%s)", task.name, task.workflow)
 
     # 1. Normalize datasets to list
     dataset_names: list[str] = [task.datasets] if isinstance(task.datasets, str) else list(task.datasets)
@@ -242,18 +269,18 @@ def run_task(task: "TaskConfig", config: "WorkflowConfig") -> "WorkflowResult[An
 
     logger.debug("Task '%s': resolved %d dataset(s): %s", task.name, len(dataset_names), dataset_names)
 
-    # 5. Validate params against workflow's params_schema
-    workflow = get_workflow(task.workflow)
-    params = None
-    if workflow.params_schema is not None:
-        params = workflow.params_schema.model_validate(task.params)
+    # 5. Resolve workflow → type + params
+    #    Typed workflow configs (e.g. DataCleaningWorkflowConfig) inherit from
+    #    their params class, so the instance IS the params object.
+    instance = _resolve_workflow(task.workflow, config)
+    workflow = get_workflow(instance.type)
 
     # 6. Run workflow with timing
     import time
 
     logger.debug("Task '%s': executing workflow", task.name)
     start = time.monotonic()
-    result = workflow.execute(context, params)
+    result = workflow.execute(context, instance)
     elapsed = time.monotonic() - start
     logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
@@ -295,3 +322,37 @@ def _populate_result_metadata(
     dc = next(iter(dataset_contexts.values()))
     if dc.label_source:
         result.metadata.label_source = dc.label_source
+
+
+def run_pipeline(config: "PipelineConfig") -> "list[WorkflowResult[Any, Any]]":
+    """Run all tasks defined in a pipeline configuration.
+
+    Iterates over ``config.tasks`` and calls :func:`run_task` for each.
+    This is the primary entry point for executing a complete pipeline —
+    everything lives in one ``PipelineConfig`` object.
+
+    Parameters
+    ----------
+    config : PipelineConfig
+        Pipeline configuration containing datasets, models, workflows,
+        and tasks.
+
+    Returns
+    -------
+    list[WorkflowResult]
+        One result per task, in definition order.
+
+    Raises
+    ------
+    ValueError
+        If ``config.tasks`` is empty or ``None``.
+    """
+    if not config.tasks:
+        raise ValueError("No tasks defined in pipeline config")
+
+    logger.info("Running pipeline: %d task(s)", len(config.tasks))
+    results: list[WorkflowResult[Any, Any]] = []
+    for task in config.tasks:
+        logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
+        results.append(run_task(task, config))
+    return results

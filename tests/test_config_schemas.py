@@ -6,8 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from dataeval_flow.config import (
+    DataCleaningWorkflowConfig,
     ModelConfig,
-    WorkflowConfig,
+    PipelineConfig,
     export_params_schema,
     load_config,
     load_config_folder,
@@ -24,7 +25,6 @@ from dataeval_flow.workflows.cleaning import (
     DataCleaningParameters,
     DataCleaningRawOutputs,
     DataCleaningReport,
-    load_params,
 )
 
 # Valid required parameters for reuse in tests
@@ -128,98 +128,35 @@ class TestDataCleaningParameters:
             )
 
 
-class TestLoadParams:
-    """Test load_params function."""
-
-    def test_missing_file_raises(self):
-        """Missing file raises FileNotFoundError."""
-        with pytest.raises(FileNotFoundError):
-            load_params(Path("/nonexistent/params.yaml"))
-
-    def test_load_from_file(self, tmp_path: Path):
-        """Loads params from YAML file with nested data_cleaning section."""
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text(
-            "data_cleaning:\n"
-            "  outlier_method: iqr\n"
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - visual\n"
-            "  outlier_threshold: 2.5\n"
-            "  mode: preparatory\n"
-        )
-
-        params = load_params(params_file)
-        assert params.outlier_method == "iqr"
-        assert params.outlier_flags == ["dimension", "visual"]
-        assert params.outlier_threshold == 2.5
-        assert params.mode == "preparatory"
-
-    def test_load_missing_section_raises(self, tmp_path: Path):
-        """Missing data_cleaning section raises ValueError."""
-        params_file = tmp_path / "params.yaml"
-        params_file.write_text("other_key: value\n")
-
-        with pytest.raises(ValueError, match="data_cleaning.*section not found"):
-            load_params(params_file)
-
-
 class TestYAMLValidationEdgeCases:
     """Test YAML validation edge cases for user error scenarios."""
 
-    def test_malformed_yaml_raises(self, tmp_path: Path):
-        """Malformed YAML raises yaml.YAMLError."""
-        import yaml
-
-        config_file = tmp_path / "params.yaml"
-        config_file.write_text("data_cleaning:\n  outlier_method: [unclosed")
-
-        with pytest.raises(yaml.YAMLError):
-            load_params(config_file)
-
-    def test_unknown_field_name_raises(self, tmp_path: Path):
+    def test_unknown_field_name_raises(self):
         """Unknown field name (typo) shows as missing required field."""
-        config_file = tmp_path / "params.yaml"
         # Using wrong field name simulates a typo - Pydantic ignores unknown fields
         # but requires all declared fields, so missing 'outlier_method' raises
-        config_file.write_text(
-            "data_cleaning:\n"
-            "  outler_method: iqr\n"  # wrong field name
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - pixel\n"
-            "    - visual\n"
-            "  outlier_threshold: null\n"
-        )
-
         with pytest.raises(ValidationError, match="outlier_method"):
-            load_params(config_file)
+            DataCleaningParameters(
+                outler_method="iqr",  # type: ignore[call-arg]  # wrong field name
+                outlier_flags=["dimension", "pixel", "visual"],
+            )
 
-    def test_wrong_type_string_instead_of_number(self, tmp_path: Path):
+    def test_wrong_type_string_instead_of_number(self):
         """outlier_threshold as string raises ValidationError."""
-        config_file = tmp_path / "params.yaml"
-        config_file.write_text(
-            "data_cleaning:\n"
-            "  outlier_method: iqr\n"
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - pixel\n"
-            "    - visual\n"
-            "  outlier_threshold: 'high'\n"  # string not number
-        )
-
         with pytest.raises(ValidationError, match="outlier_threshold"):
-            load_params(config_file)
+            DataCleaningParameters(
+                outlier_method="iqr",
+                outlier_flags=["dimension", "pixel", "visual"],
+                outlier_threshold="high",  # type: ignore[arg-type]  # string not number
+            )
 
-    def test_invalid_outlier_flag_value(self, tmp_path: Path):
+    def test_invalid_outlier_flag_value(self):
         """Invalid outlier flag value raises ValidationError."""
-        config_file = tmp_path / "params.yaml"
-        config_file.write_text(
-            "data_cleaning:\n  outlier_method: iqr\n  outlier_flags:\n    - invalid_flag\n  outlier_threshold: null\n"
-        )
-
         with pytest.raises(ValidationError, match="outlier_flags"):
-            load_params(config_file)
+            DataCleaningParameters(
+                outlier_method="iqr",
+                outlier_flags=["invalid_flag"],  # type: ignore[list-item]
+            )
 
 
 class TestExportParamsSchema:
@@ -246,29 +183,43 @@ class TestExportParamsSchema:
         content = schema_path.read_text()
         schema = json.loads(content)
         assert "properties" in schema
-        assert "data_cleaning" in schema["properties"]
+        assert "tasks" in schema["properties"]
 
 
 class TestUnifiedConfig:
     """Test unified config loading."""
 
     def test_load_config_unified(self, tmp_path: Path):
-        """load_config loads data_cleaning section."""
+        """load_config loads task-centric config."""
         config_file = tmp_path / "params.yaml"
         config_file.write_text(
-            "data_cleaning:\n"
-            "  outlier_method: iqr\n"
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - pixel\n"
-            "    - visual\n"
-            "  outlier_threshold: null\n"
+            "datasets:\n"
+            "  - name: train\n"
+            "    format: image_folder\n"
+            "    path: ./data/train\n"
+            "workflows:\n"
+            "  - name: iqr_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: iqr\n"
+            "    outlier_flags:\n"
+            "      - dimension\n"
+            "      - pixel\n"
+            "      - visual\n"
+            "tasks:\n"
+            "  - name: clean_train\n"
+            "    workflow: iqr_clean\n"
+            "    datasets: train\n"
         )
 
         config = load_config(config_file)
-        assert isinstance(config, WorkflowConfig)
-        assert config.data_cleaning is not None
-        assert config.data_cleaning.outlier_method == "iqr"
+        assert isinstance(config, PipelineConfig)
+        assert config.tasks is not None
+        assert len(config.tasks) == 1
+        assert config.tasks[0].workflow == "iqr_clean"
+        assert config.workflows is not None
+        wf = config.workflows[0]
+        assert isinstance(wf, DataCleaningWorkflowConfig)
+        assert wf.outlier_method == "iqr"
 
     def test_load_config_file_not_found(self):
         """load_config raises FileNotFoundError when file doesn't exist."""
@@ -377,16 +328,7 @@ class TestLoadConfigFolder:
     def test_load_from_folder(self, tmp_path: Path):
         """Load config from folder with multiple YAML files."""
         # Create test YAML files
-        (tmp_path / "00-base.yaml").write_text(
-            "data_cleaning:\n"
-            "  outlier_method: iqr\n"
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - pixel\n"
-            "    - visual\n"
-            "  outlier_threshold: null\n"
-        )
-        (tmp_path / "01-models.yaml").write_text(
+        (tmp_path / "00-models.yaml").write_text(
             "models:\n"
             "  - name: resnet50\n"
             "    extractor:\n"
@@ -394,13 +336,16 @@ class TestLoadConfigFolder:
             "      model_path: ./resnet50.onnx\n"
             "      output_name: flatten0\n"
         )
+        (tmp_path / "01-datasets.yaml").write_text(
+            "datasets:\n  - name: train\n    format: image_folder\n    path: ./data/train\n"
+        )
 
         config = load_config_folder(tmp_path)
-        assert config.data_cleaning is not None
-        assert config.data_cleaning.outlier_method == "iqr"
         assert config.models is not None
         assert len(config.models) == 1
         assert config.models[0].name == "resnet50"
+        assert config.datasets is not None
+        assert len(config.datasets) == 1
 
     def test_load_from_folder_not_directory(self, tmp_path: Path):
         """Raises ValueError if path is not a directory."""
@@ -539,32 +484,17 @@ class TestModelConfig:
             ModelConfig(name="test")  # type: ignore[call-arg]
 
     def test_workflow_config_without_models(self, tmp_path: Path):
-        """WorkflowConfig works without models section."""
+        """PipelineConfig works without models section."""
         config_file = tmp_path / "params.yaml"
-        config_file.write_text(
-            "data_cleaning:\n"
-            "  outlier_method: iqr\n"
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - pixel\n"
-            "    - visual\n"
-            "  outlier_threshold: null\n"
-        )
+        config_file.write_text("datasets:\n  - name: train\n    format: image_folder\n    path: ./data/train\n")
 
         config = load_config(config_file)
         assert config.models is None
 
     def test_workflow_config_with_models(self, tmp_path: Path):
-        """WorkflowConfig loads models list."""
+        """PipelineConfig loads models list."""
         config_file = tmp_path / "params.yaml"
         config_file.write_text(
-            "data_cleaning:\n"
-            "  outlier_method: iqr\n"
-            "  outlier_flags:\n"
-            "    - dimension\n"
-            "    - pixel\n"
-            "    - visual\n"
-            "  outlier_threshold: null\n"
             "models:\n"
             "  - name: resnet50\n"
             "    extractor:\n"
@@ -717,22 +647,20 @@ class TestP1SchemaClasses:
 
         task = TaskConfig(
             name="data_cleaning",
-            workflow="data-cleaning",
+            workflow="clean_zscore_stats",
             datasets="cppe5",
             models="resnet50",
             preprocessors="resnet50_preprocessor",
             selections="training_subset",
-            params={"outlier_method": "modzscore"},
             output_format="json",
             batch_size=64,
         )
         assert task.name == "data_cleaning"
-        assert task.workflow == "data-cleaning"
+        assert task.workflow == "clean_zscore_stats"
         assert task.datasets == "cppe5"
         assert task.models == "resnet50"
         assert task.preprocessors == "resnet50_preprocessor"
         assert task.selections == "training_subset"
-        assert task.params == {"outlier_method": "modzscore"}
         assert task.output_format == "json"
         assert task.batch_size == 64
 
@@ -783,7 +711,6 @@ class TestP1SchemaClasses:
         assert task.models is None
         assert task.preprocessors is None
         assert task.selections is None
-        assert task.params == {}
         assert task.output_format == "json"
 
     def test_task_config_invalid_output_format_raises(self):
@@ -799,7 +726,7 @@ class TestP1SchemaClasses:
             )
 
     def test_workflow_config_with_all_p1_schemas(self, tmp_path: Path):
-        """WorkflowConfig loads all P1 schema sections."""
+        """PipelineConfig loads all P1 schema sections."""
         # Create config with all P1 sections
         (tmp_path / "config.yaml").write_text(
             "datasets:\n"
@@ -851,262 +778,46 @@ class TestP1SchemaClasses:
         assert config.tasks[0].datasets == "cppe5"
 
 
-class TestFormatList:
-    """Test _format_list helper."""
-
-    def test_plain_items(self):
-        """Plain items are indented."""
-        from dataeval_flow.config.schemas.task import _format_list
-
-        result = _format_list(["a", "b", "c"])
-        assert len(result) == 3
-        assert result[0] == "  a"
-        assert result[1] == "  b"
-
-    def test_dict_items(self):
-        """Dict items are formatted as compact {k=v} strings."""
-        from dataeval_flow.config.schemas.task import _format_list
-
-        result = _format_list([{"x": 1, "y": 2}])
-        assert len(result) == 1
-        assert "{x=1, y=2}" in result[0]
-
-    def test_nested_list_items(self):
-        """Nested lists are recursively formatted with extra indent."""
-        from dataeval_flow.config.schemas.task import _format_list
-
-        result = _format_list([["inner1", "inner2"]])
-        assert len(result) == 2
-        # nested list gets indent+2 more spaces
-        assert "inner1" in result[0]
-        assert "inner2" in result[1]
-
-
-class TestFormatDict:
-    """Test _format_dict helper."""
-
-    def test_empty_dict(self):
-        """Empty dict returns empty list."""
-        from dataeval_flow.config.schemas.task import _format_dict
-
-        assert _format_dict({}) == []
-
-    def test_flat_dict(self):
-        """Flat dict returns aligned key: value lines."""
-        from dataeval_flow.config.schemas.task import _format_dict
-
-        result = _format_dict({"alpha": 1, "beta": "two"})
-        assert len(result) == 2
-        assert "alpha" in result[0]
-        assert "1" in result[0]
-        assert "beta" in result[1]
-        assert "two" in result[1]
-
-    def test_nested_dict(self):
-        """Nested dict adds indented sub-keys."""
-        from dataeval_flow.config.schemas.task import _format_dict
-
-        result = _format_dict({"outer": {"inner": 42}})
-        assert len(result) == 2
-        assert "outer" in result[0]
-        assert "inner" in result[1]
-        assert "42" in result[1]
-
-    def test_indent_parameter(self):
-        """Indent parameter adds leading spaces."""
-        from dataeval_flow.config.schemas.task import _format_dict
-
-        result = _format_dict({"key": "val"}, indent=4)
-        assert result[0].startswith("    ")
-
-    def test_dict_with_list_value(self):
-        """Dict with list value delegates to _format_list."""
-        from dataeval_flow.config.schemas.task import _format_dict
-
-        result = _format_dict({"items": [1, 2, 3]})
-        assert any("items" in line for line in result)
-        assert any("1" in line for line in result)
-
-
-class TestTaskConfigSummary:
-    """Test TaskConfig.summary() and __str__."""
-
-    def test_summary_minimal(self):
-        """Summary with only required fields."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="clean", workflow="data-cleaning", datasets="ds1")
-        s = task.summary()
-        assert "Task: clean (data-cleaning)" in s
-        assert "ds1" in s
-
-    def test_summary_with_datasets_list(self):
-        """Summary lists multiple datasets."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets=["a", "b"])
-        assert "a, b" in task.summary()
-
-    def test_summary_with_models_string(self):
-        """Summary includes model name."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", models="m1", batch_size=32)
-        s = task.summary()
-        assert "m1" in s
-
-    def test_summary_with_models_mapping(self):
-        """Summary includes model mapping keys."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets=["a", "b"], models={"a": "m1", "b": "m2"}, batch_size=32)
-        s = task.summary()
-        assert "m1" in s or "a" in s
-
-    def test_summary_with_selections(self):
-        """Summary includes selections."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", selections="sel1")
-        assert "sel1" in task.summary()
-
-    def test_summary_with_selections_mapping(self):
-        """Summary includes selection config names (values, not dataset keys)."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", selections={"d": "s1"})
-        assert "s1" in task.summary()
-
-    def test_summary_with_preprocessors(self):
-        """Summary includes preprocessor name."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", preprocessors="prep1")
-        assert "prep1" in task.summary()
-
-    def test_summary_with_batch_size(self):
-        """Summary includes batch_size."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", models="m", batch_size=64)
-        assert "64" in task.summary()
-
-    def test_summary_with_cache_dir(self):
-        """Summary includes cache_dir."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", cache_dir="/cache")
-        assert "/cache" in task.summary()
-
-    def test_summary_with_params(self):
-        """Summary includes params section."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d", params={"outlier_method": "iqr"})
-        s = task.summary()
-        assert "params:" in s
-        assert "outlier_method" in s
-        assert "iqr" in s
-
-    def test_str_returns_summary(self):
-        """__str__ returns same as summary()."""
-        from dataeval_flow.config.schemas import TaskConfig
-
-        task = TaskConfig(name="t", workflow="w", datasets="d")
-        assert str(task) == task.summary()
-
-
-class TestDataCleaningTaskConfig:
-    """Test DataCleaningTaskConfig schema."""
-
-    def test_wrong_workflow_raises(self):
-        """DataCleaningTaskConfig rejects wrong workflow name."""
-        from dataeval_flow.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
-
-        _rebuild_deferred_models()
-        with pytest.raises(ValidationError, match="data-cleaning"):
-            DataCleaningTaskConfig(
-                name="test",
-                workflow="wrong-workflow",
-                datasets="ds",
-                params=DataCleaningParameters(outlier_method="modzscore", outlier_flags=["dimension"]),
-            )
-
-    def test_valid_data_cleaning_task_config(self):
-        """DataCleaningTaskConfig accepts valid config."""
-        from dataeval_flow.config.schemas.task import DataCleaningTaskConfig, _rebuild_deferred_models
-
-        _rebuild_deferred_models()
-        task = DataCleaningTaskConfig(
-            name="clean",
-            datasets="ds",
-            params=DataCleaningParameters(outlier_method="modzscore", outlier_flags=["dimension"]),
-        )
-        assert task.workflow == "data-cleaning"
-        assert task.name == "clean"
-
-
 class TestDriftMonitoringTaskConfig:
     """Test DriftMonitoringTaskConfig schema."""
 
-    def test_wrong_workflow_raises(self):
-        """DriftMonitoringTaskConfig rejects wrong workflow name."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
-
-        _rebuild_deferred_models()
-        with pytest.raises(ValidationError, match="drift-monitoring"):
-            DriftMonitoringTaskConfig(
-                name="test",
-                workflow="wrong-workflow",
-                datasets=["ref", "test"],
-                params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
-            )
-
     def test_single_dataset_raises(self):
         """DriftMonitoringTaskConfig requires at least 2 datasets."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
 
-        _rebuild_deferred_models()
         with pytest.raises(ValidationError, match="at least 2 datasets"):
             DriftMonitoringTaskConfig(
                 name="test",
+                workflow="drift-instance",
                 datasets="single_ds",
-                params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
             )
 
     def test_single_dataset_in_list_raises(self):
         """DriftMonitoringTaskConfig rejects a list with only one dataset."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
 
-        _rebuild_deferred_models()
         with pytest.raises(ValidationError, match="at least 2 datasets"):
             DriftMonitoringTaskConfig(
                 name="test",
+                workflow="drift-instance",
                 datasets=["only_one"],
-                params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
             )
 
     def test_valid_drift_task_config(self):
         """DriftMonitoringTaskConfig accepts valid config with 2 datasets."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig, _rebuild_deferred_models
-        from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
+        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
 
-        _rebuild_deferred_models()
         task = DriftMonitoringTaskConfig(
             name="drift",
+            workflow="drift-instance",
             datasets=["ref_ds", "test_ds"],
-            params=DriftMonitoringParameters(detectors=[{"method": "univariate"}]),  # type: ignore
         )
-        assert task.workflow == "drift-monitoring"
         assert task.name == "drift"
         assert len(task.datasets) == 2
 
 
 class TestLoggingConfig:
-    """Test LoggingConfig parsing via WorkflowConfig."""
+    """Test LoggingConfig parsing via PipelineConfig."""
 
     def test_workflow_config_with_logging(self, tmp_path: Path):
         config_file = tmp_path / "params.yaml"
@@ -1132,3 +843,141 @@ class TestLoggingConfig:
 
         with pytest.raises(ValidationError):
             load_config(config_file)
+
+
+class TestWorkflowConfig:
+    """Test WorkflowConfig schema (workflow instances)."""
+
+    def test_cleaning_workflow_config_basic(self):
+        """DataCleaningWorkflowConfig stores name, type, and flat params."""
+        wc = DataCleaningWorkflowConfig(
+            name="aggressive_clean",
+            outlier_method="zscore",
+            outlier_flags=["dimension", "pixel"],
+        )
+        assert wc.name == "aggressive_clean"
+        assert wc.type == "data-cleaning"
+        assert wc.outlier_method == "zscore"
+        assert wc.outlier_flags == ["dimension", "pixel"]
+
+    def test_cleaning_workflow_config_requires_fields(self):
+        """DataCleaningWorkflowConfig requires outlier_method and outlier_flags."""
+        with pytest.raises(ValidationError):
+            DataCleaningWorkflowConfig(name="empty")  # type: ignore[call-arg]
+
+    def test_drift_workflow_config_basic(self):
+        """DriftMonitoringWorkflowConfig stores name, type, and flat params."""
+        from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
+        from dataeval_flow.workflows.drift.params import DriftDetectorKNeighbors
+
+        wc = DriftMonitoringWorkflowConfig(
+            name="knn_drift",
+            detectors=[DriftDetectorKNeighbors(k=10)],
+        )
+        assert wc.name == "knn_drift"
+        assert wc.type == "drift-monitoring"
+        assert len(wc.detectors) == 1
+
+    def test_workflow_config_in_pipeline_config(self, tmp_path: Path):
+        """PipelineConfig loads named workflows list from flat YAML."""
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text(
+            "workflows:\n"
+            "  - name: standard_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: adaptive\n"
+            "    outlier_flags: [dimension, pixel, visual]\n"
+            "  - name: strict_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: zscore\n"
+            "    outlier_flags: [dimension]\n"
+        )
+
+        config = load_config(config_file)
+        assert config.workflows is not None
+        assert len(config.workflows) == 2
+        assert config.workflows[0].name == "standard_clean"
+        assert config.workflows[1].name == "strict_clean"
+        wf = config.workflows[0]
+        assert isinstance(wf, DataCleaningWorkflowConfig)
+        assert wf.outlier_method == "adaptive"
+
+    def test_full_config_with_workflows(self, tmp_path: Path):
+        """Full config with workflows referenced by tasks."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "datasets:\n"
+            "  - name: train\n"
+            "    format: image_folder\n"
+            "    path: ./data/train\n"
+            "workflows:\n"
+            "  - name: standard_clean\n"
+            "    type: data-cleaning\n"
+            "    outlier_method: adaptive\n"
+            "    outlier_flags: [dimension, pixel, visual]\n"
+            "tasks:\n"
+            "  - name: clean_train\n"
+            "    workflow: standard_clean\n"
+            "    datasets: train\n"
+        )
+
+        config = load_config(config_file)
+        assert config.workflows is not None
+        assert config.tasks is not None
+        assert config.tasks[0].workflow == "standard_clean"
+
+    def test_invalid_params_rejected(self):
+        """DataCleaningWorkflowConfig rejects invalid field values."""
+        with pytest.raises(ValidationError):
+            DataCleaningWorkflowConfig(
+                name="bad",
+                outlier_method="not_a_real_method",  # type: ignore[call-arg]
+                outlier_flags=["dimension"],
+            )
+
+
+class TestResolveWorkflow:
+    """Test orchestrator _resolve_workflow function."""
+
+    def test_resolve_workflow_by_name(self):
+        """Workflow is resolved from config.workflows by name."""
+        from dataeval_flow.workflow.orchestrator import _resolve_workflow
+
+        config = PipelineConfig(
+            workflows=[
+                DataCleaningWorkflowConfig(
+                    name="standard_clean",
+                    outlier_method="adaptive",
+                    outlier_flags=["dimension", "pixel"],
+                ),
+            ]
+        )
+        result = _resolve_workflow("standard_clean", config)
+        assert result.name == "standard_clean"
+        assert result.type == "data-cleaning"
+        assert isinstance(result, DataCleaningWorkflowConfig)
+        assert result.outlier_method == "adaptive"
+
+    def test_resolve_workflow_not_found(self):
+        """Unknown workflow name raises ValueError."""
+        from dataeval_flow.workflow.orchestrator import _resolve_workflow
+
+        config = PipelineConfig(
+            workflows=[
+                DataCleaningWorkflowConfig(
+                    name="existing",
+                    outlier_method="zscore",
+                    outlier_flags=["dimension"],
+                )
+            ]
+        )
+        with pytest.raises(ValueError, match="Unknown workflow: 'nonexistent'"):
+            _resolve_workflow("nonexistent", config)
+
+    def test_resolve_workflow_no_workflows_section(self):
+        """Workflow reference with no workflows section raises ValueError."""
+        from dataeval_flow.workflow.orchestrator import _resolve_workflow
+
+        config = PipelineConfig()
+        with pytest.raises(ValueError, match="No workflow configs defined"):
+            _resolve_workflow("standard_clean", config)

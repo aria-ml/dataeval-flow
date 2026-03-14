@@ -2,6 +2,7 @@
 
 __all__ = ["build_metadata"]
 
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from dataeval import Metadata
@@ -14,8 +15,8 @@ if TYPE_CHECKING:
 def build_metadata(
     dataset: AnnotatedDataset[Any],
     auto_bin_method: "AutoBinMethod | None" = None,
-    exclude: list[str] | None = None,
-    continuous_factor_bins: dict[str, int | list[float]] | None = None,
+    exclude: Sequence[str] | None = None,
+    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
 ) -> Metadata:
     """Build Metadata from dataset and config.
 

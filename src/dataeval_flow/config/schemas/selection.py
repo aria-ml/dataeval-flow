@@ -1,5 +1,6 @@
 """Selection configuration schema."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -12,7 +13,7 @@ class SelectionStep(BaseModel):
     """
 
     type: str = Field(description="Selection class from dataeval.selection")
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: Mapping[str, Any] = Field(default_factory=dict)
 
 
 class SelectionConfig(BaseModel):
@@ -22,4 +23,4 @@ class SelectionConfig(BaseModel):
     """
 
     name: str
-    steps: list[SelectionStep]
+    steps: Sequence[SelectionStep]

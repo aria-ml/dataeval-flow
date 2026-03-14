@@ -1,5 +1,6 @@
 """Drift monitoring workflow parameters."""
 
+from collections.abc import Sequence
 from typing import Annotated, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -314,7 +315,7 @@ class DriftMonitoringParameters(WorkflowParametersBase):
     analysis are optional extensions.
     """
 
-    detectors: list[DriftDetectorConfig] = Field(
+    detectors: Sequence[DriftDetectorConfig] = Field(
         min_length=1,
         description="List of drift detectors to run. At least one required.",
     )

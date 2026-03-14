@@ -4,15 +4,11 @@
 # Demonstrates how to configure multiple datasets with independent
 # models, preprocessors, and selections per dataset.
 #
+# Uses workflow instances to define workflow type + params once and
+# reference them across tasks.
+#
 # yaml-language-server: $schema=params.schema.json
 # =============================================================================
-
-# -----------------------------------------------------------------------------
-# LOGGING (optional)
-# -----------------------------------------------------------------------------
-# logging:
-#   app_level: DEBUG      # dataeval_flow and container_run (DEBUG|INFO|WARNING|ERROR)
-#   lib_level: WARNING    # third-party: torch, datasets, PIL (DEBUG|INFO|WARNING|ERROR)
 
 # -----------------------------------------------------------------------------
 # DATASETS
@@ -38,24 +34,8 @@ datasets:
     path: /data/classified-photos
     infer_labels: true
 
-  # COCO object detection dataset
-  # - name: coco-train
-  #   format: coco
-  #   path: /data/coco-train
-  #   annotations_file: annotations.json  # optional
-  #   images_dir: images                  # optional
-  #   classes_file: classes.txt           # optional
-
-  # YOLO object detection dataset
-  # - name: yolo-train
-  #   format: yolo
-  #   path: /data/yolo-train
-  #   images_dir: images                  # optional
-  #   labels_dir: labels                  # optional
-  #   classes_file: classes.txt           # optional
-
 # -----------------------------------------------------------------------------
-# MODELS (optional)
+# MODELS
 # -----------------------------------------------------------------------------
 models:
   - name: resnet50
@@ -69,7 +49,7 @@ models:
       type: flatten
 
 # -----------------------------------------------------------------------------
-# PREPROCESSORS (optional)
+# PREPROCESSORS
 # -----------------------------------------------------------------------------
 preprocessors:
   - name: resnet_preprocess
@@ -97,37 +77,47 @@ preprocessors:
           size: [32, 32]
 
 # -----------------------------------------------------------------------------
-# TASKS
+# WORKFLOWS — Named workflow instances
+# -----------------------------------------------------------------------------
+workflows:
+  - name: adaptive_clean
+    type: data-cleaning
+    outlier_method: adaptive
+    outlier_flags:
+      - dimension
+      - pixel
+
+  - name: thorough_clean
+    type: data-cleaning
+    outlier_method: modzscore
+    outlier_flags:
+      - dimension
+      - pixel
+      - visual
+
+# -----------------------------------------------------------------------------
+# TASKS — Lightweight composition by name
 # -----------------------------------------------------------------------------
 tasks:
-  # Single dataset (backward-compatible string form)
+  # Single dataset, references a workflow instance
   - name: clean_train
-    workflow: data-cleaning
+    workflow: adaptive_clean              # ← reference workflow instance
     datasets: cifar10_train
     models: flat
     batch_size: 64
-    params:
-      outlier_method: adaptive
-      outlier_flags:
-        - dimension
-        - pixel
 
-  # Multi-dataset with a shared model (string applies to all)
+  # Multi-dataset with a shared model, same workflow instance
   - name: clean_both_shared_model
-    workflow: data-cleaning
+    workflow: adaptive_clean              # ← reuse the same instance
     datasets:
       - cifar10_train
       - cifar10_test
     models: flat
     batch_size: 64
-    params:
-      outlier_method: zscore
-      outlier_flags:
-        - dimension
 
-  # Multi-dataset with per-dataset model mapping
+  # Multi-dataset with per-dataset model mapping, different workflow instance
   - name: clean_both_per_dataset_model
-    workflow: data-cleaning
+    workflow: thorough_clean              # ← different instance
     datasets:
       - cifar10_train
       - cifar10_test
@@ -138,25 +128,3 @@ tasks:
       cifar10_train: resnet_preprocess
       cifar10_test: basic_preprocess
     batch_size: 64
-    params:
-      outlier_method: modzscore
-      outlier_flags:
-        - dimension
-        - pixel
-        - visual
-
-  # Partial mapping — only train gets a model, test gets none
-  - name: clean_partial
-    workflow: data-cleaning
-    datasets:
-      - cifar10_train
-      - cifar10_test
-    models:
-      cifar10_train: resnet50
-    preprocessors:
-      cifar10_train: resnet_preprocess
-    batch_size: 64
-    params:
-      outlier_method: iqr
-      outlier_flags:
-        - pixel

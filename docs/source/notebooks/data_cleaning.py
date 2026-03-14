@@ -86,39 +86,19 @@ cppe5_train.save_to_disk(str(data_path))
 # %%
 from dataeval.config import set_max_processes
 
-from dataeval_flow.config.models import BoVWExtractorConfig, DataCleaningParameters, ModelConfig, WorkflowConfig
+from dataeval_flow.config.models import BoVWExtractorConfig, ModelConfig, PipelineConfig
 from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig
 from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
 from dataeval_flow.config.schemas.task import DataCleaningTaskConfig
+from dataeval_flow.workflow.orchestrator import run_task
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 
 set_max_processes(8)  # Set max processes for parallel execution (adjust as needed)
 
-# Point to the on-disk dataset (train split)
-dataset_config = DatasetConfig(name="cppe5_train", format="huggingface", path=str(data_path))
-
-# Define the BoVW extractor for embedding extraction (no model file needed)
-model_config = ModelConfig(
-    name="bovw",
-    extractor=BoVWExtractorConfig(vocab_size=512),
-)
-
-# Limit the dataset to 500 images for a faster tutorial run
-selection_config = SelectionConfig(
-    name="first500",
-    steps=[SelectionStep(type="Limit", params={"size": 500})],
-)
-
-health_thresholds = DataCleaningHealthThresholds(
-    exact_duplicates=0.0,  # No exact duplicates allowed (default)
-    near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
-    image_outliers=5.0,  # Relaxed from 3% default — CPPE-5 has diverse images
-    target_outliers=10.0,  # Relaxed from 3% default — object detection has annotation variance
-    classwise_outliers=12.0,  # Relaxed from 3% default — some classes are visually diverse
-    class_label_imbalance=5.0,  # CPPE-5 has moderate imbalance (default)
-)
-
-task_params = DataCleaningParameters(
+advisory_workflow = DataCleaningWorkflowConfig(
+    name="cppe5_advisory_clean",
+    mode="advisory",
     outlier_method="adaptive",  # Use adaptive thresholding for outliers
     outlier_threshold=3.5,
     outlier_flags=["dimension", "pixel", "visual"],  # All image stat groups
@@ -128,34 +108,47 @@ task_params = DataCleaningParameters(
     duplicate_cluster_sensitivity=0.5,  # Duplicate detection — hash-based plus cluster-based.
     duplicate_cluster_algorithm="hdbscan",
     duplicate_n_clusters=5,
-    health_thresholds=health_thresholds,
+    health_thresholds=DataCleaningHealthThresholds(
+        exact_duplicates=0.0,  # No exact duplicates allowed (default)
+        near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
+        image_outliers=5.0,  # Relaxed from 3% default — CPPE-5 has diverse images
+        target_outliers=10.0,  # Relaxed from 3% default — object detection has annotation variance
+        classwise_outliers=12.0,  # Relaxed from 3% default — some classes are visually diverse
+        class_label_imbalance=5.0,  # CPPE-5 has moderate imbalance (default)
+    ),
 )
 
-# Define the cleaning task — with cluster-based detection enabled
+# Build the full pipeline config — datasets, models, selections, workflows, and tasks
+config = PipelineConfig(
+    datasets=[
+        DatasetConfig(name="cppe5_train", format="huggingface", path=str(data_path)),
+    ],
+    models=[
+        ModelConfig(name="bovw", extractor=BoVWExtractorConfig(vocab_size=512)),
+    ],
+    selections=[
+        SelectionConfig(
+            name="first500",
+            steps=[SelectionStep(type="Limit", params={"size": 500})],
+        ),
+    ],
+    workflows=[advisory_workflow],
+)
+
 task = DataCleaningTaskConfig(
     name="cppe5_clean",
+    workflow="cppe5_advisory_clean",
     datasets=["cppe5_train"],
     models="bovw",
     selections="first500",  # Limit to 500 images
     batch_size=32,  # Batch size for embedding extraction
     cache_dir="./cache",  # Cache embeddings & stats across runs
-    params=task_params.model_copy(update={"mode": "advisory"}),
 )
-
-config = WorkflowConfig(
-    datasets=[dataset_config],
-    models=[model_config],
-    selections=[selection_config],
-)
-
-print(task.summary())
 
 # %% [markdown]
 # ## Step 2: Run the data cleaning workflow
 
 # %%
-from dataeval_flow.workflow.orchestrator import run_task
-
 result = run_task(task, config)
 
 # %% [markdown]
@@ -288,17 +281,30 @@ for i, group in enumerate(near_groups[:3]):
 # This is useful for building a filtered dataset downstream.
 
 # %%
+# Define a preparatory pipeline — same params but mode="preparatory"
+# Copy the advisory workflow and change name + mode
+prep_workflow = advisory_workflow.model_copy(
+    update={"name": "cppe5_prep_clean", "mode": "preparatory"},
+)
+
+config_prep = PipelineConfig(
+    datasets=config.datasets,
+    models=config.models,
+    selections=config.selections,
+    workflows=[advisory_workflow, prep_workflow],
+)
+
 task_prep = DataCleaningTaskConfig(
     name="cppe5-clean-prep",
+    workflow="cppe5_prep_clean",
     datasets=["cppe5_train"],
     models="bovw",
     selections="first500",
     batch_size=32,
     cache_dir="./cache",  # Reuses cached embeddings from Step 2
-    params=task_params.model_copy(update={"mode": "preparatory"}),
 )
 
-result_prep = run_task(task_prep, config)
+result_prep = run_task(task_prep, config_prep)
 
 # %% tags=["remove_cell"]
 if not result_prep.success:

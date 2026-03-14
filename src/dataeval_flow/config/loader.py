@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from dataeval_flow.config.models import WorkflowConfig
+from dataeval_flow.config.models import PipelineConfig
 
 __all__ = ["export_params_schema", "load_config", "load_config_folder"]
 
@@ -16,8 +16,8 @@ DEFAULT_PARAMS_PATH = Path("/data/config/params.yaml")
 DEFAULT_CONFIG_FOLDER = Path("/data/config")
 
 
-def load_config(config_path: Path | None = None) -> WorkflowConfig:
-    """Load unified workflow configuration from a single YAML file."""
+def load_config(config_path: Path | None = None) -> PipelineConfig:
+    """Load pipeline configuration from a single YAML file."""
     path = config_path or DEFAULT_PARAMS_PATH
     logger.debug("Loading config from %s", path)
 
@@ -28,21 +28,21 @@ def load_config(config_path: Path | None = None) -> WorkflowConfig:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    return WorkflowConfig.model_validate(data)
+    return PipelineConfig.model_validate(data)
 
 
-def load_config_folder(config_path: Path | None = None) -> WorkflowConfig:
+def load_config_folder(config_path: Path | None = None) -> PipelineConfig:
     """Load and merge all YAML files from config folder."""
     from dataeval_flow.config._merge import merge_yaml_folder
 
     path = config_path or DEFAULT_CONFIG_FOLDER
     logger.debug("Loading config folder %s", path)
     merged = merge_yaml_folder(path)
-    return WorkflowConfig.model_validate(merged)
+    return PipelineConfig.model_validate(merged)
 
 
 def export_params_schema(output_path: Path) -> None:
-    """Export JSON Schema for params.yaml (WorkflowConfig) for IDE validation."""
+    """Export JSON Schema for params.yaml (PipelineConfig) for IDE validation."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    schema = WorkflowConfig.model_json_schema()
+    schema = PipelineConfig.model_json_schema()
     output_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")

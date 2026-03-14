@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time as _time
+from collections.abc import Sequence
 from typing import Any, Literal
 
 import numpy as np
@@ -417,7 +418,7 @@ def _build_findings(
 # ---------------------------------------------------------------------------
 
 
-def _any_classwise(detectors: list[DriftDetectorConfig]) -> bool:  # type: ignore[type-arg]
+def _any_classwise(detectors: Sequence[DriftDetectorConfig]) -> bool:  # type: ignore[type-arg]
     """Return True if any detector has classwise enabled."""
     return any(d.classwise for d in detectors)
 
@@ -491,7 +492,7 @@ def _run_classwise_drift(
 
 
 def _unique_method_keys(
-    detectors: list[DriftDetectorConfig],  # type: ignore[type-arg]
+    detectors: Sequence[DriftDetectorConfig],  # type: ignore[type-arg]
 ) -> list[str]:
     """Return a unique key for each detector, appending a numeric suffix for duplicates."""
     counts: dict[str, int] = {}
