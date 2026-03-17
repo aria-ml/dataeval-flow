@@ -1,15 +1,36 @@
 """Workflow base classes - shared by all concrete workflows."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from dataeval_flow.config.schemas import AutoBinMethod
+
 __all__ = [
+    "MetadataConfigMixin",
     "Reportable",
     "WorkflowOutputsBase",
     "WorkflowParametersBase",
     "WorkflowReportBase",
 ]
+
+
+# --- Metadata configuration mixin ---
+
+
+class MetadataConfigMixin(BaseModel):
+    """Mixin for workflows that need dataset metadata configuration.
+
+    Provides binning and exclusion settings for metadata analysis.
+    Mix into workflow parameter classes that require metadata processing
+    (e.g. data cleaning).
+    """
+
+    metadata_auto_bin_method: AutoBinMethod | None = None
+    metadata_exclude: Sequence[str] = Field(default_factory=list)
+    metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None
+
 
 # --- Parameter base ---
 

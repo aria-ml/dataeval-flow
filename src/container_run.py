@@ -42,13 +42,13 @@ def main() -> int:
         return 1
 
     try:
-        from dataeval_flow.runner import run_all_tasks
+        from dataeval_flow.runner import run
     except ImportError as e:
         print(f"ERROR: Failed to import dataeval_flow: {e}")
         print("Ensure dependencies are installed correctly.")
         return 1
 
-    return run_all_tasks(config_path, CONTAINER_MOUNTS["output"])
+    return run(config_path, CONTAINER_MOUNTS["output"])
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Shared task runner used by both CLI and container entry points."""
+"""Shared CLI/container runner — loads config, runs tasks, writes reports."""
 
 import logging
 from pathlib import Path
@@ -6,8 +6,12 @@ from pathlib import Path
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def run_all_tasks(config_path: Path | None, output_dir: Path) -> int:
-    """Load config and run all tasks, returning an exit code.
+def run(config_path: Path | None, output_dir: Path) -> int:
+    """Load config folder, execute all tasks, and write reports.
+
+    This is the shared entry point for CLI (``__main__.py``) and container
+    (``container_run.py``) usage.  For programmatic use, prefer
+    :func:`~dataeval_flow.load_config` + :func:`~dataeval_flow.run_tasks`.
 
     Parameters
     ----------
@@ -23,7 +27,7 @@ def run_all_tasks(config_path: Path | None, output_dir: Path) -> int:
     """
     from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_flow.config import load_config_folder
-    from dataeval_flow.workflow import run_pipeline
+    from dataeval_flow.workflow import run_tasks
 
     setup_logging(output_dir)
 
@@ -36,7 +40,7 @@ def run_all_tasks(config_path: Path | None, output_dir: Path) -> int:
         logger.info("No tasks defined in config.")
         return 0
 
-    results = run_pipeline(config)
+    results = run_tasks(config)
 
     failures = 0
     for task, result in zip(config.tasks, results, strict=True):

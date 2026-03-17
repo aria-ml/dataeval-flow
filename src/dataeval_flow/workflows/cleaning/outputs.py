@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, TypeIs
 
-from dataeval_flow.config.schemas.metadata import ResultMetadata
+from dataeval_flow.config.schemas import ResultMetadata
 from dataeval_flow.workflow.base import Reportable, WorkflowOutputsBase, WorkflowReportBase
 
 if TYPE_CHECKING:
@@ -192,7 +192,7 @@ def is_cleaning_result(
 
     Useful in the CLI loop or any code that receives a generic result::
 
-        result = run_task(task, config)
+        [result] = run_tasks(config, "my_task")
         if is_cleaning_result(result):
             result.metadata.flagged_indices  # ✓ typed
             result.data.raw.img_outliers     # ✓ typed

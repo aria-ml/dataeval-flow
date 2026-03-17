@@ -1008,12 +1008,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 # 3. Build metadata for label stats (cache-aware via active_cache)
                 logger.info("[3/4] Loading metadata…")
                 _t0 = _time.monotonic()
-                metadata = get_or_compute_metadata(
-                    dataset,
-                    auto_bin_method=context.metadata_auto_bin_method,
-                    exclude=context.metadata_exclude or None,
-                    continuous_factor_bins=context.metadata_continuous_factor_bins,
-                )
+                metadata = get_or_compute_metadata(dataset)
                 logger.info("[3/4] Metadata ready in %.1fs", _time.monotonic() - _t0)
 
                 # 4. Run cleaning evaluators (cache-aware via active_cache)

@@ -1,47 +1,64 @@
-"""Config layer - public re-exports."""
+"""Config layer — single public API for all configuration types.
+
+Import everything from here::
+
+    from dataeval_flow.config import PipelineConfig, OnnxExtractorConfig, ...
+"""
 
 __all__ = [
-    "BoVWExtractorConfig",
-    "DataCleaningWorkflowConfig",
-    "DatasetConfig",
+    # Dataset configs
+    "CocoDatasetConfig",
     "DatasetProtocolConfig",
-    "DriftMonitoringWorkflowConfig",
-    "ExtractorConfig",
+    "HuggingFaceDatasetConfig",
+    "ImageFolderDatasetConfig",
+    "YoloDatasetConfig",
+    # Extractor configs
+    "BoVWExtractorConfig",
     "FlattenExtractorConfig",
-    "ModelConfig",
     "OnnxExtractorConfig",
-    "PipelineConfig",
-    "PreprocessorConfig",
-    "SelectionConfig",
-    "SelectionStep",
-    "TaskConfig",
     "TorchExtractorConfig",
     "UncertaintyExtractorConfig",
-    "WorkflowConfig",
+    # Workflow configs
+    "DataCleaningWorkflowConfig",
+    "DriftMonitoringWorkflowConfig",
+    # Task configs
+    "DataCleaningTaskConfig",
+    "DriftMonitoringTaskConfig",
+    "TaskConfig",
+    # Composition / pipeline
+    "PipelineConfig",
+    "SourceConfig",
+    # Other schemas
+    "PreprocessorConfig",
+    "ResultMetadata",
+    "SelectionConfig",
+    "SelectionStep",
+    # Loader functions
     "export_params_schema",
     "load_config",
     "load_config_folder",
 ]
 
-from dataeval_flow.config.loader import export_params_schema, load_config, load_config_folder
-from dataeval_flow.config.models import (
-    BoVWExtractorConfig,
-    DataCleaningWorkflowConfig,
-    DriftMonitoringWorkflowConfig,
-    ExtractorConfig,
-    FlattenExtractorConfig,
-    ModelConfig,
-    OnnxExtractorConfig,
-    PipelineConfig,
-    TorchExtractorConfig,
-    UncertaintyExtractorConfig,
-    WorkflowConfig,
-)
+from dataeval_flow.config._loader import export_params_schema, load_config, load_config_folder
+from dataeval_flow.config._models import PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas import (
-    DatasetConfig,
+    BoVWExtractorConfig,
+    CocoDatasetConfig,
+    DataCleaningTaskConfig,
+    DataCleaningWorkflowConfig,
     DatasetProtocolConfig,
+    DriftMonitoringTaskConfig,
+    DriftMonitoringWorkflowConfig,
+    FlattenExtractorConfig,
+    HuggingFaceDatasetConfig,
+    ImageFolderDatasetConfig,
+    OnnxExtractorConfig,
     PreprocessorConfig,
+    ResultMetadata,
     SelectionConfig,
     SelectionStep,
     TaskConfig,
+    TorchExtractorConfig,
+    UncertaintyExtractorConfig,
+    YoloDatasetConfig,
 )

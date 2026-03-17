@@ -1,12 +1,44 @@
 {
   "$defs": {
     "BoVWExtractorConfig": {
-      "description": "BoVWExtractor configuration. No model file required.",
+      "additionalProperties": false,
+      "description": "Extractor config for Bag-of-Visual-Words.\n\nYAML example::\n\n    extractors:\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
       "properties": {
-        "type": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
           "const": "bovw",
           "default": "bovw",
-          "title": "Type",
+          "title": "Model",
           "type": "string"
         },
         "vocab_size": {
@@ -18,11 +50,183 @@
           "type": "integer"
         }
       },
+      "required": [
+        "name"
+      ],
       "title": "BoVWExtractorConfig",
       "type": "object"
     },
-    "DataCleaningParameters": {
-      "description": "Parameters for data cleaning workflow.\n\nRequired parameters must be explicitly set per CR-4.14-G-1\n(avoid application-specific defaults).",
+    "ChunkingConfig": {
+      "description": "Configuration for chunked (temporal) drift analysis.\n\nWhen present, the test data is split into sequential chunks and each\nchunk is tested for drift independently.  This answers \"when did drift\nstart?\" and \"did it recover?\".",
+      "properties": {
+        "chunk_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fixed number of samples per chunk. Mutually exclusive with chunk_count.",
+          "title": "Chunk Size"
+        },
+        "chunk_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split test data into this many equal chunks. Mutually exclusive with chunk_size.",
+          "title": "Chunk Count"
+        },
+        "incomplete": {
+          "default": "keep",
+          "description": "How to handle a final chunk smaller than chunk_size. 'keep': retain as-is, 'drop': discard, 'append': merge into last full chunk.",
+          "enum": [
+            "keep",
+            "drop",
+            "append"
+          ],
+          "title": "Incomplete",
+          "type": "string"
+        },
+        "threshold_multiplier": {
+          "default": 3.0,
+          "description": "Z-score multiplier for the chunk-level drift threshold. Lower values are more sensitive (e.g. 2.0), higher values more conservative.",
+          "exclusiveMinimum": 0.0,
+          "title": "Threshold Multiplier",
+          "type": "number"
+        }
+      },
+      "title": "ChunkingConfig",
+      "type": "object"
+    },
+    "CocoDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: /data/coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
+      "properties": {
+        "format": {
+          "const": "coco",
+          "default": "coco",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "annotations_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotations File"
+        },
+        "images_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Images Dir"
+        },
+        "classes_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes File"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "CocoDatasetConfig",
+      "type": "object"
+    },
+    "DataCleaningHealthThresholds": {
+      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
+      "properties": {
+        "exact_duplicates": {
+          "default": 0.0,
+          "description": "Max allowable % of images in exact-duplicate groups. Exact duplicates are byte-identical images that inflate dataset size without adding information. Default 0% \u2014 any exact duplicates trigger a warning. Raise above 0 only if your pipeline intentionally includes repeated images (e.g. augmentation-before-split workflows).",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Exact Duplicates",
+          "type": "number"
+        },
+        "near_duplicates": {
+          "default": 5.0,
+          "description": "Max allowable % of images in near-duplicate groups. Near duplicates are visually similar images (crops, resizes, minor edits) that can bias model training toward repeated content. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Near Duplicates",
+          "type": "number"
+        },
+        "image_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of images flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics). Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Image Outliers",
+          "type": "number"
+        },
+        "target_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of targets (labels/annotations) flagged as outliers (unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. Lower to 1% for annotation-quality audits; raise to 5\u201310% for datasets with naturally high annotation variance (e.g. dense object detection).",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Target Outliers",
+          "type": "number"
+        },
+        "classwise_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of items flagged as outliers within any single class. Default 3%. This catches classes where outlier concentration is disproportionately high, which may indicate labeling errors or class definition issues. Lower to 1% for label-quality audits; raise to 5\u201310% for classes with inherently high visual diversity.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Classwise Outliers",
+          "type": "number"
+        },
+        "class_label_imbalance": {
+          "default": 5.0,
+          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. For binary classification, 3:1 is a common threshold for 'imbalanced'. For large class hierarchies (25+ classes), the long tail naturally increases this ratio \u2014 raise to 10\u201320:1 to avoid false warnings. Set to 1.0 to require perfectly balanced classes.",
+          "minimum": 1.0,
+          "title": "Class Label Imbalance",
+          "type": "number"
+        }
+      },
+      "title": "DataCleaningHealthThresholds",
+      "type": "object"
+    },
+    "DataCleaningWorkflowConfig": {
+      "description": "Typed workflow configuration for ``data-cleaning``.\n\nInherits all fields from :class:`DataCleaningParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
       "properties": {
         "mode": {
           "default": "advisory",
@@ -184,30 +388,488 @@
           "default": null,
           "description": "Expected number of clusters for duplicate detection. None = auto-detect.",
           "title": "Duplicate N Clusters"
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/DataCleaningHealthThresholds",
+          "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-cleaning",
+          "default": "data-cleaning",
+          "title": "Type",
+          "type": "string"
         }
       },
       "required": [
         "outlier_method",
-        "outlier_flags"
+        "outlier_flags",
+        "name"
       ],
-      "title": "DataCleaningParameters",
+      "title": "DataCleaningWorkflowConfig",
       "type": "object"
     },
-    "DatasetConfig": {
-      "description": "Dataset configuration schema.",
+    "DatasetProtocolConfig": {
+      "description": "Dataset Configuration schema for an in-memory dataset.\n\nNot serializable \u2014 for programmatic use only. Cannot be loaded from\nYAML/JSON config files or edited in the builder UI.",
       "properties": {
         "name": {
           "title": "Name",
           "type": "string"
         },
         "format": {
+          "default": "maite",
           "enum": [
-            "huggingface",
-            "coco",
-            "yolo",
-            "image_folder"
+            "maite",
+            "torchvision"
           ],
           "title": "Format",
+          "type": "string"
+        },
+        "dataset": {
+          "title": "Dataset"
+        },
+        "version": {
+          "default": "1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "dataset"
+      ],
+      "title": "DatasetProtocolConfig",
+      "type": "object"
+    },
+    "DriftDetectorDomainClassifier": {
+      "additionalProperties": false,
+      "description": "Binary domain classifier (LightGBM) approach.\n\nTrains a binary classifier to distinguish reference from test data.\nAn AUROC significantly above 0.5 indicates the distributions are\ndistinguishable \u2014 i.e. drift has occurred.",
+      "properties": {
+        "method": {
+          "const": "domain_classifier",
+          "default": "domain_classifier",
+          "title": "Method",
+          "type": "string"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Number of cross-validation folds.",
+          "minimum": 2,
+          "title": "N Folds",
+          "type": "integer"
+        },
+        "threshold": {
+          "default": 0.55,
+          "description": "AUROC threshold above which drift is declared.",
+          "exclusiveMinimum": 0.5,
+          "maximum": 1.0,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "classwise": {
+          "default": false,
+          "description": "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only.",
+          "title": "Classwise",
+          "type": "boolean"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkingConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chunked (temporal) drift analysis for this detector. None disables chunking."
+        }
+      },
+      "title": "DriftDetectorDomainClassifier",
+      "type": "object"
+    },
+    "DriftDetectorKNeighbors": {
+      "additionalProperties": false,
+      "description": "K-nearest neighbors distance-based drift detection.\n\nComputes per-sample k-NN distances for test data against the reference\nset. A Mann-Whitney U test determines whether test distances are\nstochastically larger than reference self-distances.",
+      "properties": {
+        "method": {
+          "const": "kneighbors",
+          "default": "kneighbors",
+          "title": "Method",
+          "type": "string"
+        },
+        "k": {
+          "default": 10,
+          "description": "Number of nearest neighbors.",
+          "exclusiveMinimum": 0,
+          "title": "K",
+          "type": "integer"
+        },
+        "distance_metric": {
+          "default": "euclidean",
+          "description": "Distance metric for k-NN computation.",
+          "enum": [
+            "cosine",
+            "euclidean"
+          ],
+          "title": "Distance Metric",
+          "type": "string"
+        },
+        "p_val": {
+          "default": 0.05,
+          "description": "Significance level for the Mann-Whitney U test.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "P Val",
+          "type": "number"
+        },
+        "classwise": {
+          "default": false,
+          "description": "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only.",
+          "title": "Classwise",
+          "type": "boolean"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkingConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chunked (temporal) drift analysis for this detector. None disables chunking."
+        }
+      },
+      "title": "DriftDetectorKNeighbors",
+      "type": "object"
+    },
+    "DriftDetectorMMD": {
+      "additionalProperties": false,
+      "description": "Maximum Mean Discrepancy with permutation test.\n\nComputes the MMD\u00b2 statistic between reference and test distributions\nusing an RBF kernel, then estimates a p-value via permutation testing.",
+      "properties": {
+        "method": {
+          "const": "mmd",
+          "default": "mmd",
+          "title": "Method",
+          "type": "string"
+        },
+        "p_val": {
+          "default": 0.05,
+          "description": "Significance level for the permutation test.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "P Val",
+          "type": "number"
+        },
+        "n_permutations": {
+          "default": 100,
+          "description": "Number of permutations for the test.",
+          "exclusiveMinimum": 0,
+          "title": "N Permutations",
+          "type": "integer"
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "PyTorch device for kernel computation (e.g. 'cpu', 'cuda:0'). None = auto.",
+          "title": "Device"
+        },
+        "classwise": {
+          "default": false,
+          "description": "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only.",
+          "title": "Classwise",
+          "type": "boolean"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkingConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chunked (temporal) drift analysis for this detector. None disables chunking."
+        }
+      },
+      "title": "DriftDetectorMMD",
+      "type": "object"
+    },
+    "DriftDetectorUnivariate": {
+      "additionalProperties": false,
+      "description": "Univariate statistical test per feature.\n\nApplies a chosen statistical test independently to each feature dimension\nand flags drift when enough features reject the null hypothesis (after\nmultiple-testing correction).",
+      "properties": {
+        "method": {
+          "const": "univariate",
+          "default": "univariate",
+          "title": "Method",
+          "type": "string"
+        },
+        "test": {
+          "default": "ks",
+          "description": "Statistical test to apply per feature. 'ks' (Kolmogorov-Smirnov) is a good general-purpose default. 'cvm' (Cram\u00e9r-von Mises) integrates squared CDF distance. 'mwu' (Mann-Whitney U) is rank-based and outlier-robust. 'anderson' (Anderson-Darling) is tail-sensitive. 'bws' (Baumgartner-Weiss-Schindler) has high power with tail sensitivity.",
+          "enum": [
+            "ks",
+            "cvm",
+            "mwu",
+            "anderson",
+            "bws"
+          ],
+          "title": "Test",
+          "type": "string"
+        },
+        "p_val": {
+          "default": 0.05,
+          "description": "Significance level for the test.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "P Val",
+          "type": "number"
+        },
+        "correction": {
+          "default": "bonferroni",
+          "description": "Multiple-testing correction method across features.",
+          "enum": [
+            "bonferroni",
+            "fdr"
+          ],
+          "title": "Correction",
+          "type": "string"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "Alternative hypothesis direction.",
+          "enum": [
+            "two-sided",
+            "less",
+            "greater"
+          ],
+          "title": "Alternative",
+          "type": "string"
+        },
+        "n_features": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of features. None = infer from reference data.",
+          "title": "N Features"
+        },
+        "classwise": {
+          "default": false,
+          "description": "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only.",
+          "title": "Classwise",
+          "type": "boolean"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkingConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chunked (temporal) drift analysis for this detector. None disables chunking."
+        }
+      },
+      "title": "DriftDetectorUnivariate",
+      "type": "object"
+    },
+    "DriftHealthThresholds": {
+      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"``.",
+      "properties": {
+        "any_drift_is_warning": {
+          "default": true,
+          "description": "Non-chunked mode: if any detector flags drift, the finding is a warning. Set to False to treat all non-chunked results as informational.",
+          "title": "Any Drift Is Warning",
+          "type": "boolean"
+        },
+        "chunk_drift_pct_warning": {
+          "default": 10.0,
+          "description": "Chunked mode: percentage of chunks that must drift to trigger a warning.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Chunk Drift Pct Warning",
+          "type": "number"
+        },
+        "consecutive_chunks_warning": {
+          "default": 3,
+          "description": "Chunked mode: number of consecutive drifted chunks that triggers a warning. Sustained drift is typically more concerning than sporadic drift.",
+          "minimum": 1,
+          "title": "Consecutive Chunks Warning",
+          "type": "integer"
+        },
+        "classwise_any_drift_is_warning": {
+          "default": true,
+          "description": "Classwise mode: if any class drifts for any detector, the finding is a warning.",
+          "title": "Classwise Any Drift Is Warning",
+          "type": "boolean"
+        }
+      },
+      "title": "DriftHealthThresholds",
+      "type": "object"
+    },
+    "DriftMonitoringWorkflowConfig": {
+      "description": "Typed workflow configuration for ``drift-monitoring``.\n\nInherits all fields from :class:`DriftMonitoringParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: drift_knn\n        type: drift-monitoring\n        detectors:\n          - method: kneighbors\n            k: 10",
+      "properties": {
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "detectors": {
+          "description": "List of drift detectors to run. At least one required.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "domain_classifier": "#/$defs/DriftDetectorDomainClassifier",
+                "kneighbors": "#/$defs/DriftDetectorKNeighbors",
+                "mmd": "#/$defs/DriftDetectorMMD",
+                "univariate": "#/$defs/DriftDetectorUnivariate"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DriftDetectorUnivariate"
+              },
+              {
+                "$ref": "#/$defs/DriftDetectorMMD"
+              },
+              {
+                "$ref": "#/$defs/DriftDetectorDomainClassifier"
+              },
+              {
+                "$ref": "#/$defs/DriftDetectorKNeighbors"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Detectors",
+          "type": "array"
+        },
+        "update_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UpdateStrategyConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference-set update strategy (stubbed \u2014 not yet applied at runtime). Accepted in config to preserve forward compatibility."
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/DriftHealthThresholds",
+          "description": "Warning thresholds for drift severity classification."
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "drift-monitoring",
+          "default": "drift-monitoring",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "detectors",
+        "name"
+      ],
+      "title": "DriftMonitoringWorkflowConfig",
+      "type": "object"
+    },
+    "FlattenExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for simple flattening (no model).\n\nYAML example::\n\n    extractors:\n      - name: flat_extractor\n        model: flatten",
+      "properties": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
+          "const": "flatten",
+          "default": "flatten",
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "FlattenExtractorConfig",
+      "type": "object"
+    },
+    "HuggingFaceDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for HuggingFace format.\n\nYAML example::\n\n    datasets:\n      - name: cifar10_train\n        format: huggingface\n        path: ./cifar10\n        split: train",
+      "properties": {
+        "format": {
+          "const": "huggingface",
+          "default": "huggingface",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
           "type": "string"
         },
         "path": {
@@ -225,6 +887,32 @@
           ],
           "default": null,
           "title": "Split"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "HuggingFaceDatasetConfig",
+      "type": "object"
+    },
+    "ImageFolderDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for image_folder format.\n\nYAML example::\n\n    datasets:\n      - name: photos\n        format: image_folder\n        path: /data/photos\n        recursive: true\n        infer_labels: true",
+      "properties": {
+        "format": {
+          "const": "image_folder",
+          "default": "image_folder",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
         },
         "recursive": {
           "default": false,
@@ -235,75 +923,13 @@
           "default": false,
           "title": "Infer Labels",
           "type": "boolean"
-        },
-        "annotations_file": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Annotations File"
-        },
-        "images_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Images Dir"
-        },
-        "labels_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Labels Dir"
-        },
-        "classes_file": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Classes File"
         }
       },
       "required": [
         "name",
-        "format",
         "path"
       ],
-      "title": "DatasetConfig",
-      "type": "object"
-    },
-    "FlattenExtractorConfig": {
-      "description": "FlattenExtractor configuration. No parameters.",
-      "properties": {
-        "type": {
-          "const": "flatten",
-          "default": "flatten",
-          "title": "Type",
-          "type": "string"
-        }
-      },
-      "title": "FlattenExtractorConfig",
+      "title": "ImageFolderDatasetConfig",
       "type": "object"
     },
     "LoggingConfig": {
@@ -335,60 +961,45 @@
       "title": "LoggingConfig",
       "type": "object"
     },
-    "ModelConfig": {
-      "description": "Configuration for a model used for embedding extraction.",
+    "OnnxExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64",
       "properties": {
         "name": {
-          "description": "Identifier for the model",
+          "description": "Identifier for the extractor",
           "title": "Name",
           "type": "string"
         },
-        "extractor": {
-          "description": "Extractor configuration",
-          "discriminator": {
-            "mapping": {
-              "bovw": "#/$defs/BoVWExtractorConfig",
-              "flatten": "#/$defs/FlattenExtractorConfig",
-              "onnx": "#/$defs/OnnxExtractorConfig",
-              "torch": "#/$defs/TorchExtractorConfig",
-              "uncertainty": "#/$defs/UncertaintyExtractorConfig"
-            },
-            "propertyName": "type"
-          },
-          "oneOf": [
+        "preprocessor": {
+          "anyOf": [
             {
-              "$ref": "#/$defs/OnnxExtractorConfig"
+              "type": "string"
             },
             {
-              "$ref": "#/$defs/BoVWExtractorConfig"
-            },
-            {
-              "$ref": "#/$defs/FlattenExtractorConfig"
-            },
-            {
-              "$ref": "#/$defs/TorchExtractorConfig"
-            },
-            {
-              "$ref": "#/$defs/UncertaintyExtractorConfig"
+              "type": "null"
             }
           ],
-          "title": "Extractor"
-        }
-      },
-      "required": [
-        "name",
-        "extractor"
-      ],
-      "title": "ModelConfig",
-      "type": "object"
-    },
-    "OnnxExtractorConfig": {
-      "description": "OnnxExtractor configuration.",
-      "properties": {
-        "type": {
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
           "const": "onnx",
           "default": "onnx",
-          "title": "Type",
+          "title": "Model",
           "type": "string"
         },
         "model_path": {
@@ -406,7 +1017,7 @@
             }
           ],
           "default": null,
-          "description": "Output layer name. None = first output.",
+          "description": "Output layer name.",
           "title": "Output Name"
         },
         "flatten": {
@@ -417,6 +1028,7 @@
         }
       },
       "required": [
+        "name",
         "model_path"
       ],
       "title": "OnnxExtractorConfig",
@@ -443,7 +1055,7 @@
       "type": "object"
     },
     "PreprocessorConfig": {
-      "description": "Named preprocessor pipeline configuration.\n\nUses existing PreprocessingStep which has 'step' field (not 'name').",
+      "description": "Named preprocessor pipeline configuration.\n\nSteps can be torchvision transforms (serializable, YAML-configurable)\nor arbitrary callables (programmatic only).",
       "properties": {
         "name": {
           "title": "Name",
@@ -506,8 +1118,42 @@
       "title": "SelectionStep",
       "type": "object"
     },
+    "SourceConfig": {
+      "description": "Named source definition \u2014 bundles a dataset with an optional selection.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        selection: first_5k",
+      "properties": {
+        "name": {
+          "description": "Identifier for the source",
+          "title": "Name",
+          "type": "string"
+        },
+        "dataset": {
+          "description": "Reference to a dataset name",
+          "title": "Dataset",
+          "type": "string"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a selection name (optional)",
+          "title": "Selection"
+        }
+      },
+      "required": [
+        "name",
+        "dataset"
+      ],
+      "title": "SourceConfig",
+      "type": "object"
+    },
     "TaskConfig": {
-      "description": "Task/workflow configuration schema.",
+      "description": "Task/workflow configuration schema.\n\nTasks reference sources (dataset+selection bundles) and an optional\nextractor (model+preprocessor+batch_size bundle) by name.",
       "properties": {
         "name": {
           "title": "Name",
@@ -517,7 +1163,13 @@
           "title": "Workflow",
           "type": "string"
         },
-        "datasets": {
+        "enabled": {
+          "default": true,
+          "description": "Whether this task is included when running the pipeline.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "sources": {
           "anyOf": [
             {
               "type": "string"
@@ -529,78 +1181,19 @@
               "type": "array"
             }
           ],
-          "title": "Datasets"
+          "title": "Sources"
         },
-        "models": {
+        "extractor": {
           "anyOf": [
             {
               "type": "string"
             },
             {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Models"
-        },
-        "preprocessors": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Preprocessors"
-        },
-        "selections": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Selections"
-        },
-        "params": {
-          "additionalProperties": true,
-          "title": "Params",
-          "type": "object"
-        },
-        "batch_size": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Batch Size"
+          "title": "Extractor"
         },
         "output_format": {
           "default": "json",
@@ -611,55 +1204,6 @@
           ],
           "title": "Output Format",
           "type": "string"
-        },
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Metadata Continuous Factor Bins"
         },
         "cache_dir": {
           "anyOf": [
@@ -678,22 +1222,54 @@
       "required": [
         "name",
         "workflow",
-        "datasets"
+        "sources"
       ],
       "title": "TaskConfig",
       "type": "object"
     },
     "TorchExtractorConfig": {
-      "description": "TorchExtractor configuration.\n\nNote: model must be loadable from model_path (e.g., torchscript or\nstate_dict + class). Full programmatic model support deferred.",
+      "additionalProperties": false,
+      "description": "Extractor config for PyTorch models.\n\nYAML example::\n\n    extractors:\n      - name: torch_extractor\n        model: torch\n        model_path: \"./resnet.pt\"\n        layer_name: layer4\n        device: cpu",
       "properties": {
-        "type": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
           "const": "torch",
           "default": "torch",
-          "title": "Type",
+          "title": "Model",
           "type": "string"
         },
         "model_path": {
-          "description": "Path to saved PyTorch model.",
+          "description": "Path to PyTorch model file.",
           "title": "Model Path",
           "type": "string"
         },
@@ -731,40 +1307,74 @@
         }
       },
       "required": [
+        "name",
         "model_path"
       ],
       "title": "TorchExtractorConfig",
       "type": "object"
     },
     "UncertaintyExtractorConfig": {
-      "description": "ClassifierUncertaintyExtractor configuration.\n\nNote: same model_path constraint as TorchExtractorConfig.",
+      "additionalProperties": false,
+      "description": "Extractor config for uncertainty estimation models.\n\nYAML example::\n\n    extractors:\n      - name: unc_extractor\n        model: uncertainty\n        model_path: \"./classifier.pt\"\n        preds_type: logits",
       "properties": {
-        "type": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
           "const": "uncertainty",
           "default": "uncertainty",
-          "title": "Type",
+          "title": "Model",
           "type": "string"
         },
         "model_path": {
-          "description": "Path to saved classification model.",
+          "description": "Path to model file.",
           "title": "Model Path",
           "type": "string"
         },
         "preds_type": {
-          "default": "probs",
-          "description": "Model output format.",
-          "enum": [
-            "probs",
-            "logits"
+          "anyOf": [
+            {
+              "enum": [
+                "probs",
+                "logits"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Preds Type",
-          "type": "string"
-        },
-        "batch_size": {
-          "default": 32,
-          "description": "Inference batch size.",
-          "title": "Batch Size",
-          "type": "integer"
+          "default": null,
+          "description": "Model output format.",
+          "title": "Preds Type"
         },
         "device": {
           "anyOf": [
@@ -781,13 +1391,102 @@
         }
       },
       "required": [
+        "name",
         "model_path"
       ],
       "title": "UncertaintyExtractorConfig",
       "type": "object"
+    },
+    "UpdateStrategyConfig": {
+      "description": "Reference-set update strategy \u2014 **stubbed for future use**.\n\nWhen online drift detection is implemented, this will control how the\nreference distribution evolves after each prediction step.  Currently\naccepted in configuration but not applied at runtime.",
+      "properties": {
+        "type": {
+          "description": "Update algorithm. 'last_seen': sliding window. 'reservoir_sampling': uniform random sample.",
+          "enum": [
+            "last_seen",
+            "reservoir_sampling"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "n": {
+          "description": "Number of samples to retain in the updated reference set.",
+          "exclusiveMinimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "n"
+      ],
+      "title": "UpdateStrategyConfig",
+      "type": "object"
+    },
+    "YoloDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: /data/yolo\n        images_dir: images\n        labels_dir: labels\n        classes_file: classes.txt",
+      "properties": {
+        "format": {
+          "const": "yolo",
+          "default": "yolo",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "images_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Images Dir"
+        },
+        "labels_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Labels Dir"
+        },
+        "classes_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes File"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "YoloDatasetConfig",
+      "type": "object"
     }
   },
-  "description": "Unified workflow configuration.\n\nOne optional field per registered workflow.",
+  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional selections; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.",
   "properties": {
     "logging": {
       "anyOf": [
@@ -800,38 +1499,40 @@
       ],
       "default": null
     },
-    "data_cleaning": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/DataCleaningParameters"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "models": {
-      "anyOf": [
-        {
-          "items": {
-            "$ref": "#/$defs/ModelConfig"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Optional list of models for embedding extraction",
-      "title": "Models"
-    },
     "datasets": {
       "anyOf": [
         {
           "items": {
-            "$ref": "#/$defs/DatasetConfig"
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "coco": "#/$defs/CocoDatasetConfig",
+                    "huggingface": "#/$defs/HuggingFaceDatasetConfig",
+                    "image_folder": "#/$defs/ImageFolderDatasetConfig",
+                    "yolo": "#/$defs/YoloDatasetConfig"
+                  },
+                  "propertyName": "format"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/HuggingFaceDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/ImageFolderDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/CocoDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/YoloDatasetConfig"
+                  }
+                ]
+              },
+              {
+                "$ref": "#/$defs/DatasetProtocolConfig"
+              }
+            ]
           },
           "type": "array"
         },
@@ -872,6 +1573,94 @@
       "default": null,
       "title": "Selections"
     },
+    "sources": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/SourceConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named source definitions (dataset + optional selection)",
+      "title": "Sources"
+    },
+    "extractors": {
+      "anyOf": [
+        {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "bovw": "#/$defs/BoVWExtractorConfig",
+                "flatten": "#/$defs/FlattenExtractorConfig",
+                "onnx": "#/$defs/OnnxExtractorConfig",
+                "torch": "#/$defs/TorchExtractorConfig",
+                "uncertainty": "#/$defs/UncertaintyExtractorConfig"
+              },
+              "propertyName": "model"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/OnnxExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/BoVWExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/FlattenExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/TorchExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/UncertaintyExtractorConfig"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named extractor definitions (model type + params + optional preprocessor + batch_size)",
+      "title": "Extractors"
+    },
+    "workflows": {
+      "anyOf": [
+        {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "data-cleaning": "#/$defs/DataCleaningWorkflowConfig",
+                "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DataCleaningWorkflowConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftMonitoringWorkflowConfig"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named workflow configurations (type + params), referenced by tasks",
+      "title": "Workflows"
+    },
     "tasks": {
       "anyOf": [
         {
@@ -888,6 +1677,6 @@
       "title": "Tasks"
     }
   },
-  "title": "WorkflowConfig",
+  "title": "PipelineConfig",
   "type": "object"
 }

@@ -2,9 +2,9 @@
 
 These tests verify that components work together correctly:
 - Multi-file config loading with all config sections
-- Task reference resolution (task → dataset, preprocessor, selection)
+- Task reference resolution (task → source → dataset, extractor → preprocessor)
 - Container mount path constants
-- Full pipeline: config YAML → run_task() → output files
+- Full pipeline: config YAML → _run_single_task() → output files
 """
 
 import json
@@ -17,15 +17,14 @@ import polars as pl
 import dataeval_flow.dataset
 import dataeval_flow.metadata
 import dataeval_flow.workflows.cleaning.workflow  # noqa: F401
-from dataeval_flow.config import load_config_folder
-from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config import HuggingFaceDatasetConfig, load_config_folder
 
 
 class TestConfigToFactoryIntegration:
     """Test config loading → factory instantiation flow."""
 
     def test_full_config_with_all_p1_sections(self, tmp_path: Path):
-        """Load PipelineConfig with datasets, preprocessors, selections, tasks."""
+        """Load PipelineConfig with datasets, preprocessors, selections, sources, extractors, tasks."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
 
@@ -39,20 +38,25 @@ class TestConfigToFactoryIntegration:
         (config_dir / "02-selections.yaml").write_text(
             "selections:\n  - name: subset\n    steps:\n      - type: Limit\n        params:\n          size: 100\n"
         )
-        (config_dir / "03-workflows.yaml").write_text(
+        (config_dir / "03-sources.yaml").write_text(
+            "sources:\n  - name: test_src\n    dataset: test_dataset\n    selection: subset\n"
+        )
+        (config_dir / "04-extractors.yaml").write_text(
+            "extractors:\n  - name: flat_ext\n    model: flatten\n    preprocessor: basic\n    batch_size: 32\n"
+        )
+        (config_dir / "05-workflows.yaml").write_text(
             "workflows:\n"
             "  - name: modzscore_clean\n"
             "    type: data-cleaning\n"
             "    outlier_method: modzscore\n"
             "    outlier_flags: [dimension, pixel]\n"
         )
-        (config_dir / "04-tasks.yaml").write_text(
+        (config_dir / "06-tasks.yaml").write_text(
             "tasks:\n"
             "  - name: clean_task\n"
             "    workflow: modzscore_clean\n"
-            "    datasets: test_dataset\n"
-            "    preprocessors: basic\n"
-            "    selections: subset\n"
+            "    sources: test_src\n"
+            "    extractor: flat_ext\n"
             "    output_format: json\n"
         )
 
@@ -62,6 +66,8 @@ class TestConfigToFactoryIntegration:
         assert config.datasets is not None
         assert config.preprocessors is not None
         assert config.selections is not None
+        assert config.sources is not None
+        assert config.extractors is not None
         assert config.workflows is not None
         assert config.tasks is not None
 
@@ -69,6 +75,8 @@ class TestConfigToFactoryIntegration:
         assert len(config.datasets) == 1
         assert len(config.preprocessors) == 1
         assert len(config.selections) == 1
+        assert len(config.sources) == 1
+        assert len(config.extractors) == 1
         assert len(config.workflows) == 1
         assert len(config.tasks) == 1
 
@@ -76,13 +84,23 @@ class TestConfigToFactoryIntegration:
         task = config.tasks[0]
         assert task.name == "clean_task"
         assert task.workflow == "modzscore_clean"
-        assert task.datasets == "test_dataset"
-        assert task.preprocessors == "basic"
-        assert task.selections == "subset"
+        assert task.sources == "test_src"
+        assert task.extractor == "flat_ext"
         assert task.output_format == "json"
 
+        # Verify source content
+        src = config.sources[0]
+        assert src.dataset == "test_dataset"
+        assert src.selection == "subset"
+
+        # Verify extractor content
+        ext = config.extractors[0]
+        assert ext.model == "flatten"
+        assert ext.preprocessor == "basic"
+        assert ext.batch_size == 32
+
     def test_task_reference_resolution(self, tmp_path: Path):
-        """Verify task references can be resolved to their configs."""
+        """Verify task references can be resolved through sources/extractors."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
 
@@ -99,61 +117,54 @@ class TestConfigToFactoryIntegration:
             "  - name: preproc_x\n"
             "    steps:\n"
             "      - step: ToTensor\n"
-            "  - name: preproc_y\n"
-            "    steps:\n"
-            "      - step: Resize\n"
-            "        params:\n"
-            "          size: [224, 224]\n"
             "selections:\n"
             "  - name: sel_1\n"
             "    steps:\n"
             "      - type: Limit\n"
             "        params:\n"
             "          size: 50\n"
+            "sources:\n"
+            "  - name: src_a\n"
+            "    dataset: dataset_a\n"
+            "    selection: sel_1\n"
+            "  - name: src_b\n"
+            "    dataset: dataset_b\n"
+            "extractors:\n"
+            "  - name: ext_x\n"
+            "    model: flatten\n"
+            "    preprocessor: preproc_x\n"
             "tasks:\n"
             "  - name: task1\n"
             "    workflow: data-cleaning\n"
-            "    datasets: dataset_a\n"
-            "    preprocessors: preproc_x\n"
-            "    selections: sel_1\n"
+            "    sources: src_a\n"
+            "    extractor: ext_x\n"
             "  - name: task2\n"
             "    workflow: data-cleaning\n"
-            "    datasets: dataset_b\n"
-            "    preprocessors: preproc_y\n"
+            "    sources: src_b\n"
         )
 
         config = load_config_folder(config_dir)
 
         # Build lookup dicts
         datasets_by_name = {d.name: d for d in config.datasets or []}
-        preprocessors_by_name = {p.name: p for p in config.preprocessors or []}
-        selections_by_name = {s.name: s for s in config.selections or []}
+        sources_by_name = {s.name: s for s in config.sources or []}
 
         # Verify tasks loaded
         assert config.tasks is not None
 
-        # Verify task1 references resolve
+        # Verify task1 source resolves to dataset
         task1 = config.tasks[0]
-        assert task1.datasets in datasets_by_name
-        assert task1.preprocessors in preprocessors_by_name
-        assert task1.selections in selections_by_name
-
-        # Verify resolved config details
-        assert isinstance(task1.datasets, str)
-        resolved_dataset = datasets_by_name[task1.datasets]
-        assert isinstance(resolved_dataset, DatasetConfig)
+        assert isinstance(task1.sources, str)
+        src1 = sources_by_name[task1.sources]
+        assert src1.dataset in datasets_by_name
+        resolved_dataset = datasets_by_name[src1.dataset]
+        assert isinstance(resolved_dataset, HuggingFaceDatasetConfig)
         assert resolved_dataset.format == "huggingface"
         assert resolved_dataset.path == "./a"
 
-        resolved_preproc = preprocessors_by_name[task1.preprocessors]
-        assert len(resolved_preproc.steps) == 1
-        assert resolved_preproc.steps[0].step == "ToTensor"
-
-        # Verify task2 references (no selection)
+        # Verify task2 has no extractor
         task2 = config.tasks[1]
-        assert task2.datasets in datasets_by_name
-        assert task2.preprocessors in preprocessors_by_name
-        assert task2.selections is None  # Optional, not set
+        assert task2.extractor is None
 
     def test_multi_task_config(self, tmp_path: Path):
         """Multiple tasks sharing resources loaded correctly."""
@@ -166,10 +177,9 @@ class TestConfigToFactoryIntegration:
             "    format: huggingface\n"
             "    path: ./data\n"
             "    split: train\n"
-            "preprocessors:\n"
-            "  - name: shared_preproc\n"
-            "    steps:\n"
-            "      - step: ToTensor\n"
+            "sources:\n"
+            "  - name: shared_src\n"
+            "    dataset: shared_dataset\n"
             "workflows:\n"
             "  - name: modzscore_clean\n"
             "    type: data-cleaning\n"
@@ -178,15 +188,13 @@ class TestConfigToFactoryIntegration:
             "tasks:\n"
             "  - name: outlier_detection\n"
             "    workflow: modzscore_clean\n"
-            "    datasets: shared_dataset\n"
-            "    preprocessors: shared_preproc\n"
+            "    sources: shared_src\n"
             "  - name: duplicate_detection\n"
             "    workflow: modzscore_clean\n"
-            "    datasets: shared_dataset\n"
-            "    preprocessors: shared_preproc\n"
+            "    sources: shared_src\n"
             "  - name: analysis_only\n"
             "    workflow: modzscore_clean\n"
-            "    datasets: shared_dataset\n"
+            "    sources: shared_src\n"
             "    output_format: text\n"
         )
 
@@ -195,9 +203,9 @@ class TestConfigToFactoryIntegration:
         assert config.tasks is not None
         assert len(config.tasks) == 3
 
-        # All tasks reference the same dataset
+        # All tasks reference the same source
         for task in config.tasks:
-            assert task.datasets == "shared_dataset"
+            assert task.sources == "shared_src"
 
         # Verify different output formats
         assert config.tasks[0].output_format == "json"  # default
@@ -225,7 +233,7 @@ class TestContainerMountPaths:
 
     def test_default_paths_match_container_mounts(self):
         """DEFAULT_CONFIG_FOLDER and DEFAULT_PARAMS_PATH align with container mounts."""
-        from dataeval_flow.config.loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
+        from dataeval_flow.config._loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
 
         # Verify paths use /data/config pattern
         assert Path("/data/config") == DEFAULT_CONFIG_FOLDER
@@ -282,8 +290,7 @@ class TestConfigMergeBehavior:
         config_dir = tmp_path / "config"
         config_dir.mkdir()
 
-        # Create files with explicit ordering
-        task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    datasets: x\n"
+        task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    sources: x\n"
         (config_dir / "02-second.yaml").write_text(task_yaml.format(name="task_second"))
         (config_dir / "01-first.yaml").write_text(task_yaml.format(name="task_first"))
 
@@ -296,39 +303,7 @@ class TestConfigMergeBehavior:
 
 
 class TestEndToEndCleaningWorkflow:
-    """Full pipeline: config YAML → run_task() → dataset → evaluators → output files.
-
-    Mocks only at external boundaries (6 mocks):
-      - datasets.load_from_disk          (HuggingFace I/O)
-      - maite_datasets.adapters.from_huggingface  (MAITE conversion)
-      - dataeval.Metadata                 (metadata extraction)
-      - cache.get_or_compute_stats        (stats computation)
-      - dataeval.quality.Outliers         (outlier evaluator)
-      - dataeval.quality.Duplicates       (duplicate evaluator)
-
-    Runs for real across 10 source files (20 functions):
-      config/loader.py      load_config_folder, YAML parsing, file merge
-      config/_merge.py      merge_config_dicts
-      config/models.py      PipelineConfig.model_validate
-      config/schemas/       DatasetConfig, TaskConfig validation
-      workflow/orchestrator  run_task, _resolve_by_name, _write_output
-      workflow/__init__      get_workflow, WorkflowContext, WorkflowResult
-      dataset.py            load_dataset, load_dataset_huggingface (split select)
-      metadata.py           build_metadata
-      workflows/cleaning/   DataCleaningWorkflow.execute, _run_cleaning,
-                            _build_duplicates, _serialize_outlier_issues,
-                            _serialize_duplicates, _compute_label_stats,
-                            _build_findings
-      config/schemas/metadata  ResultMetadata
-
-    Asserts (26 checks):
-      - WorkflowResult: success, name, metadata (mode, evaluators)
-      - results.json: outlier count/issues, target_outliers, duplicate groups,
-        label stats (item_count, class_count, per-class counts), dataset_size,
-        report summary and finding titles
-      - metadata.json: dataset_id, tool, version, timestamp
-      - Mock calls: each external mock called exactly once
-    """
+    """Full pipeline: config YAML → _run_single_task() → dataset → evaluators → output files."""
 
     @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
@@ -346,8 +321,8 @@ class TestEndToEndCleaningWorkflow:
         mock_duplicates_cls: MagicMock,
         tmp_path: Path,
     ):
-        """Config YAML → run_task() produces results.json + metadata.json."""
-        from dataeval_flow.workflow import run_task
+        """Config YAML → _run_single_task() produces results.json + metadata.json."""
+        from dataeval_flow.workflow.orchestrator import _run_single_task
 
         # ── 1. Write config YAML ──────────────────────────────────────
         config_dir = tmp_path / "config"
@@ -359,6 +334,9 @@ class TestEndToEndCleaningWorkflow:
             "    format: huggingface\n"
             "    path: ./dataset\n"
             "    split: train\n"
+            "sources:\n"
+            "  - name: test_src\n"
+            "    dataset: test_ds\n"
             "workflows:\n"
             "  - name: modzscore_clean\n"
             "    type: data-cleaning\n"
@@ -370,7 +348,7 @@ class TestEndToEndCleaningWorkflow:
             "tasks:\n"
             "  - name: e2e_clean\n"
             "    workflow: modzscore_clean\n"
-            "    datasets: test_ds\n"
+            "    sources: test_src\n"
             "    output_format: json\n"
         )
 
@@ -448,7 +426,7 @@ class TestEndToEndCleaningWorkflow:
         assert config.tasks is not None
         task = config.tasks[0]
 
-        result = run_task(task, config)
+        result = _run_single_task(task, config)
 
         # ── 6. Assert result ──────────────────────────────────────────
         assert result.success is True

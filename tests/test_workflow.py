@@ -8,7 +8,7 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel
 
-from dataeval_flow.config.schemas.metadata import ResultMetadata
+from dataeval_flow.config import ResultMetadata
 from dataeval_flow.workflow import WorkflowResult, get_workflow, list_workflows
 from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
 

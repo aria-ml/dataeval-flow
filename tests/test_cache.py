@@ -376,13 +376,7 @@ class TestLoadOrComputeEmbeddings:
 
         with patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings) as mock_build:
             result = cache.load_or_compute_embeddings(
-                "sel:all",
-                cfg.model_dump_json(),
-                "none",
-                MagicMock(),
-                cfg,
-                None,
-                None,
+                "sel:all", cfg.model_dump_json(), "none", MagicMock(), cfg, None, None
             )
             mock_build.assert_called_once()
 
@@ -402,13 +396,7 @@ class TestLoadOrComputeEmbeddings:
 
         with patch(self._BUILD_EMBEDDINGS_PATH) as mock_build:
             result = cache.load_or_compute_embeddings(
-                "sel:all",
-                cfg.model_dump_json(),
-                "none",
-                MagicMock(),
-                cfg,
-                None,
-                None,
+                "sel:all", cfg.model_dump_json(), "none", MagicMock(), cfg, None, None
             )
             mock_build.assert_not_called()
 
@@ -425,13 +413,7 @@ class TestLoadOrComputeEmbeddings:
 
         with patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings):
             result = cache.load_or_compute_embeddings(
-                "sel:all",
-                cfg.model_dump_json(),
-                "none",
-                MagicMock(),
-                cfg,
-                None,
-                None,
+                "sel:all", cfg.model_dump_json(), "none", MagicMock(), cfg, None, None
             )
 
         assert result.ndim == 2
@@ -453,10 +435,7 @@ class TestGetOrComputeEmbeddings:
         mock_embeddings.__array__ = MagicMock(return_value=mock_array)
 
         with patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings) as mock_build:
-            result = get_or_compute_embeddings(
-                dataset=MagicMock(),
-                extractor_config=cfg,
-            )
+            result = get_or_compute_embeddings(dataset=MagicMock(), extractor_config=cfg)
             mock_build.assert_called_once()
 
         np.testing.assert_array_equal(result, mock_array)
@@ -472,10 +451,7 @@ class TestGetOrComputeEmbeddings:
             active_cache(cache, "sel:all"),
             patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings) as mock_build,
         ):
-            result = get_or_compute_embeddings(
-                dataset=MagicMock(),
-                extractor_config=cfg,
-            )
+            result = get_or_compute_embeddings(dataset=MagicMock(), extractor_config=cfg)
             mock_build.assert_called_once()
 
         np.testing.assert_array_equal(result, mock_array)
@@ -492,10 +468,7 @@ class TestGetOrComputeEmbeddings:
         cache.save_embeddings("sel:all", cfg.model_dump_json(), "none", arr)
 
         with active_cache(cache, "sel:all"), patch(self._BUILD_EMBEDDINGS_PATH) as mock_build:
-            result = get_or_compute_embeddings(
-                dataset=MagicMock(),
-                extractor_config=cfg,
-            )
+            result = get_or_compute_embeddings(dataset=MagicMock(), extractor_config=cfg)
             mock_build.assert_not_called()
 
         np.testing.assert_array_equal(result, arr)
@@ -519,17 +492,9 @@ class TestGetOrComputeEmbeddings:
 
         with active_cache(cache, "sel:all"):
             with patch(self._BUILD_EMBEDDINGS_PATH, return_value=make_mock_embeddings(arr_a)):
-                get_or_compute_embeddings(
-                    MagicMock(),
-                    cfg,
-                    transforms=transform_a,
-                )
+                get_or_compute_embeddings(MagicMock(), cfg, transforms=transform_a)
             with patch(self._BUILD_EMBEDDINGS_PATH, return_value=make_mock_embeddings(arr_b)):
-                get_or_compute_embeddings(
-                    MagicMock(),
-                    cfg,
-                    transforms=transform_b,
-                )
+                get_or_compute_embeddings(MagicMock(), cfg, transforms=transform_b)
 
         # Both should be independently cached
         loaded_a = cache.load_embeddings("sel:all", cfg.model_dump_json(), "transform_a")
@@ -547,10 +512,7 @@ class TestGetOrComputeEmbeddings:
         mock_embeddings.__array__ = MagicMock(return_value=mock_array)
 
         with patch(self._BUILD_EMBEDDINGS_PATH, return_value=mock_embeddings) as mock_build:
-            result = get_or_compute_embeddings(
-                dataset=MagicMock(),
-                extractor_config=cfg,
-            )
+            result = get_or_compute_embeddings(dataset=MagicMock(), extractor_config=cfg)
             mock_build.assert_called_once()
 
         np.testing.assert_array_equal(result, mock_array)
@@ -827,10 +789,7 @@ class TestGetOrComputeStats:
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = get_or_compute_stats(
-                desired_flags=ImageStats.PIXEL_MEAN,
-                dataset=MagicMock(),
-            )
+            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -842,10 +801,7 @@ class TestGetOrComputeStats:
         mock_result = _make_calc_result(3)
 
         with active_cache(cache, "sel:all"), patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = get_or_compute_stats(
-                desired_flags=ImageStats.PIXEL_MEAN,
-                dataset=MagicMock(),
-            )
+            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -861,10 +817,7 @@ class TestGetOrComputeStats:
         cache.save_stats("sel:all", "img+tgt", stats)
 
         with active_cache(cache, "sel:all"), patch(self._CALC_STATS_PATH) as mock_calc:
-            result = get_or_compute_stats(
-                desired_flags=ImageStats.PIXEL_MEAN,
-                dataset=MagicMock(),
-            )
+            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
             mock_calc.assert_not_called()
 
         assert "mean" in result["stats"]
@@ -876,10 +829,7 @@ class TestGetOrComputeStats:
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = get_or_compute_stats(
-                desired_flags=ImageStats.PIXEL_MEAN,
-                dataset=MagicMock(),
-            )
+            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -941,8 +891,7 @@ class TestMetadataCache:
         meta = _make_mock_metadata()
         # Add binned/digitized columns to the mock dataframe
         meta.dataframe = meta.dataframe.with_columns(
-            pl.Series("brightness↕", [0, 1, 0, 1, 2]),
-            pl.Series("brightness#", [0, 1, 0, 1, 2]),
+            pl.Series("brightness↕", [0, 1, 0, 1, 2]), pl.Series("brightness#", [0, 1, 0, 1, 2])
         )
 
         cache.save_metadata("sel:all", meta)
@@ -1029,11 +978,7 @@ class TestMetadataCache:
         cache.save_metadata("sel:all", mock_meta)
         cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata(
-            "sel:all",
-            MagicMock(),
-            auto_bin_method="clusters",
-            exclude=["x"],
-            continuous_factor_bins={"y": [0.0, 1.0]},
+            "sel:all", MagicMock(), auto_bin_method="clusters", exclude=["x"], continuous_factor_bins={"y": [0.0, 1.0]}
         )
 
         assert loaded is not None
@@ -1137,10 +1082,7 @@ class TestLoadOrComputeMetadata:
                 continuous_factor_bins={"y": [0.0, 1.0]},
             )
             mock_build.assert_called_once_with(
-                dataset,
-                auto_bin_method="uniform_width",
-                exclude=["x"],
-                continuous_factor_bins={"y": [0.0, 1.0]},
+                dataset, auto_bin_method="uniform_width", exclude=["x"], continuous_factor_bins={"y": [0.0, 1.0]}
             )
 
     def test_different_configs_share_same_cache_entry(self, tmp_path: Path):
@@ -1232,10 +1174,7 @@ class TestGetOrComputeMetadata:
                 continuous_factor_bins={"b": [0.0, 0.5, 1.0]},
             )
             mock_build.assert_called_once_with(
-                dataset,
-                auto_bin_method="uniform_width",
-                exclude=["a"],
-                continuous_factor_bins={"b": [0.0, 0.5, 1.0]},
+                dataset, auto_bin_method="uniform_width", exclude=["a"], continuous_factor_bins={"b": [0.0, 0.5, 1.0]}
             )
 
 
@@ -1343,24 +1282,15 @@ class TestCacheVersioning:
 
 class TestConfigIntegration:
     def test_task_config_accepts_cache_dir(self):
-        from dataeval_flow.config.schemas.task import TaskConfig
+        from dataeval_flow.config import TaskConfig
 
-        task = TaskConfig(
-            name="test",
-            workflow="data-cleaning",
-            datasets="ds",
-            cache_dir="/cache",
-        )
+        task = TaskConfig(name="test", workflow="data-cleaning", sources="src", cache_dir="/cache")
         assert task.cache_dir == "/cache"
 
     def test_task_config_cache_dir_defaults_none(self):
-        from dataeval_flow.config.schemas.task import TaskConfig
+        from dataeval_flow.config import TaskConfig
 
-        task = TaskConfig(
-            name="test",
-            workflow="data-cleaning",
-            datasets="ds",
-        )
+        task = TaskConfig(name="test", workflow="data-cleaning", sources="src")
         assert task.cache_dir is None
 
     def test_dataset_context_accepts_cache(self, tmp_path: Path):
@@ -1416,11 +1346,7 @@ class TestGetOrComputeClusterResult:
         mock_result = _MockClusterResult()
 
         with patch(self._CLUSTER_PATH, return_value=mock_result) as mock_cluster:
-            result = get_or_compute_cluster_result(
-                embeddings=embeddings,
-                algorithm="hdbscan",
-                n_clusters=None,
-            )
+            result = get_or_compute_cluster_result(embeddings=embeddings, algorithm="hdbscan", n_clusters=None)
             mock_cluster.assert_called_once()
 
         assert result is mock_result
@@ -1437,11 +1363,7 @@ class TestGetOrComputeClusterResult:
 
         with active_cache(cache, "sel:all"), patch(self._CLUSTER_PATH, return_value=mock_result) as mock_cluster:
             result = get_or_compute_cluster_result(
-                embeddings=embeddings,
-                algorithm="kmeans",
-                n_clusters=5,
-                extractor_config=ext_cfg,
-                transforms=transforms,
+                embeddings=embeddings, algorithm="kmeans", n_clusters=5, extractor_config=ext_cfg, transforms=transforms
             )
             mock_cluster.assert_called_once()
 
@@ -1632,11 +1554,12 @@ class TestMakeDsId:
     @staticmethod
     def _key(name: str, **kwargs: Any) -> tuple[str, str]:
         """Return (name, cache_key) for _make_dataset_id."""
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
 
-        defaults: dict[str, Any] = {"format": "huggingface", "path": f"/data/{name}", "split": "train"}
+        from dataeval_flow.config import HuggingFaceDatasetConfig
+
+        defaults: dict[str, Any] = {"path": f"/data/{name}", "split": "train"}
         defaults.update(kwargs)
-        cfg = DatasetConfig(name=name, **defaults)  # type: ignore[call-arg]
+        cfg = HuggingFaceDatasetConfig(name=name, **defaults)
         return name, cfg.model_dump_json(exclude_defaults=False)
 
     def test_single_dataset_has_name_prefix_and_hash(self):

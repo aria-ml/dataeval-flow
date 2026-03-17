@@ -10,8 +10,9 @@ from dataeval_flow.preprocessing import PreprocessingStep
 class PreprocessorConfig(BaseModel):
     """Named preprocessor pipeline configuration.
 
-    Uses existing PreprocessingStep which has 'step' field (not 'name').
+    Steps can be torchvision transforms (serializable, YAML-configurable)
+    or arbitrary callables (programmatic only).
     """
 
     name: str
-    steps: Sequence[PreprocessingStep]  # Reuses existing PreprocessingStep
+    steps: Sequence[PreprocessingStep]

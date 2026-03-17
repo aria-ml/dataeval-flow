@@ -1,28 +1,91 @@
-"""Schema classes for workflow configuration."""
+"""Schema catalog — concrete types and discriminated-union aliases.
+
+Private ``_*.py`` modules define the concrete schema classes.  This
+``__init__`` re-exports them and defines the discriminated-union type
+aliases (``DatasetConfig``, ``ExtractorConfig``, ``WorkflowConfig``)
+consumed by :class:`~dataeval_flow.config._models.PipelineConfig`.
+"""
+
+from typing import Annotated
+
+from pydantic import Field
+
+from dataeval_flow.config.schemas._dataset import (
+    CocoDatasetConfig,
+    DatasetProtocolConfig,
+    HuggingFaceDatasetConfig,
+    ImageFolderDatasetConfig,
+    YoloDatasetConfig,
+)
+from dataeval_flow.config.schemas._extractor import (
+    BoVWExtractorConfig,
+    FlattenExtractorConfig,
+    OnnxExtractorConfig,
+    TorchExtractorConfig,
+    UncertaintyExtractorConfig,
+)
+from dataeval_flow.config.schemas._metadata import ResultMetadata
+from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
+from dataeval_flow.config.schemas._selection import SelectionConfig, SelectionStep
+from dataeval_flow.config.schemas._task import (
+    AutoBinMethod,
+    DataCleaningTaskConfig,
+    DriftMonitoringTaskConfig,
+    TaskConfig,
+)
+from dataeval_flow.config.schemas._workflow import (
+    DataCleaningWorkflowConfig,
+    DriftMonitoringWorkflowConfig,
+)
+
+# -- discriminated-union aliases (internal) ---------------------------------
+
+DatasetConfig = Annotated[
+    HuggingFaceDatasetConfig | ImageFolderDatasetConfig | CocoDatasetConfig | YoloDatasetConfig,
+    Field(discriminator="format"),
+]
+
+ExtractorConfig = Annotated[
+    OnnxExtractorConfig
+    | BoVWExtractorConfig
+    | FlattenExtractorConfig
+    | TorchExtractorConfig
+    | UncertaintyExtractorConfig,
+    Field(discriminator="model"),
+]
+
+WorkflowConfig = Annotated[
+    DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig,
+    Field(discriminator="type"),
+]
 
 __all__ = [
-    "DataCleaningWorkflowConfig",
+    # Dataset
+    "CocoDatasetConfig",
     "DatasetConfig",
     "DatasetProtocolConfig",
+    "HuggingFaceDatasetConfig",
+    "ImageFolderDatasetConfig",
+    "YoloDatasetConfig",
+    # Extractor
+    "BoVWExtractorConfig",
+    "ExtractorConfig",
+    "FlattenExtractorConfig",
+    "OnnxExtractorConfig",
+    "TorchExtractorConfig",
+    "UncertaintyExtractorConfig",
+    # Workflow
+    "DataCleaningWorkflowConfig",
+    "DriftMonitoringWorkflowConfig",
+    "WorkflowConfig",
+    # Task
+    "AutoBinMethod",
     "DataCleaningTaskConfig",
     "DriftMonitoringTaskConfig",
-    "DriftMonitoringWorkflowConfig",
+    "TaskConfig",
+    # Other
     "PreprocessorConfig",
     "ResultMetadata",
     "SelectionConfig",
     "SelectionStep",
-    "TaskConfig",
-    "WorkflowConfig",
 ]
-
-
-from dataeval_flow.config.schemas.dataset import DatasetConfig, DatasetProtocolConfig
-from dataeval_flow.config.schemas.metadata import ResultMetadata
-from dataeval_flow.config.schemas.params import (
-    DataCleaningWorkflowConfig,
-    DriftMonitoringWorkflowConfig,
-    WorkflowConfig,
-)
-from dataeval_flow.config.schemas.preprocessor import PreprocessorConfig
-from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
-from dataeval_flow.config.schemas.task import DataCleaningTaskConfig, DriftMonitoringTaskConfig, TaskConfig

@@ -32,7 +32,7 @@
 # %% [markdown]
 # ## What you'll learn
 #
-# - How to configure and run the `drift-monitoring` workflow via `run_task()`
+# - How to configure and run the `drift-monitoring` workflow via `run_tasks()`
 # - How **per-detector chunking** lets you mix chunked and non-chunked detectors in one run
 # - How to read the built-in drift report with per-detector and per-chunk results
 # - The difference between **K-Neighbors** (distance-based), **MMD** (distribution-wide),
@@ -162,7 +162,7 @@ plt.show()
 # The `drift-monitoring` workflow needs:
 #
 # 1. **Two datasets** — the first is the reference, the rest are test (incoming) data
-# 2. **A model/extractor** — to compute embeddings that detectors compare
+# 2. **An extractor** — to compute embeddings that detectors compare
 # 3. **Detector configuration** — which statistical tests to run
 # 4. **Chunking** — to split incoming data into temporal windows
 #
@@ -172,30 +172,24 @@ plt.show()
 # (distance-based) and **MMD** (distribution-wide kernel test).
 
 # %%
-from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, PipelineConfig
-from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config import FlattenExtractorConfig, ImageFolderDatasetConfig, PipelineConfig, SourceConfig
 
 # --- Datasets ---
 # First dataset = reference, second = incoming test data
 # Flat image folders (no class subdirs) — preserves temporal ordering
-ref_dataset = DatasetConfig(
+ref_dataset = ImageFolderDatasetConfig(
     name="reference",
-    format="image_folder",
     path=str(ref_dir),
 )
 
-incoming_dataset = DatasetConfig(
+incoming_dataset = ImageFolderDatasetConfig(
     name="incoming",
-    format="image_folder",
     path=str(incoming_dir),
 )
 
-# --- Model ---
+# --- Extractor ---
 # Flatten reshapes each 28×28 grayscale image into a 784-D feature vector — no model file needed
-model_config = ModelConfig(
-    name="flatten",
-    extractor=FlattenExtractorConfig(),
-)
+extractor_config = FlattenExtractorConfig(name="flatten", batch_size=64)
 
 # %% [markdown]
 # ### Configure drift detectors and chunking
@@ -226,9 +220,8 @@ model_config = ModelConfig(
 # to show drift while the first half remains clean.
 
 # %%
-from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
-from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
-from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.config import DriftMonitoringTaskConfig, DriftMonitoringWorkflowConfig
+from dataeval_flow.workflow import run_tasks
 from dataeval_flow.workflows.drift.params import (
     ChunkingConfig,
     DriftDetectorKNeighbors,
@@ -240,9 +233,21 @@ from dataeval_flow.workflows.drift.params import (
 # --- Drift workflow ---
 # Chunking is configured per detector — K-Neighbors and MMD get chunked,
 # while the univariate CVM detector runs a single overall test.
+drift_overall = DriftMonitoringTaskConfig(
+    name="mnist-drift-overall",
+    workflow="mnist-drift",
+    sources=["ref_src", "inc_src"],
+    extractor="flatten",
+    cache_dir="./cache",
+)
+
 config = PipelineConfig(
     datasets=[ref_dataset, incoming_dataset],
-    models=[model_config],
+    sources=[
+        SourceConfig(name="ref_src", dataset="reference"),
+        SourceConfig(name="inc_src", dataset="incoming"),
+    ],
+    extractors=[extractor_config],
     workflows=[
         DriftMonitoringWorkflowConfig(
             name="mnist-drift",
@@ -257,22 +262,14 @@ config = PipelineConfig(
             ),
         ),
     ],
-)
-
-drift_overall = DriftMonitoringTaskConfig(
-    name="mnist-drift-overall",
-    workflow="mnist-drift",
-    datasets=["reference", "incoming"],
-    models="flatten",
-    batch_size=64,
-    cache_dir="./cache",
+    tasks=[drift_overall],
 )
 
 # %% [markdown]
 # ## Step 2: Run the drift monitoring workflow
 
 # %%
-result = run_task(drift_overall, config)
+[result] = run_tasks(config, "mnist-drift-overall")
 
 # %% [markdown]
 # ## Results Exploration: Drift report

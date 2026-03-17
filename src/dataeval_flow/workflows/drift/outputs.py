@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, TypeIs
 
-from dataeval_flow.config.schemas.metadata import ResultMetadata
+from dataeval_flow.config.schemas import ResultMetadata
 from dataeval_flow.workflow.base import Reportable, WorkflowOutputsBase, WorkflowReportBase
 
 if TYPE_CHECKING:

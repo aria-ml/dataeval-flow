@@ -1,0 +1,62 @@
+"""Task configuration schema."""
+
+from collections.abc import Sequence
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
+
+
+class TaskConfig(BaseModel):
+    """Task/workflow configuration schema.
+
+    Tasks reference sources (dataset+selection bundles) and an optional
+    extractor (model+preprocessor+batch_size bundle) by name.
+    """
+
+    name: str
+    workflow: str  # reference to WorkflowConfig.name (e.g. "clean_zscore_stats")
+    enabled: bool = Field(default=True, description="Whether this task is included when running the pipeline.")
+    sources: str | Sequence[str]  # reference to SourceConfig.name
+    extractor: str | None = None  # reference to ExtractorConfig.name
+    output_format: Literal["json", "yaml", "text"] = "json"
+    # Cache configuration - for caching expensive computations (embeddings, metadata stats) to disk across runs
+    cache_dir: str | None = Field(
+        default=None,
+        description=(
+            "Directory for disk-backed computation cache. "
+            "When set, expensive computations (embeddings, metadata, hash stats) "
+            "are cached to disk and reused across runs. "
+            "In containers, point to a mounted volume (e.g. /cache)."
+        ),
+    )
+
+
+class DataCleaningTaskConfig(TaskConfig):
+    """Task config for ``data-cleaning`` workflows.
+
+    A typed subclass of :class:`TaskConfig` that enables typed overloads
+    on :func:`~dataeval_flow.workflow.orchestrator.run_tasks`, returning a
+    :class:`~dataeval_flow.workflows.cleaning.outputs.DataCleaningResult`
+    with full access to cleaning-specific metadata (``mode``,
+    ``clean_indices``, ``flagged_indices``, ``removed_count``).
+    """
+
+
+class DriftMonitoringTaskConfig(TaskConfig):
+    """Task config that validates drift-monitoring constraints.
+
+    Validates that at least two sources are specified (reference + test).
+    The ``workflow`` field references a workflow instance whose type must
+    be ``drift-monitoring`` — enforced at runtime by the orchestrator.
+    """
+
+    @model_validator(mode="after")
+    def _require_multiple_sources(self) -> "DriftMonitoringTaskConfig":
+        srcs = self.sources if isinstance(self.sources, list) else [self.sources]
+        if len(srcs) < 2:
+            raise ValueError(
+                f"drift-monitoring requires at least 2 sources (reference + test), got {len(srcs)}: {srcs}"
+            )
+        return self

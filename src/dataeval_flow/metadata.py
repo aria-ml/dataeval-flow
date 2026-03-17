@@ -9,7 +9,7 @@ from dataeval import Metadata
 from dataeval.protocols import AnnotatedDataset
 
 if TYPE_CHECKING:
-    from dataeval_flow.config.schemas.task import AutoBinMethod
+    from dataeval_flow.config.schemas import AutoBinMethod
 
 
 def build_metadata(

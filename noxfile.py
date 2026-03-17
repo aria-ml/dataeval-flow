@@ -107,6 +107,20 @@ def docs(session: nox.Session) -> None:
     )
 
 
+@nox_uv.session(uv_extras=["cpu"])
+def schema(session: nox.Session) -> None:
+    """Regenerate config/params.schema.json from PipelineConfig and verify it is up to date.
+
+    Usage:
+      nox -s schema           # Check only (CI-friendly) — fails if schema is stale
+      nox -s schema -- fix    # Regenerate and overwrite the file
+    """
+    args = ["python", "config/sync_schema.py"]
+    if "fix" in session.posargs or "--fix" in session.posargs:
+        args.append("--fix")
+    session.run(*args)
+
+
 @nox_uv.session(uv_only_groups=["base"])
 def check(session: nox.Session) -> None:
     """Validate lock file is up to date."""
