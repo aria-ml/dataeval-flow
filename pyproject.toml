@@ -93,6 +93,7 @@ constraint-dependencies = [
     "pillow>=12.1.1",          # CVE-2026-25990: OOB write via PSD image
     "setuptools>=82.0.0",      # CVE-2026-23949: (jaraco_context) path traversal in tarball()
                                # CVE-2026-24049: (wheel) privilege escalation via unpack
+    "onnx>=1.20.1",            # CVE-2026-28500: Untrusted Repository Warnings Suppressed by silent=True
 ]
 
 conflicts = [
