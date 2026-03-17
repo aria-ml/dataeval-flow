@@ -7,7 +7,7 @@ import pytest
 
 
 class TestRunTasks:
-    @patch("dataeval_flow.workflow.run_pipeline")
+    @patch("dataeval_flow.workflow.run_tasks")
     @patch("dataeval_flow.config.load_config_folder")
     def test_no_tasks_exits_zero(self, mock_load: MagicMock, mock_run: MagicMock):  # noqa: ARG002
         from dataeval_flow.runner import run_all_tasks
@@ -19,7 +19,7 @@ class TestRunTasks:
 
         assert run_all_tasks(Path("/fake/config"), Path("/fake/output")) == 0
 
-    @patch("dataeval_flow.workflow.run_pipeline")
+    @patch("dataeval_flow.workflow.run_tasks")
     @patch("dataeval_flow.config.load_config_folder")
     def test_successful_tasks(
         self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path
@@ -61,7 +61,7 @@ class TestRunTasks:
         assert (tmp_path / "task1" / "report.txt").exists()
         assert (tmp_path / "task2" / "report.txt").exists()
 
-    @patch("dataeval_flow.workflow.run_pipeline")
+    @patch("dataeval_flow.workflow.run_tasks")
     @patch("dataeval_flow.config.load_config_folder")
     def test_failed_task_exits_one(self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture):
         from dataeval_flow.runner import run_all_tasks
@@ -84,7 +84,7 @@ class TestRunTasks:
         assert "FAILED" in caplog.text
         assert "Something went wrong" in caplog.text
 
-    @patch("dataeval_flow.workflow.run_pipeline")
+    @patch("dataeval_flow.workflow.run_tasks")
     @patch("dataeval_flow.config.load_config_folder")
     def test_result_without_report(
         self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture, tmp_path: Path

@@ -1348,7 +1348,7 @@ class TestConfigIntegration:
         task = TaskConfig(
             name="test",
             workflow="data-cleaning",
-            datasets="ds",
+            sources="src",
             cache_dir="/cache",
         )
         assert task.cache_dir == "/cache"
@@ -1359,7 +1359,7 @@ class TestConfigIntegration:
         task = TaskConfig(
             name="test",
             workflow="data-cleaning",
-            datasets="ds",
+            sources="src",
         )
         assert task.cache_dir is None
 

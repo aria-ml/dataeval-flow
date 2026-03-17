@@ -18,7 +18,7 @@ from dataeval_flow.preprocessing import (
     PreprocessingStep,
     build_preprocessing,
 )
-from dataeval_flow.workflow import get_workflow, list_workflows, run_task
+from dataeval_flow.workflow import get_workflow, list_workflows, run_tasks
 
 __all__ = [
     # Dataset
@@ -30,6 +30,6 @@ __all__ = [
     # Workflow
     "get_workflow",
     "list_workflows",
-    "run_task",
+    "run_tasks",
 ]
 __version__ = "0.1.0"

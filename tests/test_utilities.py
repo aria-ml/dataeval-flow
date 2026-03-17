@@ -7,12 +7,7 @@ import pytest
 import dataeval_flow.embeddings
 import dataeval_flow.metadata
 import dataeval_flow.selection  # noqa: F401
-from dataeval_flow.config.models import (
-    BoVWExtractorConfig,
-    FlattenExtractorConfig,
-    OnnxExtractorConfig,
-    TorchExtractorConfig,
-)
+from dataeval_flow.config.models import ExtractorConfig
 from dataeval_flow.config.schemas.selection import SelectionStep
 
 # ---------------------------------------------------------------------------
@@ -32,7 +27,7 @@ class TestBuildEmbeddings:
         mock_embeddings = MagicMock()
         mock_embed_cls.return_value = mock_embeddings
 
-        config = OnnxExtractorConfig(model_path="/model.onnx", output_name="layer4")
+        config = ExtractorConfig(name="test", model="onnx", model_path="/model.onnx", output_name="layer4")
         result = build_embeddings(mock_dataset, config)
 
         mock_extractor_cls.assert_called_once_with("/model.onnx", transforms=None, output_name="layer4", flatten=True)
@@ -45,7 +40,7 @@ class TestBuildEmbeddings:
         from dataeval_flow.embeddings import build_embeddings
 
         mock_transforms = MagicMock()
-        config = OnnxExtractorConfig(model_path="/model.onnx")
+        config = ExtractorConfig(name="test", model="onnx", model_path="/model.onnx")
         build_embeddings(MagicMock(), config, transforms=mock_transforms)
 
         call_kwargs = mock_extractor_cls.call_args[1]
@@ -60,7 +55,7 @@ class TestBuildEmbeddings:
         mock_flatten = MagicMock()
         mock_flatten_cls.return_value = mock_flatten
 
-        config = FlattenExtractorConfig()
+        config = ExtractorConfig(name="test", model="flatten")
         build_embeddings(MagicMock(), config)
 
         mock_flatten_cls.assert_called_once_with()
@@ -76,7 +71,7 @@ class TestBuildEmbeddings:
         mock_bovw_cls.return_value = mock_bovw
         mock_dataset = MagicMock()
 
-        config = BoVWExtractorConfig(vocab_size=1024)
+        config = ExtractorConfig(name="test", model="bovw", vocab_size=1024)
         build_embeddings(mock_dataset, config)
 
         mock_bovw_cls.assert_called_once_with(vocab_size=1024)
@@ -86,7 +81,7 @@ class TestBuildEmbeddings:
         """Unsupported extractor type raises ValueError."""
         from dataeval_flow.embeddings import build_embeddings
 
-        config = TorchExtractorConfig(model_path="/model.pt")
+        config = ExtractorConfig(name="test", model="torch", model_path="/model.pt")
         with pytest.raises(ValueError, match="not yet implemented"):
             build_embeddings(MagicMock(), config)
 

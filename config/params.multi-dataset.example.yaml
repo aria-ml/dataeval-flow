@@ -2,10 +2,8 @@
 # Multi-Dataset Workflow Configuration Example
 # =============================================================================
 # Demonstrates how to configure multiple datasets with independent
-# models, preprocessors, and selections per dataset.
-#
-# Uses workflow instances to define workflow type + params once and
-# reference them across tasks.
+# extractors, preprocessors, and selections using the
+# sources/extractors composition pattern.
 #
 # yaml-language-server: $schema=params.schema.json
 # =============================================================================
@@ -33,20 +31,6 @@ datasets:
     format: image_folder
     path: /data/classified-photos
     infer_labels: true
-
-# -----------------------------------------------------------------------------
-# MODELS
-# -----------------------------------------------------------------------------
-models:
-  - name: resnet50
-    extractor:
-      type: onnx
-      model_path: "./resnet50-v2-7.onnx"
-      output_name: "resnetv24_flatten0_reshape0"
-
-  - name: flat
-    extractor:
-      type: flatten
 
 # -----------------------------------------------------------------------------
 # PREPROCESSORS
@@ -77,6 +61,51 @@ preprocessors:
           size: [32, 32]
 
 # -----------------------------------------------------------------------------
+# SELECTIONS
+# -----------------------------------------------------------------------------
+selections:
+  - name: first_5k
+    steps:
+      - type: Limit
+        params:
+          size: 5000
+
+# -----------------------------------------------------------------------------
+# SOURCES — Dataset + optional selection bundles
+# -----------------------------------------------------------------------------
+sources:
+  - name: cifar10_train_full
+    dataset: cifar10_train
+
+  - name: cifar10_test_full
+    dataset: cifar10_test
+
+  - name: cifar10_train_5k
+    dataset: cifar10_train
+    selection: first_5k
+
+  - name: raw_photos_full
+    dataset: raw-photos
+
+  - name: classified_photos_full
+    dataset: classified-photos
+
+# -----------------------------------------------------------------------------
+# EXTRACTORS — Model type + params + optional preprocessor + batch_size
+# -----------------------------------------------------------------------------
+extractors:
+  - name: resnet_extractor
+    model: onnx
+    model_path: "./resnet50-v2-7.onnx"
+    output_name: "resnetv24_flatten0_reshape0"
+    preprocessor: resnet_preprocess
+    batch_size: 64
+
+  - name: flat_extractor
+    model: flatten
+    batch_size: 64
+
+# -----------------------------------------------------------------------------
 # WORKFLOWS — Named workflow instances
 # -----------------------------------------------------------------------------
 workflows:
@@ -99,32 +128,24 @@ workflows:
 # TASKS — Lightweight composition by name
 # -----------------------------------------------------------------------------
 tasks:
-  # Single dataset, references a workflow instance
+  # Single source, flat extractor
   - name: clean_train
-    workflow: adaptive_clean              # ← reference workflow instance
-    datasets: cifar10_train
-    models: flat
-    batch_size: 64
+    workflow: adaptive_clean
+    sources: cifar10_train_full
+    extractor: flat_extractor
 
-  # Multi-dataset with a shared model, same workflow instance
-  - name: clean_both_shared_model
-    workflow: adaptive_clean              # ← reuse the same instance
-    datasets:
-      - cifar10_train
-      - cifar10_test
-    models: flat
-    batch_size: 64
+  # Multiple sources, shared extractor
+  - name: clean_both
+    workflow: adaptive_clean
+    sources:
+      - cifar10_train_full
+      - cifar10_test_full
+    extractor: flat_extractor
 
-  # Multi-dataset with per-dataset model mapping, different workflow instance
-  - name: clean_both_per_dataset_model
-    workflow: thorough_clean              # ← different instance
-    datasets:
-      - cifar10_train
-      - cifar10_test
-    models:
-      cifar10_train: resnet50
-      cifar10_test: flat
-    preprocessors:
-      cifar10_train: resnet_preprocess
-      cifar10_test: basic_preprocess
-    batch_size: 64
+  # Different workflow, resnet extractor
+  - name: clean_thorough
+    workflow: thorough_clean
+    sources:
+      - cifar10_train_full
+      - cifar10_test_full
+    extractor: resnet_extractor

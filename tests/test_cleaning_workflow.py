@@ -10,7 +10,7 @@ import pytest
 import dataeval_flow.embeddings
 import dataeval_flow.metadata
 import dataeval_flow.selection  # noqa: F401
-from dataeval_flow.config.models import OnnxExtractorConfig
+from dataeval_flow.config.models import ExtractorConfig
 from dataeval_flow.config.schemas.selection import SelectionStep
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.cleaning.outputs import (
@@ -963,7 +963,9 @@ class TestDataCleaningWorkflowExecute:
                 "default": DatasetContext(
                     name="default",
                     dataset=mock_dataset,
-                    extractor=OnnxExtractorConfig(model_path="/model.onnx", output_name="layer4"),
+                    extractor=ExtractorConfig(
+                        name="test_ext", model="onnx", model_path="/model.onnx", output_name="layer4"
+                    ),
                 )
             },
         )

@@ -7,8 +7,7 @@ __all__ = [
     "WorkflowResult",
     "get_workflow",
     "list_workflows",
-    "run_pipeline",
-    "run_task",
+    "run_tasks",
 ]
 
 from collections.abc import Callable, Mapping, Sequence
@@ -23,7 +22,7 @@ from dataeval_flow.workflow._text_report import (
     _render_detail_section,
     _summary_line,
 )
-from dataeval_flow.workflow.orchestrator import run_pipeline, run_task
+from dataeval_flow.workflow.orchestrator import run_tasks
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
     from dataeval_flow.config.models import ExtractorConfig
     from dataeval_flow.config.schemas.metadata import ResultMetadata
     from dataeval_flow.config.schemas.selection import SelectionStep
-    from dataeval_flow.config.schemas.task import AutoBinMethod
 
 
 @dataclass
@@ -53,15 +51,10 @@ class DatasetContext:
 class WorkflowContext:
     """Runtime context for workflow execution.
 
-    Provides per-dataset bundles and workflow-wide metadata config.
-    Metadata configuration (binning, exclusions) is set once at the
-    workflow level so that all datasets are processed uniformly.
+    Provides per-dataset bundles and workflow-wide settings.
     """
 
     dataset_contexts: "Mapping[str, DatasetContext]" = field(default_factory=dict)
-    metadata_auto_bin_method: "AutoBinMethod | None" = None
-    metadata_exclude: Sequence[str] = field(default_factory=list)
-    metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None
     batch_size: int | None = None
 
 
@@ -291,10 +284,11 @@ def _ensure_initialized() -> None:
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
 
-        wf = DataCleaningWorkflow()
-        _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf)
-        wf_drift = DriftMonitoringWorkflow()
-        _WORKFLOWS[wf_drift.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf_drift)
+        workflows = [DataCleaningWorkflow, DriftMonitoringWorkflow]
+
+        for workflow in workflows:
+            wf = workflow()
+            _WORKFLOWS[wf.name] = cast("WorkflowProtocol[ResultMetadata, BaseModel]", wf)
         _initialized = True
 
 

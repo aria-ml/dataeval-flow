@@ -34,11 +34,11 @@ class TestImports:
 
     def test_workflow_api_exports(self) -> None:
         """Verify workflow exports are available from package root."""
-        from dataeval_flow import get_workflow, list_workflows, run_task
+        from dataeval_flow import get_workflow, list_workflows, run_tasks
 
         assert callable(get_workflow)
         assert callable(list_workflows)
-        assert callable(run_task)
+        assert callable(run_tasks)
 
 
 @pytest.mark.required

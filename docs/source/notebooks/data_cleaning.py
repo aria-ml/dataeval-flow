@@ -23,7 +23,7 @@
 #
 # - Download the CPPE-5 dataset from HuggingFace and save it to disk
 # - Build a workflow configuration using BoVW (Bag of Visual Words) for embedding extraction
-# - Run `run_task()` to detect outliers and duplicates (including cluster-based detection)
+# - Run `run_tasks()` to detect outliers and duplicates (including cluster-based detection)
 # - View the built-in **cleaning report** for a high-level summary
 # - Visually inspect flagged **outlier** and **duplicate** images with `dataeval-plots`
 # - Use **preparatory mode** to get clean/flagged index lists for downstream filtering
@@ -31,7 +31,7 @@
 # %% [markdown]
 # ## What you'll learn
 #
-# - How to configure and run the `data-cleaning` workflow via `run_task()`
+# - How to configure and run the `data-cleaning` workflow via `run_tasks()`
 # - How to use BoVW (Bag of Visual Words) for lightweight embedding-based detection — no model file needed
 # - What outlier and duplicate detection parameters are available
 # - How to configure **health thresholds** to control when findings trigger warnings
@@ -86,12 +86,12 @@ cppe5_train.save_to_disk(str(data_path))
 # %%
 from dataeval.config import set_max_processes
 
-from dataeval_flow.config.models import BoVWExtractorConfig, ModelConfig, PipelineConfig
+from dataeval_flow.config.models import ExtractorConfig, PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas.dataset import DatasetConfig
 from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig
 from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
 from dataeval_flow.config.schemas.task import DataCleaningTaskConfig
-from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.workflow import run_tasks
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 
 set_max_processes(8)  # Set max processes for parallel execution (adjust as needed)
@@ -118,38 +118,37 @@ advisory_workflow = DataCleaningWorkflowConfig(
     ),
 )
 
-# Build the full pipeline config — datasets, models, selections, workflows, and tasks
+task = DataCleaningTaskConfig(
+    name="cppe5_clean",
+    workflow="cppe5_advisory_clean",
+    sources="cppe5_src",
+    extractor="bovw_ext",
+    cache_dir="./cache",  # Cache embeddings & stats across runs
+)
+
+# Build the full pipeline config — datasets, sources, extractors, selections, workflows, and tasks
 config = PipelineConfig(
     datasets=[
         DatasetConfig(name="cppe5_train", format="huggingface", path=str(data_path)),
     ],
-    models=[
-        ModelConfig(name="bovw", extractor=BoVWExtractorConfig(vocab_size=512)),
-    ],
     selections=[
-        SelectionConfig(
-            name="first500",
-            steps=[SelectionStep(type="Limit", params={"size": 500})],
-        ),
+        SelectionConfig(name="first500", steps=[SelectionStep(type="Limit", params={"size": 500})]),
+    ],
+    sources=[
+        SourceConfig(name="cppe5_src", dataset="cppe5_train", selection="first500"),
+    ],
+    extractors=[
+        ExtractorConfig(name="bovw_ext", model="bovw", vocab_size=512, batch_size=32),
     ],
     workflows=[advisory_workflow],
-)
-
-task = DataCleaningTaskConfig(
-    name="cppe5_clean",
-    workflow="cppe5_advisory_clean",
-    datasets=["cppe5_train"],
-    models="bovw",
-    selections="first500",  # Limit to 500 images
-    batch_size=32,  # Batch size for embedding extraction
-    cache_dir="./cache",  # Cache embeddings & stats across runs
+    tasks=[task],
 )
 
 # %% [markdown]
 # ## Step 2: Run the data cleaning workflow
 
 # %%
-result = run_task(task, config)
+[result] = run_tasks(config, "cppe5_clean")
 
 # %% [markdown]
 # ### Cleaning report
@@ -287,24 +286,24 @@ prep_workflow = advisory_workflow.model_copy(
     update={"name": "cppe5_prep_clean", "mode": "preparatory"},
 )
 
-config_prep = PipelineConfig(
-    datasets=config.datasets,
-    models=config.models,
-    selections=config.selections,
-    workflows=[advisory_workflow, prep_workflow],
-)
-
 task_prep = DataCleaningTaskConfig(
     name="cppe5-clean-prep",
     workflow="cppe5_prep_clean",
-    datasets=["cppe5_train"],
-    models="bovw",
-    selections="first500",
-    batch_size=32,
+    sources="cppe5_src",
+    extractor="bovw_ext",
     cache_dir="./cache",  # Reuses cached embeddings from Step 2
 )
 
-result_prep = run_task(task_prep, config_prep)
+config_prep = PipelineConfig(
+    datasets=config.datasets,
+    selections=config.selections,
+    sources=config.sources,
+    extractors=config.extractors,
+    workflows=[advisory_workflow, prep_workflow],
+    tasks=[task_prep],
+)
+
+[result_prep] = run_tasks(config_prep, "cppe5-clean-prep")
 
 # %% tags=["remove_cell"]
 if not result_prep.success:
@@ -336,7 +335,7 @@ print(json_str[:500] + "\n...")
 # - **Configure** the `data-cleaning` workflow with explicit outlier and duplicate detection parameters
 # - **Use BoVW** (Bag of Visual Words) for lightweight embedding extraction — no model file or preprocessing needed
 # - **Set health thresholds** to control when findings are elevated to warnings
-# - **Run** the workflow via `run_task()` on a CPPE-5 split
+# - **Run** the workflow via `run_tasks()` on a CPPE-5 split
 # - **Read the cleaning report** — a single `result.report()` call for a formatted summary with health status
 # - **Visually inspect** flagged outliers and duplicates with `dataeval-plots`
 # - **Use preparatory mode** to get `flagged_indices` and `clean_indices` for downstream filtering

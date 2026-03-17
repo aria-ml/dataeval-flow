@@ -9,15 +9,18 @@
 #
 # Configuration follows a define-once, reference-by-name pattern:
 #
-#   datasets:    → named dataset definitions
-#   models:      → named model/extractor definitions
-#   workflows:   → named workflow instances (type + params)
-#   tasks:       → lightweight composition by name
+#   datasets:      → named dataset definitions
+#   models:        → named model definitions (type + params)
+#   preprocessors: → named preprocessing pipelines
+#   selections:    → named selection pipelines
+#   sources:       → dataset + optional selection bundles
+#   extractors:    → model + optional preprocessor + batch_size bundles
+#   workflows:     → named workflow instances (type + params)
+#   tasks:         → lightweight composition by name
 #
-# Workflow instances bind a workflow type (e.g. "data-cleaning") to a
-# specific set of parameters, giving the combination a reusable name.
-# Tasks reference workflow instances and resource pools by name —
-# keeping tasks lightweight and configs centralized.
+# Sources and extractors are composition layers that bundle related
+# components. Tasks reference these by name — keeping tasks lightweight
+# and configs centralized.
 
 # -----------------------------------------------------------------------------
 # LOGGING (optional)
@@ -29,7 +32,7 @@
 # -----------------------------------------------------------------------------
 # DATASETS
 # -----------------------------------------------------------------------------
-# Named dataset definitions. Tasks reference these by name.
+# Named dataset definitions. Sources reference these by name.
 #
 # datasets:
 #   - name: my-dataset
@@ -62,30 +65,9 @@
 #     classes_file: classes.txt
 
 # -----------------------------------------------------------------------------
-# MODELS (optional)
-# -----------------------------------------------------------------------------
-# Named model/extractor definitions. Tasks reference these by name.
-#
-# models:
-#   - name: resnet50
-#     extractor:
-#       type: onnx
-#       model_path: "./resnet50-v2-7.onnx"
-#       output_name: "resnetv24_flatten0_reshape0"
-#
-#   - name: flat
-#     extractor:
-#       type: flatten
-#
-#   - name: bovw_features
-#     extractor:
-#       type: bovw
-#       vocab_size: 2048
-
-# -----------------------------------------------------------------------------
 # PREPROCESSING (optional)
 # -----------------------------------------------------------------------------
-# Named preprocessor definitions. Tasks reference these by name.
+# Named preprocessor definitions. Extractors reference these by name.
 # Steps are pass-through to torchvision.transforms.v2.
 # See: https://pytorch.org/vision/stable/transforms.html
 #
@@ -107,6 +89,65 @@
 #         params:
 #           mean: [0.485, 0.456, 0.406]
 #           std: [0.229, 0.224, 0.225]
+
+# -----------------------------------------------------------------------------
+# SELECTIONS (optional)
+# -----------------------------------------------------------------------------
+# Named selection pipelines. Sources reference these by name.
+#
+# selections:
+#   - name: training_subset
+#     steps:
+#       - type: Limit
+#         params:
+#           size: 10000
+
+# -----------------------------------------------------------------------------
+# SOURCES — Dataset + optional selection
+# -----------------------------------------------------------------------------
+# Named source bundles. Tasks reference these by name.
+#
+# sources:
+#   - name: my_dataset_full
+#     dataset: my-dataset
+#
+#   - name: my_dataset_subset
+#     dataset: my-dataset
+#     selection: training_subset
+
+# -----------------------------------------------------------------------------
+# EXTRACTORS — Model + optional preprocessor + batch_size
+# -----------------------------------------------------------------------------
+# Named extractor bundles. Tasks reference these by name.
+#
+# extractors:
+#   - name: resnet_extractor
+#     model: onnx
+#     model_path: "./resnet50-v2-7.onnx"
+#     output_name: "resnetv24_flatten0_reshape0"
+#     preprocessor: resnet50_preprocessor
+#     batch_size: 64
+#
+#   - name: flat_extractor
+#     model: flatten
+#
+#   - name: bovw_extractor
+#     model: bovw
+#     vocab_size: 2048                 # 256–4096
+#     batch_size: 32
+#
+#   - name: torch_extractor
+#     model: torch
+#     model_path: "./model.pt"
+#     layer_name: "avgpool"            # layer for forward-hook extraction
+#     use_output: true                 # capture layer output (True) or input (False)
+#     device: cuda:0                   # cpu | cuda:0 | etc.
+#
+#   - name: uncertainty_extractor
+#     model: uncertainty
+#     model_path: "./classifier.pt"
+#     preds_type: probs                # probs | logits
+#     device: cpu
 
 # -----------------------------------------------------------------------------
 # WORKFLOWS — Named workflow instances (type + params)
@@ -133,25 +174,30 @@
 #   - name: basic_drift
 #     type: drift-monitoring
 #     detectors:
-#       - method: univariate
-#         test: ks
+#       - method: univariate          # univariate | mmd | domain_classifier | kneighbors
+#         test: ks                    # ks | cvm | mwu | anderson | bws
 #         p_val: 0.05
+#         correction: bonferroni      # bonferroni | fdr
+#         classwise: false            # per-class drift detection (requires labels)
+#         chunking:                   # optional temporal drift analysis
+#           chunk_size: 500           # or chunk_count (mutually exclusive)
+#           incomplete: keep          # keep | drop | append
 
 # -----------------------------------------------------------------------------
 # TASKS — Lightweight composition by name
 # -----------------------------------------------------------------------------
-# Each task references a workflow instance and named datasets/models.
-# The workflow instance determines the workflow type and parameters.
+# Each task references a workflow instance, sources, and optional extractor.
 #
 # tasks:
 #   - name: clean_train
-#     workflow: standard_clean        # ← reference workflow instance by name
-#     datasets: my-dataset
-#     output_format: json
+#     workflow: standard_clean
+#     sources: my_dataset_full
+#     output_format: json              # json | yaml | text (default: json)
+#     enabled: true                    # set false to skip this task (default: true)
+#     cache_dir: /cache                # optional disk cache for embeddings/metadata
 #
 #   - name: clean_strict
-#     workflow: strict_clean          # ← different instance, different params
-#     datasets: my-dataset
-#     models: resnet50
-#     batch_size: 64
+#     workflow: strict_clean
+#     sources: my_dataset_full
+#     extractor: resnet_extractor
 #     output_format: json

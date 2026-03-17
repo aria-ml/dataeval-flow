@@ -54,8 +54,13 @@ class DatasetConfig(BaseModel):
 
 
 class DatasetProtocolConfig(BaseModel):
-    """Dataset Configuration schema for an in-memory dataset."""
+    """Dataset Configuration schema for an in-memory dataset.
 
+    Not serializable — for programmatic use only. Cannot be loaded from
+    YAML/JSON config files or edited in the builder UI.
+    """
+
+    serializable: ClassVar[bool] = False
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     name: str

@@ -23,7 +23,7 @@ def run_all_tasks(config_path: Path | None, output_dir: Path) -> int:
     """
     from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_flow.config import load_config_folder
-    from dataeval_flow.workflow import run_pipeline
+    from dataeval_flow.workflow import run_tasks
 
     setup_logging(output_dir)
 
@@ -36,7 +36,7 @@ def run_all_tasks(config_path: Path | None, output_dir: Path) -> int:
         logger.info("No tasks defined in config.")
         return 0
 
-    results = run_pipeline(config)
+    results = run_tasks(config)
 
     failures = 0
     for task, result in zip(config.tasks, results, strict=True):

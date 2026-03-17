@@ -192,7 +192,7 @@ def is_cleaning_result(
 
     Useful in the CLI loop or any code that receives a generic result::
 
-        result = run_task(task, config)
+        [result] = run_tasks(config, "my_task")
         if is_cleaning_result(result):
             result.metadata.flagged_indices  # ✓ typed
             result.data.raw.img_outliers     # ✓ typed

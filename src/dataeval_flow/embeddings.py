@@ -27,15 +27,15 @@ def build_embeddings(
 ) -> Embeddings:
     """Build Embeddings from dataset and extractor config.
 
-    Creates the appropriate extractor based on the config type and wraps it
-    in a DataEval Embeddings instance.
+    Creates the appropriate extractor based on the config's model type and
+    wraps it in a DataEval Embeddings instance.
 
     Parameters
     ----------
     dataset : MaiteDataset
         Input dataset.
     extractor_config : ExtractorConfig
-        Extractor configuration (discriminated union).
+        Extractor configuration with model type and params.
     transforms : Callable | None
         Preprocessing transforms to apply before encoding.
         Only used by extractor types that accept it (onnx, torch, uncertainty).
@@ -59,7 +59,7 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
     Parameters
     ----------
     extractor_config : ExtractorConfig
-        Extractor configuration (discriminated union).
+        Extractor configuration with model type and params.
     transforms : Callable | None
         Preprocessing transforms to apply before encoding.
         Only used by extractor types that accept it (onnx, torch, uncertainty).
@@ -70,28 +70,22 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
         A callable extractor function that takes a dataset and returns extracted features.
     """
 
-    from dataeval_flow.config.models import (
-        BoVWExtractorConfig,
-        FlattenExtractorConfig,
-        OnnxExtractorConfig,
-    )
+    logger.debug("Building %s extractor", extractor_config.model)
 
-    logger.debug("Building %s extractor", extractor_config.type)
-
-    if isinstance(extractor_config, OnnxExtractorConfig):
+    if extractor_config.model == "onnx":
         extractor = OnnxExtractor(
-            extractor_config.model_path,
+            extractor_config.model_path or "",
             transforms=transforms,
             output_name=extractor_config.output_name,
             flatten=extractor_config.flatten,
         )
-    elif isinstance(extractor_config, BoVWExtractorConfig):
-        extractor = BoVWExtractor(vocab_size=extractor_config.vocab_size)
-    elif isinstance(extractor_config, FlattenExtractorConfig):
+    elif extractor_config.model == "bovw":
+        extractor = BoVWExtractor(vocab_size=extractor_config.vocab_size or 2048)
+    elif extractor_config.model == "flatten":
         extractor = FlattenExtractor()
     else:
         raise ValueError(
-            f"Extractor type '{extractor_config.type}' is not yet implemented. "
+            f"Extractor type '{extractor_config.model}' is not yet implemented. "
             f"Currently supported: onnx, bovw, flatten."
         )
     return extractor

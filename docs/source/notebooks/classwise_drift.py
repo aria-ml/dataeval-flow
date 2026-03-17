@@ -224,12 +224,12 @@ plt.show()
 
 # %%
 
-from dataeval_flow.config.models import FlattenExtractorConfig, ModelConfig, PipelineConfig
+from dataeval_flow.config.models import ExtractorConfig, PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
 from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
 from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
 from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
-from dataeval_flow.workflow.orchestrator import run_task
+from dataeval_flow.workflow import run_tasks
 from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKNeighbors, DriftHealthThresholds
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
@@ -252,46 +252,52 @@ ref_selection = SelectionConfig(
     steps=[SelectionStep(type="Indices", params={"indices": list(range(2000))})],
 )
 
-# --- Model ---
-model_config = ModelConfig(
+# --- Sources ---
+ref_source_config = SourceConfig(name="reference_2k", dataset="reference", selection="ref-first-2k")
+inc_source_config = SourceConfig(name="incoming_2k", dataset="incoming")
+
+# --- Extractors ---
+extractor_config = ExtractorConfig(
     name="flatten",
-    extractor=FlattenExtractorConfig(),
+    model="flatten",
+    batch_size=64,
+)
+
+# --- Workflows ---
+drift_workflow_config = DriftMonitoringWorkflowConfig(
+    name="overall-drift",
+    detectors=[
+        DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_count=5, threshold_multiplier=1.5)),
+    ],
+    health_thresholds=DriftHealthThresholds(
+        chunk_drift_pct_warning=15.0,
+        consecutive_chunks_warning=2,
+    ),
 )
 
 # --- Phase 1: Overall drift with chunking (no classwise) ---
-overall_config = PipelineConfig(
-    datasets=[ref_config, incoming_config],
-    models=[model_config],
-    selections=[ref_selection],
-    workflows=[
-        DriftMonitoringWorkflowConfig(
-            name="overall-drift",
-            detectors=[
-                DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_count=5, threshold_multiplier=1.5)),
-            ],
-            health_thresholds=DriftHealthThresholds(
-                chunk_drift_pct_warning=15.0,
-                consecutive_chunks_warning=2,
-            ),
-        ),
-    ],
-)
-
 overall_task = DriftMonitoringTaskConfig(
     name="mnist-overall-drift",
     workflow="overall-drift",
-    datasets=["reference", "incoming"],
-    models="flatten",
-    selections={"reference": "ref-first-2k"},
-    batch_size=64,
+    sources=["reference_2k", "incoming_2k"],
+    extractor="flatten",
     cache_dir="./cache",
+)
+
+overall_config = PipelineConfig(
+    datasets=[ref_config, incoming_config],
+    selections=[ref_selection],
+    sources=[ref_source_config, inc_source_config],
+    extractors=[extractor_config],
+    workflows=[drift_workflow_config],
+    tasks=[overall_task],
 )
 
 # %% [markdown]
 # ## Step 2: Run overall drift detection
 
 # %%
-overall_result = run_task(overall_task, overall_config)
+[overall_result] = run_tasks(overall_config, "mnist-overall-drift")
 
 # %% [markdown]
 # ### Review the overall report
@@ -318,10 +324,19 @@ print(overall_result.report(format="text"))
 # %%
 from dataeval_flow.workflows.drift.params import DriftDetectorMMD, DriftDetectorUnivariate
 
+classwise_task = DriftMonitoringTaskConfig(
+    name="mnist-classwise-drift",
+    workflow="classwise-drift",
+    sources=["reference_2k", "incoming_2k"],
+    extractor="flatten",
+    cache_dir="./cache",
+)
+
 classwise_config = PipelineConfig(
     datasets=[ref_config, incoming_config],
-    models=[model_config],
     selections=[ref_selection],
+    sources=[ref_source_config, inc_source_config],
+    extractors=[extractor_config],
     workflows=[
         DriftMonitoringWorkflowConfig(
             name="classwise-drift",
@@ -334,23 +349,14 @@ classwise_config = PipelineConfig(
             ),
         ),
     ],
-)
-
-classwise_task = DriftMonitoringTaskConfig(
-    name="mnist-classwise-drift",
-    workflow="classwise-drift",
-    datasets=["reference", "incoming"],
-    models="flatten",
-    selections={"reference": "ref-first-2k"},
-    batch_size=64,
-    cache_dir="./cache",
+    tasks=[classwise_task],
 )
 
 # %% [markdown]
 # ## Step 4: Run classwise drift detection
 
 # %%
-classwise_result = run_task(classwise_task, classwise_config)
+[classwise_result] = run_tasks(classwise_config, "mnist-classwise-drift")
 
 # %% [markdown]
 # ### Review the classwise report
