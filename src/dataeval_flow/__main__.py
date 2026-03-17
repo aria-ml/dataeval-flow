@@ -32,9 +32,9 @@ def main() -> NoReturn:
     """CLI entry point."""
     args = parse_args()
     try:
-        from dataeval_flow.runner import run_all_tasks
+        from dataeval_flow.runner import run
 
-        sys.exit(run_all_tasks(args.config, args.output))
+        sys.exit(run(args.config, args.output))
     except (FileNotFoundError, ValueError, ImportError) as e:
         print(f"ERROR: {e}")
         sys.exit(1)

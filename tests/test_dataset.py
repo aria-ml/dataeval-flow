@@ -989,7 +989,7 @@ class TestMainModule:
 
         with (
             patch("sys.argv", ["dataeval_flow", "--output", "/fake/output"]),
-            patch("dataeval_flow.runner.run_all_tasks", return_value=0),
+            patch("dataeval_flow.runner.run", return_value=0),
             pytest.raises(SystemExit) as exc_info,
         ):
             main()
@@ -1001,7 +1001,7 @@ class TestMainModule:
 
         with (
             patch("sys.argv", ["dataeval_flow", "--output", "/fake/output"]),
-            patch("dataeval_flow.runner.run_all_tasks", side_effect=FileNotFoundError("Not found")),
+            patch("dataeval_flow.runner.run", side_effect=FileNotFoundError("Not found")),
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
