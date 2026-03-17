@@ -9,7 +9,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.selection import Select
 
 if TYPE_CHECKING:
-    from dataeval_flow.config.schemas.selection import SelectionStep
+    from dataeval_flow.config.schemas import SelectionStep
 
 T = TypeVar("T")
 
@@ -33,7 +33,7 @@ def build_selection(dataset: AnnotatedDataset[T], steps: list["SelectionStep"]) 
 
     Example
     -------
-    >>> from dataeval_flow.config.schemas.selection import SelectionStep
+    >>> from dataeval_flow.config import SelectionStep
     >>> steps = [
     ...     SelectionStep(type="Limit", params={"size": 10000}),
     ...     SelectionStep(type="ClassFilter", params={"classes": [0, 1, 2]}),

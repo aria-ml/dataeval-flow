@@ -3,6 +3,7 @@
 __all__ = ["run_tasks"]
 
 import logging
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, runtime_checkable
@@ -10,9 +11,9 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, runtime_check
 logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from dataeval_flow.config.models import PipelineConfig, SourceConfig
-    from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig, DriftMonitoringWorkflowConfig
-    from dataeval_flow.config.schemas.task import TaskConfig
+    from dataeval_flow.config._models import PipelineConfig, SourceConfig
+    from dataeval_flow.config.schemas import DataCleaningWorkflowConfig, DriftMonitoringWorkflowConfig
+    from dataeval_flow.config.schemas._task import TaskConfig
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
 
 
@@ -68,11 +69,8 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
     the workflow.
     """
     from dataeval_flow.cache import DatasetCache
-    from dataeval_flow.config.models import ExtractorConfig, SourceConfig
-    from dataeval_flow.config.schemas import (
-        PreprocessorConfig,
-        SelectionConfig,
-    )
+    from dataeval_flow.config._models import SourceConfig
+    from dataeval_flow.config.schemas import ExtractorConfig, PreprocessorConfig, SelectionConfig
     from dataeval_flow.dataset import resolve_dataset
     from dataeval_flow.preprocessing import build_preprocessing
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
@@ -108,8 +106,7 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
         resolved_sources.append(source)
         ds_config = _resolve_by_name(config.datasets, source.dataset, "dataset")
         resolved = resolve_dataset(ds_config)
-        ds_name = source.dataset
-        dataset_names.append(ds_name)
+        dataset_names.append(source.dataset)
 
         # Resolve selection from source (optional)
         selection_steps = None
@@ -125,8 +122,8 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
             cache_key=resolved.cache_key,
         )
 
-        dataset_contexts[ds_name] = DatasetContext(
-            name=ds_name,
+        dataset_contexts[src_name] = DatasetContext(
+            name=src_name,
             dataset=resolved.dataset,
             extractor=extractor_cfg,
             transforms=transforms,
@@ -152,8 +149,6 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
     workflow = get_workflow(instance.type)
 
     # 6. Run workflow with timing
-    import time
-
     logger.debug("Task '%s': executing workflow", task.name)
     start = time.monotonic()
     result = workflow.execute(context, instance)

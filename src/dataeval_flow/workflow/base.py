@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow.config.schemas.task import AutoBinMethod
+from dataeval_flow.config.schemas import AutoBinMethod
 
 __all__ = [
     "MetadataConfigMixin",

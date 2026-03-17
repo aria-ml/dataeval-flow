@@ -6,21 +6,23 @@ import pytest
 from pydantic import ValidationError
 
 from dataeval_flow.config import (
+    BoVWExtractorConfig,
+    CocoDatasetConfig,
     DataCleaningWorkflowConfig,
-    ExtractorConfig,
+    FlattenExtractorConfig,
+    HuggingFaceDatasetConfig,
+    ImageFolderDatasetConfig,
+    OnnxExtractorConfig,
     PipelineConfig,
     SourceConfig,
+    TorchExtractorConfig,
+    UncertaintyExtractorConfig,
+    YoloDatasetConfig,
     export_params_schema,
     load_config,
     load_config_folder,
 )
-from dataeval_flow.config.schemas.dataset import DatasetConfig
-from dataeval_flow.workflow.base import (
-    Reportable,
-    WorkflowOutputsBase,
-    WorkflowParametersBase,
-    WorkflowReportBase,
-)
+from dataeval_flow.workflow.base import Reportable, WorkflowOutputsBase, WorkflowParametersBase, WorkflowReportBase
 from dataeval_flow.workflows.cleaning import (
     DataCleaningOutputs,
     DataCleaningParameters,
@@ -63,10 +65,7 @@ class TestDataCleaningParameters:
     def test_custom_values(self):
         """Parameters accept custom values."""
         params = DataCleaningParameters(
-            outlier_method="iqr",
-            outlier_threshold=2.5,
-            outlier_flags=["pixel", "visual"],
-            mode="preparatory",
+            outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"], mode="preparatory"
         )
         assert params.outlier_method == "iqr"
         assert params.outlier_threshold == 2.5
@@ -85,20 +84,12 @@ class TestDataCleaningParameters:
     def test_negative_threshold_rejected(self):
         """Negative outlier_threshold raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_threshold"):
-            DataCleaningParameters(
-                outlier_method="modzscore",
-                outlier_flags=["dimension"],
-                outlier_threshold=-1.0,
-            )
+            DataCleaningParameters(outlier_method="modzscore", outlier_flags=["dimension"], outlier_threshold=-1.0)
 
     def test_empty_outlier_flags_rejected(self):
         """Empty outlier_flags list raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningParameters(
-                outlier_method="modzscore",
-                outlier_flags=[],
-                outlier_threshold=None,
-            )
+            DataCleaningParameters(outlier_method="modzscore", outlier_flags=[], outlier_threshold=None)
 
     def test_invalid_duplicate_flag_rejected(self):
         """Invalid duplicate_flags value raises ValidationError."""
@@ -112,9 +103,7 @@ class TestDataCleaningParameters:
     def test_valid_duplicate_flags_accepted(self):
         """Valid duplicate_flags values are accepted."""
         params = DataCleaningParameters(
-            outlier_method="modzscore",
-            outlier_flags=["dimension"],
-            duplicate_flags=["hash_basic", "hash_d4"],
+            outlier_method="modzscore", outlier_flags=["dimension"], duplicate_flags=["hash_basic", "hash_d4"]
         )
         assert params.duplicate_flags == ["hash_basic", "hash_d4"]
 
@@ -251,11 +240,7 @@ class TestDataCleaningOutputs:
 
     def test_reportable(self):
         """Reportable can be created."""
-        item = Reportable(
-            report_type="table",
-            title="Test",
-            data={"key": "value"},
-        )
+        item = Reportable(report_type="table", title="Test", data={"key": "value"})
         assert item.report_type == "table"
         assert item.title == "Test"
 
@@ -270,12 +255,7 @@ class TestDataCleaningOutputs:
 
     def test_data_cleaning_report_with_findings(self):
         """DataCleaningReport can have findings."""
-        finding = Reportable(
-            report_type="key_value",
-            title="Finding",
-            data={"count": 10},
-            description="Test finding",
-        )
+        finding = Reportable(report_type="key_value", title="Finding", data={"count": 10}, description="Test finding")
         report = DataCleaningReport(summary="Summary", findings=[finding])
         assert len(report.findings) == 1
         assert report.findings[0].title == "Finding"
@@ -384,9 +364,8 @@ class TestExtractorConfig:
 
     def test_extractor_config_valid_onnx(self):
         """ExtractorConfig with onnx model and preprocessor."""
-        ext = ExtractorConfig(
+        ext = OnnxExtractorConfig(
             name="resnet_ext",
-            model="onnx",
             model_path="./resnet50.onnx",
             output_name="flatten0",
             preprocessor="resnet_preprocess",
@@ -401,33 +380,27 @@ class TestExtractorConfig:
 
     def test_extractor_config_valid_flatten(self):
         """ExtractorConfig with flatten model type."""
-        ext = ExtractorConfig(name="flat_ext", model="flatten")
+        ext = FlattenExtractorConfig(name="flat_ext")
         assert ext.model == "flatten"
         assert ext.preprocessor is None
         assert ext.batch_size is None
 
     def test_extractor_config_valid_bovw(self):
         """ExtractorConfig with bovw model type and vocab_size."""
-        ext = ExtractorConfig(name="bovw_ext", model="bovw", vocab_size=1024)
+        ext = BoVWExtractorConfig(name="bovw_ext", vocab_size=1024)
         assert ext.model == "bovw"
         assert ext.vocab_size == 1024
 
     def test_extractor_config_bovw_vocab_size_out_of_range_raises(self):
         """ExtractorConfig rejects bovw vocab_size outside 256-4096."""
         with pytest.raises(ValidationError, match="vocab_size"):
-            ExtractorConfig(name="bovw_ext", model="bovw", vocab_size=1)
+            BoVWExtractorConfig(name="bovw_ext", vocab_size=1)
         with pytest.raises(ValidationError, match="vocab_size"):
-            ExtractorConfig(name="bovw_ext", model="bovw", vocab_size=10000)
+            BoVWExtractorConfig(name="bovw_ext", vocab_size=10000)
 
     def test_extractor_config_valid_torch(self):
         """ExtractorConfig with torch model type."""
-        ext = ExtractorConfig(
-            name="torch_ext",
-            model="torch",
-            model_path="./resnet.pt",
-            layer_name="layer4",
-            device="cpu",
-        )
+        ext = TorchExtractorConfig(name="torch_ext", model_path="./resnet.pt", layer_name="layer4", device="cpu")
         assert ext.model == "torch"
         assert ext.model_path == "./resnet.pt"
         assert ext.layer_name == "layer4"
@@ -435,43 +408,25 @@ class TestExtractorConfig:
 
     def test_extractor_config_valid_uncertainty(self):
         """ExtractorConfig with uncertainty model type."""
-        ext = ExtractorConfig(
-            name="unc_ext",
-            model="uncertainty",
-            model_path="./classifier.pt",
-            preds_type="logits",
-        )
+        ext = UncertaintyExtractorConfig(name="unc_ext", model_path="./classifier.pt", preds_type="logits")
         assert ext.model == "uncertainty"
         assert ext.preds_type == "logits"
 
     def test_extractor_config_minimal(self):
         """ExtractorConfig with only required fields."""
-        ext = ExtractorConfig(name="ext", model="flatten")
+        ext = FlattenExtractorConfig(name="ext")
         assert ext.preprocessor is None
         assert ext.batch_size is None
-        assert ext.model_path is None
-
-    def test_extractor_config_missing_model_raises(self):
-        """ExtractorConfig requires model field."""
-        with pytest.raises(ValidationError, match="model"):
-            ExtractorConfig(name="ext")  # type: ignore[call-arg]
-
-    def test_extractor_config_invalid_model_type_raises(self):
-        """Invalid model type raises ValidationError."""
-        with pytest.raises(ValidationError, match="model"):
-            ExtractorConfig(
-                name="bad",
-                model="invalid",  # type: ignore[arg-type]
-            )
+        assert ext.model == "flatten"
 
     def test_extractor_config_onnx_flatten_default(self):
         """ExtractorConfig onnx flatten defaults to True."""
-        ext = ExtractorConfig(name="ext", model="onnx", model_path="./m.onnx")
+        ext = OnnxExtractorConfig(name="ext", model_path="./m.onnx")
         assert ext.flatten is True
 
     def test_extractor_config_torch_use_output_default(self):
         """ExtractorConfig torch use_output defaults to True."""
-        ext = ExtractorConfig(name="ext", model="torch", model_path="./m.pt")
+        ext = TorchExtractorConfig(name="ext", model_path="./m.pt")
         assert ext.use_output is True
 
     def test_extractor_discriminated_union_from_yaml(self, tmp_path: Path):
@@ -536,81 +491,46 @@ class TestP1SchemaClasses:
 
     def test_dataset_config_with_split(self):
         """DatasetConfig with a split name."""
-        from dataeval_flow.config.schemas import DatasetConfig
 
-        dataset = DatasetConfig(
-            name="cppe5",
-            format="huggingface",
-            path="./cppe5",
-            split="train",
-        )
+        dataset = HuggingFaceDatasetConfig(name="cppe5", path="./cppe5", split="train")
         assert dataset.name == "cppe5"
         assert dataset.format == "huggingface"
         assert dataset.path == "./cppe5"
         assert dataset.split == "train"
 
     def test_dataset_config_with_none_split(self):
-        """DatasetConfig with split=None (single-split dataset)."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
-        dataset = DatasetConfig(
-            name="retail",
-            format="coco",
-            path="./retail",
-            split=None,
-        )
+        """HuggingFaceDatasetConfig with split=None (single-split dataset)."""
+        dataset = HuggingFaceDatasetConfig(name="retail", path="./retail", split=None)
         assert dataset.split is None
 
     def test_dataset_config_missing_required_raises(self):
-        """DatasetConfig requires name, format, path, split."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
+        """DatasetConfig requires name and path."""
         with pytest.raises(ValidationError, match="name"):
-            DatasetConfig(format="coco", path="./data", split="train")  # type: ignore[call-arg]
-
-    def test_dataset_config_invalid_format_raises(self):
-        """DatasetConfig rejects invalid format."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
-        with pytest.raises(ValidationError, match="format"):
-            DatasetConfig(
-                name="test",
-                format="invalid",  # type: ignore[arg-type]
-                path="./data",
-                split="train",
-            )
+            CocoDatasetConfig(path="./data")  # type: ignore[call-arg]
 
     def test_dataset_config_rejects_labels_dir_for_coco(self):
-        """DatasetConfig rejects labels_dir for COCO format."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
-        with pytest.raises(ValidationError, match="labels_dir"):
-            DatasetConfig(name="ds", format="coco", path="./data", labels_dir="labels")
+        """CocoDatasetConfig has no labels_dir field."""
+        with pytest.raises(ValidationError):
+            CocoDatasetConfig(name="ds", path="./data", labels_dir="labels")  # type: ignore[call-arg]
 
     def test_dataset_config_rejects_annotations_file_for_yolo(self):
-        """DatasetConfig rejects annotations_file for YOLO format."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
-        with pytest.raises(ValidationError, match="annotations_file"):
-            DatasetConfig(name="ds", format="yolo", path="./data", annotations_file="ann.json")
+        """YoloDatasetConfig has no annotations_file field."""
+        with pytest.raises(ValidationError):
+            YoloDatasetConfig(name="ds", path="./data", annotations_file="ann.json")  # type: ignore[call-arg]
 
     def test_dataset_config_rejects_split_for_image_folder(self):
-        """DatasetConfig rejects split for image_folder format."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
-        with pytest.raises(ValidationError, match="split"):
-            DatasetConfig(name="ds", format="image_folder", path="./data", split="train")
+        """ImageFolderDatasetConfig has no split field."""
+        with pytest.raises(ValidationError):
+            ImageFolderDatasetConfig(name="ds", path="./data", split="train")  # type: ignore[call-arg]
 
     def test_dataset_config_rejects_recursive_for_huggingface(self):
-        """DatasetConfig rejects recursive for huggingface format."""
-        from dataeval_flow.config.schemas import DatasetConfig
-
-        with pytest.raises(ValidationError, match="recursive"):
-            DatasetConfig(name="ds", format="huggingface", path="./data", recursive=True)
+        """HuggingFaceDatasetConfig has no recursive field."""
+        with pytest.raises(ValidationError):
+            HuggingFaceDatasetConfig(name="ds", path="./data", recursive=True)  # type: ignore[call-arg]
 
     def test_preprocessor_config_valid(self):
         """PreprocessorConfig with valid steps."""
-        from dataeval_flow.config.schemas import PreprocessorConfig
+        from dataeval_flow.config import PreprocessorConfig
         from dataeval_flow.preprocessing import PreprocessingStep
 
         config = PreprocessorConfig(
@@ -627,7 +547,7 @@ class TestP1SchemaClasses:
 
     def test_selection_step_valid(self):
         """SelectionStep with type and params."""
-        from dataeval_flow.config.schemas import SelectionStep
+        from dataeval_flow.config import SelectionStep
 
         step = SelectionStep(type="Limit", params={"size": 10000})
         assert step.type == "Limit"
@@ -635,7 +555,7 @@ class TestP1SchemaClasses:
 
     def test_selection_step_default_params(self):
         """SelectionStep params defaults to empty dict."""
-        from dataeval_flow.config.schemas import SelectionStep
+        from dataeval_flow.config import SelectionStep
 
         step = SelectionStep(type="ClassBalance")
         assert step.type == "ClassBalance"
@@ -643,7 +563,7 @@ class TestP1SchemaClasses:
 
     def test_selection_config_valid(self):
         """SelectionConfig with named pipeline."""
-        from dataeval_flow.config.schemas import SelectionConfig, SelectionStep
+        from dataeval_flow.config import SelectionConfig, SelectionStep
 
         config = SelectionConfig(
             name="training_subset",
@@ -659,7 +579,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_valid(self):
         """TaskConfig with sources and extractor references."""
-        from dataeval_flow.config.schemas import TaskConfig
+        from dataeval_flow.config import TaskConfig
 
         task = TaskConfig(
             name="data_cleaning",
@@ -676,18 +596,14 @@ class TestP1SchemaClasses:
 
     def test_task_config_with_sources_list(self):
         """TaskConfig accepts sources as a list."""
-        from dataeval_flow.config.schemas import TaskConfig
+        from dataeval_flow.config import TaskConfig
 
-        task = TaskConfig(
-            name="multi",
-            workflow="data-cleaning",
-            sources=["src_a", "src_b"],
-        )
+        task = TaskConfig(name="multi", workflow="data-cleaning", sources=["src_a", "src_b"])
         assert task.sources == ["src_a", "src_b"]
 
     def test_task_config_minimal(self):
         """TaskConfig with only required fields."""
-        from dataeval_flow.config.schemas import TaskConfig
+        from dataeval_flow.config import TaskConfig
 
         task = TaskConfig(name="minimal", workflow="data-cleaning", sources="test_src")
         assert task.name == "minimal"
@@ -698,7 +614,7 @@ class TestP1SchemaClasses:
 
     def test_task_config_invalid_output_format_raises(self):
         """TaskConfig rejects invalid output_format."""
-        from dataeval_flow.config.schemas import TaskConfig
+        from dataeval_flow.config import TaskConfig
 
         with pytest.raises(ValidationError, match="output_format"):
             TaskConfig(
@@ -749,7 +665,7 @@ class TestP1SchemaClasses:
         # Verify datasets
         assert config.datasets is not None
         assert len(config.datasets) == 1
-        assert isinstance(config.datasets[0], DatasetConfig)
+        assert isinstance(config.datasets[0], HuggingFaceDatasetConfig)
         assert config.datasets[0].name == "cppe5"
         assert config.datasets[0].split == "train"
 
@@ -791,35 +707,23 @@ class TestDriftMonitoringTaskConfig:
 
     def test_single_source_raises(self):
         """DriftMonitoringTaskConfig requires at least 2 sources."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+        from dataeval_flow.config import DriftMonitoringTaskConfig
 
         with pytest.raises(ValidationError, match="at least 2 sources"):
-            DriftMonitoringTaskConfig(
-                name="test",
-                workflow="drift-instance",
-                sources="single_src",
-            )
+            DriftMonitoringTaskConfig(name="test", workflow="drift-instance", sources="single_src")
 
     def test_single_source_in_list_raises(self):
         """DriftMonitoringTaskConfig rejects a list with only one source."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+        from dataeval_flow.config import DriftMonitoringTaskConfig
 
         with pytest.raises(ValidationError, match="at least 2 sources"):
-            DriftMonitoringTaskConfig(
-                name="test",
-                workflow="drift-instance",
-                sources=["only_one"],
-            )
+            DriftMonitoringTaskConfig(name="test", workflow="drift-instance", sources=["only_one"])
 
     def test_valid_drift_task_config(self):
         """DriftMonitoringTaskConfig accepts valid config with 2 sources."""
-        from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+        from dataeval_flow.config import DriftMonitoringTaskConfig
 
-        task = DriftMonitoringTaskConfig(
-            name="drift",
-            workflow="drift-instance",
-            sources=["ref_src", "test_src"],
-        )
+        task = DriftMonitoringTaskConfig(name="drift", workflow="drift-instance", sources=["ref_src", "test_src"])
         assert task.name == "drift"
         assert len(task.sources) == 2
 
@@ -859,9 +763,7 @@ class TestWorkflowConfig:
     def test_cleaning_workflow_config_basic(self):
         """DataCleaningWorkflowConfig stores name, type, and flat params."""
         wc = DataCleaningWorkflowConfig(
-            name="aggressive_clean",
-            outlier_method="zscore",
-            outlier_flags=["dimension", "pixel"],
+            name="aggressive_clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"]
         )
         assert wc.name == "aggressive_clean"
         assert wc.type == "data-cleaning"
@@ -875,13 +777,10 @@ class TestWorkflowConfig:
 
     def test_drift_workflow_config_basic(self):
         """DriftMonitoringWorkflowConfig stores name, type, and flat params."""
-        from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
+        from dataeval_flow.config import DriftMonitoringWorkflowConfig
         from dataeval_flow.workflows.drift.params import DriftDetectorKNeighbors
 
-        wc = DriftMonitoringWorkflowConfig(
-            name="knn_drift",
-            detectors=[DriftDetectorKNeighbors(k=10)],
-        )
+        wc = DriftMonitoringWorkflowConfig(name="knn_drift", detectors=[DriftDetectorKNeighbors(k=10)])
         assert wc.name == "knn_drift"
         assert wc.type == "drift-monitoring"
         assert len(wc.detectors) == 1
@@ -957,9 +856,7 @@ class TestResolveWorkflow:
         config = PipelineConfig(
             workflows=[
                 DataCleaningWorkflowConfig(
-                    name="standard_clean",
-                    outlier_method="adaptive",
-                    outlier_flags=["dimension", "pixel"],
+                    name="standard_clean", outlier_method="adaptive", outlier_flags=["dimension", "pixel"]
                 ),
             ]
         )
@@ -975,11 +872,7 @@ class TestResolveWorkflow:
 
         config = PipelineConfig(
             workflows=[
-                DataCleaningWorkflowConfig(
-                    name="existing",
-                    outlier_method="zscore",
-                    outlier_flags=["dimension"],
-                )
+                DataCleaningWorkflowConfig(name="existing", outlier_method="zscore", outlier_flags=["dimension"])
             ]
         )
         with pytest.raises(ValueError, match="Unknown workflow: 'nonexistent'"):
@@ -992,3 +885,106 @@ class TestResolveWorkflow:
         config = PipelineConfig()
         with pytest.raises(ValueError, match="No workflow configs defined"):
             _resolve_workflow("standard_clean", config)
+
+
+# ---------------------------------------------------------------------------
+# PipelineConfig — duplicate name validation
+# ---------------------------------------------------------------------------
+
+
+class TestPipelineConfigDuplicateNames:
+    """Test PipelineConfig rejects duplicate names within sections."""
+
+    def test_duplicate_dataset_name_raises(self):
+        with pytest.raises(ValidationError, match="Duplicate name 'ds' in datasets"):
+            PipelineConfig(
+                datasets=[
+                    ImageFolderDatasetConfig(name="ds", path="./a"),
+                    ImageFolderDatasetConfig(name="ds", path="./b"),
+                ]
+            )
+
+    def test_duplicate_source_name_raises(self):
+        with pytest.raises(ValidationError, match="Duplicate name 'src' in sources"):
+            PipelineConfig(
+                sources=[
+                    SourceConfig(name="src", dataset="ds_a"),
+                    SourceConfig(name="src", dataset="ds_b"),
+                ]
+            )
+
+    def test_duplicate_extractor_name_raises(self):
+        with pytest.raises(ValidationError, match="Duplicate name 'ext' in extractors"):
+            PipelineConfig(
+                extractors=[
+                    FlattenExtractorConfig(name="ext"),
+                    FlattenExtractorConfig(name="ext"),
+                ]
+            )
+
+    def test_duplicate_workflow_name_raises(self):
+        with pytest.raises(ValidationError, match="Duplicate name 'wf' in workflows"):
+            PipelineConfig(
+                workflows=[
+                    DataCleaningWorkflowConfig(name="wf", outlier_method="zscore", outlier_flags=["dimension"]),
+                    DataCleaningWorkflowConfig(name="wf", outlier_method="iqr", outlier_flags=["pixel"]),
+                ]
+            )
+
+    def test_unique_names_pass(self):
+        config = PipelineConfig(
+            sources=[
+                SourceConfig(name="src_a", dataset="ds_a"),
+                SourceConfig(name="src_b", dataset="ds_b"),
+            ]
+        )
+        assert config.sources is not None
+        assert len(config.sources) == 2
+
+
+# ---------------------------------------------------------------------------
+# ExtractorConfig — irrelevant field validation
+# ---------------------------------------------------------------------------
+
+
+class TestExtractorConfigFieldValidation:
+    """Test typed extractor configs reject fields from other model types."""
+
+    def test_bovw_rejects_output_name(self):
+        with pytest.raises(ValidationError):
+            BoVWExtractorConfig(name="ext", vocab_size=512, output_name="layer4")  # type: ignore[call-arg]
+
+    def test_bovw_rejects_model_path(self):
+        with pytest.raises(ValidationError):
+            BoVWExtractorConfig(name="ext", vocab_size=512, model_path="/m.onnx")  # type: ignore[call-arg]
+
+    def test_flatten_rejects_vocab_size(self):
+        with pytest.raises(ValidationError):
+            FlattenExtractorConfig(name="ext", vocab_size=1024)  # type: ignore[call-arg]
+
+    def test_flatten_rejects_model_path(self):
+        with pytest.raises(ValidationError):
+            FlattenExtractorConfig(name="ext", model_path="/m.onnx")  # type: ignore[call-arg]
+
+    def test_onnx_rejects_vocab_size(self):
+        with pytest.raises(ValidationError):
+            OnnxExtractorConfig(name="ext", model_path="/m.onnx", vocab_size=512)  # type: ignore[call-arg]
+
+    def test_onnx_rejects_preds_type(self):
+        with pytest.raises(ValidationError):
+            OnnxExtractorConfig(name="ext", model_path="/m.onnx", preds_type="logits")  # type: ignore[call-arg]
+
+    def test_onnx_allows_relevant_fields(self):
+        ext = OnnxExtractorConfig(name="ext", model_path="/m.onnx", output_name="out", flatten=False)
+        assert ext.model_path == "/m.onnx"
+        assert ext.output_name == "out"
+        assert ext.flatten is False
+
+    def test_uncertainty_rejects_vocab_size(self):
+        with pytest.raises(ValidationError):
+            UncertaintyExtractorConfig(name="ext", model_path="/m.pt", preds_type="logits", vocab_size=512)  # type: ignore[call-arg]
+
+    def test_torch_allows_relevant_fields(self):
+        ext = TorchExtractorConfig(name="ext", model_path="/m.pt", layer_name="layer4", use_output=False, device="cpu")
+        assert ext.layer_name == "layer4"
+        assert ext.use_output is False

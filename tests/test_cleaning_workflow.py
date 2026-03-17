@@ -10,13 +10,9 @@ import pytest
 import dataeval_flow.embeddings
 import dataeval_flow.metadata
 import dataeval_flow.selection  # noqa: F401
-from dataeval_flow.config.models import ExtractorConfig
-from dataeval_flow.config.schemas.selection import SelectionStep
+from dataeval_flow.config import OnnxExtractorConfig, SelectionStep
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.cleaning.outputs import (
-    DataCleaningOutputs,
-    DataCleaningRawOutputs,
-)
+from dataeval_flow.workflows.cleaning.outputs import DataCleaningOutputs, DataCleaningRawOutputs
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds, DataCleaningParameters
 from dataeval_flow.workflows.cleaning.workflow import (
     CleaningRunContext,
@@ -86,11 +82,7 @@ class TestBuildOutliers:
     def test_cluster_params_passed(self, mock_outliers_cls: MagicMock):
         """Cluster params are passed through to Outliers when extractor provided."""
         mock_fe = MagicMock()
-        params = _make_params(
-            outlier_cluster_threshold=3.0,
-            outlier_cluster_algorithm="kmeans",
-            outlier_n_clusters=5,
-        )
+        params = _make_params(outlier_cluster_threshold=3.0, outlier_cluster_algorithm="kmeans", outlier_n_clusters=5)
         _build_outliers(params, extractor=mock_fe)
         call_kwargs = mock_outliers_cls.call_args[1]
         assert call_kwargs["cluster_threshold"] == 3.0
@@ -567,10 +559,7 @@ class TestBuildFindings:
 
     def test_clean_data_shows_ok_findings(self):
         """Clean data still produces Image Outliers and Classwise Outliers with severity='ok'."""
-        raw = DataCleaningRawOutputs(
-            dataset_size=100,
-            img_outliers={"count": 0, "issues": []},
-        )
+        raw = DataCleaningRawOutputs(dataset_size=100, img_outliers={"count": 0, "issues": []})
         findings = _build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Image Outliers" in titles
@@ -931,14 +920,11 @@ class TestDataCleaningWorkflowExecute:
                     dataset=mock_dataset,
                     selection_steps=[SelectionStep(type="Limit", params={"size": 50})],
                 )
-            },
+            }
         )
 
         mock_meta_cls.return_value = MagicMock()
-        mock_run_clean.return_value = DataCleaningRawOutputs(
-            dataset_size=50,
-            img_outliers={"count": 0, "issues": []},
-        )
+        mock_run_clean.return_value = DataCleaningRawOutputs(dataset_size=50, img_outliers={"count": 0, "issues": []})
 
         result = wf.execute(ctx, self._make_exec_params())
         assert result.success
@@ -949,12 +935,7 @@ class TestDataCleaningWorkflowExecute:
     @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_flow.metadata.Metadata")
     @patch("dataeval_flow.embeddings.OnnxExtractor")
-    def test_with_embeddings(
-        self,
-        mock_extractor_cls: MagicMock,
-        mock_meta_cls: MagicMock,
-        mock_run_clean: MagicMock,
-    ):
+    def test_with_embeddings(self, mock_extractor_cls: MagicMock, mock_meta_cls: MagicMock, mock_run_clean: MagicMock):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
 
@@ -963,18 +944,13 @@ class TestDataCleaningWorkflowExecute:
                 "default": DatasetContext(
                     name="default",
                     dataset=mock_dataset,
-                    extractor=ExtractorConfig(
-                        name="test_ext", model="onnx", model_path="/model.onnx", output_name="layer4"
-                    ),
+                    extractor=OnnxExtractorConfig(name="test_ext", model_path="/model.onnx", output_name="layer4"),
                 )
-            },
+            }
         )
 
         mock_meta_cls.return_value = MagicMock()
-        mock_run_clean.return_value = DataCleaningRawOutputs(
-            dataset_size=100,
-            img_outliers={"count": 0, "issues": []},
-        )
+        mock_run_clean.return_value = DataCleaningRawOutputs(dataset_size=100, img_outliers={"count": 0, "issues": []})
 
         result = wf.execute(ctx, self._make_exec_params())
         assert result.success
@@ -1425,7 +1401,7 @@ class TestComputeEmbeddings:
         arrays_mod.to_numpy = lambda x: x  # type: ignore[attr-defined]
         sys.modules["dataeval.utils.arrays"] = arrays_mod
         try:
-            dataset = [(np.zeros((3, 32, 32)),), (np.zeros((3, 32, 32)),)]
+            dataset = [(np.zeros((3, 32, 32))), (np.zeros((3, 32, 32)))]
             extractor = MagicMock(return_value=np.zeros((2, 64)))
 
             result = _compute_embeddings(dataset, extractor, run_ctx=None)  # type: ignore

@@ -1,6 +1,6 @@
-"""Workflow configuration schemas."""
+"""Workflow configuration schemas — one class per workflow type."""
 
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import Field
 
@@ -45,11 +45,3 @@ class DriftMonitoringWorkflowConfig(DriftMonitoringParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["drift-monitoring"] = "drift-monitoring"
-
-
-# Discriminated union — Pydantic selects the right config based on ``type``.
-# Use this type alias the same way as ``ExtractorConfig``.
-WorkflowConfig = Annotated[
-    DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig,
-    Field(discriminator="type"),
-]

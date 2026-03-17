@@ -571,29 +571,38 @@ class ResolvedDataset:
 def resolve_dataset(config: BaseModel) -> ResolvedDataset:
     """Resolve a dataset config into a :class:`ResolvedDataset`.
 
-    Handles both file-backed (:class:`DatasetConfig`) and in-memory
-    (:class:`DatasetProtocolConfig`) configs, centralizing all
+    Handles both file-backed (:class:`DatasetConfig` union members) and
+    in-memory (:class:`DatasetProtocolConfig`) configs, centralizing all
     format-specific branching in one place.
     """
-    from dataeval_flow.config.schemas.dataset import DatasetConfig, DatasetProtocolConfig
+    from dataeval_flow.config.schemas._dataset import (
+        DatasetProtocolConfig,
+        HuggingFaceDatasetConfig,
+        ImageFolderDatasetConfig,
+        _DatasetConfigBase,
+    )
 
     if isinstance(config, DatasetProtocolConfig):
         dataset = load_dataset_torchvision(config.dataset) if config.format == "torchvision" else config.dataset
         label_source: str | None = _LABEL_SOURCE.get(config.format)
         cache_key = f"{config.name}:{config.format}:{config.version}"
-    elif isinstance(config, DatasetConfig):
-        dataset = load_dataset(
-            Path(config.path),
-            split=config.split,
-            dataset_format=config.format,
-            recursive=config.recursive,
-            infer_labels=config.infer_labels,
-            annotations_file=config.annotations_file,
-            images_dir=config.images_dir,
-            labels_dir=config.labels_dir,
-            classes_file=config.classes_file,
-        )
-        if config.format == "image_folder" and config.infer_labels:
+    elif isinstance(config, _DatasetConfigBase):
+        # All file-backed dataset configs share path/format; dispatch through load_dataset
+        kwargs: dict[str, Any] = {}
+        if isinstance(config, HuggingFaceDatasetConfig):
+            kwargs["split"] = config.split
+        elif isinstance(config, ImageFolderDatasetConfig):
+            kwargs["recursive"] = config.recursive
+            kwargs["infer_labels"] = config.infer_labels
+        else:
+            # Coco / Yolo — forward format-specific fields
+            for field_name in ("annotations_file", "images_dir", "labels_dir", "classes_file"):
+                if hasattr(config, field_name):
+                    kwargs[field_name] = getattr(config, field_name)
+
+        dataset = load_dataset(Path(config.path), dataset_format=config.format, **kwargs)
+
+        if isinstance(config, ImageFolderDatasetConfig) and config.infer_labels:
             label_source = "filepath"
         else:
             label_source = _LABEL_SOURCE.get(config.format)

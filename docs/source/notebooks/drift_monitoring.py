@@ -172,27 +172,24 @@ plt.show()
 # (distance-based) and **MMD** (distribution-wide kernel test).
 
 # %%
-from dataeval_flow.config.models import ExtractorConfig, PipelineConfig, SourceConfig
-from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config import FlattenExtractorConfig, ImageFolderDatasetConfig, PipelineConfig, SourceConfig
 
 # --- Datasets ---
 # First dataset = reference, second = incoming test data
 # Flat image folders (no class subdirs) — preserves temporal ordering
-ref_dataset = DatasetConfig(
+ref_dataset = ImageFolderDatasetConfig(
     name="reference",
-    format="image_folder",
     path=str(ref_dir),
 )
 
-incoming_dataset = DatasetConfig(
+incoming_dataset = ImageFolderDatasetConfig(
     name="incoming",
-    format="image_folder",
     path=str(incoming_dir),
 )
 
 # --- Extractor ---
 # Flatten reshapes each 28×28 grayscale image into a 784-D feature vector — no model file needed
-extractor_config = ExtractorConfig(name="flatten", model="flatten", batch_size=64)
+extractor_config = FlattenExtractorConfig(name="flatten", batch_size=64)
 
 # %% [markdown]
 # ### Configure drift detectors and chunking
@@ -223,8 +220,7 @@ extractor_config = ExtractorConfig(name="flatten", model="flatten", batch_size=6
 # to show drift while the first half remains clean.
 
 # %%
-from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
-from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+from dataeval_flow.config import DriftMonitoringTaskConfig, DriftMonitoringWorkflowConfig
 from dataeval_flow.workflow import run_tasks
 from dataeval_flow.workflows.drift.params import (
     ChunkingConfig,

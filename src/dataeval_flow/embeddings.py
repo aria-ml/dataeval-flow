@@ -16,7 +16,7 @@ from dataeval.protocols import AnnotatedDataset
 logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from dataeval_flow.config.models import ExtractorConfig
+    from dataeval_flow.config.schemas import ExtractorConfig
 
 
 def build_embeddings(
@@ -69,19 +69,24 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
     Callable
         A callable extractor function that takes a dataset and returns extracted features.
     """
+    from dataeval_flow.config.schemas._extractor import (
+        BoVWExtractorConfig,
+        FlattenExtractorConfig,
+        OnnxExtractorConfig,
+    )
 
     logger.debug("Building %s extractor", extractor_config.model)
 
-    if extractor_config.model == "onnx":
+    if isinstance(extractor_config, OnnxExtractorConfig):
         extractor = OnnxExtractor(
-            extractor_config.model_path or "",
+            extractor_config.model_path,
             transforms=transforms,
             output_name=extractor_config.output_name,
             flatten=extractor_config.flatten,
         )
-    elif extractor_config.model == "bovw":
-        extractor = BoVWExtractor(vocab_size=extractor_config.vocab_size or 2048)
-    elif extractor_config.model == "flatten":
+    elif isinstance(extractor_config, BoVWExtractorConfig):
+        extractor = BoVWExtractor(vocab_size=extractor_config.vocab_size)
+    elif isinstance(extractor_config, FlattenExtractorConfig):
         extractor = FlattenExtractor()
     else:
         raise ValueError(

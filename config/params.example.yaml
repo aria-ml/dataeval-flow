@@ -10,10 +10,9 @@
 # Configuration follows a define-once, reference-by-name pattern:
 #
 #   datasets:      → named dataset definitions
-#   models:        → named model definitions (type + params)
-#   preprocessors: → named preprocessing pipelines
 #   selections:    → named selection pipelines
 #   sources:       → dataset + optional selection bundles
+#   preprocessors: → named preprocessing pipelines
 #   extractors:    → model + optional preprocessor + batch_size bundles
 #   workflows:     → named workflow instances (type + params)
 #   tasks:         → lightweight composition by name

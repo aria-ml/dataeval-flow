@@ -28,9 +28,7 @@ if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
 
     from dataeval_flow.cache import DatasetCache
-    from dataeval_flow.config.models import ExtractorConfig
-    from dataeval_flow.config.schemas.metadata import ResultMetadata
-    from dataeval_flow.config.schemas.selection import SelectionStep
+    from dataeval_flow.config.schemas import ExtractorConfig, ResultMetadata, SelectionStep
 
 
 @dataclass
@@ -60,7 +58,7 @@ class WorkflowContext:
 
 def _default_metadata() -> "ResultMetadata":
     """Lazy factory — avoids circular import at class-definition time."""
-    from dataeval_flow.config.schemas.metadata import ResultMetadata
+    from dataeval_flow.config.schemas import ResultMetadata
 
     return ResultMetadata()
 

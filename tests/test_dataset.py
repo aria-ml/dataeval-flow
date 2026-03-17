@@ -27,10 +27,11 @@ class TestImports:
 
     def test_public_api_exports(self) -> None:
         """Verify __all__ exports are available from package root."""
-        from dataeval_flow import load_dataset, load_dataset_huggingface
+        from dataeval_flow import load_config, load_dataset, run_tasks
 
+        assert callable(load_config)
         assert callable(load_dataset)
-        assert callable(load_dataset_huggingface)
+        assert callable(run_tasks)
 
     def test_workflow_api_exports(self) -> None:
         """Verify workflow exports are available from package root."""
@@ -54,7 +55,7 @@ class TestDatasetModule:
             mock_load.return_value = mock_hf_dataset
             mock_adapter.return_value = MagicMock()
 
-            from dataeval_flow import load_dataset_huggingface
+            from dataeval_flow.dataset import load_dataset_huggingface
 
             load_dataset_huggingface(Path("dummy/path"), split="train")
 
@@ -114,10 +115,7 @@ class TestDatasetModule:
                 classes_file="cls.txt",
             )
             mock_coco.assert_called_once_with(
-                Path("/some/path"),
-                annotations_file="ann.json",
-                images_dir="imgs",
-                classes_file="cls.txt",
+                Path("/some/path"), annotations_file="ann.json", images_dir="imgs", classes_file="cls.txt"
             )
 
     def test_load_dataset_yolo_dispatch(self) -> None:
@@ -128,17 +126,10 @@ class TestDatasetModule:
             from dataeval_flow.dataset import load_dataset
 
             load_dataset(
-                Path("/some/path"),
-                dataset_format="yolo",
-                images_dir="imgs",
-                labels_dir="lbls",
-                classes_file="cls.txt",
+                Path("/some/path"), dataset_format="yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
             )
             mock_yolo.assert_called_once_with(
-                Path("/some/path"),
-                images_dir="imgs",
-                labels_dir="lbls",
-                classes_file="cls.txt",
+                Path("/some/path"), images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
             )
 
 
@@ -343,31 +334,31 @@ class TestImageFolderDatasetLabeled:
 
 @pytest.mark.required
 class TestDatasetConfigImageFolder:
-    """Tests for DatasetConfig with image_folder format."""
+    """Tests for ImageFolderDatasetConfig."""
 
     def test_image_folder_format_accepted(self) -> None:
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = DatasetConfig(name="test", format="image_folder", path="/data")
+        cfg = ImageFolderDatasetConfig(name="test", path="/data")
         assert cfg.format == "image_folder"
 
     def test_recursive_field(self) -> None:
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = DatasetConfig(name="test", format="image_folder", path="/data", recursive=True)
+        cfg = ImageFolderDatasetConfig(name="test", path="/data", recursive=True)
         assert cfg.recursive is True
 
     def test_infer_labels_field(self) -> None:
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = DatasetConfig(name="test", format="image_folder", path="/data", infer_labels=True)
+        cfg = ImageFolderDatasetConfig(name="test", path="/data", infer_labels=True)
         assert cfg.infer_labels is True
 
     def test_defaults_backward_compat(self) -> None:
-        """Existing configs without new fields still parse."""
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        """ImageFolderDatasetConfig defaults are safe."""
+        from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = DatasetConfig(name="test", format="huggingface", path="/data")
+        cfg = ImageFolderDatasetConfig(name="test", path="/data")
         assert cfg.recursive is False
         assert cfg.infer_labels is False
 
@@ -377,42 +368,31 @@ class TestDatasetConfigNewFields:
     """Tests for COCO/YOLO config fields."""
 
     def test_coco_fields_parse(self) -> None:
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config import CocoDatasetConfig
 
-        cfg = DatasetConfig(
-            name="coco-ds",
-            format="coco",
-            path="/data/coco",
-            annotations_file="ann.json",
-            images_dir="imgs",
-            classes_file="cls.txt",
+        cfg = CocoDatasetConfig(
+            name="coco-ds", path="/data/coco", annotations_file="ann.json", images_dir="imgs", classes_file="cls.txt"
         )
         assert cfg.annotations_file == "ann.json"
         assert cfg.images_dir == "imgs"
         assert cfg.classes_file == "cls.txt"
 
     def test_yolo_fields_parse(self) -> None:
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config import YoloDatasetConfig
 
-        cfg = DatasetConfig(
-            name="yolo-ds",
-            format="yolo",
-            path="/data/yolo",
-            images_dir="imgs",
-            labels_dir="lbls",
-            classes_file="cls.txt",
+        cfg = YoloDatasetConfig(
+            name="yolo-ds", path="/data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
         )
         assert cfg.images_dir == "imgs"
         assert cfg.labels_dir == "lbls"
         assert cfg.classes_file == "cls.txt"
 
     def test_new_fields_default_to_none(self) -> None:
-        from dataeval_flow.config.schemas.dataset import DatasetConfig
+        from dataeval_flow.config import CocoDatasetConfig
 
-        cfg = DatasetConfig(name="test", format="huggingface", path="/data")
+        cfg = CocoDatasetConfig(name="test", path="/data")
         assert cfg.annotations_file is None
         assert cfg.images_dir is None
-        assert cfg.labels_dir is None
         assert cfg.classes_file is None
 
 
@@ -752,9 +732,7 @@ class TestTorchvisionDatasetObjectDetection:
                 img = Image.new("RGB", (100, 100))
                 # XYWH (10, 20, 30, 40) → XYXY (10, 20, 40, 60)
                 boxes = _make_bboxes(
-                    torch.tensor([[10.0, 20.0, 30.0, 40.0]]),
-                    format=BoundingBoxFormat.XYWH,
-                    canvas_size=(100, 100),
+                    torch.tensor([[10.0, 20.0, 30.0, 40.0]]), format=BoundingBoxFormat.XYWH, canvas_size=(100, 100)
                 )
                 return img, {"boxes": boxes, "labels": torch.tensor([0])}
 
@@ -781,9 +759,7 @@ class TestTorchvisionDatasetObjectDetection:
                 img = Image.new("RGB", (100, 100))
                 # CXCYWH (50, 50, 20, 30) → XYXY (40, 35, 60, 65)
                 boxes = _make_bboxes(
-                    torch.tensor([[50.0, 50.0, 20.0, 30.0]]),
-                    format=BoundingBoxFormat.CXCYWH,
-                    canvas_size=(100, 100),
+                    torch.tensor([[50.0, 50.0, 20.0, 30.0]]), format=BoundingBoxFormat.CXCYWH, canvas_size=(100, 100)
                 )
                 return img, {"boxes": boxes, "labels": torch.tensor([0])}
 
@@ -809,9 +785,7 @@ class TestTorchvisionDatasetObjectDetection:
 
                 img = Image.new("RGB", (100, 100))
                 boxes = _make_bboxes(
-                    torch.tensor([[10.0, 20.0, 50.0, 60.0]]),
-                    format=BoundingBoxFormat.XYXY,
-                    canvas_size=(100, 100),
+                    torch.tensor([[10.0, 20.0, 50.0, 60.0]]), format=BoundingBoxFormat.XYXY, canvas_size=(100, 100)
                 )
                 return img, {"boxes": boxes, "labels": torch.tensor([0])}
 
@@ -916,32 +890,24 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_format_torchvision_accepted(self) -> None:
         """format='torchvision' is a valid literal."""
-        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config import DatasetProtocolConfig
 
-        cfg = DatasetProtocolConfig(
-            name="test",
-            format="torchvision",
-            dataset=_make_cls_dataset(classes=["a"]),
-        )
+        cfg = DatasetProtocolConfig(name="test", format="torchvision", dataset=_make_cls_dataset(classes=["a"]))
         assert cfg.format == "torchvision"
 
     def test_format_maite_still_works(self) -> None:
         """format='maite' (default) is still valid."""
-        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config import DatasetProtocolConfig
 
         cfg = DatasetProtocolConfig(name="test", dataset=MagicMock())
         assert cfg.format == "maite"
 
     def test_resolve_torchvision_wraps_dataset(self) -> None:
         """resolve_dataset wraps torchvision datasets in TorchvisionDataset."""
-        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config import DatasetProtocolConfig
         from dataeval_flow.dataset import TorchvisionDataset, resolve_dataset
 
-        cfg = DatasetProtocolConfig(
-            name="tv-test",
-            format="torchvision",
-            dataset=_make_cls_dataset(classes=["a", "b"]),
-        )
+        cfg = DatasetProtocolConfig(name="tv-test", format="torchvision", dataset=_make_cls_dataset(classes=["a", "b"]))
         resolved = resolve_dataset(cfg)
         assert isinstance(resolved.dataset, TorchvisionDataset)
         assert resolved.name == "tv-test"
@@ -950,7 +916,7 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_resolve_maite_passes_through(self) -> None:
         """resolve_dataset does not wrap maite datasets."""
-        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config import DatasetProtocolConfig
         from dataeval_flow.dataset import TorchvisionDataset, resolve_dataset
 
         raw = MagicMock()
@@ -961,7 +927,7 @@ class TestDatasetProtocolConfigTorchvision:
 
     def test_resolve_cache_key_includes_version(self) -> None:
         """cache_key changes when version changes."""
-        from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
+        from dataeval_flow.config import DatasetProtocolConfig
         from dataeval_flow.dataset import resolve_dataset
 
         cfg1 = DatasetProtocolConfig(
@@ -1048,7 +1014,7 @@ class TestResultMetadata:
 
     def test_defaults(self) -> None:
         """ResultMetadata has sensible defaults for JATIC fields."""
-        from dataeval_flow.config.schemas.metadata import ResultMetadata
+        from dataeval_flow.config import ResultMetadata
 
         meta = ResultMetadata()
         assert meta.version == "1.0"
@@ -1057,7 +1023,7 @@ class TestResultMetadata:
 
     def test_serializes_to_json(self) -> None:
         """model_dump(mode='json') produces JSON-safe types."""
-        from dataeval_flow.config.schemas.metadata import ResultMetadata
+        from dataeval_flow.config import ResultMetadata
 
         meta = ResultMetadata(dataset_id="cifar10", tool_version="0.1.0")
         data = meta.model_dump(mode="json")

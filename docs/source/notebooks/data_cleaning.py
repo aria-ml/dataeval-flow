@@ -86,11 +86,16 @@ cppe5_train.save_to_disk(str(data_path))
 # %%
 from dataeval.config import set_max_processes
 
-from dataeval_flow.config.models import ExtractorConfig, PipelineConfig, SourceConfig
-from dataeval_flow.config.schemas.dataset import DatasetConfig
-from dataeval_flow.config.schemas.params import DataCleaningWorkflowConfig
-from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
-from dataeval_flow.config.schemas.task import DataCleaningTaskConfig
+from dataeval_flow.config import (
+    BoVWExtractorConfig,
+    DataCleaningTaskConfig,
+    DataCleaningWorkflowConfig,
+    HuggingFaceDatasetConfig,
+    PipelineConfig,
+    SelectionConfig,
+    SelectionStep,
+    SourceConfig,
+)
 from dataeval_flow.workflow import run_tasks
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 
@@ -129,7 +134,7 @@ task = DataCleaningTaskConfig(
 # Build the full pipeline config — datasets, sources, extractors, selections, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        DatasetConfig(name="cppe5_train", format="huggingface", path=str(data_path)),
+        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path)),
     ],
     selections=[
         SelectionConfig(name="first500", steps=[SelectionStep(type="Limit", params={"size": 500})]),
@@ -138,7 +143,7 @@ config = PipelineConfig(
         SourceConfig(name="cppe5_src", dataset="cppe5_train", selection="first500"),
     ],
     extractors=[
-        ExtractorConfig(name="bovw_ext", model="bovw", vocab_size=512, batch_size=32),
+        BoVWExtractorConfig(name="bovw_ext", vocab_size=512, batch_size=32),
     ],
     workflows=[advisory_workflow],
     tasks=[task],

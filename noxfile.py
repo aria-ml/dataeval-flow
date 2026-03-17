@@ -113,10 +113,10 @@ def schema(session: nox.Session) -> None:
 
     Usage:
       nox -s schema           # Check only (CI-friendly) — fails if schema is stale
-      nox -s schema -- --fix  # Regenerate and overwrite the file
+      nox -s schema -- fix    # Regenerate and overwrite the file
     """
     args = ["python", "config/sync_schema.py"]
-    if "--fix" in session.posargs:
+    if "fix" in session.posargs or "--fix" in session.posargs:
         args.append("--fix")
     session.run(*args)
 

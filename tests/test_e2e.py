@@ -17,8 +17,7 @@ import polars as pl
 import dataeval_flow.dataset
 import dataeval_flow.metadata
 import dataeval_flow.workflows.cleaning.workflow  # noqa: F401
-from dataeval_flow.config import load_config_folder
-from dataeval_flow.config.schemas.dataset import DatasetConfig
+from dataeval_flow.config import HuggingFaceDatasetConfig, load_config_folder
 
 
 class TestConfigToFactoryIntegration:
@@ -159,7 +158,7 @@ class TestConfigToFactoryIntegration:
         src1 = sources_by_name[task1.sources]
         assert src1.dataset in datasets_by_name
         resolved_dataset = datasets_by_name[src1.dataset]
-        assert isinstance(resolved_dataset, DatasetConfig)
+        assert isinstance(resolved_dataset, HuggingFaceDatasetConfig)
         assert resolved_dataset.format == "huggingface"
         assert resolved_dataset.path == "./a"
 
@@ -234,7 +233,7 @@ class TestContainerMountPaths:
 
     def test_default_paths_match_container_mounts(self):
         """DEFAULT_CONFIG_FOLDER and DEFAULT_PARAMS_PATH align with container mounts."""
-        from dataeval_flow.config.loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
+        from dataeval_flow.config._loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
 
         # Verify paths use /data/config pattern
         assert Path("/data/config") == DEFAULT_CONFIG_FOLDER

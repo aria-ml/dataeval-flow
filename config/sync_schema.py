@@ -10,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from dataeval_flow.config.models import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 
 SCHEMA_PATH = Path(__file__).parent / "params.schema.json"
 

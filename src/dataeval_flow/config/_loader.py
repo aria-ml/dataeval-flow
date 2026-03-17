@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from dataeval_flow.config.models import PipelineConfig
+from dataeval_flow.config._models import PipelineConfig
 
 __all__ = ["export_params_schema", "load_config", "load_config_folder"]
 

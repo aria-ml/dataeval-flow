@@ -224,11 +224,16 @@ plt.show()
 
 # %%
 
-from dataeval_flow.config.models import ExtractorConfig, PipelineConfig, SourceConfig
-from dataeval_flow.config.schemas.dataset import DatasetProtocolConfig
-from dataeval_flow.config.schemas.params import DriftMonitoringWorkflowConfig
-from dataeval_flow.config.schemas.selection import SelectionConfig, SelectionStep
-from dataeval_flow.config.schemas.task import DriftMonitoringTaskConfig
+from dataeval_flow.config import (
+    DatasetProtocolConfig,
+    DriftMonitoringTaskConfig,
+    DriftMonitoringWorkflowConfig,
+    FlattenExtractorConfig,
+    PipelineConfig,
+    SelectionConfig,
+    SelectionStep,
+    SourceConfig,
+)
 from dataeval_flow.workflow import run_tasks
 from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKNeighbors, DriftHealthThresholds
 
@@ -257,9 +262,8 @@ ref_source_config = SourceConfig(name="reference_2k", dataset="reference", selec
 inc_source_config = SourceConfig(name="incoming_2k", dataset="incoming")
 
 # --- Extractors ---
-extractor_config = ExtractorConfig(
+extractor_config = FlattenExtractorConfig(
     name="flatten",
-    model="flatten",
     batch_size=64,
 )
 

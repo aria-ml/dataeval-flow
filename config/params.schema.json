@@ -1,5 +1,61 @@
 {
   "$defs": {
+    "BoVWExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for Bag-of-Visual-Words.\n\nYAML example::\n\n    extractors:\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
+      "properties": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
+          "const": "bovw",
+          "default": "bovw",
+          "title": "Model",
+          "type": "string"
+        },
+        "vocab_size": {
+          "default": 2048,
+          "description": "Visual word count.",
+          "maximum": 4096,
+          "minimum": 256,
+          "title": "Vocab Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "BoVWExtractorConfig",
+      "type": "object"
+    },
     "ChunkingConfig": {
       "description": "Configuration for chunked (temporal) drift analysis.\n\nWhen present, the test data is split into sequential chunks and each\nchunk is tested for drift independently.  This answers \"when did drift\nstart?\" and \"did it recover?\".",
       "properties": {
@@ -51,6 +107,68 @@
         }
       },
       "title": "ChunkingConfig",
+      "type": "object"
+    },
+    "CocoDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: /data/coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
+      "properties": {
+        "format": {
+          "const": "coco",
+          "default": "coco",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "annotations_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotations File"
+        },
+        "images_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Images Dir"
+        },
+        "classes_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes File"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "CocoDatasetConfig",
       "type": "object"
     },
     "DataCleaningHealthThresholds": {
@@ -293,106 +411,6 @@
         "name"
       ],
       "title": "DataCleaningWorkflowConfig",
-      "type": "object"
-    },
-    "DatasetConfig": {
-      "description": "Dataset configuration schema.",
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "format": {
-          "enum": [
-            "huggingface",
-            "coco",
-            "yolo",
-            "image_folder"
-          ],
-          "title": "Format",
-          "type": "string"
-        },
-        "path": {
-          "title": "Path",
-          "type": "string"
-        },
-        "split": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Split"
-        },
-        "recursive": {
-          "default": false,
-          "title": "Recursive",
-          "type": "boolean"
-        },
-        "infer_labels": {
-          "default": false,
-          "title": "Infer Labels",
-          "type": "boolean"
-        },
-        "annotations_file": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Annotations File"
-        },
-        "images_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Images Dir"
-        },
-        "labels_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Labels Dir"
-        },
-        "classes_file": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Classes File"
-        }
-      },
-      "required": [
-        "name",
-        "format",
-        "path"
-      ],
-      "title": "DatasetConfig",
       "type": "object"
     },
     "DatasetProtocolConfig": {
@@ -792,24 +810,13 @@
       "title": "DriftMonitoringWorkflowConfig",
       "type": "object"
     },
-    "ExtractorConfig": {
-      "description": "Named extractor definition.\n\nCombines model type, model-specific parameters, optional preprocessor,\nand batch size into a single named unit. The ``model`` field acts as a\ndiscriminator for which model-specific parameters are relevant.\n\nYAML examples::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64\n\n      - name: flat_extractor\n        model: flatten\n\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
+    "FlattenExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for simple flattening (no model).\n\nYAML example::\n\n    extractors:\n      - name: flat_extractor\n        model: flatten",
       "properties": {
         "name": {
           "description": "Identifier for the extractor",
           "title": "Name",
-          "type": "string"
-        },
-        "model": {
-          "description": "Model/extractor type",
-          "enum": [
-            "onnx",
-            "bovw",
-            "flatten",
-            "torch",
-            "uncertainty"
-          ],
-          "title": "Model",
           "type": "string"
         },
         "preprocessor": {
@@ -838,7 +845,38 @@
           "description": "Batch size for embedding extraction",
           "title": "Batch Size"
         },
-        "model_path": {
+        "model": {
+          "const": "flatten",
+          "default": "flatten",
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "FlattenExtractorConfig",
+      "type": "object"
+    },
+    "HuggingFaceDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for HuggingFace format.\n\nYAML example::\n\n    datasets:\n      - name: cifar10_train\n        format: huggingface\n        path: ./cifar10\n        split: train",
+      "properties": {
+        "format": {
+          "const": "huggingface",
+          "default": "huggingface",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "split": {
           "anyOf": [
             {
               "type": "string"
@@ -848,98 +886,50 @@
             }
           ],
           "default": null,
-          "description": "Path to model file (onnx/torch/uncertainty).",
-          "title": "Model Path"
-        },
-        "output_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Output layer name (onnx).",
-          "title": "Output Name"
-        },
-        "flatten": {
-          "default": true,
-          "description": "Flatten output to (N, D) shape (onnx).",
-          "title": "Flatten",
-          "type": "boolean"
-        },
-        "vocab_size": {
-          "anyOf": [
-            {
-              "maximum": 4096,
-              "minimum": 256,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Visual word count (bovw).",
-          "title": "Vocab Size"
-        },
-        "layer_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Layer for forward hook extraction (torch).",
-          "title": "Layer Name"
-        },
-        "use_output": {
-          "default": true,
-          "description": "Capture layer output (True) or input (False) (torch).",
-          "title": "Use Output",
-          "type": "boolean"
-        },
-        "device": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Device (e.g., 'cpu', 'cuda:0').",
-          "title": "Device"
-        },
-        "preds_type": {
-          "anyOf": [
-            {
-              "enum": [
-                "probs",
-                "logits"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Model output format (uncertainty).",
-          "title": "Preds Type"
+          "title": "Split"
         }
       },
       "required": [
         "name",
-        "model"
+        "path"
       ],
-      "title": "ExtractorConfig",
+      "title": "HuggingFaceDatasetConfig",
+      "type": "object"
+    },
+    "ImageFolderDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for image_folder format.\n\nYAML example::\n\n    datasets:\n      - name: photos\n        format: image_folder\n        path: /data/photos\n        recursive: true\n        infer_labels: true",
+      "properties": {
+        "format": {
+          "const": "image_folder",
+          "default": "image_folder",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "recursive": {
+          "default": false,
+          "title": "Recursive",
+          "type": "boolean"
+        },
+        "infer_labels": {
+          "default": false,
+          "title": "Infer Labels",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "ImageFolderDatasetConfig",
       "type": "object"
     },
     "LoggingConfig": {
@@ -969,6 +959,79 @@
         }
       },
       "title": "LoggingConfig",
+      "type": "object"
+    },
+    "OnnxExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64",
+      "properties": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
+          "const": "onnx",
+          "default": "onnx",
+          "title": "Model",
+          "type": "string"
+        },
+        "model_path": {
+          "description": "Path to ONNX model file.",
+          "title": "Model Path",
+          "type": "string"
+        },
+        "output_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output layer name.",
+          "title": "Output Name"
+        },
+        "flatten": {
+          "default": true,
+          "description": "Flatten output to (N, D) shape.",
+          "title": "Flatten",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "model_path"
+      ],
+      "title": "OnnxExtractorConfig",
       "type": "object"
     },
     "PreprocessingStep": {
@@ -1164,6 +1227,176 @@
       "title": "TaskConfig",
       "type": "object"
     },
+    "TorchExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for PyTorch models.\n\nYAML example::\n\n    extractors:\n      - name: torch_extractor\n        model: torch\n        model_path: \"./resnet.pt\"\n        layer_name: layer4\n        device: cpu",
+      "properties": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
+          "const": "torch",
+          "default": "torch",
+          "title": "Model",
+          "type": "string"
+        },
+        "model_path": {
+          "description": "Path to PyTorch model file.",
+          "title": "Model Path",
+          "type": "string"
+        },
+        "layer_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Layer for forward hook extraction.",
+          "title": "Layer Name"
+        },
+        "use_output": {
+          "default": true,
+          "description": "Capture layer output (True) or input (False).",
+          "title": "Use Output",
+          "type": "boolean"
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Device (e.g., 'cpu', 'cuda:0').",
+          "title": "Device"
+        }
+      },
+      "required": [
+        "name",
+        "model_path"
+      ],
+      "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "UncertaintyExtractorConfig": {
+      "additionalProperties": false,
+      "description": "Extractor config for uncertainty estimation models.\n\nYAML example::\n\n    extractors:\n      - name: unc_extractor\n        model: uncertainty\n        model_path: \"./classifier.pt\"\n        preds_type: logits",
+      "properties": {
+        "name": {
+          "description": "Identifier for the extractor",
+          "title": "Name",
+          "type": "string"
+        },
+        "preprocessor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a preprocessor name (optional)",
+          "title": "Preprocessor"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Batch size for embedding extraction",
+          "title": "Batch Size"
+        },
+        "model": {
+          "const": "uncertainty",
+          "default": "uncertainty",
+          "title": "Model",
+          "type": "string"
+        },
+        "model_path": {
+          "description": "Path to model file.",
+          "title": "Model Path",
+          "type": "string"
+        },
+        "preds_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "probs",
+                "logits"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model output format.",
+          "title": "Preds Type"
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Device (e.g., 'cpu', 'cuda:0').",
+          "title": "Device"
+        }
+      },
+      "required": [
+        "name",
+        "model_path"
+      ],
+      "title": "UncertaintyExtractorConfig",
+      "type": "object"
+    },
     "UpdateStrategyConfig": {
       "description": "Reference-set update strategy \u2014 **stubbed for future use**.\n\nWhen online drift detection is implemented, this will control how the\nreference distribution evolves after each prediction step.  Currently\naccepted in configuration but not applied at runtime.",
       "properties": {
@@ -1189,6 +1422,68 @@
       ],
       "title": "UpdateStrategyConfig",
       "type": "object"
+    },
+    "YoloDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: /data/yolo\n        images_dir: images\n        labels_dir: labels\n        classes_file: classes.txt",
+      "properties": {
+        "format": {
+          "const": "yolo",
+          "default": "yolo",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "images_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Images Dir"
+        },
+        "labels_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Labels Dir"
+        },
+        "classes_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes File"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "YoloDatasetConfig",
+      "type": "object"
     }
   },
   "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional selections; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.",
@@ -1210,7 +1505,29 @@
           "items": {
             "anyOf": [
               {
-                "$ref": "#/$defs/DatasetConfig"
+                "discriminator": {
+                  "mapping": {
+                    "coco": "#/$defs/CocoDatasetConfig",
+                    "huggingface": "#/$defs/HuggingFaceDatasetConfig",
+                    "image_folder": "#/$defs/ImageFolderDatasetConfig",
+                    "yolo": "#/$defs/YoloDatasetConfig"
+                  },
+                  "propertyName": "format"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/HuggingFaceDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/ImageFolderDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/CocoDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/YoloDatasetConfig"
+                  }
+                ]
               },
               {
                 "$ref": "#/$defs/DatasetProtocolConfig"
@@ -1276,7 +1593,33 @@
       "anyOf": [
         {
           "items": {
-            "$ref": "#/$defs/ExtractorConfig"
+            "discriminator": {
+              "mapping": {
+                "bovw": "#/$defs/BoVWExtractorConfig",
+                "flatten": "#/$defs/FlattenExtractorConfig",
+                "onnx": "#/$defs/OnnxExtractorConfig",
+                "torch": "#/$defs/TorchExtractorConfig",
+                "uncertainty": "#/$defs/UncertaintyExtractorConfig"
+              },
+              "propertyName": "model"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/OnnxExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/BoVWExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/FlattenExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/TorchExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/UncertaintyExtractorConfig"
+              }
+            ]
           },
           "type": "array"
         },
