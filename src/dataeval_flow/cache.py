@@ -62,6 +62,7 @@ __all__ = [
     "get_or_compute_stats",
     "missing_flags",
     "scope_key",
+    "dataset_fingerprint",
     "selection_repr",
 ]
 
@@ -81,7 +82,7 @@ import numpy as np
 import polars as pl
 from dataeval.core import ClusterResult
 from dataeval.flags import ImageStats
-from dataeval.protocols import AnnotatedDataset
+from dataeval.protocols import AnnotatedDataset, Array
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
@@ -284,6 +285,55 @@ def selection_repr(dataset: Any) -> str:
         idx_hash = hashlib.sha256(idx_str.encode()).hexdigest()[:16]
         return f"sel:n={len(indices)}:{idx_hash}"
     return "sel:all"
+
+
+def dataset_fingerprint(dataset: Any) -> str:
+    """Build a content-based fingerprint by hashing a sample of datum tuples.
+
+    Hashes the first 5, middle 5, and last 5 datum tuples (or all data
+    if the dataset has 15 or fewer items) plus the dataset length using
+    xxHash.  Each element of the tuple (image, target, metadata) is
+    hashed so that label or metadata changes also invalidate the cache.
+
+    Parameters
+    ----------
+    dataset : Dataset
+        Any object supporting ``__len__`` and ``__getitem__`` that
+        returns ``(image, target, ...)`` tuples where elements are
+        array-like or have a bytes-serialisable ``repr``.
+
+    Returns
+    -------
+    str
+        Hex digest fingerprint of the sampled data.
+    """
+    import xxhash as xxh
+    from dataeval.utils._internal import as_numpy
+
+    n = len(dataset)
+    hasher = xxh.xxh3_64()
+
+    # Include dataset length so additions/removals are detected even if
+    # the sampled items happen to remain unchanged.
+    hasher.update(n.to_bytes(8, "little"))
+
+    # Sample indices: first 5 + middle 5 + last 5, or all if <= 15.
+    if n <= 15:
+        indices = list(range(n))
+    else:
+        mid = n // 2
+        indices = list(range(5)) + list(range(mid - 2, mid + 3)) + list(range(n - 5, n))
+
+    for idx in indices:
+        datum = dataset[idx]
+        datum = datum if isinstance(datum, tuple) else (datum,)
+        for element in datum:
+            if isinstance(element, Array):
+                hasher.update(as_numpy(element).ravel().tobytes())
+            else:
+                hasher.update(repr(element).encode("utf-8"))
+
+    return hasher.hexdigest()
 
 
 def scope_key(

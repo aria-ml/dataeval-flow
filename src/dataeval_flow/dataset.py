@@ -575,6 +575,7 @@ def resolve_dataset(config: BaseModel) -> ResolvedDataset:
     in-memory (:class:`DatasetProtocolConfig`) configs, centralizing all
     format-specific branching in one place.
     """
+    from dataeval_flow.cache import dataset_fingerprint
     from dataeval_flow.config.schemas._dataset import (
         DatasetProtocolConfig,
         HuggingFaceDatasetConfig,
@@ -609,6 +610,11 @@ def resolve_dataset(config: BaseModel) -> ResolvedDataset:
         cache_key = config.model_dump_json(exclude_defaults=False)
     else:
         raise ValueError(f"Unsupported dataset config type: {type(config).__name__}")
+
+    # Append a content-based fingerprint so the cache invalidates when
+    # the underlying data changes even if the config metadata is unchanged.
+    fingerprint = dataset_fingerprint(dataset)
+    cache_key = f"{cache_key}|fp:{fingerprint}"
 
     return ResolvedDataset(
         name=config.name,

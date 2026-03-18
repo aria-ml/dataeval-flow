@@ -17,6 +17,7 @@ from dataeval_flow.cache import (
     _config_hash,
     _make_dataset_id,
     active_cache,
+    dataset_fingerprint,
     get_or_compute_cluster_result,
     get_or_compute_embeddings,
     get_or_compute_metadata,
@@ -94,6 +95,79 @@ class TestSelectionRepr:
         ds_shuffled = MagicMock()
         ds_shuffled.resolve_indices.return_value = [3, 1, 4, 0, 2]
         assert selection_repr(ds_sorted) != selection_repr(ds_shuffled)
+
+
+# ---------------------------------------------------------------------------
+# dataset_fingerprint helper
+# ---------------------------------------------------------------------------
+
+
+class _FakeDataset:
+    """Minimal dataset for fingerprint tests: returns (image, target, metadata) tuples."""
+
+    def __init__(self, images: list[np.ndarray], targets: list | None = None, metadata: list | None = None):
+        self._images = images
+        self._targets = targets or [np.array(i) for i in range(len(images))]
+        self._metadata = metadata or [{"idx": i} for i in range(len(images))]
+
+    def __len__(self) -> int:
+        return len(self._images)
+
+    def __getitem__(self, idx: int) -> tuple:
+        return (self._images[idx], self._targets[idx], self._metadata[idx])
+
+
+class TestDatasetFingerprint:
+    def test_deterministic(self):
+        imgs = [np.random.RandomState(i).rand(3, 8, 8).astype(np.float32) for i in range(5)]
+        tgts = [np.array(i) for i in range(5)]
+        meta = [{"idx": i} for i in range(5)]
+        assert dataset_fingerprint(_FakeDataset(imgs, tgts, meta)) == dataset_fingerprint(
+            _FakeDataset(list(imgs), list(tgts), list(meta))
+        )
+
+    def test_different_images_different_fingerprint(self):
+        imgs_a = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        imgs_b = [np.ones((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        assert dataset_fingerprint(_FakeDataset(imgs_a)) != dataset_fingerprint(_FakeDataset(imgs_b))
+
+    def test_different_targets_different_fingerprint(self):
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        tgts_a = [np.array(0) for _ in range(5)]
+        tgts_b = [np.array(1) for _ in range(5)]
+        assert dataset_fingerprint(_FakeDataset(imgs, tgts_a)) != dataset_fingerprint(_FakeDataset(imgs, tgts_b))
+
+    def test_different_metadata_different_fingerprint(self):
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        meta_a = [{"label": "cat"} for _ in range(5)]
+        meta_b = [{"label": "dog"} for _ in range(5)]
+        assert dataset_fingerprint(_FakeDataset(imgs, metadata=meta_a)) != dataset_fingerprint(
+            _FakeDataset(imgs, metadata=meta_b)
+        )
+
+    def test_different_length_different_fingerprint(self):
+        img = np.zeros((3, 8, 8), dtype=np.float32)
+        assert dataset_fingerprint(_FakeDataset([img] * 3)) != dataset_fingerprint(_FakeDataset([img] * 4))
+
+    def test_samples_middle_for_large_dataset(self):
+        """Changing only a middle element should change the fingerprint."""
+        n = 20
+        imgs_a = [np.zeros((3, 4, 4), dtype=np.float32) for _ in range(n)]
+        imgs_b = list(imgs_a)
+        imgs_b[n // 2] = np.ones((3, 4, 4), dtype=np.float32)
+        assert dataset_fingerprint(_FakeDataset(imgs_a)) != dataset_fingerprint(_FakeDataset(imgs_b))
+
+    def test_all_items_hashed_when_small(self):
+        """For <= 15 items, all items are hashed — changing any item changes the fingerprint."""
+        imgs_a = [np.zeros((3, 4, 4), dtype=np.float32) for _ in range(12)]
+        imgs_b = list(imgs_a)
+        imgs_b[7] = np.ones((3, 4, 4), dtype=np.float32)  # middle-ish item
+        assert dataset_fingerprint(_FakeDataset(imgs_a)) != dataset_fingerprint(_FakeDataset(imgs_b))
+
+    def test_empty_dataset(self):
+        fp = dataset_fingerprint(_FakeDataset([]))
+        assert isinstance(fp, str)
+        assert len(fp) > 0
 
 
 # ---------------------------------------------------------------------------
