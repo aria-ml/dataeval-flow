@@ -42,7 +42,7 @@ variables:
 
 # Shared variant list — edit once, used by all matrix jobs
 .variants: &variants
-  - VARIANT: [cpu, cu118, cu128]
+  - VARIANT: [cpu, cu118, cu124, cu128]
 
 # -----------------------------------------------------------------------------
 # Shared Templates
