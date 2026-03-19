@@ -31,11 +31,13 @@ from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
     DataCleaningTaskConfig,
     DriftMonitoringTaskConfig,
+    OODDetectionTaskConfig,
     TaskConfig,
 )
 from dataeval_flow.config.schemas._workflow import (
     DataCleaningWorkflowConfig,
     DriftMonitoringWorkflowConfig,
+    OODDetectionWorkflowConfig,
 )
 
 # -- discriminated-union aliases (internal) ---------------------------------
@@ -55,7 +57,7 @@ ExtractorConfig = Annotated[
 ]
 
 WorkflowConfig = Annotated[
-    DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig,
+    DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig | OODDetectionWorkflowConfig,
     Field(discriminator="type"),
 ]
 
@@ -77,11 +79,13 @@ __all__ = [
     # Workflow
     "DataCleaningWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
+    "OODDetectionWorkflowConfig",
     "WorkflowConfig",
     # Task
     "AutoBinMethod",
     "DataCleaningTaskConfig",
     "DriftMonitoringTaskConfig",
+    "OODDetectionTaskConfig",
     "TaskConfig",
     # Other
     "PreprocessorConfig",

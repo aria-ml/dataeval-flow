@@ -21,9 +21,11 @@ __all__ = [
     # Workflow configs
     "DataCleaningWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
+    "OODDetectionWorkflowConfig",
     # Task configs
     "DataCleaningTaskConfig",
     "DriftMonitoringTaskConfig",
+    "OODDetectionTaskConfig",
     "TaskConfig",
     # Composition / pipeline
     "PipelineConfig",
@@ -53,6 +55,8 @@ from dataeval_flow.config.schemas import (
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
     OnnxExtractorConfig,
+    OODDetectionTaskConfig,
+    OODDetectionWorkflowConfig,
     PreprocessorConfig,
     ResultMetadata,
     SelectionConfig,

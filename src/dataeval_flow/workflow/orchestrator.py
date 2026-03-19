@@ -1,20 +1,27 @@
 """Task orchestration — config → execution bridge."""
 
-__all__ = ["run_tasks"]
+__all__ = ["run_task", "run_tasks"]
 
 import logging
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, overload, runtime_checkable
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from dataeval_flow.config._models import PipelineConfig, SourceConfig
-    from dataeval_flow.config.schemas import DataCleaningWorkflowConfig, DriftMonitoringWorkflowConfig
-    from dataeval_flow.config.schemas._task import TaskConfig
+    from dataeval_flow.config import PipelineConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config.schemas import WorkflowConfig
+    from dataeval_flow.config.schemas._task import (
+        DataCleaningTaskConfig,
+        DriftMonitoringTaskConfig,
+        OODDetectionTaskConfig,
+    )
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
+    from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
+    from dataeval_flow.workflows.drift.outputs import DriftMonitoringMetadata, DriftMonitoringOutputs
+    from dataeval_flow.workflows.ood.outputs import OODDetectionMetadata, OODDetectionOutputs
 
 
 @runtime_checkable
@@ -56,7 +63,7 @@ def _resolve_by_name(items: Sequence[T] | None, name: str, kind: str) -> T:
 def _resolve_workflow(
     workflow_name: str,
     config: "PipelineConfig",
-) -> "DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig":
+) -> "WorkflowConfig":
     """Resolve a workflow by name from ``config.workflows``."""
     return _resolve_by_name(config.workflows, workflow_name, "workflow")
 
@@ -248,3 +255,47 @@ def run_tasks(
         logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
         results.append(_run_single_task(task, config))
     return results
+
+
+@overload
+def run_task(
+    task: "DataCleaningTaskConfig",
+    config: "PipelineConfig",
+) -> "WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]": ...
+@overload
+def run_task(
+    task: "DriftMonitoringTaskConfig",
+    config: "PipelineConfig",
+) -> "WorkflowResult[DriftMonitoringMetadata, DriftMonitoringOutputs]": ...
+@overload
+def run_task(
+    task: "OODDetectionTaskConfig",
+    config: "PipelineConfig",
+) -> "WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]": ...
+@overload
+def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[Any, Any]": ...
+def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[Any, Any]":
+    """Run a single task, returning a narrowly typed result based on the task type.
+
+    Unlike :func:`run_tasks`, this function accepts the task config object
+    directly rather than looking it up by name, which allows type checkers to
+    narrow the return type to the appropriate workflow result type.
+
+    Parameters
+    ----------
+    task : TaskConfig
+        The task configuration to execute.
+    config : PipelineConfig
+        Pipeline configuration supplying datasets, sources, extractors, and
+        workflow definitions.  The task does **not** need to appear in
+        ``config.tasks``.
+
+    Returns
+    -------
+    WorkflowResult
+        A result typed to the specific workflow — e.g.
+        ``WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]`` when
+        *task* is an :class:`~dataeval_flow.config.OODDetectionTaskConfig`.
+    """
+    logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
+    return _run_single_task(task, config)

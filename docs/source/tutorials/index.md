@@ -8,6 +8,7 @@ Learning-oriented guides that walk you through using DataEval Workflows step by 
 ../notebooks/data_cleaning
 ../notebooks/drift_monitoring
 ../notebooks/classwise_drift
+../notebooks/ood_detection
 ```
 
 ## Planned tutorials

@@ -33,6 +33,23 @@ class TaskConfig(BaseModel):
     )
 
 
+class MultiSourceTaskConfig(TaskConfig):
+    """TaskConfig subclass that validates multiple sources/datasets for drift/ood tasks.
+
+    Validates that at least two sources are specified (reference + test).
+    The ``workflow`` field references a workflow instance whose type must
+    be either ``drift-monitoring`` or ``ood-detection`` — enforced at runtime
+    by the orchestrator.
+    """
+
+    @model_validator(mode="after")
+    def _require_multiple_sources(self) -> "MultiSourceTaskConfig":
+        srcs = self.sources if isinstance(self.sources, list) else [self.sources]
+        if len(srcs) < 2:
+            raise ValueError(f"{self.workflow} requires at least 2 sources (reference + test), got {len(srcs)}: {srcs}")
+        return self
+
+
 class DataCleaningTaskConfig(TaskConfig):
     """Task config for ``data-cleaning`` workflows.
 
@@ -44,7 +61,7 @@ class DataCleaningTaskConfig(TaskConfig):
     """
 
 
-class DriftMonitoringTaskConfig(TaskConfig):
+class DriftMonitoringTaskConfig(MultiSourceTaskConfig):
     """Task config that validates drift-monitoring constraints.
 
     Validates that at least two sources are specified (reference + test).
@@ -52,11 +69,11 @@ class DriftMonitoringTaskConfig(TaskConfig):
     be ``drift-monitoring`` — enforced at runtime by the orchestrator.
     """
 
-    @model_validator(mode="after")
-    def _require_multiple_sources(self) -> "DriftMonitoringTaskConfig":
-        srcs = self.sources if isinstance(self.sources, list) else [self.sources]
-        if len(srcs) < 2:
-            raise ValueError(
-                f"drift-monitoring requires at least 2 sources (reference + test), got {len(srcs)}: {srcs}"
-            )
-        return self
+
+class OODDetectionTaskConfig(MultiSourceTaskConfig):
+    """Task config that validates OOD detection constraints.
+
+    Validates that at least two datasets are specified (reference + test).
+    The ``workflow`` field references a workflow instance whose type must
+    be ``ood-detection`` — enforced at runtime by the orchestrator.
+    """

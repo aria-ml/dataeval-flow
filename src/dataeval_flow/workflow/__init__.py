@@ -7,6 +7,7 @@ __all__ = [
     "WorkflowResult",
     "get_workflow",
     "list_workflows",
+    "run_task",
     "run_tasks",
 ]
 
@@ -22,7 +23,7 @@ from dataeval_flow.workflow._text_report import (
     _render_detail_section,
     _summary_line,
 )
-from dataeval_flow.workflow.orchestrator import run_tasks
+from dataeval_flow.workflow.orchestrator import run_task, run_tasks
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -281,8 +282,9 @@ def _ensure_initialized() -> None:
     if not _initialized:
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
+        from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
 
-        workflows = [DataCleaningWorkflow, DriftMonitoringWorkflow]
+        workflows = [DataCleaningWorkflow, DriftMonitoringWorkflow, OODDetectionWorkflow]
 
         for workflow in workflows:
             wf = workflow()
