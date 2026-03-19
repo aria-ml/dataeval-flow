@@ -37,7 +37,7 @@ def _summary_line(finding: Reportable) -> str:
     label = finding.title
     value = _brief_value(finding)
     severity = getattr(finding, "severity", "info")
-    marker = "  [!!]" if severity == "warning" else "  [ok]"
+    marker = {"warning": "  [!!]", "ok": "  [ok]", "info": "  [..]"}.get(severity, "  [..]")
 
     # Dotted fill between label and value
     dots_len = _WIDTH - 4 - len(label) - len(value) - len(marker)

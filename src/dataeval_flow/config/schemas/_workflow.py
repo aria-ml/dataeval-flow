@@ -6,6 +6,7 @@ from pydantic import Field
 
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
+from dataeval_flow.workflows.ood.params import OODDetectionParameters
 
 
 class DataCleaningWorkflowConfig(DataCleaningParameters):
@@ -45,3 +46,23 @@ class DriftMonitoringWorkflowConfig(DriftMonitoringParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["drift-monitoring"] = "drift-monitoring"
+
+
+class OODDetectionWorkflowConfig(OODDetectionParameters):
+    """Typed workflow configuration for ``ood-detection``.
+
+    Inherits all fields from :class:`OODDetectionParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: ood_knn
+            type: ood-detection
+            detectors:
+              - method: kneighbors
+                k: 10
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["ood-detection"] = "ood-detection"
