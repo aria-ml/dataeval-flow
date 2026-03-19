@@ -961,6 +961,183 @@
       "title": "LoggingConfig",
       "type": "object"
     },
+    "OODDetectionWorkflowConfig": {
+      "description": "Typed workflow configuration for ``ood-detection``.\n\nInherits all fields from :class:`OODDetectionParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
+      "properties": {
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "detectors": {
+          "description": "List of OOD detectors to run. At least one required.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "domain_classifier": "#/$defs/OODDetectorDomainClassifier",
+                "kneighbors": "#/$defs/OODDetectorKNeighbors"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/OODDetectorKNeighbors"
+              },
+              {
+                "$ref": "#/$defs/OODDetectorDomainClassifier"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Detectors",
+          "type": "array"
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/OODHealthThresholds",
+          "description": "Warning thresholds for OOD severity classification."
+        },
+        "metadata_insights": {
+          "default": true,
+          "description": "Whether to compute factor_deviation and factor_predictors for OOD samples to explain why they are flagged.",
+          "title": "Metadata Insights",
+          "type": "boolean"
+        },
+        "max_ood_insights": {
+          "default": 50,
+          "description": "Maximum number of OOD samples to compute detailed metadata deviation for. Caps compute cost on large datasets.",
+          "exclusiveMinimum": 0,
+          "title": "Max Ood Insights",
+          "type": "integer"
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "ood-detection",
+          "default": "ood-detection",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "detectors",
+        "name"
+      ],
+      "title": "OODDetectionWorkflowConfig",
+      "type": "object"
+    },
+    "OODDetectorDomainClassifier": {
+      "additionalProperties": false,
+      "description": "Domain classifier OOD detector.\n\nUses a LightGBM classifier's ability to distinguish test samples from\nreference samples as an OOD signal.  Samples that a classifier can easily\nidentify as 'not reference' are likely OOD.",
+      "properties": {
+        "method": {
+          "const": "domain_classifier",
+          "default": "domain_classifier",
+          "title": "Method",
+          "type": "string"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Number of cross-validation folds per repeat.",
+          "minimum": 2,
+          "title": "N Folds",
+          "type": "integer"
+        },
+        "n_repeats": {
+          "default": 5,
+          "description": "Number of times to repeat the k-fold split.",
+          "minimum": 1,
+          "title": "N Repeats",
+          "type": "integer"
+        },
+        "n_std": {
+          "default": 2.0,
+          "description": "Number of standard deviations above the null mean for threshold.",
+          "exclusiveMinimum": 0.0,
+          "title": "N Std",
+          "type": "number"
+        },
+        "threshold_perc": {
+          "default": 95.0,
+          "description": "Percentage of reference data considered normal (0-100). Higher values result in more permissive thresholds.",
+          "exclusiveMinimum": 0.0,
+          "maximum": 100.0,
+          "title": "Threshold Perc",
+          "type": "number"
+        }
+      },
+      "title": "OODDetectorDomainClassifier",
+      "type": "object"
+    },
+    "OODDetectorKNeighbors": {
+      "additionalProperties": false,
+      "description": "K-nearest neighbors OOD detector.\n\nUses average distance to k nearest neighbors in embedding space to\ndetect OOD samples.  Samples with larger average distances to their\nk nearest neighbors in the reference set are considered more likely OOD.",
+      "properties": {
+        "method": {
+          "const": "kneighbors",
+          "default": "kneighbors",
+          "title": "Method",
+          "type": "string"
+        },
+        "k": {
+          "default": 10,
+          "description": "Number of nearest neighbors to consider.",
+          "exclusiveMinimum": 0,
+          "title": "K",
+          "type": "integer"
+        },
+        "distance_metric": {
+          "default": "cosine",
+          "description": "Distance metric for k-NN computation.",
+          "enum": [
+            "cosine",
+            "euclidean"
+          ],
+          "title": "Distance Metric",
+          "type": "string"
+        },
+        "threshold_perc": {
+          "default": 95.0,
+          "description": "Percentage of reference data considered normal (0-100). Higher values result in more permissive thresholds.",
+          "exclusiveMinimum": 0.0,
+          "maximum": 100.0,
+          "title": "Threshold Perc",
+          "type": "number"
+        }
+      },
+      "title": "OODDetectorKNeighbors",
+      "type": "object"
+    },
+    "OODHealthThresholds": {
+      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"`` or ``severity=\"ok\"``.",
+      "properties": {
+        "ood_pct_warning": {
+          "default": 10.0,
+          "description": "Percentage of test samples flagged OOD that triggers a warning.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Ood Pct Warning",
+          "type": "number"
+        },
+        "ood_pct_info": {
+          "default": 1.0,
+          "description": "Percentage of test samples flagged OOD that triggers an info finding. Below this percentage, severity is 'ok'.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Ood Pct Info",
+          "type": "number"
+        }
+      },
+      "title": "OODHealthThresholds",
+      "type": "object"
+    },
     "OnnxExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64",
@@ -1638,7 +1815,8 @@
             "discriminator": {
               "mapping": {
                 "data-cleaning": "#/$defs/DataCleaningWorkflowConfig",
-                "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig"
+                "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
+                "ood-detection": "#/$defs/OODDetectionWorkflowConfig"
               },
               "propertyName": "type"
             },
@@ -1648,6 +1826,9 @@
               },
               {
                 "$ref": "#/$defs/DriftMonitoringWorkflowConfig"
+              },
+              {
+                "$ref": "#/$defs/OODDetectionWorkflowConfig"
               }
             ]
           },

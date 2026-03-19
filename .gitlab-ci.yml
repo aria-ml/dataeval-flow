@@ -92,6 +92,13 @@ type-check:
   script:
     - uvx --with nox-uv nox -s type
 
+# Schema Validation - Ensure params.schema.json is up to date
+schema:
+  extends: [.nox, .rules_main_mr]
+  stage: lint
+  script:
+    - uvx --with nox-uv nox -s schema
+
 # -----------------------------------------------------------------------------
 # Test Stage [TR-1-H-4: Python 3.10, 3.11, 3.12]
 # -----------------------------------------------------------------------------
