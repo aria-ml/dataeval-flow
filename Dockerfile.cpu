@@ -32,6 +32,13 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 COPY src/ ./src/
 COPY tests/ ./tests/
+COPY config/ ./config/
+
+# Create non-root user for test stage
+RUN useradd --create-home --shell /bin/bash dataeval \
+    && chown -R dataeval:dataeval /app
+
+USER dataeval
 
 # -------------------------------------------------------
 # CI GATE: Run Tests & Linting

@@ -1,6 +1,6 @@
 # =============================================================================
 # Docker build context — only include what Dockerfiles actually COPY:
-#   pyproject.toml, uv.lock, noxfile.py, src/, tests/, entrypoint.sh, README.md
+#   pyproject.toml, uv.lock, noxfile.py, src/, tests/, config/, entrypoint.sh, README.md
 # =============================================================================
 
 # Version control
@@ -48,8 +48,7 @@ LICENSE
 output/
 htmlcov
 
-# Local data and config (mounted at runtime, not baked in)
-config/
+# Local data (mounted at runtime, not baked in)
 data/
 
 # Helper scripts (host-only)
