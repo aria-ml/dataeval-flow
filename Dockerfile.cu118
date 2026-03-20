@@ -26,7 +26,8 @@ COPY pyproject.toml uv.lock noxfile.py ./
 RUN touch README.md
 
 # Install ALL dependencies (dev + prod) for testing
-RUN uv sync --frozen --group dev --extra all-cu118 --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --group dev --extra all-cu118 --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -68,7 +69,8 @@ COPY pyproject.toml uv.lock ./
 RUN touch README.md
 
 # Install only production dependencies — no dev tools, no test frameworks
-RUN uv sync --frozen --no-dev --extra all-cu118 --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --extra all-cu118 --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
