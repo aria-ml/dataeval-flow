@@ -30,12 +30,14 @@ from dataeval_flow.config.schemas._selection import SelectionConfig, SelectionSt
 from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
     DataCleaningTaskConfig,
+    DataSplittingTaskConfig,
     DriftMonitoringTaskConfig,
     OODDetectionTaskConfig,
     TaskConfig,
 )
 from dataeval_flow.config.schemas._workflow import (
     DataCleaningWorkflowConfig,
+    DataSplittingWorkflowConfig,
     DriftMonitoringWorkflowConfig,
     OODDetectionWorkflowConfig,
 )
@@ -57,7 +59,10 @@ ExtractorConfig = Annotated[
 ]
 
 WorkflowConfig = Annotated[
-    DataCleaningWorkflowConfig | DriftMonitoringWorkflowConfig | OODDetectionWorkflowConfig,
+    DataCleaningWorkflowConfig
+    | DataSplittingWorkflowConfig
+    | DriftMonitoringWorkflowConfig
+    | OODDetectionWorkflowConfig,
     Field(discriminator="type"),
 ]
 
@@ -78,12 +83,14 @@ __all__ = [
     "UncertaintyExtractorConfig",
     # Workflow
     "DataCleaningWorkflowConfig",
+    "DataSplittingWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
     "OODDetectionWorkflowConfig",
     "WorkflowConfig",
     # Task
     "AutoBinMethod",
     "DataCleaningTaskConfig",
+    "DataSplittingTaskConfig",
     "DriftMonitoringTaskConfig",
     "OODDetectionTaskConfig",
     "TaskConfig",

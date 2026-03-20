@@ -7,6 +7,7 @@ from pydantic import Field
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 from dataeval_flow.workflows.ood.params import OODDetectionParameters
+from dataeval_flow.workflows.splitting.params import DataSplittingParameters
 
 
 class DataCleaningWorkflowConfig(DataCleaningParameters):
@@ -26,6 +27,26 @@ class DataCleaningWorkflowConfig(DataCleaningParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["data-cleaning"] = "data-cleaning"
+
+
+class DataSplittingWorkflowConfig(DataSplittingParameters):
+    """Typed workflow configuration for ``data-splitting``.
+
+    Inherits all fields from :class:`DataSplittingParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: split_stratified
+            type: data-splitting
+            test_frac: 0.2
+            val_frac: 0.1
+            stratify: true
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["data-splitting"] = "data-splitting"
 
 
 class DriftMonitoringWorkflowConfig(DriftMonitoringParameters):

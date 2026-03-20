@@ -130,6 +130,15 @@ def _render_key_value(data: dict[str, Any]) -> list[str]:
         lines.append("")
         lines.extend(f"  {line}" for line in detail_lines)
 
+    # Fallback: render remaining scalar key-value pairs as a simple table
+    handled = {"brief", "per_metric", "detail_lines", "total_flags", "count", "multi_metric_subject"}
+    generic = {k: v for k, v in data.items() if k not in handled and not isinstance(v, (dict, list))}
+    if generic:
+        lines.append("")
+        w_key = max(len(str(k)) for k in generic)
+        for key, val in generic.items():
+            lines.append(f"  {key:<{w_key}}  {val}")
+
     return lines
 
 
