@@ -2,7 +2,7 @@
 # Pipeline Configuration
 # =============================================================================
 # Schema: PipelineConfig (see src/dataeval_flow/config/models.py)
-# Copy to /data/config/params.yaml in container (or use --config CLI option)
+# Place in your data directory (or use --config CLI option)
 #
 # yaml-language-server: $schema=params.schema.json
 # =============================================================================
@@ -36,29 +36,29 @@
 # datasets:
 #   - name: my-dataset
 #     format: huggingface        # huggingface | image_folder | coco | yolo
-#     path: ./data/my-dataset
+#     path: my-dataset             # relative to data root (/dataeval)
 #     split: train               # HuggingFace only
 #
 #   - name: raw-photos
 #     format: image_folder
-#     path: /data/raw-photos
+#     path: raw-photos            # relative to data root
 #     recursive: false
 #
 #   - name: classified-photos
 #     format: image_folder
-#     path: /data/classified-photos
+#     path: classified-photos     # relative to data root
 #     infer_labels: true
 #
 #   - name: coco-train
 #     format: coco
-#     path: /data/coco-train
+#     path: coco-train            # relative to data root
 #     annotations_file: annotations.json
 #     images_dir: images
 #     classes_file: classes.txt
 #
 #   - name: yolo-train
 #     format: yolo
-#     path: /data/yolo-train
+#     path: yolo-train            # relative to data root
 #     images_dir: images
 #     labels_dir: labels
 #     classes_file: classes.txt
@@ -191,12 +191,9 @@
 #   - name: clean_train
 #     workflow: standard_clean
 #     sources: my_dataset_full
-#     output_format: json              # json | yaml | text (default: json)
 #     enabled: true                    # set false to skip this task (default: true)
-#     cache_dir: /cache                # optional disk cache for embeddings/metadata
 #
 #   - name: clean_strict
 #     workflow: strict_clean
 #     sources: my_dataset_full
 #     extractor: resnet_extractor
-#     output_format: json

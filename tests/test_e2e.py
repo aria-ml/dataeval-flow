@@ -57,7 +57,6 @@ class TestConfigToFactoryIntegration:
             "    workflow: modzscore_clean\n"
             "    sources: test_src\n"
             "    extractor: flat_ext\n"
-            "    output_format: json\n"
         )
 
         config = load_config_folder(config_dir)
@@ -86,7 +85,6 @@ class TestConfigToFactoryIntegration:
         assert task.workflow == "modzscore_clean"
         assert task.sources == "test_src"
         assert task.extractor == "flat_ext"
-        assert task.output_format == "json"
 
         # Verify source content
         src = config.sources[0]
@@ -195,7 +193,6 @@ class TestConfigToFactoryIntegration:
             "  - name: analysis_only\n"
             "    workflow: modzscore_clean\n"
             "    sources: shared_src\n"
-            "    output_format: text\n"
         )
 
         config = load_config_folder(config_dir)
@@ -207,16 +204,12 @@ class TestConfigToFactoryIntegration:
         for task in config.tasks:
             assert task.sources == "shared_src"
 
-        # Verify different output formats
-        assert config.tasks[0].output_format == "json"  # default
-        assert config.tasks[2].output_format == "text"
-
 
 class TestContainerMountPaths:
     """Test container mount path constants and alignment."""
 
-    def test_container_mounts_defined(self):
-        """CONTAINER_MOUNTS has all expected paths."""
+    def test_container_paths_defined(self):
+        """Container paths match expected defaults."""
         import sys
 
         # Add src to path for container_run import
@@ -224,41 +217,30 @@ class TestContainerMountPaths:
         if str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
 
-        from container_run import CONTAINER_MOUNTS
+        from container_run import _DEFAULT_OUTPUT, _FALLBACK_DATA
 
-        assert CONTAINER_MOUNTS["config"] == Path("/data/config")
-        assert CONTAINER_MOUNTS["dataset"] == Path("/data/dataset")
-        assert CONTAINER_MOUNTS["model"] == Path("/data/model")
-        assert CONTAINER_MOUNTS["output"] == Path("/output")
+        assert _FALLBACK_DATA == "/dataeval"
+        assert Path("/output") == _DEFAULT_OUTPUT
 
-    def test_default_paths_match_container_mounts(self):
-        """DEFAULT_CONFIG_FOLDER and DEFAULT_PARAMS_PATH align with container mounts."""
-        from dataeval_flow.config._loader import DEFAULT_CONFIG_FOLDER, DEFAULT_PARAMS_PATH
+    def test_get_data_dir_env_override(self):
+        """get_data_dir respects DATAEVAL_DATA env var."""
+        import os
+        from unittest.mock import patch
 
-        # Verify paths use /data/config pattern
-        assert Path("/data/config") == DEFAULT_CONFIG_FOLDER
-        assert Path("/data/config/params.yaml") == DEFAULT_PARAMS_PATH
+        from dataeval_flow.config._loader import get_data_dir
 
-        # Verify params.yaml is inside config folder
-        assert DEFAULT_PARAMS_PATH.parent == DEFAULT_CONFIG_FOLDER
+        with patch.dict(os.environ, {"DATAEVAL_DATA": "/custom/root"}):
+            assert get_data_dir() == Path("/custom/root")
 
-    def test_all_mount_points_follow_pattern(self):
-        """All data mounts follow /data/<purpose>/ pattern except /output."""
-        import sys
+    def test_get_data_dir_explicit_arg(self):
+        """Explicit argument takes priority over env var."""
+        import os
+        from unittest.mock import patch
 
-        src_path = Path(__file__).parent.parent / "src"
-        if str(src_path) not in sys.path:
-            sys.path.insert(0, str(src_path))
+        from dataeval_flow.config._loader import get_data_dir
 
-        from container_run import CONTAINER_MOUNTS
-
-        for name, path in CONTAINER_MOUNTS.items():
-            if name == "output":
-                assert path == Path("/output")
-            elif name == "cache":
-                assert path == Path("/cache")
-            else:
-                assert str(path).startswith("/data/"), f"{name} should be under /data/"
+        with patch.dict(os.environ, {"DATAEVAL_DATA": "/custom/root"}):
+            assert get_data_dir(Path("/explicit")) == Path("/explicit")
 
 
 class TestConfigMergeBehavior:
@@ -349,7 +331,6 @@ class TestEndToEndCleaningWorkflow:
             "  - name: e2e_clean\n"
             "    workflow: modzscore_clean\n"
             "    sources: test_src\n"
-            "    output_format: json\n"
         )
 
         # ── 2. Create dataset directory (path.exists() check) ─────────
@@ -436,9 +417,9 @@ class TestEndToEndCleaningWorkflow:
         assert "outliers" in meta_dump["evaluators"]
         assert "duplicates" in meta_dump["evaluators"]
 
-        # ── 7. Write output via result.report() and verify ────────────
+        # ── 7. Write output via result.export() and verify ────────────
         task_dir = output_dir / task.name
-        written_path = result.report(format="json", path=task_dir)
+        written_path = result.export(task_dir)
         results_file = task_dir / "results.json"
         assert written_path == results_file
 

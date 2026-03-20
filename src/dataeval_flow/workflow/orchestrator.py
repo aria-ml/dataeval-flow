@@ -6,7 +6,9 @@ import logging
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, overload, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, overload, runtime_checkable
+
+from pydantic import BaseModel
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -68,7 +70,29 @@ def _resolve_workflow(
     return _resolve_by_name(config.workflows, workflow_name, "workflow")
 
 
-def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[Any, Any]":
+E = TypeVar("E", bound=BaseModel)
+
+
+def _resolve_extractor_paths(extractor_cfg: E, data_dir: Path | None) -> E:
+    """Resolve relative ``model_path`` on extractor configs against *data_dir*."""
+    model_path: str | None = getattr(extractor_cfg, "model_path", None)
+
+    if model_path is not None:
+        from dataeval_flow.config._loader import resolve_path
+
+        resolved = str(resolve_path(model_path, data_dir))
+        if resolved != model_path:
+            return extractor_cfg.model_copy(update={"model_path": resolved})
+
+    return extractor_cfg
+
+
+def _run_single_task(
+    task: "TaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "WorkflowResult[Any, Any]":
     """Run a single resolved task against a pipeline config.
 
     This is the internal workhorse — resolves all references (sources,
@@ -94,6 +118,7 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
 
     if task.extractor is not None:
         extractor_cfg = _resolve_by_name(config.extractors, task.extractor, "extractor")
+        extractor_cfg = _resolve_extractor_paths(extractor_cfg, data_dir)
         batch_size = extractor_cfg.batch_size
 
         # Resolve preprocessor from extractor (optional)
@@ -112,7 +137,7 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
         source: SourceConfig = _resolve_by_name(config.sources, src_name, "source")
         resolved_sources.append(source)
         ds_config = _resolve_by_name(config.datasets, source.dataset, "dataset")
-        resolved = resolve_dataset(ds_config)
+        resolved = resolve_dataset(ds_config, data_dir=data_dir)
         dataset_names.append(source.dataset)
 
         # Resolve selection from source (optional)
@@ -122,9 +147,8 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
             selection_steps = sel_config.steps
 
         # Build per-dataset cache
-        cache_path = Path(task.cache_dir) if task.cache_dir else None
         ds_cache = DatasetCache.get_or_create(
-            cache_dir=cache_path,
+            cache_dir=cache_dir,
             name=resolved.name,
             cache_key=resolved.cache_key,
         )
@@ -140,8 +164,8 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
             cache=ds_cache,
         )
 
-    if task.cache_dir:
-        logger.info("Cache enabled: %s", Path(task.cache_dir))
+    if cache_dir:
+        logger.info("Cache enabled: %s", cache_dir)
 
     # 4. Build WorkflowContext
     context = WorkflowContext(
@@ -163,9 +187,7 @@ def _run_single_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowR
     logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Populate metadata envelope
-    _populate_result_metadata(
-        result, dataset_names, dataset_contexts, resolved_sources, extractor_cfg, task.output_format, elapsed
-    )
+    _populate_result_metadata(result, dataset_names, dataset_contexts, resolved_sources, extractor_cfg, elapsed)
 
     return result
 
@@ -176,7 +198,6 @@ def _populate_result_metadata(
     dataset_contexts: "Mapping[str, DatasetContext]",
     sources: "Sequence[SourceConfig]",
     extractor_cfg: Any,
-    output_format: "Literal['text', 'json', 'yaml']",
     elapsed: float,
 ) -> None:
     """Fill in the JATIC metadata envelope from resolved source/extractor context."""
@@ -185,7 +206,6 @@ def _populate_result_metadata(
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
-    result.format = output_format
 
     # Source context — selection info
     selection_names = [s.selection for s in sources if s.selection is not None]
@@ -207,6 +227,8 @@ def _populate_result_metadata(
 def run_tasks(
     config: "PipelineConfig",
     tasks: str | Sequence[str] | None = None,
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> "list[WorkflowResult[Any, Any]]":
     """Run tasks from a pipeline configuration.
 
@@ -221,6 +243,10 @@ def run_tasks(
         - ``None`` (default) — run all enabled tasks
         - ``str`` — run a single task by name
         - ``list[str]`` — run specific tasks by name, in the given order
+    data_dir : Path | None
+        Root directory for resolving relative paths in configs.
+    cache_dir : Path | None
+        Directory for disk-backed computation cache.
 
     Returns
     -------
@@ -253,7 +279,7 @@ def run_tasks(
     results: list[WorkflowResult[Any, Any]] = []
     for task in to_run:
         logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
-        results.append(_run_single_task(task, config))
+        results.append(_run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir))
     return results
 
 
@@ -261,20 +287,30 @@ def run_tasks(
 def run_task(
     task: "DataCleaningTaskConfig",
     config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> "WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]": ...
 @overload
 def run_task(
     task: "DriftMonitoringTaskConfig",
     config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> "WorkflowResult[DriftMonitoringMetadata, DriftMonitoringOutputs]": ...
 @overload
 def run_task(
     task: "OODDetectionTaskConfig",
     config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> "WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]": ...
 @overload
-def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[Any, Any]": ...
-def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[Any, Any]":
+def run_task(
+    task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None
+) -> "WorkflowResult[Any, Any]": ...
+def run_task(
+    task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None
+) -> "WorkflowResult[Any, Any]":
     """Run a single task, returning a narrowly typed result based on the task type.
 
     Unlike :func:`run_tasks`, this function accepts the task config object
@@ -289,6 +325,10 @@ def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[An
         Pipeline configuration supplying datasets, sources, extractors, and
         workflow definitions.  The task does **not** need to appear in
         ``config.tasks``.
+    data_dir : Path | None
+        Root directory for resolving relative paths in configs.
+    cache_dir : Path | None
+        Directory for disk-backed computation cache.
 
     Returns
     -------
@@ -298,4 +338,4 @@ def run_task(task: "TaskConfig", config: "PipelineConfig") -> "WorkflowResult[An
         *task* is an :class:`~dataeval_flow.config.OODDetectionTaskConfig`.
     """
     logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
-    return _run_single_task(task, config)
+    return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir)

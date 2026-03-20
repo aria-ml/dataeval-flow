@@ -967,13 +967,13 @@ class TestLoadDatasetTorchvision:
 class TestMainModule:
     """Test the __main__.py CLI module."""
 
-    def test_parse_args_no_output_exits_error(self) -> None:
-        """--output is required; omitting it causes argparse to exit with error."""
+    def test_parse_args_no_args_succeeds(self) -> None:
+        """--output is optional; omitting all args should succeed."""
         from dataeval_flow.__main__ import parse_args
 
-        with patch("sys.argv", ["dataeval_flow"]), pytest.raises(SystemExit) as exc_info:
-            parse_args()
-        assert exc_info.value.code == 2
+        with patch("sys.argv", ["dataeval_flow"]):
+            args = parse_args()
+        assert args.output is None
 
     def test_parse_args_with_config(self) -> None:
         """Test parsing with --config flag."""

@@ -221,7 +221,7 @@ extractor_config = FlattenExtractorConfig(name="flatten", batch_size=64)
 
 # %%
 from dataeval_flow.config import DriftMonitoringTaskConfig, DriftMonitoringWorkflowConfig
-from dataeval_flow.workflow import run_tasks
+from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.drift.params import (
     ChunkingConfig,
     DriftDetectorKNeighbors,
@@ -238,7 +238,6 @@ drift_overall = DriftMonitoringTaskConfig(
     workflow="mnist-drift",
     sources=["ref_src", "inc_src"],
     extractor="flatten",
-    cache_dir="./cache",
 )
 
 config = PipelineConfig(
@@ -269,7 +268,7 @@ config = PipelineConfig(
 # ## Step 2: Run the drift monitoring workflow
 
 # %%
-[result] = run_tasks(config, "mnist-drift-overall")
+result = run_task(drift_overall, config, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ## Results Exploration: Drift report
@@ -279,7 +278,7 @@ config = PipelineConfig(
 # drifted.
 
 # %%
-print(result.report(format="text"))
+print(result.report())
 
 # %% [markdown]
 # ### Understanding the chunk results
@@ -388,7 +387,7 @@ plt.show()
 # ready for integration with monitoring dashboards or automated pipelines.
 
 # %%
-json_str = result.report(format="json")
+json_str = result.export(fmt="json")
 print(f"JSON output: {len(json_str)} characters")
 print(json_str[:600] + "\n...")
 

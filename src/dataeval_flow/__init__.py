@@ -2,11 +2,13 @@
 
 Quick start::
 
+    from pathlib import Path
     from dataeval_flow import load_config, run_tasks
 
-    config = load_config(Path("params.yaml"))
-    results = run_tasks(config)
-    print(results[0].report())
+    config = load_config(Path("/path/to/data/config.yaml"))
+    results = run_tasks(config, data_dir=Path("/path/to/data"))
+    print(results[0].report())  # text report
+    results[0].export("output/")  # write result JSON
 
 Or build a pipeline programmatically::
 

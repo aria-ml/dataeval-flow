@@ -227,6 +227,8 @@ extractor_config = FlattenExtractorConfig(name="flatten", batch_size=64)
 # for the flagged samples.
 
 # %%
+from pathlib import Path
+
 from dataeval_flow.config import OODDetectionTaskConfig, OODDetectionWorkflowConfig
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.ood.params import (
@@ -240,7 +242,6 @@ task = OODDetectionTaskConfig(
     workflow="mnist-ood",
     sources=["ref_src", "inc_src"],
     extractor="flatten",
-    cache_dir="./cache/ood",
 )
 
 config = PipelineConfig(
@@ -279,7 +280,7 @@ config = PipelineConfig(
 # ## Step 2: Run the OOD detection workflow
 
 # %%
-result = run_task(task, config)
+result = run_task(task, config, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ## Results Exploration: OOD report
@@ -288,7 +289,7 @@ result = run_task(task, config)
 # how many samples were flagged OOD, per-sample scores, and metadata insights.
 
 # %%
-print(result.report(format="text"))
+print(result.report())
 
 # %% [markdown]
 # ## Understanding the results
@@ -425,7 +426,7 @@ if raw.factor_deviations:
 # automated pipelines.
 
 # %%
-json_str = result.report(format="json")
+json_str = result.export(fmt="json")
 print(f"JSON output: {len(json_str)} characters")
 print(json_str[:600] + "\n...")
 

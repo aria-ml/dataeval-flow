@@ -1479,29 +1479,6 @@
           ],
           "default": null,
           "title": "Extractor"
-        },
-        "output_format": {
-          "default": "json",
-          "enum": [
-            "json",
-            "yaml",
-            "text"
-          ],
-          "title": "Output Format",
-          "type": "string"
-        },
-        "cache_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Directory for disk-backed computation cache. When set, expensive computations (embeddings, metadata, hash stats) are cached to disk and reused across runs. In containers, point to a mounted volume (e.g. /cache).",
-          "title": "Cache Dir"
         }
       },
       "required": [

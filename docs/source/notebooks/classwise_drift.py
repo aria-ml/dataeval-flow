@@ -223,7 +223,6 @@ plt.show()
 # with `Indices` to subset the reference to the first 4 000 images.
 
 # %%
-
 from dataeval_flow.config import (
     DatasetProtocolConfig,
     DriftMonitoringTaskConfig,
@@ -234,7 +233,7 @@ from dataeval_flow.config import (
     SelectionStep,
     SourceConfig,
 )
-from dataeval_flow.workflow import run_tasks
+from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKNeighbors, DriftHealthThresholds
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
@@ -285,7 +284,6 @@ overall_task = DriftMonitoringTaskConfig(
     workflow="overall-drift",
     sources=["reference_2k", "incoming_2k"],
     extractor="flatten",
-    cache_dir="./cache",
 )
 
 overall_config = PipelineConfig(
@@ -301,7 +299,9 @@ overall_config = PipelineConfig(
 # ## Step 2: Run overall drift detection
 
 # %%
-[overall_result] = run_tasks(overall_config, "mnist-overall-drift")
+from pathlib import Path
+
+overall_result = run_task(overall_task, overall_config, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Review the overall report
@@ -310,7 +310,7 @@ overall_config = PipelineConfig(
 # view shows *when* drift started, but not *which classes* are responsible.
 
 # %%
-print(overall_result.report(format="text"))
+print(overall_result.report())
 
 # %% [markdown]
 # ## Step 3: Phase 2 — Classwise drift detection
@@ -333,7 +333,6 @@ classwise_task = DriftMonitoringTaskConfig(
     workflow="classwise-drift",
     sources=["reference_2k", "incoming_2k"],
     extractor="flatten",
-    cache_dir="./cache",
 )
 
 classwise_config = PipelineConfig(
@@ -360,7 +359,7 @@ classwise_config = PipelineConfig(
 # ## Step 4: Run classwise drift detection
 
 # %%
-[classwise_result] = run_tasks(classwise_config, "mnist-classwise-drift")
+classwise_result = run_task(classwise_task, classwise_config, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Review the classwise report
@@ -370,7 +369,7 @@ classwise_config = PipelineConfig(
 # others remain clean.
 
 # %%
-print(classwise_result.report(format="text"))
+print(classwise_result.report())
 
 # %% [markdown]
 # ## Results Exploration: Classwise results

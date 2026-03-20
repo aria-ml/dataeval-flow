@@ -586,13 +586,11 @@ class TestP1SchemaClasses:
             workflow="clean_zscore_stats",
             sources="train_src",
             extractor="resnet_ext",
-            output_format="json",
         )
         assert task.name == "data_cleaning"
         assert task.workflow == "clean_zscore_stats"
         assert task.sources == "train_src"
         assert task.extractor == "resnet_ext"
-        assert task.output_format == "json"
 
     def test_task_config_with_sources_list(self):
         """TaskConfig accepts sources as a list."""
@@ -610,19 +608,6 @@ class TestP1SchemaClasses:
         assert task.workflow == "data-cleaning"
         assert task.sources == "test_src"
         assert task.extractor is None
-        assert task.output_format == "json"
-
-    def test_task_config_invalid_output_format_raises(self):
-        """TaskConfig rejects invalid output_format."""
-        from dataeval_flow.config import TaskConfig
-
-        with pytest.raises(ValidationError, match="output_format"):
-            TaskConfig(
-                name="test",
-                workflow="data-cleaning",
-                sources="test_src",
-                output_format="invalid",  # type: ignore[arg-type]
-            )
 
     def test_workflow_config_with_all_p1_schemas(self, tmp_path: Path):
         """PipelineConfig loads all P1 schema sections."""

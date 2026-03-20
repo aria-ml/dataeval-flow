@@ -20,17 +20,6 @@ class TaskConfig(BaseModel):
     enabled: bool = Field(default=True, description="Whether this task is included when running the pipeline.")
     sources: str | Sequence[str]  # reference to SourceConfig.name
     extractor: str | None = None  # reference to ExtractorConfig.name
-    output_format: Literal["json", "yaml", "text"] = "json"
-    # Cache configuration - for caching expensive computations (embeddings, metadata stats) to disk across runs
-    cache_dir: str | None = Field(
-        default=None,
-        description=(
-            "Directory for disk-backed computation cache. "
-            "When set, expensive computations (embeddings, metadata, hash stats) "
-            "are cached to disk and reused across runs. "
-            "In containers, point to a mounted volume (e.g. /cache)."
-        ),
-    )
 
 
 class MultiSourceTaskConfig(TaskConfig):

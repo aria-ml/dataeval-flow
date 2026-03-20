@@ -260,20 +260,18 @@ container-test:
   extends: .container-setup
   needs: [push:docker]
   script:
-    # Create minimal test config (required mount)
-    - mkdir -p /tmp/test-config
+    # Create minimal test data directory (required mount)
+    - mkdir -p /tmp/test-data
     - |
-      cat > /tmp/test-config/config.yaml << 'EOF'
+      cat > /tmp/test-data/config.yaml << 'EOF'
       datasets:
         - name: test
           format: huggingface
-          path: /data/dataset
+          path: test-dataset
           splits: [train]
       EOF
-
-    # Create minimal test dataset (required mount)
-    - mkdir -p /tmp/test-dataset
-    - echo "test" > /tmp/test-dataset/dummy.txt
+    - mkdir -p /tmp/test-data/test-dataset
+    - echo "test" > /tmp/test-data/test-dataset/dummy.txt
 
     # Pull CPU image from Harbor
     - docker pull ${CI_APPLICATION_REPOSITORY}:cpu
@@ -281,8 +279,7 @@ container-test:
     # Smoke test: Run with --help flag (triggers entrypoint help display)
     - |
       docker run --rm \
-        -v /tmp/test-config:/data/config:ro \
-        -v /tmp/test-dataset:/data/dataset:ro \
+        -v /tmp/test-data:/dataeval:ro \
         ${CI_APPLICATION_REPOSITORY}:cpu --help
 
     - echo "Container smoke test passed"

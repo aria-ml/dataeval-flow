@@ -1355,18 +1355,6 @@ class TestCacheVersioning:
 
 
 class TestConfigIntegration:
-    def test_task_config_accepts_cache_dir(self):
-        from dataeval_flow.config import TaskConfig
-
-        task = TaskConfig(name="test", workflow="data-cleaning", sources="src", cache_dir="/cache")
-        assert task.cache_dir == "/cache"
-
-    def test_task_config_cache_dir_defaults_none(self):
-        from dataeval_flow.config import TaskConfig
-
-        task = TaskConfig(name="test", workflow="data-cleaning", sources="src")
-        assert task.cache_dir is None
-
     def test_dataset_context_accepts_cache(self, tmp_path: Path):
         from unittest.mock import MagicMock
 

@@ -14,14 +14,14 @@ variants:
   cpu:
     base_image: "ubuntu:24.04"
 
-    extras: ["cpu", "onnx", "opencv"]
+    extras: ["all-cpu"]
     label_title: "DataEval Workflows (CPU)"
     label_description: "DataEval Workflows container - CPU variant"
 
   cu118:
     base_image: "nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04"
 
-    extras: ["cu118", "onnx-gpu", "opencv"]
+    extras: ["all-cu118"]
     label_title: "DataEval Workflows (CUDA 11.8)"
     label_description: "DataEval Workflows container - CUDA 11.8 variant"
     security_patches:
@@ -30,7 +30,7 @@ variants:
   cu124:
     base_image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
 
-    extras: ["cu124", "onnx-gpu", "opencv"]
+    extras: ["all-cu124"]
     label_title: "DataEval Workflows (CUDA 12.4)"
     label_description: "DataEval Workflows container - CUDA 12.4 variant"
     security_patches:
@@ -39,7 +39,7 @@ variants:
   cu128:
     base_image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04"
 
-    extras: ["cu128", "onnx-gpu", "opencv"]
+    extras: ["all-cu128"]
     label_title: "DataEval Workflows (CUDA 12.8)"
     label_description: "DataEval Workflows container - CUDA 12.8 variant"
     security_patches:
