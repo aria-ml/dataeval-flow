@@ -11,10 +11,9 @@ docker build -f Dockerfile.cu118 -t dataeval:cu118 .
 # 2. Show help
 docker run dataeval:cu118
 
-# 3. Run with config and dataset
+# 3. Run with data and output
 docker run --gpus all \
-  --mount type=bind,source=/path/to/config,target=/data/config,readonly \
-  --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
   dataeval:cu118
 ```
@@ -25,12 +24,12 @@ For easier usage (GPU is default):
 
 ```bash
 # Linux/Mac
-./run.sh --config /path/to/config --dataset /path/to/dataset
-./run.sh --config /path/to/config --dataset /path/to/dataset --cpu
+./run.sh --data /path/to/data --output /path/to/output
+./run.sh --data /path/to/data --output /path/to/output --cpu
 
 # Windows PowerShell
-.\run.ps1 -Config /path/to/config -Dataset /path/to/dataset
-.\run.ps1 -Config /path/to/config -Dataset /path/to/dataset -CPU
+.\run.ps1 -Data /path/to/data -Output /path/to/output
+.\run.ps1 -Data /path/to/data -Output /path/to/output -CPU
 ```
 
 ## Requirements
@@ -52,10 +51,35 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 
 | Path | Mode | Purpose |
 |------|------|---------|
-| `/data/config` | ro | Config files (required) |
-| `/data/dataset` | ro | Dataset (required) |
-| `/data/model` | ro | Model files (optional) |
+| `/dataeval` | ro | Data directory — datasets, models, configs (required) |
 | `/output` | rw | Results (required) |
+| `/cache` | rw | Computation cache (optional) |
+
+The data root path can be overridden via the `DATAEVAL_DATA` environment variable:
+
+```bash
+docker run --gpus all \
+  -e DATAEVAL_DATA=/data \
+  --mount type=bind,source=/path/to/data,target=/data,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
+  dataeval:cu118
+```
+
+## Configuration
+
+Config files (YAML or JSON) can be placed anywhere in your data directory. By default, all YAML/JSON files at the root of the data mount are auto-discovered and merged.
+
+To specify a config path explicitly:
+
+```bash
+# Config folder within data directory
+./run.sh --data /path/to/data --output /path/to/output --config config/
+
+# Single config file
+./run.sh --data /path/to/data --output /path/to/output --config params.yaml
+```
+
+Dataset and model paths in config files are resolved relative to the data root (`/dataeval` by default).
 
 ## Dataset Formats
 
@@ -74,8 +98,8 @@ For machines without NVIDIA GPU:
 docker build -f Dockerfile.cpu -t dataeval:cpu .
 docker run dataeval:cpu  # Shows help
 docker run \
-  --mount type=bind,source=/path/to/config,target=/data/config,readonly \
-  --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
   dataeval:cpu
 ```
 
@@ -119,14 +143,17 @@ uv sync
 **CLI Usage:**
 ```bash
 python -m dataeval_flow --config /path/to/config --output /path/to/output
+python -m dataeval_flow --data-root /path/to/data --output /path/to/output
 ```
 
 **Python API Usage:**
 ```python
 from pathlib import Path
-from dataeval_flow import load_dataset
+from dataeval_flow import load_config, run_tasks
 
-dataset = load_dataset(Path("/path/to/dataset"))
+config = load_config(Path("/path/to/data/config.yaml"))
+results = run_tasks(config, data_dir=Path("/path/to/data"))
+print(results[0].report())
 ```
 
 **Development:**

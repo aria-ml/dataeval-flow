@@ -49,7 +49,7 @@ config = PipelineConfig(
 
 # 3. Run
 (result,) = run_pipeline(config)
-print(result.report(format="text"))
+print(result.report())
 ```
 
 ### What happens under the hood

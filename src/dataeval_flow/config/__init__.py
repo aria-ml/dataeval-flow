@@ -41,7 +41,11 @@ __all__ = [
     "load_config_folder",
 ]
 
-from dataeval_flow.config._loader import export_params_schema, load_config, load_config_folder
+from dataeval_flow.config._loader import (
+    export_params_schema,
+    load_config,
+    load_config_folder,
+)
 from dataeval_flow.config._models import PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas import (
     BoVWExtractorConfig,

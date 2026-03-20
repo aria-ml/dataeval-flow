@@ -568,12 +568,19 @@ class ResolvedDataset:
     cache_key: str
 
 
-def resolve_dataset(config: BaseModel) -> ResolvedDataset:
+def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> ResolvedDataset:
     """Resolve a dataset config into a :class:`ResolvedDataset`.
 
     Handles both file-backed (:class:`DatasetConfig` union members) and
     in-memory (:class:`DatasetProtocolConfig`) configs, centralizing all
     format-specific branching in one place.
+
+    Parameters
+    ----------
+    config : BaseModel
+        Dataset configuration object.
+    data_dir : Path | None
+        Root directory for resolving relative dataset paths.
     """
     from dataeval_flow.cache import dataset_fingerprint
     from dataeval_flow.config.schemas._dataset import (
@@ -601,7 +608,11 @@ def resolve_dataset(config: BaseModel) -> ResolvedDataset:
                 if hasattr(config, field_name):
                     kwargs[field_name] = getattr(config, field_name)
 
-        dataset = load_dataset(Path(config.path), dataset_format=config.format, **kwargs)
+        from dataeval_flow.config._loader import resolve_path
+
+        dataset_path = resolve_path(config.path, data_dir)
+
+        dataset = load_dataset(dataset_path, dataset_format=config.format, **kwargs)
 
         if isinstance(config, ImageFolderDatasetConfig) and config.infer_labels:
             label_source = "filepath"

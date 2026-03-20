@@ -33,6 +33,11 @@ cu128 = ["torch>=2.2.0", "torchvision>=0.17.0"]
 onnx = ["onnx>=1.15", "onnxruntime>=1.20"]
 onnx-gpu = ["onnx>=1.15", "onnxruntime-gpu>=1.20"]
 opencv = ["opencv-python-headless>=4.8.0"]
+# Convenience extras for common combinations
+all-cpu = ["dataeval-flow[cpu,onnx,opencv]"]
+all-cu118 = ["dataeval-flow[cu118,onnx-gpu,opencv]"]
+all-cu124 = ["dataeval-flow[cu124,onnx-gpu,opencv]"]
+all-cu128 = ["dataeval-flow[cu128,onnx-gpu,opencv]"]
 
 [project.urls]
 Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"
@@ -102,10 +107,18 @@ conflicts = [
     { extra = "cu118" },
     { extra = "cu124" },
     { extra = "cu128" },
+    { extra = "all-cpu" },
+    { extra = "all-cu118" },
+    { extra = "all-cu124" },
+    { extra = "all-cu128" },
   ],
   [
     { extra = "onnx" },
     { extra = "onnx-gpu" },
+    { extra = "all-cpu" },
+    { extra = "all-cu118" },
+    { extra = "all-cu124" },
+    { extra = "all-cu128" },
   ]
 ]
 

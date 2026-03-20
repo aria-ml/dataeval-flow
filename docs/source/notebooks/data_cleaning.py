@@ -96,7 +96,7 @@ from dataeval_flow.config import (
     SelectionStep,
     SourceConfig,
 )
-from dataeval_flow.workflow import run_tasks
+from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 
 set_max_processes(8)  # Set max processes for parallel execution (adjust as needed)
@@ -128,7 +128,6 @@ task = DataCleaningTaskConfig(
     workflow="cppe5_advisory_clean",
     sources="cppe5_src",
     extractor="bovw_ext",
-    cache_dir="./cache",  # Cache embeddings & stats across runs
 )
 
 # Build the full pipeline config — datasets, sources, extractors, selections, workflows, and tasks
@@ -153,7 +152,7 @@ config = PipelineConfig(
 # ## Step 2: Run the data cleaning workflow
 
 # %%
-[result] = run_tasks(config, "cppe5_clean")
+result = run_task(task, config, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Cleaning report
@@ -163,7 +162,7 @@ config = PipelineConfig(
 # in one view.
 
 # %%
-print(result.report(format="text"))
+print(result.report())
 
 # %% [markdown]
 # ### Understanding health status
@@ -296,7 +295,6 @@ task_prep = DataCleaningTaskConfig(
     workflow="cppe5_prep_clean",
     sources="cppe5_src",
     extractor="bovw_ext",
-    cache_dir="./cache",  # Reuses cached embeddings from Step 2
 )
 
 config_prep = PipelineConfig(
@@ -308,7 +306,7 @@ config_prep = PipelineConfig(
     tasks=[task_prep],
 )
 
-[result_prep] = run_tasks(config_prep, "cppe5-clean-prep")
+result_prep = run_task(task_prep, config_prep, cache_dir=Path("./cache"))
 
 # %% tags=["remove_cell"]
 if not result_prep.success:
@@ -328,7 +326,7 @@ if meta.flagged_indices:
 # ## Results Exploration: Export results
 
 # %%
-json_str = result.report(format="json")
+json_str = result.export(fmt="json")
 print(f"JSON output: {len(json_str)} characters")
 print(json_str[:500] + "\n...")
 

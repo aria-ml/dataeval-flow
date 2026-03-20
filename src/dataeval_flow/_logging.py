@@ -10,16 +10,19 @@ _initialized: bool = False
 _APP_LOGGERS: tuple[str, ...] = ("dataeval_flow", "container_run")
 
 
-def setup_logging(output_dir: Path) -> None:
-    """Configure root logger with FileHandler (DEBUG) + StreamHandler (INFO).
+def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
+    """Configure root logger with optional FileHandler + StreamHandler.
 
     Called once at startup, before config loads.  The module-level
     ``_initialized`` flag prevents duplicate handler attachment.
 
     Parameters
     ----------
-    output_dir : Path
-        Directory for ``log.txt``.  Created if it does not exist.
+    output_dir : Path | None
+        Directory for the pipeline log file.  When ``None``, no file
+        handler is created and output is console-only.
+    verbosity : int
+        Console verbosity level (0=quiet, 1=report, 2=+INFO, 3=+DEBUG).
     """
     global _initialized
     if _initialized:
@@ -35,23 +38,29 @@ def setup_logging(output_dir: Path) -> None:
     # Root stays at WARNING — third-party loggers inherit this level,
     # suppressing their DEBUG/INFO messages by default.
 
-    # --- FileHandler (DEBUG) ---
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-        fh = logging.FileHandler(
-            output_dir / "log.txt",
-            mode="w",
-            encoding="utf-8",
-        )
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(formatter)
-        root.addHandler(fh)
-    except OSError:
-        pass  # fallback — StreamHandler still works if dir is unwritable
+    # --- FileHandler (DEBUG) — only when output_dir is provided ---
+    if output_dir is not None:
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            fh = logging.FileHandler(
+                output_dir / "result.log",
+                mode="w",
+                encoding="utf-8",
+            )
+            fh.setLevel(logging.DEBUG)
+            fh.setFormatter(formatter)
+            root.addHandler(fh)
+        except OSError:
+            pass  # fallback — StreamHandler still works if dir is unwritable
 
-    # --- StreamHandler (INFO) ---
+    # --- StreamHandler — level driven by verbosity ---
     sh = logging.StreamHandler(sys.stdout)
-    sh.setLevel(logging.INFO)
+    if verbosity >= 3:
+        sh.setLevel(logging.DEBUG)
+    elif verbosity >= 2:
+        sh.setLevel(logging.INFO)
+    else:
+        sh.setLevel(logging.WARNING)
     sh.setFormatter(formatter)
     root.addHandler(sh)
 

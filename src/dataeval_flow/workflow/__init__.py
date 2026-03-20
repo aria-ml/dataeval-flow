@@ -92,51 +92,43 @@ class WorkflowResult(Generic[TMetadata, TData]):
     data: TData
     errors: Sequence[str] = field(default_factory=list)
     metadata: TMetadata = field(default_factory=_default_metadata)  # type: ignore[assignment]
-    format: Literal["text", "json", "yaml"] = "text"
     dataset: "AnnotatedDataset[Any] | None" = None
 
-    @overload
-    def report(self, *, format: Literal["text", "json", "yaml"] | None = None, path: None = None) -> str: ...
-    @overload
-    def report(self, *, format: Literal["text", "json", "yaml"] | None = None, path: str | Path) -> Path: ...
-
-    def report(
-        self,
-        *,
-        format: Literal["text", "json", "yaml"] | None = None,  # noqa: A002
-        path: str | Path | None = None,
-    ) -> str | Path:
-        """Generate the workflow report.
+    def report(self, *, detailed: bool = True) -> str:
+        """Return a human-readable text report.
 
         Parameters
         ----------
-        format : {"text", "json", "yaml"} | None
-            Output format. If ``None``, uses the instance's ``format``.
-        path : str | Path | None
-            File or directory path for json/yaml output.  If a directory,
-            writes ``results.<ext>`` inside it.  If ``None``, returns the
-            serialized string.
+        detailed : bool
+            When ``True`` (default), the report includes detail sections
+            for each finding.  When ``False``, only the summary is shown.
 
         Returns
         -------
-        str | Path
-            - text: formatted string (caller can ``print()`` it)
-            - json/yaml without path: serialized string
-            - json/yaml with path: ``Path`` to written file
+        str
+            Formatted text report suitable for ``print()``.
         """
-        if format is None:
-            format = self.format  # noqa: A001
-        if format == "text":
-            return self._report_text()
-        if format in ("json", "yaml"):
-            return self._report_serialized(format, path)
-        msg = f"Unknown format: {format!r}. Expected 'text', 'json', or 'yaml'."
-        raise ValueError(msg)
+        report_obj = getattr(self.data, "report", None)
+        if report_obj is None:
+            return f"{self.name}: no report available"
 
-    # -- private helpers --------------------------------------------------
+        findings = getattr(report_obj, "findings", [])
+        lines: list[str] = []
+        lines.extend(self._title_lines(report_obj.summary))
+        lines.extend(self._metadata_lines())
+        lines.extend(self._summary_lines(findings))
+        if detailed:
+            lines.extend(self._detail_lines(findings))
+        lines.append("")
+        lines.append("=" * _WIDTH)
+        return "\n".join(lines)
 
-    def _metadata_text_lines(self) -> list[str]:
-        """Build human-readable metadata lines for the text report."""
+    def _title_lines(self, summary: str) -> list[str]:
+        """Banner with the report summary title."""
+        return ["", "=" * _WIDTH, f"  {summary.upper()}", "=" * _WIDTH]
+
+    def _metadata_lines(self) -> list[str]:
+        """Human-readable metadata block with trailing separator."""
         meta = self.metadata
         lines: list[str] = []
         if meta.timestamp:
@@ -154,76 +146,71 @@ class WorkflowResult(Generic[TMetadata, TData]):
             lines.append(f"  Preprocessor: {meta.preprocessor_id}")
         if meta.selection_id:
             lines.append(f"  Selection:    {meta.selection_id}")
+        if lines:
+            lines.append("-" * _WIDTH)
         return lines
 
-    def _report_text(self) -> str:
-        """Return executive-summary text report."""
-        report = getattr(self.data, "report", None)
-        if report is None:
-            return f"{self.name}: no report available"
-
-        findings = getattr(report, "findings", [])
-        lines: list[str] = []
-
-        # === Title banner ===
-        lines.append("")
-        lines.append("=" * _WIDTH)
-        lines.append(f"  {report.summary.upper()}")
-        lines.append("=" * _WIDTH)
-
-        # Metadata block
-        meta_lines = self._metadata_text_lines()
-        if meta_lines:
-            lines.extend(meta_lines)
-            lines.append("-" * _WIDTH)
-
+    def _summary_lines(self, findings: list) -> list[str]:
+        """Summary section with per-finding one-liners and health status."""
         if not findings:
-            lines.append("  No findings to report.")
-            lines.append("=" * _WIDTH)
-            return "\n".join(lines)
+            return ["  No findings to report."]
 
-        # === SUMMARY section ===
         warnings = sum(1 for f in findings if getattr(f, "severity", "info") == "warning")
-        lines.append("")
-        lines.append("  SUMMARY")
-        lines.append("  -------")
+        lines = ["", "  SUMMARY", "  -------"]
         lines.extend(_summary_line(f) for f in findings)
-        # Health footer — counts findings marked severity="warning".
-        # Informational findings (outliers, duplicates, etc.) do not count.
         lines.append("")
         if warnings:
             lines.append(f"  Health: {warnings} warning(s) [!!] — review flagged findings")
         else:
             lines.append("  Health: All checks passed [ok]")
+        return lines
 
-        # === Detail sections ===
+    def _detail_lines(self, findings: list) -> list[str]:
+        """Expanded detail sections for each finding."""
+        lines: list[str] = []
         for finding in findings:
             lines.extend(_render_detail_section(finding))
+        return lines
 
-        lines.append("")
-        lines.append("=" * _WIDTH)
-        return "\n".join(lines)
+    @overload
+    def export(self, path: str | Path, *, fmt: Literal["json", "yaml"] = "json") -> Path: ...
+    @overload
+    def export(self, path: None = None, *, fmt: Literal["json", "yaml"] = "json") -> str: ...
 
-    def _report_serialized(
+    def export(
         self,
-        fmt: Literal["json", "yaml"],
-        path: str | Path | None,
+        path: str | Path | None = None,
+        *,
+        fmt: Literal["json", "yaml"] = "json",
     ) -> str | Path:
-        """Serialize data + metadata to JSON or YAML, optionally writing to a file."""
-        import json as json_mod
+        """Serialize result data to JSON or YAML.
 
-        output = {
-            "metadata": self.metadata.model_dump(mode="json"),
-            **self.data.model_dump(),
-        }
+        Parameters
+        ----------
+        path : str | Path | None
+            File or directory path.  If a directory, writes
+            ``results.<ext>`` inside it.  If ``None``, returns the
+            serialized string.
+        fmt : {"json", "yaml"}
+            Serialization format.  Defaults to ``"json"``.
+
+        Returns
+        -------
+        str | Path
+            Serialized string when ``path`` is ``None``, otherwise the
+            ``Path`` to the written file.
+        """
+        output = self.to_dict()
 
         if fmt == "json":
-            content = json_mod.dumps(output, indent=2)
+            from json import dumps
+
+            content = dumps(output, indent=2)
             ext = "json"
         else:
-            import yaml
+            from yaml import dump
 
-            content = yaml.dump(output, default_flow_style=False)
+            content = dump(output, default_flow_style=False)
             ext = "yaml"
 
         if path is None:
@@ -238,6 +225,13 @@ class WorkflowResult(Generic[TMetadata, TData]):
 
         dest.write_text(content, encoding="utf-8")
         return dest
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the result as a plain dictionary (metadata + data fields)."""
+        return {
+            "metadata": self.metadata.model_dump(mode="json"),
+            **self.data.model_dump(),
+        }
 
 
 @runtime_checkable

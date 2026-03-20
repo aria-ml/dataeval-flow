@@ -7,7 +7,7 @@ import nox_uv
 
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_venv = "always"
-nox.options.sessions = ["lint", "type", "test", "check"]  # Default sessions to run
+nox.options.sessions = ["lint", "type", "test", "schema", "check"]  # Default sessions to run
 
 IS_CI = bool(os.environ.get("CI"))
 UV_EXTRAS_OVERRIDE = os.environ.get("DATAEVAL_NOX_UV_EXTRAS_OVERRIDE", "")

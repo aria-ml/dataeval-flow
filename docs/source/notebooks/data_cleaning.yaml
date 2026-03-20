@@ -1,0 +1,60 @@
+# Data Cleaning — Advisory Workflow
+# Mirrors the configuration in data_cleaning.py
+# All paths are relative to the data root (docs/source/notebooks/)
+#
+# You can execute this workflow with `dataeval-flow --config data_cleaning.yaml`
+#
+# yaml-language-server: $schema=../../../config/params.schema.json
+
+datasets:
+  - name: cppe5_train
+    format: huggingface
+    path: data/cppe5/train
+
+selections:
+  - name: first500
+    steps:
+      - type: Limit
+        params:
+          size: 500
+
+sources:
+  - name: cppe5_src
+    dataset: cppe5_train
+    selection: first500
+
+extractors:
+  - name: bovw_ext
+    model: bovw
+    vocab_size: 512
+    batch_size: 32
+
+workflows:
+  - name: cppe5_advisory_clean
+    type: data-cleaning
+    mode: advisory
+    # Outlier detection
+    outlier_method: adaptive
+    outlier_threshold: 3.5
+    outlier_flags: [dimension, pixel, visual]
+    outlier_cluster_threshold: 3.5
+    outlier_cluster_algorithm: hdbscan
+    outlier_n_clusters: 5
+    # Duplicate detection — hash-based plus cluster-based
+    duplicate_cluster_sensitivity: 0.5
+    duplicate_cluster_algorithm: hdbscan
+    duplicate_n_clusters: 5
+    # Relaxed thresholds for a diverse object-detection dataset
+    health_thresholds:
+      exact_duplicates: 0.0
+      near_duplicates: 5.0
+      image_outliers: 5.0
+      target_outliers: 10.0
+      classwise_outliers: 12.0
+      class_label_imbalance: 5.0
+
+tasks:
+  - name: cppe5_clean
+    workflow: cppe5_advisory_clean
+    sources: cppe5_src
+    extractor: bovw_ext

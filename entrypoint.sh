@@ -4,6 +4,9 @@
 
 set -e
 
+# Resolve data root (matches Python-side DATAEVAL_DATA env var)
+DATA_DIR="${DATAEVAL_DATA:-/dataeval}"
+
 # ============== HELP ==============
 show_help() {
     if [[ "$CONTAINER_MODE" == "cpu" ]]; then
@@ -18,24 +21,27 @@ EOF
 DataEval Workflows Container - GPU Version
 
 USAGE:
-    docker run --gpus all [OPTIONS] dataeval:gpu [COMMAND]
+    docker run --gpus all [OPTIONS] dataeval:<CUDA> [COMMAND]
+
+CUDA VARIANTS:  cu118, cu124, cu128
 EOF
     fi
 
-    cat << 'EOF'
+    # Use envsubst-style approach: print static text with variable substitution.
+    # Double backslashes (\\) produce literal backslashes in the output for
+    # displaying line-continuation examples to the user.
+    cat << _EOF_
 
 ================================================================================
 VOLUME MOUNTS
 ================================================================================
 
 REQUIRED:
-  /data/config     YAML config files (read-only)
-  /data/dataset    Reference dataset (read-only)
-  /output          Results and output files (read-write)
+  $DATA_DIR        Data directory — datasets, models, configs (read-only)
+  /output            Results and output files (read-write)
 
 OPTIONAL:
-  /data/model      Model files (read-only)
-  /cache           Computation cache (read-write)
+  /cache             Computation cache (read-write)
 
 --------------------------------------------------------------------------------
 MOUNT SYNTAX
@@ -51,55 +57,61 @@ MOUNT SYNTAX
 EXAMPLES
 --------------------------------------------------------------------------------
 
-Minimal (config + dataset + output):
-    docker run --gpus all \
-        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
-        --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
-        --mount type=bind,source=/home/user/results,target=/output \
-        dataeval:gpu
+Minimal (data + output):
+    docker run --gpus all \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --mount type=bind,source=/home/user/results,target=/output \\
+        dataeval:cu124
 
-All mounts (with model):
-    docker run --gpus all \
-        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
-        --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
-        --mount type=bind,source=/home/user/models,target=/data/model,readonly \
-        --mount type=bind,source=/home/user/results,target=/output \
-        --mount type=bind,source=/home/user/cache,target=/cache \
-        dataeval:gpu
+With cache:
+    docker run --gpus all \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --mount type=bind,source=/home/user/results,target=/output \\
+        --mount type=bind,source=/home/user/cache,target=/cache \\
+        dataeval:cu124
+
+With config path override (config in a subdirectory):
+    docker run --gpus all \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --mount type=bind,source=/home/user/results,target=/output \\
+        dataeval:cu124 python src/container_run.py --config config/
+
+Verbose output (-v report, -vv +INFO, -vvv +DEBUG):
+    docker run --gpus all \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --mount type=bind,source=/home/user/results,target=/output \\
+        dataeval:cu124 python src/container_run.py -v
 
 Windows PowerShell:
-    docker run --gpus all `
-        --mount type=bind,source=C:\data\config,target=/data/config,readonly `
-        --mount type=bind,source=C:\data\cifar10,target=/data/dataset,readonly `
-        --mount type=bind,source=C:\output,target=/output `
-        dataeval:gpu
+    docker run --gpus all \`
+        --mount type=bind,source=C:\\data\\myproject,target=$DATA_DIR,readonly \`
+        --mount type=bind,source=C:\\output,target=/output \`
+        dataeval:cu124
 
 --------------------------------------------------------------------------------
 OTHER OPTIONS
 --------------------------------------------------------------------------------
 
 Interactive shell:
-    docker run -it --gpus all \
-        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
-        --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
-        --entrypoint /bin/bash \
-        dataeval:gpu
+    docker run -it --gpus all \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --entrypoint /bin/bash \\
+        dataeval:cu124
 
-Debug (bypass GPU check):
-    docker run \
-        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
-        --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
-        --entrypoint python \
-        dataeval:gpu src/container_run.py
+Custom data root (override DATAEVAL_DATA):
+    docker run --gpus all \\
+        -e DATAEVAL_DATA=/data \\
+        --mount type=bind,source=/home/user/myproject,target=/data,readonly \\
+        --mount type=bind,source=/home/user/results,target=/output \\
+        dataeval:cu124
 
 --------------------------------------------------------------------------------
 CPU-ONLY MACHINES
 --------------------------------------------------------------------------------
 
-    docker run \
-        --mount type=bind,source=/home/user/config,target=/data/config,readonly \
-        --mount type=bind,source=/home/user/cifar10,target=/data/dataset,readonly \
-        --mount type=bind,source=/home/user/results,target=/output \
+    docker run \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --mount type=bind,source=/home/user/results,target=/output \\
         dataeval:cpu
 
 --------------------------------------------------------------------------------
@@ -107,14 +119,13 @@ TROUBLESHOOTING
 --------------------------------------------------------------------------------
 
 "No GPU detected"      -> Add --gpus all to command
-"No config mounted"    -> Add --mount for /data/config
-"No dataset mounted"   -> Add --mount for /data/dataset
+"No data mounted"      -> Add --mount for $DATA_DIR
 "Output not mounted"   -> Add --mount for /output
 "invalid mount config" -> Check source path exists on host
 "Permission denied"    -> Check host directory permissions
 
 ================================================================================
-EOF
+_EOF_
     exit 0
 }
 
@@ -123,38 +134,19 @@ if [[ "$1" == "--help" || "$1" == "-h" || "$1" == "-help" ]]; then
     show_help
 fi
 
-# ============== VALIDATE DATASET MOUNT ==============
+# ============== VALIDATE DATA MOUNT ==============
 # Marker file exists = no mount attempted = show help
-if [[ -f "/data/dataset/.not_mounted" ]]; then
+if [[ -f "$DATA_DIR/.not_mounted" ]]; then
     show_help
 fi
 
 # No marker but empty = mount attempted with bad path = show error
-if [[ -z "$(ls -A /data/dataset 2>/dev/null)" ]]; then
+if [[ -z "$(ls -A "$DATA_DIR" 2>/dev/null)" ]]; then
     echo ""
-    echo "ERROR: Dataset mount is empty at /data/dataset"
-    echo ""
-    echo "Check that your source path exists on the host:"
-    echo "  -v /path/to/dataset:/data/dataset:ro"
-    echo "       ↑ verify this path exists"
-    echo ""
-    echo "Run with --help for usage information."
-    exit 1
-fi
-
-# ============== VALIDATE CONFIG MOUNT (REQUIRED) ==============
-# Marker file exists = no mount attempted = show help
-if [[ -f "/data/config/.not_mounted" ]]; then
-    show_help
-fi
-
-# No marker but empty = mount attempted with bad path = show error
-if [[ -z "$(ls -A /data/config 2>/dev/null)" ]]; then
-    echo ""
-    echo "ERROR: Config mount is empty at /data/config"
+    echo "ERROR: Data mount is empty at $DATA_DIR"
     echo ""
     echo "Check that your source path exists on the host:"
-    echo "  -v /path/to/config:/data/config:ro"
+    echo "  --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly"
     echo "       ↑ verify this path exists"
     echo ""
     echo "Run with --help for usage information."
@@ -171,20 +163,6 @@ if [[ -f "/output/.not_mounted" ]]; then
     echo "  --mount type=bind,source=/path/to/output,target=/output"
     echo ""
     echo "Run with --help for usage information."
-    exit 1
-fi
-
-# ============== VALIDATE OPTIONAL MOUNTS ==============
-# Check if mount was attempted (no marker) but directory is empty (bad path)
-
-# /data/model - Model files (optional)
-if [[ ! -f "/data/model/.not_mounted" ]] && [[ -z "$(ls -A /data/model 2>/dev/null)" ]]; then
-    echo ""
-    echo "ERROR: Model mount is empty at /data/model"
-    echo ""
-    echo "Check that your source path exists on the host:"
-    echo "  -v /path/to/models:/data/model:ro"
-    echo "       ↑ verify this path exists"
     exit 1
 fi
 
@@ -219,9 +197,9 @@ else
         echo "Did you forget --gpus all?"
         echo ""
         echo "    docker run --gpus all \\"
-        echo "        --mount type=bind,source=/path/to/config,target=/data/config,readonly \\"
-        echo "        --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \\"
-        echo "        dataeval:gpu"
+        echo "        --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly \\"
+        echo "        --mount type=bind,source=/path/to/output,target=/output \\"
+        echo "        dataeval:cu124"
         echo ""
         echo "For CPU-only machines, use: dataeval:cpu"
         echo "Run with --help for full usage."
@@ -235,9 +213,9 @@ else
         echo "Ensure nvidia-container-toolkit is installed and run with --gpus all"
         echo ""
         echo "    docker run --gpus all \\"
-        echo "        --mount type=bind,source=/path/to/config,target=/data/config,readonly \\"
-        echo "        --mount type=bind,source=/path/to/dataset,target=/data/dataset,readonly \\"
-        echo "        dataeval:gpu"
+        echo "        --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly \\"
+        echo "        --mount type=bind,source=/path/to/output,target=/output \\"
+        echo "        dataeval:cu124"
         echo ""
         echo "Run with --help for full usage."
         exit 1
@@ -246,14 +224,14 @@ fi
 
 # ============== SUCCESS ==============
 echo ""
-DATASET_COUNT=$(ls /data/dataset 2>/dev/null | wc -l)
+DATA_COUNT=$(ls "$DATA_DIR" 2>/dev/null | wc -l)
 if [[ "$CONTAINER_MODE" == "cpu" ]]; then
     echo "Mode: CPU"
 else
     GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)
     echo "GPU detected: $GPU_NAME"
 fi
-echo "Dataset mounted: $DATASET_COUNT items in /data/dataset"
+echo "Data mounted: $DATA_COUNT items in $DATA_DIR"
 echo ""
 
 exec "$@"

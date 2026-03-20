@@ -8,15 +8,19 @@ import pytest
 from dataeval_flow._logging import configure_log_levels, setup_logging
 
 
+def _find_log_file(tmp_path: Path) -> Path:
+    """Find the result.log file in the output directory."""
+    return tmp_path / "result.log"
+
+
 class TestSetupLogging:
     def test_setup_creates_file_handler(self, tmp_path: Path):
         setup_logging(tmp_path)
 
-        log_file = tmp_path / "log.txt"
+        log_file = _find_log_file(tmp_path)
         assert log_file.exists()
 
         logging.getLogger("dataeval_flow").info("hello from test")
-        # Flush handlers to ensure content is written
         for h in logging.getLogger().handlers:
             h.flush()
 
@@ -51,7 +55,7 @@ class TestSetupLogging:
         assert "FileHandler" not in handler_types
 
     def test_file_captures_debug_stream_filters_debug(self, tmp_path: Path, capsys: pytest.CaptureFixture):
-        setup_logging(tmp_path)
+        setup_logging(tmp_path, verbosity=0)
         app_logger = logging.getLogger("dataeval_flow.test")
 
         app_logger.debug("debug-only-msg")
@@ -60,16 +64,16 @@ class TestSetupLogging:
         for h in logging.getLogger().handlers:
             h.flush()
 
-        log_content = (tmp_path / "log.txt").read_text(encoding="utf-8")
+        log_content = _find_log_file(tmp_path).read_text(encoding="utf-8")
         stdout = capsys.readouterr().out
 
         # DEBUG appears in file but not stdout
         assert "debug-only-msg" in log_content
         assert "debug-only-msg" not in stdout
 
-        # INFO appears in both
+        # INFO does NOT appear in stdout at verbosity 0 (WARNING level)
         assert "info-msg" in log_content
-        assert "info-msg" in stdout
+        assert "info-msg" not in stdout
 
     def test_third_party_debug_suppressed(self, tmp_path: Path):
         setup_logging(tmp_path)
@@ -80,8 +84,37 @@ class TestSetupLogging:
         for h in logging.getLogger().handlers:
             h.flush()
 
-        log_content = (tmp_path / "log.txt").read_text(encoding="utf-8")
+        log_content = _find_log_file(tmp_path).read_text(encoding="utf-8")
         assert "torch-debug-noise" not in log_content
+
+    def test_no_output_dir_creates_no_file_handler(self):
+        setup_logging(None)
+
+        root = logging.getLogger()
+        handler_types = [type(h).__name__ for h in root.handlers]
+        assert "FileHandler" not in handler_types
+        assert "StreamHandler" in handler_types
+
+    def test_verbosity_0_stream_at_warning(self, tmp_path: Path):
+        setup_logging(tmp_path, verbosity=0)
+
+        stream_handlers = [h for h in logging.getLogger().handlers if type(h) is logging.StreamHandler]
+        assert len(stream_handlers) == 1
+        assert stream_handlers[0].level == logging.WARNING
+
+    def test_verbosity_2_stream_at_info(self, tmp_path: Path):
+        setup_logging(tmp_path, verbosity=2)
+
+        stream_handlers = [h for h in logging.getLogger().handlers if type(h) is logging.StreamHandler]
+        assert len(stream_handlers) == 1
+        assert stream_handlers[0].level == logging.INFO
+
+    def test_verbosity_3_stream_at_debug(self, tmp_path: Path):
+        setup_logging(tmp_path, verbosity=3)
+
+        stream_handlers = [h for h in logging.getLogger().handlers if type(h) is logging.StreamHandler]
+        assert len(stream_handlers) == 1
+        assert stream_handlers[0].level == logging.DEBUG
 
 
 class TestConfigureLogLevels:

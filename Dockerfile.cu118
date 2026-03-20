@@ -26,7 +26,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 RUN touch README.md
 
 # Install ALL dependencies (dev + prod) for testing
-RUN uv sync --frozen --group dev --extra cu118 --extra onnx-gpu --extra opencv --no-install-project
+RUN uv sync --frozen --group dev --extra all-cu118 --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -61,7 +61,7 @@ COPY pyproject.toml uv.lock ./
 RUN touch README.md
 
 # Install only production dependencies — no dev tools, no test frameworks
-RUN uv sync --frozen --no-dev --extra cu118 --extra onnx-gpu --extra opencv --no-install-project
+RUN uv sync --frozen --no-dev --extra all-cu118 --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
@@ -73,9 +73,9 @@ RUN chmod +x entrypoint.sh
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash dataeval \
-    && mkdir -p /data/config /data/dataset /data/model /output /cache \
-    && touch /data/config/.not_mounted /data/dataset/.not_mounted /data/model/.not_mounted /output/.not_mounted \
-    && chown -R dataeval:dataeval /data /output /cache /app
+    && mkdir -p /dataeval /output /cache \
+    && touch /dataeval/.not_mounted /output/.not_mounted \
+    && chown -R dataeval:dataeval /dataeval /output /cache /app
 
 # Container labels
 LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 11.8)" \
@@ -89,6 +89,7 @@ USER dataeval
 
 ENV UV_EXTRAS_OVERRIDE=cu118
 ENV CONTAINER_MODE=gpu
+ENV DATAEVAL_DATA=/dataeval
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "src/container_run.py"]

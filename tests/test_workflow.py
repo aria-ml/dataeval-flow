@@ -1,9 +1,8 @@
-"""Tests for workflow/__init__.py — WorkflowResult.report() and discovery helpers."""
+"""Tests for workflow/__init__.py — WorkflowResult.report(), .export(), and discovery helpers."""
 
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 
 import pytest
 from pydantic import BaseModel
@@ -35,53 +34,43 @@ def _make_result(
     *,
     data: BaseModel | None = None,
     metadata: ResultMetadata | None = None,
-    fmt: Literal["text", "json", "yaml"] = "text",
 ) -> WorkflowResult:
     return WorkflowResult(
         name="test-workflow",
         success=True,
         data=data or _DummyOutputWithReport(),
         metadata=metadata or ResultMetadata(),
-        format=fmt,
     )
 
 
 # ---------------------------------------------------------------------------
-# WorkflowResult.report() — format dispatch
+# WorkflowResult.report() — text output
 # ---------------------------------------------------------------------------
 
 
 class TestReportFormatDispatch:
-    def test_text_format_explicit(self):
+    def test_report_returns_text(self):
         result = _make_result()
-        out = result.report(format="text")
-        assert isinstance(out, str)
-
-    def test_default_format_uses_instance_format(self):
-        """format=None falls back to self.format (line 120)."""
-        result = _make_result(fmt="text")
         out = result.report()
         assert isinstance(out, str)
 
-    def test_json_format_returns_string(self):
+    def test_report_detailed_false(self):
         result = _make_result()
-        out = result.report(format="json")
+        out = result.report(detailed=False)
+        assert isinstance(out, str)
+
+    def test_export_json_returns_string(self):
+        result = _make_result()
+        out = result.export()
         assert isinstance(out, str)
         parsed = json.loads(out)
         assert "metadata" in parsed
 
-    def test_yaml_format_returns_string(self):
-        """YAML path (lines 213-216)."""
+    def test_export_yaml_returns_string(self):
         result = _make_result()
-        out = result.report(format="yaml")
+        out = result.export(fmt="yaml")
         assert isinstance(out, str)
         assert "metadata:" in out
-
-    def test_unknown_format_raises(self):
-        """Unknown format raises ValueError (lines 125-126)."""
-        result = _make_result()
-        with pytest.raises(ValueError, match="Unknown format"):
-            result.report(format="csv")  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -93,13 +82,13 @@ class TestReportText:
     def test_no_report_attribute(self):
         """data without .report returns 'no report available'."""
         result = _make_result(data=_DummyOutputNoReport())
-        out = result.report(format="text")
+        out = result.report()
         assert "no report available" in out
 
     def test_empty_findings(self):
         """Empty findings list shows 'No findings to report.'."""
         result = _make_result()
-        out = result.report(format="text")
+        out = result.report()
         assert "No findings to report." in out
         assert "TEST SUMMARY" in out  # summary is uppercased in the banner
 
@@ -113,7 +102,7 @@ class TestReportText:
         report = _DummyReport(summary="Findings Test", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "2 warning(s)" in out
         assert "FINDINGS TEST" in out
 
@@ -125,7 +114,7 @@ class TestReportText:
         report = _DummyReport(summary="Clean Report", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "All checks passed [ok]" in out
 
     def test_summary_section_present(self):
@@ -137,7 +126,7 @@ class TestReportText:
         report = _DummyReport(summary="Summary Test", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "SUMMARY" in out
         assert "Check A" in out
         assert "Check B" in out
@@ -150,7 +139,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "MY FINDING" in out
         assert "some detail" in out
 
@@ -162,7 +151,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "NODESC" in out
 
     def test_outlier_per_metric_breakdown(self):
@@ -187,7 +176,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "IMAGE OUTLIERS" in out
         assert "brightness" in out
         assert "contrast" in out
@@ -221,7 +210,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "DUPLICATES" in out
         assert "2 exact-duplicate groups (6 images)" in out
         assert "3 near-duplicate groups (10 images)" in out
@@ -251,7 +240,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "LABEL DISTRIBUTION" in out
         assert "cat" in out
         assert "dog" in out
@@ -266,7 +255,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "1 warning(s)" in out
 
     def test_health_line_without_warnings(self):
@@ -277,7 +266,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "Health: All checks passed [ok]" in out
 
     def test_warning_marker_in_summary(self):
@@ -288,7 +277,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "[!!]" in out
 
     def test_duplicate_exact_only_no_methods_line(self):
@@ -316,7 +305,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "1 exact-duplicate groups (3 images)" in out
         # No Methods/Orientations lines when near_groups=0
         assert "Methods:" not in out
@@ -345,7 +334,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "Imbalance" not in out
 
     def test_target_outlier_multiple_metrics_message(self):
@@ -368,7 +357,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         assert "Some targets trigger multiple metrics" in out
         assert "Some images" not in out
 
@@ -395,7 +384,7 @@ class TestReportText:
         report = _DummyReport(summary="S", findings=findings)
         data = _DummyOutputWithReport(report=report)
         result = _make_result(data=data)
-        out = result.report(format="text")
+        out = result.report()
         # Ensure no bottom-filling blocks are present (U+2581-U+2587)
         bottom_blocks = set("\u2581\u2582\u2583\u2584\u2585\u2586\u2587")
         assert not any(ch in bottom_blocks for ch in out), "Should use left-filling blocks, not bottom-filling"
@@ -412,7 +401,7 @@ class TestMetadataTextLines:
         ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         meta = ResultMetadata(timestamp=ts, execution_time_s=1.23, dataset_id="ds-1")
         result = _make_result(metadata=meta)
-        out = result.report(format="text")
+        out = result.report()
         assert "2025-06-15" in out
         assert "1.23s" in out
         assert "ds-1" in out
@@ -430,7 +419,7 @@ class TestMetadataTextLines:
         meta.selection_id = None
         meta.model_dump = MagicMock(return_value={})
         result = _make_result(metadata=meta)
-        out = result.report(format="text")
+        out = result.report()
         assert "Timestamp" not in out
         assert "Duration" not in out
         assert "Dataset" not in out
@@ -442,7 +431,7 @@ class TestMetadataTextLines:
         """Model ID appears in metadata block."""
         meta = ResultMetadata(model_id="resnet50")
         result = _make_result(metadata=meta)
-        out = result.report(format="text")
+        out = result.report()
         assert "Model:" in out
         assert "resnet50" in out
 
@@ -450,7 +439,7 @@ class TestMetadataTextLines:
         """Preprocessor ID appears in metadata block."""
         meta = ResultMetadata(preprocessor_id="resnet50_preprocessor")
         result = _make_result(metadata=meta)
-        out = result.report(format="text")
+        out = result.report()
         assert "Preprocessor:" in out
         assert "resnet50_preprocessor" in out
 
@@ -458,7 +447,7 @@ class TestMetadataTextLines:
         """Selection ID appears in metadata block."""
         meta = ResultMetadata(selection_id="training_subset")
         result = _make_result(metadata=meta)
-        out = result.report(format="text")
+        out = result.report()
         assert "Selection:" in out
         assert "training_subset" in out
 
@@ -472,7 +461,7 @@ class TestReportSerialized:
     def test_json_to_directory(self, tmp_path: Path):
         """JSON written to a directory creates results.json."""
         result = _make_result()
-        out = result.report(format="json", path=tmp_path)
+        out = result.export(tmp_path)
         assert isinstance(out, Path)
         assert out.name == "results.json"
         assert out.exists()
@@ -480,10 +469,10 @@ class TestReportSerialized:
         assert "metadata" in parsed
 
     def test_json_to_file_path(self, tmp_path: Path):
-        """JSON written to a specific file path (line 226)."""
+        """JSON written to a specific file path."""
         dest = tmp_path / "sub" / "output.json"
         result = _make_result()
-        out = result.report(format="json", path=dest)
+        out = result.export(dest)
         assert isinstance(out, Path)
         assert out == dest
         assert out.exists()
@@ -491,7 +480,7 @@ class TestReportSerialized:
     def test_yaml_to_directory(self, tmp_path: Path):
         """YAML written to a directory creates results.yaml."""
         result = _make_result()
-        out = result.report(format="yaml", path=tmp_path)
+        out = result.export(tmp_path, fmt="yaml")
         assert isinstance(out, Path)
         assert out.name == "results.yaml"
         assert out.exists()
@@ -500,31 +489,31 @@ class TestReportSerialized:
         """YAML written to a specific file path."""
         dest = tmp_path / "deep" / "nested" / "out.yaml"
         result = _make_result()
-        out = result.report(format="yaml", path=dest)
+        out = result.export(dest, fmt="yaml")
         assert isinstance(out, Path)
         assert out == dest
         assert out.exists()
 
     def test_json_no_path_returns_string(self):
-        """path=None returns serialized string (line 219)."""
+        """path=None returns serialized string."""
         result = _make_result()
-        out = result.report(format="json", path=None)
+        out = result.export()
         assert isinstance(out, str)
         parsed = json.loads(out)
         assert "metadata" in parsed
 
     def test_yaml_no_path_returns_string(self):
-        """path=None returns YAML string (lines 213-216, 219)."""
+        """path=None returns YAML string."""
         result = _make_result()
-        out = result.report(format="yaml", path=None)
+        out = result.export(fmt="yaml")
         assert isinstance(out, str)
         assert "metadata:" in out
 
     def test_directory_without_suffix(self, tmp_path: Path):
-        """Path without suffix treated as directory (line 222)."""
+        """Path without suffix treated as directory."""
         dest = tmp_path / "no_suffix_dir"
         result = _make_result()
-        out = result.report(format="json", path=dest)
+        out = result.export(dest)
         assert isinstance(out, Path)
         assert out.name == "results.json"
         assert out.parent == dest
