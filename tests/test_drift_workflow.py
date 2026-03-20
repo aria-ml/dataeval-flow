@@ -44,6 +44,7 @@ from dataeval_flow.workflows.drift.workflow import (
     _serialize_result,
     _severity_for_chunks,
     _severity_for_detector,
+    _unique_method_keys,
 )
 
 # ---------------------------------------------------------------------------
@@ -1017,3 +1018,219 @@ class TestWorkflowRegistration:
 
         with pytest.raises(ValueError, match="Unknown workflow"):
             get_workflow("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# _unique_method_keys — duplicate method suffix assignment
+# ---------------------------------------------------------------------------
+
+
+class TestUniqueMethodKeys:
+    def test_no_duplicates(self):
+        dets = [DriftDetectorMMD(), DriftDetectorUnivariate()]
+        keys = _unique_method_keys(dets)
+        assert keys == ["mmd", "univariate"]
+
+    def test_duplicates_get_suffix(self):
+        dets = [DriftDetectorMMD(), DriftDetectorMMD(), DriftDetectorUnivariate()]
+        keys = _unique_method_keys(dets)
+        assert keys == ["mmd_1", "mmd_2", "univariate"]
+
+    def test_all_same(self):
+        dets = [DriftDetectorMMD(), DriftDetectorMMD(), DriftDetectorMMD()]
+        keys = _unique_method_keys(dets)
+        assert keys == ["mmd_1", "mmd_2", "mmd_3"]
+
+
+# ---------------------------------------------------------------------------
+# _build_detector_finding — p_val and feature_drift branches
+# ---------------------------------------------------------------------------
+
+
+class TestBuildDetectorFindingBranches:
+    def test_p_val_in_details(self):
+        """Lines 294->298: p_val from details dict appears in finding."""
+        result: DetectorResultDict = {  # type: ignore[typeddict-item]
+            "method": "univariate",
+            "drifted": True,
+            "distance": 0.5,
+            "threshold": 0.3,
+            "metric_name": "KS",
+            "details": {"p_val": 0.001},
+        }
+        finding = _build_detector_finding("Univariate", result, DriftHealthThresholds(), classwise_rows=None)
+        assert isinstance(finding.data, dict)
+        assert finding.data["p_val"] == 0.001
+        assert finding.description is not None
+        assert "p=0.001" in finding.description
+
+    def test_feature_drift_as_list(self):
+        """Lines 309->313: feature_drift as a list populates features_drifted."""
+        result: DetectorResultDict = {  # type: ignore[typeddict-item]
+            "method": "univariate",
+            "drifted": True,
+            "distance": 0.5,
+            "threshold": 0.3,
+            "metric_name": "KS",
+            "details": {"feature_drift": [True, False, True, False, True]},
+        }
+        finding = _build_detector_finding("Univariate", result, DriftHealthThresholds(), classwise_rows=None)
+        assert isinstance(finding.data, dict)
+        assert finding.data["features_drifted"] == "3 / 5"
+
+
+# ---------------------------------------------------------------------------
+# _run_classwise_drift — branches
+# ---------------------------------------------------------------------------
+
+
+class TestRunClasswiseDriftBranches:
+    def test_skips_non_classwise_detectors(self):
+        """Line 442: detectors without classwise=True are skipped."""
+        params = _make_params(
+            detectors=[
+                {"method": "mmd", "classwise": False},
+                {"method": "mmd", "classwise": True},
+            ]
+        )
+        ref_emb = np.random.default_rng(42).standard_normal((20, 4)).astype(np.float32)
+        test_emb = np.random.default_rng(99).standard_normal((20, 4)).astype(np.float32)
+        ref_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
+        test_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
+
+        with patch("dataeval_flow.workflows.drift.workflow._build_detector") as mock_build:
+            mock_det = MagicMock()
+            mock_det.predict.return_value = MagicMock(drifted=False, distance=0.1, details={"p_val": 0.5})
+            mock_build.return_value = mock_det
+
+            results = _run_classwise_drift(
+                ref_emb, test_emb, ref_labels, test_labels, params, {"mmd_1": "MMD(1)", "mmd_2": "MMD(2)"}
+            )
+
+        # Only one detector had classwise=True
+        assert len(results) == 1
+
+    def test_exception_continues_other_classes(self):
+        """Lines 480-482: one class failure doesn't stop others."""
+        params = _make_params(detectors=[{"method": "mmd", "classwise": True}])
+        ref_emb = np.random.default_rng(42).standard_normal((20, 4)).astype(np.float32)
+        test_emb = np.random.default_rng(99).standard_normal((20, 4)).astype(np.float32)
+        ref_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
+        test_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
+
+        call_count = 0
+
+        def mock_build_side_effect(det_config):  # noqa: ARG001
+            nonlocal call_count
+            call_count += 1
+            det = MagicMock()
+            if call_count == 1:
+                det.fit.side_effect = RuntimeError("boom")
+            else:
+                det.predict.return_value = MagicMock(drifted=False, distance=0.1, details={"p_val": 0.5})
+            return det
+
+        with patch("dataeval_flow.workflows.drift.workflow._build_detector", side_effect=mock_build_side_effect):
+            results = _run_classwise_drift(ref_emb, test_emb, ref_labels, test_labels, params, {"mmd": "MMD"})
+
+        # One class failed, one succeeded — should still have 1 row
+        assert len(results) == 1
+        assert len(results[0]["rows"]) == 1
+
+    def test_p_val_from_output_details(self):
+        """Lines 469->472: classwise detection picks up p_val from output.details."""
+        params = _make_params(detectors=[{"method": "mmd", "classwise": True}])
+        ref_emb = np.random.default_rng(42).standard_normal((20, 4)).astype(np.float32)
+        test_emb = np.random.default_rng(99).standard_normal((20, 4)).astype(np.float32)
+        ref_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
+        test_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
+
+        with patch("dataeval_flow.workflows.drift.workflow._build_detector") as mock_build:
+            mock_det = MagicMock()
+            mock_det.predict.return_value = MagicMock(drifted=True, distance=0.8, details={"p_val": 0.002})
+            mock_build.return_value = mock_det
+
+            results = _run_classwise_drift(ref_emb, test_emb, ref_labels, test_labels, params, {"mmd": "MMD"})
+
+        assert len(results[0]["rows"]) == 2
+        assert results[0]["rows"][0]["p_val"] == 0.002
+
+
+# ---------------------------------------------------------------------------
+# _get_embeddings_for_context — cache branch
+# ---------------------------------------------------------------------------
+
+
+class TestGetEmbeddingsWithCache:
+    def test_cache_context_entered(self):
+        """Line 220: active_cache context manager is entered when cache is present."""
+        from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
+
+        ds = MagicMock()
+        dc = DatasetContext(name="ref", dataset=ds, extractor=MagicMock(), cache=MagicMock())
+
+        with (
+            patch("dataeval_flow.workflows.drift.workflow.selection_repr", return_value="sel_all"),
+            patch("dataeval_flow.workflows.drift.workflow.active_cache") as mock_active,
+            patch("dataeval_flow.workflows.drift.workflow.get_or_compute_embeddings", return_value=np.zeros((5, 3))),
+        ):
+            mock_active.return_value.__enter__ = MagicMock()
+            mock_active.return_value.__exit__ = MagicMock(return_value=False)
+            _get_embeddings_for_context(dc, ds)
+
+        mock_active.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _execute — selection_steps branches
+# ---------------------------------------------------------------------------
+
+
+class TestDriftExecuteSelections:
+    @patch("dataeval_flow.selection.build_selection")
+    def test_selection_applied_to_ref_and_test(self, mock_build_sel):
+        """Lines 737, 744: build_selection called for ref and test datasets."""
+        mock_build_sel.side_effect = lambda ds, _steps: ds  # passthrough
+
+        wf = DriftMonitoringWorkflow()
+        ref_ds = MagicMock()
+        ref_ds.__len__ = MagicMock(return_value=50)
+        test_ds = MagicMock()
+        test_ds.__len__ = MagicMock(return_value=50)
+
+        ref_dc = DatasetContext(
+            name="ref",
+            dataset=ref_ds,
+            extractor=MagicMock(),
+            selection_steps=[MagicMock()],
+        )
+        test_dc = DatasetContext(
+            name="test",
+            dataset=test_ds,
+            extractor=MagicMock(),
+            selection_steps=[MagicMock()],
+        )
+        ctx = WorkflowContext(dataset_contexts={"ref": ref_dc, "test": test_dc})
+        params = _make_params()
+
+        ref_emb = np.random.default_rng(0).standard_normal((50, 4)).astype(np.float32)
+        test_emb = np.random.default_rng(1).standard_normal((50, 4)).astype(np.float32)
+
+        with (
+            patch.object(
+                wf,
+                "_extract_all_embeddings",
+                return_value=(
+                    ref_emb,
+                    test_emb,
+                    None,
+                    [],
+                ),
+            ),
+            patch("dataeval_flow.workflows.drift.workflow._run_all_detectors", return_value=({}, {}, [])),
+            patch("dataeval_flow.workflows.drift.workflow._handle_classwise", return_value=[]),
+        ):
+            result = wf.execute(ctx, params)
+
+        assert result.success
+        assert mock_build_sel.call_count == 2

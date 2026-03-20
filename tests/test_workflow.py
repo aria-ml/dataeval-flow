@@ -451,6 +451,14 @@ class TestMetadataTextLines:
         assert "Selection:" in out
         assert "training_subset" in out
 
+    def test_metadata_dataset_line_includes_label_source(self):
+        """Dataset line includes label_source in parentheses when present."""
+        meta = ResultMetadata(dataset_id="my-dataset", label_source="annotations")
+        result = _make_result(metadata=meta)
+        out = result.report()
+        assert "my-dataset" in out
+        assert "(annotations)" in out
+
 
 # ---------------------------------------------------------------------------
 # WorkflowResult._report_serialized() — file paths

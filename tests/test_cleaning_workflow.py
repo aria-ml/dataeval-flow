@@ -12,7 +12,13 @@ import dataeval_flow.metadata
 import dataeval_flow.selection  # noqa: F401
 from dataeval_flow.config import OnnxExtractorConfig, SelectionStep
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.cleaning.outputs import DataCleaningOutputs, DataCleaningRawOutputs
+from dataeval_flow.workflows.cleaning.outputs import (
+    DataCleaningMetadata,
+    DataCleaningOutputs,
+    DataCleaningRawOutputs,
+    DataCleaningReport,
+    is_cleaning_result,
+)
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds, DataCleaningParameters
 from dataeval_flow.workflows.cleaning.workflow import (
     CleaningRunContext,
@@ -26,10 +32,13 @@ from dataeval_flow.workflows.cleaning.workflow import (
     _compute_classwise_pivot,
     _compute_embeddings,
     _compute_label_stats,
+    _duplicate_finding,
     _item_id_of,
+    _label_distribution_finding,
     _merge_duplicate_results,
     _merge_outlier_outputs,
     _resolve_flags,
+    _run_cleaning,
     _run_duplicate_detection,
     _serialize_duplicates,
     _serialize_outlier_issues,
@@ -1597,3 +1606,295 @@ class TestCollectFlaggedIndicesTargetDups:
         flagged = _collect_flagged_indices(raw)
         # Keep first (item 0), flag rest (item 1)
         assert flagged == {1}
+
+
+# ---------------------------------------------------------------------------
+# is_cleaning_result type guard
+# ---------------------------------------------------------------------------
+
+
+class TestIsCleaningResult:
+    def test_true_for_cleaning_metadata(self):
+        from dataeval_flow.workflow import WorkflowResult
+
+        result = WorkflowResult(
+            name="data-cleaning",
+            success=True,
+            data=DataCleaningOutputs(
+                raw=DataCleaningRawOutputs(dataset_size=10), report=DataCleaningReport(summary="s")
+            ),
+            metadata=DataCleaningMetadata(),
+        )
+        assert is_cleaning_result(result) is True
+
+    def test_false_for_other_metadata(self):
+        from dataeval_flow.config import ResultMetadata
+        from dataeval_flow.workflow import WorkflowResult
+
+        result = WorkflowResult(
+            name="other",
+            success=True,
+            data=MagicMock(),
+            metadata=ResultMetadata(),
+        )
+        assert is_cleaning_result(result) is False
+
+
+# ---------------------------------------------------------------------------
+# _duplicate_finding — near groups with methods and orientations (lines 233-235)
+# ---------------------------------------------------------------------------
+
+
+class TestDuplicateFindingDetailLines:
+    def test_near_groups_methods_and_orientations(self):
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            duplicates={
+                "items": {
+                    "exact": [],
+                    "near": [
+                        {"indices": [0, 1], "methods": ["phash", "dhash"], "orientation": "same"},
+                        {"indices": [2, 3], "methods": ["phash"], "orientation": "flipped"},
+                    ],
+                },
+                "targets": {},
+            },
+        )
+        finding = _duplicate_finding(raw, DataCleaningHealthThresholds())
+        assert finding is not None
+        detail_lines = finding.data["detail_lines"]  # type: ignore[index]
+        assert any("Methods:" in line for line in detail_lines)
+        assert any("Orientations:" in line for line in detail_lines)
+
+
+# ---------------------------------------------------------------------------
+# _label_distribution_finding — imbalance footer (lines 288-290)
+# ---------------------------------------------------------------------------
+
+
+class TestLabelDistributionFindingImbalanceFooter:
+    def test_imbalance_ratio_nonzero_not_one(self):
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            label_stats={
+                "item_count": 100,
+                "class_count": 2,
+                "label_counts_per_class": {"cat": 75, "dog": 25},
+            },
+        )
+        finding = _label_distribution_finding(raw, DataCleaningHealthThresholds())
+        assert finding is not None
+        footer_lines = finding.data["footer_lines"]  # type: ignore[index]
+        assert any("Imbalance ratio:" in line for line in footer_lines)
+
+
+# ---------------------------------------------------------------------------
+# _classwise_finding — threshold warning + all-classes-within brief (lines 344-348, 359)
+# ---------------------------------------------------------------------------
+
+
+class TestClasswiseFindingThresholdAndBrief:
+    def test_total_pct_exceeds_threshold_warning(self):
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            classwise_outliers={
+                "level": "image",
+                "rows": [
+                    {"class_name": "cat", "count": 8, "pct": 8.0},
+                    {"class_name": "dog", "count": 3, "pct": 3.0},
+                    {"class_name": "Total", "count": 11, "pct": 5.5},
+                ],
+            },
+        )
+        finding = _classwise_finding(raw, DataCleaningHealthThresholds(classwise_outliers=5.0))
+        assert finding.severity == "warning"
+
+    def test_classes_over_zero_all_within_brief(self):
+        raw = DataCleaningRawOutputs(
+            dataset_size=100,
+            img_outliers={"count": 0, "issues": []},
+            classwise_outliers={
+                "level": "image",
+                "rows": [
+                    {"class_name": "cat", "count": 2, "pct": 2.0},
+                    {"class_name": "dog", "count": 1, "pct": 1.0},
+                    {"class_name": "Total", "count": 3, "pct": 1.5},
+                ],
+            },
+        )
+        finding = _classwise_finding(raw, DataCleaningHealthThresholds(classwise_outliers=5.0))
+        brief = finding.data["brief"]  # type: ignore[index]
+        assert "all classes within 5.0%" in brief
+
+
+# ---------------------------------------------------------------------------
+# _compute_classwise_pivot — exception handler (lines 669-671)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeClasswisePivotException:
+    def test_exception_returns_none(self):
+        metadata = MagicMock()
+        metadata.has_targets.return_value = False
+        metadata.class_labels = None  # will cause iteration to fail
+
+        img_issues = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.5]})
+        result = _compute_classwise_pivot(None, img_issues, metadata=metadata)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _merge_outlier_outputs — missing target_index added (lines 742-748)
+# ---------------------------------------------------------------------------
+
+
+class TestMergeOutlierOutputsMissingTargetIndex:
+    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    def test_adds_target_index_when_missing(self, mock_cluster: MagicMock):
+        import numpy as np
+
+        stats_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
+        stats_output = MagicMock()
+        stats_output.data.return_value = stats_df
+
+        cluster_df = pl.DataFrame({"item_index": [1], "metric_name": ["cluster_dist"], "metric_value": [0.9]})
+        outliers_eval = MagicMock()
+        cluster_output = MagicMock()
+        cluster_output.data.return_value = cluster_df
+        outliers_eval.from_clusters.return_value = cluster_output
+        mock_cluster.return_value = MagicMock()
+
+        params = _make_params(outlier_cluster_threshold=2.5, outlier_cluster_algorithm="hdbscan")
+        embeddings = np.zeros((10, 64))
+
+        result = _merge_outlier_outputs(outliers_eval, stats_output, embeddings, params, run_ctx=None)
+        merged = result.data()
+        assert merged.shape[0] == 2
+        assert "target_index" not in merged.columns  # all null → dropped
+
+
+# ---------------------------------------------------------------------------
+# _run_duplicate_detection — custom flags (line 770)
+# ---------------------------------------------------------------------------
+
+
+class TestRunDuplicateDetectionCustomFlags:
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    def test_custom_flags_passed(self, mock_dup_cls: MagicMock):
+        from dataeval.flags import ImageStats
+
+        mock_dup_instance = MagicMock()
+        mock_dup_cls.return_value = mock_dup_instance
+
+        params = _make_params(duplicate_flags=["hash_basic", "hash_d4"])
+        hash_flags = ImageStats.HASH_DUPLICATES_BASIC | ImageStats.HASH_DUPLICATES_D4
+        _run_duplicate_detection(params, hash_flags, MagicMock(), embeddings_array=None, run_ctx=None)
+
+        call_kwargs = mock_dup_cls.call_args[1]
+        assert "flags" in call_kwargs
+        assert call_kwargs["flags"] == hash_flags
+
+
+# ---------------------------------------------------------------------------
+# _merge_duplicate_results — column alignment (lines 817, 820)
+# ---------------------------------------------------------------------------
+
+
+class TestMergeDuplicateResultsColumnAlignment:
+    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    def test_hash_missing_col_added_from_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
+        hash_df = pl.DataFrame({"group_id": [0], "level": ["item"], "dup_type": ["exact"], "item_indices": [[0, 1]]})
+        hash_result = MagicMock()
+        hash_result.data.return_value = hash_df
+
+        cluster_df = pl.DataFrame(
+            {
+                "group_id": [0],
+                "level": ["item"],
+                "dup_type": ["near"],
+                "item_indices": [[2, 3]],
+                "orientation": ["same"],
+            }
+        )
+        cluster_result = MagicMock()
+        cluster_result.data.return_value = cluster_df
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.from_clusters.return_value = cluster_result
+        mock_dup_cls.return_value = mock_dup_instance
+        mock_cluster.return_value = MagicMock()
+
+        params = _make_params(duplicate_cluster_sensitivity=0.5)
+        result = _merge_duplicate_results(hash_result, "embeddings", params, run_ctx=None)
+        merged = result.data()
+        assert merged.shape[0] == 2
+        assert "orientation" in merged.columns
+
+
+# ---------------------------------------------------------------------------
+# _run_cleaning — cluster branches (lines 872, 876)
+# ---------------------------------------------------------------------------
+
+
+class TestRunCleaningClusterBranches:
+    @patch("dataeval_flow.workflows.cleaning.workflow._merge_outlier_outputs")
+    @patch("dataeval_flow.workflows.cleaning.workflow._compute_embeddings")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
+    @patch("dataeval_flow.cache.get_or_compute_stats")
+    def test_outlier_cluster_triggers_merge(
+        self,
+        mock_get_stats: MagicMock,
+        mock_outliers_cls: MagicMock,
+        mock_dup_cls: MagicMock,
+        mock_compute_emb: MagicMock,
+        mock_merge_outlier: MagicMock,
+    ):
+        import numpy as np
+
+        mock_get_stats.return_value = {}
+
+        issues_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
+        mock_outlier_output = MagicMock()
+        mock_outlier_output.data.return_value = issues_df
+        mock_outliers = MagicMock()
+        mock_outliers.from_stats.return_value = mock_outlier_output
+        mock_outliers_cls.return_value = mock_outliers
+
+        merged_df = pl.DataFrame(
+            {"item_index": [0, 1], "metric_name": ["brightness", "cluster"], "metric_value": [0.1, 0.9]}
+        )
+        merged_output = MagicMock()
+        merged_output.data.return_value = merged_df
+        mock_merge_outlier.return_value = merged_output
+
+        mock_compute_emb.return_value = np.zeros((10, 64))
+
+        empty_dup_df = pl.DataFrame(
+            {
+                "group_id": pl.Series([], dtype=pl.Int64),
+                "level": pl.Series([], dtype=pl.Utf8),
+                "dup_type": pl.Series([], dtype=pl.Utf8),
+                "item_indices": pl.Series([], dtype=pl.List(pl.Int64)),
+                "target_indices": pl.Series([], dtype=pl.List(pl.Int64)),
+                "methods": pl.Series([], dtype=pl.List(pl.Utf8)),
+                "orientation": pl.Series([], dtype=pl.Utf8),
+            }
+        )
+        mock_dup_result = MagicMock()
+        mock_dup_result.data.return_value = empty_dup_df
+        mock_dups = MagicMock()
+        mock_dups.from_stats.return_value = mock_dup_result
+        mock_dup_cls.return_value = mock_dups
+
+        mock_dataset = MagicMock()
+        mock_dataset.__len__ = MagicMock(return_value=10)
+
+        params = _make_params(outlier_cluster_threshold=2.5)
+        raw = _run_cleaning(mock_dataset, params, extractor=MagicMock(), run_ctx=None)
+        mock_compute_emb.assert_called_once()
+        mock_merge_outlier.assert_called_once()
+        assert raw.dataset_size == 10

@@ -113,3 +113,11 @@ class TestMergeYamlFolder:
 
         result = merge_config_folder(tmp_path)
         assert result == {"logging": {"app_level": "INFO"}}
+
+    def test_merge_config_folder_skips_parse_errors(self, tmp_path: Path):
+        """Files with YAML/JSON parse errors are skipped; valid files still merged."""
+        (tmp_path / "00-valid.yaml").write_text("logging:\n  app_level: INFO\n")
+        (tmp_path / "01-invalid.yaml").write_text("key: [\ninvalid yaml here\n  bad: {{{\n")
+
+        result = merge_config_folder(tmp_path)
+        assert result == {"logging": {"app_level": "INFO"}}

@@ -1304,3 +1304,173 @@ class TestOODConfigSchema:
             }
         )
         assert cfg.type == "ood-detection"
+
+
+# ---------------------------------------------------------------------------
+# _extract_metadata_factors — factor population + class_labels branch
+# ---------------------------------------------------------------------------
+
+
+class TestExtractMetadataFactorsBranches:
+    def test_factors_populated_from_df_columns(self):
+        """Lines 244-245, 253->252: factors populated from df columns, missing ones skipped."""
+        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+
+        dc = DatasetContext(name="ds", dataset=MagicMock())
+        ds = MagicMock()
+
+        mock_meta = MagicMock()
+        mock_meta.factor_names = ["brightness", "missing_col"]
+        mock_meta.dataframe = MagicMock()
+        mock_meta.dataframe.columns = ["brightness"]
+        mock_meta.dataframe.__len__ = MagicMock(return_value=10)
+        mock_meta.dataframe.__getitem__ = MagicMock(
+            return_value=MagicMock(to_numpy=MagicMock(return_value=np.arange(10, dtype=float)))
+        )
+        mock_meta.class_labels = None
+
+        with patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata", return_value=mock_meta):
+            result = _extract_metadata_factors(dc, ds)
+
+        assert result is not None
+        assert "brightness" in result
+        assert "missing_col" not in result
+
+    def test_class_labels_added_as_factor(self):
+        """Lines 260->265, 262->265: numeric class_labels added as 'class_label' factor."""
+        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+
+        dc = DatasetContext(name="ds", dataset=MagicMock())
+        ds = MagicMock()
+
+        mock_meta = MagicMock()
+        mock_meta.factor_names = ["brightness"]
+        mock_meta.dataframe = MagicMock()
+        mock_meta.dataframe.columns = ["brightness"]
+        mock_meta.dataframe.__len__ = MagicMock(return_value=10)
+        mock_meta.dataframe.__getitem__ = MagicMock(
+            return_value=MagicMock(to_numpy=MagicMock(return_value=np.arange(10, dtype=float)))
+        )
+        mock_meta.class_labels = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+
+        with patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata", return_value=mock_meta):
+            result = _extract_metadata_factors(dc, ds)
+
+        assert result is not None
+        assert "class_label" in result
+        assert len(result["class_label"]) == 10
+
+
+# ---------------------------------------------------------------------------
+# _collect_numeric_factors — ref_stats, ref_meta, empty ref/test branches
+# ---------------------------------------------------------------------------
+
+
+class TestCollectNumericFactorsBranches:
+    def test_ref_meta_and_stats_merged(self):
+        """Lines 411, 420, 424-427: both ref_meta and ref_stats get merged."""
+        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+
+        ref_dc = DatasetContext(name="ref", dataset=MagicMock())
+        test_dc = DatasetContext(name="test", dataset=MagicMock())
+        test_datasets = [("test", test_dc, MagicMock())]
+
+        ref_meta = {"brightness": np.arange(10, dtype=float)}
+        ref_stats = {"contrast": np.arange(10, dtype=float)}
+        test_meta = {"brightness": np.arange(10, dtype=float)}
+        test_stats = {"contrast": np.arange(10, dtype=float)}
+
+        with (
+            patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", side_effect=[ref_meta, test_meta]),
+            patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", side_effect=[ref_stats, test_stats]),
+        ):
+            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets)  # type: ignore[arg-type]
+
+        assert result is not None
+
+    def test_empty_ref_factors_returns_none(self):
+        """Line 427: returns None when ref has no factors."""
+        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+
+        ref_dc = DatasetContext(name="ref", dataset=MagicMock())
+        test_dc = DatasetContext(name="test", dataset=MagicMock())
+        test_datasets = [("test", test_dc, MagicMock())]
+
+        with (
+            patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", return_value=None),
+            patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", return_value=None),
+        ):
+            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets)  # type: ignore[arg-type]
+
+        assert result is None
+
+    def test_empty_test_factors_returns_none(self):
+        """Line 440: returns None when test has no factors."""
+        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+
+        ref_dc = DatasetContext(name="ref", dataset=MagicMock())
+        test_dc = DatasetContext(name="test", dataset=MagicMock())
+        test_datasets = [("test", test_dc, MagicMock())]
+
+        ref_stats = {"contrast": np.arange(10, dtype=float)}
+
+        with (
+            patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", return_value=None),
+            patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", side_effect=[ref_stats, None]),
+        ):
+            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets)  # type: ignore[arg-type]
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# OOD execute — selection steps
+# ---------------------------------------------------------------------------
+
+
+class TestOODExecuteSelections:
+    @patch("dataeval_flow.selection.build_selection")
+    def test_selection_applied_to_ref_and_test(self, mock_build_sel):
+        """Lines 938, 945: build_selection called for ref and test datasets."""
+        mock_build_sel.side_effect = lambda ds, _steps: ds
+
+        wf = OODDetectionWorkflow()
+        ref_ds = MagicMock()
+        ref_ds.__len__ = MagicMock(return_value=50)
+        test_ds = MagicMock()
+        test_ds.__len__ = MagicMock(return_value=50)
+
+        ref_dc = DatasetContext(
+            name="ref",
+            dataset=ref_ds,
+            extractor=MagicMock(),
+            selection_steps=[MagicMock()],
+        )
+        test_dc = DatasetContext(
+            name="test",
+            dataset=test_ds,
+            extractor=MagicMock(),
+            selection_steps=[MagicMock()],
+        )
+        ctx = WorkflowContext(dataset_contexts={"ref": ref_dc, "test": test_dc})
+        params = _make_params()
+
+        ref_emb = np.random.default_rng(0).standard_normal((50, 4)).astype(np.float32)
+        test_emb = np.random.default_rng(1).standard_normal((50, 4)).astype(np.float32)
+
+        with (
+            patch.object(
+                wf,
+                "_extract_all_embeddings",
+                return_value=(
+                    ref_emb,
+                    [("test", test_dc, test_emb)],
+                ),
+            ),
+            patch("dataeval_flow.workflows.ood.workflow._run_all_ood_detectors", return_value=({}, {}, [], [])),
+            patch("dataeval_flow.workflows.ood.workflow._compute_metadata_insights", return_value=(None, None)),
+        ):
+            result = wf.execute(ctx, params)
+
+        assert result.success
+        assert mock_build_sel.call_count == 2

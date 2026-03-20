@@ -57,13 +57,6 @@ class WorkflowContext:
     batch_size: int | None = None
 
 
-def _default_metadata() -> "ResultMetadata":
-    """Lazy factory — avoids circular import at class-definition time."""
-    from dataeval_flow.config.schemas import ResultMetadata
-
-    return ResultMetadata()
-
-
 TMetadata = TypeVar("TMetadata", bound="ResultMetadata")
 TData = TypeVar("TData", bound=BaseModel)
 
@@ -90,8 +83,8 @@ class WorkflowResult(Generic[TMetadata, TData]):
     name: str
     success: bool
     data: TData
+    metadata: TMetadata
     errors: Sequence[str] = field(default_factory=list)
-    metadata: TMetadata = field(default_factory=_default_metadata)  # type: ignore[assignment]
     dataset: "AnnotatedDataset[Any] | None" = None
 
     def report(self, *, detailed: bool = True) -> str:

@@ -6,6 +6,7 @@ from dataeval_flow.workflow._text_report import (
     _WIDTH,
     _brief_value,
     _render_chunk_table,
+    _render_classwise_table,
     _render_detail_section,
     _render_key_value,
     _render_pivot_table,
@@ -142,6 +143,24 @@ class TestRenderDetailSection:
         lines = _render_detail_section(finding)
         text = "\n".join(lines)
         assert "brightness" in text
+
+    def test_classwise_table_dispatch(self):
+        finding = Reportable(
+            report_type="classwise_table",
+            title="Classwise Drift",
+            data={
+                "table_rows": [
+                    {"Class": "cat", "Distance": 0.3, "PVal": None, "Status": "DRIFT"},
+                    {"Class": "dog", "Distance": 0.1, "PVal": None, "Status": "ok"},
+                ],
+            },
+            description="Per-class drift results",
+        )
+        lines = _render_detail_section(finding)
+        text = "\n".join(lines)
+        assert "cat" in text
+        assert "dog" in text
+        assert "Per-class drift results" in text
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +303,23 @@ class TestRenderChunkTable:
         assert "Threshold" in text
         assert "(0.0500)|" in text
 
+    def test_no_thresholds_skips_scale_line(self):
+        """When both thresholds are None for all rows, no threshold scale line is rendered."""
+        rows = [
+            {
+                "Chunk": f"[{i * 100}:{(i + 1) * 100}]",
+                "Distance": 0.15 + i * 0.01,
+                "UpperThreshold": None,
+                "LowerThreshold": None,
+                "Status": "ok",
+            }
+            for i in range(4)
+        ]
+        lines = _render_chunk_table({"table_rows": rows})
+        text = "\n".join(lines)
+        assert "Distance" in text
+        assert "Threshold" not in text
+
     def test_dispatch_from_detail_section(self):
         data = self._make_data({2, 3})
         finding = Reportable(
@@ -373,3 +409,107 @@ class TestRenderKeyValue:
 
     def test_empty_data(self):
         assert _render_key_value({}) == []
+
+
+# ---------------------------------------------------------------------------
+# _render_classwise_table
+# ---------------------------------------------------------------------------
+
+
+class TestRenderClasswiseTable:
+    def test_basic_classwise_table(self):
+        data = {
+            "table_rows": [
+                {"Class": "cat", "Distance": 0.30, "PVal": None, "Status": "DRIFT"},
+                {"Class": "dog", "Distance": 0.10, "PVal": None, "Status": "ok"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        text = "\n".join(lines)
+        assert "Class" in text
+        assert "Distance" in text
+        assert "Status" in text
+        assert "cat" in text
+        assert "dog" in text
+        assert "DRIFT" in text
+        assert "ok" in text
+
+    def test_empty_rows(self):
+        assert _render_classwise_table({"table_rows": []}) == []
+
+    def test_missing_rows_key(self):
+        assert _render_classwise_table({}) == []
+
+    def test_bar_characters_drift_vs_ok(self):
+        data = {
+            "table_rows": [
+                {"Class": "a", "Distance": 0.5, "PVal": None, "Status": "DRIFT"},
+                {"Class": "b", "Distance": 0.5, "PVal": None, "Status": "ok"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        # DRIFT row uses filled block, ok row uses light shade
+        a_line = [ln for ln in lines if ln.strip().startswith("a")][0]
+        b_line = [ln for ln in lines if ln.strip().startswith("b")][0]
+        assert "\u2588" in a_line  # filled block for DRIFT
+        assert "\u2591" in b_line  # light shade for ok
+
+    def test_with_pval_column(self):
+        data = {
+            "table_rows": [
+                {"Class": "cat", "Distance": 0.30, "PVal": 0.01, "Status": "DRIFT"},
+                {"Class": "dog", "Distance": 0.10, "PVal": 0.85, "Status": "ok"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        text = "\n".join(lines)
+        assert "PVal" in text
+        assert "0.01" in text
+        assert "0.85" in text
+
+    def test_without_pval_column(self):
+        data = {
+            "table_rows": [
+                {"Class": "cat", "Distance": 0.30, "PVal": None, "Status": "DRIFT"},
+                {"Class": "dog", "Distance": 0.10, "PVal": None, "Status": "ok"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        text = "\n".join(lines)
+        assert "PVal" not in text
+
+    def test_mixed_pval_some_none(self):
+        data = {
+            "table_rows": [
+                {"Class": "cat", "Distance": 0.30, "PVal": 0.02, "Status": "DRIFT"},
+                {"Class": "dog", "Distance": 0.10, "PVal": None, "Status": "ok"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        text = "\n".join(lines)
+        # PVal header should appear since at least one row has a value
+        assert "PVal" in text
+        assert "0.02" in text
+
+    def test_negative_distance_uses_abs(self):
+        data = {
+            "table_rows": [
+                {"Class": "neg", "Distance": -0.40, "PVal": None, "Status": "DRIFT"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        text = "\n".join(lines)
+        # The displayed distance should be the raw value (-0.40), but bars use abs
+        assert "-0.4000" in text
+        assert "\u2588" in text
+
+    def test_single_row(self):
+        data = {
+            "table_rows": [
+                {"Class": "only", "Distance": 0.25, "PVal": None, "Status": "ok"},
+            ],
+        }
+        lines = _render_classwise_table(data)
+        text = "\n".join(lines)
+        assert "only" in text
+        assert "0.2500" in text

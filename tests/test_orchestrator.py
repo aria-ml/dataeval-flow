@@ -15,7 +15,13 @@ from dataeval_flow.config import (
     TaskConfig,
     YoloDatasetConfig,
 )
-from dataeval_flow.workflow.orchestrator import _resolve_by_name, _run_single_task, run_tasks
+from dataeval_flow.workflow.orchestrator import (
+    _resolve_by_name,
+    _resolve_extractor_paths,
+    _run_single_task,
+    run_task,
+    run_tasks,
+)
 
 # Shared workflow instance used across tests
 _CLEAN_INSTANCE = DataCleaningWorkflowConfig(
@@ -758,3 +764,179 @@ class TestSourceNameKeying:
         # The sub source should have selection steps, the full should not
         assert context.dataset_contexts["cifar_full"].selection_steps is None
         assert context.dataset_contexts["cifar_sub"].selection_steps is not None
+
+
+# ---------------------------------------------------------------------------
+# _resolve_extractor_paths
+# ---------------------------------------------------------------------------
+
+
+class TestResolveExtractorPaths:
+    def test_resolves_relative_model_path(self, tmp_path):
+        extractor = OnnxExtractorConfig(name="ext", model_path="models/model.onnx", batch_size=32)
+        resolved = _resolve_extractor_paths(extractor, data_dir=tmp_path)
+        assert resolved.model_path == str(tmp_path / "models" / "model.onnx")
+        assert resolved is not extractor
+
+    def test_absolute_model_path_unchanged(self, tmp_path):
+        abs_path = str(tmp_path / "model.onnx")
+        extractor = OnnxExtractorConfig(name="ext", model_path=abs_path, batch_size=32)
+        resolved = _resolve_extractor_paths(extractor, data_dir=tmp_path)
+        assert resolved is extractor
+
+    def test_no_model_path_returns_same(self, tmp_path):
+        cfg = MagicMock(spec=[])  # no model_path attribute
+        result = _resolve_extractor_paths(cfg, data_dir=tmp_path)
+        assert result is cfg
+
+
+# ---------------------------------------------------------------------------
+# run_tasks — skipped disabled tasks
+# ---------------------------------------------------------------------------
+
+
+class TestRunTasksDisabledSkip:
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_skipped_disabled_tasks_logged(self, mock_load_ds, caplog):
+        import logging
+
+        config = MagicMock()
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.sources = [SourceConfig(name="src", dataset="ds")]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+        config.tasks = [
+            TaskConfig(name="enabled_task", workflow="clean", sources="src"),
+            TaskConfig(name="disabled_task", workflow="clean", sources="src", enabled=False),
+        ]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with (
+            patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf),
+            caplog.at_level(logging.INFO, logger="dataeval_flow.workflow.orchestrator"),
+        ):
+            run_tasks(config)
+
+        assert any("Skipping" in r.message and "disabled" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# run_task — public wrapper
+# ---------------------------------------------------------------------------
+
+
+class TestRunTaskWrapper:
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_run_task_delegates(self, mock_load_ds):
+        ds = HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")
+        source = SourceConfig(name="src", dataset="ds")
+        task = TaskConfig(name="my_task", workflow="clean", sources="src")
+
+        config = MagicMock()
+        config.datasets = [ds]
+        config.sources = [source]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            result = run_task(task, config)
+
+        assert result.success
+        mock_wf.execute.assert_called_once()
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_run_task_logs_task_header(self, mock_load_ds, caplog):
+        import logging
+
+        task = TaskConfig(name="my_task", workflow="clean", sources="src")
+
+        config = MagicMock()
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.sources = [SourceConfig(name="src", dataset="ds")]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with (
+            patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf),
+            caplog.at_level(logging.INFO, logger="dataeval_flow.workflow.orchestrator"),
+        ):
+            run_task(task, config)
+
+        assert any("my_task" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# cache_dir logging + label_source annotation
+# ---------------------------------------------------------------------------
+
+
+class TestCacheDirAndLabelSource:
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_cache_dir_logs_info(self, mock_load_ds, caplog, tmp_path):
+        import logging
+
+        task = TaskConfig(name="t", workflow="clean", sources="src")
+        config = MagicMock()
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.sources = [SourceConfig(name="src", dataset="ds")]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with (
+            patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf),
+            caplog.at_level(logging.INFO, logger="dataeval_flow.workflow.orchestrator"),
+        ):
+            _run_single_task(task, config, cache_dir=tmp_path / "cache")
+
+        assert any("Cache enabled" in r.message for r in caplog.records)
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_label_source_propagated(self, mock_load_ds):
+        ds = YoloDatasetConfig(name="yolo_ds", path="/data/yolo")
+        source = SourceConfig(name="src", dataset="yolo_ds")
+        task = TaskConfig(name="t", workflow="clean", sources="src")
+
+        config = MagicMock()
+        config.datasets = [ds]
+        config.sources = [source]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            result = _run_single_task(task, config)
+
+        assert result.metadata.label_source == "annotations"

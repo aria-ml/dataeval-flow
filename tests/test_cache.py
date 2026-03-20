@@ -14,6 +14,7 @@ from dataeval_flow.cache import (
     METRIC_TO_FLAG,
     DatasetCache,
     _atomic_write,
+    _atomic_write_pair,
     _config_hash,
     _make_dataset_id,
     active_cache,
@@ -1661,3 +1662,204 @@ class TestMakeDsId:
         a = _make_dataset_id(*self._key("dataset_a"))
         b = _make_dataset_id(*self._key("dataset_b"))
         assert a != b
+
+
+# ---------------------------------------------------------------------------
+# _atomic_write_pair — error cleanup (lines 227-235)
+# ---------------------------------------------------------------------------
+
+
+class TestAtomicWritePairCleanup:
+    def test_cleans_up_on_first_write_failure(self, tmp_path: Path):
+        target_a = tmp_path / "out_a.parquet"
+        target_b = tmp_path / "out_b.json"
+
+        def failing_fn(p: Path) -> None:
+            p.write_text("partial")
+            raise ValueError("write_a failed")
+
+        def ok_fn(p: Path) -> None:
+            p.write_text("{}")
+
+        with pytest.raises(ValueError, match="write_a failed"):
+            _atomic_write_pair(target_a, failing_fn, target_b, ok_fn)
+
+        assert not target_a.exists()
+        assert not target_b.exists()
+
+    def test_cleans_orphaned_target_on_second_rename_failure(self, tmp_path: Path):
+        target_a = tmp_path / "out_a.parquet"
+        target_b = tmp_path / "out_b.json"
+
+        def ok_fn_a(p: Path) -> None:
+            p.write_bytes(b"data_a")
+
+        def ok_fn_b(p: Path) -> None:
+            p.write_bytes(b"data_b")
+
+        call_count = {"n": 0}
+        original_rename = Path.rename
+
+        def patched_rename(self_path, target):
+            call_count["n"] += 1
+            if call_count["n"] == 2:
+                raise OSError("second rename failed")
+            return original_rename(self_path, target)
+
+        with patch.object(Path, "rename", patched_rename), pytest.raises(OSError, match="second rename failed"):
+            _atomic_write_pair(target_a, ok_fn_a, target_b, ok_fn_b)
+
+        assert not target_a.exists()
+        assert not target_b.exists()
+
+
+# ---------------------------------------------------------------------------
+# DatasetCache.clear_instances() (lines 634-635)
+# ---------------------------------------------------------------------------
+
+
+class TestClearInstances:
+    def test_empties_registry(self):
+        DatasetCache.get_or_create(None, name="ds_a", cache_key="key_a")
+        DatasetCache.get_or_create(None, name="ds_b", cache_key="key_b")
+        assert len(DatasetCache._instances) >= 2
+
+        DatasetCache.clear_instances()
+        assert DatasetCache._instances == {}
+
+    def test_new_creation_after_clear(self):
+        first = DatasetCache.get_or_create(None, name="ds", cache_key="key")
+        DatasetCache.clear_instances()
+        second = DatasetCache.get_or_create(None, name="ds", cache_key="key")
+        assert first is not second
+
+
+# ---------------------------------------------------------------------------
+# _embeddings_path / save_embeddings when not disk-backed (lines 730, 777)
+# ---------------------------------------------------------------------------
+
+
+class TestEmbeddingsNoDisk:
+    def test_embeddings_path_returns_none(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds")
+        assert cache._embeddings_path("sel:all", '{"type":"onnx"}', "none") is None
+
+    def test_save_embeddings_noop_stores_in_memory(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds")
+        arr = np.ones((3, 4), dtype=np.float32)
+        cache.save_embeddings("sel:all", "cfg", "none", arr)
+
+        loaded = cache.load_embeddings("sel:all", "cfg", "none")
+        assert loaded is not None
+        np.testing.assert_array_equal(loaded, arr)
+
+
+# ---------------------------------------------------------------------------
+# load_cluster_result from disk (lines 863-872)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadClusterResultFromDisk:
+    def test_round_trip_after_memory_clear(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        cluster_dict = _make_cluster_dict()
+
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, cluster_dict)
+        cache._memory.clear()
+
+        loaded = cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
+        assert loaded is not None
+        for key in cluster_dict:
+            np.testing.assert_array_equal(loaded[key], cluster_dict[key])
+
+    def test_populates_memory_after_disk_load(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        cache.save_cluster_result("sel:all", "cfg", "none", "hdbscan", None, _make_cluster_dict())
+        cache._memory.clear()
+
+        cache.load_cluster_result("sel:all", "cfg", "none", "hdbscan", None)
+
+        obj_key = f"clusters_{_config_hash('cfg|none|hdbscan|None')}"
+        assert cache._memory.get("sel:all", {}).get(obj_key) is not None
+
+
+# ---------------------------------------------------------------------------
+# _stats_paths / save_stats / load_stats (lines 1135, 1168-1190, 1217)
+# ---------------------------------------------------------------------------
+
+
+class TestStatsNoDisk:
+    def test_stats_paths_returns_none_tuple(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds")
+        pq, js = cache._stats_paths("sel:all", "img+tgt")
+        assert pq is None
+        assert js is None
+
+    def test_save_stats_noop_stores_in_memory(self):
+        cache = DatasetCache(cache_dir=None, dataset_name="ds")
+        stats = _make_calc_result(2)
+        cache.save_stats("sel:all", "img+tgt", stats)
+
+        loaded = cache.load_stats("sel:all", "img+tgt")
+        assert loaded is not None
+        assert loaded["image_count"] == 2
+
+
+class TestLoadStatsFromDisk:
+    def test_numeric_column_round_trip(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        stats = _make_calc_result(5)
+        cache.save_stats("sel:all", "img+tgt", stats)
+        cache._memory.clear()
+
+        loaded = cache.load_stats("sel:all", "img+tgt")
+        assert loaded is not None
+        assert "mean" in loaded["stats"]
+        np.testing.assert_array_almost_equal(loaded["stats"]["mean"], stats["stats"]["mean"])
+
+    def test_utf8_column_round_trip(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        stats = _make_calc_result(4, include_hashes=True)
+        cache.save_stats("sel:all", "img+tgt", stats)
+        cache._memory.clear()
+
+        loaded = cache.load_stats("sel:all", "img+tgt")
+        assert loaded is not None
+        assert "xxhash" in loaded["stats"]
+        assert loaded["stats"]["xxhash"].dtype == object
+
+    def test_list_column_round_trip(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        stats = _make_calc_result(3, include_2d=True)
+        cache.save_stats("sel:all", "img+tgt", stats)
+        cache._memory.clear()
+
+        loaded = cache.load_stats("sel:all", "img+tgt")
+        assert loaded is not None
+        assert "histogram" in loaded["stats"]
+        assert loaded["stats"]["histogram"].ndim == 2
+
+    def test_populates_memory_after_disk_load(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        stats = _make_calc_result(2)
+        cache.save_stats("sel:all", "img+tgt", stats)
+        cache._memory.clear()
+
+        cache.load_stats("sel:all", "img+tgt")
+        obj_key = f"stats_{_config_hash('img+tgt')}"
+        assert cache._memory.get("sel:all", {}).get(obj_key) is not None
+
+    def test_aux_fields_round_trip(self, tmp_path: Path):
+        from dataeval.types import SourceIndex
+
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        stats = _make_calc_result(3)
+        cache.save_stats("sel:all", "img+tgt", stats)
+        cache._memory.clear()
+
+        loaded = cache.load_stats("sel:all", "img+tgt")
+        assert loaded is not None
+        assert loaded["image_count"] == 3
+        assert len(loaded["source_index"]) == 3
+        for si in loaded["source_index"]:
+            assert isinstance(si, SourceIndex)

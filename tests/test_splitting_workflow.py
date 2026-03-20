@@ -22,6 +22,8 @@ from dataeval_flow.workflows.splitting.params import DataSplittingParameters
 from dataeval_flow.workflows.splitting.workflow import (
     DataSplittingWorkflow,
     _build_findings,
+    _format_factor_table,
+    _run_coverage,
     _serialize_balance,
     _serialize_coverage,
     _serialize_diversity,
@@ -392,6 +394,293 @@ class TestWorkflowDiscovery:
 
         names = [w["name"] for w in list_workflows()]
         assert "data-splitting" in names
+
+
+# ---------------------------------------------------------------------------
+# TestFormatFactorTable
+# ---------------------------------------------------------------------------
+
+
+class TestFormatFactorTable:
+    def test_empty_rows(self) -> None:
+        assert _format_factor_table([], "mi_value", "MI Score") == []
+
+    def test_basic_rows(self) -> None:
+        rows = [
+            {"factor_name": "weather", "mi_value": 0.5, "is_imbalanced": True},
+            {"factor_name": "lighting", "mi_value": 0.1, "is_imbalanced": False},
+        ]
+        lines = _format_factor_table(rows, "mi_value", "MI Score")
+        text = "\n".join(lines)
+        assert "weather" in text
+        assert "[!!]" in text
+        assert "lighting" in text
+
+
+# ---------------------------------------------------------------------------
+# TestSerializeCoverageBranch
+# ---------------------------------------------------------------------------
+
+
+class TestSerializeCoverageBranch:
+    def test_missing_keys_skipped(self) -> None:
+        """When a key is None or missing, it should be skipped (branch 77->75)."""
+        cov = {
+            "uncovered_indices": np.array([1, 2]),
+            "critical_value_radii": None,
+            "coverage_radius": 0.5,
+        }
+        result = _serialize_coverage(cov)
+        assert "uncovered_indices" in result
+        assert "critical_value_radii" not in result
+        assert "coverage_radius" in result
+
+    def test_key_not_present(self) -> None:
+        """Keys not in the dict at all should be skipped."""
+        result = _serialize_coverage({"coverage_radius": 0.3})
+        assert result == {"coverage_radius": 0.3}
+
+
+# ---------------------------------------------------------------------------
+# TestBuildFindingsCoverageTest
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFindingsCoverageTest:
+    def test_coverage_test_info(self) -> None:
+        """Lines 209-213: coverage_test present with low uncovered %."""
+        raw = DataSplittingRawOutputs(
+            dataset_size=100,
+            test_indices=list(range(20)),
+            coverage_test={"uncovered_indices": [0], "coverage_radius": 0.4},
+            folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
+        )
+        findings = _build_findings(raw)
+        cov_finding = next(f for f in findings if f.title == "Coverage: test")
+        assert cov_finding.severity == "info"  # 1/20 = 5%
+        assert isinstance(cov_finding.data, dict)
+        assert cov_finding.data["uncovered_count"] == 1
+
+    def test_coverage_test_warning(self) -> None:
+        """Lines 209-213: coverage_test present with high uncovered %."""
+        raw = DataSplittingRawOutputs(
+            dataset_size=100,
+            test_indices=list(range(20)),
+            coverage_test={"uncovered_indices": list(range(5)), "coverage_radius": 0.4},
+            folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
+        )
+        findings = _build_findings(raw)
+        cov_finding = next(f for f in findings if f.title == "Coverage: test")
+        assert cov_finding.severity == "warning"  # 5/20 = 25% > 5%
+
+    def test_coverage_test_empty_indices(self) -> None:
+        """Lines 209-213: coverage_test with empty test_indices."""
+        raw = DataSplittingRawOutputs(
+            dataset_size=100,
+            test_indices=[],
+            coverage_test={"uncovered_indices": [], "coverage_radius": 0.4},
+            folds=[SplitInfo(fold=0, train_indices=list(range(80)), val_indices=list(range(20)))],
+        )
+        findings = _build_findings(raw)
+        cov_finding = next(f for f in findings if f.title == "Coverage: test")
+        assert isinstance(cov_finding.data, dict)
+        assert cov_finding.data["uncovered_pct"] == 0
+
+
+# ---------------------------------------------------------------------------
+# TestRunCoverage
+# ---------------------------------------------------------------------------
+
+
+class TestRunCoverage:
+    def test_skips_when_no_extractor(self) -> None:
+        """Lines 249-285: _run_coverage returns None when extractor is None."""
+        ds_ctx = MagicMock()
+        ds_ctx.extractor = None
+        result = _run_coverage(ds_ctx, MagicMock(), [], [], _make_params())
+        assert result is None
+
+    @patch("dataeval_flow.embeddings.build_embeddings")
+    @patch("dataeval.core.coverage_adaptive")
+    def test_runs_coverage_with_extractor(
+        self,
+        mock_coverage: MagicMock,
+        mock_build_emb: MagicMock,
+    ) -> None:
+        """Lines 249-285: _run_coverage computes coverage when extractor present."""
+        ds_ctx = MagicMock()
+        ds_ctx.extractor = MagicMock()
+        ds_ctx.transforms = None
+        ds_ctx.batch_size = 32
+
+        # Fake embeddings: 10 samples, 4 dims
+        embeddings = np.random.default_rng(42).random((10, 4))
+        mock_build_emb.return_value = embeddings
+
+        mock_cov_result = MagicMock()
+        mock_cov_result.uncovered_indices = np.array([])
+        mock_cov_result.critical_value_radii = np.array([0.1])
+        mock_cov_result.coverage_radius = 0.2
+        del mock_cov_result.get  # force getattr path in _serialize_coverage
+        mock_coverage.return_value = mock_cov_result
+
+        fold = SplitInfo(fold=0, train_indices=[0, 1, 2, 3, 4], val_indices=[5, 6, 7])
+        test_indices = [8, 9]
+
+        result = _run_coverage(ds_ctx, MagicMock(), [fold], test_indices, _make_params())
+
+        assert result is not None
+        assert mock_coverage.call_count == 3  # train + val + test
+        assert fold.coverage_train is not None
+        assert fold.coverage_val is not None
+
+    @patch("dataeval_flow.embeddings.build_embeddings")
+    @patch("dataeval.core.coverage_adaptive")
+    def test_no_test_coverage_when_empty(
+        self,
+        mock_coverage: MagicMock,
+        mock_build_emb: MagicMock,
+    ) -> None:
+        """Lines 279-285: no test coverage when test_indices is empty."""
+        ds_ctx = MagicMock()
+        ds_ctx.extractor = MagicMock()
+        ds_ctx.transforms = None
+        ds_ctx.batch_size = 32
+
+        embeddings = np.random.default_rng(42).random((8, 4))
+        mock_build_emb.return_value = embeddings
+
+        mock_cov_result = MagicMock()
+        mock_cov_result.uncovered_indices = np.array([])
+        mock_cov_result.critical_value_radii = np.array([0.1])
+        mock_cov_result.coverage_radius = 0.2
+        del mock_cov_result.get
+        mock_coverage.return_value = mock_cov_result
+
+        fold = SplitInfo(fold=0, train_indices=[0, 1, 2, 3, 4], val_indices=[5, 6, 7])
+
+        result = _run_coverage(ds_ctx, MagicMock(), [fold], [], _make_params())
+
+        assert result is None
+        assert mock_coverage.call_count == 2  # train + val only
+
+
+# ---------------------------------------------------------------------------
+# TestExecuteWithSelectionAndRebalance
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteWithSelectionAndRebalance:
+    @patch("dataeval_flow.workflows.splitting.workflow._run_coverage", return_value=None)
+    @patch("dataeval_flow.metadata.build_metadata")
+    @patch("dataeval.utils.data.split_dataset")
+    @patch("dataeval.core.label_stats")
+    @patch("dataeval.bias.Balance")
+    @patch("dataeval.bias.Diversity")
+    @patch("dataeval_flow.selection.build_selection")
+    def test_selection_applied(
+        self,
+        mock_build_sel: MagicMock,
+        mock_diversity: MagicMock,
+        mock_balance: MagicMock,
+        mock_label_stats: MagicMock,
+        mock_split: MagicMock,
+        mock_build_meta: MagicMock,
+        mock_run_cov: MagicMock,  # noqa: ARG002
+    ) -> None:
+        """Line 374: build_selection is called when selection_steps are present."""
+        dataset = _make_dataset(100)
+        selected_dataset = _make_dataset(80)
+        mock_build_sel.return_value = selected_dataset
+
+        metadata = _make_metadata(80)
+        mock_build_meta.return_value = metadata
+
+        mock_balance_inst = MagicMock()
+        mock_balance_inst.evaluate.return_value = MagicMock(balance=None, factors=None, classwise=None)
+        mock_balance.return_value = mock_balance_inst
+
+        mock_diversity_inst = MagicMock()
+        mock_diversity_inst.evaluate.return_value = MagicMock(factors=None, classwise=None)
+        mock_diversity.return_value = mock_diversity_inst
+
+        mock_label_stats.return_value = {
+            "label_counts_per_class": np.array([40, 40]),
+            "class_count": 2,
+            "label_count": 80,
+            "image_count": 80,
+        }
+        mock_split.return_value = _make_split_result(80)
+
+        ds_ctx = DatasetContext(name="ds", dataset=dataset, selection_steps=[MagicMock()])
+        ctx = WorkflowContext(dataset_contexts={"ds": ds_ctx})
+
+        wf = DataSplittingWorkflow()
+        result = wf.execute(ctx, _make_params())
+
+        assert result.success is True
+        mock_build_sel.assert_called_once()
+        # The split should operate on the selected dataset (len 80)
+        assert result.data.raw.dataset_size == 80
+
+    @patch("dataeval_flow.workflows.splitting.workflow._run_coverage", return_value=None)
+    @patch("dataeval_flow.metadata.build_metadata")
+    @patch("dataeval.utils.data.split_dataset")
+    @patch("dataeval.core.label_stats")
+    @patch("dataeval.bias.Balance")
+    @patch("dataeval.bias.Diversity")
+    @patch("dataeval.selection.ClassBalance")
+    @patch("dataeval.selection.Select")
+    @patch("dataeval.selection.Indices")
+    def test_rebalance_applied(
+        self,
+        mock_indices: MagicMock,  # noqa: ARG002
+        mock_select: MagicMock,
+        mock_class_balance: MagicMock,
+        mock_diversity: MagicMock,
+        mock_balance: MagicMock,
+        mock_label_stats: MagicMock,
+        mock_split: MagicMock,
+        mock_build_meta: MagicMock,
+        mock_run_cov: MagicMock,  # noqa: ARG002
+    ) -> None:
+        """Lines 427-432: rebalancing is applied when rebalance_method is set."""
+        dataset = _make_dataset(100)
+        metadata = _make_metadata(100)
+        mock_build_meta.return_value = metadata
+
+        mock_balance_inst = MagicMock()
+        mock_balance_inst.evaluate.return_value = MagicMock(balance=None, factors=None, classwise=None)
+        mock_balance.return_value = mock_balance_inst
+
+        mock_diversity_inst = MagicMock()
+        mock_diversity_inst.evaluate.return_value = MagicMock(factors=None, classwise=None)
+        mock_diversity.return_value = mock_diversity_inst
+
+        mock_label_stats.return_value = {
+            "label_counts_per_class": np.array([20, 20, 20, 20, 20]),
+            "class_count": 5,
+            "label_count": 100,
+            "image_count": 100,
+        }
+        mock_split.return_value = _make_split_result(100)
+
+        # Mock rebalance chain
+        mock_select_inst = MagicMock()
+        mock_select_inst.resolve_indices.return_value = list(range(70))
+        mock_select.return_value = mock_select_inst
+
+        ctx = WorkflowContext(
+            dataset_contexts={"ds": DatasetContext(name="ds", dataset=dataset)},
+        )
+
+        wf = DataSplittingWorkflow()
+        result = wf.execute(ctx, _make_params(rebalance_method="global"))
+
+        assert result.success is True
+        mock_class_balance.assert_called_once_with(method="global")
+        mock_select.assert_called_once()
+        assert result.metadata.rebalance_method == "global"
 
 
 # ---------------------------------------------------------------------------

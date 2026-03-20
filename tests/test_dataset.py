@@ -1032,6 +1032,132 @@ class TestResultMetadata:
         assert isinstance(data["timestamp"], str)
 
 
+# ---------------------------------------------------------------------------
+# Dataset loader functions
+# ---------------------------------------------------------------------------
+
+
+class TestLoadDatasetHuggingFace:
+    def test_keyerror_on_missing_split(self) -> None:
+        """load_dataset_huggingface raises KeyError when split not found."""
+        mock_ds_dict = MagicMock()
+        mock_ds_dict.keys = MagicMock(return_value=["train", "test"])
+
+        with patch("datasets.load_from_disk", return_value=mock_ds_dict):
+            from dataeval_flow.dataset import load_dataset_huggingface
+
+            with pytest.raises(KeyError, match="nonexistent"):
+                load_dataset_huggingface(Path("dummy"), split="nonexistent")
+
+    def test_single_dataset(self) -> None:
+        """load_dataset_huggingface handles single Dataset (not DatasetDict)."""
+        mock_single = MagicMock(spec=[])
+        mock_single.keys = None  # not callable
+
+        with (
+            patch("datasets.load_from_disk", return_value=mock_single),
+            patch("maite_datasets.adapters.from_huggingface", return_value=MagicMock()) as mock_adapter,
+        ):
+            from dataeval_flow.dataset import load_dataset_huggingface
+
+            load_dataset_huggingface(Path("dummy"))
+            mock_adapter.assert_called_once_with(mock_single)
+
+
+class TestLoadDatasetImageFolder:
+    def test_returns_image_folder_dataset(self, tmp_path: Path) -> None:
+        from PIL import Image
+
+        img = Image.new("RGB", (8, 8), color="blue")
+        img.save(tmp_path / "test.png")
+
+        from dataeval_flow.dataset import ImageFolderDataset, load_dataset_image_folder
+
+        ds = load_dataset_image_folder(tmp_path)
+        assert isinstance(ds, ImageFolderDataset)
+
+
+class TestLoadDatasetCoco:
+    def test_passes_optional_kwargs(self) -> None:
+        mock_reader = MagicMock()
+        mock_reader.create_dataset.return_value = MagicMock()
+
+        with patch("maite_datasets.object_detection.COCODatasetReader", return_value=mock_reader) as mock_cls:
+            from dataeval_flow.dataset import load_dataset_coco
+
+            load_dataset_coco(
+                Path("/data/coco"),
+                annotations_file="instances.json",
+                images_dir="train2017",
+                classes_file="classes.txt",
+            )
+
+        mock_cls.assert_called_once_with(
+            Path("/data/coco"),
+            annotation_file="instances.json",
+            images_dir="train2017",
+            classes_file="classes.txt",
+        )
+
+    def test_no_optional_kwargs(self) -> None:
+        mock_reader = MagicMock()
+        mock_reader.create_dataset.return_value = MagicMock()
+
+        with patch("maite_datasets.object_detection.COCODatasetReader", return_value=mock_reader) as mock_cls:
+            from dataeval_flow.dataset import load_dataset_coco
+
+            load_dataset_coco(Path("/data/coco"))
+
+        mock_cls.assert_called_once_with(Path("/data/coco"))
+
+
+class TestLoadDatasetYolo:
+    def test_passes_optional_kwargs(self) -> None:
+        mock_reader = MagicMock()
+        mock_reader.create_dataset.return_value = MagicMock()
+
+        with patch("maite_datasets.object_detection.YOLODatasetReader", return_value=mock_reader) as mock_cls:
+            from dataeval_flow.dataset import load_dataset_yolo
+
+            load_dataset_yolo(
+                Path("/data/yolo"),
+                images_dir="imgs",
+                labels_dir="lbls",
+                classes_file="cls.txt",
+            )
+
+        mock_cls.assert_called_once_with(
+            Path("/data/yolo"),
+            images_dir="imgs",
+            labels_dir="lbls",
+            classes_file="cls.txt",
+        )
+
+    def test_no_optional_kwargs(self) -> None:
+        mock_reader = MagicMock()
+        mock_reader.create_dataset.return_value = MagicMock()
+
+        with patch("maite_datasets.object_detection.YOLODatasetReader", return_value=mock_reader) as mock_cls:
+            from dataeval_flow.dataset import load_dataset_yolo
+
+            load_dataset_yolo(Path("/data/yolo"))
+
+        mock_cls.assert_called_once_with(Path("/data/yolo"))
+
+
+class TestResolveDatasetsUnsupported:
+    def test_raises_for_unsupported_config(self) -> None:
+        from pydantic import BaseModel
+
+        from dataeval_flow.dataset import resolve_dataset
+
+        class _UnknownConfig(BaseModel):
+            name: str = "unknown"
+
+        with pytest.raises(ValueError, match="Unsupported dataset config type"):
+            resolve_dataset(_UnknownConfig())
+
+
 @pytest.mark.optional
 class TestContainerRun:
     """Test the container landing script."""
