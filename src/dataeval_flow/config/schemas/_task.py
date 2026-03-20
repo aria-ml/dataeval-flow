@@ -61,6 +61,10 @@ class DataCleaningTaskConfig(TaskConfig):
     """
 
 
+class DataSplittingTaskConfig(TaskConfig):
+    """Task config for ``data-splitting`` workflows."""
+
+
 class DriftMonitoringTaskConfig(MultiSourceTaskConfig):
     """Task config that validates drift-monitoring constraints.
 

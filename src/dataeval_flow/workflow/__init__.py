@@ -283,8 +283,9 @@ def _ensure_initialized() -> None:
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
         from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
+        from dataeval_flow.workflows.splitting.workflow import DataSplittingWorkflow
 
-        workflows = [DataCleaningWorkflow, DriftMonitoringWorkflow, OODDetectionWorkflow]
+        workflows = [DataCleaningWorkflow, DataSplittingWorkflow, DriftMonitoringWorkflow, OODDetectionWorkflow]
 
         for workflow in workflows:
             wf = workflow()
