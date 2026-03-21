@@ -940,3 +940,239 @@ class TestCacheDirAndLabelSource:
             result = _run_single_task(task, config)
 
         assert result.metadata.label_source == "annotations"
+
+
+# ---------------------------------------------------------------------------
+# _build_resolved_config — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildResolvedConfig:
+    """Direct tests for _build_resolved_config branches."""
+
+    def test_non_serializable_dataset_protocol_config(self):
+        """Non-serializable dataset (DatasetProtocolConfig) produces protocol entry (lines 268-275)."""
+        from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        runtime_ds = MagicMock()
+        runtime_ds.metadata = {"id": "my-dataset-id"}
+        ds_cfg = DatasetProtocolConfig(name="proto_ds", dataset=runtime_ds)
+        source = SourceConfig(name="src", dataset="proto_ds")
+        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source])
+
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=pipeline,
+        )
+
+        ds_config = cfg["sources"][0]["dataset_config"]
+        assert ds_config["dataset"]["type"] == "protocol"
+        assert ds_config["dataset"]["id"] == "my-dataset-id"
+
+    def test_non_serializable_dataset_none_runtime_obj(self):
+        """Non-serializable dataset with None runtime object uses 'unknown' (line 272)."""
+        from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        ds_cfg = DatasetProtocolConfig(name="proto_ds", dataset=None)
+        source = SourceConfig(name="src", dataset="proto_ds")
+        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source])
+
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=pipeline,
+        )
+
+        ds_config = cfg["sources"][0]["dataset_config"]
+        assert ds_config["dataset"]["class"] == "unknown"
+
+    def test_serializable_dataset_with_pipeline_config(self):
+        """Serializable dataset uses model_dump (line 266)."""
+        from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        ds_cfg = ImageFolderDatasetConfig(name="photos", path="./data")
+        source = SourceConfig(name="src", dataset="photos")
+        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source])
+
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=pipeline,
+        )
+
+        ds_config = cfg["sources"][0]["dataset_config"]
+        assert ds_config["name"] == "photos"
+
+    def test_source_with_selection_and_pipeline_config(self):
+        """Source with selection resolves selection config inline (lines 278-280)."""
+        from dataeval_flow.config import (
+            ImageFolderDatasetConfig,
+            PipelineConfig,
+            SelectionConfig,
+            SelectionStep,
+            SourceConfig,
+        )
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
+        sel = SelectionConfig(name="sub", steps=[SelectionStep(type="Limit", params={"size": 100})])
+        source = SourceConfig(name="src", dataset="ds", selection="sub")
+        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source], selections=[sel])
+
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=pipeline,
+        )
+
+        entry = cfg["sources"][0]
+        assert entry["selection"] == "sub"
+        assert "selection_config" in entry
+        assert entry["selection_config"]["name"] == "sub"
+
+    def test_workflow_instance_included(self):
+        """Workflow instance is included when not None (line 285-286)."""
+        from dataeval_flow.config import SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        source = SourceConfig(name="src", dataset="ds")
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=_CLEAN_INSTANCE,
+            extractor_cfg=None,
+            pipeline_config=None,
+        )
+
+        assert "workflow" in cfg
+        assert cfg["workflow"]["name"] == "clean"
+        assert cfg["workflow"]["type"] == "data-cleaning"
+
+    def test_extractor_included(self):
+        """Extractor config is included when not None (line 289-290)."""
+        from dataeval_flow.config import SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        source = SourceConfig(name="src", dataset="ds")
+        ext = OnnxExtractorConfig(name="ext", model_path="./m.onnx", batch_size=32)
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=ext,
+            pipeline_config=None,
+        )
+
+        assert "extractor" in cfg
+        assert cfg["extractor"]["name"] == "ext"
+
+    def test_no_workflow_no_extractor(self):
+        """No workflow or extractor omits those keys."""
+        from dataeval_flow.config import SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        source = SourceConfig(name="src", dataset="ds")
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=None,
+        )
+
+        assert "workflow" not in cfg
+        assert "extractor" not in cfg
+
+    def test_source_with_selection_no_pipeline_config(self):
+        """Source with selection but no pipeline_config skips selection_config (line 278->281)."""
+        from dataeval_flow.config import SourceConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        source = SourceConfig(name="src", dataset="ds", selection="sub")
+        cfg = _build_resolved_config(
+            sources=[source],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=None,
+        )
+
+        entry = cfg["sources"][0]
+        assert entry["selection"] == "sub"
+        assert "selection_config" not in entry
+
+
+# ---------------------------------------------------------------------------
+# _populate_result_metadata — label_source falsy branch
+# ---------------------------------------------------------------------------
+
+
+class TestPopulateResultMetadataLabelSource:
+    """Test that label_source is not set when dc.label_source is falsy (line 243->247)."""
+
+    def test_no_label_source_skips_annotation(self):
+        from dataeval_flow.config import SourceConfig
+        from dataeval_flow.config.schemas._metadata import ResultMetadata
+        from dataeval_flow.workflow import DatasetContext, WorkflowResult
+        from dataeval_flow.workflow.orchestrator import _populate_result_metadata
+
+        result = WorkflowResult(name="t", success=True, data=MagicMock(), metadata=ResultMetadata())
+        dc = DatasetContext(
+            name="src",
+            dataset=MagicMock(),
+            extractor=None,
+            transforms=None,
+            selection_steps=None,
+            batch_size=None,
+            label_source=None,
+            cache=None,
+        )
+        source = SourceConfig(name="src", dataset="ds")
+
+        _populate_result_metadata(
+            result=result,
+            dataset_names=["ds"],
+            dataset_contexts={"src": dc},
+            sources=[source],
+            extractor_cfg=None,
+            elapsed=1.0,
+        )
+
+        # label_source should remain None when dc.label_source is None
+        assert result.metadata.label_source is None
+
+
+# ---------------------------------------------------------------------------
+# run_tasks — all enabled (no skipped tasks, line 353->355)
+# ---------------------------------------------------------------------------
+
+
+class TestRunTasksAllEnabled:
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_run_tasks_none_disabled(self, mock_load_ds: MagicMock):
+        """run_tasks with all tasks enabled skips the 'Skipping' log (line 353->355)."""
+        config = MagicMock()
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.sources = [SourceConfig(name="src", dataset="ds")]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+        config.tasks = [
+            TaskConfig(name="t1", workflow="clean", sources="src"),
+            TaskConfig(name="t2", workflow="clean", sources="src"),
+        ]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            results = run_tasks(config)
+
+        assert len(results) == 2

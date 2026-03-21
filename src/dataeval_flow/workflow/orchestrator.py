@@ -187,7 +187,17 @@ def _run_single_task(
     logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Populate metadata envelope
-    _populate_result_metadata(result, dataset_names, dataset_contexts, resolved_sources, extractor_cfg, elapsed)
+    _populate_result_metadata(
+        result,
+        dataset_names,
+        dataset_contexts,
+        resolved_sources,
+        extractor_cfg,
+        elapsed,
+        instance,
+        config,
+        data_dir=data_dir,
+    )
 
     return result
 
@@ -199,6 +209,9 @@ def _populate_result_metadata(
     sources: "Sequence[SourceConfig]",
     extractor_cfg: Any,
     elapsed: float,
+    workflow_instance: "WorkflowConfig | None" = None,
+    pipeline_config: "PipelineConfig | None" = None,
+    data_dir: Path | None = None,
 ) -> None:
     """Fill in the JATIC metadata envelope from resolved source/extractor context."""
     from dataeval_flow import __version__
@@ -212,6 +225,15 @@ def _populate_result_metadata(
     if selection_names:
         result.metadata.selection_id = selection_names[0] if len(selection_names) == 1 else ",".join(selection_names)
 
+    # Build human-readable source descriptions: "src_name (dataset[selection])"
+    source_descs: list[str] = []
+    for src in sources:
+        if src.selection is not None:
+            source_descs.append(f"{src.name} ({src.dataset}[{src.selection}])")
+        else:
+            source_descs.append(f"{src.name} ({src.dataset})")
+    result.metadata.source_descriptions = source_descs
+
     # Extractor context — model + preprocessor info
     if extractor_cfg is not None:
         result.metadata.model_id = f"{extractor_cfg.name} ({extractor_cfg.model})"
@@ -222,6 +244,79 @@ def _populate_result_metadata(
     dc = next(iter(dataset_contexts.values()))
     if dc.label_source:
         result.metadata.label_source = dc.label_source
+
+    # Build fully resolved config snapshot for report traceability
+    result.metadata.resolved_config = _build_resolved_config(
+        sources, workflow_instance, extractor_cfg, pipeline_config, data_dir=data_dir
+    )
+
+
+def _build_resolved_config(
+    sources: "Sequence[SourceConfig]",
+    workflow_instance: "WorkflowConfig | None",
+    extractor_cfg: Any,
+    pipeline_config: "PipelineConfig | None",
+    data_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Build a fully resolved config dict for report traceability."""
+    cfg: dict[str, Any] = {}
+
+    # Sources — expand dataset and selection configs inline
+    source_entries: list[dict[str, Any]] = []
+    for src in sources:
+        entry: dict[str, Any] = {"name": src.name, "dataset": src.dataset}
+        if pipeline_config is not None:
+            ds = _resolve_by_name(pipeline_config.datasets, src.dataset, "dataset")
+            if getattr(ds, "serializable", True):
+                entry["dataset_config"] = ds.model_dump(mode="json")
+            else:
+                dumped = ds.model_dump(mode="json", exclude={"dataset"})
+                runtime_obj = getattr(ds, "dataset", None)
+                dumped["dataset"] = {
+                    "type": "protocol",
+                    "class": type(runtime_obj).__qualname__ if runtime_obj is not None else "unknown",
+                    "id": getattr(runtime_obj, "metadata", {}).get("id", "unknown"),
+                }
+                entry["dataset_config"] = dumped
+        if src.selection is not None:
+            entry["selection"] = src.selection
+            if pipeline_config is not None:
+                sel = _resolve_by_name(pipeline_config.selections, src.selection, "selection")
+                entry["selection_config"] = sel.model_dump(mode="json")
+        source_entries.append(entry)
+    cfg["sources"] = source_entries
+
+    # Workflow params
+    if workflow_instance is not None:
+        cfg["workflow"] = workflow_instance.model_dump(mode="json")
+
+    # Extractor
+    if extractor_cfg is not None:
+        cfg["extractor"] = extractor_cfg.model_dump(mode="json")
+
+    return _relativize_paths(cfg, root=data_dir)
+
+
+def _relativize_paths(obj: Any, root: Path | None = None) -> Any:
+    """Recursively convert absolute path strings to relative paths.
+
+    Only strings that resolve to a path under *root* are relativized.
+    If *root* is ``None``, the object is returned unchanged.
+    """
+    if root is None:
+        return obj
+    root = root.resolve()
+    if isinstance(obj, dict):
+        return {k: _relativize_paths(v, root) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_relativize_paths(v, root) for v in obj]
+    if isinstance(obj, str) and obj.startswith("/"):
+        p = Path(obj)
+        try:
+            return str(p.relative_to(root))
+        except ValueError:
+            return obj
+    return obj
 
 
 def run_tasks(

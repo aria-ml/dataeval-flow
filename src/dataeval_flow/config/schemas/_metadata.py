@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +21,8 @@ class ResultMetadata(BaseModel):
     model_id: str | None = None
     preprocessor_id: str | None = None
     selection_id: str | None = None
+    source_descriptions: Sequence[str] = ()
+    resolved_config: dict[str, Any] = Field(default_factory=dict)
     tool: str = "dataeval-flow"
     tool_version: str = ""
     execution_time_s: float | None = None

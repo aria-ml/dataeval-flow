@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from dataeval_flow.workflow._text_report import (
     _WIDTH,
+    _render_config_section,
     _render_detail_section,
     _summary_line,
 )
@@ -61,6 +62,26 @@ TMetadata = TypeVar("TMetadata", bound="ResultMetadata")
 TData = TypeVar("TData", bound=BaseModel)
 
 
+def _source_lines(meta: "ResultMetadata") -> list[str]:
+    """Render source/dataset lines for the metadata block."""
+    lines: list[str] = []
+    source_descs = meta.source_descriptions
+    if source_descs:
+        label = "  Source:       "
+        continuation = " " * len(label)
+        for i, desc in enumerate(source_descs):
+            lines.append(f"{label if i == 0 else continuation}{desc}")
+    elif meta.dataset_id or meta.selection_id:
+        if meta.dataset_id:
+            ds_line = f"  Dataset:      {meta.dataset_id}"
+            if meta.label_source:
+                ds_line += f"  ({meta.label_source})"
+            lines.append(ds_line)
+        if meta.selection_id:
+            lines.append(f"  Selection:    {meta.selection_id}")
+    return lines
+
+
 @dataclass
 class WorkflowResult(Generic[TMetadata, TData]):
     """Standardized workflow result.
@@ -78,6 +99,11 @@ class WorkflowResult(Generic[TMetadata, TData]):
     used during workflow execution.  This is *not* serialized by
     :meth:`report`; it is provided purely for downstream programmatic use
     (visualization, filtering, export).
+
+    The optional ``sources`` field maps source names to their resolved,
+    post-selection datasets.  Multi-split workflows (e.g. data-analysis)
+    populate this so callers can visualize images from any split without
+    re-loading.
     """
 
     name: str
@@ -86,6 +112,7 @@ class WorkflowResult(Generic[TMetadata, TData]):
     metadata: TMetadata
     errors: Sequence[str] = field(default_factory=list)
     dataset: "AnnotatedDataset[Any] | None" = None
+    sources: "dict[str, AnnotatedDataset[Any]] | None" = None
 
     def report(self, *, detailed: bool = True) -> str:
         """Return a human-readable text report.
@@ -112,13 +139,17 @@ class WorkflowResult(Generic[TMetadata, TData]):
         lines.extend(self._summary_lines(findings))
         if detailed:
             lines.extend(self._detail_lines(findings))
+        lines.extend(_render_config_section(self.metadata.resolved_config))
         lines.append("")
         lines.append("=" * _WIDTH)
         return "\n".join(lines)
 
     def _title_lines(self, summary: str) -> list[str]:
         """Banner with the report summary title."""
-        return ["", "=" * _WIDTH, f"  {summary.upper()}", "=" * _WIDTH]
+        lines = ["", "=" * _WIDTH]
+        lines.extend(f"  {part.strip().upper()}" for part in summary.split("\n"))
+        lines.append("=" * _WIDTH)
+        return lines
 
     def _metadata_lines(self) -> list[str]:
         """Human-readable metadata block with trailing separator."""
@@ -128,17 +159,11 @@ class WorkflowResult(Generic[TMetadata, TData]):
             lines.append(f"  Timestamp:    {meta.timestamp.isoformat()}")
         if meta.execution_time_s is not None:
             lines.append(f"  Duration:     {meta.execution_time_s:.2f}s")
-        if meta.dataset_id:
-            ds_line = f"  Dataset:      {meta.dataset_id}"
-            if meta.label_source:
-                ds_line += f"  ({meta.label_source})"
-            lines.append(ds_line)
+        lines.extend(_source_lines(meta))
         if meta.model_id:
             lines.append(f"  Model:        {meta.model_id}")
         if meta.preprocessor_id:
             lines.append(f"  Preprocessor: {meta.preprocessor_id}")
-        if meta.selection_id:
-            lines.append(f"  Selection:    {meta.selection_id}")
         if lines:
             lines.append("-" * _WIDTH)
         return lines

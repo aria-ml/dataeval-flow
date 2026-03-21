@@ -5,8 +5,12 @@ from __future__ import annotations
 from dataeval_flow.workflow._text_report import (
     _WIDTH,
     _brief_value,
+    _compact_indices,
+    _flow_repr,
+    _format_value,
     _render_chunk_table,
     _render_classwise_table,
+    _render_config_section,
     _render_detail_section,
     _render_key_value,
     _render_pivot_table,
@@ -513,3 +517,195 @@ class TestRenderClasswiseTable:
         text = "\n".join(lines)
         assert "only" in text
         assert "0.2500" in text
+
+
+# ---------------------------------------------------------------------------
+# _render_pivot_table — footer_lines
+# ---------------------------------------------------------------------------
+
+
+class TestRenderPivotTableFooter:
+    def test_footer_lines(self):
+        """Pivot table with footer_lines renders them (lines 196-197)."""
+        data = {
+            "table_headers": ["Class", "Count"],
+            "table_data": [{"Class": "cat", "Count": 10}],
+            "footer_lines": ["Note: partial data"],
+        }
+        lines = _render_pivot_table(data)
+        text = "\n".join(lines)
+        assert "Note: partial data" in text
+
+
+# ---------------------------------------------------------------------------
+# _render_config_section
+# ---------------------------------------------------------------------------
+
+
+class TestRenderConfigSection:
+    def test_empty_config(self):
+        """Empty resolved config returns empty list."""
+        assert _render_config_section({}) == []
+
+    def test_full_config(self):
+        """Full config renders all top-level keys."""
+        resolved = {
+            "sources": [{"name": "src", "dataset": "ds"}],
+            "workflow": {"name": "clean", "type": "data-cleaning"},
+            "extractor": {"name": "ext", "model": "onnx"},
+        }
+        lines = _render_config_section(resolved)
+        text = "\n".join(lines)
+        assert "CONFIGURATION" in text
+        assert "name: src" in text
+        assert "dataset: ds" in text
+        assert "name: clean" in text
+        assert "name: ext" in text
+
+    def test_nested_dicts(self):
+        """Nested dicts expand to multi-line when they exceed width."""
+        resolved = {
+            "workflow": {
+                "name": "ood",
+                "detectors": [
+                    {"method": "kneighbors", "k": 10},
+                    {"method": "domain_classifier", "n_folds": 3},
+                ],
+            },
+        }
+        lines = _render_config_section(resolved)
+        text = "\n".join(lines)
+        assert "method: kneighbors" in text
+        assert "k: 10" in text
+        assert "method: domain_classifier" in text
+
+    def test_int_lists_compacted(self):
+        """Contiguous int lists are replaced with range shorthand."""
+        resolved = {"workflow": {"indices": [0, 1, 2, 3, 4]}}
+        lines = _render_config_section(resolved)
+        text = "\n".join(lines)
+        assert "range(0, 5)" in text
+
+    def test_source_with_selection(self):
+        """Sources with selection config render properly."""
+        resolved = {
+            "sources": [
+                {
+                    "name": "src",
+                    "dataset": "ds",
+                    "selection": "subset",
+                    "selection_config": {
+                        "steps": [{"type": "Limit", "params": {"size": 1000}}],
+                    },
+                }
+            ],
+        }
+        lines = _render_config_section(resolved)
+        text = "\n".join(lines)
+        assert "selection: subset" in text
+        assert "type: Limit" in text
+        assert "size: 1000" in text
+
+
+# ---------------------------------------------------------------------------
+# _flow_repr
+# ---------------------------------------------------------------------------
+
+
+class TestFlowRepr:
+    def test_scalar(self):
+        """Scalars render as str()."""
+        assert _flow_repr("hello") == "hello"
+        assert _flow_repr(3.14) == "3.14"
+        assert _flow_repr(True) == "True"
+
+    def test_dict(self):
+        """Dicts render as {k: v} without quotes."""
+        assert _flow_repr({"a": 1, "b": 2}) == "{a: 1, b: 2}"
+
+    def test_list(self):
+        """Lists render as [v1, v2]."""
+        assert _flow_repr(["dim", "pixel"]) == "[dim, pixel]"
+
+    def test_nested(self):
+        """Nested structures render inline."""
+        result = _flow_repr({"params": {"size": 100}})
+        assert result == "{params: {size: 100}}"
+
+    def test_int_list_compacted(self):
+        """Contiguous int lists collapse to range()."""
+        assert _flow_repr([0, 1, 2, 3, 4]) == "range(0, 5)"
+
+    def test_non_contiguous_int_list(self):
+        """Non-contiguous int lists render normally."""
+        assert _flow_repr([1, 3, 7]) == "[1, 3, 7]"
+
+
+# ---------------------------------------------------------------------------
+# _format_value
+# ---------------------------------------------------------------------------
+
+
+class TestFormatValue:
+    def test_dict_inline(self):
+        """Short dict values render inline."""
+        lines: list[str] = []
+        _format_value(lines, {"threshold": 2.5}, indent=4, max_width=80)
+        assert lines == ["    threshold: 2.5"]
+
+    def test_dict_expanded(self):
+        """Dict value that exceeds width expands to block style."""
+        lines: list[str] = []
+        long_val = {"a" * 40: "b" * 40}
+        _format_value(lines, {"params": long_val}, indent=0, max_width=50)
+        text = "\n".join(lines)
+        assert "params:" in text
+        assert "a" * 40 in text
+
+    def test_list_inline(self):
+        """Short list items render inline."""
+        lines: list[str] = []
+        _format_value(lines, [{"method": "knn", "k": 5}], indent=4, max_width=80)
+        assert lines == ["    - {method: knn, k: 5}"]
+
+    def test_list_expanded(self):
+        """Long list items expand to block style."""
+        lines: list[str] = []
+        _format_value(lines, [{"method": "a" * 60}], indent=4, max_width=40)
+        text = "\n".join(lines)
+        assert "    -" in text
+        assert "method:" in text
+
+    def test_scalar(self):
+        """Plain scalar renders with indent."""
+        lines: list[str] = []
+        _format_value(lines, "hello", indent=4, max_width=80)
+        assert lines == ["    hello"]
+
+
+# ---------------------------------------------------------------------------
+# _compact_indices
+# ---------------------------------------------------------------------------
+
+
+class TestCompactIndices:
+    def test_empty_list(self):
+        """Empty list returns '[]'."""
+        assert _compact_indices([]) == "[]"
+
+    def test_single_element(self):
+        """Single element returns str(list)."""
+        assert _compact_indices([42]) == "[42]"
+
+    def test_contiguous_range(self):
+        """Contiguous range collapses to range()."""
+        assert _compact_indices([5, 6, 7, 8, 9]) == "range(5, 10)"
+
+    def test_range_with_step(self):
+        """Range with step collapses to range(start, stop, step)."""
+        assert _compact_indices([0, 2, 4, 6]) == "range(0, 7, 2)"
+
+    def test_non_contiguous(self):
+        """Non-contiguous list returns str(list)."""
+        result = _compact_indices([1, 3, 7])
+        assert result == "[1, 3, 7]"
