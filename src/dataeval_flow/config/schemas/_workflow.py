@@ -4,10 +4,32 @@ from typing import Literal
 
 from pydantic import Field
 
+from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 from dataeval_flow.workflows.ood.params import OODDetectionParameters
 from dataeval_flow.workflows.splitting.params import DataSplittingParameters
+
+
+class DataAnalysisWorkflowConfig(DataAnalysisParameters):
+    """Typed workflow configuration for ``data-analysis``.
+
+    Inherits all fields from :class:`DataAnalysisParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: cppe5_analysis
+            type: data-analysis
+            outlier_method: zscore
+            outlier_flags: [dimension, pixel, visual]
+            balance: true
+            diversity_method: simpson
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["data-analysis"] = "data-analysis"
 
 
 class DataCleaningWorkflowConfig(DataCleaningParameters):

@@ -8,7 +8,7 @@ import pytest
 from pydantic import BaseModel
 
 from dataeval_flow.config import ResultMetadata
-from dataeval_flow.workflow import WorkflowResult, get_workflow, list_workflows
+from dataeval_flow.workflow import WorkflowResult, _source_lines, get_workflow, list_workflows
 from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
 
 # ---------------------------------------------------------------------------
@@ -550,3 +550,35 @@ class TestWorkflowDiscovery:
         for w in workflows:
             assert "name" in w
             assert "description" in w
+
+
+# ---------------------------------------------------------------------------
+# _source_lines — multi-source continuation
+# ---------------------------------------------------------------------------
+
+
+class TestSourceLines:
+    def test_multiple_source_descriptions(self):
+        """Multiple source_descriptions use continuation indent (line 73)."""
+        meta = ResultMetadata(source_descriptions=["Source A: train (100 imgs)", "Source B: test (50 imgs)"])
+        lines = _source_lines(meta)
+        assert len(lines) == 2
+        assert "Source:" in lines[0]
+        assert "Source A" in lines[0]
+        assert "Source B" in lines[1]
+        # Continuation line should NOT have "Source:" label
+        assert "Source:" not in lines[1]
+
+    def test_single_source_description(self):
+        """Single source_description uses Source label."""
+        meta = ResultMetadata(source_descriptions=["My dataset (200 imgs)"])
+        lines = _source_lines(meta)
+        assert len(lines) == 1
+        assert "Source:" in lines[0]
+
+    def test_no_sources_falls_back_to_dataset(self):
+        """No source_descriptions falls back to dataset_id."""
+        meta = ResultMetadata(dataset_id="ds-1")
+        lines = _source_lines(meta)
+        assert len(lines) == 1
+        assert "ds-1" in lines[0]

@@ -39,6 +39,15 @@ class MultiSourceTaskConfig(TaskConfig):
         return self
 
 
+class DataAnalysisTaskConfig(TaskConfig):
+    """Task config for ``data-analysis`` workflows.
+
+    A typed subclass of :class:`TaskConfig` that enables typed overloads
+    on :func:`~dataeval_flow.workflow.orchestrator.run_tasks`, returning a
+    result with full access to analysis-specific metadata.
+    """
+
+
 class DataCleaningTaskConfig(TaskConfig):
     """Task config for ``data-cleaning`` workflows.
 
