@@ -142,6 +142,7 @@ docs:preview:
   script:
     - uvx --with nox-uv nox -s docs
   artifacts:
+    when: always
     paths:
       - output/docs
     expose_as: "Documentation Preview"

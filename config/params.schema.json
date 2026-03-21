@@ -1384,7 +1384,7 @@
       "type": "object"
     },
     "SelectionStep": {
-      "description": "Single selection step - pass-through to dataeval.selection.\n\nSee: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/selection/index.html",
+      "description": "Single selection step - pass-through to dataeval.selection.\n\nSee: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/selection/index.html\n\nThe ``indices`` param supports a range shorthand so that contiguous\nindex spans do not need to be enumerated in config files::\n\n    # Expanded form (still supported)\n    params:\n      indices: [500, 501, 502, ..., 549]\n\n    # Range shorthand\n    params:\n      indices: {start: 500, stop: 550}\n\n    # Range with step\n    params:\n      indices: {start: 0, stop: 100, step: 2}",
       "properties": {
         "type": {
           "description": "Selection class from dataeval.selection",
@@ -1393,6 +1393,38 @@
         },
         "params": {
           "additionalProperties": true,
+          "properties": {
+            "indices": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "type": "integer"
+                    },
+                    "stop": {
+                      "type": "integer"
+                    },
+                    "step": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "stop"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Indices as a list or {start, stop[, step]} range shorthand."
+            }
+          },
           "title": "Params",
           "type": "object"
         }

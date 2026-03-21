@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from dataeval_flow.workflow.base import Reportable
 
-__all__ = ["_WIDTH", "_render_detail_section", "_summary_line"]
+__all__ = ["_WIDTH", "_render_config_section", "_render_detail_section", "_summary_line"]
 
 # Width of the report (matches the === bars).
 _WIDTH = 80
@@ -189,6 +189,12 @@ def _render_pivot_table(data: dict[str, Any]) -> list[str]:
         for i, (cell, w) in enumerate(zip(cells, col_widths, strict=False)):
             parts.append(f"{cell:<{w}}" if i == 0 else f"{cell:>{w}}")
         lines.append("  " + "  ".join(parts))
+
+    # Footer lines (workflow-provided)
+    footer_lines = data.get("footer_lines", [])
+    if footer_lines:
+        lines.append("")
+        lines.extend(f"  {line}" for line in footer_lines)
 
     return lines
 
@@ -384,3 +390,115 @@ def _render_table(data: dict[str, Any]) -> list[str]:
         lines.extend(f"  {line}" for line in footer_lines)
 
     return lines
+
+
+# ---------------------------------------------------------------------------
+# Configuration section
+# ---------------------------------------------------------------------------
+
+
+def _render_config_section(resolved_config: dict[str, Any]) -> list[str]:
+    """Render a CONFIGURATION section showing the fully resolved config."""
+    if not resolved_config:
+        return []
+
+    lines = _section_header("CONFIGURATION")
+    _format_value(lines, resolved_config, indent=2, max_width=_WIDTH)
+    return lines
+
+
+_INDENT_STEP = 2
+
+
+def _flow_repr(obj: Any) -> str:
+    """Render a value as a compact, unquoted, single-line string.
+
+    Dicts use ``{k: v, ...}`` syntax, lists use ``[v, ...]``, and
+    contiguous int lists collapse to ``range(...)`` shorthand.
+    """
+    if isinstance(obj, dict):
+        inner = ", ".join(f"{k}: {_flow_repr(v)}" for k, v in obj.items())
+        return "{" + inner + "}"
+    if isinstance(obj, list):
+        if obj and all(isinstance(i, int) for i in obj):
+            compact = _compact_indices(obj)
+            if compact != str(obj):
+                return compact
+        return "[" + ", ".join(_flow_repr(v) for v in obj) + "]"
+    return str(obj)
+
+
+def _format_value(lines: list[str], obj: Any, indent: int, max_width: int) -> None:
+    """Recursively format *obj*, using flow style when it fits in *max_width*.
+
+    Dicts and lists are rendered block-style (one key/item per line) only
+    when their flow representation would exceed *max_width*.  Otherwise
+    the value is kept inline.
+    """
+    prefix = " " * indent
+
+    if isinstance(obj, dict):
+        _format_dict(lines, obj, indent, max_width)
+    elif isinstance(obj, list):
+        _format_list(lines, obj, indent, max_width)
+    else:
+        lines.append(f"{prefix}{obj}")
+
+
+def _format_dict(lines: list[str], obj: dict[str, Any], indent: int, max_width: int) -> None:
+    """Format a dict, keeping values inline when they fit."""
+    prefix = " " * indent
+    for key, val in obj.items():
+        flow = _flow_repr(val)
+        if len(f"{prefix}{key}: {flow}") <= max_width:
+            lines.append(f"{prefix}{key}: {flow}")
+        else:
+            lines.append(f"{prefix}{key}:")
+            _format_value(lines, val, indent + _INDENT_STEP, max_width)
+
+
+def _format_list(lines: list[str], obj: list[Any], indent: int, max_width: int) -> None:
+    """Format a list, putting the first dict key on the ``- `` line."""
+    prefix = " " * indent
+    for item in obj:
+        flow = _flow_repr(item)
+        if len(f"{prefix}- {flow}") <= max_width:
+            lines.append(f"{prefix}- {flow}")
+        elif isinstance(item, dict) and item:
+            _format_list_dict_item(lines, item, indent, max_width)
+        else:
+            lines.append(f"{prefix}-")
+            _format_value(lines, item, indent + _INDENT_STEP, max_width)
+
+
+def _format_list_dict_item(lines: list[str], item: dict[str, Any], indent: int, max_width: int) -> None:
+    """Format a dict inside a list, inlining the first key on the ``- `` line."""
+    prefix = " " * indent
+    it = iter(item.items())
+    first_key, first_val = next(it)
+    first_flow = _flow_repr(first_val)
+    if len(f"{prefix}- {first_key}: {first_flow}") <= max_width:
+        lines.append(f"{prefix}- {first_key}: {first_flow}")
+    else:
+        lines.append(f"{prefix}- {first_key}:")
+        _format_value(lines, first_val, indent + _INDENT_STEP * 2, max_width)
+    # Remaining keys align under the first key (one indent step past the "- ")
+    rest_indent = indent + _INDENT_STEP
+    _format_dict(lines, dict(it), rest_indent, max_width)
+
+
+def _compact_indices(indices: list[int]) -> str:
+    """Collapse a contiguous int list into range shorthand for display."""
+    if not indices:
+        return "[]"
+    if len(indices) < 2:
+        return str(indices)
+    step = indices[1] - indices[0]
+    if step == 0:
+        return str(indices)
+    stop = indices[-1] + (1 if step > 0 else -1)
+    if indices == list(range(indices[0], stop, step)):
+        if step == 1:
+            return f"range({indices[0]}, {stop})"
+        return f"range({indices[0]}, {stop}, {step})"
+    return str(indices)

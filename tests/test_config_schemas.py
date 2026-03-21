@@ -577,6 +577,62 @@ class TestP1SchemaClasses:
         assert config.steps[0].type == "Limit"
         assert config.steps[1].type == "ClassFilter"
 
+    def test_selection_step_indices_range_shorthand(self):
+        """SelectionStep expands indices range dict into a list."""
+        from dataeval_flow.config import SelectionStep
+
+        step = SelectionStep(type="Indices", params={"indices": {"start": 500, "stop": 505}})
+        assert step.params["indices"] == [500, 501, 502, 503, 504]
+
+    def test_selection_step_indices_range_with_step(self):
+        """SelectionStep expands indices range dict with custom step."""
+        from dataeval_flow.config import SelectionStep
+
+        step = SelectionStep(type="Indices", params={"indices": {"start": 0, "stop": 10, "step": 3}})
+        assert step.params["indices"] == [0, 3, 6, 9]
+
+    def test_selection_step_indices_list_unchanged(self):
+        """SelectionStep leaves an explicit indices list untouched."""
+        from dataeval_flow.config import SelectionStep
+
+        step = SelectionStep(type="Indices", params={"indices": [1, 5, 42]})
+        assert step.params["indices"] == [1, 5, 42]
+
+    def test_selection_step_indices_range_rejects_invalid_keys(self):
+        """SelectionStep rejects unknown keys like 'end' in the range shorthand."""
+        from dataeval_flow.config import SelectionStep
+
+        with pytest.raises(ValidationError, match="Invalid keys"):
+            SelectionStep(type="Indices", params={"indices": {"start": 500, "end": 550}})
+
+    def test_selection_step_indices_range_requires_start_and_stop(self):
+        """SelectionStep requires both 'start' and 'stop' in range shorthand."""
+        from dataeval_flow.config import SelectionStep
+
+        with pytest.raises(ValidationError, match="requires both"):
+            SelectionStep(type="Indices", params={"indices": {"start": 500}})
+
+    def test_selection_step_non_indices_params_unchanged(self):
+        """SelectionStep does not touch params without an indices key."""
+        from dataeval_flow.config import SelectionStep
+
+        step = SelectionStep(type="Limit", params={"size": 100})
+        assert step.params == {"size": 100}
+
+    def test_selection_step_indices_range_too_large(self):
+        """SelectionStep rejects range shorthand exceeding 1M elements (line 83)."""
+        from dataeval_flow.config import SelectionStep
+
+        with pytest.raises(ValidationError, match="max 1,000,000"):
+            SelectionStep(type="Indices", params={"indices": {"start": 0, "stop": 2_000_000}})
+
+    def test_selection_step_rejects_non_dict_input(self):
+        """SelectionStep.model_validate rejects non-dict, non-instance input."""
+        from dataeval_flow.config import SelectionStep
+
+        with pytest.raises(ValidationError, match="Input should be a valid dictionary"):
+            SelectionStep.model_validate("not a dict")
+
     def test_task_config_valid(self):
         """TaskConfig with sources and extractor references."""
         from dataeval_flow.config import TaskConfig
