@@ -524,6 +524,71 @@ class TestRenderClasswiseTable:
 # ---------------------------------------------------------------------------
 
 
+class TestRenderPivotTableMultiline:
+    def test_multiline_cell(self):
+        """Cells with newlines expand to multiple rows."""
+        data = {
+            "table_headers": ["Split", "Factors"],
+            "table_data": [
+                {"Split": "train", "Factors": "a (0.90)\nb (0.80)\nc (0.70)"},
+            ],
+        }
+        lines = _render_pivot_table(data)
+        text = "\n".join(lines)
+        assert "a (0.90)" in text
+        assert "b (0.80)" in text
+        assert "c (0.70)" in text
+        # "train" should appear on first sub-line only; continuation lines should be blank-padded
+        train_lines = [ln for ln in lines if "train" in ln]
+        assert len(train_lines) == 1
+
+    def test_mixed_single_and_multiline(self):
+        """Rows with different numbers of sub-lines render correctly."""
+        data = {
+            "table_headers": ["Split", "High MI", "Low Div"],
+            "table_data": [
+                {"Split": "train", "High MI": "x (0.90)\ny (0.80)", "Low Div": "d1"},
+                {"Split": "val", "High MI": "z (0.70)", "Low Div": "d2\nd3"},
+            ],
+        }
+        lines = _render_pivot_table(data)
+        text = "\n".join(lines)
+        # All values present
+        for val in ("x (0.90)", "y (0.80)", "d1", "z (0.70)", "d2", "d3"):
+            assert val in text
+        # "train" row should span 2 output lines (max sub-lines = 2)
+        # "val" row should also span 2 output lines
+        data_lines = [ln for ln in lines if ln.strip() and "---" not in ln and "Split" not in ln]
+        assert len(data_lines) == 4  # 2 sub-lines per row * 2 rows
+
+    def test_all_single_line_unchanged(self):
+        """Rows without newlines render as before (one output line per row)."""
+        data = {
+            "table_headers": ["Name", "Val"],
+            "table_data": [
+                {"Name": "a", "Val": "10"},
+                {"Name": "b", "Val": "20"},
+            ],
+        }
+        lines = _render_pivot_table(data)
+        data_lines = [ln for ln in lines if ln.strip() and "---" not in ln and "Name" not in ln]
+        assert len(data_lines) == 2
+
+    def test_multiline_column_alignment(self):
+        """Multi-line cells should be properly aligned across columns."""
+        data = {
+            "table_headers": ["Split", "Factors"],
+            "table_data": [
+                {"Split": "train", "Factors": "short\nvery_long_factor_name"},
+            ],
+        }
+        lines = _render_pivot_table(data)
+        # Both factor lines should end at the same column (right-aligned for non-first cols)
+        factor_lines = [ln for ln in lines if "short" in ln or "very_long" in ln]
+        assert len(factor_lines) == 2
+        assert len(factor_lines[0]) == len(factor_lines[1])
+
+
 class TestRenderPivotTableFooter:
     def test_footer_lines(self):
         """Pivot table with footer_lines renders them (lines 196-197)."""
@@ -709,3 +774,24 @@ class TestCompactIndices:
         """Non-contiguous list returns str(list)."""
         result = _compact_indices([1, 3, 7])
         assert result == "[1, 3, 7]"
+
+    def test_zero_step(self):
+        """Repeated elements (step=0) returns str(list) (line 505)."""
+        result = _compact_indices([5, 5, 5])
+        assert result == "[5, 5, 5]"
+
+
+# ---------------------------------------------------------------------------
+# _format_value — non-dict list fallback
+# ---------------------------------------------------------------------------
+
+
+class TestFormatValueListFallback:
+    def test_non_dict_list_item_exceeds_width(self):
+        """List item that is not a dict and exceeds width triggers fallback (lines 477-478)."""
+        lines: list[str] = []
+        long_item = "a" * 80
+        _format_value(lines, [long_item], indent=4, max_width=40)
+        text = "\n".join(lines)
+        assert "a" * 80 in text
+        assert "    -" in text

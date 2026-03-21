@@ -292,12 +292,19 @@ _initialized: bool = False
 def _ensure_initialized() -> None:
     global _initialized
     if not _initialized:
+        from dataeval_flow.workflows.analysis.workflow import DataAnalysisWorkflow
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
         from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
         from dataeval_flow.workflows.splitting.workflow import DataSplittingWorkflow
 
-        workflows = [DataCleaningWorkflow, DataSplittingWorkflow, DriftMonitoringWorkflow, OODDetectionWorkflow]
+        workflows = [
+            DataAnalysisWorkflow,
+            DataCleaningWorkflow,
+            DataSplittingWorkflow,
+            DriftMonitoringWorkflow,
+            OODDetectionWorkflow,
+        ]
 
         for workflow in workflows:
             wf = workflow()

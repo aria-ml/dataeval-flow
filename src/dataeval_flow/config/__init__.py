@@ -19,10 +19,12 @@ __all__ = [
     "TorchExtractorConfig",
     "UncertaintyExtractorConfig",
     # Workflow configs
+    "DataAnalysisWorkflowConfig",
     "DataCleaningWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
     "OODDetectionWorkflowConfig",
     # Task configs
+    "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",
     "DriftMonitoringTaskConfig",
     "OODDetectionTaskConfig",
@@ -50,6 +52,8 @@ from dataeval_flow.config._models import PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas import (
     BoVWExtractorConfig,
     CocoDatasetConfig,
+    DataAnalysisTaskConfig,
+    DataAnalysisWorkflowConfig,
     DataCleaningTaskConfig,
     DataCleaningWorkflowConfig,
     DatasetProtocolConfig,

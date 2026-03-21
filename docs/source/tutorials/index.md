@@ -5,13 +5,9 @@ Learning-oriented guides that walk you through using DataEval Workflows step by 
 ```{toctree}
 :maxdepth: 1
 
+../notebooks/data_analysis
 ../notebooks/data_cleaning
 ../notebooks/drift_monitoring
 ../notebooks/classwise_drift
 ../notebooks/ood_detection
 ```
-
-## Planned tutorials
-
-- **Data Analysis** — Load a dataset and run your first evaluation
-- **Container Deployment** — Deploy DataEval Workflows with Docker

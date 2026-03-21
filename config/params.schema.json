@@ -171,6 +171,173 @@
       "title": "CocoDatasetConfig",
       "type": "object"
     },
+    "DataAnalysisHealthThresholds": {
+      "description": "Configurable warning thresholds for data analysis health status.\n\nEach threshold is a percentage (0\u2013100) unless otherwise noted.\nWhen the detected rate exceeds the threshold the corresponding\nfinding is elevated to ``severity=\"warning\"``; otherwise it stays\nat ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
+      "properties": {
+        "image_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of images flagged as statistical outliers. Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Image Outliers",
+          "type": "number"
+        },
+        "exact_duplicates": {
+          "default": 0.0,
+          "description": "Max allowable % of images in exact-duplicate groups. Default 0% \u2014 any exact duplicates trigger a warning.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Exact Duplicates",
+          "type": "number"
+        },
+        "near_duplicates": {
+          "default": 5.0,
+          "description": "Max allowable % of images in near-duplicate groups. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Near Duplicates",
+          "type": "number"
+        },
+        "class_label_imbalance": {
+          "default": 5.0,
+          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. Set to 1.0 to require perfectly balanced classes.",
+          "minimum": 1.0,
+          "title": "Class Label Imbalance",
+          "type": "number"
+        },
+        "distribution_shift": {
+          "default": 0.5,
+          "description": "Embedding divergence above which cross-split shift is flagged as warning. Default 0.5. Values above 0.2 are reported as 'moderate'.",
+          "minimum": 0.0,
+          "title": "Distribution Shift",
+          "type": "number"
+        }
+      },
+      "title": "DataAnalysisHealthThresholds",
+      "type": "object"
+    },
+    "DataAnalysisWorkflowConfig": {
+      "description": "Typed workflow configuration for ``data-analysis``.\n\nInherits all fields from :class:`DataAnalysisParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
+      "properties": {
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "outlier_method": {
+          "description": "Statistical method for outlier detection",
+          "enum": [
+            "adaptive",
+            "zscore",
+            "modzscore",
+            "iqr"
+          ],
+          "title": "Outlier Method",
+          "type": "string"
+        },
+        "outlier_flags": {
+          "description": "Image statistics groups for outlier detection. At least one required.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outlier Flags",
+          "type": "array"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom threshold (None = use DataEval default for chosen method)",
+          "title": "Outlier Threshold"
+        },
+        "balance": {
+          "default": false,
+          "description": "Run Balance (MI) analysis per split and combined",
+          "title": "Balance",
+          "type": "boolean"
+        },
+        "diversity_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "simpson",
+                "shannon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Diversity method (None = skip)",
+          "title": "Diversity Method"
+        },
+        "include_image_stats": {
+          "default": false,
+          "description": "Compute ImageStats and inject as metadata factors for bias analysis",
+          "title": "Include Image Stats",
+          "type": "boolean"
+        },
+        "divergence_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "mst",
+                "fnn"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Method for computing cross-split embedding divergence. Only used when an extractor is configured.",
+          "title": "Divergence Method"
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/DataAnalysisHealthThresholds",
+          "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-analysis",
+          "default": "data-analysis",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "outlier_method",
+        "outlier_flags",
+        "name"
+      ],
+      "title": "DataAnalysisWorkflowConfig",
+      "type": "object"
+    },
     "DataCleaningHealthThresholds": {
       "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
       "properties": {
@@ -1931,6 +2098,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "data-analysis": "#/$defs/DataAnalysisWorkflowConfig",
                 "data-cleaning": "#/$defs/DataCleaningWorkflowConfig",
                 "data-splitting": "#/$defs/DataSplittingWorkflowConfig",
                 "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
@@ -1939,6 +2107,9 @@
               "propertyName": "type"
             },
             "oneOf": [
+              {
+                "$ref": "#/$defs/DataAnalysisWorkflowConfig"
+              },
               {
                 "$ref": "#/$defs/DataCleaningWorkflowConfig"
               },

@@ -16,6 +16,7 @@ from dataeval_flow.config import (
     YoloDatasetConfig,
 )
 from dataeval_flow.workflow.orchestrator import (
+    _relativize_paths,
     _resolve_by_name,
     _resolve_extractor_paths,
     _run_single_task,
@@ -1176,3 +1177,37 @@ class TestRunTasksAllEnabled:
             results = run_tasks(config)
 
         assert len(results) == 2
+
+
+# ===========================================================================
+# _relativize_paths
+# ===========================================================================
+
+
+class TestRelativizePaths:
+    def test_none_root_returns_unchanged(self):
+        obj = {"path": "/some/absolute/path"}
+        assert _relativize_paths(obj, None) is obj
+
+    def test_dict_paths_relativized(self, tmp_path):
+        child = tmp_path / "sub" / "file.txt"
+        child.parent.mkdir(parents=True, exist_ok=True)
+        child.touch()
+        result = _relativize_paths({"file": str(child)}, tmp_path)
+        assert result["file"] == "sub/file.txt"
+
+    def test_list_paths_relativized(self, tmp_path):
+        child = tmp_path / "a.txt"
+        child.touch()
+        result = _relativize_paths([str(child)], tmp_path)
+        assert result == ["a.txt"]
+
+    def test_non_child_path_unchanged(self, tmp_path):
+        result = _relativize_paths("/totally/different/path", tmp_path)
+        assert result == "/totally/different/path"
+
+    def test_non_path_string_unchanged(self, tmp_path):
+        assert _relativize_paths("hello", tmp_path) == "hello"
+
+    def test_non_string_passthrough(self, tmp_path):
+        assert _relativize_paths(42, tmp_path) == 42

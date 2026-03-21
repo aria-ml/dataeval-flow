@@ -16,11 +16,13 @@ if TYPE_CHECKING:
     from dataeval_flow.config import PipelineConfig, SourceConfig, TaskConfig
     from dataeval_flow.config.schemas import WorkflowConfig
     from dataeval_flow.config.schemas._task import (
+        DataAnalysisTaskConfig,
         DataCleaningTaskConfig,
         DriftMonitoringTaskConfig,
         OODDetectionTaskConfig,
     )
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
+    from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
     from dataeval_flow.workflows.drift.outputs import DriftMonitoringMetadata, DriftMonitoringOutputs
     from dataeval_flow.workflows.ood.outputs import OODDetectionMetadata, OODDetectionOutputs
@@ -378,6 +380,13 @@ def run_tasks(
     return results
 
 
+@overload
+def run_task(
+    task: "DataAnalysisTaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "WorkflowResult[DataAnalysisMetadata, DataAnalysisOutputs]": ...
 @overload
 def run_task(
     task: "DataCleaningTaskConfig",

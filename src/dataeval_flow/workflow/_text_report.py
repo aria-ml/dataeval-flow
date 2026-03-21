@@ -142,7 +142,7 @@ def _render_key_value(data: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _render_pivot_table(data: dict[str, Any]) -> list[str]:
+def _render_pivot_table(data: dict[str, Any]) -> list[str]:  # noqa: C901
     """Render pivot-table findings — multi-column tables like classwise outliers.
 
     ``table_headers`` are display names; row dicts use field keys.  A
@@ -166,14 +166,18 @@ def _render_pivot_table(data: dict[str, Any]) -> list[str]:
             return f"{val:.1f}%"
         return str(val) if val is not None else ""
 
-    # Pre-format all cells for width calculation
+    # Pre-format all cells; split on \n for multi-line support
     formatted: list[list[str]] = [[_fmt(k, row.get(k, "")) for k in keys] for row in rows]
 
-    # Compute column widths
+    # Split each cell into sub-lines for multi-line cells
+    formatted_lines: list[list[list[str]]] = [[cell.split("\n") for cell in cells] for cells in formatted]
+
+    # Compute column widths (max width across all sub-lines of all rows)
     col_widths = [len(h) for h in headers]
-    for cells in formatted:
-        for i, cell in enumerate(cells):
-            col_widths[i] = max(col_widths[i], len(cell))
+    for row_cells in formatted_lines:
+        for i, sub_lines in enumerate(row_cells):
+            for sub_line in sub_lines:
+                col_widths[i] = max(col_widths[i], len(sub_line))
 
     # Header
     lines.append("")
@@ -183,12 +187,15 @@ def _render_pivot_table(data: dict[str, Any]) -> list[str]:
     lines.append(header_line)
     lines.append("  " + "  ".join("-" * w for w in col_widths))
 
-    # Data rows
-    for cells in formatted:
-        parts: list[str] = []
-        for i, (cell, w) in enumerate(zip(cells, col_widths, strict=False)):
-            parts.append(f"{cell:<{w}}" if i == 0 else f"{cell:>{w}}")
-        lines.append("  " + "  ".join(parts))
+    # Data rows (with multi-line cell support)
+    for row_cells in formatted_lines:
+        n_sub = max(len(sub) for sub in row_cells)
+        for line_idx in range(n_sub):
+            parts: list[str] = []
+            for i, (sub_lines, w) in enumerate(zip(row_cells, col_widths, strict=False)):
+                cell = sub_lines[line_idx] if line_idx < len(sub_lines) else ""
+                parts.append(f"{cell:<{w}}" if i == 0 else f"{cell:>{w}}")
+            lines.append("  " + "  ".join(parts))
 
     # Footer lines (workflow-provided)
     footer_lines = data.get("footer_lines", [])
