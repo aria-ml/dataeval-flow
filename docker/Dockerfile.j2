@@ -3,9 +3,9 @@
 # Variant: {{ variant_name }}
 
 # =============================================================================
-# Stage 1: Builder — install prod-only deps, build clean venv
+# Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
-FROM {{ base_image }} AS builder
+FROM {{ build_base_image }} AS build
 
 # Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
@@ -30,9 +30,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev {{ extras_flags }} --no-install-project
 
 # =============================================================================
-# Stage 2: Test — extend builder with dev deps, run nox, validate code
+# Stage 2: Test — extend build with dev deps, run nox, validate code
 # =============================================================================
-FROM builder AS test
+FROM build AS test
 
 COPY pyproject.toml uv.lock noxfile.py ./
 
@@ -61,7 +61,7 @@ RUN nox
 # =============================================================================
 # Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
-FROM {{ base_image }} AS prod
+FROM {{ prod_base_image }} AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update \
@@ -77,9 +77,9 @@ RUN useradd --create-home --shell /bin/bash dataeval \
 
 WORKDIR /app
 
-# Copy pre-built artifacts from builder (prod deps only — no dev tools)
-COPY --from=builder /opt/python /opt/python
-COPY --from=builder --chown=dataeval:dataeval /app/.venv /app/.venv
+# Copy pre-built artifacts from build (prod deps only — no dev tools)
+COPY --from=build /opt/python /opt/python
+COPY --from=build --chown=dataeval:dataeval /app/.venv /app/.venv
 COPY --chown=dataeval:dataeval src/ ./src/
 COPY --chown=dataeval:dataeval entrypoint.sh ./
 RUN chmod +x entrypoint.sh

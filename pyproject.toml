@@ -37,7 +37,7 @@ opencv = ["opencv-python-headless>=4.8.0"]
 all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0"]
 all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
 all-cu124 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
-all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
+all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0"]
 
 [project.urls]
 Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"

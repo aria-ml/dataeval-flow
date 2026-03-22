@@ -162,14 +162,18 @@ python_version = config["python_version"]
 base_env = Environment()
 
 for name, variant in config["variants"].items():
-    base_image = base_env.from_string(variant["base_image"]).render(
+    build_base_image = base_env.from_string(variant["build_base_image"]).render(
+        uv_version=uv_version, python_version=python_version,
+    )
+    prod_base_image = base_env.from_string(variant["prod_base_image"]).render(
         uv_version=uv_version, python_version=python_version,
     )
     extras_flags = " ".join(f"--extra {e}" for e in variant["extras"])
 
     rendered = template.render(
         variant_name=name,
-        base_image=base_image,
+        build_base_image=build_base_image,
+        prod_base_image=prod_base_image,
         uv_version=uv_version,
         python_version=python_version,
         extras_flags=extras_flags,
