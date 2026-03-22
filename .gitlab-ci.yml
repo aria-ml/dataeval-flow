@@ -38,7 +38,7 @@ variables:
 
   # Target Image Path
   # Used for tagging and pushing to Harbor
-  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}:${HARBOR_PORT}/dataeval/dataeval"
+  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}:${HARBOR_PORT}/aria/dataeval"
 
 # Shared variant list — edit once, used by all matrix jobs
 .variants: &variants
@@ -181,7 +181,7 @@ pages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
-    - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$dataeval+dataeval-app' --password-stdin
+    - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$aria+aria-bot' --password-stdin
   after_script:
     - docker logout ${HARBOR_URL}:${HARBOR_PORT} || true
 
