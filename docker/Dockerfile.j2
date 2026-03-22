@@ -3,14 +3,14 @@
 # Variant: {{ variant_name }}
 
 # =============================================================================
-# Stage 1: Test — install dev deps, run nox, validate code
+# Stage 1: Builder — install prod-only deps, build clean venv
 # =============================================================================
-FROM {{ base_image }} AS test
+FROM {{ base_image }} AS builder
 
-# Patch OS-level vulnerabilities from base image
+# Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy uv binary from official image (pin version for reproducibility)
@@ -22,10 +22,21 @@ RUN uv python install {{ python_version }}
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock noxfile.py ./
+COPY pyproject.toml uv.lock ./
 RUN touch README.md
 
-# Install ALL dependencies (dev + prod) for testing
+# Install ONLY production dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev {{ extras_flags }} --no-install-project
+
+# =============================================================================
+# Stage 2: Test — extend builder with dev deps, run nox, validate code
+# =============================================================================
+FROM builder AS test
+
+COPY pyproject.toml uv.lock noxfile.py ./
+
+# Add dev dependencies on top of prod venv
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --group dev {{ extras_flags }} --no-install-project
 
@@ -48,43 +59,33 @@ USER dataeval
 RUN nox
 
 # =============================================================================
-# Stage 2: Production — clean image with only what's needed to run
+# Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
 FROM {{ base_image }} AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:{{ uv_version }} /uv /uvx /bin/
-
-ENV UV_PYTHON_INSTALL_DIR=/opt/python
-RUN uv python install {{ python_version }}
-
-WORKDIR /app
-
-COPY pyproject.toml uv.lock ./
-RUN touch README.md
-
-# Install only production dependencies — no dev tools, no test frameworks
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev {{ extras_flags }} --no-install-project
-
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
-
-# Copy only source (no tests, no noxfile)
-COPY src/ ./src/
-COPY entrypoint.sh ./
-RUN chmod +x entrypoint.sh
-
-# Create non-root user for security
+# Create non-root user early for --chown on COPY
 RUN useradd --create-home --shell /bin/bash dataeval \
     && mkdir -p /dataeval /output /cache \
     && touch /dataeval/.not_mounted /output/.not_mounted \
-    && chown -R dataeval:dataeval /dataeval /output /cache /app
+    && chown -R dataeval:dataeval /dataeval /output /cache
+
+WORKDIR /app
+
+# Copy pre-built artifacts from builder (prod deps only — no dev tools)
+COPY --from=builder /opt/python /opt/python
+COPY --from=builder --chown=dataeval:dataeval /app/.venv /app/.venv
+COPY --chown=dataeval:dataeval src/ ./src/
+COPY --chown=dataeval:dataeval entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
 
 # Container labels
 LABEL org.opencontainers.image.title="{{ label_title }}" \

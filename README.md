@@ -55,6 +55,34 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
 | `/output` | rw | Results (required) |
 | `/cache` | rw | Computation cache (optional) |
 
+### File Permissions
+
+The container runs as a non-root user (`dataeval`, UID 1000). Mounted directories for `/output` and `/cache` must be writable by the container process. There are two approaches:
+
+#### Option 1: Pass your host UID (recommended)
+
+Use `--user` to run the container as your host user, so mounted directories are naturally writable:
+
+```bash
+docker run --gpus all \
+  --user "$(id -u):$(id -g)" \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
+  dataeval:cu118
+```
+
+#### Option 2: Open directory permissions
+
+Make the output and cache directories world-writable on the host:
+
+```bash
+chmod 777 /path/to/output /path/to/cache
+```
+
+Then run without `--user`. This is simpler but less secure.
+
+### Custom Data Root
+
 The data root path can be overridden via the `DATAEVAL_DATA` environment variable:
 
 ```bash

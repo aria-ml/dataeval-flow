@@ -7,7 +7,7 @@
 #   3. Run `nox -s docker-gen` to generate the Dockerfile
 
 # Pinned tool versions (shared across all variants)
-uv_version: "0.9.18"
+uv_version: "0.10.12"
 python_version: "3.12"
 
 variants:

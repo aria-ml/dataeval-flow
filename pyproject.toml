@@ -34,10 +34,10 @@ onnx = ["onnx>=1.15", "onnxruntime>=1.20"]
 onnx-gpu = ["onnx>=1.15", "onnxruntime-gpu>=1.20"]
 opencv = ["opencv-python-headless>=4.8.0"]
 # Convenience extras for common combinations
-all-cpu = ["dataeval-flow[cpu,onnx,opencv]"]
-all-cu118 = ["dataeval-flow[cu118,onnx-gpu,opencv]"]
-all-cu124 = ["dataeval-flow[cu124,onnx-gpu,opencv]"]
-all-cu128 = ["dataeval-flow[cu128,onnx-gpu,opencv]"]
+all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0"]
+all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
+all-cu124 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
+all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
 
 [project.urls]
 Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"
@@ -145,15 +145,23 @@ explicit = true
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cpu", extra = "all-cpu" },
   { index = "pytorch-cu118", extra = "cu118" },
+  { index = "pytorch-cu118", extra = "all-cu118" },
   { index = "pytorch-cu124", extra = "cu124" },
+  { index = "pytorch-cu124", extra = "all-cu124" },
   { index = "pytorch-cu128", extra = "cu128" },
+  { index = "pytorch-cu128", extra = "all-cu128" },
 ]
 torchvision = [
   { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cpu", extra = "all-cpu" },
   { index = "pytorch-cu118", extra = "cu118" },
+  { index = "pytorch-cu118", extra = "all-cu118" },
   { index = "pytorch-cu124", extra = "cu124" },
+  { index = "pytorch-cu124", extra = "all-cu124" },
   { index = "pytorch-cu128", extra = "cu128" },
+  { index = "pytorch-cu128", extra = "all-cu128" },
 ]
 
 # --- Build System ---

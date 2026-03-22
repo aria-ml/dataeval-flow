@@ -3,18 +3,18 @@
 # Variant: cu128
 
 # =============================================================================
-# Stage 1: Test — install dev deps, run nox, validate code
+# Stage 1: Builder — install prod-only deps, build clean venv
 # =============================================================================
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS test
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS builder
 
-# Patch OS-level vulnerabilities from base image
+# Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy uv binary from official image (pin version for reproducibility)
-COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.10.12 /uv /uvx /bin/
 
 # Install Python 3.12 to /opt/python (accessible by all users)
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
@@ -22,10 +22,21 @@ RUN uv python install 3.12
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock noxfile.py ./
+COPY pyproject.toml uv.lock ./
 RUN touch README.md
 
-# Install ALL dependencies (dev + prod) for testing
+# Install ONLY production dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --extra all-cu128 --no-install-project
+
+# =============================================================================
+# Stage 2: Test — extend builder with dev deps, run nox, validate code
+# =============================================================================
+FROM builder AS test
+
+COPY pyproject.toml uv.lock noxfile.py ./
+
+# Add dev dependencies on top of prod venv
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --group dev --extra all-cu128 --no-install-project
 
@@ -48,43 +59,33 @@ USER dataeval
 RUN nox
 
 # =============================================================================
-# Stage 2: Production — clean image with only what's needed to run
+# Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
 FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
+    && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /uvx /bin/
-
-ENV UV_PYTHON_INSTALL_DIR=/opt/python
-RUN uv python install 3.12
-
-WORKDIR /app
-
-COPY pyproject.toml uv.lock ./
-RUN touch README.md
-
-# Install only production dependencies — no dev tools, no test frameworks
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra all-cu128 --no-install-project
-
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
-
-# Copy only source (no tests, no noxfile)
-COPY src/ ./src/
-COPY entrypoint.sh ./
-RUN chmod +x entrypoint.sh
-
-# Create non-root user for security
+# Create non-root user early for --chown on COPY
 RUN useradd --create-home --shell /bin/bash dataeval \
     && mkdir -p /dataeval /output /cache \
     && touch /dataeval/.not_mounted /output/.not_mounted \
-    && chown -R dataeval:dataeval /dataeval /output /cache /app
+    && chown -R dataeval:dataeval /dataeval /output /cache
+
+WORKDIR /app
+
+# Copy pre-built artifacts from builder (prod deps only — no dev tools)
+COPY --from=builder /opt/python /opt/python
+COPY --from=builder --chown=dataeval:dataeval /app/.venv /app/.venv
+COPY --chown=dataeval:dataeval src/ ./src/
+COPY --chown=dataeval:dataeval entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
 
 # Container labels
 LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 12.8)" \
