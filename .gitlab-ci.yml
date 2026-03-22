@@ -235,6 +235,9 @@ verify:docker:
     - docker pull "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
     - cosign verify --key cosign.pub "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
 
+    # Smoke test: verify the container actually boots
+    - docker run --rm "${CI_APPLICATION_REPOSITORY}:${VARIANT}" --help
+
 # Trivy vulnerability scan on pushed images
 scan:docker:
   extends: .container-setup
@@ -255,35 +258,6 @@ scan:docker:
     paths:
       - trivy-*.xml
   allow_failure: true
-
-# Container Smoke Test - Validates entrypoint.sh executes correctly
-container-test:
-  extends: .container-setup
-  needs: [push:docker]
-  script:
-    # Create minimal test data directory (required mount)
-    - mkdir -p /tmp/test-data
-    - |
-      cat > /tmp/test-data/config.yaml << 'EOF'
-      datasets:
-        - name: test
-          format: huggingface
-          path: test-dataset
-          splits: [train]
-      EOF
-    - mkdir -p /tmp/test-data/test-dataset
-    - echo "test" > /tmp/test-data/test-dataset/dummy.txt
-
-    # Pull CPU image from Harbor
-    - docker pull ${CI_APPLICATION_REPOSITORY}:cpu
-
-    # Smoke test: Run with --help flag (triggers entrypoint help display)
-    - |
-      docker run --rm \
-        -v /tmp/test-data:/dataeval:ro \
-        ${CI_APPLICATION_REPOSITORY}:cpu --help
-
-    - echo "Container smoke test passed"
 
 # -----------------------------------------------------------------------------
 # Security Stage [DSOR-1 to DSOR-5]
@@ -337,7 +311,7 @@ sbom:
 release:tag:
   extends: .push-setup
   stage: release
-  needs: [push:docker, verify:docker, scan:docker, container-test]
+  needs: [push:docker, verify:docker, scan:docker]
   parallel:
     matrix: *variants
   rules:
