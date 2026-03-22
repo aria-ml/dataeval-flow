@@ -347,6 +347,8 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## What's next
 #
+# - **Run in Docker** — See the [Containerized Workflows how-to](../how_to/containerized_workflows.md) to
+#   build a container image, write a YAML config, and run a workflow with `docker run`
 # - **Using ONNX models** — See the ONNX embeddings how-to (coming soon!) for
 #   configuring a pretrained ResNet50 model with preprocessing transforms for higher-fidelity embeddings
 # - **Data analysis** — Use the `data-analysis` workflow for a comprehensive multi-split quality report

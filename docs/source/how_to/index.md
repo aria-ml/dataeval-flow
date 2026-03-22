@@ -5,11 +5,13 @@ Task-oriented guides for accomplishing specific goals with DataEval Workflows.
 ```{toctree}
 :maxdepth: 1
 
-torchvision_datasets
+containerized_workflows
+build_from_source
 onnx_embeddings
+torchvision_datasets
 ```
 
-Planned guides:
+## Planned guides
 
 - **Configure outlier detection** — Tune thresholds and methods
 - **Read evaluation outputs** — Interpret reports and raw results
