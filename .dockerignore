@@ -51,9 +51,5 @@ htmlcov
 # Local data (mounted at runtime, not baked in)
 data/
 
-# Helper scripts (host-only)
-run.sh
-run.ps1
-
 # Misc
 .cuda-version

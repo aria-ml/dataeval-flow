@@ -47,5 +47,3 @@ docker run --rm --gpus all harbor.jatic.net:443/aria/dataeval:cu128
 | `cu118` | Ubuntu 22.04 | Older GPUs / CUDA 11.8 drivers |
 | `cu124` | Ubuntu 22.04 | Mid-range GPUs / CUDA 12.4 drivers |
 | `cu128` | Ubuntu 24.04 | Modern GPUs (RTX 40/50 series) / CUDA 12.8 drivers |
-
-To build from source instead, see {doc}`../how_to/build_from_source`.

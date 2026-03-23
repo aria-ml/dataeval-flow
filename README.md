@@ -18,20 +18,6 @@ docker run --gpus all \
   dataeval:cu118
 ```
 
-## Wrapper Scripts
-
-For easier usage (GPU is default):
-
-```bash
-# Linux/Mac
-./run.sh --data /path/to/data --output /path/to/output
-./run.sh --data /path/to/data --output /path/to/output --cpu
-
-# Windows PowerShell
-.\run.ps1 -Data /path/to/data -Output /path/to/output
-.\run.ps1 -Data /path/to/data -Output /path/to/output -CPU
-```
-
 ## Requirements
 
 | Requirement | Version |
@@ -101,10 +87,16 @@ To specify a config path explicitly:
 
 ```bash
 # Config folder within data directory
-./run.sh --data /path/to/data --output /path/to/output --config config/
+docker run --gpus all \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
+  dataeval:cu118 --config config/
 
 # Single config file
-./run.sh --data /path/to/data --output /path/to/output --config params.yaml
+docker run --gpus all \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
+  dataeval:cu118 --config params.yaml
 ```
 
 Dataset and model paths in config files are resolved relative to the data root (`/dataeval` by default).

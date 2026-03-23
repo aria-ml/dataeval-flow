@@ -33,10 +33,6 @@ Available variants:
 All GPU variants bundle their own CUDA runtime libraries via PyTorch — the
 host only needs the NVIDIA driver and Container Toolkit.
 
-```{tip}
-To build from source instead, see {doc}`build_from_source`.
-```
-
 ## 2. Prepare the host directories
 
 Create the directory layout the container expects:

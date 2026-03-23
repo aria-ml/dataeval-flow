@@ -6,7 +6,6 @@ Task-oriented guides for accomplishing specific goals with DataEval Workflows.
 :maxdepth: 1
 
 containerized_workflows
-build_from_source
 ../notebooks/onnx_embeddings
 ../notebooks/torchvision_datasets
 ```
