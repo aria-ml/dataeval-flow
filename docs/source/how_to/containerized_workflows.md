@@ -45,6 +45,11 @@ Create the directory layout the container expects:
 mkdir -p workspace/{config,output,cache}
 ```
 
+By default the container looks for config files inside the data mount
+(`/dataeval`). You can also mount a config directory independently — see
+[Specifying a config file](#specifying-a-config-file) for examples of both
+approaches.
+
 ### File permissions
 
 The container runs as a non-root user (`dataeval`). Mounted directories for
@@ -69,7 +74,8 @@ chmod 777 workspace/output workspace/cache
 
 ## 3. Write the configuration file
 
-Create `workspace/config/params.yaml`. The config follows a **define-once,
+Create `params.yaml` in your config directory (e.g. `workspace/config/params.yaml`)
+or inside your data directory. The config follows a **define-once,
 reference-by-name** pattern with these sections:
 
 | Section | Required | Purpose |
@@ -340,7 +346,7 @@ docker run --rm --gpus all \
 
 ### Specifying a config file
 
-To point at a specific config file or folder within your data directory:
+Point at a specific config file or folder within your data directory:
 
 ```bash
 docker run --rm \
@@ -349,6 +355,19 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     harbor.jatic.net:443/aria/dataeval:cpu \
     python src/container_run.py --config config/params.yaml
+```
+
+You can also mount a config directory independently from your data. Use a
+separate bind mount and pass the container-side path with `--config`:
+
+```bash
+docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
+    --mount type=bind,source="$(pwd)/workspace/config",target=/config,readonly \
+    --mount type=bind,source="$(pwd)/workspace/output",target=/output \
+    harbor.jatic.net:443/aria/dataeval:cpu \
+    python src/container_run.py --config /config/params.yaml
 ```
 
 ### Verbosity

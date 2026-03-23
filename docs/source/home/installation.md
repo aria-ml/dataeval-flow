@@ -1,9 +1,5 @@
 # Installation
 
-```{admonition} Coming Soon
-Installation guide is a place-holder.  Official installation notes will be updated.
-```
-
 ## Using pip
 
 ```bash
@@ -26,19 +22,30 @@ uv sync
 
 ## Docker
 
-### CUDA 11.8 (GPU)
-
-```bash
-docker build -f Dockerfile.cu118 -t dataeval-flow:cu118 .
-docker run --gpus all dataeval-flow:cu118
-```
+Pre-built images are available from the JATIC Harbor registry. See
+{doc}`../how_to/containerized_workflows` for the full containerized workflow
+guide.
 
 ### CPU only
 
 ```bash
-docker build -f Dockerfile.cpu -t dataeval-flow:cpu .
-docker run dataeval-flow:cpu
+docker pull harbor.jatic.net:443/aria/dataeval:cpu
+docker run --rm harbor.jatic.net:443/aria/dataeval:cpu
 ```
 
-See the project [README](https://gitlab.jatic.net/jatic/aria/dataeval-flow) for full
-Docker configuration options and environment variables.
+### GPU (CUDA)
+
+```bash
+# CUDA 12.8 — recommended for modern GPUs
+docker pull harbor.jatic.net:443/aria/dataeval:cu128
+docker run --rm --gpus all harbor.jatic.net:443/aria/dataeval:cu128
+```
+
+| Tag | Base | Use case |
+| --- | --- | --- |
+| `cpu` | Ubuntu 24.04 | Machines without NVIDIA GPU |
+| `cu118` | Ubuntu 22.04 | Older GPUs / CUDA 11.8 drivers |
+| `cu124` | Ubuntu 22.04 | Mid-range GPUs / CUDA 12.4 drivers |
+| `cu128` | Ubuntu 24.04 | Modern GPUs (RTX 40/50 series) / CUDA 12.8 drivers |
+
+To build from source instead, see {doc}`../how_to/build_from_source`.

@@ -23,5 +23,5 @@ Workflow Configuration
 
 ONNX
     Open Neural Network Exchange — an open format for representing ML models. DataEval
-    App supports ONNX models for feature embedding extraction.
+    Workflows supports ONNX models for feature embedding extraction.
 ```

@@ -7,8 +7,8 @@ Task-oriented guides for accomplishing specific goals with DataEval Workflows.
 
 containerized_workflows
 build_from_source
-onnx_embeddings
-torchvision_datasets
+../notebooks/onnx_embeddings
+../notebooks/torchvision_datasets
 ```
 
 ## Planned guides
