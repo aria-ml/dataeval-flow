@@ -15,10 +15,10 @@ Pre-built images are published to the JATIC Harbor registry:
 
 ```bash
 # CPU-only
-docker pull harbor.jatic.net:443/aria/dataeval:cpu
+docker pull harbor.jatic.net/aria/dataeval:cpu
 
 # GPU (CUDA 12.8 — recommended for modern GPUs)
-docker pull harbor.jatic.net:443/aria/dataeval:cu128
+docker pull harbor.jatic.net/aria/dataeval:cu128
 ```
 
 Available variants:
@@ -324,7 +324,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     --mount type=bind,source="$(pwd)/workspace/cache",target=/cache \
-    harbor.jatic.net:443/aria/dataeval:cpu
+    harbor.jatic.net/aria/dataeval:cpu
 ```
 
 ### GPU
@@ -337,7 +337,7 @@ docker run --rm --gpus all \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     --mount type=bind,source="$(pwd)/workspace/cache",target=/cache \
-    harbor.jatic.net:443/aria/dataeval:cu128
+    harbor.jatic.net/aria/dataeval:cu128
 ```
 
 ### Specifying a config file
@@ -349,7 +349,7 @@ docker run --rm \
     --user "$(id -u):$(id -g)" \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net:443/aria/dataeval:cpu \
+    harbor.jatic.net/aria/dataeval:cpu \
     python src/container_run.py --config config/params.yaml
 ```
 
@@ -362,7 +362,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/config",target=/config,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net:443/aria/dataeval:cpu \
+    harbor.jatic.net/aria/dataeval:cpu \
     python src/container_run.py --config /config/params.yaml
 ```
 
@@ -375,7 +375,7 @@ docker run --rm \
     --user "$(id -u):$(id -g)" \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net:443/aria/dataeval:cpu \
+    harbor.jatic.net/aria/dataeval:cpu \
     python src/container_run.py -v
 ```
 
@@ -411,7 +411,7 @@ The JSON report contains the workflow results — the same data you'd get from
 Run the container with `--help` to see full usage:
 
 ```bash
-docker run harbor.jatic.net:443/aria/dataeval:cpu python src/container_run.py --help
+docker run harbor.jatic.net/aria/dataeval:cpu python src/container_run.py --help
 ```
 
 Common issues:

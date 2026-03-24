@@ -34,11 +34,12 @@ variables:
   # Harbor Registry Configuration
   # HARBOR_TOKEN must be set as a CI/CD Variable in GitLab
   HARBOR_URL: "harbor.jatic.net"
-  HARBOR_PORT: "443"
 
   # Target Image Path
   # Used for tagging and pushing to Harbor
-  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}:${HARBOR_PORT}/aria/dataeval"
+  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}/aria/dataeval"
+  # Separate cache repo for buildx registry cache (mode=max)
+  CI_CACHE_REPOSITORY: "${HARBOR_URL}/aria/cache"
 
 # Shared variant list — edit once, used by all matrix jobs
 .variants: &variants
@@ -181,9 +182,9 @@ pages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
-    - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL}:${HARBOR_PORT}/v2 --username 'robot$aria+aria-bot' --password-stdin
+    - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL} --username 'robot$aria+aria-bot' --password-stdin
   after_script:
-    - docker logout ${HARBOR_URL}:${HARBOR_PORT} || true
+    - docker logout ${HARBOR_URL} || true
 
 # Shared push template with cosign signing
 .push-setup:
@@ -191,35 +192,34 @@ pages:
   before_script:
     - !reference [.container-setup, before_script]
     - apk add --no-cache cosign
+    # Set up buildx builder for registry cache support (docker-container driver required for type=registry)
+    - docker buildx create --use --name ci-builder || true
 
 push:docker:
   extends: .push-setup
   parallel:
     matrix: *variants
   script:
-    # Pull previous image for layer cache (speeds up rebuilds)
-    - docker pull "${CI_APPLICATION_REPOSITORY}:${VARIANT}" || true
-
     # Run test stage — fails the job if tests/linting don't pass
     - >-
-      docker build --target test
-      --cache-from "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
+      docker buildx build --target test
+      --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
+      --cache-to type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT},mode=max,image-manifest=true
       -f Dockerfile.${VARIANT} .
 
-    # Build production image (clean, no dev deps)
+    # Build + push production image (reuses cached layers from test build above)
     - >-
-      docker build --target prod
-      --cache-from "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
+      docker buildx build --target prod
+      --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
       -f Dockerfile.${VARIANT}
       -t ${CI_APPLICATION_REPOSITORY}:${VARIANT}
-      .
-    - docker push ${CI_APPLICATION_REPOSITORY}:${VARIANT}
+      --push .
 
-    # Sign with cosign
+    # Sign with cosign (imagetools inspect fetches digest from registry — buildx --push doesn't load locally)
     - printf '%s' "$COSIGN_PRIVATE_KEY_B64" | base64 -d > cosign.key
     - chmod 600 cosign.key
-    - IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${CI_APPLICATION_REPOSITORY}:${VARIANT}")
-    - cosign sign --key cosign.key --yes "$IMAGE_DIGEST"
+    - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${VARIANT}" --raw | sha256sum | awk '{print "sha256:"$1}')
+    - cosign sign --key cosign.key --yes "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
     - rm -f cosign.key
 
 # Verify cosign signatures on pushed images
@@ -318,13 +318,14 @@ release:tag:
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
     - VERSION=${CI_COMMIT_TAG#v}
-    - docker pull ${CI_APPLICATION_REPOSITORY}:${VARIANT}
-    - docker tag ${CI_APPLICATION_REPOSITORY}:${VARIANT} ${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}
-    - docker push ${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}
+    # Tag existing image server-side — no pull/push of image data
+    - docker buildx imagetools create
+      -t ${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}
+      ${CI_APPLICATION_REPOSITORY}:${VARIANT}
 
     # Sign with cosign
     - printf '%s' "$COSIGN_PRIVATE_KEY_B64" | base64 -d > cosign.key
     - chmod 600 cosign.key
-    - IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}")
-    - cosign sign --key cosign.key --yes "$IMAGE_DIGEST"
+    - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}" --raw | sha256sum | awk '{print "sha256:"$1}')
+    - cosign sign --key cosign.key --yes "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
     - rm -f cosign.key

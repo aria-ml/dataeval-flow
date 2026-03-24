@@ -29,16 +29,16 @@ guide.
 ### CPU only
 
 ```bash
-docker pull harbor.jatic.net:443/aria/dataeval:cpu
-docker run --rm harbor.jatic.net:443/aria/dataeval:cpu
+docker pull harbor.jatic.net/aria/dataeval:cpu
+docker run --rm harbor.jatic.net/aria/dataeval:cpu
 ```
 
 ### GPU (CUDA)
 
 ```bash
 # CUDA 12.8 — recommended for modern GPUs
-docker pull harbor.jatic.net:443/aria/dataeval:cu128
-docker run --rm --gpus all harbor.jatic.net:443/aria/dataeval:cu128
+docker pull harbor.jatic.net/aria/dataeval:cu128
+docker run --rm --gpus all harbor.jatic.net/aria/dataeval:cu128
 ```
 
 | Tag | Base | Use case |
