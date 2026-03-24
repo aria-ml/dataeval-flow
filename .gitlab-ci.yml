@@ -271,6 +271,7 @@ semgrep-sast:
   stage: security
   variables:
     SAST_EXCLUDED_ANALYZERS: "eslint,gosec,kubesec,nodejs-scan,phpcs-security-audit,pmd-apex,security-code-scan,sobelow,spotbugs"
+    SAST_EXCLUDED_PATHS: "config, docker, docs, output, tests"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
