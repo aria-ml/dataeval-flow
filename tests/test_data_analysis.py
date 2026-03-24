@@ -1197,8 +1197,8 @@ def _cross_dup_df(rows: list[dict[str, object]]) -> pl.DataFrame:
                 "level": pl.Utf8,
                 "dup_type": pl.Utf8,
                 "item_indices": pl.List(pl.Int64),
+                "dataset_indices": pl.List(pl.Int64),
                 "methods": pl.List(pl.Utf8),
-                "dataset_index": pl.List(pl.Int64),
             }
         )
     return pl.DataFrame(rows)
@@ -1225,8 +1225,8 @@ class TestAssessCrossRedundancy:
                     "level": "item",
                     "dup_type": "exact",
                     "item_indices": [1, 2],
+                    "dataset_indices": [0, 1],
                     "methods": ["xxhash"],
-                    "dataset_index": [0, 1],
                 },
             ]
         )
@@ -1249,8 +1249,8 @@ class TestAssessCrossRedundancy:
                     "level": "item",
                     "dup_type": "exact",
                     "item_indices": [1, 2],
+                    "dataset_indices": [0, 0],
                     "methods": ["xxhash"],
-                    "dataset_index": [0, 0],
                 },
             ]
         )
@@ -1268,8 +1268,8 @@ class TestAssessCrossRedundancy:
                     "level": "item",
                     "dup_type": "near",
                     "item_indices": [1, 3],
+                    "dataset_indices": [0, 1],
                     "methods": ["phash"],
-                    "dataset_index": [0, 1],
                 },
             ]
         )

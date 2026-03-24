@@ -492,7 +492,7 @@ def _extract_cross_groups(
     groups: list[dict[str, list[int]]] = []
     for row in filtered.iter_rows(named=True):
         by_ds: dict[str, list[int]] = {}
-        for item, ds_idx in zip(row["item_indices"], row["dataset_index"], strict=True):
+        for item, ds_idx in zip(row["item_indices"], row["dataset_indices"], strict=True):
             by_ds.setdefault(ds_names[ds_idx], []).append(item)
         # Only keep groups that span both datasets (true leakage)
         if len(by_ds) >= 2:

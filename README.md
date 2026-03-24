@@ -125,9 +125,11 @@ docker run \
 
 ## Dependencies
 
-- `dataeval>=0.95.0` - Core evaluation library
-- `datasets>=4.0.0` - Dataset loading library
-- `maite-datasets>=0.0.9` - MAITE protocol adapter
+- `dataeval` - Core evaluation library
+- `datasets` - Huggingface library
+- `maite-datasets` - MAITE protocol adapter
+- `maite` - MAITE protocol library
+- `pydantic` - Structural typing and schema validation
 
 ## Troubleshooting
 
