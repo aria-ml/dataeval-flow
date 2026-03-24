@@ -965,7 +965,7 @@ wheels = [
 
 [[package]]
 name = "dataeval"
-version = "1.0.2"
+version = "1.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lightgbm" },
@@ -987,9 +987,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/55/6f68de2efce7f1cc8fe5dec484ecb4450e4ae33994cbc44dc24e9e28122d/dataeval-1.0.2.tar.gz", hash = "sha256:623d8d6ce30fc28b64707eb36538b981b54b378fd8893fcffaeac5a39614730f", size = 255237, upload-time = "2026-03-09T21:08:47.007Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/00/d75a0fc07877f2acb755d2ba8da579fcc9dd64583427436bc1b641625276/dataeval-1.0.4.tar.gz", hash = "sha256:967979ae85276a19abc2de100febc0585084a14edcb58141df5bfa315b2336a7", size = 256115, upload-time = "2026-03-24T01:20:25.052Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/78/eaca69d88df3eaaca726d105e472674e067dbe3b44be347387139c22164f/dataeval-1.0.2-py3-none-any.whl", hash = "sha256:32fe3488cd8685afd143f838b9f3734138e51d4cbc2ce39375d5706520795641", size = 314851, upload-time = "2026-03-09T21:08:45.941Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/17/e9b170a7a3fd5915b81f56f667e6ed1ca76e95305c508117987032c2cd8e/dataeval-1.0.4-py3-none-any.whl", hash = "sha256:c89f44bdc0ed2c890317af904721b3a2c0f1fdba244a321a964df58dc15714ec", size = 315844, upload-time = "2026-03-24T01:20:23.515Z" },
 ]
 
 [[package]]
@@ -1138,7 +1138,7 @@ type = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dataeval", specifier = "==1.0.2" },
+    { name = "dataeval", specifier = "==1.0.4" },
     { name = "datasets", specifier = ">=4.0.0" },
     { name = "maite-datasets", specifier = ">=0.0.12" },
     { name = "onnx", marker = "extra == 'all-cpu'", specifier = ">=1.15" },
