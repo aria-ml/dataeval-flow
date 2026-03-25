@@ -258,13 +258,15 @@ class DataSplittingWorkflow:
         )
         # Use metadata if split_on is specified, otherwise use dataset directly
         split_input: Any = metadata if params.split_on else dataset
+        # val_frac is only valid for single-fold; multi-fold uses 1/num_folds automatically
+        val_frac = params.val_frac if params.num_folds == 1 else 0.0
         splits = split_dataset(
             split_input,
             num_folds=params.num_folds,
             stratify=params.stratify,
             split_on=params.split_on,
             test_frac=params.test_frac,
-            val_frac=params.val_frac,
+            val_frac=val_frac,
         )
 
         test_indices = splits.test.tolist()
