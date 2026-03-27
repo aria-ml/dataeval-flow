@@ -100,6 +100,7 @@ USER dataeval
 ENV UV_EXTRAS_OVERRIDE=cu124
 ENV CONTAINER_MODE=gpu
 ENV DATAEVAL_DATA=/dataeval
+ENV DATAEVAL_OUTPUT=/output
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["python", "src/container_run.py"]
+CMD ["python", "-m", "dataeval_flow"]

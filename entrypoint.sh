@@ -7,27 +7,34 @@ set -e
 # Resolve data root (matches Python-side DATAEVAL_DATA env var)
 DATA_DIR="${DATAEVAL_DATA:-/dataeval}"
 
+# Image tag for help text (e.g. dataeval:cpu, dataeval:cu124)
+IMAGE_TAG="dataeval:${UV_EXTRAS_OVERRIDE:-cpu}"
+
+# GPU flag for docker run examples
+if [[ "$CONTAINER_MODE" == "cpu" ]]; then
+    GPU_FLAG=""
+else
+    GPU_FLAG=" --gpus all"
+fi
+
 # ============== HELP ==============
 show_help() {
     if [[ "$CONTAINER_MODE" == "cpu" ]]; then
-        cat << 'EOF'
+        cat << EOF
 DataEval Workflows Container - CPU Version
 
 USAGE:
-    docker run [OPTIONS] dataeval:cpu [COMMAND]
+    docker run [OPTIONS] $IMAGE_TAG [COMMAND]
 EOF
     else
-        cat << 'EOF'
-DataEval Workflows Container - GPU Version
+        cat << EOF
+DataEval Workflows Container - GPU Version ($UV_EXTRAS_OVERRIDE)
 
 USAGE:
-    docker run --gpus all [OPTIONS] dataeval:<CUDA> [COMMAND]
-
-CUDA VARIANTS:  cu118, cu124, cu128
+    docker run --gpus all [OPTIONS] $IMAGE_TAG [COMMAND]
 EOF
     fi
 
-    # Use envsubst-style approach: print static text with variable substitution.
     # Double backslashes (\\) produce literal backslashes in the output for
     # displaying line-continuation examples to the user.
     cat << _EOF_
@@ -37,10 +44,10 @@ VOLUME MOUNTS
 ================================================================================
 
 REQUIRED:
-  $DATA_DIR        Data directory — datasets, models, configs (read-only)
-  /output            Results and output files (read-write)
+  $DATA_DIR          Data directory — datasets, models, configs (read-only)
 
 OPTIONAL:
+  /output            Results and output files (read-write)
   /cache             Computation cache (read-write)
 
 --------------------------------------------------------------------------------
@@ -58,61 +65,52 @@ EXAMPLES
 --------------------------------------------------------------------------------
 
 Minimal (data + output):
-    docker run --gpus all \\
+    docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
         --mount type=bind,source=/home/user/results,target=/output \\
-        dataeval:cu124
+        $IMAGE_TAG
 
 With cache:
-    docker run --gpus all \\
+    docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
         --mount type=bind,source=/home/user/results,target=/output \\
         --mount type=bind,source=/home/user/cache,target=/cache \\
-        dataeval:cu124
+        $IMAGE_TAG
 
 With config path override (config in a subdirectory):
-    docker run --gpus all \\
+    docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
         --mount type=bind,source=/home/user/results,target=/output \\
-        dataeval:cu124 python src/container_run.py --config config/
+        $IMAGE_TAG python -m dataeval_flow --config config/
 
 Verbose output (-v report, -vv +INFO, -vvv +DEBUG):
-    docker run --gpus all \\
+    docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
         --mount type=bind,source=/home/user/results,target=/output \\
-        dataeval:cu124 python src/container_run.py -v
+        $IMAGE_TAG python -m dataeval_flow -v
 
 Windows PowerShell:
-    docker run --gpus all \`
+    docker run${GPU_FLAG} \`
         --mount type=bind,source=C:\\data\\myproject,target=$DATA_DIR,readonly \`
         --mount type=bind,source=C:\\output,target=/output \`
-        dataeval:cu124
+        $IMAGE_TAG
 
 --------------------------------------------------------------------------------
 OTHER OPTIONS
 --------------------------------------------------------------------------------
 
 Interactive shell:
-    docker run -it --gpus all \\
+    docker run -it${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
         --entrypoint /bin/bash \\
-        dataeval:cu124
+        $IMAGE_TAG
 
 Custom data root (override DATAEVAL_DATA):
-    docker run --gpus all \\
+    docker run${GPU_FLAG} \\
         -e DATAEVAL_DATA=/data \\
         --mount type=bind,source=/home/user/myproject,target=/data,readonly \\
         --mount type=bind,source=/home/user/results,target=/output \\
-        dataeval:cu124
-
---------------------------------------------------------------------------------
-CPU-ONLY MACHINES
---------------------------------------------------------------------------------
-
-    docker run \\
-        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
-        --mount type=bind,source=/home/user/results,target=/output \\
-        dataeval:cpu
+        $IMAGE_TAG
 
 --------------------------------------------------------------------------------
 TROUBLESHOOTING
@@ -199,7 +197,7 @@ else
         echo "    docker run --gpus all \\"
         echo "        --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly \\"
         echo "        --mount type=bind,source=/path/to/output,target=/output \\"
-        echo "        dataeval:cu124"
+        echo "        $IMAGE_TAG"
         echo ""
         echo "For CPU-only machines, use: dataeval:cpu"
         echo "Run with --help for full usage."
@@ -215,11 +213,17 @@ else
         echo "    docker run --gpus all \\"
         echo "        --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly \\"
         echo "        --mount type=bind,source=/path/to/output,target=/output \\"
-        echo "        dataeval:cu124"
+        echo "        $IMAGE_TAG"
         echo ""
         echo "Run with --help for full usage."
         exit 1
     fi
+fi
+
+# ============== AUTO-DETECT CACHE ==============
+# Set DATAEVAL_CACHE only if /cache is mounted and writable (not a marker stub)
+if [[ -z "${DATAEVAL_CACHE:-}" ]] && [[ -d "/cache" ]] && [[ -w "/cache" ]] && [[ ! -f "/cache/.not_mounted" ]]; then
+    export DATAEVAL_CACHE="/cache"
 fi
 
 # ============== SUCCESS ==============

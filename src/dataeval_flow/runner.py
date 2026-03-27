@@ -42,7 +42,7 @@ def run(
     """Load config, execute all tasks, and write reports.
 
     This is the shared entry point for CLI (``__main__.py``) and container
-    (``container_run.py``) usage.  For programmatic use, prefer
+    (container) usage.  For programmatic use, prefer
     :func:`~dataeval_flow.load_config` + :func:`~dataeval_flow.run_tasks`.
 
     Parameters

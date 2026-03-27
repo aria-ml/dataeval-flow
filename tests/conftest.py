@@ -1,8 +1,4 @@
-"""Pytest configuration and shared fixtures.
-
-Note: pytest's pythonpath is configured in pyproject.toml to include 'src/',
-so imports of both 'dataeval_flow' and 'container_run' work automatically.
-"""
+"""Pytest configuration and shared fixtures."""
 
 import logging
 from unittest.mock import MagicMock
@@ -31,4 +27,3 @@ def _reset_logging():
     root.handlers.clear()
     root.setLevel(logging.WARNING)
     logging.getLogger("dataeval_flow").setLevel(logging.NOTSET)
-    logging.getLogger("container_run").setLevel(logging.NOTSET)

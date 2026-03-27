@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 _initialized: bool = False
-_APP_LOGGERS: tuple[str, ...] = ("dataeval_flow", "container_run")
+_APP_LOGGERS: tuple[str, ...] = ("dataeval_flow",)
 
 
 def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
@@ -80,7 +80,7 @@ def configure_log_levels(
     Parameters
     ----------
     app_level : str
-        Level for ``dataeval_flow`` and ``container_run`` loggers.
+        Level for ``dataeval_flow`` loggers.
     lib_level : str
         Level for root logger (controls third-party effective level).
     """

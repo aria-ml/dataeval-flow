@@ -32,20 +32,20 @@ class TestBuildEmbeddings:
         mock_embeddings = MagicMock()
         mock_embed_cls.return_value = mock_embeddings
 
-        config = OnnxExtractorConfig(name="test", model_path="/model.onnx", output_name="layer4")
+        config = OnnxExtractorConfig(name="test", model_path="./model.onnx", output_name="layer4")
         result = build_embeddings(mock_dataset, config)
 
-        mock_extractor_cls.assert_called_once_with("/model.onnx", transforms=None, output_name="layer4", flatten=True)
+        mock_extractor_cls.assert_called_once_with("./model.onnx", transforms=None, output_name="layer4", flatten=True)
         mock_embed_cls.assert_called_once_with(mock_dataset, extractor=mock_extractor, batch_size=None)
         assert result is mock_embeddings
 
     @patch("dataeval_flow.embeddings.Embeddings")
     @patch("dataeval_flow.embeddings.OnnxExtractor")
-    def test_with_transforms(self, mock_extractor_cls: MagicMock, mock_embed_cls: MagicMock):  # noqa: ARG002
+    def test_with_transforms(self, mock_extractor_cls: MagicMock, mock_embed_cls: MagicMock):
         from dataeval_flow.embeddings import build_embeddings
 
         mock_transforms = MagicMock()
-        config = OnnxExtractorConfig(name="test", model_path="/model.onnx")
+        config = OnnxExtractorConfig(name="test", model_path="./model.onnx")
         build_embeddings(MagicMock(), config, transforms=mock_transforms)
 
         call_kwargs = mock_extractor_cls.call_args[1]
@@ -86,7 +86,7 @@ class TestBuildEmbeddings:
         """Unsupported extractor type raises ValueError."""
         from dataeval_flow.embeddings import build_embeddings
 
-        config = TorchExtractorConfig(name="test", model_path="/model.pt")
+        config = TorchExtractorConfig(name="test", model_path="./model.pt")
         with pytest.raises(ValueError, match="not yet implemented"):
             build_embeddings(MagicMock(), config)
 
@@ -183,7 +183,7 @@ class TestBuildSelection:
 
     @patch("dataeval_flow.selection.Select")
     @patch("dataeval_flow.selection.sel")
-    def test_step_without_params(self, mock_sel_module: MagicMock, mock_select_cls: MagicMock):  # noqa: ARG002
+    def test_step_without_params(self, mock_sel_module: MagicMock, mock_select_cls: MagicMock):
         from dataeval_flow.selection import build_selection
 
         mock_reverse = MagicMock()

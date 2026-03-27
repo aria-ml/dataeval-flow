@@ -10,7 +10,7 @@ import pytest
 class TestRunTasks:
     @patch("dataeval_flow.workflow.run_tasks")
     @patch("dataeval_flow.runner._resolve_config")
-    def test_no_tasks_exits_zero(self, mock_load: MagicMock, mock_run: MagicMock):  # noqa: ARG002
+    def test_no_tasks_exits_zero(self, mock_load: MagicMock, mock_run: MagicMock):
         from dataeval_flow.runner import run
 
         config = MagicMock()
@@ -244,27 +244,21 @@ class TestRunTasks:
 
 class TestParseArgs:
     def test_no_args_succeeds(self):
-        """--output is optional; omitting all args should succeed."""
+        """No arguments defaults to headless execution."""
         from dataeval_flow.__main__ import parse_args
 
         with patch("sys.argv", ["dataeval_flow"]):
             args = parse_args()
+        assert args.command is None
         assert args.output is None
         assert args.verbose == 0
 
-    def test_with_config(self):
+    def test_with_config_and_output(self):
         from dataeval_flow.__main__ import parse_args
 
         with patch("sys.argv", ["dataeval_flow", "--config", "/my/config", "--output", "/my/output"]):
             args = parse_args()
         assert args.config == Path("/my/config")
-        assert args.output == Path("/my/output")
-
-    def test_with_output(self):
-        from dataeval_flow.__main__ import parse_args
-
-        with patch("sys.argv", ["dataeval_flow", "--output", "/my/output"]):
-            args = parse_args()
         assert args.output == Path("/my/output")
 
     def test_with_data(self):
@@ -346,6 +340,7 @@ class TestMain:
         from dataeval_flow.__main__ import main
 
         args = MagicMock()
+        args.command = None
         args.config = Path("/cfg")
         args.output = Path("/out")
         args.data = None
@@ -365,6 +360,7 @@ class TestMain:
         from dataeval_flow.__main__ import main
 
         args = MagicMock()
+        args.command = None
         args.config = None
         args.output = None
         args.data = None

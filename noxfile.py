@@ -18,7 +18,7 @@ if not UV_EXTRAS_OVERRIDE:
     if UV_EXTRAS_OVERRIDE not in ["cpu", "cu118", "cu124", "cu128"]:
         UV_EXTRAS_OVERRIDE = "cu118"
 
-UV_EXTRAS = [UV_EXTRAS_OVERRIDE]
+UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
 UV_EXTRAS_WITH_ONNX = UV_EXTRAS + ["onnx" if UV_EXTRAS_OVERRIDE == "cpu" else "onnx-gpu"]
 UV_EXTRAS_WITH_ONNX_AND_OPENCV = UV_EXTRAS_WITH_ONNX + ["opencv"]
 
@@ -57,7 +57,7 @@ def test(session: nox.Session) -> None:
     session.run(
         "pytest",
         "-n4",
-        "--dist=loadfile",
+        "--dist=loadscope",
         "--cov=src/dataeval_flow",
         "--cov-report=term",
         "--cov-report=xml:output/coverage.xml",
@@ -112,11 +112,11 @@ def schema(session: nox.Session) -> None:
     """Regenerate config/params.schema.json from PipelineConfig and verify it is up to date.
 
     Usage:
-      nox -s schema           # Check only (CI-friendly) — fails if schema is stale
-      nox -s schema -- fix    # Regenerate and overwrite the file
+      nox -s schema           # Auto-fix locally; check-only in CI ($CI set)
+      nox -s schema -- fix    # Regenerate and overwrite the file (explicit)
     """
     args = ["python", "config/sync_schema.py"]
-    if "fix" in session.posargs or "--fix" in session.posargs:
+    if "fix" in session.posargs or "--fix" in session.posargs or not os.environ.get("CI"):
         args.append("--fix")
     session.run(*args)
 

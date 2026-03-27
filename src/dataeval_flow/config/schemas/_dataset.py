@@ -2,7 +2,9 @@
 
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from dataeval_flow.config._paths import validate_config_path
 
 
 class _DatasetConfigBase(BaseModel):
@@ -13,6 +15,11 @@ class _DatasetConfigBase(BaseModel):
     format: Any
     name: str
     path: str
+
+    @field_validator("path")
+    @classmethod
+    def _path_must_be_relative(cls, v: str) -> str:
+        return validate_config_path(v)
 
 
 class HuggingFaceDatasetConfig(_DatasetConfigBase):
@@ -39,7 +46,7 @@ class ImageFolderDatasetConfig(_DatasetConfigBase):
         datasets:
           - name: photos
             format: image_folder
-            path: /data/photos
+            path: photos
             recursive: true
             infer_labels: true
     """
@@ -57,7 +64,7 @@ class CocoDatasetConfig(_DatasetConfigBase):
         datasets:
           - name: coco_train
             format: coco
-            path: /data/coco
+            path: coco
             annotations_file: instances_train.json
             images_dir: train2017
     """
@@ -76,7 +83,7 @@ class YoloDatasetConfig(_DatasetConfigBase):
         datasets:
           - name: yolo_train
             format: yolo
-            path: /data/yolo
+            path: yolo
             images_dir: images
             labels_dir: labels
             classes_file: classes.txt

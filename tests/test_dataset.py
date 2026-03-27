@@ -339,26 +339,26 @@ class TestDatasetConfigImageFolder:
     def test_image_folder_format_accepted(self) -> None:
         from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = ImageFolderDatasetConfig(name="test", path="/data")
+        cfg = ImageFolderDatasetConfig(name="test", path="data")
         assert cfg.format == "image_folder"
 
     def test_recursive_field(self) -> None:
         from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = ImageFolderDatasetConfig(name="test", path="/data", recursive=True)
+        cfg = ImageFolderDatasetConfig(name="test", path="data", recursive=True)
         assert cfg.recursive is True
 
     def test_infer_labels_field(self) -> None:
         from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = ImageFolderDatasetConfig(name="test", path="/data", infer_labels=True)
+        cfg = ImageFolderDatasetConfig(name="test", path="data", infer_labels=True)
         assert cfg.infer_labels is True
 
     def test_defaults_backward_compat(self) -> None:
         """ImageFolderDatasetConfig defaults are safe."""
         from dataeval_flow.config import ImageFolderDatasetConfig
 
-        cfg = ImageFolderDatasetConfig(name="test", path="/data")
+        cfg = ImageFolderDatasetConfig(name="test", path="data")
         assert cfg.recursive is False
         assert cfg.infer_labels is False
 
@@ -371,7 +371,7 @@ class TestDatasetConfigNewFields:
         from dataeval_flow.config import CocoDatasetConfig
 
         cfg = CocoDatasetConfig(
-            name="coco-ds", path="/data/coco", annotations_file="ann.json", images_dir="imgs", classes_file="cls.txt"
+            name="coco-ds", path="data/coco", annotations_file="ann.json", images_dir="imgs", classes_file="cls.txt"
         )
         assert cfg.annotations_file == "ann.json"
         assert cfg.images_dir == "imgs"
@@ -381,7 +381,7 @@ class TestDatasetConfigNewFields:
         from dataeval_flow.config import YoloDatasetConfig
 
         cfg = YoloDatasetConfig(
-            name="yolo-ds", path="/data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
+            name="yolo-ds", path="data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
         )
         assert cfg.images_dir == "imgs"
         assert cfg.labels_dir == "lbls"
@@ -390,7 +390,7 @@ class TestDatasetConfigNewFields:
     def test_new_fields_default_to_none(self) -> None:
         from dataeval_flow.config import CocoDatasetConfig
 
-        cfg = CocoDatasetConfig(name="test", path="/data")
+        cfg = CocoDatasetConfig(name="test", path="data")
         assert cfg.annotations_file is None
         assert cfg.images_dir is None
         assert cfg.classes_file is None
@@ -967,13 +967,13 @@ class TestLoadDatasetTorchvision:
 class TestMainModule:
     """Test the __main__.py CLI module."""
 
-    def test_parse_args_no_args_succeeds(self) -> None:
-        """--output is optional; omitting all args should succeed."""
+    def test_parse_args_no_args(self) -> None:
+        """No arguments defaults to headless execution."""
         from dataeval_flow.__main__ import parse_args
 
         with patch("sys.argv", ["dataeval_flow"]):
             args = parse_args()
-        assert args.output is None
+        assert args.command is None
 
     def test_parse_args_with_config(self) -> None:
         """Test parsing with --config flag."""
@@ -1156,15 +1156,3 @@ class TestResolveDatasetsUnsupported:
 
         with pytest.raises(ValueError, match="Unsupported dataset config type"):
             resolve_dataset(_UnknownConfig())
-
-
-@pytest.mark.optional
-class TestContainerRun:
-    """Test the container landing script."""
-
-    def test_main_config_not_found(self) -> None:
-        """Test main() when config path doesn't exist."""
-        from container_run import main
-
-        result = main()
-        assert result == 1

@@ -997,7 +997,7 @@ class TestExtractorConfigFieldValidation:
 
     def test_bovw_rejects_model_path(self):
         with pytest.raises(ValidationError):
-            BoVWExtractorConfig(name="ext", vocab_size=512, model_path="/m.onnx")  # type: ignore[call-arg]
+            BoVWExtractorConfig(name="ext", vocab_size=512, model_path="./m.onnx")  # type: ignore[call-arg]
 
     def test_flatten_rejects_vocab_size(self):
         with pytest.raises(ValidationError):
@@ -1005,27 +1005,101 @@ class TestExtractorConfigFieldValidation:
 
     def test_flatten_rejects_model_path(self):
         with pytest.raises(ValidationError):
-            FlattenExtractorConfig(name="ext", model_path="/m.onnx")  # type: ignore[call-arg]
+            FlattenExtractorConfig(name="ext", model_path="./m.onnx")  # type: ignore[call-arg]
 
     def test_onnx_rejects_vocab_size(self):
         with pytest.raises(ValidationError):
-            OnnxExtractorConfig(name="ext", model_path="/m.onnx", vocab_size=512)  # type: ignore[call-arg]
+            OnnxExtractorConfig(name="ext", model_path="./m.onnx", vocab_size=512)  # type: ignore[call-arg]
 
     def test_onnx_rejects_preds_type(self):
         with pytest.raises(ValidationError):
-            OnnxExtractorConfig(name="ext", model_path="/m.onnx", preds_type="logits")  # type: ignore[call-arg]
+            OnnxExtractorConfig(name="ext", model_path="./m.onnx", preds_type="logits")  # type: ignore[call-arg]
 
     def test_onnx_allows_relevant_fields(self):
-        ext = OnnxExtractorConfig(name="ext", model_path="/m.onnx", output_name="out", flatten=False)
-        assert ext.model_path == "/m.onnx"
+        ext = OnnxExtractorConfig(name="ext", model_path="./m.onnx", output_name="out", flatten=False)
+        assert ext.model_path == "./m.onnx"
         assert ext.output_name == "out"
         assert ext.flatten is False
 
     def test_uncertainty_rejects_vocab_size(self):
         with pytest.raises(ValidationError):
-            UncertaintyExtractorConfig(name="ext", model_path="/m.pt", preds_type="logits", vocab_size=512)  # type: ignore[call-arg]
+            UncertaintyExtractorConfig(name="ext", model_path="./m.pt", preds_type="logits", vocab_size=512)  # type: ignore[call-arg]
 
     def test_torch_allows_relevant_fields(self):
-        ext = TorchExtractorConfig(name="ext", model_path="/m.pt", layer_name="layer4", use_output=False, device="cpu")
+        ext = TorchExtractorConfig(name="ext", model_path="./m.pt", layer_name="layer4", use_output=False, device="cpu")
         assert ext.layer_name == "layer4"
         assert ext.use_output is False
+
+
+# ---------------------------------------------------------------------------
+# Config path portability — absolute / escaping paths rejected
+# ---------------------------------------------------------------------------
+
+
+class TestConfigPathValidation:
+    """Config paths must be relative and under the data root for container portability."""
+
+    def test_dataset_rejects_absolute_path(self):
+        """Absolute dataset path is rejected."""
+        with pytest.raises(ValidationError, match="relative"):
+            HuggingFaceDatasetConfig(name="ds", path="/home/user/data/cifar10")
+
+    def test_dataset_accepts_relative_path(self):
+        """Relative dataset path is accepted."""
+        ds = HuggingFaceDatasetConfig(name="ds", path="cifar10", split="train")
+        assert ds.path == "cifar10"
+
+    def test_dataset_accepts_dotslash_path(self):
+        """Dot-slash relative dataset path is accepted."""
+        ds = ImageFolderDatasetConfig(name="ds", path="./photos")
+        assert ds.path == "./photos"
+
+    def test_dataset_accepts_nested_relative_path(self):
+        """Nested relative dataset path is accepted."""
+        ds = CocoDatasetConfig(name="ds", path="datasets/coco/train")
+        assert ds.path == "datasets/coco/train"
+
+    def test_dataset_rejects_parent_escape(self):
+        """Dataset path that escapes via .. is rejected."""
+        with pytest.raises(ValidationError, match="escapes"):
+            ImageFolderDatasetConfig(name="ds", path="../outside")
+
+    def test_dataset_rejects_deep_parent_escape(self):
+        """Dataset path that escapes via nested .. is rejected."""
+        with pytest.raises(ValidationError, match="escapes"):
+            YoloDatasetConfig(name="ds", path="subdir/../../outside")
+
+    def test_dataset_allows_internal_dotdot(self):
+        """Dataset path with .. that stays under root is accepted."""
+        ds = HuggingFaceDatasetConfig(name="ds", path="a/b/../c")
+        assert ds.path == "a/b/../c"
+
+    def test_extractor_rejects_absolute_model_path(self):
+        """Absolute extractor model_path is rejected."""
+        with pytest.raises(ValidationError, match="relative"):
+            OnnxExtractorConfig(name="ext", model_path="/usr/local/models/resnet.onnx")
+
+    def test_extractor_accepts_relative_model_path(self):
+        """Relative extractor model_path is accepted."""
+        ext = OnnxExtractorConfig(name="ext", model_path="models/resnet.onnx")
+        assert ext.model_path == "models/resnet.onnx"
+
+    def test_torch_rejects_absolute_model_path(self):
+        """Absolute torch model_path is rejected."""
+        with pytest.raises(ValidationError, match="relative"):
+            TorchExtractorConfig(name="ext", model_path="/models/resnet.pt")
+
+    def test_uncertainty_rejects_absolute_model_path(self):
+        """Absolute uncertainty model_path is rejected."""
+        with pytest.raises(ValidationError, match="relative"):
+            UncertaintyExtractorConfig(name="ext", model_path="/models/clf.pt", preds_type="logits")
+
+    def test_extractor_rejects_parent_escape(self):
+        """Extractor model_path that escapes via .. is rejected."""
+        with pytest.raises(ValidationError, match="escapes"):
+            OnnxExtractorConfig(name="ext", model_path="../sibling/model.onnx")
+
+    def test_dataset_rejects_empty_path(self):
+        """Empty dataset path is rejected."""
+        with pytest.raises(ValidationError, match="empty"):
+            HuggingFaceDatasetConfig(name="ds", path="")

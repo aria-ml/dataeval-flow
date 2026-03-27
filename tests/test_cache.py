@@ -1620,7 +1620,7 @@ class TestMakeDsId:
 
         from dataeval_flow.config import HuggingFaceDatasetConfig
 
-        defaults: dict[str, Any] = {"path": f"/data/{name}", "split": "train"}
+        defaults: dict[str, Any] = {"path": f"data/{name}", "split": "train"}
         defaults.update(kwargs)
         cfg = HuggingFaceDatasetConfig(name=name, **defaults)
         return name, cfg.model_dump_json(exclude_defaults=False)
@@ -1640,8 +1640,8 @@ class TestMakeDsId:
 
     def test_different_path_different_id(self):
         """Changing path (but keeping name) must produce a different cache id."""
-        a = _make_dataset_id(*self._key("ds", path="/data/a"))
-        b = _make_dataset_id(*self._key("ds", path="/data/b"))
+        a = _make_dataset_id(*self._key("ds", path="data/a"))
+        b = _make_dataset_id(*self._key("ds", path="data/b"))
         assert a != b
 
     def test_same_config_deterministic(self):

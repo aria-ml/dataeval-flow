@@ -111,7 +111,7 @@
     },
     "CocoDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: /data/coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
+      "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
       "properties": {
         "format": {
           "const": "coco",
@@ -1173,7 +1173,7 @@
     },
     "ImageFolderDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for image_folder format.\n\nYAML example::\n\n    datasets:\n      - name: photos\n        format: image_folder\n        path: /data/photos\n        recursive: true\n        infer_labels: true",
+      "description": "Dataset config for image_folder format.\n\nYAML example::\n\n    datasets:\n      - name: photos\n        format: image_folder\n        path: photos\n        recursive: true\n        infer_labels: true",
       "properties": {
         "format": {
           "const": "image_folder",
@@ -1455,7 +1455,7 @@
           "type": "string"
         },
         "model_path": {
-          "description": "Path to ONNX model file.",
+          "description": "Path to ONNX model file (relative to data root).",
           "title": "Model Path",
           "type": "string"
         },
@@ -1730,7 +1730,7 @@
           "type": "string"
         },
         "model_path": {
-          "description": "Path to PyTorch model file.",
+          "description": "Path to PyTorch model file (relative to data root).",
           "title": "Model Path",
           "type": "string"
         },
@@ -1816,7 +1816,7 @@
           "type": "string"
         },
         "model_path": {
-          "description": "Path to model file.",
+          "description": "Path to model file (relative to data root).",
           "title": "Model Path",
           "type": "string"
         },
@@ -1886,7 +1886,7 @@
     },
     "YoloDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: /data/yolo\n        images_dir: images\n        labels_dir: labels\n        classes_file: classes.txt",
+      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo\n        images_dir: images\n        labels_dir: labels\n        classes_file: classes.txt",
       "properties": {
         "format": {
           "const": "yolo",

@@ -473,7 +473,7 @@ class TestGetEmbeddingsForContext:
 
     @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_embeddings")
     @patch("dataeval_flow.workflows.ood.workflow.selection_repr", return_value="sel:all")
-    def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):  # noqa: ARG002
+    def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):
         from dataeval_flow.workflows.ood.workflow import _get_embeddings_for_context
 
         expected = _make_embeddings(10)
@@ -493,7 +493,7 @@ class TestGetEmbeddingsForContext:
     @patch("dataeval_flow.workflows.ood.workflow.selection_repr", return_value="sel:all")
     def test_uses_cache_when_available(
         self,
-        mock_sel: MagicMock,  # noqa: ARG002
+        mock_sel: MagicMock,
         mock_cache: MagicMock,
         mock_emb: MagicMock,
     ):
