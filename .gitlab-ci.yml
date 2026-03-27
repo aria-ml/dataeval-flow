@@ -14,8 +14,7 @@ stages:
   - lint
   - security
   - test
-  - build
-  - container
+  - publish
   - release
 
 # GitLab Security Templates [DSOR-1 to DSOR-5]
@@ -125,13 +124,13 @@ test:
     expire_in: 1 week
 
 # -----------------------------------------------------------------------------
-# Build Stage
+# Documentation — runs in parallel with container jobs
 # -----------------------------------------------------------------------------
 
 # Docs preview - Build docs on MRs for review
 docs:preview:
   extends: [.nox, .rules_mr_only]
-  stage: build
+  stage: publish
   cache:
     - key:
         files:
@@ -153,7 +152,7 @@ docs:preview:
 # GitLab Pages - Publish Sphinx documentation
 pages:
   extends: [.nox, .rules_main_only]
-  stage: build
+  stage: publish
   cache:
     - key:
         files:
@@ -171,11 +170,11 @@ pages:
       - public
 
 # -----------------------------------------------------------------------------
-# Container Stage - Build and Push Docker Images to Harbor
+# Container — runs in parallel with documentation jobs
 # -----------------------------------------------------------------------------
 
 .container-setup:
-  stage: container
+  stage: publish
   image: docker:25.0.5-git
   variables:
     COSIGN_PASSWORD: ""
