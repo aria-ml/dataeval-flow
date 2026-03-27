@@ -21,11 +21,13 @@ __all__ = [
     # Workflow configs
     "DataAnalysisWorkflowConfig",
     "DataCleaningWorkflowConfig",
+    "DataPrioritizationWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
     "OODDetectionWorkflowConfig",
     # Task configs
     "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",
+    "DataPrioritizationTaskConfig",
     "DriftMonitoringTaskConfig",
     "OODDetectionTaskConfig",
     "TaskConfig",
@@ -56,6 +58,8 @@ from dataeval_flow.config.schemas import (
     DataAnalysisWorkflowConfig,
     DataCleaningTaskConfig,
     DataCleaningWorkflowConfig,
+    DataPrioritizationTaskConfig,
+    DataPrioritizationWorkflowConfig,
     DatasetProtocolConfig,
     DriftMonitoringTaskConfig,
     DriftMonitoringWorkflowConfig,

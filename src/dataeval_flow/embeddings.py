@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from dataeval import Embeddings
-from dataeval.extractors import BoVWExtractor, FlattenExtractor, OnnxExtractor
+from dataeval.extractors import BoVWExtractor, FlattenExtractor, OnnxExtractor, TorchExtractor
 from dataeval.protocols import AnnotatedDataset
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
         BoVWExtractorConfig,
         FlattenExtractorConfig,
         OnnxExtractorConfig,
+        TorchExtractorConfig,
     )
 
     logger.debug("Building %s extractor", extractor_config.model)
@@ -88,9 +89,47 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
         extractor = BoVWExtractor(vocab_size=extractor_config.vocab_size)
     elif isinstance(extractor_config, FlattenExtractorConfig):
         extractor = FlattenExtractor()
+    elif isinstance(extractor_config, TorchExtractorConfig):
+        extractor = _build_torch_extractor(extractor_config, transforms)
     else:
         raise ValueError(
             f"Extractor type '{extractor_config.model}' is not yet implemented. "
-            f"Currently supported: onnx, bovw, flatten."
+            f"Currently supported: onnx, bovw, flatten, torch."
         )
     return extractor
+
+
+def _build_torch_extractor(
+    config: Any,
+    transforms: Callable | None = None,
+) -> TorchExtractor:
+    """Build a TorchExtractor from config, loading the model from disk.
+
+    The *transforms* from ``build_preprocessing`` is a numpy→numpy wrapper.
+    ``TorchExtractor`` handles tensor conversion internally and expects raw
+    torchvision transforms, so we unwrap the ``v2.Compose`` when possible.
+    """
+    import torch
+    from torchvision.transforms import v2
+
+    # Unwrap the numpy wrapper produced by build_preprocessing to get the
+    # raw v2.Compose that TorchExtractor expects (it handles tensor
+    # conversion internally via torch.as_tensor).
+    torch_transforms: v2.Compose | Callable | None = None
+    if transforms is not None:
+        inner = getattr(transforms, "__wrapped__", None)
+        if isinstance(inner, v2.Compose):
+            torch_transforms = inner
+        elif isinstance(transforms, v2.Compose):
+            torch_transforms = transforms
+        else:
+            torch_transforms = transforms
+
+    model = torch.load(config.model_path, map_location="cpu", weights_only=False)
+    return TorchExtractor(
+        model,
+        transforms=torch_transforms,
+        device=config.device,
+        layer_name=config.layer_name,
+        use_output=config.use_output,
+    )

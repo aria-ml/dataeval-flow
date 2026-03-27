@@ -186,6 +186,34 @@ def _config_hash(config_data: str) -> str:
     return hashlib.sha256(config_data.encode()).hexdigest()[:8]
 
 
+def _file_content_hash(path: str | Path) -> str:
+    """Return an 8-char hex hash of a file's contents, or 'missing' if unreadable."""
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()[:8]
+    except OSError:
+        return "missing"
+
+
+def _extractor_config_key(extractor_config: Any) -> str:
+    """Build a cache key from an extractor config, hashing model file contents.
+
+    The Pydantic ``model_dump_json`` only serializes config fields (path,
+    layer name, etc.) — not the model weights.  If the user retrains and
+    overwrites the file at the same path, the JSON is identical but the
+    embeddings should differ.  We append a content hash of the model file
+    so the cache key changes when the weights change.
+    """
+    config_json = extractor_config.model_dump_json(exclude_defaults=False)
+    model_path = getattr(extractor_config, "model_path", None)
+    if model_path is not None:
+        config_json += f"|file_hash={_file_content_hash(model_path)}"
+    return config_json
+
+
 def _atomic_write(target: Path, data_fn: Callable[[Path], Any], *, suffix: str = ".tmp") -> None:
     """Write to a temp file in the same directory, then atomically rename."""
     fd, tmp = tempfile.mkstemp(dir=target.parent, suffix=suffix)
@@ -400,7 +428,14 @@ def _do_compute_stats(
     from dataeval.core._compute_stats import compute_stats
 
     return dict(
-        compute_stats(dataset, stats=desired_flags, per_image=per_image, per_target=per_target, per_channel=per_channel)
+        compute_stats(
+            dataset,
+            stats=desired_flags,
+            per_image=per_image,
+            per_target=per_target,
+            per_channel=per_channel,
+            normalize_pixel_values=True,
+        )
     )
 
 
@@ -517,7 +552,7 @@ def get_or_compute_embeddings(
     ctx = _active_cache.get()
     if ctx is not None:
         cache, sel_key = ctx
-        config_json = extractor_config.model_dump_json(exclude_defaults=False)
+        config_json = _extractor_config_key(extractor_config)
         transforms_key = repr(transforms) if transforms is not None else "none"
         return cache.load_or_compute_embeddings(
             sel_key,
@@ -547,9 +582,7 @@ def get_or_compute_cluster_result(
     ctx = _active_cache.get()
     if ctx is not None:
         cache, sel_key = ctx
-        config_json = (
-            extractor_config.model_dump_json(exclude_defaults=False) if extractor_config is not None else "none"
-        )
+        config_json = _extractor_config_key(extractor_config) if extractor_config is not None else "none"
         transforms_key = repr(transforms) if transforms is not None else "none"
         return cache.load_or_compute_cluster_result(
             sel_key,

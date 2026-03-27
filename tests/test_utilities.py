@@ -13,6 +13,7 @@ from dataeval_flow.config import (
     OnnxExtractorConfig,
     SelectionStep,
     TorchExtractorConfig,
+    UncertaintyExtractorConfig,
 )
 
 # ---------------------------------------------------------------------------
@@ -82,11 +83,28 @@ class TestBuildEmbeddings:
         mock_bovw_cls.assert_called_once_with(vocab_size=1024)
         mock_embed_cls.assert_called_once()
 
+    @patch("dataeval_flow.embeddings.Embeddings")
+    @patch("dataeval_flow.embeddings.TorchExtractor")
+    @patch("torch.load")
+    def test_torch_extractor(self, mock_load: MagicMock, mock_torch_cls: MagicMock, mock_embed_cls: MagicMock):
+        """TorchExtractorConfig loads the model and creates TorchExtractor."""
+        from dataeval_flow.embeddings import build_embeddings
+
+        mock_model = MagicMock()
+        mock_load.return_value = mock_model
+
+        config = TorchExtractorConfig(name="test", model_path="./model.pt", layer_name="embed")
+        build_embeddings(MagicMock(), config)
+
+        mock_load.assert_called_once_with("./model.pt", map_location="cpu", weights_only=False)
+        mock_torch_cls.assert_called_once()
+        mock_embed_cls.assert_called_once()
+
     def test_unsupported_extractor_raises(self):
         """Unsupported extractor type raises ValueError."""
         from dataeval_flow.embeddings import build_embeddings
 
-        config = TorchExtractorConfig(name="test", model_path="./model.pt")
+        config = UncertaintyExtractorConfig(name="test", model_path="./model.pt")
         with pytest.raises(ValueError, match="not yet implemented"):
             build_embeddings(MagicMock(), config)
 

@@ -439,6 +439,7 @@ class TestLoadOrComputeEmbeddings:
     def _mock_extractor_config(self) -> MagicMock:
         cfg = MagicMock()
         cfg.model_dump_json.return_value = '{"type":"onnx","model_path":"model.onnx"}'
+        cfg.model_path = None  # no file to hash — keeps cache key = model_dump_json()
         return cfg
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
@@ -501,6 +502,7 @@ class TestGetOrComputeEmbeddings:
     def _mock_extractor_config(self) -> MagicMock:
         cfg = MagicMock()
         cfg.model_dump_json.return_value = '{"type":"onnx","model_path":"model.onnx"}'
+        cfg.model_path = None  # no file to hash — keeps cache key = model_dump_json()
         return cfg
 
     def test_without_cache_computes_directly(self):

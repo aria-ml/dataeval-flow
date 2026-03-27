@@ -296,11 +296,13 @@ def _ensure_initialized() -> None:
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
         from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
+        from dataeval_flow.workflows.prioritization.workflow import DataPrioritizationWorkflow
         from dataeval_flow.workflows.splitting.workflow import DataSplittingWorkflow
 
         workflows = [
             DataAnalysisWorkflow,
             DataCleaningWorkflow,
+            DataPrioritizationWorkflow,
             DataSplittingWorkflow,
             DriftMonitoringWorkflow,
             OODDetectionWorkflow,

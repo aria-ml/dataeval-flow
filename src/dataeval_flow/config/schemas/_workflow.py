@@ -8,6 +8,7 @@ from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 from dataeval_flow.workflows.ood.params import OODDetectionParameters
+from dataeval_flow.workflows.prioritization.params import DataPrioritizationParameters
 from dataeval_flow.workflows.splitting.params import DataSplittingParameters
 
 
@@ -109,3 +110,26 @@ class OODDetectionWorkflowConfig(OODDetectionParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["ood-detection"] = "ood-detection"
+
+
+class DataPrioritizationWorkflowConfig(DataPrioritizationParameters):
+    """Typed workflow configuration for ``data-prioritization``.
+
+    Inherits all fields from :class:`DataPrioritizationParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: prioritize_knn
+            type: data-prioritization
+            method: knn
+            k: 10
+            order: hard_first
+            cleaning:
+              outlier_method: adaptive
+              outlier_flags: [dimension, pixel]
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["data-prioritization"] = "data-prioritization"
