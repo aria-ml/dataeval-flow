@@ -30,6 +30,7 @@ variables:
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
   PYTHON_VERSION: "3.11"
   DOCKER_TLS_CERTDIR: "/certs"
+  FORCE_COLOR: "1"
 
   # Harbor Registry Configuration
   # HARBOR_TOKEN must be set as a CI/CD Variable in GitLab
