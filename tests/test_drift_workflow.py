@@ -374,7 +374,7 @@ class TestGetEmbeddingsForContext:
 
     @patch("dataeval_flow.workflows.drift.workflow.get_or_compute_embeddings")
     @patch("dataeval_flow.workflows.drift.workflow.selection_repr", return_value="sel:all")
-    def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):  # noqa: ARG002
+    def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):
         from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
 
         expected = _make_embeddings(10)

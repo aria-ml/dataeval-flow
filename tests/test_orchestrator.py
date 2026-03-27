@@ -1,5 +1,6 @@
 """Tests for workflow orchestrator — _run_single_task, _resolve_by_name."""
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -128,7 +129,7 @@ class TestRunTask:
             PreprocessorConfig(name="basic", steps=[PreprocessingStep(step="ToTensor")]),
         ]
         config.extractors = [
-            OnnxExtractorConfig(name="ext1", model_path="/model.onnx", preprocessor="basic", batch_size=64),
+            OnnxExtractorConfig(name="ext1", model_path="./model.onnx", preprocessor="basic", batch_size=64),
         ]
 
         task = TaskConfig(name="test_task", workflow="clean", sources="src_test", extractor="ext1")
@@ -148,7 +149,7 @@ class TestRunTask:
         """_run_single_task resolves extractor when task references one."""
         config, _ = self._build_config_and_task()
         config.extractors = [
-            OnnxExtractorConfig(name="ext1", model_path="/model.onnx", output_name="layer4", batch_size=64),
+            OnnxExtractorConfig(name="ext1", model_path="./model.onnx", output_name="layer4", batch_size=64),
         ]
 
         task = TaskConfig(name="test_task", workflow="clean", sources="src_test", extractor="ext1")
@@ -164,7 +165,8 @@ class TestRunTask:
         context = mock_wf.execute.call_args[0][0]
         dc = context.dataset_contexts["src_test"]
         assert dc.extractor is not None
-        assert dc.extractor.model_path == "/model.onnx"
+        # _resolve_extractor_paths joins relative path against data_dir (default ".")
+        assert dc.extractor.model_path == "model.onnx"
         assert dc.extractor.output_name == "layer4"
 
     @patch("dataeval_flow.dataset.load_dataset")
@@ -248,9 +250,8 @@ class TestRunTask:
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_format_and_image_folder_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes dataset_format, recursive, and infer_labels to load_dataset."""
-        from pathlib import Path
 
-        ds_config = ImageFolderDatasetConfig(name="photos", path="/data/photos", recursive=True, infer_labels=True)
+        ds_config = ImageFolderDatasetConfig(name="photos", path="data/photos", recursive=True, infer_labels=True)
         source = SourceConfig(name="src_photos", dataset="photos")
         task = TaskConfig(name="t", workflow="clean", sources="src_photos")
 
@@ -269,7 +270,7 @@ class TestRunTask:
             _run_single_task(task, config)
 
         mock_load_ds.assert_called_once_with(
-            Path("/data/photos"),
+            Path("data/photos"),
             dataset_format="image_folder",
             recursive=True,
             infer_labels=True,
@@ -278,11 +279,10 @@ class TestRunTask:
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_coco_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes COCO-specific config fields to load_dataset."""
-        from pathlib import Path
 
         ds_config = CocoDatasetConfig(
             name="coco_ds",
-            path="/data/coco",
+            path="data/coco",
             annotations_file="instances.json",
             images_dir="train2017",
             classes_file="classes.txt",
@@ -305,7 +305,7 @@ class TestRunTask:
             _run_single_task(task, config)
 
         mock_load_ds.assert_called_once_with(
-            Path("/data/coco"),
+            Path("data/coco"),
             dataset_format="coco",
             annotations_file="instances.json",
             images_dir="train2017",
@@ -315,10 +315,9 @@ class TestRunTask:
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_yolo_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes YOLO-specific config fields to load_dataset."""
-        from pathlib import Path
 
         ds_config = YoloDatasetConfig(
-            name="yolo_ds", path="/data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
+            name="yolo_ds", path="data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
         )
         source = SourceConfig(name="src_yolo", dataset="yolo_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src_yolo")
@@ -338,7 +337,7 @@ class TestRunTask:
             _run_single_task(task, config)
 
         mock_load_ds.assert_called_once_with(
-            Path("/data/yolo"),
+            Path("data/yolo"),
             dataset_format="yolo",
             images_dir="imgs",
             labels_dir="lbls",
@@ -349,7 +348,7 @@ class TestRunTask:
     def test_run_task_coco_sets_label_source(self, mock_load_ds: MagicMock):
         """_run_single_task sets label_source='annotations' for COCO datasets."""
 
-        ds_config = CocoDatasetConfig(name="coco_ds", path="/data/coco")
+        ds_config = CocoDatasetConfig(name="coco_ds", path="data/coco")
         source = SourceConfig(name="src_coco", dataset="coco_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src_coco")
 
@@ -375,7 +374,7 @@ class TestRunTask:
     def test_run_task_yolo_sets_label_source(self, mock_load_ds: MagicMock):
         """_run_single_task sets label_source='annotations' for YOLO datasets."""
 
-        ds_config = YoloDatasetConfig(name="yolo_ds", path="/data/yolo")
+        ds_config = YoloDatasetConfig(name="yolo_ds", path="data/yolo")
         source = SourceConfig(name="src_yolo", dataset="yolo_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src_yolo")
 
@@ -439,14 +438,14 @@ class TestLabelSourceResolution:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="infer_labels"):
-            CocoDatasetConfig(name="ds", path="/data/ds", infer_labels=True)  # type: ignore[arg-type]
+            CocoDatasetConfig(name="ds", path="data/ds", infer_labels=True)  # type: ignore[arg-type]
 
     def test_yolo_rejects_infer_labels(self) -> None:
         """Schema rejects infer_labels=True for YOLO (it's image_folder-only)."""
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="infer_labels"):
-            YoloDatasetConfig(name="ds", path="/data/ds", infer_labels=True)  # type: ignore[arg-type]
+            YoloDatasetConfig(name="ds", path="data/ds", infer_labels=True)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -536,7 +535,7 @@ class TestRunTaskMultiSource:
         """An extractor specified on the task is shared across all sources."""
         config = self._make_config(["ds_a", "ds_b"])
         config.extractors = [
-            OnnxExtractorConfig(name="ext1", model_path="/m.onnx", output_name="out", batch_size=64),
+            OnnxExtractorConfig(name="ext1", model_path="./m.onnx", output_name="out", batch_size=64),
         ]
         task = TaskConfig(name="t", workflow="clean", sources=["src_ds_a", "src_ds_b"], extractor="ext1")
         mock_load_ds.return_value = MagicMock()
@@ -550,7 +549,7 @@ class TestRunTaskMultiSource:
         # Both datasets should have the same extractor
         for dc in context.dataset_contexts.values():
             assert dc.extractor is not None
-            assert dc.extractor.model_path == "/m.onnx"
+            assert dc.extractor.model_path == "m.onnx"
 
     @patch("dataeval_flow.dataset.load_dataset")
     def test_no_extractor_gives_none(self, mock_load_ds: MagicMock):
@@ -779,11 +778,13 @@ class TestResolveExtractorPaths:
         assert resolved.model_path == str(tmp_path / "models" / "model.onnx")
         assert resolved is not extractor
 
-    def test_absolute_model_path_unchanged(self, tmp_path):
+    def test_absolute_model_path_rejected(self, tmp_path):
+        """Absolute model_path is rejected at schema validation time."""
+        from pydantic import ValidationError
+
         abs_path = str(tmp_path / "model.onnx")
-        extractor = OnnxExtractorConfig(name="ext", model_path=abs_path, batch_size=32)
-        resolved = _resolve_extractor_paths(extractor, data_dir=tmp_path)
-        assert resolved is extractor
+        with pytest.raises(ValidationError, match="relative"):
+            OnnxExtractorConfig(name="ext", model_path=abs_path, batch_size=32)
 
     def test_no_model_path_returns_same(self, tmp_path):
         cfg = MagicMock(spec=[])  # no model_path attribute
@@ -920,7 +921,7 @@ class TestCacheDirAndLabelSource:
 
     @patch("dataeval_flow.dataset.load_dataset")
     def test_label_source_propagated(self, mock_load_ds):
-        ds = YoloDatasetConfig(name="yolo_ds", path="/data/yolo")
+        ds = YoloDatasetConfig(name="yolo_ds", path="data/yolo")
         source = SourceConfig(name="src", dataset="yolo_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src")
 

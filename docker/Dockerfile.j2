@@ -106,6 +106,7 @@ USER dataeval
 ENV UV_EXTRAS_OVERRIDE={{ variant_name }}
 ENV CONTAINER_MODE={{ "cpu" if variant_name == "cpu" else "gpu" }}
 ENV DATAEVAL_DATA=/dataeval
+ENV DATAEVAL_OUTPUT=/output
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["python", "src/container_run.py"]
+CMD ["python", "-m", "dataeval_flow"]

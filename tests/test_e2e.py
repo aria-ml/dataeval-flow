@@ -208,19 +208,18 @@ class TestConfigToFactoryIntegration:
 class TestContainerMountPaths:
     """Test container mount path constants and alignment."""
 
-    def test_container_paths_defined(self):
-        """Container paths match expected defaults."""
-        import sys
+    def test_env_var_defaults_for_container(self):
+        """DATAEVAL_OUTPUT and DATAEVAL_DATA env vars provide container defaults."""
+        import os
+        from unittest.mock import patch
 
-        # Add src to path for container_run import
-        src_path = Path(__file__).parent.parent / "src"
-        if str(src_path) not in sys.path:
-            sys.path.insert(0, str(src_path))
+        from dataeval_flow.__main__ import _build_parser
 
-        from container_run import _DEFAULT_OUTPUT, _FALLBACK_DATA
-
-        assert _FALLBACK_DATA == "/dataeval"
-        assert Path("/output") == _DEFAULT_OUTPUT
+        with patch.dict(os.environ, {"DATAEVAL_DATA": "/dataeval", "DATAEVAL_OUTPUT": "/output"}):
+            parser = _build_parser()
+            args = parser.parse_args([])
+            assert args.data == Path("/dataeval")
+            assert args.output == Path("/output")
 
     def test_get_data_dir_env_override(self):
         """get_data_dir respects DATAEVAL_DATA env var."""

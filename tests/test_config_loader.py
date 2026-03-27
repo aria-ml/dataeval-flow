@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from dataeval_flow.config._merge import _deep_merge, merge_config_folder
+from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 
 
 class TestDeepMerge:
@@ -121,3 +122,87 @@ class TestMergeYamlFolder:
 
         result = merge_config_folder(tmp_path)
         assert result == {"logging": {"app_level": "INFO"}}
+
+
+# ---------------------------------------------------------------------------
+# validate_config_path
+# ---------------------------------------------------------------------------
+
+
+class TestValidateConfigPath:
+    """Tests for validate_config_path()."""
+
+    def test_relative_path_accepted(self):
+        assert validate_config_path("cifar10") == "cifar10"
+
+    def test_dotslash_accepted(self):
+        assert validate_config_path("./model.onnx") == "./model.onnx"
+
+    def test_nested_relative_accepted(self):
+        assert validate_config_path("datasets/coco/train") == "datasets/coco/train"
+
+    def test_internal_dotdot_accepted(self):
+        """Path with .. that normalizes under root is OK."""
+        assert validate_config_path("a/b/../c") == "a/b/../c"
+
+    def test_absolute_unix_rejected(self):
+        with pytest.raises(ValueError, match="relative"):
+            validate_config_path("/home/user/data")
+
+    def test_parent_escape_rejected(self):
+        with pytest.raises(ValueError, match="escapes"):
+            validate_config_path("../outside")
+
+    def test_deep_escape_rejected(self):
+        with pytest.raises(ValueError, match="escapes"):
+            validate_config_path("sub/../../outside")
+
+    def test_empty_rejected(self):
+        with pytest.raises(ValueError, match="empty"):
+            validate_config_path("")
+
+
+# ---------------------------------------------------------------------------
+# relativize_to_data_dir
+# ---------------------------------------------------------------------------
+
+
+class TestRelativizeToDataDir:
+    """Tests for relativize_to_data_dir()."""
+
+    def test_path_under_data_dir(self, tmp_path: Path):
+        """Path under data_dir is correctly relativized."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        sub = data_dir / "cifar10"
+        sub.mkdir()
+
+        result = relativize_to_data_dir(str(sub), data_dir)
+        assert result == "cifar10"
+
+    def test_nested_path(self, tmp_path: Path):
+        """Nested path is correctly relativized."""
+        data_dir = tmp_path / "data"
+        nested = data_dir / "datasets" / "coco"
+        nested.mkdir(parents=True)
+
+        result = relativize_to_data_dir(str(nested), data_dir)
+        assert result == "datasets/coco"
+
+    def test_path_outside_data_dir_raises(self, tmp_path: Path):
+        """Path outside data_dir raises ValueError."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        outside = tmp_path / "other"
+        outside.mkdir()
+
+        with pytest.raises(ValueError, match="not under the data root"):
+            relativize_to_data_dir(str(outside), data_dir)
+
+    def test_data_dir_itself(self, tmp_path: Path):
+        """data_dir itself relativizes to '.'."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        result = relativize_to_data_dir(str(data_dir), data_dir)
+        assert result == "."

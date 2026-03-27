@@ -2,7 +2,9 @@
 
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from dataeval_flow.config._paths import validate_config_path
 
 
 class _ExtractorConfigBase(BaseModel):
@@ -30,9 +32,14 @@ class OnnxExtractorConfig(_ExtractorConfigBase):
     """
 
     model: Literal["onnx"] = "onnx"
-    model_path: str = Field(description="Path to ONNX model file.")
+    model_path: str = Field(description="Path to ONNX model file (relative to data root).")
     output_name: str | None = Field(default=None, description="Output layer name.")
     flatten: bool = Field(default=True, description="Flatten output to (N, D) shape.")
+
+    @field_validator("model_path")
+    @classmethod
+    def _model_path_must_be_relative(cls, v: str) -> str:
+        return validate_config_path(v)
 
 
 class BoVWExtractorConfig(_ExtractorConfigBase):
@@ -78,10 +85,15 @@ class TorchExtractorConfig(_ExtractorConfigBase):
     """
 
     model: Literal["torch"] = "torch"
-    model_path: str = Field(description="Path to PyTorch model file.")
+    model_path: str = Field(description="Path to PyTorch model file (relative to data root).")
     layer_name: str | None = Field(default=None, description="Layer for forward hook extraction.")
     use_output: bool = Field(default=True, description="Capture layer output (True) or input (False).")
     device: str | None = Field(default=None, description="Device (e.g., 'cpu', 'cuda:0').")
+
+    @field_validator("model_path")
+    @classmethod
+    def _model_path_must_be_relative(cls, v: str) -> str:
+        return validate_config_path(v)
 
 
 class UncertaintyExtractorConfig(_ExtractorConfigBase):
@@ -97,6 +109,11 @@ class UncertaintyExtractorConfig(_ExtractorConfigBase):
     """
 
     model: Literal["uncertainty"] = "uncertainty"
-    model_path: str = Field(description="Path to model file.")
+    model_path: str = Field(description="Path to model file (relative to data root).")
     preds_type: Literal["probs", "logits"] | None = Field(default=None, description="Model output format.")
     device: str | None = Field(default=None, description="Device (e.g., 'cpu', 'cuda:0').")
+
+    @field_validator("model_path")
+    @classmethod
+    def _model_path_must_be_relative(cls, v: str) -> str:
+        return validate_config_path(v)

@@ -8,13 +8,16 @@ from pathlib import Path
 import yaml
 
 from dataeval_flow.config._models import PipelineConfig
+from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 
 __all__ = [
     "export_params_schema",
     "get_data_dir",
     "load_config",
     "load_config_folder",
+    "relativize_to_data_dir",
     "resolve_path",
+    "validate_config_path",
 ]
 
 logger: logging.Logger = logging.getLogger(__name__)

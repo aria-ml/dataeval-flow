@@ -446,7 +446,7 @@ class TestExecuteWithSelectionAndRebalance:
         mock_label_stats: MagicMock,
         mock_split: MagicMock,
         mock_build_meta: MagicMock,
-        mock_run_cov: MagicMock,  # noqa: ARG002
+        mock_run_cov: MagicMock,
     ) -> None:
         """Line 374: build_selection is called when selection_steps are present."""
         dataset = _make_dataset(100)
@@ -494,7 +494,7 @@ class TestExecuteWithSelectionAndRebalance:
     @patch("dataeval.selection.Indices")
     def test_rebalance_applied(
         self,
-        mock_indices: MagicMock,  # noqa: ARG002
+        mock_indices: MagicMock,
         mock_select: MagicMock,
         mock_class_balance: MagicMock,
         mock_diversity: MagicMock,
@@ -502,7 +502,7 @@ class TestExecuteWithSelectionAndRebalance:
         mock_label_stats: MagicMock,
         mock_split: MagicMock,
         mock_build_meta: MagicMock,
-        mock_run_cov: MagicMock,  # noqa: ARG002
+        mock_run_cov: MagicMock,
     ) -> None:
         """Lines 427-432: rebalancing is applied when rebalance_method is set."""
         dataset = _make_dataset(100)

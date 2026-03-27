@@ -326,7 +326,7 @@ class TestDataCleaningWorkflowExecute:
     @patch("dataeval_flow.metadata.Metadata", side_effect=RuntimeError("model crashed"))
     def test_execution_error_returns_failed_result(
         self,
-        mock_meta_cls: MagicMock,  # noqa: ARG002
+        mock_meta_cls: MagicMock,
         caplog: pytest.LogCaptureFixture,
     ):
         """Runtime errors during execution return WorkflowResult(success=False) and log traceback."""
@@ -402,7 +402,7 @@ class TestDataCleaningWorkflowExecute:
     @patch("dataeval_flow.selection.sel")
     def test_with_selection(
         self,
-        mock_sel_module: MagicMock,  # noqa: ARG002
+        mock_sel_module: MagicMock,
         mock_select_cls: MagicMock,
         mock_meta_cls: MagicMock,
         mock_run_clean: MagicMock,
@@ -443,7 +443,7 @@ class TestDataCleaningWorkflowExecute:
                 "default": DatasetContext(
                     name="default",
                     dataset=mock_dataset,
-                    extractor=OnnxExtractorConfig(name="test_ext", model_path="/model.onnx", output_name="layer4"),
+                    extractor=OnnxExtractorConfig(name="test_ext", model_path="./model.onnx", output_name="layer4"),
                 )
             }
         )

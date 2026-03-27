@@ -123,7 +123,6 @@ class TestConfigureLogLevels:
         configure_log_levels(app_level="WARNING")
 
         assert logging.getLogger("dataeval_flow").level == logging.WARNING
-        assert logging.getLogger("container_run").level == logging.WARNING
 
     def test_configure_log_levels_lib(self, tmp_path: Path):
         setup_logging(tmp_path)

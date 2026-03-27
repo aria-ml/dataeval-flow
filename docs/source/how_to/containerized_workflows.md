@@ -350,7 +350,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     harbor.jatic.net/aria/dataeval:cpu \
-    python src/container_run.py --config config/params.yaml
+    python -m dataeval_flow --config config/params.yaml
 ```
 
 You can also mount a config directory independently from your data. Use a
@@ -376,7 +376,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     harbor.jatic.net/aria/dataeval:cpu \
-    python src/container_run.py -v
+    python -m dataeval_flow -v
 ```
 
 | Flag | Level |
@@ -411,7 +411,7 @@ The JSON report contains the workflow results — the same data you'd get from
 Run the container with `--help` to see full usage:
 
 ```bash
-docker run harbor.jatic.net/aria/dataeval:cpu python src/container_run.py --help
+docker run harbor.jatic.net/aria/dataeval:cpu python -m dataeval_flow --help
 ```
 
 Common issues:

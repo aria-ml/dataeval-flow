@@ -33,11 +33,12 @@ cu128 = ["torch>=2.2.0", "torchvision>=0.17.0"]
 onnx = ["onnx>=1.15", "onnxruntime>=1.20"]
 onnx-gpu = ["onnx>=1.15", "onnxruntime-gpu>=1.20"]
 opencv = ["opencv-python-headless>=4.8.0"]
+app = ["textual>=3.0"]
 # Convenience extras for common combinations
-all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0"]
-all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
-all-cu124 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0"]
-all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0"]
+all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0"]
+all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0"]
+all-cu124 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0"]
+all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0", "textual>=3.0"]
 
 [project.urls]
 Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"
@@ -59,6 +60,7 @@ lint = [
 test = [
     { include-group = "base" },
     "pytest>=8.3",
+    "pytest-asyncio>=0.24",
     "pytest-cov>=6.1",
     "pytest-xdist>=3.6.1",
     "coverage[toml]>=7.6",
@@ -184,6 +186,7 @@ include = ["src/dataeval_flow"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+asyncio_mode = "auto"
 addopts = [
     "--pythonwarnings=ignore::DeprecationWarning",
     "--verbose",
@@ -255,7 +258,7 @@ ignore = [
     "C416",
 ]
 fixable = ["ALL"]
-per-file-ignores = { "tests/*" = ["ANN", "S101", "D", "SLF001"], "docs/*" = ["D", "E402", "E501", "S101"] }
+per-file-ignores = { "tests/*" = ["ANN", "S101", "D", "SLF001", "ARG002", "PT019"], "docs/*" = ["D", "E402", "E501", "S101"] }
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
@@ -271,3 +274,4 @@ indent-style = "space"
 
 [tool.codespell]
 skip = "./*env*,./output,./htmlcov,./.nox,uv.lock,./docs/source/notebooks/*,./cosign.pub,Dockerfile.*,*.onnx"
+ignore-words-list = ["statics"]

@@ -123,6 +123,47 @@ docker run \
   dataeval:cpu
 ```
 
+## CLI Modes
+
+DataEval Flow has three modes:
+
+| Command                | Purpose                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| `dataeval-flow [opts]` | Headless execution — for automation and CI/CD pipelines          |
+| `dataeval-flow app`    | Interactive TUI dashboard — configure, execute, and view results |
+| `dataeval-flow config` | Simple CLI config builder — create/edit configs without the TUI  |
+
+### Interactive TUI (`app`)
+
+**Installation:**
+
+```bash
+uv sync --extra app          # or: pip install dataeval-flow[app]
+```
+
+**Usage:**
+
+```bash
+# Launch with a blank config
+python -m dataeval_flow app
+
+# Load an existing config for editing
+python -m dataeval_flow app --config /path/to/params.yaml
+```
+
+The TUI provides a three-pane dashboard for config editing, task execution, and result viewing. It auto-discovers available torchvision transforms, dataeval selection classes, and workflow types, generating dynamic parameter forms from their schemas.
+
+### Simple CLI Config Builder (`config`)
+
+For environments without the TUI dependency:
+
+```bash
+python -m dataeval_flow config
+python -m dataeval_flow config --config /path/to/params.yaml
+```
+
+Configs can be saved as YAML or JSON.
+
 ## Dependencies
 
 - `dataeval` - Core evaluation library
@@ -165,7 +206,7 @@ uv sync
 **CLI Usage:**
 ```bash
 python -m dataeval_flow --config /path/to/config --output /path/to/output
-python -m dataeval_flow --data-root /path/to/data --output /path/to/output
+python -m dataeval_flow --data /path/to/data --output /path/to/output
 ```
 
 **Python API Usage:**
