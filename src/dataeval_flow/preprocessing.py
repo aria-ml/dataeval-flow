@@ -25,7 +25,7 @@ __all__ = ["PreprocessingStep", "build_preprocessing"]
 
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -51,7 +51,33 @@ class PreprocessingStep(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
-def build_preprocessing(steps: Sequence[PreprocessingStep]) -> Callable[[NDArray[Any]], NDArray[Any]]:
+class _PreprocessingTransform:
+    """Callable wrapper around ``v2.Compose`` with a stable ``repr``.
+
+    The default ``repr`` of a closure includes the memory address which
+    changes every run, causing unnecessary cache misses when the cache
+    key is derived from ``repr(transforms)``.  This wrapper delegates to
+    ``v2.Compose.__repr__`` which is deterministic.
+    """
+
+    __slots__ = ("__wrapped__",)
+    __wrapped__: Any
+
+    def __init__(self, wrapped: Any) -> None:
+        self.__wrapped__ = wrapped
+
+    def __call__(self, image: NDArray[Any]) -> NDArray[Any]:
+        import torch
+
+        tensor = torch.as_tensor(np.ascontiguousarray(image))
+        result = self.__wrapped__(tensor)
+        return np.asarray(result.detach().cpu())
+
+    def __repr__(self) -> str:
+        return repr(self.__wrapped__)
+
+
+def build_preprocessing(steps: Sequence[PreprocessingStep]) -> _PreprocessingTransform:
     """Build preprocessing pipeline from config.
 
     Builds a torchvision.transforms.v2 pipeline and wraps it so the returned
@@ -112,12 +138,4 @@ def build_preprocessing(steps: Sequence[PreprocessingStep]) -> Callable[[NDArray
         ops.append(transform_cls(**params))
 
     composed = v2.Compose(ops)
-
-    def _apply(image: NDArray[Any]) -> NDArray[Any]:
-        # numpy CHW -> torch tensor (zero-copy when possible)
-        tensor = torch.as_tensor(np.ascontiguousarray(image))
-        result = composed(tensor)
-        # torch tensor -> numpy CHW (detach in case any transform tracked grads)
-        return np.asarray(result.detach().cpu())
-
-    return _apply
+    return _PreprocessingTransform(composed)

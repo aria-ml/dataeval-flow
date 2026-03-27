@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config.schemas._task import (
         DataAnalysisTaskConfig,
         DataCleaningTaskConfig,
+        DataPrioritizationTaskConfig,
         DriftMonitoringTaskConfig,
         OODDetectionTaskConfig,
     )
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
     from dataeval_flow.workflows.drift.outputs import DriftMonitoringMetadata, DriftMonitoringOutputs
     from dataeval_flow.workflows.ood.outputs import OODDetectionMetadata, OODDetectionOutputs
+    from dataeval_flow.workflows.prioritization.outputs import DataPrioritizationMetadata, DataPrioritizationOutputs
 
 
 @runtime_checkable
@@ -408,6 +410,13 @@ def run_task(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
 ) -> "WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]": ...
+@overload
+def run_task(
+    task: "DataPrioritizationTaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "WorkflowResult[DataPrioritizationMetadata, DataPrioritizationOutputs]": ...
 @overload
 def run_task(
     task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None

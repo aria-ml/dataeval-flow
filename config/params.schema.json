@@ -109,6 +109,89 @@
       "title": "ChunkingConfig",
       "type": "object"
     },
+    "CleaningConfig": {
+      "additionalProperties": false,
+      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, outlier and duplicate detection runs across all datasets\nbefore prioritization.  Flagged items are excluded from the ranking.",
+      "properties": {
+        "outlier_method": {
+          "description": "Statistical method for outlier detection.",
+          "enum": [
+            "adaptive",
+            "zscore",
+            "modzscore",
+            "iqr"
+          ],
+          "title": "Outlier Method",
+          "type": "string"
+        },
+        "outlier_flags": {
+          "description": "Image statistics groups for outlier detection. At least one required.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outlier Flags",
+          "type": "array"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom threshold (None = use DataEval default for chosen method).",
+          "title": "Outlier Threshold"
+        },
+        "duplicate_flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic).",
+          "title": "Duplicate Flags"
+        },
+        "duplicate_merge_near": {
+          "default": true,
+          "description": "Merge overlapping near-duplicate groups from different detection methods.",
+          "title": "Duplicate Merge Near",
+          "type": "boolean"
+        },
+        "duplicate_exact_only": {
+          "default": false,
+          "description": "When True, only flag exact duplicates \u2014 skip near-duplicate detection.",
+          "title": "Duplicate Exact Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "outlier_method",
+        "outlier_flags"
+      ],
+      "title": "CleaningConfig",
+      "type": "object"
+    },
     "CocoDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
@@ -578,6 +661,165 @@
         "name"
       ],
       "title": "DataCleaningWorkflowConfig",
+      "type": "object"
+    },
+    "DataPrioritizationHealthThresholds": {
+      "description": "Thresholds that control finding severity for the prioritization report.",
+      "properties": {
+        "cleaning_removed_pct_warning": {
+          "default": 20.0,
+          "description": "Warn if cleaning removes more than this percentage of the combined dataset.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Cleaning Removed Pct Warning",
+          "type": "number"
+        }
+      },
+      "title": "DataPrioritizationHealthThresholds",
+      "type": "object"
+    },
+    "DataPrioritizationWorkflowConfig": {
+      "description": "Typed workflow configuration for ``data-prioritization``.\n\nInherits all fields from :class:`DataPrioritizationParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
+      "properties": {
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "method": {
+          "default": "knn",
+          "description": "Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity.",
+          "enum": [
+            "knn",
+            "kmeans_distance",
+            "kmeans_complexity",
+            "hdbscan_distance",
+            "hdbscan_complexity"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of nearest neighbors for knn method. None = sqrt(n_samples).",
+          "title": "K"
+        },
+        "c": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of clusters for clustering methods. None = sqrt(n_samples).",
+          "title": "C"
+        },
+        "n_init": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            }
+          ],
+          "default": "auto",
+          "description": "Number of K-means initializations (kmeans methods only).",
+          "title": "N Init"
+        },
+        "max_cluster_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum cluster size for HDBSCAN methods.",
+          "title": "Max Cluster Size"
+        },
+        "order": {
+          "default": "hard_first",
+          "description": "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first).",
+          "enum": [
+            "easy_first",
+            "hard_first"
+          ],
+          "title": "Order",
+          "type": "string"
+        },
+        "policy": {
+          "default": "difficulty",
+          "description": "Selection policy: difficulty (direct ordering), stratified (binned), class_balanced.",
+          "enum": [
+            "difficulty",
+            "stratified",
+            "class_balanced"
+          ],
+          "title": "Policy",
+          "type": "string"
+        },
+        "num_bins": {
+          "default": 50,
+          "description": "Number of bins for stratified policy.",
+          "exclusiveMinimum": 0,
+          "title": "Num Bins",
+          "type": "integer"
+        },
+        "cleaning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CleaningConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cleaning config. When set, outlier/duplicate detection runs before prioritization."
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/DataPrioritizationHealthThresholds",
+          "description": "Warning thresholds for the prioritization report."
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-prioritization",
+          "default": "data-prioritization",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DataPrioritizationWorkflowConfig",
       "type": "object"
     },
     "DataSplittingWorkflowConfig": {
@@ -2100,6 +2342,7 @@
               "mapping": {
                 "data-analysis": "#/$defs/DataAnalysisWorkflowConfig",
                 "data-cleaning": "#/$defs/DataCleaningWorkflowConfig",
+                "data-prioritization": "#/$defs/DataPrioritizationWorkflowConfig",
                 "data-splitting": "#/$defs/DataSplittingWorkflowConfig",
                 "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
                 "ood-detection": "#/$defs/OODDetectionWorkflowConfig"
@@ -2112,6 +2355,9 @@
               },
               {
                 "$ref": "#/$defs/DataCleaningWorkflowConfig"
+              },
+              {
+                "$ref": "#/$defs/DataPrioritizationWorkflowConfig"
               },
               {
                 "$ref": "#/$defs/DataSplittingWorkflowConfig"

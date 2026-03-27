@@ -79,3 +79,11 @@ class OODDetectionTaskConfig(MultiSourceTaskConfig):
     The ``workflow`` field references a workflow instance whose type must
     be ``ood-detection`` — enforced at runtime by the orchestrator.
     """
+
+
+class DataPrioritizationTaskConfig(MultiSourceTaskConfig):
+    """Task config for ``data-prioritization`` workflows.
+
+    Requires at least two sources: a reference (labeled) dataset and one
+    or more additional datasets to prioritize for labeling.
+    """

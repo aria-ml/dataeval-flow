@@ -16,7 +16,7 @@ if not UV_EXTRAS_OVERRIDE:
         with open(".cuda-version") as f:
             UV_EXTRAS_OVERRIDE = f.read().strip()
     if UV_EXTRAS_OVERRIDE not in ["cpu", "cu118", "cu124", "cu128"]:
-        UV_EXTRAS_OVERRIDE = "cu118"
+        UV_EXTRAS_OVERRIDE = "cpu"
 
 UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
 UV_EXTRAS_WITH_ONNX = UV_EXTRAS + ["onnx" if UV_EXTRAS_OVERRIDE == "cpu" else "onnx-gpu"]
