@@ -52,6 +52,6 @@ for name, variant in config["variants"].items():
         security_patches=variant.get("security_patches", []),
     )
 
-    out = root / f"Dockerfile.{name}"
+    out = root / "docker" / f"Dockerfile.{name}"
     out.write_text(rendered)
     print(f"Generated {out}")

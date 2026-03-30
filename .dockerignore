@@ -11,8 +11,8 @@
 
 # CI/CD and Docker config (not needed inside images)
 .gitlab-ci.yml
-Dockerfile.*
 docker/
+!docker/entrypoint.sh
 
 # Python artifacts
 .venv
@@ -35,7 +35,6 @@ __pycache__
 # Environment and secrets
 .env
 .env.*
-cosign.pub
 cosign.key
 
 # Documentation and metadata (not needed at runtime)

@@ -83,7 +83,7 @@ WORKDIR /app
 COPY --from=build /opt/python /opt/python
 COPY --from=build --chown=dataeval:dataeval /app/.venv /app/.venv
 COPY --chown=dataeval:dataeval src/ ./src/
-COPY --chown=dataeval:dataeval entrypoint.sh ./
+COPY --chown=dataeval:dataeval docker/entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH"

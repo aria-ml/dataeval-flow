@@ -1,0 +1,55 @@
+# Publish to PyPI using Trusted Publisher: https://docs.pypi.org/trusted-publishers/adding-a-publisher/
+name: Upload Python Package
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  pypi-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-publish
+      url: https://pypi.org/p/dataeval-flow
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Build package
+        run: uv build
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+
+          # Extract the section for this version from CHANGELOG.md
+          CHANGELOG=$(awk "/^## ${VERSION}\$/,/^## v[0-9]/" CHANGELOG.md | sed '$d' | tail -n +2)
+
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Release ${VERSION}"
+          fi
+
+          {
+            echo 'NOTES<<EOF'
+            echo "$CHANGELOG"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.NOTES }}
+          draft: false
+          prerelease: false
+          files: dist/*
+          generate_release_notes: true
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always

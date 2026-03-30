@@ -6,7 +6,7 @@ Workflow orchestration for DataEval with GPU support.
 
 ```bash
 # 1. Build CUDA 11.8 container
-docker build -f Dockerfile.cu118 -t dataeval:cu118 .
+docker build -f docker/Dockerfile.cu118 -t dataeval:cu118 .
 
 # 2. Show help
 docker run dataeval:cu118
@@ -115,7 +115,7 @@ Currently supported dataset structures:
 For machines without NVIDIA GPU:
 
 ```bash
-docker build -f Dockerfile.cpu -t dataeval:cpu .
+docker build -f docker/Dockerfile.cpu -t dataeval:cpu .
 docker run dataeval:cpu  # Shows help
 docker run \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \

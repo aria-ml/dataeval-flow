@@ -205,13 +205,13 @@ push:docker:
       docker buildx build --target test
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
       --cache-to type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT},mode=max,image-manifest=true
-      -f Dockerfile.${VARIANT} .
+      -f docker/Dockerfile.${VARIANT} .
 
     # Build + push production image (reuses cached layers from test build above)
     - >-
       docker buildx build --target prod
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
-      -f Dockerfile.${VARIANT}
+      -f docker/Dockerfile.${VARIANT}
       -t ${CI_APPLICATION_REPOSITORY}:${VARIANT}
       --push .
 
@@ -233,7 +233,7 @@ verify:docker:
     - apk add --no-cache cosign
   script:
     - docker pull "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
-    - cosign verify --key cosign.pub "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
+    - cosign verify --key docker/cosign.pub "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
 
     # Smoke test: verify the container actually boots
     - docker run --rm "${CI_APPLICATION_REPOSITORY}:${VARIANT}" --help

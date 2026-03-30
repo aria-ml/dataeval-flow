@@ -1,11 +1,11 @@
 # AUTO-GENERATED from docker/Dockerfile.j2 — do not edit directly.
 # Regenerate with: nox -s docker-gen
-# Variant: cu124
+# Variant: cpu
 
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS build
+FROM ubuntu:24.04 AS build
 
 # Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
@@ -28,7 +28,7 @@ RUN touch README.md
 
 # Install ONLY production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra all-cu124 --no-install-project
+    uv sync --frozen --no-dev --extra all-cpu --no-install-project
 
 # =============================================================================
 # Stage 2: Test — extend build with dev deps, run nox, validate code
@@ -39,7 +39,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 
 # Add dev dependencies on top of prod venv
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --group dev --extra all-cu124 --no-install-project
+    uv sync --frozen --group dev --extra all-cpu --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -57,13 +57,13 @@ USER dataeval
 # CI GATE: Run Tests & Linting
 # If this fails, the Docker build fails — nothing is published.
 # -------------------------------------------------------
-ENV DATAEVAL_NOX_UV_EXTRAS_OVERRIDE=cu124
+ENV DATAEVAL_NOX_UV_EXTRAS_OVERRIDE=cpu
 RUN nox
 
 # =============================================================================
 # Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
-FROM ubuntu:22.04 AS prod
+FROM ubuntu:24.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update \
@@ -83,22 +83,22 @@ WORKDIR /app
 COPY --from=build /opt/python /opt/python
 COPY --from=build --chown=dataeval:dataeval /app/.venv /app/.venv
 COPY --chown=dataeval:dataeval src/ ./src/
-COPY --chown=dataeval:dataeval entrypoint.sh ./
+COPY --chown=dataeval:dataeval docker/entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
 
 # Container labels
-LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 12.4)" \
-      org.opencontainers.image.description="DataEval Workflows container - CUDA 12.4 variant" \
+LABEL org.opencontainers.image.title="DataEval Workflows (CPU)" \
+      org.opencontainers.image.description="DataEval Workflows container - CPU variant" \
       org.opencontainers.image.version="0.1.0" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 
 USER dataeval
 
-ENV UV_EXTRAS_OVERRIDE=cu124
-ENV CONTAINER_MODE=gpu
+ENV UV_EXTRAS_OVERRIDE=cpu
+ENV CONTAINER_MODE=cpu
 ENV DATAEVAL_DATA=/dataeval
 ENV DATAEVAL_OUTPUT=/output
 

@@ -273,5 +273,5 @@ indent-style = "space"
 # --- Codespell ---
 
 [tool.codespell]
-skip = "./*env*,./output,./htmlcov,./.nox,uv.lock,./docs/source/notebooks/*,./cosign.pub,Dockerfile.*,*.onnx"
+skip = "./*env*,./output,./htmlcov,./.nox,uv.lock,./docs/source/notebooks/*,./docker/cosign.pub,./docker/Dockerfile.*,*.onnx"
 ignore-words-list = ["statics"]
