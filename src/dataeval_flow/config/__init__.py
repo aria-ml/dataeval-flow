@@ -24,12 +24,14 @@ __all__ = [
     "DataPrioritizationWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
     "OODDetectionWorkflowConfig",
+    "ParameterSweepWorkflowConfig",
     # Task configs
     "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",
     "DataPrioritizationTaskConfig",
     "DriftMonitoringTaskConfig",
     "OODDetectionTaskConfig",
+    "ParameterSweepTaskConfig",
     "TaskConfig",
     # Composition / pipeline
     "PipelineConfig",
@@ -69,6 +71,8 @@ from dataeval_flow.config.schemas import (
     OnnxExtractorConfig,
     OODDetectionTaskConfig,
     OODDetectionWorkflowConfig,
+    ParameterSweepTaskConfig,
+    ParameterSweepWorkflowConfig,
     PreprocessorConfig,
     ResultMetadata,
     SelectionConfig,

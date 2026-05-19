@@ -8,6 +8,7 @@ from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 from dataeval_flow.workflows.ood.params import OODDetectionParameters
+from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
 from dataeval_flow.workflows.prioritization.params import DataPrioritizationParameters
 from dataeval_flow.workflows.splitting.params import DataSplittingParameters
 
@@ -133,3 +134,22 @@ class DataPrioritizationWorkflowConfig(DataPrioritizationParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["data-prioritization"] = "data-prioritization"
+
+
+class ParameterSweepWorkflowConfig(ParameterSweepParameters):
+    """Typed workflow configuration for ``parameter-sweep``.
+
+    Inherits all fields from :class:`ParameterSweepParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: sweep_outlier_threshold
+            type: parameter-sweep
+            outlier_method: [adaptive]
+            outlier_threshold: [null, 1.0, 2.0, 3.0]
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["parameter-sweep"] = "parameter-sweep"

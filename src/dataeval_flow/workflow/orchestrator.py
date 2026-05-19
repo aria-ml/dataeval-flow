@@ -21,12 +21,17 @@ if TYPE_CHECKING:
         DataPrioritizationTaskConfig,
         DriftMonitoringTaskConfig,
         OODDetectionTaskConfig,
+        ParameterSweepTaskConfig,
     )
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
     from dataeval_flow.workflows.drift.outputs import DriftMonitoringMetadata, DriftMonitoringOutputs
     from dataeval_flow.workflows.ood.outputs import OODDetectionMetadata, OODDetectionOutputs
+    from dataeval_flow.workflows.parameter_sweep.outputs import (
+        ParameterSweepMetadata,
+        ParameterSweepOutputs,
+    )
     from dataeval_flow.workflows.prioritization.outputs import DataPrioritizationMetadata, DataPrioritizationOutputs
 
 
@@ -417,6 +422,13 @@ def run_task(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
 ) -> "WorkflowResult[DataPrioritizationMetadata, DataPrioritizationOutputs]": ...
+@overload
+def run_task(
+    task: "ParameterSweepTaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "WorkflowResult[ParameterSweepMetadata, ParameterSweepOutputs]": ...
 @overload
 def run_task(
     task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None

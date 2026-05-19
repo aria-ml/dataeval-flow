@@ -6,22 +6,25 @@ import contextlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import polars as pl
 from dataeval import Metadata
 from dataeval.flags import ImageStats
 from dataeval.protocols import AnnotatedDataset
-from dataeval.quality import Duplicates, DuplicatesOutput, Outliers
+from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
 
 from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflows.cleaning._internal import (
+    _compute_embeddings,
+    _merge_duplicate_results,
+    _merge_outlier_outputs,
+)
 from dataeval_flow.workflows.cleaning.outputs import (
-    ClasswisePivotDict,
-    ClasswiseRowDict,
     DataCleaningMetadata,
     DataCleaningOutputs,
     DataCleaningRawOutputs,
@@ -37,11 +40,6 @@ from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.cleaning.report import build_findings, collect_flagged_indices
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Protocols for private DataEval types
-# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -136,27 +134,15 @@ def _build_duplicates(
 
 
 def _serialize_outlier_issues(issues: "pl.DataFrame") -> "OutlierIssuesDict":
-    """Serialize outlier issues Polars DataFrame to plain dict.
-
-    Parameters
-    ----------
-    issues : polars.DataFrame
-        Polars DataFrame with columns: item_index, metric_name, metric_value,
-        and optionally target_index.
-    """
+    """Serialize outlier issues Polars DataFrame to plain dict."""
     return {
-        # to_dicts() returns list[dict[str, Any]]; rows match OutlierIssueRecord shape at runtime.
         "issues": issues.to_dicts(),  # type: ignore[typeddict-item]
         "count": len(issues),
     }
 
 
-def _serialize_duplicates(result: "DuplicatesOutput") -> "DuplicatesDict":
-    """Serialize DuplicatesOutput to plain dict from its DataFrame.
-
-    DuplicatesOutput wraps a DataFrame with columns: group_id, level,
-    dup_type, item_indices, target_indices, methods, orientation.
-    """
+def _serialize_duplicates(result: Any) -> "DuplicatesDict":
+    """Serialize DuplicatesOutput to plain dict from its DataFrame."""
 
     def _indices_from_row(row: dict[str, Any]) -> list[IndexValue]:
         """Build index list from a DataFrame row, using SourceIndexDict for targets."""
@@ -276,18 +262,7 @@ class CleaningRunContext:
 def _build_class_labels_df(
     metadata: "Metadata",
 ) -> tuple[pl.DataFrame, list[str], dict[str, int]]:
-    """Build a DataFrame mapping items/targets to class names and label counts.
-
-    Returns
-    -------
-    labels_df
-        DataFrame with ``item_index``, optionally ``target_index``, and ``class_name``.
-    id_cols
-        Column names to use as join keys (``["item_index"]`` or
-        ``["item_index", "target_index"]``).
-    label_counts
-        Number of items/targets per class name.
-    """
+    """Build a DataFrame mapping items/targets to class names and label counts."""
     index2label = metadata.index2label
     has_targets = metadata.has_targets()
 
@@ -314,14 +289,8 @@ def _compute_classwise_pivot(
     target_issues: "pl.DataFrame | None",
     img_issues: "pl.DataFrame",
     metadata: "Metadata | None",
-) -> "ClasswisePivotDict | None":
-    """Compute classwise outlier pivot from the globally-detected outlier issues.
-
-    Groups the same target (or image) outlier issues used for the headline
-    count by class, so the per-class rows sum to the headline total.
-
-    Returns a simplified summary with count and % of labels flagged per class.
-    """
+) -> Any:
+    """Compute classwise outlier pivot from the globally-detected outlier issues."""
     if metadata is None:
         return None
     try:
@@ -353,7 +322,7 @@ def _compute_classwise_pivot(
             .sort("len", descending=True)
         )
 
-        rows: list[ClasswiseRowDict] = []
+        rows: list[Any] = []
         grand_total = 0
         for row_dict in unique_per_class.to_dicts():
             name = str(row_dict.get("class_name", ""))
@@ -366,90 +335,13 @@ def _compute_classwise_pivot(
         total_pct = round((grand_total / total_labels) * 100, 1) if total_labels > 0 else 0.0
         rows.append({"class_name": "Total", "count": grand_total, "pct": total_pct})
 
-        return ClasswisePivotDict(
-            level="target" if has_targets else "image",
-            rows=rows,
-        )
+        return {
+            "level": "target" if has_targets else "image",
+            "rows": rows,
+        }
     except Exception:  # noqa: BLE001
         logger.warning("Classwise pivot unavailable", exc_info=True)
     return None
-
-
-def _compute_embeddings(
-    dataset: AnnotatedDataset[Any],
-    extractor: Callable,
-    run_ctx: CleaningRunContext | None,
-) -> Any:
-    """Compute or load cached embeddings for cluster-based detection."""
-    import time as _time
-
-    logger.info("  [4c] Loading embeddings for cluster-based detection…")
-    _t0 = _time.monotonic()
-    if run_ctx is not None and run_ctx.extractor_config is not None:
-        from dataeval_flow.cache import get_or_compute_embeddings
-
-        embeddings_array = get_or_compute_embeddings(
-            dataset,
-            run_ctx.extractor_config,
-            run_ctx.transforms,
-            run_ctx.batch_size,
-        )
-    else:
-        from dataeval.utils.arrays import flatten_samples, to_numpy
-
-        images = [item[0] if isinstance(item, tuple) else item for item in dataset]
-        embeddings = extractor(images)  # type: ignore[misc]
-        embeddings_array = flatten_samples(to_numpy(embeddings))
-    logger.info("  [4c] Embeddings ready in %.1fs", _time.monotonic() - _t0)
-    return embeddings_array
-
-
-def _merge_outlier_outputs(
-    outliers_eval: Outliers,
-    stats_output: Any,
-    embeddings_array: Any,
-    params: DataCleaningParameters,
-    run_ctx: CleaningRunContext | None,
-) -> Any:
-    """Run cluster-based outlier detection and merge with stats-based results.
-
-    Returns the merged OutliersOutput combining stats-based and cluster-based issues.
-    """
-    import time as _time
-
-    from dataeval.quality import OutliersOutput
-
-    from dataeval_flow.cache import get_or_compute_cluster_result
-
-    logger.info("  [4d] Running cluster-based outlier detection…")
-    _t0 = _time.monotonic()
-    outlier_cluster_result = get_or_compute_cluster_result(
-        embeddings_array,
-        algorithm=params.outlier_cluster_algorithm or "hdbscan",
-        n_clusters=params.outlier_n_clusters,
-        extractor_config=run_ctx.extractor_config if run_ctx else None,
-        transforms=run_ctx.transforms if run_ctx else None,
-    )
-    cluster_outlier_output = outliers_eval.from_clusters(
-        embeddings_array,
-        outlier_cluster_result,
-        cluster_threshold=params.outlier_cluster_threshold,
-    )
-    logger.info("  [4d] Cluster-based outlier detection done in %.1fs", _time.monotonic() - _t0)
-
-    # Merge stats-based + cluster-based issues via concat
-    column_order = ["item_index", "target_index", "metric_name", "metric_value"]
-    stats_issues = stats_output.data()
-    cluster_issues = cluster_outlier_output.data()
-    dfs: list[pl.DataFrame] = []
-    for df in [stats_issues, cluster_issues]:
-        if "target_index" not in df.columns:
-            df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("target_index"))
-        dfs.append(df.select(column_order))
-    merged_issues = pl.concat(dfs).sort(["item_index", "metric_name"])
-    if merged_issues["target_index"].null_count() == len(merged_issues):
-        merged_issues = merged_issues.drop("target_index")
-    return OutliersOutput(merged_issues)
 
 
 def _run_duplicate_detection(
@@ -458,11 +350,8 @@ def _run_duplicate_detection(
     calc_result: Any,
     embeddings_array: Any | None,
     run_ctx: CleaningRunContext | None,
-) -> DuplicatesOutput:
-    """Run hash-based and optionally cluster-based duplicate detection.
-
-    Returns the final DuplicatesOutput (merged if cluster-based detection is used).
-    """
+) -> Any:
+    """Run hash-based and optionally cluster-based duplicate detection."""
     import time as _time
 
     logger.info("  [4e] Running duplicate detection…")
@@ -475,55 +364,13 @@ def _run_duplicate_detection(
     duplicates_eval = Duplicates(**dup_kwargs)  # type: ignore[arg-type]
     hash_dup_result = duplicates_eval.from_stats(calc_result)  # type: ignore[arg-type]
 
-    has_dup_cluster = embeddings_array is not None and params.duplicate_cluster_sensitivity is not None
-    if has_dup_cluster:
+    if embeddings_array is not None and params.duplicate_cluster_sensitivity is not None:
         duplicates_result = _merge_duplicate_results(hash_dup_result, embeddings_array, params, run_ctx)
     else:
         duplicates_result = hash_dup_result
 
     logger.info("  [4e] Duplicate detection done in %.1fs", _time.monotonic() - _t0)
     return duplicates_result
-
-
-def _merge_duplicate_results(
-    hash_dup_result: DuplicatesOutput,
-    embeddings_array: Any,
-    params: DataCleaningParameters,
-    run_ctx: CleaningRunContext | None,
-) -> DuplicatesOutput:
-    """Run cluster-based duplicate detection and merge with hash-based results."""
-    from dataeval_flow.cache import get_or_compute_cluster_result
-
-    dup_cluster_result = get_or_compute_cluster_result(
-        embeddings_array,
-        algorithm=params.duplicate_cluster_algorithm or "hdbscan",
-        n_clusters=params.duplicate_n_clusters,
-        extractor_config=run_ctx.extractor_config if run_ctx else None,
-        transforms=run_ctx.transforms if run_ctx else None,
-    )
-    dup_cluster_eval = Duplicates(
-        merge_near_duplicates=params.duplicate_merge_near,
-        cluster_sensitivity=params.duplicate_cluster_sensitivity,
-    )
-    cluster_dup_result = dup_cluster_eval.from_clusters(dup_cluster_result)
-
-    hash_df = hash_dup_result.data()
-    cluster_df = cluster_dup_result.data()
-    if len(cluster_df) == 0:
-        return hash_dup_result
-
-    # Re-number cluster group_ids to avoid collision with hash group_ids
-    max_group_id = cast(int, hash_df["group_id"].max()) + 1 if len(hash_df) > 0 else 0
-    cluster_df = cluster_df.with_columns(pl.col("group_id") + max_group_id)
-    # Align columns before concat
-    for col in hash_df.columns:
-        if col not in cluster_df.columns:
-            cluster_df = cluster_df.with_columns(pl.lit(None).alias(col).cast(hash_df[col].dtype))
-    for col in cluster_df.columns:
-        if col not in hash_df.columns:
-            hash_df = hash_df.with_columns(pl.lit(None).alias(col).cast(cluster_df[col].dtype))
-    merged_df = pl.concat([hash_df.select(sorted(hash_df.columns)), cluster_df.select(sorted(hash_df.columns))])
-    return DuplicatesOutput(merged_df)
 
 
 def _run_cleaning(
@@ -533,14 +380,7 @@ def _run_cleaning(
     metadata: Metadata | None = None,
     run_ctx: CleaningRunContext | None = None,
 ) -> DataCleaningRawOutputs:
-    """Run outlier + duplicate detection on dataset.
-
-    Stats are obtained via :func:`~dataeval_flow.cache.get_or_compute_stats`,
-    which transparently handles caching via the :func:`active_cache` context.
-    Evaluators consume pre-computed stats via ``from_stats()``; cluster-based
-    detection (when an extractor is configured) is handled separately via
-    ``from_clusters()`` / ``evaluate()``.
-    """
+    """Run outlier + duplicate detection on dataset."""
     import time as _time
 
     from dataeval_flow.cache import get_or_compute_stats

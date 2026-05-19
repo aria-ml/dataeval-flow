@@ -1728,6 +1728,197 @@
       "title": "OnnxExtractorConfig",
       "type": "object"
     },
+    "ParameterSweepWorkflowConfig": {
+      "description": "Typed workflow configuration for ``parameter-sweep``.\n\nInherits all fields from :class:`ParameterSweepParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: sweep_outlier_threshold\n        type: parameter-sweep\n        outlier_method: [adaptive]\n        outlier_threshold: [null, 1.0, 2.0, 3.0]",
+      "properties": {
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "outlier_flags": {
+          "default": [
+            "dimension",
+            "pixel",
+            "visual"
+          ],
+          "description": "Image statistics groups for outlier detection. At least one required.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outlier Flags",
+          "type": "array"
+        },
+        "duplicate_flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash).",
+          "title": "Duplicate Flags"
+        },
+        "duplicate_merge_near": {
+          "default": true,
+          "description": "Merge overlapping near-duplicate groups from different detection methods.",
+          "title": "Duplicate Merge Near",
+          "type": "boolean"
+        },
+        "outlier_method": {
+          "default": [
+            "adaptive"
+          ],
+          "description": "Statistical method(s) for outlier detection.",
+          "items": {
+            "enum": [
+              "adaptive",
+              "zscore",
+              "modzscore",
+              "iqr"
+            ],
+            "type": "string"
+          },
+          "title": "Outlier Method",
+          "type": "array"
+        },
+        "outlier_threshold": {
+          "default": [
+            null
+          ],
+          "description": "Custom threshold(s) (None = use DataEval default for chosen method).",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Outlier Threshold",
+          "type": "array"
+        },
+        "outlier_cluster_threshold": {
+          "default": [
+            null
+          ],
+          "description": "Std devs from cluster center to flag as outlier. None = skip cluster detection.",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Outlier Cluster Threshold",
+          "type": "array"
+        },
+        "outlier_cluster_algorithm": {
+          "default": [
+            null
+          ],
+          "description": "Clustering algorithm(s) for cluster-based outlier detection.",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "kmeans",
+                  "hdbscan"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Outlier Cluster Algorithm",
+          "type": "array"
+        },
+        "duplicate_cluster_sensitivity": {
+          "default": [
+            null
+          ],
+          "description": "Threshold(s) for cluster-based near duplicate detection. None = skip cluster detection.",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Duplicate Cluster Sensitivity",
+          "type": "array"
+        },
+        "duplicate_cluster_algorithm": {
+          "default": [
+            null
+          ],
+          "description": "Clustering algorithm(s) for cluster-based duplicate detection.",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "kmeans",
+                  "hdbscan"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Duplicate Cluster Algorithm",
+          "type": "array"
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "parameter-sweep",
+          "default": "parameter-sweep",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ParameterSweepWorkflowConfig",
+      "type": "object"
+    },
     "PreprocessingStep": {
       "description": "Single preprocessing step.\n\nPass-through to torchvision.transforms.v2 - any transform name is allowed.\nSee: https://pytorch.org/vision/stable/transforms.html\n\nExample\n-------\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
       "properties": {
@@ -2345,7 +2536,8 @@
                 "data-prioritization": "#/$defs/DataPrioritizationWorkflowConfig",
                 "data-splitting": "#/$defs/DataSplittingWorkflowConfig",
                 "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
-                "ood-detection": "#/$defs/OODDetectionWorkflowConfig"
+                "ood-detection": "#/$defs/OODDetectionWorkflowConfig",
+                "parameter-sweep": "#/$defs/ParameterSweepWorkflowConfig"
               },
               "propertyName": "type"
             },
@@ -2367,6 +2559,9 @@
               },
               {
                 "$ref": "#/$defs/OODDetectionWorkflowConfig"
+              },
+              {
+                "$ref": "#/$defs/ParameterSweepWorkflowConfig"
               }
             ]
           },

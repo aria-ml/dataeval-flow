@@ -87,3 +87,7 @@ class DataPrioritizationTaskConfig(MultiSourceTaskConfig):
     Requires at least two sources: a reference (labeled) dataset and one
     or more additional datasets to prioritize for labeling.
     """
+
+
+class ParameterSweepTaskConfig(TaskConfig):
+    """Task config for ``parameter-sweep`` workflows."""
