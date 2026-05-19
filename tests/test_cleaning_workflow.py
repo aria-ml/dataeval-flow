@@ -4,6 +4,7 @@ import logging
 from typing import Literal
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import polars as pl
 import pytest
 
@@ -431,12 +432,22 @@ class TestDataCleaningWorkflowExecute:
         # _run_cleaning should receive the selected dataset
         assert mock_run_clean.call_args[0][0] is selected_dataset
 
+    @patch("dataeval_flow.workflows.cleaning.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.cleaning.workflow.active_cache")
     @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_flow.metadata.Metadata")
-    @patch("dataeval_flow.embeddings.OnnxExtractor")
-    def test_with_embeddings(self, mock_extractor_cls: MagicMock, mock_meta_cls: MagicMock, mock_run_clean: MagicMock):
+    @patch("dataeval_flow.workflows.cleaning.workflow.build_extractor")
+    def test_with_embeddings(
+        self,
+        mock_build_ext: MagicMock,
+        mock_meta_cls: MagicMock,
+        mock_run_clean: MagicMock,
+        mock_cache: MagicMock,
+        mock_get_meta: MagicMock,
+    ):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
+        mock_build_ext.return_value = MagicMock()
 
         ctx = WorkflowContext(
             dataset_contexts={
@@ -444,6 +455,7 @@ class TestDataCleaningWorkflowExecute:
                     name="default",
                     dataset=mock_dataset,
                     extractor=OnnxExtractorConfig(name="test_ext", model_path="./model.onnx", output_name="layer4"),
+                    cache=MagicMock(),
                 )
             }
         )
@@ -453,7 +465,8 @@ class TestDataCleaningWorkflowExecute:
 
         result = wf.execute(ctx, self._make_exec_params())
         assert result.success
-        mock_extractor_cls.assert_called_once()
+        # build_extractor called in execute()
+        mock_build_ext.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -833,12 +846,14 @@ class TestComputeClasswisePivot:
 
 
 class TestComputeEmbeddings:
-    @patch("dataeval_flow.cache.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_embeddings")
     def test_with_extractor_config(self, mock_get_emb: MagicMock):
         """Uses cached embeddings when extractor_config is available."""
         mock_get_emb.return_value = "cached_embeddings"
         dataset = MagicMock()
-        run_ctx = CleaningRunContext(extractor_config=MagicMock(), transforms=None, batch_size=32)
+        extractor_cfg = MagicMock()
+        extractor_cfg.model = "onnx"  # implementation expects implemented model name
+        run_ctx = CleaningRunContext(extractor_config=extractor_cfg, transforms=None, batch_size=32)
 
         result = _compute_embeddings(dataset, MagicMock(), run_ctx)
         assert result == "cached_embeddings"
@@ -848,8 +863,6 @@ class TestComputeEmbeddings:
         """Falls back to direct extractor call when no extractor_config."""
         import sys
         import types
-
-        import numpy as np
 
         # Stub the lazy-imported module
         arrays_mod = types.ModuleType("dataeval.utils.arrays")
@@ -876,8 +889,6 @@ class TestMergeOutlierOutputs:
     @patch("dataeval_flow.cache.get_or_compute_cluster_result")
     def test_merges_stats_and_cluster(self, mock_cluster: MagicMock):
         """Stats-based and cluster-based outlier issues are concatenated."""
-        import numpy as np
-
         # Mock stats output
         stats_df = pl.DataFrame(
             {
@@ -904,9 +915,9 @@ class TestMergeOutlierOutputs:
 
         mock_cluster.return_value = MagicMock()
         params = _make_params(outlier_cluster_threshold=2.5, outlier_cluster_algorithm="hdbscan")
-        embeddings = np.zeros((10, 64))
+        embeddings = np.zeros((10, 64), dtype=np.float32)
 
-        result = _merge_outlier_outputs(outliers_eval, stats_output, embeddings, params, run_ctx=None)
+        result = _merge_outlier_outputs(outliers_eval, stats_output, embeddings, params, _run_ctx=None)
         # Result is an OutliersOutput wrapping the merged DataFrame
         merged = result.data()
         assert merged.shape[0] == 2
@@ -939,7 +950,6 @@ class TestRunDuplicateDetection:
     @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
     def test_with_cluster(self, mock_dup_cls: MagicMock, mock_merge: MagicMock):
         """Cluster-based detection triggers merge."""
-        import numpy as np
         from dataeval.flags import ImageStats
 
         hash_result = MagicMock()
@@ -949,7 +959,7 @@ class TestRunDuplicateDetection:
         mock_merge.return_value = MagicMock()
 
         params = _make_params(duplicate_cluster_sensitivity=0.5)
-        embeddings = np.zeros((10, 64))
+        embeddings = np.zeros((10, 64), dtype=np.float32)
         _run_duplicate_detection(params, ImageStats.HASH_DUPLICATES_BASIC, MagicMock(), embeddings, run_ctx=None)
         mock_merge.assert_called_once()
 
@@ -961,7 +971,7 @@ class TestRunDuplicateDetection:
 
 class TestMergeDuplicateResults:
     @patch("dataeval_flow.cache.get_or_compute_cluster_result")
-    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_merge_hash_and_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Hash and cluster duplicate results are merged with re-numbered group IDs."""
         hash_df = pl.DataFrame(
@@ -991,7 +1001,8 @@ class TestMergeDuplicateResults:
         mock_cluster.return_value = MagicMock()
 
         params = _make_params(duplicate_cluster_sensitivity=0.5)
-        result = _merge_duplicate_results(hash_result, "embeddings", params, run_ctx=None)
+        embeddings = np.zeros((10, 64), dtype=np.float32)
+        result = _merge_duplicate_results(hash_result, embeddings, params, _run_ctx=None)
         merged = result.data()
         # Cluster group IDs should be re-numbered to avoid collision
         assert merged.shape[0] == 4
@@ -999,7 +1010,7 @@ class TestMergeDuplicateResults:
         assert len(group_ids) == 2  # original 0 + re-numbered 1
 
     @patch("dataeval_flow.cache.get_or_compute_cluster_result")
-    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_empty_cluster_returns_hash(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Empty cluster result returns hash result as-is."""
         hash_result = MagicMock()
@@ -1027,7 +1038,8 @@ class TestMergeDuplicateResults:
         mock_cluster.return_value = MagicMock()
 
         params = _make_params(duplicate_cluster_sensitivity=0.5)
-        result = _merge_duplicate_results(hash_result, "embeddings", params, run_ctx=None)
+        embeddings = np.zeros((10, 64), dtype=np.float32)
+        result = _merge_duplicate_results(hash_result, embeddings, params, _run_ctx=None)
         assert result is hash_result
 
 
@@ -1087,8 +1099,6 @@ class TestComputeClasswisePivotException:
 class TestMergeOutlierOutputsMissingTargetIndex:
     @patch("dataeval_flow.cache.get_or_compute_cluster_result")
     def test_adds_target_index_when_missing(self, mock_cluster: MagicMock):
-        import numpy as np
-
         stats_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
         stats_output = MagicMock()
         stats_output.data.return_value = stats_df
@@ -1101,9 +1111,9 @@ class TestMergeOutlierOutputsMissingTargetIndex:
         mock_cluster.return_value = MagicMock()
 
         params = _make_params(outlier_cluster_threshold=2.5, outlier_cluster_algorithm="hdbscan")
-        embeddings = np.zeros((10, 64))
+        embeddings = np.zeros((10, 64), dtype=np.float32)
 
-        result = _merge_outlier_outputs(outliers_eval, stats_output, embeddings, params, run_ctx=None)
+        result = _merge_outlier_outputs(outliers_eval, stats_output, embeddings, params, _run_ctx=None)
         merged = result.data()
         assert merged.shape[0] == 2
         assert "target_index" not in merged.columns  # all null → dropped
@@ -1138,7 +1148,7 @@ class TestRunDuplicateDetectionCustomFlags:
 
 class TestMergeDuplicateResultsColumnAlignment:
     @patch("dataeval_flow.cache.get_or_compute_cluster_result")
-    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_hash_missing_col_added_from_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         hash_df = pl.DataFrame({"group_id": [0], "level": ["item"], "dup_type": ["exact"], "item_indices": [[0, 1]]})
         hash_result = MagicMock()
@@ -1161,7 +1171,8 @@ class TestMergeDuplicateResultsColumnAlignment:
         mock_cluster.return_value = MagicMock()
 
         params = _make_params(duplicate_cluster_sensitivity=0.5)
-        result = _merge_duplicate_results(hash_result, "embeddings", params, run_ctx=None)
+        embeddings = np.zeros((10, 64), dtype=np.float32)
+        result = _merge_duplicate_results(hash_result, embeddings, params, _run_ctx=None)
         merged = result.data()
         assert merged.shape[0] == 2
         assert "orientation" in merged.columns
@@ -1186,8 +1197,6 @@ class TestRunCleaningClusterBranches:
         mock_compute_emb: MagicMock,
         mock_merge_outlier: MagicMock,
     ):
-        import numpy as np
-
         mock_get_stats.return_value = {}
 
         issues_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
@@ -1204,7 +1213,7 @@ class TestRunCleaningClusterBranches:
         merged_output.data.return_value = merged_df
         mock_merge_outlier.return_value = merged_output
 
-        mock_compute_emb.return_value = np.zeros((10, 64))
+        mock_compute_emb.return_value = np.zeros((10, 64), dtype=np.float32)
 
         empty_dup_df = pl.DataFrame(
             {

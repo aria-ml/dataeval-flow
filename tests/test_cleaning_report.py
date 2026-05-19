@@ -413,7 +413,7 @@ class TestHealthThresholdSeverity:
         assert f.severity == "warning"
 
     def test_default_thresholds_exact_dup_always_warns(self):
-        """Default exact_duplicates=0.0 means any exact dups trigger warning."""
+        """Default exact_duplicates=0.0 means any exact duplicates trigger warning."""
         raw = DataCleaningRawOutputs(
             dataset_size=1000,
             duplicates={

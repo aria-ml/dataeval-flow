@@ -35,6 +35,7 @@ from dataeval_flow.config.schemas._task import (
     DataSplittingTaskConfig,
     DriftMonitoringTaskConfig,
     OODDetectionTaskConfig,
+    ParameterSweepTaskConfig,
     TaskConfig,
 )
 from dataeval_flow.config.schemas._workflow import (
@@ -44,6 +45,7 @@ from dataeval_flow.config.schemas._workflow import (
     DataSplittingWorkflowConfig,
     DriftMonitoringWorkflowConfig,
     OODDetectionWorkflowConfig,
+    ParameterSweepWorkflowConfig,
 )
 
 # -- discriminated-union aliases (internal) ---------------------------------
@@ -68,7 +70,8 @@ WorkflowConfig = Annotated[
     | DataPrioritizationWorkflowConfig
     | DataSplittingWorkflowConfig
     | DriftMonitoringWorkflowConfig
-    | OODDetectionWorkflowConfig,
+    | OODDetectionWorkflowConfig
+    | ParameterSweepWorkflowConfig,
     Field(discriminator="type"),
 ]
 
@@ -94,6 +97,7 @@ __all__ = [
     "DataSplittingWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
     "OODDetectionWorkflowConfig",
+    "ParameterSweepWorkflowConfig",
     "WorkflowConfig",
     # Task
     "AutoBinMethod",
@@ -103,6 +107,7 @@ __all__ = [
     "DataSplittingTaskConfig",
     "DriftMonitoringTaskConfig",
     "OODDetectionTaskConfig",
+    "ParameterSweepTaskConfig",
     "TaskConfig",
     # Other
     "PreprocessorConfig",

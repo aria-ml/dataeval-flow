@@ -80,7 +80,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import polars as pl
-from dataeval.core import ClusterResult
+from dataeval.core import ClusterResult, StatsResult
 from dataeval.flags import ImageStats
 from dataeval.protocols import AnnotatedDataset, Array
 from numpy.typing import NDArray
@@ -423,19 +423,17 @@ def _do_compute_stats(
     per_image: bool = True,
     per_target: bool = True,
     per_channel: bool = False,
-) -> dict[str, Any]:
-    """Compute stats and return as a plain dict."""
+) -> StatsResult:
+    """Compute stats and return."""
     from dataeval.core._compute_stats import compute_stats
 
-    return dict(
-        compute_stats(
-            dataset,
-            stats=desired_flags,
-            per_image=per_image,
-            per_target=per_target,
-            per_channel=per_channel,
-            normalize_pixel_values=True,
-        )
+    return compute_stats(
+        dataset,
+        stats=desired_flags,
+        per_image=per_image,
+        per_target=per_target,
+        per_channel=per_channel,
+        normalize_pixel_values=True,
     )
 
 
@@ -491,7 +489,7 @@ def get_or_compute_stats(
     per_image: bool = True,
     per_target: bool = True,
     per_channel: bool = False,
-) -> dict[str, Any]:
+) -> StatsResult:
     """Centralized stats computation with context-aware caching.
 
     Uses the :func:`active_cache` context when set, otherwise computes
@@ -1173,7 +1171,7 @@ class DatasetCache:
         self,
         selection_repr: str,
         scope: str,
-    ) -> dict[str, Any] | None:
+    ) -> StatsResult | None:
         """Load cached ``StatsResult``, or ``None`` on miss.
 
         Returns the full dict with whatever metrics are currently cached.
@@ -1212,13 +1210,13 @@ class DatasetCache:
 
             source_index = [SourceIndex(item=s[0], target=s[1], channel=s[2]) for s in aux["source_index"]]
 
-            result = {
-                "source_index": source_index,
-                "object_count": aux["object_count"],
-                "invalid_box_count": aux["invalid_box_count"],
-                "image_count": aux["image_count"],
-                "stats": stats,
-            }
+            result = StatsResult(
+                source_index=source_index,
+                object_count=aux["object_count"],
+                invalid_box_count=aux["invalid_box_count"],
+                image_count=aux["image_count"],
+                stats=stats,
+            )
             self._mem_set(selection_repr, obj_key, result)
             return result
         except Exception:  # noqa: BLE001
@@ -1292,7 +1290,7 @@ class DatasetCache:
         per_image: bool = True,
         per_target: bool = True,
         per_channel: bool = False,
-    ) -> dict[str, Any]:
+    ) -> StatsResult:
         """Load cached stats, compute any missing metrics, merge, and save.
 
         Parameters
@@ -1335,21 +1333,20 @@ class DatasetCache:
         fresh = _do_compute_stats(dataset, to_compute, per_image, per_target, per_channel)
 
         if cached is None:
-            fresh_dict = dict(fresh)
-            self.save_stats(selection_repr, scope, fresh_dict)
-            return fresh_dict
+            self.save_stats(selection_repr, scope, dict(fresh))
+            return fresh
 
         # Merge: cached structural fields + merged stats dict
         merged_stats = dict(cached["stats"])
         merged_stats.update(fresh["stats"])
 
-        merged: dict[str, Any] = {
-            "source_index": cached["source_index"],
-            "object_count": cached["object_count"],
-            "invalid_box_count": cached["invalid_box_count"],
-            "image_count": cached["image_count"],
-            "stats": merged_stats,
-        }
+        merged = StatsResult(
+            source_index=cached["source_index"],
+            object_count=cached["object_count"],
+            invalid_box_count=cached["invalid_box_count"],
+            image_count=cached["image_count"],
+            stats=merged_stats,
+        )
 
-        self.save_stats(selection_repr, scope, merged)
+        self.save_stats(selection_repr, scope, dict(merged))
         return merged
