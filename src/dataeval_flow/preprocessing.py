@@ -69,7 +69,7 @@ class _PreprocessingTransform:
     def __call__(self, image: NDArray[Any]) -> NDArray[Any]:
         import torch
 
-        tensor = torch.as_tensor(np.ascontiguousarray(image))
+        tensor = torch.as_tensor(np.ascontiguousarray(image))  # pyright: ignore[reportPrivateImportUsage]
         result = self.__wrapped__(tensor)
         return np.asarray(result.detach().cpu())
 
@@ -101,10 +101,10 @@ def build_preprocessing(steps: Sequence[PreprocessingStep]) -> _PreprocessingTra
     from torchvision.transforms import InterpolationMode, v2
 
     # Special parameter converters for non-primitive types
-    def _resolve_dtype(name: object) -> torch.dtype:
+    def _resolve_dtype(name: object) -> torch.dtype:  # pyright: ignore[reportPrivateImportUsage]
         attr = str(name)
         result = getattr(torch, attr, None)
-        if result is None or not isinstance(result, torch.dtype):
+        if result is None or not isinstance(result, torch.dtype):  # pyright: ignore[reportPrivateImportUsage]
             raise ValueError(f"Unknown torch dtype: '{name}'. Example: 'float32', 'uint8'.")
         return result
 

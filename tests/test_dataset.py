@@ -499,7 +499,6 @@ def _make_bboxes(
 
 def _make_od_dataset(num_samples: int = 5, classes: list[str] | None = None, box_format: str = "XYXY"):
     """Create a fake torchvision v2-wrapped object detection dataset."""
-    import torch
     from torchvision.tv_tensors import BoundingBoxFormat
 
     fmt = BoundingBoxFormat[box_format]
@@ -518,8 +517,8 @@ def _make_od_dataset(num_samples: int = 5, classes: list[str] | None = None, box
             img = Image.fromarray(rng.randint(0, 255, (64, 64, 3), dtype=np.uint8))
             n_boxes = rng.randint(1, 4)
             raw_boxes = rng.randint(1, 50, (n_boxes, 4)).astype(np.float32)
-            boxes = _make_bboxes(torch.tensor(raw_boxes), format=fmt, canvas_size=(64, 64))
-            labels = torch.tensor(rng.randint(0, max(len(classes), 2) if classes else 2, n_boxes))
+            boxes = _make_bboxes(raw_boxes, format=fmt, canvas_size=(64, 64))
+            labels = rng.randint(0, max(len(classes), 2) if classes else 2, n_boxes)
             return img, {"boxes": boxes, "labels": labels}
 
     return _FakeOD()
@@ -715,7 +714,6 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_xywh_converted_to_xyxy(self) -> None:
         """XYWH bounding boxes are converted to XYXY."""
-        import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
         from dataeval_flow.dataset import TorchvisionDataset
@@ -732,9 +730,9 @@ class TestTorchvisionDatasetObjectDetection:
                 img = Image.new("RGB", (100, 100))
                 # XYWH (10, 20, 30, 40) → XYXY (10, 20, 40, 60)
                 boxes = _make_bboxes(
-                    torch.tensor([[10.0, 20.0, 30.0, 40.0]]), format=BoundingBoxFormat.XYWH, canvas_size=(100, 100)
+                    np.array([[10.0, 20.0, 30.0, 40.0]]), format=BoundingBoxFormat.XYWH, canvas_size=(100, 100)
                 )
-                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+                return img, {"boxes": boxes, "labels": np.array([0])}
 
         ds = TorchvisionDataset(_XYWHDs())
         _, tgt, _ = ds[0]
@@ -742,7 +740,6 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_cxcywh_converted_to_xyxy(self) -> None:
         """CXCYWH bounding boxes are converted to XYXY."""
-        import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
         from dataeval_flow.dataset import TorchvisionDataset
@@ -759,9 +756,9 @@ class TestTorchvisionDatasetObjectDetection:
                 img = Image.new("RGB", (100, 100))
                 # CXCYWH (50, 50, 20, 30) → XYXY (40, 35, 60, 65)
                 boxes = _make_bboxes(
-                    torch.tensor([[50.0, 50.0, 20.0, 30.0]]), format=BoundingBoxFormat.CXCYWH, canvas_size=(100, 100)
+                    np.array([[50.0, 50.0, 20.0, 30.0]]), format=BoundingBoxFormat.CXCYWH, canvas_size=(100, 100)
                 )
-                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+                return img, {"boxes": boxes, "labels": np.array([0])}
 
         ds = TorchvisionDataset(_CXCYWHDs())
         _, tgt, _ = ds[0]
@@ -769,7 +766,6 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_xyxy_passed_through(self) -> None:
         """XYXY bounding boxes are not modified."""
-        import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
         from dataeval_flow.dataset import TorchvisionDataset
@@ -785,18 +781,16 @@ class TestTorchvisionDatasetObjectDetection:
 
                 img = Image.new("RGB", (100, 100))
                 boxes = _make_bboxes(
-                    torch.tensor([[10.0, 20.0, 50.0, 60.0]]), format=BoundingBoxFormat.XYXY, canvas_size=(100, 100)
+                    np.array([[10.0, 20.0, 50.0, 60.0]]), format=BoundingBoxFormat.XYXY, canvas_size=(100, 100)
                 )
-                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+                return img, {"boxes": boxes, "labels": np.array([0])}
 
         ds = TorchvisionDataset(_XYXYDs())
         _, tgt, _ = ds[0]
         np.testing.assert_allclose(tgt.boxes[0], [10.0, 20.0, 50.0, 60.0])
 
-    def test_plain_tensor_boxes(self) -> None:
-        """Plain torch tensors (no BoundingBoxes) are assumed XYXY."""
-        import torch
-
+    def test_plain_array_boxes(self) -> None:
+        """Plain arrays (no BoundingBoxes wrapper) are assumed XYXY."""
         from dataeval_flow.dataset import TorchvisionDataset
 
         class _PlainDs:
@@ -809,8 +803,8 @@ class TestTorchvisionDatasetObjectDetection:
                 from PIL import Image
 
                 img = Image.new("RGB", (100, 100))
-                boxes = torch.tensor([[10.0, 20.0, 50.0, 60.0]])
-                return img, {"boxes": boxes, "labels": torch.tensor([0])}
+                boxes = np.array([[10.0, 20.0, 50.0, 60.0]])
+                return img, {"boxes": boxes, "labels": np.array([0])}
 
         ds = TorchvisionDataset(_PlainDs())
         _, tgt, _ = ds[0]
@@ -818,7 +812,6 @@ class TestTorchvisionDatasetObjectDetection:
 
     def test_od_num_classes_from_labels_when_no_classes_attr(self) -> None:
         """Without .classes, num_classes is inferred from max label."""
-        import torch
         from torchvision.tv_tensors import BoundingBoxFormat
 
         from dataeval_flow.dataset import TorchvisionDataset
@@ -832,11 +825,11 @@ class TestTorchvisionDatasetObjectDetection:
 
                 img = Image.new("RGB", (64, 64))
                 boxes = _make_bboxes(
-                    torch.tensor([[0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 20.0, 20.0]]),
+                    np.array([[0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 20.0, 20.0]]),
                     format=BoundingBoxFormat.XYXY,
                     canvas_size=(64, 64),
                 )
-                return img, {"boxes": boxes, "labels": torch.tensor([0, 2])}
+                return img, {"boxes": boxes, "labels": np.array([0, 2])}
 
         ds = TorchvisionDataset(_NoClassesDs())
         _, tgt, _ = ds[0]
