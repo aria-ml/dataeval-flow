@@ -1,6 +1,6 @@
 [project]
 name = "dataeval-flow"
-version = "0.1.0"
+dynamic = ["version"]
 description = "DataEval Workflows container for data evaluation"
 readme = "README.md"
 license = "MIT"
@@ -175,8 +175,14 @@ torchvision = [
 # --- Build System ---
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/dataeval_flow/_version.py"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/dataeval_flow"]
@@ -211,6 +217,7 @@ source = ["src/dataeval_flow"]
 branch = true
 concurrency = ["multiprocessing"]
 parallel = true
+omit = ["src/dataeval_flow/_version.py"]
 
 [tool.coverage.report]
 exclude_also = [
@@ -219,6 +226,7 @@ exclude_also = [
     "if TYPE_CHECKING:",
 ]
 include = ["*/src/dataeval_flow/*"]
+omit = ["src/dataeval_flow/_version.py"]
 fail_under = 90
 show_missing = true
 
@@ -247,6 +255,7 @@ exclude = [
     ".tox",
     ".nox",
     "prototype",
+    "src/dataeval_flow/_version.py",
 ]
 line-length = 120
 target-version = "py310"

@@ -52,12 +52,18 @@ variables:
 # Base template for all uv/nox jobs
 .nox:
   image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+  variables:
+    GIT_DEPTH: "0"  # full history so hatch-vcs / poetry-dynamic-versioning can resolve tags
   cache:
     key:
       files:
         - uv.lock
     paths:
       - $UV_CACHE_DIR
+  before_script:
+    # `uv sync` installs the project, which runs hatch-vcs and needs git.
+    - apt-get update -qq && apt-get install -y --no-install-recommends git
+    - git fetch --tags
   after_script:
     - uv cache prune --ci
 
@@ -208,9 +214,12 @@ pages:
 # Shared push template with cosign signing
 .push-setup:
   extends: .container-setup
+  variables:
+    GIT_DEPTH: "0"  # full history so `git describe --tags` resolves a real version
   before_script:
     - !reference [.container-setup, before_script]
-    - apk add --no-cache cosign
+    - apk add --no-cache cosign git
+    - git fetch --tags
     # Set up buildx builder for registry cache support (docker-container driver required for type=registry)
     - docker buildx create --use --name ci-builder || true
 
@@ -219,9 +228,14 @@ push:docker:
   parallel:
     matrix: *variants
   script:
+    # Resolve dynamic version from git tags (matches hatch-vcs source of truth)
+    - VERSION=$(git describe --tags --always --dirty | sed 's/^v//')
+    - echo "Building dataeval-flow version ${VERSION} (variant ${VARIANT})"
+
     # Run test stage — fails the job if tests/linting don't pass
     - >-
       docker buildx build --target test
+      --build-arg DATAEVAL_FLOW_VERSION="${VERSION}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
       --cache-to type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT},mode=max,image-manifest=true
       -f docker/Dockerfile.${VARIANT} .
@@ -229,6 +243,7 @@ push:docker:
     # Build + push production image (reuses cached layers from test build above)
     - >-
       docker buildx build --target prod
+      --build-arg DATAEVAL_FLOW_VERSION="${VERSION}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
       -f docker/Dockerfile.${VARIANT}
       -t ${CI_APPLICATION_REPOSITORY}:${VARIANT}

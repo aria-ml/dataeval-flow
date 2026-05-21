@@ -2,6 +2,12 @@
 # Regenerate with: nox -s docker-gen
 # Variant: cu118
 
+# Dynamic version (must match hatch-vcs source of truth — git tags).
+# CI passes the resolved version via --build-arg DATAEVAL_FLOW_VERSION=...
+# Local `docker build` uses the default below, set to the last published tag
+# by docker/generate.py so the committed value is stable across regenerations.
+ARG DATAEVAL_FLOW_VERSION="0.1.0"
+
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
@@ -34,6 +40,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Stage 2: Test — extend build with dev deps, run nox, validate code
 # =============================================================================
 FROM build AS test
+
+# Re-declare ARG so this stage can use it; tells hatch-vcs to skip git lookup.
+ARG DATAEVAL_FLOW_VERSION
+ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_DATAEVAL_FLOW="${DATAEVAL_FLOW_VERSION}"
 
 COPY pyproject.toml uv.lock noxfile.py ./
 
@@ -89,10 +99,16 @@ RUN chmod +x entrypoint.sh
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
 
+# Re-declare ARG (Docker scopes ARGs per FROM stage) and bake the resolved
+# version into _version.py so runtime imports return the real version.
+ARG DATAEVAL_FLOW_VERSION
+RUN echo "__version__ = '${DATAEVAL_FLOW_VERSION}'" > /app/src/dataeval_flow/_version.py \
+    && chown dataeval:dataeval /app/src/dataeval_flow/_version.py
+
 # Container labels
 LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 11.8)" \
       org.opencontainers.image.description="DataEval Workflows container - CUDA 11.8 variant" \
-      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.version="${DATAEVAL_FLOW_VERSION}" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 
 USER dataeval

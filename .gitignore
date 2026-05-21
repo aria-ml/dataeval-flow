@@ -15,6 +15,9 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+# hatch-vcs writes the runtime version file at build/install time;
+# source of truth is git tags. Do not commit.
+src/dataeval_flow/_version.py
 
 # Cache
 .pytest_cache/

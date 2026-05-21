@@ -1003,7 +1003,6 @@ wheels = [
 
 [[package]]
 name = "dataeval-flow"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "dataeval" },
@@ -1202,7 +1201,7 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'cu124'", specifier = ">=0.17.0", index = "https://download.pytorch.org/whl/cu124", conflict = { package = "dataeval-flow", extra = "cu124" } },
     { name = "torchvision", marker = "extra == 'cu128'", specifier = ">=0.17.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "dataeval-flow", extra = "cu128" } },
 ]
-provides-extras = ["cpu", "cu118", "cu124", "cu128", "onnx", "onnx-gpu", "opencv", "app", "all-cpu", "all-cu118", "all-cu124", "all-cu128"]
+provides-extras = ["all-cpu", "all-cu118", "all-cu124", "all-cu128", "app", "cpu", "cu118", "cu124", "cu128", "onnx", "onnx-gpu", "opencv"]
 
 [package.metadata.requires-dev]
 base = [

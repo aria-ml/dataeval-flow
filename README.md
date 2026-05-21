@@ -18,6 +18,32 @@ docker run --gpus all \
   dataeval:cu118
 ```
 
+## Pulling pre-built images
+
+Pre-built, cosign-signed images are published to Harbor for every merge to `main` and every release tag. Pull one of these instead of building from source if you don't need to modify the code.
+
+**Rolling channel** — tracks the latest commit on `main`. The tag is overwritten on every merge.
+
+```bash
+docker pull harbor.jatic.net/aria/dataeval:cu118   # cpu / cu118 / cu124 / cu128
+```
+
+**Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
+
+```bash
+docker pull harbor.jatic.net/aria/dataeval:0.1.0-cu118
+```
+
+**Verifying the signature** — every published image is signed with [cosign](https://docs.sigstore.dev/cosign/). The public key is committed at [docker/cosign.pub](docker/cosign.pub).
+
+```bash
+cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval:cu118
+```
+
+Then drop the `dataeval:cu118` reference in the Quick Start `docker run` commands above with the fully-qualified `harbor.jatic.net/aria/dataeval:cu118` (or pinned version) and skip step 1.
+
+> **Note on feature branches.** Containers are only built and published from `main` and release tags — no image is produced for MRs or topic branches. If you want to run a feature branch as a container, check it out and follow the Quick Start to build locally; the resulting image will pick up the branch's version via `git describe`.
+
 ## Requirements
 
 | Requirement | Version |
@@ -224,6 +250,21 @@ print(results[0].report())
 uv sync --group dev
 nox
 ```
+
+## Versioning
+
+The package version is **derived from git tags** — there is no hardcoded version anywhere in the source tree. `hatch-vcs` reads `git describe --tags` at build/install time and writes the resolved version to a generated `src/dataeval_flow/_version.py` (gitignored), which `dataeval_flow.__init__` imports at runtime.
+
+**Release flow for container images:**
+
+1. Push a semver tag (e.g. `v0.2.0`) — this is the single source of truth for the release version.
+2. The `push:docker` CI job runs `git describe --tags --always --dirty | sed 's/^v//'` to resolve `${VERSION}`, then passes `--build-arg DATAEVAL_FLOW_VERSION="${VERSION}"` to `docker buildx build` for both the `test` and `prod` stages.
+3. The `prod` stage in [docker/Dockerfile.j2](docker/Dockerfile.j2) redeclares the ARG and:
+   - Bakes the resolved version into `/app/src/dataeval_flow/_version.py` so `dataeval_flow.__version__` matches the wheel version at runtime.
+   - Stamps the OCI `org.opencontainers.image.version` label with the same value.
+4. The image is pushed to Harbor and cosign-signed.
+
+The `ARG DATAEVAL_FLOW_VERSION="…"` default rendered into each committed `docker/Dockerfile.<variant>` by `docker/generate.py` is only used for **local** `docker build` invocations that don't pass `--build-arg`. Release builds always override it, so the committed default is allowed to drift from the latest tag and does not need to be regenerated at release time.
 
 ## License
 

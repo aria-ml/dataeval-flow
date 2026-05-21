@@ -89,5 +89,13 @@ __all__ = [
     # --- Utilities ---
     "load_dataset",
     "export_params_schema",
+    "__version__",
 ]
-__version__ = "0.1.0"
+
+try:
+    from dataeval_flow._version import __version__
+except ImportError:  # pragma: no cover
+    __version__ = "unknown"
+
+# Strongly type for pyright
+__version__ = str(__version__)

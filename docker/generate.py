@@ -1,17 +1,46 @@
 """Generate Dockerfile.<variant> files from docker/Dockerfile.j2 template."""
 
+import re
+import subprocess
 from pathlib import Path
 
-import tomllib
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
 root = Path(__file__).resolve().parent.parent
 config = yaml.safe_load((root / "docker" / "variants.yaml").read_text())
 
-# Read project version from pyproject.toml
-pyproject = tomllib.loads((root / "pyproject.toml").read_text())
-version = pyproject["project"]["version"]
+
+def _default_version() -> str:
+    """Resolve the last published tag for the `DATAEVAL_FLOW_VERSION` build-arg default.
+
+    `--abbrev=0` returns the most recent tag *without* the `-N-g<sha>[-dirty]`
+    suffix that `git describe` normally appends. Using the bare tag keeps the
+    committed Dockerfile.<variant> defaults stable across regenerations — the
+    rendered ARG only churns when an actual release tag lands, not when a
+    contributor regenerates from a dirty working tree.
+
+    This default is only consumed by local `docker build` invocations that omit
+    `--build-arg`; CI release builds always pass an explicit version derived
+    from `git describe`, which becomes the source of truth in the published
+    image. See README "Versioning" for details.
+    """
+    try:
+        tag = (
+            subprocess.check_output(
+                ["git", "describe", "--tags", "--abbrev=0"],  # noqa: S607
+                cwd=root,
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
+    return re.sub(r"^v", "", tag)
+
+
+version = _default_version()
 
 env = Environment(
     loader=FileSystemLoader(root / "docker"),
