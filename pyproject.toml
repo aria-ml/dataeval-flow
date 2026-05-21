@@ -21,6 +21,12 @@ dependencies = [
     "dataeval==1.0.4",
     "datasets>=4.0.0",
     "maite-datasets>=0.0.12",
+    # numpy is used directly throughout src/ (preprocessing, cache, datasets,
+    # workflows). Declared explicitly so the SR-4-H-2 mandated minimum
+    # (>=1.24.2) is exercised by the `nox -s deps` lowest-direct resolution
+    # job; otherwise a transitive resolution picks numpy 2.x which is
+    # ABI-incompatible with the lowest declared torch (2.2.0).
+    "numpy>=1.24.2",
     "pydantic>=2.0",
     "pyyaml>=6.0",
 ]
