@@ -207,6 +207,10 @@ pages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
+    # `docker:25.0.5-git` is Alpine — no bash by default. docker/resolve-version.sh
+    # uses bash-only features (`[[ =~ ]]`, `BASH_REMATCH`), so install bash for
+    # every job that extends this template.
+    - apk add --no-cache bash
     - echo ${HARBOR_TOKEN} | docker login ${HARBOR_URL} --username 'robot$aria+aria-bot' --password-stdin
   after_script:
     - docker logout ${HARBOR_URL} || true
@@ -228,31 +232,34 @@ push:docker:
   parallel:
     matrix: *variants
   script:
-    # Resolve dynamic version from git tags (matches hatch-vcs source of truth)
-    - VERSION=$(git describe --tags --always --dirty | sed 's/^v//')
-    - echo "Building dataeval-flow version ${VERSION} (variant ${VARIANT})"
+    # Resolve PEP 440 + OCI-safe versions from git tags (hatch-vcs source of truth)
+    - eval "$(./docker/resolve-version.sh)"
+    - IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
+    - echo "Building dataeval-flow ${DATAEVAL_FLOW_VERSION} → ${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}"
 
     # Run test stage — fails the job if tests/linting don't pass
     - >-
       docker buildx build --target test
-      --build-arg DATAEVAL_FLOW_VERSION="${VERSION}"
+      --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
       --cache-to type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT},mode=max,image-manifest=true
       -f docker/Dockerfile.${VARIANT} .
 
-    # Build + push production image (reuses cached layers from test build above)
+    # Build + push immutable, version-stamped image only. Floating tags
+    # (:edge-${VARIANT} on main, :${VARIANT} on release) are gated by scans
+    # and applied later by promote:floating.
     - >-
       docker buildx build --target prod
-      --build-arg DATAEVAL_FLOW_VERSION="${VERSION}"
+      --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:${VARIANT}
       -f docker/Dockerfile.${VARIANT}
-      -t ${CI_APPLICATION_REPOSITORY}:${VARIANT}
+      -t ${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}
       --push .
 
     # Sign with cosign (imagetools inspect fetches digest from registry — buildx --push doesn't load locally)
     - printf '%s' "$COSIGN_PRIVATE_KEY_B64" | base64 -d > cosign.key
     - chmod 600 cosign.key
-    - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${VARIANT}" --raw | sha256sum | awk '{print "sha256:"$1}')
+    - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}" --raw | sha256sum | awk '{print "sha256:"$1}')
     - cosign sign --key cosign.key --yes "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
     - rm -f cosign.key
 
@@ -262,36 +269,45 @@ verify:docker:
   needs: [push:docker]
   parallel:
     matrix: *variants
+  variables:
+    GIT_DEPTH: "0"  # full history so resolve-version.sh can `git describe --tags`
   before_script:
     - !reference [.container-setup, before_script]
     - apk add --no-cache cosign
+    - eval "$(./docker/resolve-version.sh)"
+    - export IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
   script:
-    - docker pull "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
-    - cosign verify --key docker/cosign.pub "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
+    - docker pull "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}"
+    - cosign verify --key docker/cosign.pub "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}"
 
     # Smoke test: verify the container actually boots
-    - docker run --rm "${CI_APPLICATION_REPOSITORY}:${VARIANT}" --help
+    - docker run --rm "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}" --help
 
 # Trivy vulnerability scan on pushed images
+# `allow_failure: false` (default) — HIGH/CRITICAL CVEs block promote:floating
+# so dirty images never get a floating tag (:edge-${VARIANT} or :${VARIANT}).
 scan:docker:
   extends: .container-setup
   needs: [push:docker]
   parallel:
     matrix: *variants
+  variables:
+    GIT_DEPTH: "0"  # full history so resolve-version.sh can `git describe --tags`
   before_script:
     - !reference [.container-setup, before_script]
     - apk add --no-cache curl
     - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
     - curl -sSfL -o junit.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+    - eval "$(./docker/resolve-version.sh)"
+    - export IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
   script:
-    - docker pull "${CI_APPLICATION_REPOSITORY}:${VARIANT}"
-    - IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${CI_APPLICATION_REPOSITORY}:${VARIANT}")
+    - docker pull "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}"
+    - IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}")
     - ./bin/trivy image "${IMAGE_DIGEST}" --scanners vuln --format template --template "@junit.tpl" -o trivy-${VARIANT}.xml --severity HIGH,CRITICAL --exit-code 1 --timeout 30m
   artifacts:
     when: on_failure
     paths:
       - trivy-*.xml
-  allow_failure: true
 
 # -----------------------------------------------------------------------------
 # Security Stage [DSOR-1 to DSOR-5]
@@ -340,27 +356,30 @@ sbom:
     expire_in: 1 week
 
 # -----------------------------------------------------------------------------
-# Release Stage
+# Release Stage — promote the immutable, scan-cleared image to a floating tag.
 # -----------------------------------------------------------------------------
 
-release:tag:
+# Promote a scan-cleared immutable tag to its floating tag:
+#   main pipeline    → :edge-${VARIANT}
+#   release pipeline → :${VARIANT}
+# Server-side retag via `imagetools create` — no pull/rebuild. The underlying
+# digest is already cosign-signed by push:docker, so signatures cover all tags.
+promote:floating:
   extends: .push-setup
   stage: release
   needs: [push:docker, verify:docker, scan:docker]
   parallel:
     matrix: *variants
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
-    - VERSION=${CI_COMMIT_TAG#v}
-    # Tag existing image server-side — no pull/push of image data
+    - eval "$(./docker/resolve-version.sh)"
+    - IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
+    - |
+      if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
+        FLOATING_TAG="${VARIANT}"
+      else
+        FLOATING_TAG="edge-${VARIANT}"
+      fi
+    - echo "Promoting ${IMMUTABLE_TAG} → ${FLOATING_TAG}"
     - docker buildx imagetools create
-      -t ${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}
-      ${CI_APPLICATION_REPOSITORY}:${VARIANT}
-
-    # Sign with cosign
-    - printf '%s' "$COSIGN_PRIVATE_KEY_B64" | base64 -d > cosign.key
-    - chmod 600 cosign.key
-    - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${VERSION}-${VARIANT}" --raw | sha256sum | awk '{print "sha256:"$1}')
-    - cosign sign --key cosign.key --yes "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
-    - rm -f cosign.key
+      -t ${CI_APPLICATION_REPOSITORY}:${FLOATING_TAG}
+      ${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}

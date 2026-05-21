@@ -43,7 +43,7 @@ FROM build AS test
 
 # Re-declare ARG so this stage can use it; tells hatch-vcs to skip git lookup.
 ARG DATAEVAL_FLOW_VERSION
-ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_DATAEVAL_FLOW="${DATAEVAL_FLOW_VERSION}"
+ENV SETUPTOOLS_SCM_PRETEND_VERSION="${DATAEVAL_FLOW_VERSION}"
 
 COPY pyproject.toml uv.lock noxfile.py ./
 
