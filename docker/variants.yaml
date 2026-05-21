@@ -31,14 +31,6 @@ variants:
     label_title: "DataEval Workflows (CUDA 11.8)"
     label_description: "DataEval Workflows container - CUDA 11.8 variant"
 
-  cu124:
-    build_base_image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
-    prod_base_image: "ubuntu:22.04"
-
-    extras: ["all-cu124"]
-    label_title: "DataEval Workflows (CUDA 12.4)"
-    label_description: "DataEval Workflows container - CUDA 12.4 variant"
-
   cu128:
     build_base_image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04"
     prod_base_image: "ubuntu:24.04"

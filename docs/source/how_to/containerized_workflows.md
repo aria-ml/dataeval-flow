@@ -27,7 +27,6 @@ Available variants:
 | --- | --- | --- |
 | `cpu` | Ubuntu 24.04 | Machines without NVIDIA GPU |
 | `cu118` | Ubuntu 22.04 | Older GPUs / CUDA 11.8 drivers |
-| `cu124` | Ubuntu 22.04 | Mid-range GPUs / CUDA 12.4 drivers |
 | `cu128` | Ubuntu 24.04 | Modern GPUs (RTX 40/50 series) / CUDA 12.8 drivers |
 
 All GPU variants bundle their own CUDA runtime libraries via PyTorch — the

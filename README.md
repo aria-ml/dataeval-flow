@@ -25,7 +25,7 @@ Pre-built, cosign-signed images are published to Harbor for every merge to `main
 **Rolling channel** — tracks the latest commit on `main`. The tag is overwritten on every merge.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:cu118   # cpu / cu118 / cu124 / cu128
+docker pull harbor.jatic.net/aria/dataeval:cu118   # cpu / cu118 / cu128
 ```
 
 **Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.

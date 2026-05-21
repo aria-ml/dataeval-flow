@@ -15,7 +15,7 @@ if not UV_EXTRAS_OVERRIDE:
     if os.path.exists(".cuda-version"):
         with open(".cuda-version") as f:
             UV_EXTRAS_OVERRIDE = f.read().strip()
-    if UV_EXTRAS_OVERRIDE not in ["cpu", "cu118", "cu124", "cu128"]:
+    if UV_EXTRAS_OVERRIDE not in ["cpu", "cu118", "cu128"]:
         UV_EXTRAS_OVERRIDE = "cpu"
 
 UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
