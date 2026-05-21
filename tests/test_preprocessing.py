@@ -48,7 +48,7 @@ class TestBuildPreprocessing:
     def test_invalid_transform_params_raises(self):
         """Invalid param type for transform raises ValueError."""
         steps = [PreprocessingStep(step="Resize", params={"size": "big"})]
-        with pytest.raises(ValueError, match="size can be"):
+        with pytest.raises(ValueError, match=r"size can (?:either )?be"):
             build_preprocessing(steps)
 
     def test_interpolation_converter(self):

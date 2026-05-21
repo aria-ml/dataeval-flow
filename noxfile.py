@@ -67,6 +67,24 @@ def test(session: nox.Session) -> None:
     )
 
 
+@nox_uv.session(python="3.10", uv_only_groups=["base"], reuse_venv=False)
+def deps(session: nox.Session) -> None:
+    """Run unit tests against minimum supported Python with lowest declared dependencies and no optional extras.
+
+    Combines two SDP checks into one fast session:
+      * TR-1-H-4 / TR-2-H-5 — verify the project still works at the *minimum*
+        declared versions of every direct dependency (``--resolution=lowest-direct``).
+      * TR-2-H-3 / TR-8-H-1 — verify the project works *without* its optional
+        extras (no ``onnx``, ``opencv``, or ``app``). The ``cpu`` extra is the
+        only one installed so torch/torchvision are available for tests that
+        touch tensors; everything else is excluded via ``-m "not optional"`` and
+        by ignoring ``tests/app`` (which imports ``textual`` at module level).
+    """
+    session.run_install("uv", "pip", "install", ".[cpu]", "--resolution=lowest-direct")
+    session.run_install("uv", "pip", "install", "pytest", "pytest-asyncio", "pytest-xdist")
+    session.run("pytest", "-m", "not optional", "--ignore=tests/app", "-n4", "--dist=loadscope")
+
+
 @nox_uv.session(uv_only_groups=["docs"], uv_no_install_project=True)
 def docsync(session: nox.Session) -> None:
     """Sync notebook .py (percent) files with .ipynb via jupytext.

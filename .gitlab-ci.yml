@@ -123,6 +123,25 @@ test:
         path: output/coverage.xml
     expire_in: 1 week
 
+# Minimum-dependencies + no-optional-extras smoke test
+# [TR-1-H-4] verify supported Python versions & dep min/max
+# [TR-2-H-3] test without optional deps
+# [TR-2-H-5] test against documented dep versions
+# [TR-8-H-1] features usable independently
+#
+# Pins Python to the minimum supported version (3.10) and resolves every
+# direct dependency to its lowest declared version (--resolution=lowest-direct).
+# Only the `cpu` extra is installed so torch/torchvision are available; `onnx`,
+# `opencv`, and `app` are deliberately omitted, and tests/app is skipped because
+# its conftest imports textual unconditionally.
+deps:
+  extends: [.nox, .rules_main_mr]
+  stage: test
+  variables:
+    PYTHON_VERSION: "3.10"
+  script:
+    - uvx --with nox-uv nox -s deps
+
 # -----------------------------------------------------------------------------
 # Documentation — runs in parallel with container jobs
 # -----------------------------------------------------------------------------
