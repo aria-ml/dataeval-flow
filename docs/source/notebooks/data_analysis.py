@@ -52,16 +52,16 @@
 # %% [markdown]
 # ## Data Preparation: Load and prepare the dataset
 #
-# Download [CPPE-5](https://huggingface.co/datasets/cppe-5) from HuggingFace and save it
-# to disk. CPPE-5 is a small (~1.5K images) object detection dataset for medical personal
-# protective equipment with 5 classes (Coverall, Face Shield, Gloves, Goggles, Mask). It
-# ships with `train` and `test` splits, making it ideal for demonstrating cross-split analysis.
+# Download [CPPE-5](https://huggingface.co/datasets/rishitdagli/cppe-5) from HuggingFace and
+# save it to disk. CPPE-5 is a small (~1.5K images) object detection dataset for medical
+# personal protective equipment with 5 classes (Coverall, Face Shield, Gloves, Goggles, Mask).
+# It ships with `train` and `test` splits, making it ideal for demonstrating cross-split analysis.
 
 # %% tags=["remove_output"]
 from datasets import load_dataset as hf_load
 
 # Download CPPE-5 from HuggingFace (train + test splits)
-cppe5 = hf_load("cppe-5")
+cppe5 = hf_load("rishitdagli/cppe-5")
 print(f"Splits: {list(cppe5.keys())}")
 for name, ds in cppe5.items():
     print(f"  {name}: {len(ds)} images")

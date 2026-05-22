@@ -41,7 +41,7 @@
 # %% [markdown]
 # ## Data Preparation: Load the dataset
 #
-# We'll use [MNIST](https://huggingface.co/datasets/mnist), a classic dataset of handwritten digits.
+# We'll use [MNIST](https://huggingface.co/datasets/ylecun/mnist), a classic dataset of handwritten digits.
 # Because handwriting varies but often produces very similar shapes, MNIST is an excellent candidate
 # for demonstrating how "near duplicate" detection sensitivity changes the number of groups found.
 
@@ -59,7 +59,7 @@ from datasets import load_dataset as hf_load
 set_seed(42)
 
 # Load MNIST train split
-mnist_train = cast(Dataset, hf_load("mnist", split="train"))
+mnist_train = cast(Dataset, hf_load("ylecun/mnist", split="train"))
 
 # Save a subset of 1000 images to disk for the tutorial
 # This size is large enough to contain natural similarities between digits
