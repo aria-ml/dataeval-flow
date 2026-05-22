@@ -4,11 +4,10 @@ dynamic = ["version"]
 description = "DataEval Workflows container for data evaluation"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -21,11 +20,6 @@ dependencies = [
     "dataeval==1.0.4",
     "datasets>=4.0.0",
     "maite-datasets>=0.0.12",
-    # numpy is used directly throughout src/ (preprocessing, cache, datasets,
-    # workflows). Declared explicitly so the SR-4-H-2 mandated minimum
-    # (>=1.24.2) is exercised by the `nox -s deps` lowest-direct resolution
-    # job; otherwise a transitive resolution picks numpy 2.x which is
-    # ABI-incompatible with the lowest declared torch (2.2.0).
     "numpy>=1.24.2",
     "pydantic>=2.0",
     "pyyaml>=6.0",
@@ -38,11 +32,11 @@ cu128 = ["torch>=2.2.0", "torchvision>=0.17.0"]
 onnx = ["onnx>=1.15", "onnxruntime>=1.20"]
 onnx-gpu = ["onnx>=1.15", "onnxruntime-gpu>=1.20"]
 opencv = ["opencv-python-headless>=4.8.0"]
-app = ["textual>=3.0"]
+app = ["textual>=3.0; python_version < '3.14'"]
 # Convenience extras for common combinations
-all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0"]
-all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0"]
-all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0", "textual>=3.0"]
+all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
+all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
+all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
 
 [project.urls]
 Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"
@@ -55,6 +49,11 @@ base = [
     "nox>=2025.5.1",
     "nox-uv>=0.6.2",
     "uv>=0.8.0",
+]
+lock = [
+    { include-group = "base" },
+    "pyproject2conda>=0.22",
+    "poetry>=2.2.0; python_version<'3.14'",
 ]
 lint = [
     { include-group = "base" },
@@ -92,6 +91,12 @@ docker = [
     "jinja2>=3.1",
     "pyyaml>=6.0",
 ]
+security = [  # keep in sync with [tool.uv.constraint-dependencies]
+    "pillow>=12.2.0",
+    # "setuptools>=82.0.0",  excluded due to conflict with pytorch
+    "onnx>=1.21.0",
+    "urllib3>=2.7.0"
+]
 dev = [
     { include-group = "lint" },
     { include-group = "type" },
@@ -101,10 +106,10 @@ dev = [
 [tool.uv]
 # Pin minimum versions for transitive deps with known CVEs
 constraint-dependencies = [
-    "pillow>=12.1.1",          # CVE-2026-25990: OOB write via PSD image
-    "setuptools>=82.0.0",      # CVE-2026-23949: (jaraco_context) path traversal in tarball()
-                               # CVE-2026-24049: (wheel) privilege escalation via unpack
-    "onnx>=1.20.1",            # CVE-2026-28500: Untrusted Repository Warnings Suppressed by silent=True
+    "pillow>=12.2.0",
+    "setuptools>=82.0.0",
+    "onnx>=1.21.0",
+    "urllib3>=2.7.0"
 ]
 
 conflicts = [
@@ -157,6 +162,24 @@ torchvision = [
   { index = "pytorch-cu128", extra = "cu128" },
   { index = "pytorch-cu128", extra = "all-cu128" },
 ]
+
+[tool.poetry]
+version = "0.0.0"
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+# `supplemental` (not `explicit`) is required so the `torch`/`torchvision`
+# source override below applies to transitive requests too.
+priority = "supplemental"
+
+[tool.poetry.dependencies]
+torch = { version = ">=2.2.0", source = "pytorch-cpu", optional = true }
+torchvision = { version = ">=0.17.0", source = "pytorch-cpu", optional = true }
+
+[tool.pyproject2conda.dependencies]
+# `dataeval` is available on conda-forge. `maite-datasets` is PyPI-only.
+maite-datasets = { pip = true }
 
 # --- Build System ---
 
@@ -274,5 +297,5 @@ indent-style = "space"
 # --- Codespell ---
 
 [tool.codespell]
-skip = "./*env*,./output,./htmlcov,./.nox,uv.lock,./docs/source/notebooks/*,./docker/cosign.pub,./docker/Dockerfile.*,*.onnx"
+skip = "./*env*,./output,./htmlcov,./.nox,*.lock,./docs/source/notebooks/*,./docker/cosign.pub,./docker/Dockerfile.*,*.onnx"
 ignore-words-list = ["statics"]

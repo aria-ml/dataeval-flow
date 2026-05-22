@@ -236,11 +236,58 @@ The Docker build may appear frozen during the `uv sync` step:
 The `dataeval_flow` package can be used standalone without Docker.
 
 **Installation:**
+
+Three installer toolchains are supported. Choose whichever fits your environment;
+all three install the same dependencies pinned in their respective lockfiles.
+
+`uv` (default toolchain):
+
 ```bash
 git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
 cd dataeval-flow
-uv sync
+uv sync --extra cpu      # or cu118 / cu128 for CUDA variants
 ```
+
+`pip` from PyPI (no source checkout). PyTorch is hosted on a separate
+wheel index, so pass `--extra-index-url` matching the variant you want
+(omit it and you'll get the CUDA-bundled manylinux build of torch from
+PyPI, which is much larger):
+
+```bash
+# CPU-only PyTorch
+pip install "dataeval-flow[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
+
+# CUDA 11.8 PyTorch
+pip install "dataeval-flow[cu118]" --extra-index-url https://download.pytorch.org/whl/cu118
+
+# CUDA 12.8 PyTorch
+pip install "dataeval-flow[cu128]" --extra-index-url https://download.pytorch.org/whl/cu128
+```
+
+`poetry` (source checkout; uses committed `poetry.lock`):
+
+```bash
+git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
+cd dataeval-flow
+poetry install
+```
+
+`conda` / `mamba` (source checkout; uses committed `environment.yml`):
+
+```bash
+git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
+cd dataeval-flow
+conda env create -f environment.yml
+conda activate dataeval-flow
+pip install -e .         # install the package itself; conda manages deps
+```
+
+Notes:
+
+- PyTorch is installed from PyPI/`download.pytorch.org` in every path
+  (it is no longer maintained on conda-forge).
+- GPU variants (`cu118`, `cu128`) are only wired through `uv` and
+  `pip` today; the Poetry/conda paths install the CPU build of PyTorch.
 
 **CLI Usage:**
 ```bash

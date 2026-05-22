@@ -139,10 +139,40 @@ def schema(session: nox.Session) -> None:
     session.run(*args)
 
 
-@nox_uv.session(uv_only_groups=["base"])
+@nox_uv.session(uv_only_groups=["lock"], uv_sync_locked=False)
+def lock(session: nox.Session) -> None:
+    """Lock dependencies for uv, Poetry, and conda.
+
+    Regenerates `uv.lock`, `requirements.txt`, `poetry.lock`, and
+    `environment.yml`. Pass `upgrade` to bump dependencies to the latest
+    versions satisfying constraints.
+
+      nox -s lock                # refresh lockfiles preserving pins
+      nox -s lock -- upgrade     # bump to latest compatible versions
+    """
+    upgrade_args = ["--upgrade"] if "upgrade" in session.posargs else []
+    session.run("uv", "lock", *upgrade_args)
+    session.run("uv", "export", "--no-emit-project", "-o", "requirements.txt")
+    session.run("poetry", "lock")
+    session.run(
+        "p2c",
+        "yaml",
+        "--pyproject",
+        "pyproject.toml",
+        "--python-include",
+        "infer",
+        "-n",
+        "dataeval-flow",
+        "-o",
+        "environment.yml",
+    )
+
+
+@nox_uv.session(uv_only_groups=["lock"])
 def check(session: nox.Session) -> None:
-    """Validate lock file is up to date."""
+    """Validate lock files are up to date (uv.lock + poetry.lock)."""
     session.run("uv", "lock", "--check")
+    session.run("poetry", "check", "--lock")
 
 
 @nox_uv.session(uv_only_groups=["docker"], uv_no_install_project=True)

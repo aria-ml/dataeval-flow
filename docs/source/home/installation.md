@@ -2,22 +2,49 @@
 
 ## Using pip
 
+PyTorch is hosted on a separate wheel index, so pass `--extra-index-url`
+matching the variant you want. Omit it and pip pulls the CUDA-bundled
+manylinux build of `torch` from PyPI, which is much larger and may not
+match your hardware.
+
 ```bash
-pip install dataeval-flow
+# CPU-only PyTorch
+pip install "dataeval-flow[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
+
+# CUDA 11.8 PyTorch
+pip install "dataeval-flow[cu118]" --extra-index-url https://download.pytorch.org/whl/cu118
+
+# CUDA 12.8 PyTorch
+pip install "dataeval-flow[cu128]" --extra-index-url https://download.pytorch.org/whl/cu128
 ```
 
 ## Using uv
 
 ```bash
-uv add dataeval-flow
+uv pip install "dataeval-flow[cpu]" --torch-backend cpu   # or cu118 / cu128 for CUDA variants
 ```
 
 ## From source
 
+Clone once, then use whichever toolchain you prefer — uv and Poetry both
+read `pyproject.toml` as the source of truth and resolve
+against their respective committed lockfiles (`uv.lock` / `poetry.lock`).
+
 ```bash
 git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
 cd dataeval-flow
-uv sync
+```
+
+### With uv
+
+```bash
+uv sync --extra all-cpu  # or all-cu118 / all-cu128 for CUDA variants
+```
+
+### With Poetry
+
+```bash
+poetry install --extras all-cpu
 ```
 
 ## Docker
