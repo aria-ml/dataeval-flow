@@ -81,6 +81,20 @@ variables:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# Run only when dependency-defining files change (or on main). Used to gate
+# the install-validation jobs so they don't run on docs/code-only MRs.
+.rules_main_mr_deps:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - pyproject.toml
+          - uv.lock
+          - poetry.lock
+          - environment.yml
+          - requirements.txt
+
 # -----------------------------------------------------------------------------
 # Lint Stage
 # -----------------------------------------------------------------------------
@@ -147,6 +161,83 @@ deps:
     PYTHON_VERSION: "3.10"
   script:
     - uvx --with nox-uv nox -s deps
+
+# -----------------------------------------------------------------------------
+# Install Validation [SR-3-H-2..5, SR-5-H-1, SR-5-H-2]
+# Verifies the project installs cleanly via every documented toolchain.
+# Runs only when dependency-defining files change.
+# -----------------------------------------------------------------------------
+
+# Validate uv.lock + poetry.lock are both up-to-date with pyproject.toml
+install:lock:
+  extends: [.nox, .rules_main_mr_deps]
+  stage: test
+  script:
+    - uvx --with nox-uv nox -s check
+
+# Validate `pip install .[cpu]` from a source checkout.
+# `git` + full history are required so hatch-vcs can derive __version__ from
+# tags when the hatchling build hook runs inside pip.
+install:pip:
+  extends: [.rules_main_mr_deps]
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  variables:
+    PYTHON_VERSION: "3.11"
+    GIT_DEPTH: "0"
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git
+    - git fetch --tags
+  script:
+    - python -m venv /tmp/venv-pip
+    - /tmp/venv-pip/bin/pip install --upgrade pip
+    - /tmp/venv-pip/bin/pip install ".[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
+    - /tmp/venv-pip/bin/python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
+    - /tmp/venv-pip/bin/dataeval-flow --help
+
+# Validate `poetry install` from a source checkout (uses committed poetry.lock).
+install:poetry:
+  extends: [.rules_main_mr_deps]
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  variables:
+    PYTHON_VERSION: "3.11"
+    POETRY_VIRTUALENVS_IN_PROJECT: "true"
+    POETRY_NO_INTERACTION: "1"
+  script:
+    - pip install --quiet "poetry>=2.2.0"
+    - poetry install --extras cpu
+    - poetry run python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
+    - poetry run dataeval-flow --help
+
+# Validate `conda env create -f environment.yml` (uses committed environment.yml).
+# `git` is required so hatch-vcs can derive __version__ during `pip install -e`.
+# The micromamba image runs as a non-root user (mambauser) and does not include
+# git; install it from conda-forge (unprivileged-friendly) instead of apt.
+install:conda:
+  extends: [.rules_main_mr_deps]
+  stage: test
+  image: mambaorg/micromamba:2-ubuntu24.04
+  variables:
+    PYTHON_VERSION: "3.11"
+  before_script:
+    - eval "$(micromamba shell hook --shell bash)"
+    - micromamba create -f environment.yml -n dataeval-flow python=$PYTHON_VERSION
+    - micromamba activate dataeval-flow
+    # Install git into the active env so it's on PATH for `git fetch` and for
+    # the hatchling build subprocess invoked by `pip install -e` (which
+    # inherits the active env's PATH).
+    - micromamba install -y -c conda-forge git
+    # Workspace is owned by the GitLab runner UID, not mambauser → mark safe
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - git fetch --tags
+    # Install the project itself (conda manages base deps, but the package isn't on conda-forge)
+    # Plus the cpu extra so torch is available for the smoke test
+    - pip install --quiet -e ".[cpu]"
+    - micromamba list
+  script:
+    - python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
+    - dataeval-flow --help
 
 # -----------------------------------------------------------------------------
 # Documentation — runs in parallel with container jobs
