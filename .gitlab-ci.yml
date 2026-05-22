@@ -191,8 +191,13 @@ pages:
     - uvx --with nox-uv nox -s docs
     - mv output/docs public
   artifacts:
+    # Upload on failure too — `nox -s docs` writes notebook error tracebacks to
+    # output/docs/reports/**/*.err.log; on failure the `mv` above never runs, so
+    # we include output/docs alongside public to surface those logs.
+    when: always
     paths:
       - public
+      - output/docs
 
 # -----------------------------------------------------------------------------
 # Container — runs in parallel with documentation jobs
