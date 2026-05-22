@@ -64,11 +64,16 @@ RUN useradd --create-home --shell /bin/bash dataeval \
 USER dataeval
 
 # -------------------------------------------------------
-# CI GATE: Run Tests & Linting
-# If this fails, the Docker build fails — nothing is published.
+# CI GATE: container-focused smoke test
+# Validates that the variant-specific venv (cpu/cu118/cu128) actually produces
+# a runnable package: import smoke, CLI smoke, and a fast wiring-test subset.
+# Repo-state checks (lint, schema, lockfile) and the full coverage gate run in
+# the MR pipeline before the Docker build is ever invoked — re-running them
+# here was duplicate work. If this fails, the Docker build fails — nothing is
+# published. See `docker_smoke` in noxfile.py for what's covered.
 # -------------------------------------------------------
 ENV DATAEVAL_NOX_UV_EXTRAS_OVERRIDE={{ variant_name }}
-RUN nox
+RUN nox -s docker_smoke
 
 # =============================================================================
 # Stage 3: Production — clean image with only what's needed to run

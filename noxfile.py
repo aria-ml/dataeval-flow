@@ -179,3 +179,36 @@ def check(session: nox.Session) -> None:
 def docker_gen(session: nox.Session) -> None:
     """Generate Dockerfile.<variant> files from docker/Dockerfile.j2 template."""
     session.run("python", "docker/generate.py")
+
+
+@nox_uv.session(uv_groups=["test"], uv_extras=UV_EXTRAS)
+def docker_smoke(session: nox.Session) -> None:
+    """Container-focused smoke test invoked from the Dockerfile `test` stage.
+
+    Skips repo-state checks (lint, schema, lockfile validation) and the 90%
+    coverage gate — those are already enforced by the MR pipeline before any
+    Docker build runs. What's left is the slice that only the *built image*
+    can validate: that the frozen, variant-specific venv (cpu / cu118 / cu128)
+    actually produces a runnable package end-to-end.
+
+    Coverage:
+      1. Import smoke — package + key submodules import cleanly with the
+         variant's torch/onnx wheels (catches missing extras, wrong wheel
+         platform, ABI mismatch).
+      2. CLI smoke — ``python -m dataeval_flow --help`` exits 0 (validates the
+         entrypoint and argparse wiring without requiring a config).
+      3. Wiring tests — fast integration tests against the installed venv:
+         config loading, runner, main entrypoint, and e2e orchestration.
+    """
+    session.run("python", "-c", "import dataeval_flow; from dataeval_flow import runner, workflow")
+    session.run("python", "-m", "dataeval_flow", "--help")
+    session.run(
+        "pytest",
+        "tests/test_config_loader.py",
+        "tests/test_main_run.py",
+        "tests/test_runner.py",
+        "tests/test_e2e.py",
+        "-n4",
+        "--dist=loadscope",
+        "-x",
+    )
