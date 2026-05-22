@@ -2,6 +2,19 @@
 
 Workflow orchestration for DataEval with GPU support.
 
+## Target Audience
+
+<!-- start JATIC interop -->
+
+DataEval Flow is intended for data scientists, ML engineers, and T&E engineers
+who want to run automated data-evaluation pipelines — outlier and duplicate
+detection, drift and OOD monitoring, dataset splitting, prioritization, and
+statistical analysis — against their image datasets and models. For users of
+the JATIC product suite, DataEval Flow has native interoperability when using
+MAITE-compliant datasets and models.
+
+<!-- end JATIC interop -->
+
 ## Quick Start
 
 ```bash
@@ -268,4 +281,28 @@ The `ARG DATAEVAL_FLOW_VERSION="…"` default rendered into each committed `dock
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports and contribution
+guidelines, and [BRANCHING.md](BRANCHING.md) for the branching and release
+strategy.
+
+## Contact
+
+For questions or feedback, reach out to <dataeval-flow@ariacoustics.com>.
+
+## Acknowledgement
+
+### CDAO Funding Acknowledgement
+
+<!-- start acknowledgement -->
+
+This material is based upon work supported by the Chief Digital and Artificial
+Intelligence Office under Contract No. W519TC-23-9-2033. The views and
+conclusions contained herein are those of the author(s) and should not be
+interpreted as necessarily representing the official policies or endorsements,
+either expressed or implied, of the U.S. Government.
+
+<!-- end acknowledgement -->
