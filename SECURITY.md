@@ -52,6 +52,19 @@ Findings flow into the GitLab security dashboard. Cosign attestation
 (`cosign attest --type cyclonedx`) is also published per image for
 downstream verification (CS-2-H-4).
 
+## Base image trust (CS-1-S-2)
+
+All container base images referenced by this project — both the runtime
+variants in [docker/](docker/) and the helper images used by CI jobs in
+[.gitlab-ci.yml](.gitlab-ci.yml) (`python:slim`, `mambaorg/micromamba`,
+`ghcr.io/astral-sh/uv`, `docker:25.0.5-git`, `alpine:latest`, etc.) — are
+pulled through the program-owned JATIC GitLab registry / pull-through
+proxy. The registry is the trust boundary: images that are not on the
+program's approved list cannot be fetched by the runners, regardless of
+what a `Dockerfile` or CI job declares. CS-1-S-2 is therefore satisfied
+at the infrastructure layer, not the repo layer; no per-image
+attestation is maintained in this repository.
+
 ## Dismissing a false positive
 
 The same workflow applies whether the finding came from SAST, dependency
