@@ -1,9 +1,8 @@
 # DataEval Flow Roadmap
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-05-22
 
-This roadmap reflects shipped capabilities and a six-month forward outlook
-(per JATIC SDP requirement [DR-2.2-H-3](JATIC_SDP_COMPLIANCE.md#10-documentation--training-content-dr-2)).
+This roadmap reflects shipped capabilities and a six-month forward outlook.
 Future-work entries marked **TBD** are placeholders for the team to refine.
 
 ---
@@ -19,6 +18,7 @@ Library
   v0.1.0 ✓     [#]
   v0.2.0           [######]
   v0.3.0                       [############]
+  v0.4.0                                          [############]
   v1.0.0 (target)                                                     [######]
 
 Compliance
@@ -28,6 +28,7 @@ Compliance
 
 Workflows
   Existing 6   ────────────────────────────────────────────────── (maintained)
+  FMV + Ontology                                  [############]
   New (TBD)                          [############################]
 ```
 
@@ -87,6 +88,33 @@ in line with Maturity I expectations.
 - [ ] SBOM published with releases (cosign attestation or GitHub release asset) (CS-2-H-4)
 - [ ] Explanations content built out for foundational concepts (DR-2.5-H-1..2)
 
+### v0.4.0 — FMV / Ontology workflows + on-disk format interop
+
+**Target:** October 2026
+
+Picks up new capabilities from upstream `dataeval` and a new sibling
+package, `databridge`, which handles on-disk dataset format conversion so
+`dataeval-flow` can consume any supported source without bespoke loader
+code per format.
+
+- [ ] **Full Motion Video (FMV) workflow** — wrap the FMV evaluation
+      surface from `dataeval` (frame-level drift / OOD / quality) behind a
+      `dataeval-flow` workflow type with the same config / orchestration /
+      caching contract as the existing six.
+- [ ] **Ontology workflow** — surface the new `dataeval` ontology /
+      taxonomy support (label hierarchy validation, class-mapping audits)
+      as a configurable workflow.
+- [ ] **`databridge` integration** — depend on the new `databridge`
+      package for on-disk format interop (HuggingFace ↔ COCO ↔ YOLO ↔
+      MAITE). Replaces the per-format adapter code currently in
+      `src/dataeval_flow/dataset.py` with a single `databridge`-backed
+      loader.
+- [ ] Container / CI plumbing — new optional `fmv` extra for the FMV
+      decoder stack (likely `decord` / `pyav`); document GPU requirements
+      for video workflows.
+- [ ] Tutorials + how-tos for FMV and Ontology workflows (cross-link
+      from the v0.2.0 tutorial set per DR-2.4 / DR-2.5).
+
 ### v1.0.0 — Maturity I stable release (target)
 
 **Target:** December 2026
@@ -134,15 +162,14 @@ to be refined by the team and reflected here.**
 
 ### Planned / under consideration — TBD
 
-- [ ] **VisDrone Static + Video dataset formats** (IR-3.2-S-3, IR-3.3-S-3) — decision pending; document as exception if descoped.
+- [ ] **SUNet dataset support** — primary target dataset for the JATIC program; coverage to land via `databridge` in v0.4.0. IR-3.2-S-3 / IR-3.3-S-3 (VisDrone) will be exception-tracked in the meta-repo.
 - [ ] **TFLite model format** (IR-3-S-2) — decision pending; document as exception if descoped.
-- [ ] **Video workflows** (IR-3.3-S-*) — coordinated with `dataeval` v2.0 video roadmap.
+- [ ] **Video workflows** (IR-3.3-S-*) — first concrete delivery is the FMV workflow in v0.4.0; full video-format coverage continues to track `dataeval` v2.0.
 
 ---
 
 ## Out of scope (current line)
 
-- Full motion video evaluation — deferred to align with `dataeval` v2.0 (Dec 2026).
 - Web-service / REST deployment mode — `dataeval-flow` ships as a batch container, not a long-running service. IR-2.3-H-2, IR-2.3-S-1, IR-2.4-S-1 are not applicable.
 
 ---
