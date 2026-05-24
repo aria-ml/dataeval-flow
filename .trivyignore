@@ -1,0 +1,16 @@
+# Trivy ignore file — JATIC SDP DSOR-1-H-3 / CS-2-H-2
+#
+# Per-finding CVE suppressions consumed by `scan:docker` in .gitlab-ci.yml.
+# Every entry MUST follow the format below. Suppressions without all three
+# header lines will be rejected at code review (see SECURITY.md).
+#
+#     # Justification: <one-line reason why this CVE is not exploitable here>
+#     # Upstream:      <link to upstream advisory / patch> or "no fix yet"
+#     # Re-evaluate:   YYYY-MM-DD  (90d for HIGH/CRITICAL, 180d for MEDIUM)
+#     CVE-YYYY-NNNNN
+#
+# When the re-evaluation date passes, the suppression must be removed or
+# re-justified — there are no indefinite dismissals. Active suppressions are
+# audited at each release cut per BRANCHING.md.
+#
+# (no active suppressions)
