@@ -45,7 +45,7 @@ Every merge request and every `main` pipeline runs four security scans
 |---|---|---|---|
 | Semgrep (SAST) | source code in `src/` | DSOR-1-H-1 / DSOR-1-H-2 | `SAST_EXCLUDED_PATHS` + per-rule `nosem:` comment |
 | Gemnasium | Python dependency manifest | DSOR-2-H-1 / DSOR-2-H-2 | GitLab vulnerability-report dismissal (with comment) |
-| Trivy | published container images | DSOR-3-H-1 / DSOR-3-H-2 / CS-2-H-2 | `.trivyignore` (one line per CVE + `Justification:` header) |
+| GitLab Container Scanning (Trivy analyzer) | published container images | DSOR-3-H-1 / DSOR-3-H-2 / CS-2-H-2 | GitLab Vulnerability Report dismissal (with comment) |
 | GitLab Secret Detection | working tree | DSOR-4-H-1 / DSOR-4-H-2 | exclusions in `secret_detection` job; do not commit secrets |
 
 Findings flow into the GitLab security dashboard. Cosign attestation
@@ -106,18 +106,19 @@ scanning, container scanning, or secret detection.
           that does not reach it)
        3. A re-evaluation date (typically 90 days out)
 
-   - **Trivy / container scan**
-     - Add one entry per CVE to [.trivyignore](.trivyignore) using this
-       format:
-
-       ```text
-       # Justification: <one-line reason>
-       # Upstream: <link or "no fix yet">
-       # Re-evaluate: YYYY-MM-DD
-       CVE-YYYY-NNNNN
-       ```
-
-     - Entries without all three header lines will be rejected at review.
+   - **Container scanning** (GitLab `container_scanning` job, Trivy analyzer)
+     - Suppressions live in the GitLab Vulnerability Report, not in a
+       file in the repo. Open the finding → **Dismiss** → choose a
+       reason → leave a comment containing:
+       1. CVE ID
+       2. Why the project is not exploitable (specific to how the
+          affected component is used in our images — generic statements
+          will be rejected at audit)
+       3. A re-evaluation date (90d for HIGH/CRITICAL, 180d for MEDIUM)
+     - Severity gate is set via `CS_SEVERITY_THRESHOLD` in
+       [.gitlab-ci.yml](.gitlab-ci.yml); the container-scanning job's
+       `allow_failure: false` ensures un-dismissed findings at or above
+       that threshold block `promote:floating`.
 
    - **Secret Detection**
      - True positives must be rotated immediately (the secret is already
@@ -137,8 +138,9 @@ scanning, container scanning, or secret detection.
 The set of active suppressions is reviewed at every release cut:
 
 - The release-prep checklist (see [BRANCHING.md](BRANCHING.md)) requires
-  walking `.trivyignore`, the GitLab vulnerability-report dismissal
-  history, and any in-line `nosem:` comments to confirm each justification
+  walking the GitLab Vulnerability Report dismissal history (for both
+  the dependency-scanning and container-scanning analyzers) and any
+  in-line `nosem:` comments in the source to confirm each justification
   is still valid.
 - Suppressions whose re-evaluation date has passed without renewal block
   the release.
