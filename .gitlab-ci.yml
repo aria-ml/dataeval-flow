@@ -397,7 +397,7 @@ verify:docker:
     - docker run --rm "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}" --help
 
 # Trivy vulnerability scan on pushed images [DSOR-3-H-1, DSOR-3-H-2, CS-2-H-2, CS-2-H-3]
-# - Pinned to v0.62.0 per CS-2-H-2 minimum (download.sh would otherwise pick
+# - Pinned to v0.70.0 per CS-2-H-2 minimum (download.sh would otherwise pick
 #   the latest at every run; a CLI regression could silently break the gate).
 # - `allow_failure: false` (default) — HIGH/CRITICAL CVEs block promote:floating
 #   so dirty images never get a floating tag (:edge-${VARIANT} or :${VARIANT}).
@@ -412,7 +412,7 @@ scan:docker:
     matrix: *variants
   variables:
     GIT_DEPTH: "0"  # full history so resolve-version.sh can `git describe --tags`
-    TRIVY_VERSION: "0.62.0"
+    TRIVY_VERSION: "0.70.0"
   before_script:
     - !reference [.container-setup, before_script]
     - apk add --no-cache curl
