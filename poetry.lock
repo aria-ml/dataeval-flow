@@ -1158,14 +1158,14 @@ tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
 name = "dataeval"
-version = "1.0.4"
+version = "1.0.6"
 description = "DataEval provides a simple interface to characterize image data and its impact on model performance across classification and object-detection tasks"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dataeval-1.0.4-py3-none-any.whl", hash = "sha256:c89f44bdc0ed2c890317af904721b3a2c0f1fdba244a321a964df58dc15714ec"},
-    {file = "dataeval-1.0.4.tar.gz", hash = "sha256:967979ae85276a19abc2de100febc0585084a14edcb58141df5bfa315b2336a7"},
+    {file = "dataeval-1.0.6-py3-none-any.whl", hash = "sha256:30eba1c68837b177897ab9fd861e37720dab0c686fbf46e9c5e4483c86fd573e"},
+    {file = "dataeval-1.0.6.tar.gz", hash = "sha256:5816dc1cefbcb9b6934064e9db70725100108c64c9316b7f9a4e5e52fbf5b1a6"},
 ]
 
 [package.dependencies]
@@ -8075,4 +8075,4 @@ opencv = ["opencv-python-headless"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "97705486dbffddf452665917adb8114f03ab6cfac65682a519f50a347c8e5677"
+content-hash = "9e9c3dd1e8515322636afa5ba00cbb05215e5a5d66172e27bae3040fa53ce5a3"

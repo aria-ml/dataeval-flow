@@ -403,9 +403,9 @@ cuda-bindings==12.9.4 ; platform_machine == 'x86_64' and sys_platform == 'linux'
 cuda-pathfinder==1.5.4 ; platform_machine == 'x86_64' and sys_platform == 'linux' \
     --hash=sha256:9563d3175ce1828531acf4b94e1c1c7d67208c347ca002493e2654878b26f4b7
     # via cuda-bindings
-dataeval==1.0.4 \
-    --hash=sha256:967979ae85276a19abc2de100febc0585084a14edcb58141df5bfa315b2336a7 \
-    --hash=sha256:c89f44bdc0ed2c890317af904721b3a2c0f1fdba244a321a964df58dc15714ec
+dataeval==1.0.6 \
+    --hash=sha256:30eba1c68837b177897ab9fd861e37720dab0c686fbf46e9c5e4483c86fd573e \
+    --hash=sha256:5816dc1cefbcb9b6934064e9db70725100108c64c9316b7f9a4e5e52fbf5b1a6
     # via dataeval-flow
 datasets==4.8.5 \
     --hash=sha256:0f0c1c3d56ffff2c93b2f4c63c95bac94f3d7e8621aea2a2a576275233bba772 \

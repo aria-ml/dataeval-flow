@@ -10,7 +10,7 @@
 name: dataeval-flow
 dependencies:
   - python>=3.10
-  - dataeval==1.0.4
+  - dataeval==1.0.6
   - datasets>=4.0.0
   - numpy>=1.24.2
   - pydantic>=2.0
