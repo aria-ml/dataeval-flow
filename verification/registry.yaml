@@ -1,0 +1,489 @@
+# Verification Registry for dataeval-flow
+#
+# Static metadata for generating meta repo artifacts (test case markdown files
+# and VCRM) from automated verification test results.
+
+metarepo:
+  project_id: 409
+
+# ---------------------------------------------------------------------------
+# Requirements — rows in the VCRM
+# ---------------------------------------------------------------------------
+requirements:
+  FR-1:
+    name: Installation & Cross-Environment Compatibility
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-1-installation-compatibility.md
+    test_cases: ["1-1", "1-2", "1-7"]
+
+  FR-2:
+    name: Configuration Management
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-2-configuration-management.md
+    test_cases: ["2-1"]
+
+  FR-3:
+    name: Dataset Loading
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-3-dataset-loading.md
+    test_cases: ["3-1"]
+
+  FR-4:
+    name: Feature Extraction Configuration
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-4-feature-extraction.md
+    test_cases: ["4-1"]
+
+  FR-5:
+    name: Preprocessing & Selection Pipeline
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-5-preprocessing-selection.md
+    test_cases: ["5-1"]
+
+  FR-6:
+    name: Workflow Orchestration
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-6-workflow-orchestration.md
+    test_cases: ["6-1"]
+
+  FR-7:
+    name: Data Cleaning Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-7-cleaning-workflow.md
+    test_cases: ["7-1"]
+
+  FR-8:
+    name: Drift Monitoring Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-8-drift-workflow.md
+    test_cases: ["8-1"]
+
+  FR-9:
+    name: OOD Detection Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-9-ood-workflow.md
+    test_cases: ["9-1"]
+
+  FR-10:
+    name: Data Analysis Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-10-analysis-workflow.md
+    test_cases: ["10-1"]
+
+  FR-11:
+    name: Splitting Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-11-splitting-workflow.md
+    test_cases: ["11-1"]
+
+  FR-12:
+    name: Prioritization Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-12-prioritization-workflow.md
+    test_cases: ["12-1"]
+
+  FR-13:
+    name: Parameter Sweep Workflow
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-13-parameter-sweep-workflow.md
+    test_cases: ["13-1"]
+
+  FR-14:
+    name: Reporting & Export
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-14-reporting-export.md
+    test_cases: ["14-1"]
+
+  FR-15:
+    name: Caching
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-15-caching.md
+    test_cases: ["15-1"]
+
+  FR-16:
+    name: CLI Interface
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-16-cli-interface.md
+    test_cases: ["16-1"]
+
+  FR-17:
+    name: Docker Containerization
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: FR-17-docker-containerization.md
+    test_cases: ["17-1"]
+
+  FR-18:
+    name: Result Metadata Envelope
+    origin: IR-3-H-12
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/software/interoperability/#ir-3-model-and-data-interoperability
+    file: FR-18-result-metadata-envelope.md
+    test_cases: ["18-1"]
+
+  NFR-1:
+    name: Python Version Compatibility
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: NFR-1-python-compatibility.md
+    test_cases: ["1-1"]
+
+  NFR-2:
+    name: Packaging & Distribution
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: NFR-2-packaging-distribution.md
+    test_cases: ["1-7"]
+
+  NFR-3:
+    name: Type Safety
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: NFR-3-type-safety.md
+    test_cases: ["10-1"]
+
+  NFR-4:
+    name: Configuration Reproducibility
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: NFR-4-configuration-reproducibility.md
+    test_cases: ["11-1"]
+
+  NFR-5:
+    name: Logging Integration
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: NFR-5-logging-integration.md
+    test_cases: ["16-1"]
+
+  NFR-6:
+    name: Test Coverage
+    origin: DR-1.5
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
+    file: NFR-6-test-coverage.md
+    test_cases: ["19-1"]
+
+# ---------------------------------------------------------------------------
+# Test Cases — columns in the VCRM, individual markdown files
+# ---------------------------------------------------------------------------
+test_cases:
+  "1-1":
+    name: Python Version & Public API Smoke
+    test_type: Core Functionality
+    business_case: >-
+      Verify that dataeval-flow installs and functions correctly across all
+      supported Python versions (3.10–3.13).
+    initial_conditions:
+      - Clean Python environment for the target version
+      - Network access for pip/uv package installation
+    expected_results:
+      - Package imports without errors on the current Python version
+      - Version string is set and valid (not "unknown")
+      - All public symbols listed in __all__ are importable
+      - py.typed marker is present
+
+  "1-2":
+    name: Optional Extras Resolution
+    test_type: Core Functionality
+    business_case: >-
+      Verify that optional dependency extras (cpu, onnx, opencv, app)
+      install without conflicts and enable corresponding features.
+    initial_conditions:
+      - Clean Python environment with dataeval-flow installed
+    expected_results:
+      - torch / torchvision importable when cpu/cu extras are installed
+      - onnxruntime importable when onnx extra is installed
+      - opencv (cv2) importable when opencv extra is installed
+      - textual importable when app extra is installed
+
+  "1-7":
+    name: Package Metadata
+    test_type: Core Functionality
+    business_case: >-
+      Verify that dataeval-flow's installed wheel exposes correct metadata
+      and that no test files leak into the distributed package.
+    initial_conditions:
+      - dataeval-flow installed via pip/uv
+    expected_results:
+      - Package name is "dataeval-flow"
+      - Requires-Python matches >=3.10,<3.14
+      - License is set to MIT
+      - py.typed marker is present
+      - No verification/ or tests/ directories in the installed package
+
+  "2-1":
+    name: Configuration Loading
+    test_type: Core Functionality
+    business_case: >-
+      Verify that YAML/JSON configs load via load_config and load_config_folder
+      and produce validated PipelineConfig instances.
+    initial_conditions:
+      - dataeval-flow installed
+      - Temporary directory with a minimal params.yaml
+    expected_results:
+      - load_config parses a single YAML file into PipelineConfig
+      - load_config parses a single JSON file into PipelineConfig
+      - load_config_folder merges multiple YAML/JSON files at folder root
+      - Invalid configs raise pydantic ValidationError
+
+  "3-1":
+    name: Dataset Loading
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the dataset config classes (HuggingFace, ImageFolder, COCO,
+      YOLO, Protocol) round-trip through pydantic and that load_dataset
+      resolves a local ImageFolder.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic ImageFolder written to tmp_path
+    expected_results:
+      - ImageFolderDatasetConfig validates and round-trips
+      - HuggingFaceDatasetConfig validates with placeholder repo id
+      - CocoDatasetConfig validates with placeholder paths
+      - YoloDatasetConfig validates with placeholder paths
+      - DatasetProtocolConfig validates with an in-memory dataset object
+      - load_dataset returns an AnnotatedDataset for the synthetic ImageFolder
+
+  "4-1":
+    name: Extractor Configuration
+    test_type: Core Functionality
+    business_case: >-
+      Verify that all extractor config classes are constructible, validated
+      by pydantic, and discoverable from the public API.
+    initial_conditions:
+      - dataeval-flow installed
+    expected_results:
+      - FlattenExtractorConfig constructs and round-trips
+      - TorchExtractorConfig constructs with a dotted-path target
+      - OnnxExtractorConfig constructs with a model path
+      - BoVWExtractorConfig constructs with default params
+      - UncertaintyExtractorConfig constructs with default params
+      - All extractor configs are exported from dataeval_flow.__all__
+
+  "5-1":
+    name: Preprocessing & Selection Pipeline
+    test_type: Core Functionality
+    business_case: >-
+      Verify that PreprocessorConfig, SelectionConfig, and SelectionStep
+      compose into a valid pipeline that runs against synthetic data.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic dataset built via fixtures.make_synthetic_dataset
+    expected_results:
+      - PreprocessorConfig accepts torchvision-style transform dicts
+      - SelectionStep instances stack into a SelectionConfig
+      - A SelectionConfig with Limit reduces dataset length
+
+  "6-1":
+    name: Workflow Orchestration
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the workflow registry exposes seven workflows and that
+      run_tasks executes them in sequence and returns WorkflowResult objects.
+    initial_conditions:
+      - dataeval-flow installed
+    expected_results:
+      - list_workflows() returns 7 entries with name + description
+      - get_workflow("data-cleaning") returns a WorkflowProtocol
+      - run_tasks on a synthetic pipeline returns a list of WorkflowResult
+      - Each WorkflowResult has populated metadata.timestamp and tool fields
+
+  "7-1":
+    name: Data Cleaning Workflow
+    test_type: Core Functionality
+    business_case: >-
+      Verify that DataCleaningWorkflow executes end-to-end on synthetic data
+      and produces a typed WorkflowResult with cleaning findings.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic dataset and FlattenExtractor configured
+    expected_results:
+      - DataCleaningWorkflow.execute returns success=True
+      - result.data exposes outlier and duplicate findings
+      - result.report() returns a non-empty string
+
+  "8-1":
+    name: Drift Monitoring Workflow
+    test_type: Core Functionality
+    business_case: >-
+      Verify that DriftMonitoringWorkflow executes end-to-end on synthetic
+      reference and test data.
+    initial_conditions:
+      - dataeval-flow installed
+      - Two synthetic datasets (reference, test) configured as sources
+    expected_results:
+      - DriftMonitoringWorkflow.execute returns success=True
+      - result.data exposes drift findings
+      - result.report() returns a non-empty string
+
+  "9-1":
+    name: OOD Detection Workflow
+    test_type: Core Functionality
+    business_case: >-
+      Verify that OODDetectionWorkflow executes end-to-end on synthetic
+      reference and test data.
+    initial_conditions:
+      - dataeval-flow installed
+      - Two synthetic datasets configured as sources
+    expected_results:
+      - OODDetectionWorkflow.execute returns success=True
+      - OOD detector exposes per-sample scores and is_ood flags
+      - result.report() returns a non-empty string
+
+  "10-1":
+    name: Data Analysis Workflow & Type Safety
+    test_type: Core Functionality
+    business_case: >-
+      Verify that DataAnalysisWorkflow executes end-to-end on synthetic
+      data and that the package ships PEP 561 typing infrastructure.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic dataset configured
+    expected_results:
+      - DataAnalysisWorkflow.execute returns success=True
+      - result.data exposes analysis outputs (bias, quality, etc.)
+      - py.typed marker is present in the installed package
+      - dataeval_flow.__all__ is defined and non-empty
+
+  "11-1":
+    name: Splitting Workflow & Configuration Reproducibility
+    test_type: Core Functionality
+    business_case: >-
+      Verify that DataSplittingWorkflow produces deterministic splits when
+      the seed is set, demonstrating configuration reproducibility.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic dataset configured with a fixed seed
+    expected_results:
+      - DataSplittingWorkflow.execute returns success=True
+      - Two runs with the same seed produce identical splits
+      - Two runs with different seeds produce different splits
+
+  "12-1":
+    name: Prioritization Workflow
+    test_type: Core Functionality
+    business_case: >-
+      Verify that DataPrioritizationWorkflow ranks synthetic samples and
+      produces a typed WorkflowResult.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic dataset configured
+    expected_results:
+      - DataPrioritizationWorkflow.execute returns success=True
+      - result.data exposes ranked indices
+
+  "13-1":
+    name: Parameter Sweep Workflow
+    test_type: Core Functionality
+    business_case: >-
+      Verify that ParameterSweepWorkflow runs a small parameter grid and
+      produces one WorkflowResult per parameter combination.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic dataset configured
+      - Sweep grid with 2 parameter combinations
+    expected_results:
+      - ParameterSweepWorkflow.execute returns success=True
+      - result.data exposes per-combination outputs
+
+  "14-1":
+    name: Reporting & Export
+    test_type: Core Functionality
+    business_case: >-
+      Verify that WorkflowResult renders human-readable text reports and
+      exports JSON / YAML.
+    initial_conditions:
+      - dataeval-flow installed
+      - A WorkflowResult from a synthetic-data workflow run
+    expected_results:
+      - WorkflowResult.report() returns a non-empty multi-line string
+      - WorkflowResult.export(path, fmt="json") writes a valid JSON file
+      - WorkflowResult.export(path, fmt="yaml") writes a valid YAML file
+      - WorkflowResult.to_dict() includes metadata + data fields
+
+  "15-1":
+    name: Caching
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the DatasetCache stores and retrieves computed artifacts
+      keyed by a deterministic content hash.
+    initial_conditions:
+      - dataeval-flow installed
+      - Writable tmp_path for cache root
+    expected_results:
+      - DatasetCache writes an entry and round-trips it on read
+      - Cache key is stable across runs for the same inputs
+      - Cache miss returns None / raises a documented error
+
+  "16-1":
+    name: CLI Entrypoints & Logging
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the headless CLI, TUI app, and config builder are
+      installed as entrypoints and that the CLI configures stdlib logging.
+    initial_conditions:
+      - dataeval-flow installed
+    expected_results:
+      - dataeval-flow console_script is on PATH
+      - "`python -m dataeval_flow --help` exits 0"
+      - "`python -m dataeval_flow app --help` exits 0"
+      - "`python -m dataeval_flow config --help` exits 0"
+      - CLI startup configures the root logger with at least one handler
+
+  "17-1":
+    name: Docker Artifacts Present
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the repo ships the expected Dockerfiles and that they
+      pass a basic syntactic lint.
+    initial_conditions:
+      - Repo checkout with docker/ directory
+    expected_results:
+      - docker/Dockerfile.cpu exists and starts with FROM
+      - docker/Dockerfile.cu118 exists and starts with FROM
+      - Both Dockerfiles declare a non-root USER
+
+  "18-1":
+    name: Result Metadata Envelope
+    test_type: Core Functionality
+    business_case: >-
+      Verify that every WorkflowResult populates the JATIC-required
+      ResultMetadata envelope per IR-3-H-12.
+    initial_conditions:
+      - dataeval-flow installed
+      - A WorkflowResult from a synthetic-data workflow run
+    expected_results:
+      - metadata.version is set
+      - metadata.timestamp is a timezone-aware datetime
+      - metadata.tool == "dataeval-flow"
+      - metadata.tool_version is set to dataeval_flow.__version__
+      - metadata.resolved_config is a dict and is non-empty
+      - metadata.execution_time_s is a non-negative float
+
+  "19-1":
+    name: Test Coverage Threshold
+    test_type: Non-Functional
+    business_case: >-
+      Verify that dataeval-flow's automated test suite achieves at least
+      90% line coverage of the source package, per NFR-6.
+    initial_conditions:
+      - dataeval-flow installed
+      - output/coverage.xml present (run `nox -s test` to generate)
+    expected_results:
+      - output/coverage.xml exists
+      - Total line coverage is ≥ 90%

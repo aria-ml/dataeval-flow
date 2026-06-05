@@ -205,7 +205,7 @@ include = ["src/dataeval_flow"]
 # --- Pytest ---
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "verification"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
 addopts = [
@@ -282,7 +282,7 @@ ignore = [
     "C416",
 ]
 fixable = ["ALL"]
-per-file-ignores = { "tests/*" = ["ANN", "S101", "D", "SLF001", "ARG002", "PT019"], "docs/*" = ["D", "E402", "E501", "S101"] }
+per-file-ignores = { "tests/*" = ["ANN", "S101", "D", "SLF001", "ARG002", "PT019"], "docs/*" = ["D", "E402", "E501", "S101"], "verification/*" = ["ANN", "S101", "D", "SLF001", "ARG001", "ARG002", "PT011", "PT019"] }
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"

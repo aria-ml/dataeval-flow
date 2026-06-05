@@ -226,9 +226,9 @@ class WorkflowResult(Generic[TMetadata, TData]):
             content = dumps(output, indent=2)
             ext = "json"
         else:
-            from yaml import dump
+            from yaml import safe_dump
 
-            content = dump(output, default_flow_style=False)
+            content = safe_dump(output, default_flow_style=False)
             ext = "yaml"
 
         if path is None:
@@ -248,7 +248,7 @@ class WorkflowResult(Generic[TMetadata, TData]):
         """Return the result as a plain dictionary (metadata + data fields)."""
         return {
             "metadata": self.metadata.model_dump(mode="json"),
-            **self.data.model_dump(),
+            **self.data.model_dump(mode="json"),
         }
 
 
