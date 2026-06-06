@@ -99,3 +99,11 @@ except ImportError:  # pragma: no cover
 
 # Strongly type for pyright
 __version__ = str(__version__)
+
+import logging
+
+# Library-style default: attach a NullHandler so importing dataeval_flow without
+# running the CLI (which calls setup_logging) never emits unconfigured output or
+# triggers the logging "last resort" handler. The CLI configures real handlers on
+# the root logger via dataeval_flow._logging.setup_logging.
+logging.getLogger(__name__).addHandler(logging.NullHandler())

@@ -39,7 +39,7 @@ from dataeval_flow.workflows.cleaning.outputs import (
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.cleaning.report import build_findings, collect_flagged_indices
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +340,7 @@ def _compute_classwise_pivot(
             "rows": rows,
         }
     except Exception:  # noqa: BLE001
-        logger.warning("Classwise pivot unavailable", exc_info=True)
+        _logger.warning("Classwise pivot unavailable", exc_info=True)
     return None
 
 
@@ -354,7 +354,7 @@ def _run_duplicate_detection(
     """Run hash-based and optionally cluster-based duplicate detection."""
     import time as _time
 
-    logger.info("  [4e] Running duplicate detection…")
+    _logger.info("  [4e] Running duplicate detection…")
     _t0 = _time.monotonic()
 
     # Hash-based duplicate detection (always, using cached stats)
@@ -369,7 +369,7 @@ def _run_duplicate_detection(
     else:
         duplicates_result = hash_dup_result
 
-    logger.info("  [4e] Duplicate detection done in %.1fs", _time.monotonic() - _t0)
+    _logger.info("  [4e] Duplicate detection done in %.1fs", _time.monotonic() - _t0)
     return duplicates_result
 
 
@@ -395,17 +395,17 @@ def _run_cleaning(
         desired_flags=outlier_flags | hash_flags,
         dataset=dataset,
     )
-    logger.info("  [4a] Image stats ready in %.1fs", _time.monotonic() - _t0)
+    _logger.info("  [4a] Image stats ready in %.1fs", _time.monotonic() - _t0)
 
     # --- Outlier detection via from_stats() ---
-    logger.info("  [4b] Running stats-based outlier detection…")
+    _logger.info("  [4b] Running stats-based outlier detection…")
     _t0 = _time.monotonic()
     outliers_eval = Outliers(
         flags=outlier_flags,
         outlier_threshold=(params.outlier_method, params.outlier_threshold),
     )
     outlier_output = outliers_eval.from_stats(calc_result, per_target=True)  # type: ignore[arg-type]
-    logger.info("  [4b] Stats-based outlier detection done in %.1fs", _time.monotonic() - _t0)
+    _logger.info("  [4b] Stats-based outlier detection done in %.1fs", _time.monotonic() - _t0)
 
     # --- Shared embeddings for cluster-based detection ---
     has_outlier_cluster = extractor is not None and params.outlier_cluster_threshold is not None
@@ -519,10 +519,10 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
             # 1. Apply selection if configured
             dataset = dc.dataset
             if dc.selection_steps:
-                logger.info("[1/4] Applying selection (%d steps)…", len(dc.selection_steps))
+                _logger.info("[1/4] Applying selection (%d steps)…", len(dc.selection_steps))
                 _t0 = _time.monotonic()
                 dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
-                logger.info("[1/4] Selection applied in %.1fs", _time.monotonic() - _t0)
+                _logger.info("[1/4] Selection applied in %.1fs", _time.monotonic() - _t0)
 
             # Compute selection key (shared by metadata + stats caching)
             sel_key = _sel_repr(dataset)
@@ -530,13 +530,13 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
             # 2. Build extractor if configured
             extractor = None
             if dc.extractor:
-                logger.info("[2/4] Building extractor…")
+                _logger.info("[2/4] Building extractor…")
                 _t0 = _time.monotonic()
                 extractor = build_extractor(
                     extractor_config=dc.extractor,
                     transforms=dc.transforms,
                 )
-                logger.info("[2/4] Extractor built in %.1fs", _time.monotonic() - _t0)
+                _logger.info("[2/4] Extractor built in %.1fs", _time.monotonic() - _t0)
 
             # 3–4. Activate cache context so all downstream get_or_compute_*
             # calls automatically use the cache without explicit threading.
@@ -550,13 +550,13 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                     stack.enter_context(active_cache(dc.cache, sel_key))
 
                 # 3. Build metadata for label stats (cache-aware via active_cache)
-                logger.info("[3/4] Loading metadata…")
+                _logger.info("[3/4] Loading metadata…")
                 _t0 = _time.monotonic()
                 metadata = get_or_compute_metadata(dataset)
-                logger.info("[3/4] Metadata ready in %.1fs", _time.monotonic() - _t0)
+                _logger.info("[3/4] Metadata ready in %.1fs", _time.monotonic() - _t0)
 
                 # 4. Run cleaning evaluators (cache-aware via active_cache)
-                logger.info("[4/4] Running outlier and duplicate detection on %d items…", len(dataset))
+                _logger.info("[4/4] Running outlier and duplicate detection on %d items…", len(dataset))
                 _t0 = _time.monotonic()
                 raw = _run_cleaning(
                     dataset,
@@ -565,7 +565,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                     metadata,  # type: ignore[arg-type]
                     run_ctx,
                 )
-            logger.info(
+            _logger.info(
                 "[4/4] Detection complete in %.1fs: %d outliers, %d exact dup groups, %d near dup groups",
                 _time.monotonic() - _t0,
                 raw.img_outliers.get("count", 0),
@@ -618,7 +618,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 dataset=dataset,
             )
         except Exception as e:
-            logger.exception("Workflow '%s' failed", self.name)
+            _logger.exception("Workflow '%s' failed", self.name)
             return WorkflowResult(
                 name=self.name,
                 success=False,

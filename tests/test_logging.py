@@ -117,6 +117,48 @@ class TestSetupLogging:
         assert stream_handlers[0].level == logging.DEBUG
 
 
+class TestLogMessage:
+    def test_defers_and_caches_evaluation(self):
+        """The callback is not run until str() is requested, then cached."""
+        from dataeval_flow._logging import LogMessage
+
+        calls: list[int] = []
+
+        def build() -> str:
+            calls.append(1)
+            return "built message"
+
+        msg = LogMessage(build)
+        assert calls == []  # not evaluated on construction
+
+        assert str(msg) == "built message"  # evaluated on first str()
+        assert str(msg) == "built message"  # served from cache on second str()
+        assert len(calls) == 1  # callback ran exactly once
+
+
+class TestConsoleFormatter:
+    def test_info_renders_bare_message(self, tmp_path: Path, capsys: pytest.CaptureFixture):
+        """INFO/DEBUG console output is the bare message — no timestamp, name, or level tag."""
+        setup_logging(tmp_path, verbosity=2)  # console handler at INFO
+
+        logging.getLogger("dataeval_flow.fmt").info("plain console message")
+
+        out = capsys.readouterr().out
+        assert "plain console message" in out
+        assert "dataeval_flow.fmt" not in out  # logger name stripped
+        assert "INFO" not in out  # no level tag below WARNING
+
+    def test_warning_is_level_tagged(self, tmp_path: Path, capsys: pytest.CaptureFixture):
+        """WARNING and above are prefixed with ``LEVEL:`` so problems stay visible."""
+        setup_logging(tmp_path, verbosity=0)  # console handler at WARNING
+
+        logging.getLogger("dataeval_flow.fmt").warning("be careful")
+
+        out = capsys.readouterr().out
+        assert "WARNING: be careful" in out
+        assert "dataeval_flow.fmt" not in out  # still no logger name / timestamp
+
+
 class TestConfigureLogLevels:
     def test_configure_log_levels_app(self, tmp_path: Path):
         setup_logging(tmp_path)

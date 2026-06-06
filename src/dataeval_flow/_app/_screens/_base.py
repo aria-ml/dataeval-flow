@@ -16,7 +16,7 @@ from textual.widgets import Button, Checkbox, Input, Select
 from dataeval_flow._app._model._item import DELETE_SENTINEL
 from dataeval_flow._app._screens._pathpicker import PathPickerScreen
 
-_log = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ class ComponentModal(ModalScreen[dict | str | None]):
                 try:
                     result = relativize_to_data_dir(result, data_dir)
                 except ValueError:
-                    _log.warning("Browsed path '%s' is not under data root '%s'", result, data_dir)
+                    _logger.warning("Browsed path '%s' is not under data root '%s'", result, data_dir)
             with contextlib.suppress(NoMatches):
                 self.query_one(f"#{input_id}", Input).value = result
 

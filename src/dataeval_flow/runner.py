@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _resolve_config(config_arg: Path | str | None, data_dir: Path) -> PipelineConfig:
@@ -77,7 +77,7 @@ def run(
         configure_log_levels(config.logging.app_level, config.logging.lib_level)
 
     if not config.tasks:
-        logger.info("No tasks defined in config.")
+        _logger.info("No tasks defined in config.")
         return 0
 
     results = run_tasks(config, data_dir=resolved_data, cache_dir=cache_dir)
@@ -88,9 +88,9 @@ def run(
 
     for task, result in zip(config.tasks, results, strict=True):
         if not result.success:
-            logger.error("  FAILED: %s", task.name)
+            _logger.error("  FAILED: %s", task.name)
             for error in result.errors:
-                logger.error("    %s", error)
+                _logger.error("    %s", error)
             failures += 1
             flush_logs()
             continue
@@ -102,7 +102,7 @@ def run(
         merged[task.name] = result.to_dict()
         text_parts.append(result.report(detailed=True))
 
-        logger.info("  OK: %s", task.name)
+        _logger.info("  OK: %s", task.name)
         flush_logs()
 
     # --- Write file artifacts (only when output_dir is set) ---
@@ -112,7 +112,7 @@ def run(
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "result.json").write_text(json_mod.dumps(merged, indent=2), encoding="utf-8")
         (output_dir / "result.txt").write_text("\n".join(text_parts), encoding="utf-8")
-        logger.info("  Wrote result.json and result.txt to %s", output_dir)
+        _logger.info("  Wrote result.json and result.txt to %s", output_dir)
 
-    logger.info("Done. %d/%d succeeded.", len(config.tasks) - failures, len(config.tasks))
+    _logger.info("Done. %d/%d succeeded.", len(config.tasks) - failures, len(config.tasks))
     return 1 if failures else 0

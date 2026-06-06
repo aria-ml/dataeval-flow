@@ -20,7 +20,7 @@ __all__ = [
     "validate_config_path",
 ]
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 DEFAULT_DATA_DIR = Path(".")
 _DATAEVAL_DATA_ENV = "DATAEVAL_DATA"
@@ -51,7 +51,7 @@ def resolve_path(relative: str | Path, data_dir: Path | None = None) -> Path:
 
 def load_config(config_path: Path) -> PipelineConfig:
     """Load pipeline configuration from a single YAML or JSON file."""
-    logger.debug("Loading config from %s", config_path)
+    _logger.debug("Loading config from %s", config_path)
 
     if not config_path.exists():
         msg = f"Config file not found: {config_path}"
@@ -67,7 +67,7 @@ def load_config_folder(config_path: Path) -> PipelineConfig:
     """Load and merge all YAML/JSON files from config folder."""
     from dataeval_flow.config._merge import merge_config_folder
 
-    logger.debug("Loading config folder %s", config_path)
+    _logger.debug("Loading config folder %s", config_path)
     merged = merge_config_folder(config_path)
     return PipelineConfig.model_validate(merged)
 

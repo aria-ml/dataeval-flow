@@ -19,7 +19,7 @@ from maite_datasets.adapters import HFImageClassificationDataset, HFObjectDetect
 from numpy.typing import NDArray
 from pydantic import BaseModel
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 MaiteDataset: TypeAlias = HFImageClassificationDataset | HFObjectDetectionDataset
 
@@ -56,7 +56,7 @@ class ImageFolderDataset:
                 f"No supported image files found in {root}. "
                 f"Supported extensions: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
             )
-        logger.info("ImageFolderDataset: found %d images in %s", len(self._paths), root)
+        _logger.info("ImageFolderDataset: found %d images in %s", len(self._paths), root)
 
     # -- Discovery --------------------------------------------------------
 
@@ -84,7 +84,7 @@ class ImageFolderDataset:
         # Log top-level images that will be ignored
         top_level_images = [p for p in root.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS]
         if top_level_images:
-            logger.debug(
+            _logger.debug(
                 "ImageFolderDataset: ignoring %d top-level images in labeled mode",
                 len(top_level_images),
             )
@@ -220,7 +220,7 @@ class TorchvisionDataset:
         self._num_classes: int | None = len(classes) if classes else None
 
         name = getattr(dataset, "__class__", type(dataset)).__name__
-        logger.info("TorchvisionDataset: wrapping %s (%d samples)", name, len(self))
+        _logger.info("TorchvisionDataset: wrapping %s (%d samples)", name, len(self))
 
     # -- AnnotatedDataset protocol ----------------------------------------
 
@@ -369,17 +369,17 @@ def load_dataset_huggingface(path: Path, split: str | None = None) -> MaiteDatas
 
     dataset = load_from_disk(str(path))
 
-    logger.info("Loaded type: %s", type(dataset).__name__)
+    _logger.info("Loaded type: %s", type(dataset).__name__)
     # union-attr: load_from_disk returns Dataset | DatasetDict; .keys() only on DatasetDict.
     if hasattr(dataset, "keys") and callable(dataset.keys):  # type: ignore[union-attr]
         available_splits = list(dataset.keys())  # type: ignore[union-attr]
         if split is None or split not in available_splits:
             raise KeyError(f"Requested split '{split}' not found in dataset. Available splits: {available_splits}")
-        logger.info("DatasetDict detected with %d splits: %s", len(available_splits), available_splits)
-        logger.info("Selecting split '%s' as specified in config.", split)
+        _logger.info("DatasetDict detected with %d splits: %s", len(available_splits), available_splits)
+        _logger.info("Selecting split '%s' as specified in config.", split)
         dataset = dataset[split]
     else:
-        logger.info("Dataset detected (single split)")
+        _logger.info("Dataset detected (single split)")
 
     # load_from_disk returns Dataset | DatasetDict; after the dict guard above
     # it's a single Dataset, but pyright can't narrow through hasattr.
@@ -427,7 +427,7 @@ def load_dataset_coco(
         kwargs["classes_file"] = classes_file
     reader = COCODatasetReader(path, **kwargs)
     dataset = reader.create_dataset()
-    logger.info("COCODataset: loaded %d images from %s", len(dataset), path)
+    _logger.info("COCODataset: loaded %d images from %s", len(dataset), path)
     return dataset
 
 
@@ -467,7 +467,7 @@ def load_dataset_yolo(
         kwargs["classes_file"] = classes_file
     reader = YOLODatasetReader(path, **kwargs)  # type: ignore[arg-type]  # kwargs are all str; pyright flags image_extensions
     dataset = reader.create_dataset()
-    logger.info("YOLODataset: loaded %d images from %s", len(dataset), path)
+    _logger.info("YOLODataset: loaded %d images from %s", len(dataset), path)
     return dataset
 
 

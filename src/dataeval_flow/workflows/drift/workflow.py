@@ -43,7 +43,7 @@ from dataeval_flow.workflows.drift.params import (
 )
 from dataeval_flow.workflows.drift.report import build_findings
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Detector factory
@@ -195,7 +195,7 @@ def _extract_labels(dataset: AnnotatedDataset[Any]) -> NDArray[np.intp] | None:
                 return None
         return np.array(labels, dtype=np.intp)
     except Exception:  # noqa: BLE001
-        logger.debug("Could not extract labels for classwise drift", exc_info=True)
+        _logger.debug("Could not extract labels for classwise drift", exc_info=True)
         return None
 
 
@@ -263,7 +263,7 @@ def _run_classwise_drift(
             test_cls = test_embeddings[test_mask]
 
             if len(ref_cls) < 2 or len(test_cls) < 2:
-                logger.debug(
+                _logger.debug(
                     "Skipping class %s for %s: too few samples (ref=%d, test=%d)",
                     cls,
                     name,
@@ -290,7 +290,7 @@ def _run_classwise_drift(
                     )
                 )
             except Exception:  # noqa: BLE001
-                logger.warning("Classwise detector %s failed for class %s", name, cls, exc_info=True)
+                _logger.warning("Classwise detector %s failed for class %s", name, cls, exc_info=True)
                 continue
 
         results.append(ClasswiseDriftDict(detector=name, rows=rows))
@@ -331,7 +331,7 @@ def _run_all_detectors(
     test_embeddings: NDArray[np.float32],
 ) -> tuple[dict[str, DetectorResultDict], dict[str, str], list[str]]:
     """Run all configured drift detectors and return results, names, and errors."""
-    logger.info("[3/4] Running %d drift detector(s)…", len(params.detectors))
+    _logger.info("[3/4] Running %d drift detector(s)…", len(params.detectors))
     t0 = _time.monotonic()
 
     detector_results: dict[str, DetectorResultDict] = {}
@@ -364,12 +364,12 @@ def _run_all_detectors(
                 detector_results[method_key] = _serialize_result(output, det_config)
 
             status = "DRIFT" if output.drifted else "ok"
-            logger.info("  %s: %s (distance=%.4f, threshold=%.4f)", display, status, output.distance, output.threshold)
+            _logger.info("  %s: %s (distance=%.4f, threshold=%.4f)", display, status, output.distance, output.threshold)
         except Exception as e:  # noqa: BLE001
-            logger.warning("Detector %s failed: %s", display, e, exc_info=True)
+            _logger.warning("Detector %s failed: %s", display, e, exc_info=True)
             detector_errors.append(f"{display}: {e}")
 
-    logger.info("[3/4] Detection complete in %.1fs", _time.monotonic() - t0)
+    _logger.info("[3/4] Detection complete in %.1fs", _time.monotonic() - t0)
     return detector_results, detector_names, detector_errors
 
 
@@ -383,15 +383,15 @@ def _handle_classwise(
 ) -> list[ClasswiseDriftDict] | None:
     """Run classwise drift detection if enabled and labels are available."""
     if not _any_classwise(params.detectors):
-        logger.info("[4/4] Classwise drift not enabled — skipping.")
+        _logger.info("[4/4] Classwise drift not enabled — skipping.")
         return None
 
     if ref_labels is None or not test_label_parts:
-        logger.warning("Classwise drift requested but labels not available — skipping.")
+        _logger.warning("Classwise drift requested but labels not available — skipping.")
         return None
 
     test_labels = np.concatenate(test_label_parts) if len(test_label_parts) > 1 else test_label_parts[0]
-    logger.info("[4/4] Running classwise drift detection…")
+    _logger.info("[4/4] Running classwise drift detection…")
     t0 = _time.monotonic()
     results = _run_classwise_drift(
         ref_embeddings,
@@ -401,7 +401,7 @@ def _handle_classwise(
         params,
         detector_names,
     )
-    logger.info("[4/4] Classwise detection complete in %.1fs", _time.monotonic() - t0)
+    _logger.info("[4/4] Classwise detection complete in %.1fs", _time.monotonic() - t0)
     return results
 
 
@@ -464,7 +464,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
         try:
             return self._run(context, params)
         except Exception as e:
-            logger.exception("Workflow '%s' failed", self.name)
+            _logger.exception("Workflow '%s' failed", self.name)
             return WorkflowResult(
                 name=self.name,
                 success=False,
@@ -495,7 +495,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
 
         # Log stubbed update strategy
         if params.update_strategy is not None:
-            logger.warning(
+            _logger.warning(
                 "update_strategy is configured but not yet applied at runtime. "
                 "This setting is accepted for forward compatibility."
             )
@@ -537,7 +537,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
         ref_name, ref_dc = dc_items[0]
         test_contexts = dc_items[1:]
 
-        logger.info(
+        _logger.info(
             "[1/4] Preparing datasets: reference=%s, test=%s",
             ref_name,
             [n for n, _ in test_contexts],
@@ -566,11 +566,11 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
         params: DriftMonitoringParameters,
     ) -> tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.intp] | None, list[NDArray[np.intp]]]:
         """Extract embeddings for reference and test datasets."""
-        logger.info("[2/4] Extracting embeddings…")
+        _logger.info("[2/4] Extracting embeddings…")
         t0 = _time.monotonic()
 
         ref_embeddings = _get_embeddings_for_context(ref_dc, ref_dataset)
-        logger.info("  Reference embeddings: %s", ref_embeddings.shape)
+        _logger.info("  Reference embeddings: %s", ref_embeddings.shape)
 
         test_embedding_parts: list[NDArray[np.float32]] = []
         test_label_parts: list[NDArray[np.intp]] = []
@@ -578,7 +578,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
         for t_name, t_dc, t_ds in test_datasets:
             emb = _get_embeddings_for_context(t_dc, t_ds)
             test_embedding_parts.append(emb)
-            logger.info("  Test embeddings (%s): %s", t_name, emb.shape)
+            _logger.info("  Test embeddings (%s): %s", t_name, emb.shape)
 
             if _any_classwise(params.detectors):
                 t_labels = _extract_labels(t_ds)
@@ -591,7 +591,7 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
 
         ref_labels = _extract_labels(ref_dataset) if _any_classwise(params.detectors) else None
 
-        logger.info(
+        _logger.info(
             "[2/4] Embeddings ready in %.1fs (ref=%d, test=%d)",
             _time.monotonic() - t0,
             len(ref_embeddings),

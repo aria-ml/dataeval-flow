@@ -32,7 +32,9 @@ import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, Field
 
-logger: logging.Logger = logging.getLogger(__name__)
+from dataeval_flow._logging import LogMessage
+
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 class PreprocessingStep(BaseModel):
@@ -120,7 +122,7 @@ def build_preprocessing(steps: Sequence[PreprocessingStep]) -> _PreprocessingTra
         "interpolation": _resolve_interpolation,
     }
 
-    logger.debug("Building preprocessing pipeline: %s", [s.step for s in steps])
+    _logger.debug(LogMessage(lambda: f"Building preprocessing pipeline: {[s.step for s in steps]}"))
 
     ops: list[Any] = []
     for step in steps:

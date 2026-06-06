@@ -12,7 +12,7 @@ from dataeval.quality import Duplicates, DuplicatesOutput, Outliers, OutliersOut
 
 from dataeval_flow.cache import get_or_compute_cluster_result, get_or_compute_embeddings
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _compute_embeddings(
@@ -44,7 +44,7 @@ def _merge_outlier_outputs(
     _run_ctx: Any,  # CleaningRunContext or shim
 ) -> OutliersOutput:
     """Run cluster-based outlier detection and merge with stats-based results."""
-    logger.debug("Running cluster-based outlier detection")
+    _logger.debug("Running cluster-based outlier detection")
     cluster_result = get_or_compute_cluster_result(
         embeddings,
         algorithm=params.outlier_cluster_algorithm or "hdbscan",
@@ -91,7 +91,7 @@ def _merge_duplicate_results(
     _run_ctx: Any,  # CleaningRunContext or shim
 ) -> DuplicatesOutput:
     """Run cluster-based duplicate detection and merge with hash-based results."""
-    logger.debug("Running cluster-based duplicate detection")
+    _logger.debug("Running cluster-based duplicate detection")
     cluster_result = get_or_compute_cluster_result(
         embeddings,
         algorithm=params.duplicate_cluster_algorithm or "hdbscan",

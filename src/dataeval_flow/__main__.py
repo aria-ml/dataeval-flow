@@ -2,10 +2,13 @@
 """CLI entry point for standalone usage: python -m dataeval_flow."""
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import NoReturn
+
+_logger = logging.getLogger(__name__)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -136,12 +139,17 @@ def main() -> NoReturn:
         sys.exit(0)
 
     # Headless execution (no subcommand)
+    # Enable clean console logging up front so failures during import or config
+    # resolution are reported even before the runner configures the file log.
+    from dataeval_flow._logging import setup_logging
+
+    setup_logging(verbosity=args.verbose)
     try:
         from dataeval_flow.runner import run
 
         sys.exit(run(args.config, args.output, data_dir=args.data, verbosity=args.verbose, cache_dir=args.cache))
     except (FileNotFoundError, ValueError, ImportError) as e:
-        print(f"ERROR: {e}")
+        _logger.error("%s", e)
         sys.exit(1)
 
 

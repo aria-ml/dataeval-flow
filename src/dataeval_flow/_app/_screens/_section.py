@@ -20,7 +20,7 @@ from dataeval_flow._app._screens._base import ComponentModal, _select_value
 from dataeval_flow._app._screens._params import build_param_form, collect_param_form, validate_param_form
 from dataeval_flow._app._viewmodel._section_vm import SectionViewModel
 
-_log = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 class SectionModal(ComponentModal):
@@ -366,7 +366,7 @@ class SectionModal(ComponentModal):
             try:
                 self._populate_one_field(desc, self._existing[desc.name])
             except NoMatches:
-                _log.debug("Widget %s not found while populating field '%s'", self._wid(desc.name), desc.name)
+                _logger.debug("Widget %s not found while populating field '%s'", self._wid(desc.name), desc.name)
 
     # -- Collection --------------------------------------------------------
 
@@ -552,7 +552,7 @@ class SectionModal(ComponentModal):
                 vid = f"md-vp-{vpg}-{field_name}-{vd.name}"
                 self._mount_scalar_field(container, vd, vid)
         except NoMatches:
-            _log.debug("Widget not found while rebuilding variant params for '%s'", field_name)
+            _logger.debug("Widget not found while rebuilding variant params for '%s'", field_name)
 
     def _add_list_item(self, field_name: str) -> None:
         desc = next((d for d in self._vm.descriptors if d.name == field_name), None)

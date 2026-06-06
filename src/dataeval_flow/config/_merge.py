@@ -7,7 +7,9 @@ from typing import Any
 
 import yaml
 
-logger: logging.Logger = logging.getLogger(__name__)
+from dataeval_flow._logging import LogMessage
+
+_logger: logging.Logger = logging.getLogger(__name__)
 
 _YAML_EXTS = frozenset({".yaml", ".yml"})
 _JSON_EXTS = frozenset({".json"})
@@ -54,18 +56,18 @@ def merge_config_folder(config_path: Path) -> dict[str, Any]:
         raise ValueError(f"Config path is not a directory: {config_path}")
 
     candidates = sorted(f for f in config_path.iterdir() if f.is_file() and f.suffix.lower() in _CONFIG_EXTS)
-    logger.debug("Found %d candidate file(s): %s", len(candidates), [f.name for f in candidates])
+    _logger.debug(LogMessage(lambda: f"Found {len(candidates)} candidate file(s): {[f.name for f in candidates]}"))
 
     accepted: list[Path] = []
     for config_file in candidates:
         try:
             file_config = _load_file(config_file)
         except (json.JSONDecodeError, yaml.YAMLError) as exc:
-            logger.debug("Skipping %s (parse error: %s)", config_file.name, exc)
+            _logger.debug("Skipping %s (parse error: %s)", config_file.name, exc)
             continue
 
         if not isinstance(file_config, dict) or not _is_valid_config(file_config):
-            logger.debug("Skipping %s (not a valid pipeline config)", config_file.name)
+            _logger.debug("Skipping %s (not a valid pipeline config)", config_file.name)
             continue
 
         _deep_merge(config, file_config)
@@ -74,7 +76,7 @@ def merge_config_folder(config_path: Path) -> dict[str, Any]:
     if not accepted:
         raise FileNotFoundError(f"No valid pipeline config files found in {config_path}")
 
-    logger.debug("Accepted %d config file(s): %s", len(accepted), [f.name for f in accepted])
+    _logger.debug(LogMessage(lambda: f"Accepted {len(accepted)} config file(s): {[f.name for f in accepted]}"))
     return config
 
 

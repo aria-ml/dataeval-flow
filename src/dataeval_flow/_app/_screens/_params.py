@@ -12,7 +12,7 @@ from textual.widgets import Checkbox, Input, Label, Select
 from dataeval_flow._app._model._item import coerce_step_params, validate_step_params
 from dataeval_flow._app._screens._base import _select_value
 
-_log = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def build_param_form(container: Vertical, params: list[Any], prefix: str) -> None:
@@ -64,7 +64,7 @@ def _read_param_values(container: Vertical, params: list[Any], prefix: str) -> d
                 inp = container.query_one(f"#{widget_id}", Input)
                 values[p.name] = inp.value.strip() or None
         except NoMatches:
-            _log.warning("Widget %s not found — skipping param '%s'", widget_id, p.name)
+            _logger.warning("Widget %s not found — skipping param '%s'", widget_id, p.name)
     return values
 
 

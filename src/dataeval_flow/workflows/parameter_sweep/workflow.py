@@ -31,7 +31,7 @@ from dataeval_flow.workflows.parameter_sweep.outputs import (
 )
 from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 FLAG_MAP: dict[str, ImageStats] = {
     "dimension": ImageStats.DIMENSION,
@@ -118,7 +118,7 @@ class ParameterSweepWorkflow(WorkflowProtocol[ParameterSweepMetadata, ParameterS
         try:
             return self._run_sweep(context, params)
         except Exception as e:
-            logger.exception("Workflow '%s' failed", self.name)
+            _logger.exception("Workflow '%s' failed", self.name)
             return self._fail(f"Workflow execution failed: {e}")
 
     def _run_sweep(
@@ -200,7 +200,7 @@ class ParameterSweepWorkflow(WorkflowProtocol[ParameterSweepMetadata, ParameterS
                 )
             )
 
-            logger.info("Running sweep over %d combinations...", len(param_combinations))
+            _logger.info("Running sweep over %d combinations...", len(param_combinations))
 
             for combo in param_combinations:
                 (

@@ -20,7 +20,7 @@ from dataeval_flow.workflows.splitting.report import build_findings
 
 __all__ = ["DataSplittingWorkflow"]
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -97,14 +97,14 @@ def _run_coverage(
 ) -> dict[str, Any] | None:
     """Run per-split coverage assessment if model is provided."""
     if ds_ctx.extractor is None:
-        logger.info("Step 7: Skipping coverage (no model provided)")
+        _logger.info("Step 7: Skipping coverage (no model provided)")
         return None
 
     from dataeval.core import coverage_adaptive
 
     from dataeval_flow.embeddings import build_embeddings
 
-    logger.info("Step 7: Per-split coverage assessment")
+    _logger.info("Step 7: Per-split coverage assessment")
     embeddings_obj = build_embeddings(
         dataset,
         ds_ctx.extractor,
@@ -193,7 +193,7 @@ class DataSplittingWorkflow:
         try:
             return self._execute(context, p)
         except Exception:
-            logger.exception("Splitting workflow failed")
+            _logger.exception("Splitting workflow failed")
             return WorkflowResult(
                 name=self.name,
                 success=False,
@@ -228,13 +228,13 @@ class DataSplittingWorkflow:
             dataset = build_selection(dataset, list(ds_ctx.selection_steps))
 
         dataset_size = len(dataset)
-        logger.info("Step 1: Building metadata for %s (%d items)", ds_name, dataset_size)
+        _logger.info("Step 1: Building metadata for %s (%d items)", ds_name, dataset_size)
 
         # --- Step 1: Build Metadata ---
         metadata = build_metadata(dataset)
 
         # --- Step 2: Pre-split bias assessment ---
-        logger.info("Step 2: Pre-split bias assessment")
+        _logger.info("Step 2: Pre-split bias assessment")
         balance_output = Balance().evaluate(metadata)
         diversity_output = Diversity().evaluate(metadata)
 
@@ -242,14 +242,14 @@ class DataSplittingWorkflow:
         pre_split_diversity = _serialize_diversity(diversity_output)
 
         # --- Step 3: Full-dataset label stats ---
-        logger.info("Step 3: Label statistics (full dataset)")
+        _logger.info("Step 3: Label statistics (full dataset)")
         class_labels = metadata.class_labels
         index2label = metadata.index2label if hasattr(metadata, "index2label") else None
         full_stats = label_stats(class_labels, index2label=index2label)
         label_stats_full = _serialize_label_stats(full_stats)
 
         # --- Step 4: Split ---
-        logger.info(
+        _logger.info(
             "Step 4: Splitting dataset (num_folds=%d, stratify=%s, test_frac=%s, val_frac=%s)",
             params.num_folds,
             params.stratify,
@@ -280,7 +280,7 @@ class DataSplittingWorkflow:
             val_idx = fold.val.tolist()
 
             if params.rebalance_method is not None:
-                logger.info("Step 5: Rebalancing fold %d train split (method=%s)", i, params.rebalance_method)
+                _logger.info("Step 5: Rebalancing fold %d train split (method=%s)", i, params.rebalance_method)
                 from dataeval.selection import ClassBalance, Indices, Select
 
                 train_selected = Select(dataset, Indices(train_idx))
@@ -296,7 +296,7 @@ class DataSplittingWorkflow:
             )
 
         # --- Step 6: Per-split label stats ---
-        logger.info("Step 6: Per-split label statistics")
+        _logger.info("Step 6: Per-split label statistics")
         for fold_info in fold_infos:
             train_labels = class_labels[fold_info.train_indices]
             val_labels = class_labels[fold_info.val_indices]

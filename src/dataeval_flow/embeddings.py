@@ -13,7 +13,7 @@ from dataeval import Embeddings
 from dataeval.extractors import BoVWExtractor, FlattenExtractor, OnnxExtractor, TorchExtractor
 from dataeval.protocols import AnnotatedDataset
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_flow.config.schemas import ExtractorConfig
@@ -76,7 +76,7 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
         TorchExtractorConfig,
     )
 
-    logger.debug("Building %s extractor", extractor_config.model)
+    _logger.debug("Building %s extractor", extractor_config.model)
 
     if isinstance(extractor_config, OnnxExtractorConfig):
         extractor = OnnxExtractor(

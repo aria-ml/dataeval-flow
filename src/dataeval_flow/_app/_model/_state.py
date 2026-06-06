@@ -26,7 +26,7 @@ from dataeval_flow.config._models import PipelineConfig
 
 __all__ = ["ConfigState"]
 
-_log = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

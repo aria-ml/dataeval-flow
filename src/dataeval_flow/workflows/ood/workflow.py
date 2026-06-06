@@ -40,7 +40,7 @@ from dataeval_flow.workflows.ood.params import (
 )
 from dataeval_flow.workflows.ood.report import build_findings
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Detector factory
@@ -191,7 +191,7 @@ def _run_all_ood_detectors(
     test_embeddings: NDArray[np.float32],
 ) -> tuple[dict[str, DetectorOODResultDict], dict[str, str], list[str], list[NDArray[np.bool_]]]:
     """Run all configured OOD detectors and return results, names, errors, and is_ood arrays."""
-    logger.info("[3/5] Running %d OOD detector(s)…", len(params.detectors))
+    _logger.info("[3/5] Running %d OOD detector(s)…", len(params.detectors))
     t0 = _time.monotonic()
 
     detector_results: dict[str, DetectorOODResultDict] = {}
@@ -214,12 +214,12 @@ def _run_all_ood_detectors(
             is_ood_arrays.append(output.is_ood)
 
             ood_count = int(np.sum(output.is_ood))
-            logger.info("  %s: %d/%d OOD (%.1f%%)", display, ood_count, test_size, 100.0 * ood_count / test_size)
+            _logger.info("  %s: %d/%d OOD (%.1f%%)", display, ood_count, test_size, 100.0 * ood_count / test_size)
         except Exception as e:  # noqa: BLE001
-            logger.warning("OOD detector %s failed: %s", display, e, exc_info=True)
+            _logger.warning("OOD detector %s failed: %s", display, e, exc_info=True)
             detector_errors.append(f"{display}: {e}")
 
-    logger.info("[3/5] OOD detection complete in %.1fs", _time.monotonic() - t0)
+    _logger.info("[3/5] OOD detection complete in %.1fs", _time.monotonic() - t0)
     return detector_results, detector_names, detector_errors, is_ood_arrays
 
 
@@ -263,7 +263,7 @@ def _extract_metadata_factors(
 
         return factors if factors else None
     except Exception:  # noqa: BLE001
-        logger.warning("Failed to extract metadata factors", exc_info=True)
+        _logger.warning("Failed to extract metadata factors", exc_info=True)
         return None
 
 
@@ -299,7 +299,7 @@ def _extract_stats_factors(
                 factors[f"f_{name}"] = arr
         return factors if factors else None
     except Exception:  # noqa: BLE001
-        logger.warning("Failed to extract stats factors", exc_info=True)
+        _logger.warning("Failed to extract stats factors", exc_info=True)
         return None
 
 
@@ -337,7 +337,7 @@ def _intersect_numeric_factors(
         common_keys &= set(t_factors.keys())
 
     if not common_keys:
-        logger.warning("Skipping metadata insights: no common factors between reference and test.")
+        _logger.warning("Skipping metadata insights: no common factors between reference and test.")
         return None
 
     sorted_keys = sorted(common_keys)
@@ -352,7 +352,7 @@ def _intersect_numeric_factors(
     # Filter to numeric-only factors (factor_deviation/factor_predictors require numeric data)
     numeric_keys = [k for k in sorted_keys if np.issubdtype(ref_common[k].dtype, np.number)]
     if not numeric_keys:
-        logger.info("Skipping metadata insights: no numeric factors.")
+        _logger.info("Skipping metadata insights: no numeric factors.")
         return None
 
     # Exclude 2D arrays — factor_predictors uses np.column_stack but builds
@@ -360,7 +360,7 @@ def _intersect_numeric_factors(
     # when any array is multi-dimensional.
     numeric_keys = [k for k in numeric_keys if ref_common[k].ndim == 1]
     if not numeric_keys:
-        logger.info("Skipping metadata insights: no 1D numeric factors.")
+        _logger.info("Skipping metadata insights: no 1D numeric factors.")
         return None
 
     # Drop factors that contain NaN/Inf or have zero variance — these cause
@@ -369,15 +369,15 @@ def _intersect_numeric_factors(
     for k in numeric_keys:
         r, t = ref_common[k], test_common[k]
         if not np.all(np.isfinite(r)) or not np.all(np.isfinite(t)):
-            logger.debug("Dropping factor %r: contains NaN/Inf values", k)
+            _logger.debug("Dropping factor %r: contains NaN/Inf values", k)
             continue
         if np.std(t) == 0:
-            logger.debug("Dropping factor %r: zero variance in test data", k)
+            _logger.debug("Dropping factor %r: zero variance in test data", k)
             continue
         clean_keys.append(k)
 
     if not clean_keys:
-        logger.info("Skipping metadata insights: no clean numeric factors after sanitization.")
+        _logger.info("Skipping metadata insights: no clean numeric factors after sanitization.")
         return None
 
     return (
@@ -426,14 +426,14 @@ def _collect_numeric_factors(
         ref_factors.update(ref_stats)
 
     if not ref_factors:
-        logger.info("Skipping metadata insights: no reference factors.")
+        _logger.info("Skipping metadata insights: no reference factors.")
         return None
 
     # Merge metadata + stats for test
     test_factor_parts = _merge_factor_parts(test_meta_parts, test_stats_parts)
 
     if not test_factor_parts:
-        logger.info("Skipping metadata insights: no test factors.")
+        _logger.info("Skipping metadata insights: no test factors.")
         return None
 
     return _intersect_numeric_factors(ref_factors, test_factor_parts)
@@ -450,7 +450,7 @@ def _compute_metadata_insights(
     if not ood_indices:
         return None, None
 
-    logger.info("[5/5] Computing metadata insights for %d OOD samples…", len(ood_indices))
+    _logger.info("[5/5] Computing metadata insights for %d OOD samples…", len(ood_indices))
     t0 = _time.monotonic()
 
     collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets)
@@ -468,7 +468,7 @@ def _compute_metadata_insights(
             for idx, devs in zip(capped_indices, raw_devs, strict=True)
         ]
     except Exception:  # noqa: BLE001
-        logger.warning("factor_deviation failed", exc_info=True)
+        _logger.warning("factor_deviation failed", exc_info=True)
 
     # Compute factor_predictors across all OOD samples
     predictors: dict[str, float] | None = None
@@ -476,9 +476,9 @@ def _compute_metadata_insights(
         raw_preds = factor_predictors(test_factors_common, ood_indices)
         predictors = {k: round(float(v), 4) for k, v in sorted(raw_preds.items(), key=lambda x: -x[1])}
     except Exception:  # noqa: BLE001
-        logger.warning("factor_predictors failed", exc_info=True)
+        _logger.warning("factor_predictors failed", exc_info=True)
 
-    logger.info("[5/5] Metadata insights complete in %.1fs", _time.monotonic() - t0)
+    _logger.info("[5/5] Metadata insights complete in %.1fs", _time.monotonic() - t0)
     return deviations_list, predictors
 
 
@@ -546,7 +546,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         try:
             return self._run(context, params)
         except Exception as e:
-            logger.exception("Workflow '%s' failed", self.name)
+            _logger.exception("Workflow '%s' failed", self.name)
             return WorkflowResult(
                 name=self.name,
                 success=False,
@@ -625,7 +625,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         ref_name, ref_dc = dc_items[0]
         test_contexts = dc_items[1:]
 
-        logger.info(
+        _logger.info(
             "[1/5] Preparing datasets: reference=%s, test=%s",
             ref_name,
             [n for n, _ in test_contexts],
@@ -653,23 +653,23 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         test_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
     ) -> tuple[NDArray[np.float32], NDArray[np.float32]]:
         """Extract embeddings for reference and test datasets."""
-        logger.info("[2/5] Extracting embeddings…")
+        _logger.info("[2/5] Extracting embeddings…")
         t0 = _time.monotonic()
 
         ref_embeddings = _get_embeddings_for_context(ref_dc, ref_dataset)
-        logger.info("  Reference embeddings: %s", ref_embeddings.shape)
+        _logger.info("  Reference embeddings: %s", ref_embeddings.shape)
 
         test_embedding_parts: list[NDArray[np.float32]] = []
         for t_name, t_dc, t_ds in test_datasets:
             emb = _get_embeddings_for_context(t_dc, t_ds)
             test_embedding_parts.append(emb)
-            logger.info("  Test embeddings (%s): %s", t_name, emb.shape)
+            _logger.info("  Test embeddings (%s): %s", t_name, emb.shape)
 
         test_embeddings = (
             np.concatenate(test_embedding_parts, axis=0) if len(test_embedding_parts) > 1 else test_embedding_parts[0]
         )
 
-        logger.info(
+        _logger.info(
             "[2/5] Embeddings ready in %.1fs (ref=%d, test=%d)",
             _time.monotonic() - t0,
             len(ref_embeddings),

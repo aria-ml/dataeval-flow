@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, overload, runtime_chec
 
 from pydantic import BaseModel
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_flow.config import PipelineConfig, SourceConfig, TaskConfig
@@ -115,7 +115,7 @@ def _run_single_task(
     from dataeval_flow.preprocessing import build_preprocessing
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
 
-    logger.info("Task '%s': starting (workflow_instance=%s)", task.name, task.workflow)
+    _logger.info("Task '%s': starting (workflow_instance=%s)", task.name, task.workflow)
 
     # 1. Normalize sources to list
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)
@@ -174,7 +174,7 @@ def _run_single_task(
         )
 
     if cache_dir:
-        logger.info("Cache enabled: %s", cache_dir)
+        _logger.info("Cache enabled: %s", cache_dir)
 
     # 4. Build WorkflowContext
     context = WorkflowContext(
@@ -182,18 +182,18 @@ def _run_single_task(
         batch_size=batch_size,
     )
 
-    logger.debug("Task '%s': resolved %d source(s): %s", task.name, len(source_names), source_names)
+    _logger.debug("Task '%s': resolved %d source(s): %s", task.name, len(source_names), source_names)
 
     # 5. Resolve workflow → type + params
     instance = _resolve_workflow(task.workflow, config)
     workflow = get_workflow(instance.type)
 
     # 6. Run workflow with timing
-    logger.debug("Task '%s': executing workflow", task.name)
+    _logger.debug("Task '%s': executing workflow", task.name)
     start = time.monotonic()
     result = workflow.execute(context, instance)
     elapsed = time.monotonic() - start
-    logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
+    _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Populate metadata envelope
     _populate_result_metadata(
@@ -371,7 +371,7 @@ def run_tasks(
         to_run = [t for t in config.tasks if t.enabled]
         skipped = len(config.tasks) - len(to_run)
         if skipped:
-            logger.info("Skipping %d disabled task(s)", skipped)
+            _logger.info("Skipping %d disabled task(s)", skipped)
         if not to_run:
             raise ValueError("All tasks are disabled — nothing to run")
     elif isinstance(tasks, str):
@@ -379,10 +379,10 @@ def run_tasks(
     else:
         to_run = [_resolve_by_name(config.tasks, name, "task") for name in tasks]
 
-    logger.info("Running %d task(s)", len(to_run))
+    _logger.info("Running %d task(s)", len(to_run))
     results: list[WorkflowResult[Any, Any]] = []
     for task in to_run:
-        logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
+        _logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
         results.append(_run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir))
     return results
 
@@ -462,5 +462,5 @@ def run_task(
         ``WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]`` when
         *task* is an :class:`~dataeval_flow.config.OODDetectionTaskConfig`.
     """
-    logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
+    _logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
     return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir)

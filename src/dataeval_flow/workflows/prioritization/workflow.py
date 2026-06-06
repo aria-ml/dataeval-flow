@@ -38,7 +38,7 @@ from dataeval_flow.workflows.prioritization.params import (
 )
 from dataeval_flow.workflows.prioritization.report import build_findings
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ def _run_cleaning(
 
     Returns per-source flagged indices and a summary.
     """
-    logger.info("[3/?] Running pre-prioritization cleaning…")
+    _logger.info("[3/?] Running pre-prioritization cleaning…")
     t0 = _time.monotonic()
 
     outlier_flags, hash_flags = _resolve_cleaning_flags(cleaning)
@@ -203,7 +203,7 @@ def _run_cleaning(
         flagged = _run_outlier_detection_per_source(cleaning, outlier_flags, hash_flags, dc, ds)
         flagged_outliers[name] = flagged
         total_outliers += len(flagged)
-        logger.info("  Outliers in %s: %d", name, len(flagged))
+        _logger.info("  Outliers in %s: %d", name, len(flagged))
 
     # --- Cross-dataset duplicate detection ---
     dup_flagged = _run_duplicate_detection_cross_dataset(cleaning, hash_flags, all_sources)
@@ -214,7 +214,7 @@ def _run_cleaning(
         flagged_duplicates[name] = ds_flagged
         total_duplicates += len(ds_flagged)
         if ds_flagged:
-            logger.info("  Duplicates in %s: %d", name, len(ds_flagged))
+            _logger.info("  Duplicates in %s: %d", name, len(ds_flagged))
 
     # --- Combine flagged sets ---
     combined_flagged: dict[str, set[int]] = {}
@@ -231,7 +231,7 @@ def _run_cleaning(
         total_removed=total_removed,
     )
 
-    logger.info(
+    _logger.info(
         "[3/?] Cleaning complete in %.1fs: removed %d/%d items",
         _time.monotonic() - t0,
         total_removed,
@@ -331,7 +331,7 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
         try:
             return self._run(context, params)
         except Exception as e:
-            logger.exception("Workflow '%s' failed", self.name)
+            _logger.exception("Workflow '%s' failed", self.name)
             return WorkflowResult(
                 name=self.name,
                 success=False,
@@ -412,7 +412,7 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
         ref_name, ref_dc = dc_items[0]
         add_contexts = dc_items[1:]
 
-        logger.info(
+        _logger.info(
             "[1/?] Preparing datasets: reference=%s, additional=%s",
             ref_name,
             [n for n, _ in add_contexts],
@@ -438,19 +438,19 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
         add_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
     ) -> tuple[NDArray[np.float32], dict[str, NDArray[np.float32]]]:
         """Extract embeddings for reference and additional datasets."""
-        logger.info("[2/?] Extracting embeddings…")
+        _logger.info("[2/?] Extracting embeddings…")
         t0 = _time.monotonic()
 
         ref_embeddings = _get_embeddings_for_context(ref_dc, ref_dataset)
-        logger.info("  Reference embeddings: %s", ref_embeddings.shape)
+        _logger.info("  Reference embeddings: %s", ref_embeddings.shape)
 
         add_embeddings: dict[str, NDArray[np.float32]] = {}
         for a_name, a_dc, a_ds in add_datasets:
             emb = _get_embeddings_for_context(a_dc, a_ds)
             add_embeddings[a_name] = emb
-            logger.info("  Additional embeddings (%s): %s", a_name, emb.shape)
+            _logger.info("  Additional embeddings (%s): %s", a_name, emb.shape)
 
-        logger.info("[2/?] Embeddings ready in %.1fs", _time.monotonic() - t0)
+        _logger.info("[2/?] Embeddings ready in %.1fs", _time.monotonic() - t0)
         return ref_embeddings, add_embeddings
 
     def _run_prioritization(
@@ -464,7 +464,7 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
 
         Returns a mapping of source_name -> (original_indices, scores).
         """
-        logger.info(
+        _logger.info(
             "[4/?] Running prioritization (method=%s, order=%s, policy=%s)…",
             params.method,
             params.order,
@@ -479,7 +479,7 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
 
         for name, (clean_emb, clean_to_orig, _orig_size) in add_clean_info.items():
             if len(clean_emb) == 0:
-                logger.warning("  %s: no items after cleaning, skipping", name)
+                _logger.warning("  %s: no items after cleaning, skipping", name)
                 results[name] = ([], None)
                 continue
 
@@ -504,9 +504,9 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
                 scores = [float(s) for s in p_result.scores]
 
             results[name] = (original_indices, scores)
-            logger.info("  %s: %d items prioritized", name, len(original_indices))
+            _logger.info("  %s: %d items prioritized", name, len(original_indices))
 
-        logger.info("[4/?] Prioritization complete in %.1fs", _time.monotonic() - t0)
+        _logger.info("[4/?] Prioritization complete in %.1fs", _time.monotonic() - t0)
         return results
 
     def _build_workflow_result(

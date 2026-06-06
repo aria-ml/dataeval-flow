@@ -38,6 +38,8 @@ from dataeval_flow._app._screens import ExecutionSettings, PathPickerScreen, Sec
 from dataeval_flow._app._viewmodel._builder_vm import BuilderViewModel
 from dataeval_flow._app._viewmodel._rendering import snippet_task_with_execution
 
+_logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # CSS
 # ---------------------------------------------------------------------------
@@ -262,7 +264,6 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
         self.run_worker(self._deferred_init_worker, thread=True)
 
     def _deferred_init_worker(self) -> None:
-        log = logging.getLogger(__name__)
         loading = self._loading_screen
 
         try:
@@ -292,7 +293,7 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
                 self.call_from_thread(_load_initial)
         except Exception:
-            log.exception("Failed during deferred initialization")
+            _logger.exception("Failed during deferred initialization")
             self.call_from_thread(self.notify, "Initialization failed — check logs.", severity="error")
         finally:
 
