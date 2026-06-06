@@ -259,7 +259,7 @@ version = "3.6.3"
 description = "Bash tab completion for argparse"
 optional = false
 python-versions = ">=3.8"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "argcomplete-3.6.3-py3-none-any.whl", hash = "sha256:f5007b3a600ccac5d25bbce33089211dfd49eab4a7718da3f10e3082525a92ce"},
     {file = "argcomplete-3.6.3.tar.gz", hash = "sha256:62e8ed4fd6a45864acc8235409461b72c9a28ee785a2011cc5eb78318786c89c"},
@@ -318,7 +318,7 @@ version = "26.1.0"
 description = "Classes Without Boilerplate"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"},
     {file = "attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32"},
@@ -345,7 +345,7 @@ version = "1.2.0"
 description = "Backport of asyncio.Runner, a context manager that controls event loop life cycle."
 optional = false
 python-versions = "<3.11,>=3.8"
-groups = ["dev", "test"]
+groups = ["dev", "test", "verify"]
 markers = "python_version == \"3.10\""
 files = [
     {file = "backports_asyncio_runner-1.2.0-py3-none-any.whl", hash = "sha256:0da0a936a8aeb554eccb426dc55af3ba63bcdc69fa1a600b5bb305413a4477b5"},
@@ -727,12 +727,12 @@ version = "0.4.6"
 description = "Cross-platform colored terminal text."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
-groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-markers = {main = "platform_system == \"Windows\"", base = "sys_platform == \"win32\"", dev = "sys_platform == \"win32\"", docker = "sys_platform == \"win32\"", docs = "platform_system == \"Windows\" or sys_platform == \"win32\"", lint = "sys_platform == \"win32\"", lock = "platform_system == \"Windows\" or os_name == \"nt\" and python_version < \"3.14\" or sys_platform == \"win32\"", test = "sys_platform == \"win32\"", type = "sys_platform == \"win32\""}
+markers = {main = "platform_system == \"Windows\"", base = "sys_platform == \"win32\"", dev = "sys_platform == \"win32\"", docker = "sys_platform == \"win32\"", docs = "platform_system == \"Windows\" or sys_platform == \"win32\"", lint = "sys_platform == \"win32\"", lock = "platform_system == \"Windows\" or os_name == \"nt\" and python_version < \"3.14\" or sys_platform == \"win32\"", test = "sys_platform == \"win32\"", type = "sys_platform == \"win32\"", verify = "sys_platform == \"win32\""}
 
 [[package]]
 name = "colorlog"
@@ -740,7 +740,7 @@ version = "6.10.1"
 description = "Add colours to the output of Python's logging module."
 optional = false
 python-versions = ">=3.6"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "colorlog-6.10.1-py3-none-any.whl", hash = "sha256:2d7e8348291948af66122cff006c9f8da6255d224e7cf8e37d8de2df3bad8c9c"},
     {file = "colorlog-6.10.1.tar.gz", hash = "sha256:eb4ae5cb65fe7fec7773c2306061a8e63e02efc2c72eba9d27b0fa23c94f1321"},
@@ -1333,7 +1333,7 @@ version = "1.3.1"
 description = "A tool for resolving PEP 735 Dependency Group data"
 optional = false
 python-versions = ">=3.8"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "dependency_groups-1.3.1-py3-none-any.whl", hash = "sha256:51aeaa0dfad72430fcfb7bcdbefbd75f3792e5919563077f30bc0d73f4493030"},
     {file = "dependency_groups-1.3.1.tar.gz", hash = "sha256:78078301090517fd938c19f64a53ce98c32834dfe0dee6b88004a569a6adfefd"},
@@ -1368,7 +1368,7 @@ version = "0.4.0"
 description = "Distribution utilities"
 optional = false
 python-versions = "*"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "distlib-0.4.0-py2.py3-none-any.whl", hash = "sha256:9659f7d87e46584a30b5780e43ac7a2143098441670ff0a49d5f9034c54a6c16"},
     {file = "distlib-0.4.0.tar.gz", hash = "sha256:feec40075be03a04501a973d81f633735b4b69f98b05450592310c0f401a4e0d"},
@@ -1449,7 +1449,7 @@ version = "1.3.1"
 description = "Backport of PEP 654 (exception groups)"
 optional = false
 python-versions = ">=3.7"
-groups = ["main", "dev", "docs", "lock", "test"]
+groups = ["main", "dev", "docs", "lock", "test", "verify"]
 markers = "python_version == \"3.10\""
 files = [
     {file = "exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598"},
@@ -1514,7 +1514,7 @@ version = "3.29.0"
 description = "A platform independent file lock."
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "filelock-3.29.0-py3-none-any.whl", hash = "sha256:96f5f6344709aa1572bbf631c640e4ebeeb519e08da902c39a001882f30ac258"},
     {file = "filelock-3.29.0.tar.gz", hash = "sha256:69974355e960702e789734cb4871f884ea6fe50bd8404051a3530bc07809cf90"},
@@ -2042,7 +2042,7 @@ version = "4.15.0"
 description = "Python humanize utilities"
 optional = false
 python-versions = ">=3.10"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "humanize-4.15.0-py3-none-any.whl", hash = "sha256:b1186eb9f5a9749cd9cb8565aee77919dd7c8d076161cf44d70e59e3301e1769"},
     {file = "humanize-4.15.0.tar.gz", hash = "sha256:1dd098483eb1c7ee8e32eb2e99ad1910baefa4b75c3aff3a82f4d78688993b10"},
@@ -2158,7 +2158,7 @@ version = "2.3.0"
 description = "brain-dead simple config-ini parsing"
 optional = false
 python-versions = ">=3.10"
-groups = ["dev", "test"]
+groups = ["dev", "test", "verify"]
 files = [
     {file = "iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"},
     {file = "iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730"},
@@ -3743,7 +3743,7 @@ version = "2026.4.10"
 description = "Flexible test automation."
 optional = false
 python-versions = ">=3.9"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "nox-2026.4.10-py3-none-any.whl", hash = "sha256:082c117627590d9b90aa21f86df89b310b07c5842539524203bcb3c719f116c1"},
     {file = "nox-2026.4.10.tar.gz", hash = "sha256:2d0af5374f3f37a295428c927d1b04a8182aa01762897d172446dda2f1ce9692"},
@@ -3770,7 +3770,7 @@ version = "0.8.0"
 description = "Facilitate nox integration with uv for Python projects"
 optional = false
 python-versions = ">=3.10"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "nox_uv-0.8.0-py3-none-any.whl", hash = "sha256:f62c0e016fd8403fd4352ec1e6eb06d6f9967adc44bba74524d7f74da5ac1b19"},
     {file = "nox_uv-0.8.0.tar.gz", hash = "sha256:609595d9c4983b1c4abe8b44299b4223fb876f3794012a633c94acae697ed485"},
@@ -4197,7 +4197,7 @@ version = "26.2"
 description = "Core utilities for Python packages"
 optional = false
 python-versions = ">=3.8"
-groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "packaging-26.2-py3-none-any.whl", hash = "sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e"},
     {file = "packaging-26.2.tar.gz", hash = "sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661"},
@@ -4590,7 +4590,7 @@ version = "4.9.6"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "platformdirs-4.9.6-py3-none-any.whl", hash = "sha256:e61adb1d5e5cb3441b4b7710bea7e4c12250ca49439228cc1021c00dcfac0917"},
     {file = "platformdirs-4.9.6.tar.gz", hash = "sha256:3bfa75b0ad0db84096ae777218481852c0ebc6c727b3168c1b9e0118e458cf0a"},
@@ -4603,7 +4603,7 @@ version = "1.6.0"
 description = "plugin and hook calling mechanisms for python"
 optional = false
 python-versions = ">=3.9"
-groups = ["dev", "test"]
+groups = ["dev", "test", "verify"]
 files = [
     {file = "pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746"},
     {file = "pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3"},
@@ -5213,7 +5213,7 @@ version = "2.20.0"
 description = "Pygments is a syntax highlighting package written in Python."
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "dev", "docs", "lock", "test"]
+groups = ["main", "dev", "docs", "lock", "test", "verify"]
 files = [
     {file = "pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176"},
     {file = "pygments-2.20.0.tar.gz", hash = "sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f"},
@@ -5297,7 +5297,7 @@ version = "9.0.3"
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.10"
-groups = ["dev", "test"]
+groups = ["dev", "test", "verify"]
 files = [
     {file = "pytest-9.0.3-py3-none-any.whl", hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9"},
     {file = "pytest-9.0.3.tar.gz", hash = "sha256:b86ada508af81d19edeb213c681b1d48246c1a91d304c6c81a427674c17eb91c"},
@@ -5321,7 +5321,7 @@ version = "1.3.0"
 description = "Pytest support for asyncio"
 optional = false
 python-versions = ">=3.10"
-groups = ["dev", "test"]
+groups = ["dev", "test", "verify"]
 files = [
     {file = "pytest_asyncio-1.3.0-py3-none-any.whl", hash = "sha256:611e26147c7f77640e6d0a92a38ed17c3e9848063698d5c93d5aa7aa11cebff5"},
     {file = "pytest_asyncio-1.3.0.tar.gz", hash = "sha256:d7f52f36d231b80ee124cd216ffb19369aa168fc10095013c6b014a34d3ee9e5"},
@@ -5398,7 +5398,7 @@ version = "1.3.1"
 description = "Python interpreter discovery"
 optional = false
 python-versions = ">=3.8"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "python_discovery-1.3.1-py3-none-any.whl", hash = "sha256:ed188687ebb3b82c01a17cd5ac62fc94d9f6487a7f1a0f9dfe89753fec91039c"},
     {file = "python_discovery-1.3.1.tar.gz", hash = "sha256:62f6db28064c9613e7ca76cb3f00c38c839a07c31c00dfe7ed0986493d2150a6"},
@@ -5444,7 +5444,7 @@ version = "6.0.3"
 description = "YAML parser and emitter for Python"
 optional = false
 python-versions = ">=3.8"
-groups = ["main", "docker", "docs"]
+groups = ["main", "docker", "docs", "verify"]
 files = [
     {file = "PyYAML-6.0.3-cp38-cp38-macosx_10_13_x86_64.whl", hash = "sha256:c2514fceb77bc5e7a2f7adfaa1feb2fb311607c9cb518dbc378688ec73d8292f"},
     {file = "PyYAML-6.0.3-cp38-cp38-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9c57bb8c96f6d1808c030b1687b9b5fb476abaa47f0db9c0101f5e9f394e97f4"},
@@ -7033,7 +7033,7 @@ version = "2.4.1"
 description = "A lil' TOML parser"
 optional = false
 python-versions = ">=3.8"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 markers = "python_version == \"3.10\""
 files = [
     {file = "tomli-2.4.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:f8f0fc26ec2cc2b965b7a3b87cd19c5c6b8c5e5f436b984e85f486d652285c30"},
@@ -7413,12 +7413,12 @@ version = "4.15.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "security", "test", "type"]
+groups = ["main", "base", "dev", "docker", "docs", "lint", "lock", "security", "test", "type", "verify"]
 files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
 ]
-markers = {base = "python_version == \"3.10\"", docker = "python_version == \"3.10\"", lint = "python_version == \"3.10\"", test = "python_version <= \"3.12\""}
+markers = {base = "python_version == \"3.10\"", docker = "python_version == \"3.10\"", lint = "python_version == \"3.10\"", test = "python_version <= \"3.12\"", verify = "python_version <= \"3.12\""}
 
 [[package]]
 name = "typing-inspection"
@@ -7489,7 +7489,7 @@ version = "0.11.16"
 description = "An extremely fast Python package and project manager, written in Rust."
 optional = false
 python-versions = ">=3.8"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "uv-0.11.16-py3-none-linux_armv6l.whl", hash = "sha256:c9e9d9cb73ee8cd2ad696dbf1bc3232abaac363270557684b6b85a2bdb8eb276"},
     {file = "uv-0.11.16-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:01172238a75e42a5a55d12555cd9ec98bee24249f3645b98a4b32eb5f1ff5e43"},
@@ -7518,7 +7518,7 @@ version = "21.3.3"
 description = "Virtual Python Environment builder"
 optional = false
 python-versions = ">=3.8"
-groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type"]
+groups = ["base", "dev", "docker", "docs", "lint", "lock", "test", "type", "verify"]
 files = [
     {file = "virtualenv-21.3.3-py3-none-any.whl", hash = "sha256:7d5987d8369e098e41406efb780a3d4ca79280097293899e351a6407ee153ab3"},
     {file = "virtualenv-21.3.3.tar.gz", hash = "sha256:f5bda277e553b1c2b3c1a8debfc30496e1288cc93ce6b7b71b3280047e317328"},

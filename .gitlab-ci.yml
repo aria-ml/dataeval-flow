@@ -142,6 +142,23 @@ test:
         path: output/coverage.xml
     expire_in: 1 week
 
+# Requirements verification suite (FR/NFR compliance) — runs separately from
+# unit tests, with its own JUnit report and no coverage gate.
+verify:
+  extends: [.nox, .rules_main_mr]
+  stage: test
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.10", "3.11", "3.12"]
+  script:
+    - uvx --with nox-uv nox -s verify
+  artifacts:
+    paths:
+      - output/verification_report.json
+    reports:
+      junit: output/verify.xml
+    expire_in: 1 week
+
 # Minimum-dependencies + no-optional-extras smoke test
 # [TR-1-H-4] verify supported Python versions & dep min/max
 # [TR-2-H-3] test without optional deps

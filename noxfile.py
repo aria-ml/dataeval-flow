@@ -53,7 +53,11 @@ def type(session: nox.Session) -> None:  # noqa: A001
 
 @nox_uv.session(uv_groups=["test"], uv_extras=UV_EXTRAS)
 def test(session: nox.Session) -> None:
-    """Run tests with coverage (90% threshold enforced)."""
+    """Run unit tests with coverage (90% threshold enforced).
+
+    Only ``tests/`` runs here. The requirements verification suite lives in its
+    own ``verify`` session so it stays out of the unit-coverage gate.
+    """
     session.run(
         "pytest",
         "-n4",
@@ -64,6 +68,23 @@ def test(session: nox.Session) -> None:
         "--cov-report=html:output/htmlcov",
         "--cov-fail-under=90",
         "--junitxml=output/junit.xml",
+    )
+
+
+@nox_uv.session(uv_groups=["verify"], uv_extras=UV_EXTRAS)
+def verify(session: nox.Session) -> None:
+    """Run the requirements verification suite (FR/NFR compliance).
+
+    Runs ``verification/`` separately from unit tests: its own JUnit report and
+    no coverage gate. The verification conftest writes
+    ``output/verification_report.json`` (test-case traceability) on finish.
+    """
+    session.run(
+        "pytest",
+        "verification/",
+        "--tb=short",
+        "--junitxml=output/verify.xml",
+        *session.posargs,
     )
 
 

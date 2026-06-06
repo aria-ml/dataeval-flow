@@ -68,6 +68,12 @@ test = [
     "pytest-xdist>=3.6.1",
     "coverage[toml]>=7.6",
 ]
+verify = [
+    { include-group = "base" },
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pyyaml>=6.0",
+]
 type = [
     { include-group = "base" },
     "pyright[nodejs]>=1.1.400",
@@ -205,7 +211,9 @@ include = ["src/dataeval_flow"]
 # --- Pytest ---
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "verification"]
+# Only unit tests run here (and under the coverage gate). The requirements
+# verification suite (verification/) runs in its own `nox -s verify` session.
+testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
 addopts = [
