@@ -327,27 +327,53 @@ pages:
   after_script:
     - docker logout ${HARBOR_URL} || true
 
-# Shared push template with cosign signing
+# Resolve PEP 440 + OCI-safe versions ONCE for the whole pipeline.
+# The version is derived from git tags (hatch-vcs source of truth) and is
+# identical across variants — only the `-${VARIANT}` tag suffix differs — so
+# every downstream container job consumes this dotenv instead of re-running
+# resolve-version.sh (which would otherwise execute 15× across the matrix).
+resolve:version:
+  stage: publish
+  image: alpine:latest
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_DEPTH: "0"  # full history so `git describe --tags` resolves a real version
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - git fetch --tags
+    - eval "$(./docker/resolve-version.sh)"
+    - echo "DATAEVAL_FLOW_VERSION=${DATAEVAL_FLOW_VERSION}" > version.env
+    - echo "DATAEVAL_FLOW_IMAGE_TAG=${DATAEVAL_FLOW_IMAGE_TAG}" >> version.env
+  artifacts:
+    reports:
+      dotenv: version.env
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+
+# Shared push template with cosign signing. Version vars (DATAEVAL_FLOW_VERSION,
+# DATAEVAL_FLOW_IMAGE_TAG) are inherited from resolve:version's dotenv, so jobs
+# that extend this must list resolve:version in `needs`.
 .push-setup:
   extends: .container-setup
-  variables:
-    GIT_DEPTH: "0"  # full history so `git describe --tags` resolves a real version
   before_script:
     - !reference [.container-setup, before_script]
     # `jq` is used downstream by release:sbom to extract the CycloneDX predicate
     # from the cosign attestation envelope; harmless to install everywhere.
-    - apk add --no-cache cosign git jq
-    - git fetch --tags
+    - apk add --no-cache cosign jq
     # Set up buildx builder for registry cache support (docker-container driver required for type=registry)
     - docker buildx create --use --name ci-builder || true
 
 push:docker:
   extends: .push-setup
+  needs:
+    - job: resolve:version
+      artifacts: true
   parallel:
     matrix: *variants
   script:
-    # Resolve PEP 440 + OCI-safe versions from git tags (hatch-vcs source of truth)
-    - eval "$(./docker/resolve-version.sh)"
+    # DATAEVAL_FLOW_VERSION / DATAEVAL_FLOW_IMAGE_TAG inherited from resolve:version
     - IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
     - echo "Building dataeval-flow ${DATAEVAL_FLOW_VERSION} → ${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}"
 
@@ -394,15 +420,16 @@ push:docker:
 # Verify cosign signatures + SBOM attestation on pushed images
 verify:docker:
   extends: .container-setup
-  needs: [push:docker]
+  needs:
+    - job: push:docker
+    - job: resolve:version
+      artifacts: true
   parallel:
     matrix: *variants
-  variables:
-    GIT_DEPTH: "0"  # full history so resolve-version.sh can `git describe --tags`
   before_script:
     - !reference [.container-setup, before_script]
     - apk add --no-cache cosign
-    - eval "$(./docker/resolve-version.sh)"
+    # DATAEVAL_FLOW_IMAGE_TAG inherited from resolve:version
     - export IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
   script:
     - docker pull "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}"
@@ -413,29 +440,6 @@ verify:docker:
     # Smoke test: verify the container actually boots
     - docker run --rm "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}" --help
 
-resolve:container_version:
-  stage: publish
-  image: alpine:latest
-  needs: [push:docker]
-  parallel:
-    matrix: *variants
-  variables:
-    GIT_STRATEGY: fetch
-    GIT_DEPTH: "0"
-  before_script:
-    - apk add --no-cache bash git
-  script:
-    - git fetch --tags
-    - eval "$(./docker/resolve-version.sh)"
-    # Write the dynamically resolved variable to a .env file
-    - echo "CS_IMAGE=${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}" > scan.env
-  artifacts:
-    reports:
-      dotenv: scan.env
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_TAG =~ /^v\d+/
-    
 # Container vulnerability scan [DSOR-3-H-1, DSOR-3-H-2, CS-2-H-2, CS-2-H-3]
 # Uses the GitLab-managed Container-Scanning template (included above) rather
 # than a hand-rolled trivy job. Findings flow into the GitLab Vulnerability
@@ -450,13 +454,15 @@ resolve:container_version:
 #     never get a floating tag (:edge-${VARIANT} or :${VARIANT}).
 container_scanning:
   stage: publish
-  needs: 
+  needs:
     - job: push:docker
-    - job: resolve:container_version
+    - job: resolve:version
       artifacts: true
   parallel:
     matrix: *variants
   variables:
+    # Built from DATAEVAL_FLOW_IMAGE_TAG (inherited from resolve:version's dotenv)
+    CS_IMAGE: "${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
     CS_SEVERITY_THRESHOLD: HIGH
     CS_REGISTRY_USER: 'robot$aria+aria-bot'
     CS_REGISTRY_PASSWORD: $HARBOR_TOKEN
@@ -524,11 +530,11 @@ sbom:
 promote:floating:
   extends: .push-setup
   stage: release
-  needs: [push:docker, verify:docker, container_scanning]
+  needs: [push:docker, verify:docker, container_scanning, "resolve:version"]
   parallel:
     matrix: *variants
   script:
-    - eval "$(./docker/resolve-version.sh)"
+    # DATAEVAL_FLOW_IMAGE_TAG inherited from resolve:version
     - IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
     - |
       if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
@@ -549,13 +555,13 @@ promote:floating:
 release:sbom:
   extends: .push-setup
   stage: release
-  needs: [push:docker, verify:docker, container_scanning]
+  needs: [push:docker, verify:docker, container_scanning, "resolve:version"]
   parallel:
     matrix: *variants
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
-    - eval "$(./docker/resolve-version.sh)"
+    # DATAEVAL_FLOW_VERSION / DATAEVAL_FLOW_IMAGE_TAG inherited from resolve:version
     - IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
     - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}" --raw | sha256sum | awk '{print "sha256:"$1}')
     - cosign download attestation --predicate-type https://cyclonedx.org/bom "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
