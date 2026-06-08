@@ -413,6 +413,29 @@ verify:docker:
     # Smoke test: verify the container actually boots
     - docker run --rm "${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}" --help
 
+resolve:container_version:
+  stage: publish
+  image: alpine:latest
+  needs: [push:docker]
+  parallel:
+    matrix: *variants
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_DEPTH: "0"
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - git fetch --tags
+    - eval "$(./docker/resolve-version.sh)"
+    # Write the dynamically resolved variable to a .env file
+    - echo "CS_IMAGE=${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}" > scan.env
+  artifacts:
+    reports:
+      dotenv: scan.env
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+    
 # Container vulnerability scan [DSOR-3-H-1, DSOR-3-H-2, CS-2-H-2, CS-2-H-3]
 # Uses the GitLab-managed Container-Scanning template (included above) rather
 # than a hand-rolled trivy job. Findings flow into the GitLab Vulnerability
@@ -421,32 +444,22 @@ verify:docker:
 #
 # Overrides on the template:
 #   - parallel:matrix per variant so we scan cpu/cu118/cu128 in one stage.
-#   - before_script resolves the matching immutable tag from git tags
-#     (via docker/resolve-version.sh, which needs bash + git inside the
-#     analyzer's Alpine image) and exports CS_IMAGE for the analyzer.
 #   - CS_REGISTRY_USER / CS_REGISTRY_PASSWORD point the analyzer at Harbor.
 #   - allow_failure: false promotes the scan to a gate (template default is
 #     true). HIGH/CRITICAL findings block promote:floating so dirty images
 #     never get a floating tag (:edge-${VARIANT} or :${VARIANT}).
-#   - GIT_STRATEGY: fetch overrides the template's `none` so docker/
-#     and the version-resolver script are present in the workspace.
 container_scanning:
   stage: publish
-  needs: [push:docker]
+  needs: 
+    - job: push:docker
+    - job: resolve:container_version
+      artifacts: true
   parallel:
     matrix: *variants
   variables:
-    GIT_STRATEGY: fetch
-    GIT_DEPTH: "0"
     CS_SEVERITY_THRESHOLD: HIGH
     CS_REGISTRY_USER: 'robot$aria+aria-bot'
     CS_REGISTRY_PASSWORD: $HARBOR_TOKEN
-  before_script:
-    - apk add --no-cache bash git
-    - git fetch --tags
-    - eval "$(./docker/resolve-version.sh)"
-    - export CS_IMAGE="${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
-    - echo "Scanning ${CS_IMAGE}"
   allow_failure: false
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
