@@ -156,4 +156,3 @@ targets):
 - [GitLab Flow Documentation](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/)
 - Project CI/CD configuration: [`.gitlab-ci.yml`](.gitlab-ci.yml)
 - Release publish workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
-- Compliance status: [JATIC_SDP_COMPLIANCE.md](JATIC_SDP_COMPLIANCE.md)

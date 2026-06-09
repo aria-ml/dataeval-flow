@@ -62,9 +62,8 @@ full list.
 
 **Target:** June 2026
 
-Focus is on closing the gaps identified in
-[JATIC_SDP_COMPLIANCE.md](JATIC_SDP_COMPLIANCE.md), bringing the project
-in line with Maturity I expectations.
+Focus is on closing the identified JATIC SDP compliance gaps, bringing
+the project in line with Maturity I expectations.
 
 - [x] Governance docs: CONTRIBUTING, BRANCHING, ROADMAP, README acknowledgement
 - [x] Markdown CI gates: `markdownlint-cli2` and `markdown-link-check`

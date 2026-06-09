@@ -119,6 +119,42 @@ schema:
   script:
     - uvx --with nox-uv nox -s schema
 
+# Markdown lint [DR-3.3-H-3]
+markdownlint:
+  extends: [.rules_main_mr]
+  stage: lint
+  needs: []
+  image:
+    name: davidanson/markdownlint-cli2
+    entrypoint: ['']
+  script: |
+    FAIL=0
+    markdownlint-cli2 README.md || FAIL=1
+    markdownlint-cli2 CONTRIBUTING.md || FAIL=1
+    markdownlint-cli2 BRANCHING.md || FAIL=1
+    markdownlint-cli2 ROADMAP.md || FAIL=1
+    markdownlint-cli2 CODE_OF_CONDUCT.md || FAIL=1
+    markdownlint-cli2 CHANGELOG.md || FAIL=1
+    markdownlint-cli2 SECURITY.md || FAIL=1
+    markdownlint-cli2 GEMINI.md || FAIL=1
+    markdownlint-cli2 'docs/source/**/*.md' '#node_modules' || FAIL=1
+    exit $FAIL
+
+# Markdown link check [DR-3.3-H-4]
+# Allow failure: link checking is sensitive to transient network issues and
+# anti-scraping measures on some sites. Warnings should be reviewed but not block merges.
+linkchecker:
+  extends: [.rules_main_mr]
+  stage: lint
+  needs: []
+  image:
+    name: ghcr.io/tcort/markdown-link-check:stable
+    entrypoint: ['/bin/sh', '-c']
+  script:
+    - markdown-link-check --config docs/.markdown-link-check.json BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md GEMINI.md README.md ROADMAP.md SECURITY.md
+    - markdown-link-check --config docs/.markdown-link-check.json ./docs/source
+  allow_failure: true
+
 # -----------------------------------------------------------------------------
 # Test Stage [TR-1-H-4: Python 3.10, 3.11, 3.12]
 # -----------------------------------------------------------------------------

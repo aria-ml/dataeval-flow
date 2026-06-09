@@ -1,0 +1,13 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https://doi\\.org"
+    },
+    {
+      "pattern": "^#"
+    },
+    {
+      "pattern": "autoapi/"
+    }
+  ]
+}

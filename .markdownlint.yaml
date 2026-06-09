@@ -1,0 +1,16 @@
+# markdownlint config — modeled on dataeval/.markdownlint.yaml
+# Rule docs: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+#
+# MD013/line-length — disabled. Dense bullets and tables routinely exceed
+# 120 chars; manual reflow would damage readability.
+MD013: false
+# MD024/no-duplicate-heading — only flag duplicates under the same parent.
+# Sections legitimately repeat ### Hard / ### Soft under each heading.
+MD024:
+  siblings_only: true
+# MD029/ol-prefix — disabled. Numbered lists are routinely interrupted by
+# subsection headings while preserving cross-section numbering.
+MD029: false
+# MD060/table-column-style — pure cosmetic spacing around table pipes;
+# noisy and not load-bearing for readability.
+MD060: false

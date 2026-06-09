@@ -2,7 +2,7 @@
 
 This document describes how to report vulnerabilities in `dataeval-flow`
 and how the maintainers triage findings from automated scanners. It is
-the project's response to JATIC SDP requirement [DSOR-1-H-3](JATIC_SDP_COMPLIANCE.md)
+the project's response to JATIC SDP requirement DSOR-1-H-3
 (false positives must be dismissed with a documented justification).
 
 ## Reporting a vulnerability
