@@ -9,7 +9,13 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.13"
+  apt_packages:
+    - graphviz
   jobs:
+    post_checkout:
+      # Fetch pre-executed notebook cache so RTD renders from cache instead of
+      # re-running notebooks (which times out). See docs/CACHE_MANAGEMENT.md.
+      - bash docs/fetch-docs-cache.sh
     create_environment:
       - asdf plugin add uv
       - asdf install uv latest

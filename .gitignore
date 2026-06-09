@@ -34,6 +34,9 @@ output/
 # Generated notebooks (source of truth is MyST markdown)
 *.ipynb
 
+# Jupyter execution cache (stored in docs-artifacts/<branch> orphan branch instead)
+.jupyter_cache/
+
 # Nox
 .nox/
 .cuda-version

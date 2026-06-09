@@ -1,0 +1,107 @@
+name: Documentation
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'uv.lock'
+      - '*.md'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'uv.lock'
+      - '*.md'
+  workflow_dispatch:
+
+# Cancel in-progress runs when a new workflow is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_CACHE_DIR: /tmp/.uv-cache
+  FORCE_COLOR: '1'
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  docs-build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to push to artifact branches
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for artifact branch operations
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv tool install nox --with nox-uv
+
+      - name: Build documentation
+        run: uvx nox -s docs
+        env:
+          DATAEVAL_NOX_UV_EXTRAS_OVERRIDE: cpu
+          LANG: C
+          PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+          PYDEVD_DISABLE_FILE_VALIDATION: '1'
+
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docs-html
+          path: output/docs/
+          retention-days: 30
+
+      # Disabled: CI is primarily operated on GitLab and mirrored to GitHub.
+      # The GitLab `pages` job owns pushing the jupyter-cache to docs-artifacts/main.
+      # - name: Push Jupyter cache to artifact branch
+      #   if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+      #   run: bash docs/push-docs-cache.sh
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     GIT_AUTHOR_NAME: github-actions[bot]
+      #     GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+
+  linkcheck:
+    name: Check Markdown Links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check markdown links
+        uses: tcort/github-action-markdown-link-check@v1
+        with:
+          config-file: 'docs/.markdown-link-check.json'
+          use-quiet-mode: 'yes'
+          check-modified-files-only: 'no'
+
+  markdownlint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            README.md
+            CONTRIBUTING.md
+            docs/**/*.md

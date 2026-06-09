@@ -332,6 +332,10 @@ pages:
         - docs/source/notebooks/cache/
   script:
     - uvx --with nox-uv nox -s docs
+    # Push the freshly-built jupyter-cache to the docs-artifacts/main orphan branch
+    # so ReadTheDocs (and future CI builds) can fetch it. Requires the group-level
+    # DATAEVAL_BUILD_PAT CI/CD variable. See docs/CACHE_MANAGEMENT.md.
+    - bash docs/push-docs-cache.sh
     - mv output/docs public
   artifacts:
     # Upload on failure too — `nox -s docs` writes notebook error tracebacks to

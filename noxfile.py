@@ -22,6 +22,8 @@ UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
 UV_EXTRAS_WITH_ONNX = UV_EXTRAS + ["onnx" if UV_EXTRAS_OVERRIDE == "cpu" else "onnx-gpu"]
 UV_EXTRAS_WITH_ONNX_AND_OPENCV = UV_EXTRAS_WITH_ONNX + ["opencv"]
 
+DOCS_ENVS = {"LANG": "C", "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "PYDEVD_DISABLE_FILE_VALIDATION": "1"}
+
 
 @nox_uv.session(uv_only_groups=["lint"], uv_no_install_project=True)
 def lint(session: nox.Session) -> None:
@@ -133,17 +135,56 @@ def docsync(session: nox.Session) -> None:
 
 @nox_uv.session(uv_groups=["docs"], uv_extras=UV_EXTRAS_WITH_ONNX_AND_OPENCV)
 def docs(session: nox.Session) -> None:
-    """Build Sphinx documentation."""
+    """Build Sphinx documentation.
+
+    Notebooks are executed from a jupyter-cache that is fetched from the
+    ``docs-artifacts/<branch>`` orphan branch, so cached notebooks are not
+    re-executed (see docs/CACHE_MANAGEMENT.md).
+
+    Pass 'clean' to clear the jupyter cache and force re-execution:
+        nox -s docs -- clean
+    Pass 'skip' to skip notebook execution entirely:
+        nox -s docs -- skip
+    """
+    skip_notebooks = "skip" in session.posargs
+    clean_notebooks = "clean" in session.posargs
+
+    notebook_dir = "docs/source/notebooks"
+    cache_dir = "docs/source/.jupyter_cache"
+
+    # Convert py:percent notebooks to ipynb (py is source of truth, ignores timestamps)
+    session.run("jupytext", "--to", "notebook", "--update", notebook_dir + "/*.py")
+
+    if clean_notebooks:
+        # Clear local jupyter cache to force re-execution of all notebooks
+        session.log(f"Clearing jupyter cache at {cache_dir} to force re-execution...")
+        session.run("rm", "-rf", cache_dir, external=True)
+    elif not skip_notebooks:
+        # Fetch cached notebook results from orphan artifact branch
+        session.run("bash", "docs/fetch-docs-cache.sh", external=True)
+
+    session.run("rm", "-rf", "output/docs", external=True)
+
+    if not skip_notebooks:
+        # Fix inconsistent cache state before building (db records without folders or vice versa)
+        session.run("python", "docs/check_notebook_cache.py", "--fix")
+
     session.run(
         "sphinx-build",
         "--fail-on-warning",
         "--keep-going",
         "--fresh-env",
+        "--show-traceback",
         "--builder",
         "html",
         "docs/source",
         "output/docs",
+        env={**DOCS_ENVS, **({"NB_EXECUTION_MODE_OVERRIDE": "off"} if skip_notebooks else {})},
     )
+
+    if not skip_notebooks:
+        # Clean up stale cache entries after sphinx-build updates the cache
+        session.run("python", "docs/check_notebook_cache.py", "--clean")
 
 
 @nox_uv.session(uv_extras=["cpu"])

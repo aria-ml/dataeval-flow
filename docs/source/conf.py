@@ -6,6 +6,8 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
 import datetime
+import os
+from pathlib import Path
 from typing import Any
 
 # -----------------------------------------------------------------------------
@@ -43,6 +45,7 @@ exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "build",
+    ".jupyter_cache",
     "notebooks/*.ipynb",
     "cache",
     "data",
@@ -84,8 +87,19 @@ myst_enable_extensions = [
 ]
 myst_heading_anchors = 4
 
-nb_execution_mode = "auto"  # "off" to disable execution, "auto" to execute only if outputs are missing
-nb_execution_timeout = -1  # No timeout for notebook execution
+# Notebook execution: default to "cache" so builds (incl. ReadTheDocs) reuse the
+# pre-executed .jupyter_cache fetched from the docs-artifacts/<branch> orphan branch
+# instead of re-running every notebook (which times out on RTD). Override with the
+# NB_EXECUTION_MODE_OVERRIDE env var (e.g. "off" to skip, "auto"/"force" to re-run).
+EXECUTION_MODE = os.environ.get("NB_EXECUTION_MODE_OVERRIDE")
+nb_execution_allow_errors = False
+# Anchor the cache to this file's directory (docs/source/.jupyter_cache) so it is
+# cwd-independent: sphinx runs from the repo root here (and on ReadTheDocs), where a
+# relative path would resolve to ./.jupyter_cache and miss the fetched cache.
+nb_execution_cache_path = str(Path(__file__).parent / ".jupyter_cache")
+nb_execution_mode = "cache" if EXECUTION_MODE is None else EXECUTION_MODE
+nb_execution_raise_on_error = True
+nb_execution_timeout = -1  # No per-cell timeout; total runtime is bounded by caching
 
 # -----------------------------------------------------------------------------
 # HTML output
