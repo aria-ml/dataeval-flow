@@ -217,7 +217,7 @@ Configs can be saved as YAML or JSON.
 
 The Docker build may appear frozen during the `uv sync` step:
 
-```
+```text
 => [builder 7/7] RUN uv sync --frozen --no-dev --no-install-project    1139.3s
 ```
 
@@ -290,12 +290,14 @@ Notes:
   `pip` today; the Poetry/conda paths install the CPU build of PyTorch.
 
 **CLI Usage:**
+
 ```bash
 python -m dataeval_flow --config /path/to/config --output /path/to/output
 python -m dataeval_flow --data /path/to/data --output /path/to/output
 ```
 
 **Python API Usage:**
+
 ```python
 from pathlib import Path
 from dataeval_flow import load_config, run_tasks
@@ -306,6 +308,7 @@ print(results[0].report())
 ```
 
 **Development:**
+
 ```bash
 uv sync --group dev
 nox

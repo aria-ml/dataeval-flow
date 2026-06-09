@@ -14,3 +14,8 @@ MD029: false
 # MD060/table-column-style — pure cosmetic spacing around table pipes;
 # noisy and not load-bearing for readability.
 MD060: false
+# MD033/no-inline-html — allow `<self>`, the MyST/Sphinx toctree token used in
+# docs/source/index.md (`Welcome <self>`). All other inline HTML still flagged.
+MD033:
+  allowed_elements:
+    - self
