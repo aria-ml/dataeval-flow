@@ -1,7 +1,9 @@
 """Preprocessing utilities for image transforms.
 
 Provides configuration-driven preprocessing using torchvision.transforms.v2.
-Any v2 transform can be specified by name in YAML config.
+Any v2 transform can be specified by name in YAML config, plus the custom named
+preprocessors in ``dataeval_flow.preprocessors`` (e.g. ``ToRGB``). Custom names
+are resolved first but are distinct from torchvision names and never shadow them.
 
 The returned callable accepts a numpy CHW array, converts to a torch tensor
 for torchvision transforms, then converts back to a numpy CHW array so that
@@ -33,6 +35,7 @@ from numpy.typing import NDArray
 from pydantic import BaseModel, Field
 
 from dataeval_flow._logging import LogMessage
+from dataeval_flow.preprocessors import CUSTOM_PREPROCESSORS, resolve_custom
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -133,10 +136,14 @@ def build_preprocessing(steps: Sequence[PreprocessingStep]) -> _PreprocessingTra
             if key in params:
                 params[key] = converter(params[key])
 
-        # Get transform class and instantiate
-        transform_cls = getattr(v2, step.step, None)
+        # Resolve custom preprocessors first, then torchvision. Custom names are
+        # distinct from torchvision names and never shadow them.
+        transform_cls = resolve_custom(step.step) or getattr(v2, step.step, None)
         if transform_cls is None:
-            raise ValueError(f"Unknown transform: '{step.step}'. Check torchvision.transforms.v2 docs.")
+            raise ValueError(
+                f"Unknown transform: '{step.step}'. Must be a custom preprocessor "
+                f"({', '.join(CUSTOM_PREPROCESSORS)}) or a torchvision.transforms.v2 transform."
+            )
         ops.append(transform_cls(**params))
 
     composed = v2.Compose(ops)

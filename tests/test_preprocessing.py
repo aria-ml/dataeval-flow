@@ -85,6 +85,20 @@ class TestBuildPreprocessing:
         with pytest.raises(ValueError, match="Unknown torch dtype"):
             build_preprocessing(steps)
 
+    def test_custom_preprocessor_resolves(self):
+        """A custom preprocessor name (ToRGB) resolves and composes."""
+        steps = [
+            PreprocessingStep(step="ToRGB"),
+            PreprocessingStep(step="Resize", params={"size": [16, 16], "antialias": True}),
+        ]
+        transform = build_preprocessing(steps)
+        assert "ToRGB()" in repr(transform)
+
+    def test_rgb_no_longer_custom(self):
+        """'RGB' now resolves to torchvision v2.RGB, not our custom transform."""
+        transform = build_preprocessing([PreprocessingStep(step="RGB")])
+        assert "ToRGB()" not in repr(transform)
+
 
 class TestPreprocessingEndToEnd:
     """End-to-end tests for preprocessing pipeline."""

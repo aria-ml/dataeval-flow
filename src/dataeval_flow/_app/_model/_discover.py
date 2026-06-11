@@ -1,7 +1,8 @@
 """Runtime discovery of available transforms and selection classes.
 
-Introspects torchvision.transforms.v2 and dataeval.selection to provide
-dropdown options and parameter schemas for the builder TUI.
+Introspects dataeval_flow.preprocessors, torchvision.transforms.v2, and
+dataeval.selection to provide dropdown options and parameter schemas for the
+builder TUI.
 """
 
 from __future__ import annotations
@@ -102,8 +103,15 @@ def _introspect_params(cls: type) -> list[ParamInfo]:
 
 @lru_cache(maxsize=1)
 def list_transforms() -> list[str]:
-    """Return sorted names of available torchvision.transforms.v2 classes."""
+    """Return sorted names of available transforms.
+
+    Includes the custom named preprocessors (``dataeval_flow.preprocessors``)
+    alongside ``torchvision.transforms.v2`` classes, mirroring how
+    ``build_preprocessing`` resolves step names.
+    """
     from torchvision.transforms import v2
+
+    from dataeval_flow.preprocessors import CUSTOM_PREPROCESSORS
 
     skip = {
         "Transform",
@@ -116,7 +124,7 @@ def list_transforms() -> list[str]:
         "InterpolationMode",
         "Lambda",
     }
-    names = []
+    names = list(CUSTOM_PREPROCESSORS)
     for name, obj in inspect.getmembers(v2):
         if (
             inspect.isclass(obj)
@@ -151,10 +159,16 @@ def list_selection_classes() -> list[str]:
 
 @lru_cache(maxsize=64)
 def get_transform_params(name: str) -> list[ParamInfo]:
-    """Get parameter info for a torchvision.transforms.v2 class."""
+    """Get parameter info for a transform.
+
+    Resolves custom preprocessors first, then ``torchvision.transforms.v2``,
+    matching ``build_preprocessing``'s resolution order.
+    """
     from torchvision.transforms import v2
 
-    cls = getattr(v2, name, None)
+    from dataeval_flow.preprocessors import resolve_custom
+
+    cls = resolve_custom(name) or getattr(v2, name, None)
     if cls is None:
         return []
     return _introspect_params(cls)

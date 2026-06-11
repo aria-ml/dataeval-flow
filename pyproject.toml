@@ -257,6 +257,9 @@ output = "output/coverage.xml"
 
 [tool.pyright]
 reportMissingImports = false
+# torch's stubs omit many runtime symbols (zeros, arange, equal, dtype, ...)
+# from __all__, so pyright flags valid usage as private imports. Upstream defect.
+reportPrivateImportUsage = false
 
 # --- Ruff [CR-3-G-2] ---
 

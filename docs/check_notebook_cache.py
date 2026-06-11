@@ -76,10 +76,10 @@ def compute_notebook_hash(nb_path: Path) -> str:
 
     # Hash using NO_CONVERT mode (same as jupyter-cache)
     nb_str = nbformat.writes(hash_nb, nbformat.NO_CONVERT)
-    return hashlib.md5(nb_str.encode()).hexdigest()
+    return hashlib.md5(nb_str.encode(), usedforsecurity=False).hexdigest()
 
 
-def check_cache_status(docs_source_dir: Path = Path("docs/source")):
+def check_cache_status(docs_source_dir: Path = Path("docs/source")) -> bool:
     """
     Check which notebooks are cached and which need execution.
 
@@ -365,7 +365,7 @@ def find_docs_source_dir() -> Path | None:
     return None
 
 
-def main():
+def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Check and manage jupyter-cache for documentation notebooks.")
     parser.add_argument(
