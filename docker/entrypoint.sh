@@ -50,6 +50,39 @@ OPTIONAL:
   /output            Results and output files (read-write)
   /cache             Computation cache (read-write)
 
+  No secret mounts are required: this tool uses no API keys, tokens, or
+  passwords. None are read from the environment or baked into the image.
+
+================================================================================
+ENVIRONMENT VARIABLES
+================================================================================
+
+  DATAEVAL_DATA      Input data root inside the container (default: $DATA_DIR).
+                     Datasets, models, and configs resolve relative to it.
+  DATAEVAL_OUTPUT    Output directory for results/reports (default: /output).
+  DATAEVAL_CACHE     Computation cache directory (optional; auto-set to /cache
+                     when that volume is mounted and writable).
+
+  All are optional. Command-line options below take precedence over them.
+
+================================================================================
+COMMAND-LINE OPTIONS
+================================================================================
+
+  Usage: docker run [MOUNTS] $IMAGE_TAG python -m dataeval_flow [OPTIONS] [COMMAND]
+
+  -c, --config PATH   Config file or folder (default: auto-discover YAML/JSON
+                      at the data root).
+  -d, --data PATH     Input data root (default: \$DATAEVAL_DATA or CWD).
+  -o, --output PATH   Output directory for artifacts (default: \$DATAEVAL_OUTPUT).
+  -k, --cache PATH    Disk-backed computation cache (default: \$DATAEVAL_CACHE).
+  -v, --verbose       Increase verbosity (-v report, -vv +INFO, -vvv +DEBUG).
+  -h, --help          Show this help and exit.
+
+  COMMANDS (optional; default runs the headless pipeline):
+    app               Launch the interactive TUI (requires the 'app' extra).
+    config            Create or edit pipeline config files.
+
 --------------------------------------------------------------------------------
 MOUNT SYNTAX
 --------------------------------------------------------------------------------

@@ -109,10 +109,11 @@ def run(
     if output_dir is not None and merged:
         import json as json_mod
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "result.json").write_text(json_mod.dumps(merged, indent=2), encoding="utf-8")
-        (output_dir / "result.txt").write_text("\n".join(text_parts), encoding="utf-8")
-        _logger.info("  Wrote result.json and result.txt to %s", output_dir)
+        results_dir = output_dir / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "result.json").write_text(json_mod.dumps(merged, indent=2), encoding="utf-8")
+        (results_dir / "result.txt").write_text("\n".join(text_parts), encoding="utf-8")
+        _logger.info("  Wrote result.json and result.txt to %s", results_dir)
 
     _logger.info("Done. %d/%d succeeded.", len(config.tasks) - failures, len(config.tasks))
     return 1 if failures else 0

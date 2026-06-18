@@ -44,6 +44,17 @@ Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 [project.scripts]
 dataeval-flow = "dataeval_flow.__main__:main"
 
+# MAITE interoperability entry-points.
+[project.entry-points."maite.protocols.image_classification.Dataset"]
+dataeval_flow_HFImageClassificationDataset = "maite_datasets.adapters:HFImageClassificationDataset"
+
+[project.entry-points."maite.protocols.object_detection.Dataset"]
+dataeval_flow_HFObjectDetectionDataset = "maite_datasets.adapters:HFObjectDetectionDataset"
+
+[project.entry-points."maite.tasks"]
+dataeval_flow_run_tasks = "dataeval_flow.workflow:run_tasks"
+dataeval_flow_load_dataset = "dataeval_flow:load_dataset"
+
 [dependency-groups]
 base = [
     "nox>=2025.5.1",

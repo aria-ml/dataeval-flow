@@ -89,7 +89,8 @@ def _resolve_extractor_paths(extractor_cfg: E, data_dir: Path | None) -> E:
     if model_path is not None:
         from dataeval_flow.config._loader import resolve_path
 
-        resolved = str(resolve_path(model_path, data_dir))
+        # Models default to the `models` folder of the input mount.
+        resolved = str(resolve_path(model_path, data_dir, default_subdir="models"))
         if resolved != model_path:
             return extractor_cfg.model_copy(update={"model_path": resolved})
 

@@ -54,10 +54,10 @@ class TestRunTasks:
         mock_run.return_value = [result1, result2]
 
         assert run(Path("/fake/config"), tmp_path) == 0
-        # Single merged result files
-        assert (tmp_path / "result.json").exists()
-        assert (tmp_path / "result.txt").exists()
-        merged = json.loads((tmp_path / "result.json").read_text())
+        # Single merged result files in the results folder
+        assert (tmp_path / "results" / "result.json").exists()
+        assert (tmp_path / "results" / "result.txt").exists()
+        merged = json.loads((tmp_path / "results" / "result.json").read_text())
         assert "task1" in merged
         assert "task2" in merged
 
@@ -204,8 +204,8 @@ class TestRunTasks:
         mock_run.return_value = [result]
 
         assert run(Path("/fake/config"), tmp_path) == 0
-        assert (tmp_path / "result.json").exists()
-        merged = json.loads((tmp_path / "result.json").read_text())
+        assert (tmp_path / "results" / "result.json").exists()
+        merged = json.loads((tmp_path / "results" / "result.json").read_text())
         assert "task1" in merged
 
     @patch("dataeval_flow.runner._resolve_config")

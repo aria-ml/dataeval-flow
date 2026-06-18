@@ -610,7 +610,7 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
 
         from dataeval_flow.config._loader import resolve_path
 
-        dataset_path = resolve_path(config.path, data_dir)
+        dataset_path = resolve_path(config.path, data_dir, default_subdir="data")
 
         dataset = load_dataset(dataset_path, dataset_format=config.format, **kwargs)
 

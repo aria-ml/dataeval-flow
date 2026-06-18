@@ -226,8 +226,8 @@ class TestBuilderViewModel:
             out_dir = Path(td) / "out"
             success, msg = vm.export_results(out_dir)
             assert success
-            assert (out_dir / "result.json").exists()
-            assert (out_dir / "result.txt").exists()
+            assert (out_dir / "results" / "result.json").exists()
+            assert (out_dir / "results" / "result.txt").exists()
 
     def test_save_file_disable_tasks(self) -> None:
         import tempfile

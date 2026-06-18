@@ -1454,9 +1454,9 @@ class TestExportResultsBrowseCallback:
             # Test callback with a valid path
             with tempfile.TemporaryDirectory() as td:
                 callbacks[0](td)
-                # Verify export happened
-                assert (Path(td) / "result.json").exists()
-                assert (Path(td) / "result.txt").exists()
+                # Verify export happened in results folder
+                assert (Path(td) / "results" / "result.json").exists()
+                assert (Path(td) / "results" / "result.txt").exists()
 
     async def test_export_results_browse_callback_none(self) -> None:
         """The browse callback with None does nothing."""

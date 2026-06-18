@@ -259,7 +259,8 @@ class BuilderViewModel:
         if not results:
             return False, "No completed results to export."
 
-        output_dir.mkdir(parents=True, exist_ok=True)
+        results_dir = output_dir / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
 
         merged: dict[str, dict] = {}
         text_parts: list[str] = []
@@ -267,6 +268,6 @@ class BuilderViewModel:
             merged[name] = result.to_dict()
             text_parts.append(result.report(detailed=True))
 
-        (output_dir / "result.json").write_text(json_mod.dumps(merged, indent=2), encoding="utf-8")
-        (output_dir / "result.txt").write_text("\n".join(text_parts), encoding="utf-8")
-        return True, f"Exported {len(results)} result(s) to {output_dir}"
+        (results_dir / "result.json").write_text(json_mod.dumps(merged, indent=2), encoding="utf-8")
+        (results_dir / "result.txt").write_text("\n".join(text_parts), encoding="utf-8")
+        return True, f"Exported {len(results)} result(s) to {results_dir}"

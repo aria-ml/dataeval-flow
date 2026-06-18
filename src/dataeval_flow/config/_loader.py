@@ -36,17 +36,28 @@ def get_data_dir(data_dir: Path | None = None) -> Path:
     return Path(os.environ.get(_DATAEVAL_DATA_ENV, str(DEFAULT_DATA_DIR)))
 
 
-def resolve_path(relative: str | Path, data_dir: Path | None = None) -> Path:
+def resolve_path(relative: str | Path, data_dir: Path | None = None, *, default_subdir: str | None = None) -> Path:
     """Resolve a user-provided path against *data_dir*.
 
     Absolute paths are returned as-is.  Relative paths are joined to
     *data_dir* (which itself defaults via :func:`get_data_dir`).
+
+    ``default_subdir`` implements the mount-folder conventions: when a relative
+    path is not found directly under the data root, the conventional subfolder
+    is tried (``data`` for datasets, ``models`` for models). Explicit paths
+    that resolve directly are unchanged, so existing configs keep working; new
+    configs may use the conventional folders and reference them by bare name.
     """
     p = Path(relative)
     if p.is_absolute():
         return p
     root = data_dir if data_dir is not None else get_data_dir()
-    return root / p
+    direct = root / p
+    if default_subdir is not None and not direct.exists():
+        conventional = root / default_subdir / p
+        if conventional.exists():
+            return conventional
+    return direct
 
 
 def load_config(config_path: Path) -> PipelineConfig:

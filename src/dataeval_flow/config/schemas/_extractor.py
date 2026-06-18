@@ -2,7 +2,7 @@
 
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from dataeval_flow.config._paths import validate_config_path
 
@@ -29,17 +29,34 @@ class OnnxExtractorConfig(_ExtractorConfigBase):
             output_name: "flatten0"
             preprocessor: resnet_preprocess
             batch_size: 64
+            image_height: 224
+            image_width: 224
     """
 
     model: Literal["onnx"] = "onnx"
     model_path: str = Field(description="Path to ONNX model file (relative to data root).")
     output_name: str | None = Field(default=None, description="Output layer name.")
     flatten: bool = Field(default=True, description="Flatten output to (N, D) shape.")
+    # User-imposed model input configuration [IR-3.1-S-4]. When both height and
+    # width are set, input images are resized to (height, width), preferred over
+    # the model's native input size. Batch size is the inherited `batch_size`.
+    image_height: int | None = Field(
+        default=None, gt=0, description="Override model input image height; resizes inputs (IR-3.1-S-4)."
+    )
+    image_width: int | None = Field(
+        default=None, gt=0, description="Override model input image width; resizes inputs (IR-3.1-S-4)."
+    )
 
     @field_validator("model_path")
     @classmethod
     def _model_path_must_be_relative(cls, v: str) -> str:
         return validate_config_path(v)
+
+    @model_validator(mode="after")
+    def _image_size_requires_both_dims(self) -> "OnnxExtractorConfig":
+        if (self.image_height is None) != (self.image_width is None):
+            raise ValueError("image_height and image_width must be set together to resize model inputs.")
+        return self
 
 
 class BoVWExtractorConfig(_ExtractorConfigBase):

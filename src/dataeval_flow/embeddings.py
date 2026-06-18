@@ -19,6 +19,35 @@ if TYPE_CHECKING:
     from dataeval_flow.config.schemas import ExtractorConfig
 
 
+def _make_resize_transform(height: int, width: int) -> Callable:
+    """Build a CHW-image resize transform to ``(height, width)`` for IR-3.1-S-4.
+
+    The returned callable bilinearly resizes a single CHW image so that a
+    user-imposed model input size overrides the model's native input size.
+    """
+
+    def _resize(image: Any) -> Any:
+        import numpy as np
+
+        try:
+            import torch
+        except ImportError as exc:  # pragma: no cover - exercised only without torch
+            raise ImportError(
+                "Resizing ONNX model inputs (image_height/image_width) requires torch; "
+                "install dataeval-flow[cpu] or a cuda extra."
+            ) from exc
+
+        tensor = torch.as_tensor(np.asarray(image)).float()
+        if tensor.ndim != 3:
+            raise ValueError(f"ONNX input resize expects CHW images; got shape {tuple(tensor.shape)}")
+        resized = torch.nn.functional.interpolate(
+            tensor.unsqueeze(0), size=(height, width), mode="bilinear", align_corners=False
+        )
+        return resized.squeeze(0).numpy()
+
+    return _resize
+
+
 def build_embeddings(
     dataset: AnnotatedDataset[Any],
     extractor_config: "ExtractorConfig",
@@ -79,9 +108,19 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
     _logger.debug("Building %s extractor", extractor_config.model)
 
     if isinstance(extractor_config, OnnxExtractorConfig):
+        # IR-3.1-S-4: honor user-imposed model input size. The pinned dataeval
+        # OnnxExtractor takes its input size from the model, so we resize via the
+        # transform pipeline instead: append a resize (applied last, after any
+        # user preprocessing) when both height and width are configured. The
+        # config validator guarantees they are set together.
+        onnx_transforms = transforms
+        if extractor_config.image_height is not None and extractor_config.image_width is not None:
+            # Append the resize last, keeping any user preprocessing ahead of it.
+            resize = _make_resize_transform(extractor_config.image_height, extractor_config.image_width)
+            onnx_transforms = [t for t in (transforms,) if t is not None] + [resize]
         extractor = OnnxExtractor(
             extractor_config.model_path,
-            transforms=transforms,
+            transforms=onnx_transforms,
             output_name=extractor_config.output_name,
             flatten=extractor_config.flatten,
         )
