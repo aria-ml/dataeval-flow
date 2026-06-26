@@ -95,9 +95,22 @@ class TestBuildPreprocessing:
         assert "ToRGB()" in repr(transform)
 
     def test_rgb_no_longer_custom(self):
-        """'RGB' now resolves to torchvision v2.RGB, not our custom transform."""
-        transform = build_preprocessing([PreprocessingStep(step="RGB")])
-        assert "ToRGB()" not in repr(transform)
+        """'RGB' is not our custom preprocessor — it falls through to torchvision.
+
+        The custom transform was renamed ``RGB`` -> ``ToRGB`` so it no longer
+        shadows torchvision's ``v2.RGB``. The registry invariant holds on every
+        torchvision version; the build-and-resolve check is only meaningful where
+        torchvision actually provides ``v2.RGB`` (added after the 0.17 minimum).
+        """
+        from dataeval_flow.preprocessors import resolve_custom
+
+        assert resolve_custom("RGB") is None
+
+        from torchvision.transforms import v2
+
+        if hasattr(v2, "RGB"):
+            transform = build_preprocessing([PreprocessingStep(step="RGB")])
+            assert "ToRGB()" not in repr(transform)
 
 
 class TestPreprocessingEndToEnd:
