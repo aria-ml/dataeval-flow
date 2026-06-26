@@ -1,21 +1,23 @@
-# markdownlint config — modeled on dataeval/.markdownlint.yaml
+# markdownlint config — modeled on dataeval/.markdownlint.yaml.
 # Rule docs: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 #
-# MD013/line-length — disabled. Dense bullets and tables routinely exceed
-# 120 chars; manual reflow would damage readability.
-MD013: false
+# Per DR-3.3-H-3, rules are tuned by *parameter* rather than disabled; the one
+# allowed_elements exception accommodates a MyST/Sphinx syntax extension.
+#
+# MD013/line-length — enforced at 120, but tables and code blocks are exempt:
+# wide tables and code (CLI commands, URLs, wheel-index flags) cannot be
+# reflowed without breaking rendering. Matches the DataEval baseline.
+MD013:
+  line_length: 120
+  tables: false
+  code_blocks: false
 # MD024/no-duplicate-heading — only flag duplicates under the same parent.
-# Sections legitimately repeat ### Hard / ### Soft under each heading.
+# Sections legitimately repeat headings (e.g. ### Hard / ### Soft) under
+# different parents.
 MD024:
   siblings_only: true
-# MD029/ol-prefix — disabled. Numbered lists are routinely interrupted by
-# subsection headings while preserving cross-section numbering.
-MD029: false
-# MD060/table-column-style — pure cosmetic spacing around table pipes;
-# noisy and not load-bearing for readability.
-MD060: false
 # MD033/no-inline-html — allow `<self>`, the MyST/Sphinx toctree token used in
-# docs/source/index.md (`Welcome <self>`). All other inline HTML still flagged.
+# docs/source/index.md (`Welcome <self>`). All other inline HTML is still flagged.
 MD033:
   allowed_elements:
     - self

@@ -39,7 +39,9 @@ all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-g
 all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
 
 [project.urls]
-Repository = "https://gitlab.jatic.net/jatic/aria/dataeval-flow"
+Homepage = "https://github.com/aria-ml/dataeval-flow"
+Documentation = "https://dataeval-flow.readthedocs.io/"
+Repository = "https://github.com/aria-ml/dataeval-flow"
 
 [project.scripts]
 dataeval-flow = "dataeval_flow.__main__:main"

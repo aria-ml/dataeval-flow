@@ -20,6 +20,17 @@
 # the config-driven `drift-monitoring` workflow.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers who operate a deployed model and need to know
+# when the data feeding it has shifted away from the data the model was evaluated on.
+#
+# **Where this fits** — Drift monitoring is an operational, ongoing stage of the T&E
+# workflow: after a model is deployed against a validated reference dataset, you watch
+# incoming data for distribution shift that could silently degrade performance and
+# trigger re-evaluation or retraining. See the
+# [Distribution shift](../concepts/DistributionShift.md) concept page for the detectors
+# and the relationship to [OOD detection](ood_detection) and [classwise drift](classwise_drift).
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Download MNIST from HuggingFace and prepare a **reference** set of 2 000 clean digit images
@@ -411,7 +422,13 @@ print(json_str[:600] + "\n...")
 #   (`infer_labels: true`) to detect which digit classes are most affected
 # - **Different detectors** — Try `domain_classifier` (trains a binary classifier to
 #   distinguish ref from test) or other univariate tests (`ks`, `mwu`, `anderson`, `bws`)
-# - **Real-world models** — Use an ONNX model (e.g. ResNet) with preprocessing for
-#   richer embeddings that capture higher-level features
-# - **Production deployment** — See the Docker deployment guide for running drift
-#   monitoring on a schedule against live data pipelines
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Distribution shift](../concepts/DistributionShift.md):
+#   how drift, classwise drift, and OOD detection relate, and what each detector measures.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to run drift monitoring on a schedule against live data pipelines from a container.
+# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
+#   to use a pretrained model (e.g. ResNet) for richer embeddings that capture higher-level features.

@@ -31,22 +31,22 @@ backports today. Once `dataeval-flow` reaches JATIC Maturity I
 (target v1.0.0 — see [ROADMAP.md](ROADMAP.md)), supported-version
 windows will widen per JATIC SDP `RS-5-S-1`.
 
-| Version | Status | Security backports |
-|---|---|---|
-| `0.1.x` (current alpha) | active | yes |
-| anything older | unsupported | no |
+| Version                 | Status      | Security backports |
+| ----------------------- | ----------- | ------------------ |
+| `0.1.x` (current alpha) | active      | yes                |
+| anything older          | unsupported | no                 |
 
 ## Automated scanner coverage
 
 Every merge request and every `main` pipeline runs four security scans
 (see [.gitlab-ci.yml](.gitlab-ci.yml)):
 
-| Scanner | Scope | SDP requirement | Suppression file / mechanism |
-|---|---|---|---|
-| Semgrep (SAST) | source code in `src/` | DSOR-1-H-1 / DSOR-1-H-2 | `SAST_EXCLUDED_PATHS` + per-rule `nosem:` comment |
-| Gemnasium | Python dependency manifest | DSOR-2-H-1 / DSOR-2-H-2 | GitLab vulnerability-report dismissal (with comment) |
-| GitLab Container Scanning (Trivy analyzer) | published container images | DSOR-3-H-1 / DSOR-3-H-2 / CS-2-H-2 | GitLab Vulnerability Report dismissal (with comment) |
-| GitLab Secret Detection | working tree | DSOR-4-H-1 / DSOR-4-H-2 | exclusions in `secret_detection` job; do not commit secrets |
+| Scanner                                    | Scope                      | SDP requirement                    | Suppression file / mechanism                                |
+| ------------------------------------------ | -------------------------- | ---------------------------------- | ----------------------------------------------------------- |
+| Semgrep (SAST)                             | source code in `src/`      | DSOR-1-H-1 / DSOR-1-H-2            | `SAST_EXCLUDED_PATHS` + per-rule `nosem:` comment           |
+| Gemnasium                                  | Python dependency manifest | DSOR-2-H-1 / DSOR-2-H-2            | GitLab vulnerability-report dismissal (with comment)        |
+| GitLab Container Scanning (Trivy analyzer) | published container images | DSOR-3-H-1 / DSOR-3-H-2 / CS-2-H-2 | GitLab Vulnerability Report dismissal (with comment)        |
+| GitLab Secret Detection                    | working tree               | DSOR-4-H-1 / DSOR-4-H-2            | exclusions in `secret_detection` job; do not commit secrets |
 
 Findings flow into the GitLab security dashboard. Cosign attestation
 (`cosign attest --type cyclonedx`) is also published per image for
@@ -83,7 +83,6 @@ scanning, container scanning, or secret detection.
 3. **Record the suppression in the right place.** The justification text
    must be specific to this project — generic statements like "not
    exploitable in our case" without context will be rejected in review.
-
    - **Semgrep / SAST**
      - Per-line: add `# nosem: <rule-id>  # Justification: <reason>` on the
        triggering line.

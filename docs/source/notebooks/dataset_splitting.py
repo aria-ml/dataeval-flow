@@ -20,6 +20,17 @@
 # using the config-driven `data-splitting` workflow.
 
 # %% [markdown]
+# **Who this is for** — Model developers and T&E engineers who need defensible,
+# reproducible train/val/test partitions for model development and evaluation.
+#
+# **Where this fits** — Splitting comes after a dataset has been cleaned and
+# analyzed: you turn one trustworthy dataset into the partitions a higher-level
+# T&E workflow relies on — training on the train fold, tuning on validation, and
+# holding out a test set for unbiased evaluation. See the
+# [Dataset splitting](../concepts/DatasetSplitting.md) concept page for stratification
+# and leakage-avoidance background.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Download the MNIST test split (10K images, 10 digit classes) from HuggingFace
@@ -323,3 +334,11 @@ print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 #   together (e.g., same patient, same video sequence)
 # - **Rebalancing** — Set `rebalance_method="global"` to address class imbalance
 #   in the training split
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Dataset splitting](../concepts/DatasetSplitting.md):
+#   stratification, multi-fold cross-validation, and leakage avoidance.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to run the splitting workflow from a YAML config inside a container.

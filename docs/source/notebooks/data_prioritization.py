@@ -20,6 +20,17 @@
 # label next, given an already-labeled reference dataset and a trained model.
 
 # %% [markdown]
+# **Who this is for** — Model developers and data scientists running an active-learning
+# or labeling loop who need to spend a limited labeling budget on the most informative
+# samples.
+#
+# **Where this fits** — Prioritization sits in the data-acquisition stage of the T&E
+# workflow: given a trained model and labeled reference data, it ranks unlabeled
+# incoming data so the next labeling batch targets novel or hard cases — closing the
+# loop back to [dataset splitting](dataset_splitting) and retraining. See the
+# [Prioritization](../concepts/Prioritization.md) concept page for the ranking methods.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Download the MNIST dataset from HuggingFace
@@ -531,4 +542,11 @@ except ImportError:
 #   known classes while still surfacing novel samples
 # - **Tune pruning thresholds** — Adjust `outlier_flags` and `health_thresholds`
 #   to control how aggressively corrupted images are pruned
-# - **YAML-driven config** — Use a YAML config file with the CLI for production pipelines
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Prioritization](../concepts/Prioritization.md):
+#   the ranking methods (`knn`, `kmeans_distance`, `hdbscan_complexity`) and ordering policies.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to run prioritization from a YAML config inside a container for production pipelines.

@@ -20,6 +20,17 @@
 # `data-analysis` workflow.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers and data scientists who need a holistic,
+# multi-split quality report before signing off on a dataset for evaluation.
+#
+# **Where this fits** — Dataset analysis is a gate in the T&E workflow: before you
+# split data or train a model, you confirm there is no cross-split leakage, no
+# excessive imbalance, and no distribution shift between train and test. It builds
+# on per-dataset [data cleaning](data_cleaning) and feeds [dataset splitting](dataset_splitting).
+# See the [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) concept
+# page for the underlying assessment areas.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Download the CPPE-5 dataset from HuggingFace and prepare it as a multi-split dataset
@@ -407,5 +418,14 @@ print(json_str[:500] + "\n...")
 #   detection with visual inspection via `dataeval-plots`
 # - **Custom extractors** -- Add an ONNX model configuration to enable embedding-based
 #   cross-split divergence analysis (distribution shift)
-# - **Container deployment** -- Mount your dataset and config YAML, then run `dataeval-flow`
-#   as a container with the same configuration
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Data quality and cleaning](../concepts/DataQualityAndCleaning.md):
+#   the five assessment areas and cross-split checks behind this report.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to mount your dataset and config YAML, then run `dataeval-flow` as a container with the
+#   same configuration.
+# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
+#   to add a pretrained model and enable embedding-based cross-split divergence analysis.

@@ -14,12 +14,20 @@
 # ---
 
 # %% [markdown]
-# # Use a torchvision dataset with DataEval Workflows
+# # Use a torchvision dataset with DataEval Flow
 #
 # This guide shows how to pass a torchvision dataset into the `data-cleaning`
 # workflow using the `"torchvision"` adapter.  The adapter converts both
 # **image classification** and **object detection** datasets to the MAITE
 # protocol that DataEval expects.
+
+# %% [markdown]
+# ## Used in these tutorials
+#
+# This guide is referenced from:
+#
+# - [Clean a dataset](data_cleaning) — feed a `torchvision` classification or
+#   detection dataset straight into the `data-cleaning` workflow.
 
 # %% [markdown]
 # ## Image classification

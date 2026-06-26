@@ -1,6 +1,6 @@
 # Tutorials
 
-Learning-oriented guides that walk you through using DataEval Workflows step by step.
+Learning-oriented guides that walk you through using DataEval Flow step by step.
 
 ```{toctree}
 :maxdepth: 1

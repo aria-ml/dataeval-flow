@@ -137,7 +137,7 @@ markdownlint:
     markdownlint-cli2 CHANGELOG.md || FAIL=1
     markdownlint-cli2 SECURITY.md || FAIL=1
     markdownlint-cli2 GEMINI.md || FAIL=1
-    markdownlint-cli2 'docs/source/**/*.md' '#node_modules' || FAIL=1
+    markdownlint-cli2 'docs/**/*.md' '#node_modules' || FAIL=1
     exit $FAIL
 
 # Markdown link check [DR-3.3-H-4]
@@ -151,7 +151,7 @@ linkchecker:
     name: ghcr.io/tcort/markdown-link-check:stable
     entrypoint: ['/bin/sh', '-c']
   script:
-    - markdown-link-check --config docs/.markdown-link-check.json BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md GEMINI.md README.md ROADMAP.md SECURITY.md
+    - markdown-link-check --config docs/.markdown-link-check.json BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md GEMINI.md README.md ROADMAP.md SECURITY.md docs/CACHE_MANAGEMENT.md
     - markdown-link-check --config docs/.markdown-link-check.json ./docs/source
   allow_failure: true
 

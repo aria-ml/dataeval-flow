@@ -21,6 +21,16 @@
 # higher-fidelity embeddings than lightweight methods like BoVW.
 
 # %% [markdown]
+# ## Used in these tutorials
+#
+# These tutorials reference this guide for swapping in higher-fidelity embeddings:
+#
+# - [Clean a dataset](data_cleaning)
+# - [Analyze dataset quality across splits](data_analysis)
+# - [Monitor incoming data for drift](drift_monitoring)
+# - [Detect out-of-distribution samples](ood_detection)
+
+# %% [markdown]
 # ## YAML
 #
 # ```yaml

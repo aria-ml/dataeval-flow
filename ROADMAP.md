@@ -161,15 +161,21 @@ to be refined by the team and reflected here.**
 
 ### Planned / under consideration — TBD
 
-- [ ] **SUNet dataset support** — primary target dataset for the JATIC program; coverage to land via `databridge` in v0.4.0. IR-3.2-S-3 / IR-3.3-S-3 (VisDrone) will be exception-tracked in the meta-repo.
+- [ ] **Video dataset support** — primary target dataset for the JATIC
+      program; coverage to land via `databridge` in v0.4.0. IR-3.2-S-3 /
+      IR-3.3-S-3 (VisDrone) will be exception-tracked in the meta-repo.
 - [ ] **TFLite model format** (IR-3-S-2) — decision pending; document as exception if descoped.
-- [ ] **Video workflows** (IR-3.3-S-*) — first concrete delivery is the FMV workflow in v0.4.0; full video-format coverage continues to track `dataeval` v2.0.
+- [ ] **Video workflows** (IR-3.3-S-*) — first concrete delivery is the FMV
+      workflow in v0.4.0; full video-format coverage continues to track
+      `dataeval` v2.0.
 
 ---
 
 ## Out of scope (current line)
 
-- Web-service / REST deployment mode — `dataeval-flow` ships as a batch container, not a long-running service. IR-2.3-H-2, IR-2.3-S-1, IR-2.4-S-1 are not applicable.
+- Web-service / REST deployment mode — `dataeval-flow` ships as a batch
+  container, not a long-running service. IR-2.3-H-2, IR-2.3-S-1, IR-2.4-S-1 are
+  not applicable.
 
 ---
 

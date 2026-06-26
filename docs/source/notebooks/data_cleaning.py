@@ -19,6 +19,17 @@
 # Flag outliers and duplicates in CPPE-5 using the config-driven `data-cleaning` workflow.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers and data scientists who need to vet an
+# operational dataset for quality problems before it is used downstream.
+#
+# **Where this fits** — Data cleaning is the first stage of preparing an
+# operational dataset: you flag and remove outliers and duplicates here so that
+# later stages — [dataset splitting](dataset_splitting), [drift monitoring](drift_monitoring),
+# and model training — run on trustworthy data. See the
+# [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) concept page
+# for the ideas behind the checks.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Download the CPPE-5 dataset from HuggingFace and save it to disk
@@ -347,11 +358,19 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## What's next
 #
-# - **Run in Docker** — See the [Containerized Workflows how-to](../how_to/containerized_workflows.md) to
-#   build a container image, write a YAML config, and run a workflow with `docker run`
-# - **Using ONNX models** — See the ONNX embeddings how-to (coming soon!) for
-#   configuring a pretrained ResNet50 model with preprocessing transforms for higher-fidelity embeddings
 # - **Data analysis** — Use the `data-analysis` workflow for a comprehensive multi-split quality report
 #   including cross-split leakage, distribution shift, and bias analysis
 # - **Custom thresholds** — Tune `outlier_threshold`, switch to `"iqr"` method, or adjust
 #   `health_thresholds` for different sensitivity and warning profiles
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Data quality and cleaning](../concepts/DataQualityAndCleaning.md):
+#   the outlier and duplicate detection ideas behind this workflow.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to build a container image, write a YAML config, and run this workflow with `docker run`.
+# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
+#   to configure a pretrained ResNet50 model with preprocessing transforms for higher-fidelity embeddings.
+# - **How-to: Use a torchvision dataset** — [torchvision datasets](torchvision_datasets)
+#   to feed a `torchvision` classification or detection dataset straight into this workflow.

@@ -31,7 +31,7 @@ read `pyproject.toml` as the source of truth and resolve
 against their respective committed lockfiles (`uv.lock` / `poetry.lock`).
 
 ```bash
-git clone https://gitlab.jatic.net/jatic/aria/dataeval-flow.git
+git clone https://github.com/aria-ml/dataeval-flow.git
 cd dataeval-flow
 ```
 
@@ -45,6 +45,19 @@ uv sync --extra all-cpu  # or all-cu118 / all-cu128 for CUDA variants
 
 ```bash
 poetry install --extras all-cpu
+```
+
+### With conda / mamba
+
+Conda manages the environment from the committed `environment.yml`; the package
+itself is then installed into that environment. PyTorch is installed from PyPI /
+`download.pytorch.org` (it is no longer maintained on conda-forge), so the
+conda path installs the CPU build of PyTorch.
+
+```bash
+conda env create -f environment.yml
+conda activate dataeval-flow
+pip install -e .
 ```
 
 ## Docker

@@ -1,7 +1,21 @@
 # Run workflows in containers
 
-Deploy DataEval workflows as a container — pull a pre-built image, write a
+Deploy DataEval Flow workflows as a container — pull a pre-built image, write a
 config file, and launch with bind-mounted data.
+
+## Used in these tutorials
+
+Every DataEval Flow workflow can be run from a container, so this guide is
+referenced from all of the tutorials:
+
+- {doc}`Clean a dataset <../notebooks/data_cleaning>`
+- {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
+- {doc}`Split a dataset <../notebooks/dataset_splitting>`
+- {doc}`Monitor incoming data for drift <../notebooks/drift_monitoring>`
+- {doc}`Detect classwise drift <../notebooks/classwise_drift>`
+- {doc}`Detect out-of-distribution samples <../notebooks/ood_detection>`
+- {doc}`Prioritize unlabeled data for labeling <../notebooks/data_prioritization>`
+- {doc}`Parameter Sweep for Data Cleaning <../notebooks/parameter_sweep>`
 
 ## Prerequisites
 

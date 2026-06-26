@@ -19,6 +19,18 @@
 # Analyze the sensitivity of outlier and duplicate detection results across a range of statistical and clustering parameters using the `parameter-sweep` workflow.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers and data scientists tuning a data-cleaning
+# configuration who need to understand how sensitive their findings are to
+# detection thresholds before committing to a setting.
+#
+# **Where this fits** — A parameter sweep is a calibration step within the data
+# quality stage of the T&E workflow: rather than guessing thresholds for
+# [data cleaning](data_cleaning), you sweep a range, read the sensitivity tables,
+# and lock in defensible parameters for the operational cleaning run. See the
+# [Reproducibility](../concepts/Reproducibility.md) concept page for how the
+# sweep reuses intermediate computation across runs via config-keyed caching.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Load a subset of the MNIST digit dataset
@@ -165,3 +177,14 @@ print(result.report())
 #
 # Once you've identified the best parameters for your specific digit-recognition task,
 # you can use them in a standard `data-cleaning` workflow to generate final index lists for training.
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Reproducibility](../concepts/Reproducibility.md): how
+#   config-keyed caching lets the sweep reuse cached embeddings and statistics
+#   across runs.
+# - **Tutorial** — [Clean a dataset](data_cleaning): apply the parameters you select
+#   here in a standard `data-cleaning` run.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to run a parameter sweep from a YAML config inside a container.

@@ -20,6 +20,17 @@
 # distribution using the config-driven `ood-detection` workflow.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers who need to flag *individual* incoming samples
+# that fall outside the distribution a model was evaluated on.
+#
+# **Where this fits** — OOD detection is the sample-level complement to
+# [drift monitoring](drift_monitoring) in the operational T&E workflow: drift answers
+# "has the distribution changed?" while OOD answers "which specific samples don't
+# belong?" — letting you quarantine or route anomalous inputs before they reach the
+# model. See the [Distribution shift](../concepts/DistributionShift.md) concept page
+# for how the two relate.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Download MNIST from HuggingFace and wrap it as an in-memory MAITE dataset
@@ -454,10 +465,16 @@ print(json_str[:600] + "\n...")
 # - **Threshold tuning** — Adjust `threshold_perc` to trade off between
 #   catching more OOD samples (lower threshold) and reducing false positives
 #   (higher threshold)
-# - **Real-world models** — Use an ONNX model (e.g. ResNet) with preprocessing
-#   for richer embeddings that capture higher-level features
 # - **Drift + OOD pipeline** — Combine `drift-monitoring` and `ood-detection`
 #   workflows in the same pipeline config to detect both distribution-level
 #   shifts and individual outliers
-# - **Production deployment** — See the Docker deployment guide for running OOD
-#   detection on a schedule against live data pipelines
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Distribution shift](../concepts/DistributionShift.md):
+#   how OOD detection relates to drift monitoring and what each detector measures.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to run OOD detection on a schedule against live data pipelines from a container.
+# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
+#   to use a pretrained model (e.g. ResNet) with preprocessing for richer embeddings.

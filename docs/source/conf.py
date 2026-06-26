@@ -14,7 +14,7 @@ from typing import Any
 # Project configuration
 # -----------------------------------------------------------------------------
 
-project = "DataEval Workflows"
+project = "DataEval Flow"
 copyright = f"{datetime.date.today().year}, ARiA"  # noqa: A001
 author = "ARiA"
 

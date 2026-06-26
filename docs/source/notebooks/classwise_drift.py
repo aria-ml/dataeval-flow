@@ -22,6 +22,16 @@
 # to pinpoint the affected classes.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers diagnosing *which* classes are responsible
+# for a drift signal, so corrective action can be targeted rather than dataset-wide.
+#
+# **Where this fits** — Classwise drift is the diagnostic follow-up to overall
+# [drift monitoring](drift_monitoring) in the T&E workflow: once a fast overall
+# check flags that drift exists, you drill into per-class results to decide where
+# to collect data or retrain. See the
+# [Distribution shift](../concepts/DistributionShift.md) concept page for background.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Load MNIST from HuggingFace into memory using `from_huggingface`
@@ -463,3 +473,13 @@ plt.show()
 #   embeddings that may detect subtler class-specific shifts
 # - **Threshold tuning** — Adjust `health_thresholds` to control when classwise
 #   drift triggers warnings vs. informational findings
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Distribution shift](../concepts/DistributionShift.md):
+#   the overall-then-classwise diagnostic pattern and what each detector measures.
+# - **Tutorial** — [Monitor incoming data for drift](drift_monitoring): the overall
+#   drift check this tutorial drills into.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to run the two-phase approach on a schedule from a container.
