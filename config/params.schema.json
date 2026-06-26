@@ -1657,7 +1657,7 @@
     },
     "OnnxExtractorConfig": {
       "additionalProperties": false,
-      "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64",
+      "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64\n        image_height: 224\n        image_width: 224",
       "properties": {
         "name": {
           "description": "Identifier for the extractor",
@@ -1719,6 +1719,34 @@
           "description": "Flatten output to (N, D) shape.",
           "title": "Flatten",
           "type": "boolean"
+        },
+        "image_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override model input image height; resizes inputs (IR-3.1-S-4).",
+          "title": "Image Height"
+        },
+        "image_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override model input image width; resizes inputs (IR-3.1-S-4).",
+          "title": "Image Width"
         }
       },
       "required": [
