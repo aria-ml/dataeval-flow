@@ -200,7 +200,9 @@ class TestConfigState:
     def test_validate_item(self) -> None:
         state = ConfigState()
         # Valid item
-        errs = state.validate_item("datasets", {"name": "ds1", "format": "huggingface", "path": "p"})
+        errs = state.validate_item(
+            "datasets", {"name": "ds1", "format": "huggingface", "path": "p", "task": "image_classification"}
+        )
         assert len(errs) == 0
         # Invalid item (missing format)
         errs = state.validate_item("datasets", {"name": "ds1"})
@@ -302,7 +304,9 @@ class TestConfigState:
         # Mock load_config_folder implicitly by using tmp_path as dir
         config_dir = tmp_path / "configs"
         config_dir.mkdir()
-        (config_dir / "ds.yaml").write_text("datasets:\n  - name: ds1\n    format: huggingface\n    path: p")
+        (config_dir / "ds.yaml").write_text(
+            "datasets:\n  - name: ds1\n    format: huggingface\n    path: p\n    task: image_classification"
+        )
 
         state = ConfigState()
         state.load_file(config_dir)

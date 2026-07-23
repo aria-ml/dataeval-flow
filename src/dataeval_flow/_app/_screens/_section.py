@@ -177,6 +177,13 @@ class SectionModal(ComponentModal):
                 kw["value"] = desc.default
             elif not desc.required or not options:
                 kw["prompt"] = "(default)" if not desc.required else "(no options)"
+            else:
+                # Required field with choices but no default: allow an initial
+                # blank selection instead of letting Select auto-select the first
+                # choice on mount, which triggers a value change before the
+                # widget's internal sub-widgets have finished composing.
+                kw["allow_blank"] = True
+                kw["prompt"] = "(required — choose a value)"
             container.mount(Select(options, **kw))
         elif desc.kind == FieldKind.BOOL:
             default_val = desc.default if isinstance(desc.default, bool) else False

@@ -233,18 +233,6 @@
           ],
           "default": null,
           "title": "Images Dir"
-        },
-        "classes_file": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Classes File"
         }
       },
       "required": [
@@ -1377,7 +1365,7 @@
     },
     "HuggingFaceDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for HuggingFace format.\n\nYAML example::\n\n    datasets:\n      - name: cifar10_train\n        format: huggingface\n        path: ./cifar10\n        split: train",
+      "description": "Dataset config for HuggingFace format.\n\nYAML example::\n\n    datasets:\n      - name: cifar10_train\n        format: huggingface\n        path: ./cifar10\n        split: train\n        task: image_classification",
       "properties": {
         "format": {
           "const": "huggingface",
@@ -1404,11 +1392,20 @@
           ],
           "default": null,
           "title": "Split"
+        },
+        "task": {
+          "enum": [
+            "image_classification",
+            "object_detection"
+          ],
+          "title": "Task",
+          "type": "string"
         }
       },
       "required": [
         "name",
-        "path"
+        "path",
+        "task"
       ],
       "title": "HuggingFaceDatasetConfig",
       "type": "object"
@@ -2347,7 +2344,7 @@
     },
     "YoloDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo\n        images_dir: images\n        labels_dir: labels\n        classes_file: classes.txt",
+      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo",
       "properties": {
         "format": {
           "const": "yolo",
@@ -2362,42 +2359,6 @@
         "path": {
           "title": "Path",
           "type": "string"
-        },
-        "images_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Images Dir"
-        },
-        "labels_dir": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Labels Dir"
-        },
-        "classes_file": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Classes File"
         }
       },
       "required": [

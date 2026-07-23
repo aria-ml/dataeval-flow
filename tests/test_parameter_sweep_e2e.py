@@ -21,7 +21,11 @@ class TestParameterSweepE2E:
     def test_run_tasks_with_parameter_sweep(self, mock_dup_cls, mock_outliers_cls, mock_stats, mock_resolve_ds):
         # 1. Setup mock pipeline config
         config = PipelineConfig(
-            datasets=[HuggingFaceDatasetConfig(name="ds1", format="huggingface", path="test", split="train")],
+            datasets=[
+                HuggingFaceDatasetConfig(
+                    name="ds1", format="huggingface", path="test", split="train", task="image_classification"
+                )
+            ],
             sources=[SourceConfig(name="src1", dataset="ds1")],
             workflows=[
                 ParameterSweepWorkflowConfig(

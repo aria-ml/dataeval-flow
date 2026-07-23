@@ -30,7 +30,12 @@ class TestConfigToFactoryIntegration:
 
         # Multi-file config simulating real deployment
         (config_dir / "00-datasets.yaml").write_text(
-            "datasets:\n  - name: test_dataset\n    format: huggingface\n    path: ./test\n    split: train\n"
+            "datasets:\n"
+            "  - name: test_dataset\n"
+            "    format: huggingface\n"
+            "    path: ./test\n"
+            "    split: train\n"
+            "    task: image_classification\n"
         )
         (config_dir / "01-preprocessors.yaml").write_text(
             "preprocessors:\n  - name: basic\n    steps:\n      - step: ToTensor\n"
@@ -108,6 +113,7 @@ class TestConfigToFactoryIntegration:
             "    format: huggingface\n"
             "    path: ./a\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "  - name: dataset_b\n"
             "    format: coco\n"
             "    path: ./b\n"
@@ -175,6 +181,7 @@ class TestConfigToFactoryIntegration:
             "    format: huggingface\n"
             "    path: ./data\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "sources:\n"
             "  - name: shared_src\n"
             "    dataset: shared_dataset\n"
@@ -252,7 +259,12 @@ class TestConfigMergeBehavior:
 
         # First file defines dataset A
         (config_dir / "00-first.yaml").write_text(
-            "datasets:\n  - name: dataset_a\n    format: huggingface\n    path: ./a\n    split: train\n"
+            "datasets:\n"
+            "  - name: dataset_a\n"
+            "    format: huggingface\n"
+            "    path: ./a\n"
+            "    split: train\n"
+            "    task: image_classification\n"
         )
         # Second file defines dataset B
         (config_dir / "01-second.yaml").write_text("datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n")
@@ -315,6 +327,7 @@ class TestEndToEndCleaningWorkflow:
             "    format: huggingface\n"
             "    path: ./dataset\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "sources:\n"
             "  - name: test_src\n"
             "    dataset: test_ds\n"

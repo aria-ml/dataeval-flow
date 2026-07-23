@@ -79,7 +79,7 @@ class TestRunTask:
     def _build_config_and_task(self) -> tuple[MagicMock, TaskConfig]:
         """Build minimal config + task for _run_single_task testing."""
 
-        ds_config = HuggingFaceDatasetConfig(name="test_ds", path="./test", split="train")
+        ds_config = HuggingFaceDatasetConfig(name="test_ds", path="./test", split="train", task="image_classification")
         source = SourceConfig(name="src_test", dataset="test_ds")
         task_config = TaskConfig(name="test_task", workflow="clean", sources="src_test")
 
@@ -174,7 +174,7 @@ class TestRunTask:
         """_run_single_task resolves selection config from source."""
         from dataeval_flow.config import SelectionConfig, SelectionStep
 
-        ds_config = HuggingFaceDatasetConfig(name="test_ds", path="./test", split="train")
+        ds_config = HuggingFaceDatasetConfig(name="test_ds", path="./test", split="train", task="image_classification")
         source = SourceConfig(name="src_test", dataset="test_ds", selection="sub")
 
         task = TaskConfig(name="test_task", workflow="clean", sources="src_test")
@@ -285,7 +285,6 @@ class TestRunTask:
             path="data/coco",
             annotations_file="instances.json",
             images_dir="train2017",
-            classes_file="classes.txt",
         )
         source = SourceConfig(name="src_coco", dataset="coco_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src_coco")
@@ -309,16 +308,13 @@ class TestRunTask:
             dataset_format="coco",
             annotations_file="instances.json",
             images_dir="train2017",
-            classes_file="classes.txt",
         )
 
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_passes_yolo_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes YOLO-specific config fields to load_dataset."""
 
-        ds_config = YoloDatasetConfig(
-            name="yolo_ds", path="data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
-        )
+        ds_config = YoloDatasetConfig(name="yolo_ds", path="data/yolo")
         source = SourceConfig(name="src_yolo", dataset="yolo_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src_yolo")
 
@@ -339,9 +335,6 @@ class TestRunTask:
         mock_load_ds.assert_called_once_with(
             Path("data/yolo"),
             dataset_format="yolo",
-            images_dir="imgs",
-            labels_dir="lbls",
-            classes_file="cls.txt",
         )
 
     @patch("dataeval_flow.dataset.load_dataset")
@@ -483,7 +476,10 @@ class TestRunTaskMultiSource:
     """Tests for multi-source _run_single_task behaviour."""
 
     def _make_config(self, ds_names: list[str]) -> MagicMock:
-        datasets = [HuggingFaceDatasetConfig(name=n, path=f"./{n}", split="train") for n in ds_names]
+        datasets = [
+            HuggingFaceDatasetConfig(name=n, path=f"./{n}", split="train", task="image_classification")
+            for n in ds_names
+        ]
         sources = [SourceConfig(name=f"src_{n}", dataset=n) for n in ds_names]
         config = MagicMock()
         config.datasets = datasets
@@ -629,7 +625,7 @@ class TestRunTasks:
     """Tests for run_tasks() top-level function."""
 
     def _build_pipeline_config(self) -> MagicMock:
-        ds = HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")
+        ds = HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")
         source = SourceConfig(name="src", dataset="ds")
 
         config = MagicMock()
@@ -733,7 +729,7 @@ class TestSourceNameKeying:
         """Two sources referencing the same dataset get distinct context entries."""
         from dataeval_flow.config import SelectionConfig, SelectionStep
 
-        ds = HuggingFaceDatasetConfig(name="cifar", path="./cifar", split="train")
+        ds = HuggingFaceDatasetConfig(name="cifar", path="./cifar", split="train", task="image_classification")
         src_full = SourceConfig(name="cifar_full", dataset="cifar")
         src_sub = SourceConfig(name="cifar_sub", dataset="cifar", selection="first_5k")
         sel = SelectionConfig(name="first_5k", steps=[SelectionStep(type="Limit", params={"size": 5000})])
@@ -803,7 +799,7 @@ class TestRunTasksDisabledSkip:
         import logging
 
         config = MagicMock()
-        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
         config.sources = [SourceConfig(name="src", dataset="ds")]
         config.extractors = None
         config.preprocessors = None
@@ -836,7 +832,7 @@ class TestRunTasksDisabledSkip:
 class TestRunTaskWrapper:
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_delegates(self, mock_load_ds):
-        ds = HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")
+        ds = HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")
         source = SourceConfig(name="src", dataset="ds")
         task = TaskConfig(name="my_task", workflow="clean", sources="src")
 
@@ -866,7 +862,7 @@ class TestRunTaskWrapper:
         task = TaskConfig(name="my_task", workflow="clean", sources="src")
 
         config = MagicMock()
-        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
         config.sources = [SourceConfig(name="src", dataset="ds")]
         config.extractors = None
         config.preprocessors = None
@@ -899,7 +895,7 @@ class TestCacheDirAndLabelSource:
 
         task = TaskConfig(name="t", workflow="clean", sources="src")
         config = MagicMock()
-        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
         config.sources = [SourceConfig(name="src", dataset="ds")]
         config.extractors = None
         config.preprocessors = None
@@ -1158,7 +1154,7 @@ class TestRunTasksAllEnabled:
     def test_run_tasks_none_disabled(self, mock_load_ds: MagicMock):
         """run_tasks with all tasks enabled skips the 'Skipping' log (line 353->355)."""
         config = MagicMock()
-        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train")]
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
         config.sources = [SourceConfig(name="src", dataset="ds")]
         config.extractors = None
         config.preprocessors = None

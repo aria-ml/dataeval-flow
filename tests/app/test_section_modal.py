@@ -54,7 +54,6 @@ class TestSectionModalFieldGeneration:
         assert "path" in names
         assert "annotations_file" in names
         assert "images_dir" in names
-        assert "classes_file" in names
         # HuggingFace-specific field should NOT be here
         assert "split" not in names
 

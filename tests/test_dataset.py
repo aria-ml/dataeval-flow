@@ -365,27 +365,20 @@ class TestDatasetConfigImageFolder:
 
 @pytest.mark.required
 class TestDatasetConfigNewFields:
-    """Tests for COCO/YOLO config fields."""
+    """Tests for COCO config fields (YOLO carries no format-specific fields)."""
 
     def test_coco_fields_parse(self) -> None:
         from dataeval_flow.config import CocoDatasetConfig
 
-        cfg = CocoDatasetConfig(
-            name="coco-ds", path="data/coco", annotations_file="ann.json", images_dir="imgs", classes_file="cls.txt"
-        )
+        cfg = CocoDatasetConfig(name="coco-ds", path="data/coco", annotations_file="ann.json", images_dir="imgs")
         assert cfg.annotations_file == "ann.json"
         assert cfg.images_dir == "imgs"
-        assert cfg.classes_file == "cls.txt"
 
-    def test_yolo_fields_parse(self) -> None:
+    def test_yolo_has_no_format_specific_fields(self) -> None:
         from dataeval_flow.config import YoloDatasetConfig
 
-        cfg = YoloDatasetConfig(
-            name="yolo-ds", path="data/yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
-        )
-        assert cfg.images_dir == "imgs"
-        assert cfg.labels_dir == "lbls"
-        assert cfg.classes_file == "cls.txt"
+        cfg = YoloDatasetConfig(name="yolo-ds", path="data/yolo")
+        assert cfg.format == "yolo"
 
     def test_new_fields_default_to_none(self) -> None:
         from dataeval_flow.config import CocoDatasetConfig
@@ -393,7 +386,6 @@ class TestDatasetConfigNewFields:
         cfg = CocoDatasetConfig(name="test", path="data")
         assert cfg.annotations_file is None
         assert cfg.images_dir is None
-        assert cfg.classes_file is None
 
 
 # ---------------------------------------------------------------------------

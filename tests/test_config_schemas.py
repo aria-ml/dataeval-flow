@@ -492,7 +492,7 @@ class TestP1SchemaClasses:
     def test_dataset_config_with_split(self):
         """DatasetConfig with a split name."""
 
-        dataset = HuggingFaceDatasetConfig(name="cppe5", path="./cppe5", split="train")
+        dataset = HuggingFaceDatasetConfig(name="cppe5", path="./cppe5", split="train", task="image_classification")
         assert dataset.name == "cppe5"
         assert dataset.format == "huggingface"
         assert dataset.path == "./cppe5"
@@ -500,7 +500,7 @@ class TestP1SchemaClasses:
 
     def test_dataset_config_with_none_split(self):
         """HuggingFaceDatasetConfig with split=None (single-split dataset)."""
-        dataset = HuggingFaceDatasetConfig(name="retail", path="./retail", split=None)
+        dataset = HuggingFaceDatasetConfig(name="retail", path="./retail", split=None, task="image_classification")
         assert dataset.split is None
 
     def test_dataset_config_missing_required_raises(self):
@@ -674,6 +674,7 @@ class TestP1SchemaClasses:
             "    format: huggingface\n"
             "    path: ./cppe5\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "preprocessors:\n"
             "  - name: basic\n"
             "    steps:\n"
@@ -1042,11 +1043,11 @@ class TestConfigPathValidation:
     def test_dataset_rejects_absolute_path(self):
         """Absolute dataset path is rejected."""
         with pytest.raises(ValidationError, match="relative"):
-            HuggingFaceDatasetConfig(name="ds", path="/home/user/data/cifar10")
+            HuggingFaceDatasetConfig(name="ds", path="/home/user/data/cifar10")  # type: ignore[call-arg]
 
     def test_dataset_accepts_relative_path(self):
         """Relative dataset path is accepted."""
-        ds = HuggingFaceDatasetConfig(name="ds", path="cifar10", split="train")
+        ds = HuggingFaceDatasetConfig(name="ds", path="cifar10", split="train", task="image_classification")
         assert ds.path == "cifar10"
 
     def test_dataset_accepts_dotslash_path(self):
@@ -1071,7 +1072,7 @@ class TestConfigPathValidation:
 
     def test_dataset_allows_internal_dotdot(self):
         """Dataset path with .. that stays under root is accepted."""
-        ds = HuggingFaceDatasetConfig(name="ds", path="a/b/../c")
+        ds = HuggingFaceDatasetConfig(name="ds", path="a/b/../c", task="image_classification")
         assert ds.path == "a/b/../c"
 
     def test_extractor_rejects_absolute_model_path(self):
@@ -1102,4 +1103,49 @@ class TestConfigPathValidation:
     def test_dataset_rejects_empty_path(self):
         """Empty dataset path is rejected."""
         with pytest.raises(ValidationError, match="empty"):
-            HuggingFaceDatasetConfig(name="ds", path="")
+            HuggingFaceDatasetConfig(name="ds", path="")  # type: ignore[call-arg]
+
+
+class TestDatamaitePortConfig:
+    def test_hf_config_requires_task(self):
+        import pytest
+        from pydantic import ValidationError
+
+        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+
+        with pytest.raises(ValidationError):
+            HuggingFaceDatasetConfig(name="ds", path="./d")  # type: ignore[call-arg]  # task missing
+
+    def test_hf_config_accepts_task(self):
+        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+
+        cfg = HuggingFaceDatasetConfig(name="ds", path="./d", task="object_detection")
+        assert cfg.task == "object_detection"
+
+    def test_hf_config_rejects_bad_task(self):
+        import pytest
+        from pydantic import ValidationError
+
+        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+
+        with pytest.raises(ValidationError):
+            HuggingFaceDatasetConfig(name="ds", path="./d", task="segmentation")  # type: ignore[arg-type]
+
+    def test_coco_config_rejects_classes_file(self):
+        import pytest
+        from pydantic import ValidationError
+
+        from dataeval_flow.config.schemas import CocoDatasetConfig
+
+        with pytest.raises(ValidationError):
+            CocoDatasetConfig(name="ds", path="./d", classes_file="c.txt")  # type: ignore[call-arg]
+
+    def test_yolo_config_rejects_removed_fields(self):
+        import pytest
+        from pydantic import ValidationError
+
+        from dataeval_flow.config.schemas import YoloDatasetConfig
+
+        for field in ("images_dir", "labels_dir", "classes_file"):
+            with pytest.raises(ValidationError):
+                YoloDatasetConfig(name="ds", path="./d", **{field: "x"})  # type: ignore[arg-type]
