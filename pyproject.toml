@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "DataEval Workflows container for data evaluation"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -17,9 +17,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "click>=8.0",
     "dataeval==1.0.6",
-    "datasets>=4.0.0",
-    "maite-datasets>=0.0.12",
+    "datamaite[ic,od]==0.3.0",
     "numpy>=1.24.2",
     "pydantic>=2.0",
     "pyyaml>=6.0",
@@ -48,10 +48,10 @@ dataeval-flow = "dataeval_flow.__main__:main"
 
 # MAITE interoperability entry-points.
 [project.entry-points."maite.protocols.image_classification.Dataset"]
-dataeval_flow_HFImageClassificationDataset = "maite_datasets.adapters:HFImageClassificationDataset"
+dataeval_flow_HFImageClassificationDataset = "datamaite:ImageClassificationDataset"
 
 [project.entry-points."maite.protocols.object_detection.Dataset"]
-dataeval_flow_HFObjectDetectionDataset = "maite_datasets.adapters:HFObjectDetectionDataset"
+dataeval_flow_HFObjectDetectionDataset = "datamaite:ObjectDetectionDataset"
 
 [project.entry-points."maite.tasks"]
 dataeval_flow_run_tasks = "dataeval_flow.workflow:run_tasks"
@@ -104,6 +104,7 @@ docs = [
     "ipykernel>=7.0",
     "pip>=24.0",
     "dataeval-plots>=0.0.7",
+    "datasets>=4.0.0",
 ]
 docker = [
     { include-group = "base" },
@@ -203,14 +204,19 @@ torch = { version = ">=2.2.0", source = "pytorch-cpu", optional = true }
 torchvision = { version = ">=0.17.0", source = "pytorch-cpu", optional = true }
 
 [tool.pyproject2conda.dependencies]
-# `dataeval` is available on conda-forge. `maite-datasets` is PyPI-only.
-maite-datasets = { pip = true }
+# `datamaite` is pinned to an unreleased git commit; conda has no git resolver.
+datamaite = { pip = true }
 
 # --- Build System ---
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# Required because `datamaite` is pinned to a direct git reference (see
+# [project].dependencies) rather than a PyPI version.
+allow-direct-references = true
 
 [tool.hatch.version]
 source = "vcs"
