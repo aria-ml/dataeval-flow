@@ -15,13 +15,13 @@ from typing import Any, Literal, TypeAlias
 
 import numpy as np
 from dataeval.protocols import AnnotatedDataset, DatasetMetadata
-from maite_datasets.adapters import HFImageClassificationDataset, HFObjectDetectionDataset
+from datamaite import ImageClassificationDataset, ObjectDetectionDataset
 from numpy.typing import NDArray
 from pydantic import BaseModel
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
-MaiteDataset: TypeAlias = HFImageClassificationDataset | HFObjectDetectionDataset
+MaiteDataset: TypeAlias = ImageClassificationDataset | ObjectDetectionDataset
 
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"})
 
@@ -336,54 +336,26 @@ def load_dataset_torchvision(dataset: Any) -> TorchvisionDataset:
     return TorchvisionDataset(dataset)
 
 
-def load_dataset_huggingface(path: Path, split: str | None = None) -> MaiteDataset:
-    """Load a HuggingFace dataset and convert to MAITE format.
+def load_dataset_huggingface(
+    path: Path,
+    split: str | None = None,
+    *,
+    task: Literal["image_classification", "object_detection"] = "image_classification",
+) -> MaiteDataset:
+    """Load a local HuggingFace vision repository and convert to MAITE format.
 
-    Parameters
-    ----------
-    path : Path
-        Path to the dataset directory containing HuggingFace dataset files.
-
-    Returns
-    -------
-    MaiteDataset
-        MAITE-compatible dataset object that can be used with DataEval.
-
-    Raises
-    ------
-    ImportError
-        If required dependencies (datasets, maite_datasets) are missing.
-    RuntimeError
-        If dataset loading or conversion fails.
-    KeyError
-        If split is not specified for a multi-split dataset or the specified split is not found in the dataset.
-
-    Examples
-    --------
-    >>> from pathlib import Path
-    >>> from dataeval_flow import load_dataset_huggingface
-    >>> ds = load_dataset_huggingface(Path("/data/cifar10"))
+    ``path`` is a local repository/ImageFolder-layout root (class folders or a
+    ``metadata.csv``/``metadata.jsonl``). When ``split`` is given it is treated as
+    a subdirectory (``path/split``). ``task`` selects the classification vs
+    object-detection loader.
     """
-    from datasets import load_from_disk
-    from maite_datasets.adapters import from_huggingface
+    from datamaite import load_ic, load_od
 
-    dataset = load_from_disk(str(path))
-
-    _logger.info("Loaded type: %s", type(dataset).__name__)
-    # union-attr: load_from_disk returns Dataset | DatasetDict; .keys() only on DatasetDict.
-    if hasattr(dataset, "keys") and callable(dataset.keys):  # type: ignore[union-attr]
-        available_splits = list(dataset.keys())  # type: ignore[union-attr]
-        if split is None or split not in available_splits:
-            raise KeyError(f"Requested split '{split}' not found in dataset. Available splits: {available_splits}")
-        _logger.info("DatasetDict detected with %d splits: %s", len(available_splits), available_splits)
-        _logger.info("Selecting split '%s' as specified in config.", split)
-        dataset = dataset[split]
-    else:
-        _logger.info("Dataset detected (single split)")
-
-    # load_from_disk returns Dataset | DatasetDict; after the dict guard above
-    # it's a single Dataset, but pyright can't narrow through hasattr.
-    return from_huggingface(dataset)  # type: ignore[arg-type]
+    root = path / split if split else path
+    _logger.info("Loading HuggingFace %s dataset from %s", task, root)
+    if task == "object_detection":
+        return load_od(root, dataset_format="huggingface_vision")
+    return load_ic(root, dataset_format="huggingface_vision")
 
 
 def load_dataset_image_folder(path: Path, *, recursive: bool = False, infer_labels: bool = False) -> ImageFolderDataset:
@@ -391,83 +363,29 @@ def load_dataset_image_folder(path: Path, *, recursive: bool = False, infer_labe
     return ImageFolderDataset(path, recursive=recursive, infer_labels=infer_labels)
 
 
-def load_dataset_coco(
-    path: Path,
-    *,
-    annotations_file: str | None = None,
-    images_dir: str | None = None,
-    classes_file: str | None = None,
-) -> Any:
-    """Load a COCO-format object detection dataset.
-
-    Parameters
-    ----------
-    path : Path
-        Root directory of the COCO dataset.
-    annotations_file : str | None
-        Name of the annotations JSON file (default: reader's default).
-    images_dir : str | None
-        Name of the images subdirectory (default: reader's default).
-    classes_file : str | None
-        Name of the classes text file (default: reader's default).
-
-    Returns
-    -------
-    Any
-        MAITE-compatible object detection dataset (``COCODataset``).
-    """
-    from maite_datasets.object_detection import COCODatasetReader
+def load_dataset_coco(path: Path, *, annotations_file: str | None = None, images_dir: str | None = None) -> Any:
+    """Load a COCO-format object detection dataset via datamaite."""
+    from datamaite import load_od
 
     kwargs: dict[str, str] = {}
     if annotations_file is not None:
-        kwargs["annotation_file"] = annotations_file  # reader uses singular
+        kwargs["annotation_file"] = annotations_file  # datamaite uses singular
     if images_dir is not None:
         kwargs["images_dir"] = images_dir
-    if classes_file is not None:
-        kwargs["classes_file"] = classes_file
-    reader = COCODatasetReader(path, **kwargs)
-    dataset = reader.create_dataset()
-    _logger.info("COCODataset: loaded %d images from %s", len(dataset), path)
+    dataset = load_od(path, dataset_format="coco", **kwargs)
+    _logger.info("COCO dataset: loaded %d images from %s", len(dataset), path)
     return dataset
 
 
-def load_dataset_yolo(
-    path: Path,
-    *,
-    images_dir: str | None = None,
-    labels_dir: str | None = None,
-    classes_file: str | None = None,
-) -> Any:
-    """Load a YOLO-format object detection dataset.
+def load_dataset_yolo(path: Path) -> Any:
+    """Load a YOLO-format object detection dataset via datamaite.
 
-    Parameters
-    ----------
-    path : Path
-        Root directory of the YOLO dataset.
-    images_dir : str | None
-        Name of the images subdirectory (default: reader's default).
-    labels_dir : str | None
-        Name of the labels subdirectory (default: reader's default).
-    classes_file : str | None
-        Name of the classes text file (default: reader's default).
-
-    Returns
-    -------
-    Any
-        MAITE-compatible object detection dataset (``YOLODataset``).
+    datamaite expects the standard ``images/`` + ``labels/`` + ``data.yaml`` layout.
     """
-    from maite_datasets.object_detection import YOLODatasetReader
+    from datamaite import load_od
 
-    kwargs: dict[str, str] = {}
-    if images_dir is not None:
-        kwargs["images_dir"] = images_dir
-    if labels_dir is not None:
-        kwargs["labels_dir"] = labels_dir
-    if classes_file is not None:
-        kwargs["classes_file"] = classes_file
-    reader = YOLODatasetReader(path, **kwargs)  # type: ignore[arg-type]  # kwargs are all str; pyright flags image_extensions
-    dataset = reader.create_dataset()
-    _logger.info("YOLODataset: loaded %d images from %s", len(dataset), path)
+    dataset = load_od(path, dataset_format="yolo")
+    _logger.info("YOLO dataset: loaded %d images from %s", len(dataset), path)
     return dataset
 
 
@@ -478,10 +396,9 @@ def load_dataset(
     *,
     recursive: bool = False,
     infer_labels: bool = False,
+    task: Literal["image_classification", "object_detection"] = "image_classification",
     annotations_file: str | None = None,
     images_dir: str | None = None,
-    labels_dir: str | None = None,
-    classes_file: str | None = None,
 ) -> Any:
     """Load a dataset and convert to MAITE format.
 
@@ -500,14 +417,12 @@ def load_dataset(
         Scan subdirectories for images (image_folder only).
     infer_labels : bool
         Treat subdirectories as class labels (image_folder only).
+    task : Literal["image_classification", "object_detection"]
+        Classification vs object-detection loader (HuggingFace only).
     annotations_file : str | None
         Annotations file name (COCO only).
     images_dir : str | None
-        Images subdirectory name (COCO/YOLO only).
-    labels_dir : str | None
-        Labels subdirectory name (YOLO only).
-    classes_file : str | None
-        Classes file name (COCO/YOLO only).
+        Images subdirectory name (COCO only).
 
     Returns
     -------
@@ -516,8 +431,6 @@ def load_dataset(
 
     Raises
     ------
-    KeyError
-        If split is not specified for a multi-split dataset or the specified split is not found in the dataset.
     ValueError
         If the dataset format is not supported.
 
@@ -528,15 +441,13 @@ def load_dataset(
     >>> ds = load_dataset(Path("/data/cifar10"))
     """
     if dataset_format == "huggingface":
-        return load_dataset_huggingface(path, split=split)
+        return load_dataset_huggingface(path, split=split, task=task)
     if dataset_format == "image_folder":
         return load_dataset_image_folder(path, recursive=recursive, infer_labels=infer_labels)
     if dataset_format == "coco":
-        return load_dataset_coco(
-            path, annotations_file=annotations_file, images_dir=images_dir, classes_file=classes_file
-        )
+        return load_dataset_coco(path, annotations_file=annotations_file, images_dir=images_dir)
     if dataset_format == "yolo":
-        return load_dataset_yolo(path, images_dir=images_dir, labels_dir=labels_dir, classes_file=classes_file)
+        return load_dataset_yolo(path)
     msg = f"Unsupported dataset format: {dataset_format!r}"
     raise ValueError(msg)
 
@@ -599,12 +510,13 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
         kwargs: dict[str, Any] = {}
         if isinstance(config, HuggingFaceDatasetConfig):
             kwargs["split"] = config.split
+            kwargs["task"] = config.task
         elif isinstance(config, ImageFolderDatasetConfig):
             kwargs["recursive"] = config.recursive
             kwargs["infer_labels"] = config.infer_labels
         else:
-            # Coco / Yolo — forward format-specific fields
-            for field_name in ("annotations_file", "images_dir", "labels_dir", "classes_file"):
+            # Coco forwards annotations_file/images_dir; Yolo forwards nothing.
+            for field_name in ("annotations_file", "images_dir"):
                 if hasattr(config, field_name):
                     kwargs[field_name] = getattr(config, field_name)
 

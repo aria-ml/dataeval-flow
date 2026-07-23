@@ -46,23 +46,6 @@ class TestImports:
 class TestDatasetModule:
     """Test the dataset library module."""
 
-    def test_load_dataset_huggingface_datasetdict(self, mock_hf_dataset: MagicMock) -> None:
-        """Test loading a DatasetDict with explicit split selection."""
-        with (
-            patch("datasets.load_from_disk") as mock_load,
-            patch("maite_datasets.adapters.from_huggingface") as mock_adapter,
-        ):
-            mock_load.return_value = mock_hf_dataset
-            mock_adapter.return_value = MagicMock()
-
-            from dataeval_flow.dataset import load_dataset_huggingface
-
-            load_dataset_huggingface(Path("dummy/path"), split="train")
-
-            # Should use the explicitly requested split
-            mock_hf_dataset.__getitem__.assert_called_with("train")
-            mock_adapter.assert_called()
-
     def test_load_dataset_delegates(self) -> None:
         """Test load_dataset defaults to huggingface."""
         with patch("dataeval_flow.dataset.load_dataset_huggingface") as mock_hf:
@@ -71,7 +54,7 @@ class TestDatasetModule:
             from dataeval_flow.dataset import load_dataset
 
             load_dataset(Path("/some/path"))
-            mock_hf.assert_called_once_with(Path("/some/path"), split=None)
+            mock_hf.assert_called_once_with(Path("/some/path"), split=None, task="image_classification")
 
     def test_load_dataset_image_folder_dispatch(self) -> None:
         """Test load_dataset dispatches to image_folder loader."""
@@ -112,11 +95,8 @@ class TestDatasetModule:
                 dataset_format="coco",
                 annotations_file="ann.json",
                 images_dir="imgs",
-                classes_file="cls.txt",
             )
-            mock_coco.assert_called_once_with(
-                Path("/some/path"), annotations_file="ann.json", images_dir="imgs", classes_file="cls.txt"
-            )
+            mock_coco.assert_called_once_with(Path("/some/path"), annotations_file="ann.json", images_dir="imgs")
 
     def test_load_dataset_yolo_dispatch(self) -> None:
         """Test load_dataset dispatches to YOLO loader."""
@@ -125,12 +105,8 @@ class TestDatasetModule:
 
             from dataeval_flow.dataset import load_dataset
 
-            load_dataset(
-                Path("/some/path"), dataset_format="yolo", images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
-            )
-            mock_yolo.assert_called_once_with(
-                Path("/some/path"), images_dir="imgs", labels_dir="lbls", classes_file="cls.txt"
-            )
+            load_dataset(Path("/some/path"), dataset_format="yolo")
+            mock_yolo.assert_called_once_with(Path("/some/path"))
 
 
 # ---------------------------------------------------------------------------
@@ -415,10 +391,7 @@ class TestCocoDatasetFixture:
         ann_path = tmp_path / "annotations.json"
         ann_path.write_text(json.dumps(annotations))
 
-        # classes.txt
-        (tmp_path / "classes.txt").write_text("cat\n")
-
-        ds = load_dataset_coco(tmp_path)
+        ds = load_dataset_coco(tmp_path, images_dir="images")
         assert len(ds) == 1
         img, target, meta = ds[0]
         assert len(img.shape) == 3  # CHW array
@@ -1023,30 +996,33 @@ class TestResultMetadata:
 
 
 class TestLoadDatasetHuggingFace:
-    def test_keyerror_on_missing_split(self) -> None:
-        """load_dataset_huggingface raises KeyError when split not found."""
-        mock_ds_dict = MagicMock()
-        mock_ds_dict.keys = MagicMock(return_value=["train", "test"])
-
-        with patch("datasets.load_from_disk", return_value=mock_ds_dict):
+    def test_ic_task_calls_load_ic(self):
+        with patch("datamaite.load_ic", return_value=MagicMock()) as m_ic:
             from dataeval_flow.dataset import load_dataset_huggingface
 
-            with pytest.raises(KeyError, match="nonexistent"):
-                load_dataset_huggingface(Path("dummy"), split="nonexistent")
+            load_dataset_huggingface(Path("/data/ds"), task="image_classification")
+        m_ic.assert_called_once_with(Path("/data/ds"), dataset_format="huggingface_vision")
 
-    def test_single_dataset(self) -> None:
-        """load_dataset_huggingface handles single Dataset (not DatasetDict)."""
-        mock_single = MagicMock(spec=[])
-        mock_single.keys = None  # not callable
-
-        with (
-            patch("datasets.load_from_disk", return_value=mock_single),
-            patch("maite_datasets.adapters.from_huggingface", return_value=MagicMock()) as mock_adapter,
-        ):
+    def test_od_task_calls_load_od(self):
+        with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
             from dataeval_flow.dataset import load_dataset_huggingface
 
-            load_dataset_huggingface(Path("dummy"))
-            mock_adapter.assert_called_once_with(mock_single)
+            load_dataset_huggingface(Path("/data/ds"), task="object_detection")
+        m_od.assert_called_once_with(Path("/data/ds"), dataset_format="huggingface_vision")
+
+    def test_split_maps_to_subdir(self):
+        with patch("datamaite.load_ic", return_value=MagicMock()) as m_ic:
+            from dataeval_flow.dataset import load_dataset_huggingface
+
+            load_dataset_huggingface(Path("/data/ds"), split="train")
+        m_ic.assert_called_once_with(Path("/data/ds/train"), dataset_format="huggingface_vision")
+
+    def test_no_split_uses_root(self):
+        with patch("datamaite.load_ic", return_value=MagicMock()) as m_ic:
+            from dataeval_flow.dataset import load_dataset_huggingface
+
+            load_dataset_huggingface(Path("/data/ds"))
+        m_ic.assert_called_once_with(Path("/data/ds"), dataset_format="huggingface_vision")
 
 
 class TestLoadDatasetImageFolder:
@@ -1063,71 +1039,33 @@ class TestLoadDatasetImageFolder:
 
 
 class TestLoadDatasetCoco:
-    def test_passes_optional_kwargs(self) -> None:
-        mock_reader = MagicMock()
-        mock_reader.create_dataset.return_value = MagicMock()
-
-        with patch("maite_datasets.object_detection.COCODatasetReader", return_value=mock_reader) as mock_cls:
+    def test_passes_optional_kwargs(self):
+        with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
             from dataeval_flow.dataset import load_dataset_coco
 
-            load_dataset_coco(
-                Path("/data/coco"),
-                annotations_file="instances.json",
-                images_dir="train2017",
-                classes_file="classes.txt",
-            )
-
-        mock_cls.assert_called_once_with(
+            load_dataset_coco(Path("/data/coco"), annotations_file="instances.json", images_dir="train2017")
+        m_od.assert_called_once_with(
             Path("/data/coco"),
+            dataset_format="coco",
             annotation_file="instances.json",
             images_dir="train2017",
-            classes_file="classes.txt",
         )
 
-    def test_no_optional_kwargs(self) -> None:
-        mock_reader = MagicMock()
-        mock_reader.create_dataset.return_value = MagicMock()
-
-        with patch("maite_datasets.object_detection.COCODatasetReader", return_value=mock_reader) as mock_cls:
+    def test_no_optional_kwargs(self):
+        with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
             from dataeval_flow.dataset import load_dataset_coco
 
             load_dataset_coco(Path("/data/coco"))
-
-        mock_cls.assert_called_once_with(Path("/data/coco"))
+        m_od.assert_called_once_with(Path("/data/coco"), dataset_format="coco")
 
 
 class TestLoadDatasetYolo:
-    def test_passes_optional_kwargs(self) -> None:
-        mock_reader = MagicMock()
-        mock_reader.create_dataset.return_value = MagicMock()
-
-        with patch("maite_datasets.object_detection.YOLODatasetReader", return_value=mock_reader) as mock_cls:
-            from dataeval_flow.dataset import load_dataset_yolo
-
-            load_dataset_yolo(
-                Path("/data/yolo"),
-                images_dir="imgs",
-                labels_dir="lbls",
-                classes_file="cls.txt",
-            )
-
-        mock_cls.assert_called_once_with(
-            Path("/data/yolo"),
-            images_dir="imgs",
-            labels_dir="lbls",
-            classes_file="cls.txt",
-        )
-
-    def test_no_optional_kwargs(self) -> None:
-        mock_reader = MagicMock()
-        mock_reader.create_dataset.return_value = MagicMock()
-
-        with patch("maite_datasets.object_detection.YOLODatasetReader", return_value=mock_reader) as mock_cls:
+    def test_calls_load_od_yolo(self):
+        with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
             from dataeval_flow.dataset import load_dataset_yolo
 
             load_dataset_yolo(Path("/data/yolo"))
-
-        mock_cls.assert_called_once_with(Path("/data/yolo"))
+        m_od.assert_called_once_with(Path("/data/yolo"), dataset_format="yolo")
 
 
 class TestResolveDatasetsUnsupported:
