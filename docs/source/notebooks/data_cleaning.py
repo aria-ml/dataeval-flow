@@ -144,7 +144,7 @@ task = DataCleaningTaskConfig(
 # Build the full pipeline config — datasets, sources, extractors, selections, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path)),
+        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), task="object_detection"),
     ],
     selections=[
         SelectionConfig(name="first500", steps=[SelectionStep(type="Limit", params={"size": 500})]),

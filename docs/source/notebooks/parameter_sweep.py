@@ -125,7 +125,7 @@ task = ParameterSweepTaskConfig(
 # Build the full pipeline config
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="mnist_sweep", path=str(data_path)),
+        HuggingFaceDatasetConfig(name="mnist_sweep", path=str(data_path), task="image_classification"),
     ],
     sources=[
         SourceConfig(name="mnist_src", dataset="mnist_sweep"),

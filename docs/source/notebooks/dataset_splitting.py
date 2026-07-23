@@ -127,7 +127,7 @@ task = DataSplittingTaskConfig(
 # Build the full pipeline config — datasets, sources, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="mnist_test", path=str(data_path)),
+        HuggingFaceDatasetConfig(name="mnist_test", path=str(data_path), task="image_classification"),
     ],
     sources=[
         SourceConfig(name="mnist_src", dataset="mnist_test"),

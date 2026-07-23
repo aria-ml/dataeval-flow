@@ -139,8 +139,8 @@ task = DataAnalysisTaskConfig(
 
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), split="train"),
-        HuggingFaceDatasetConfig(name="cppe5_test", path=str(data_path), split="test"),
+        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), split="train", task="object_detection"),
+        HuggingFaceDatasetConfig(name="cppe5_test", path=str(data_path), split="test", task="object_detection"),
     ],
     selections=[
         SelectionConfig(name="trn-500", steps=[SelectionStep(type="Limit", params={"size": 500})]),

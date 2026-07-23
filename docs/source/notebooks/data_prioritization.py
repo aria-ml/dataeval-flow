@@ -322,7 +322,7 @@ task = DataPrioritizationTaskConfig(
 config = PipelineConfig(
     datasets=[
         DatasetProtocolConfig(name="ref_ds", dataset=ref_dataset),
-        HuggingFaceDatasetConfig(name="test_ds", path=str(test_path)),
+        HuggingFaceDatasetConfig(name="test_ds", path=str(test_path), task="image_classification"),
     ],
     preprocessors=[
         PreprocessorConfig(
