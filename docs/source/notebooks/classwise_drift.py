@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -34,11 +34,12 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Load MNIST from HuggingFace into memory using `from_huggingface`
+# - Download MNIST from HuggingFace and materialize it into an ImageFolder
+#   layout that datamaite's `huggingface_vision` loader reads
 # - Build a **wrapper dataset** that applies increasing Gaussian blur to
 #   classes 1, 4, and 7 — simulating sensor degradation that worsens over time
 # - Use `SelectionConfig` with `Indices` to subset the dataset into reference
-#   and incoming slices — no need to write images to disk
+#   and incoming slices
 # - **Phase 1**: Run **overall** drift detection with a chunked **Domain
 #   Classifier** to confirm drift exists and see *when* it started
 # - **Phase 2**: Follow up with **classwise** drift detection using MMD and
@@ -56,7 +57,8 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
+# - `datasets` (to download MNIST from HuggingFace Hub)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -65,25 +67,71 @@
 # %% [markdown]
 # ## Data Preparation: Load MNIST and convert to MAITE format
 #
-# We'll load the MNIST test split directly from HuggingFace and convert it to
-# the MAITE dataset protocol using `from_huggingface`. Everything stays
-# in memory — no need to write images to disk.
+# datamaite has no in-memory constructor — every dataset comes from a
+# filesystem loader. We'll download the MNIST test split from HuggingFace,
+# then materialize a 4 000-image subset to a temporary **ImageFolder** layout
+# (`<label>/<file>.png`) that datamaite's `huggingface_vision` loader can read.
+# That loader groups samples by class folder for a deterministic layout, which
+# discards the original download order, so we restore it right after loading —
+# needed below to simulate progressive degradation over "time".
 
 # %% tags=["remove_output"]
+import tempfile
 from collections.abc import Mapping
-from typing import cast
+from pathlib import Path
+from typing import Any, cast
 
+from datamaite import load_ic
 from datasets import Dataset
 from datasets import load_dataset as hf_load
-from maite_datasets.adapters import from_huggingface
+from numpy.typing import NDArray
 
-# Download MNIST test split (10 000 images of 28×28 handwritten digits)
-mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test"))
+# Download MNIST test split, keep the first 4 000 images (reference + incoming)
+mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test")).select(range(4000))
 
-# Convert to MAITE protocol — gives us (image, label, metadata) tuples
-mnist_maite = from_huggingface(mnist_test)
+# Materialize as an ImageFolder tree: <root>/<label>/<seq>.png. The zero-padded
+# sequence number lets us recover the original download order after reload,
+# since datamaite's huggingface_vision loader groups samples by class folder.
+mnist_root = Path(tempfile.mkdtemp(prefix="dataeval_flow_mnist_"))
+for seq, example in enumerate(mnist_test):
+    label_dir = mnist_root / str(example["label"])
+    label_dir.mkdir(parents=True, exist_ok=True)
+    example["image"].save(label_dir / f"{seq:05d}.png")
 
-print(f"Loaded {len(mnist_maite)} MNIST test images via MAITE adapter")
+mnist_maite_raw = load_ic(mnist_root, dataset_format="huggingface_vision")
+_order = sorted(range(len(mnist_maite_raw)), key=lambda i: int(Path(mnist_maite_raw.samples[i].image_id).stem))
+
+
+class OrderedView:
+    """Presents *dataset* through a fixed list of source indices.
+
+    datamaite's ``huggingface_vision`` loader groups samples by class folder
+    for a deterministic layout, discarding upload order. We recover it via
+    ``_order`` (built from the sequence number embedded in each file name) so
+    the rest of this tutorial can rely on "index i is the i-th downloaded
+    image" — used below to simulate progressive degradation over "time" and
+    to slice out the incoming split.
+    """
+
+    def __init__(self, dataset: Any, indices: list[int]) -> None:
+        self._dataset = dataset
+        self._indices = indices
+
+    def __len__(self) -> int:
+        return len(self._indices)
+
+    def __getitem__(self, index: int) -> tuple[NDArray[Any], Any, Mapping[str, Any]]:
+        return self._dataset[self._indices[index]]
+
+    @property
+    def metadata(self) -> Any:
+        return self._dataset.metadata
+
+
+# Reference: all 4 000 images, restored to original download order
+mnist_maite = OrderedView(mnist_maite_raw, _order)
+
+print(f"Loaded {len(mnist_maite)} MNIST images via datamaite (huggingface_vision)")
 print(f"Sample shape: image={mnist_maite[0][0].shape}, label={mnist_maite[0][1]}")
 
 # %% [markdown]
@@ -99,11 +147,7 @@ print(f"Sample shape: image={mnist_maite[0][0].shape}, label={mnist_maite[0][1]}
 # temporal degradation that gets worse over time.
 
 # %%
-from typing import Any
-
 import numpy as np
-from maite_datasets.adapters import HFImageClassificationDataset, HFObjectDetectionDataset
-from numpy.typing import NDArray
 from PIL import Image, ImageFilter
 
 
@@ -113,7 +157,8 @@ class DegradedDataset:
     Parameters
     ----------
     dataset
-        A MAITE-compatible dataset returning (image, target, metadata) tuples.
+        A MAITE-compatible dataset returning (image, target, metadata) tuples,
+        with images as CHW uint8 arrays (datamaite's native image format).
     degraded_classes
         Set of class labels to apply blur to.
     max_blur_radius
@@ -122,7 +167,7 @@ class DegradedDataset:
 
     def __init__(
         self,
-        dataset: HFImageClassificationDataset | HFObjectDetectionDataset,
+        dataset: Any,
         degraded_classes: set[int],
         max_blur_radius: float = 3.0,
     ) -> None:
@@ -144,19 +189,10 @@ class DegradedDataset:
             radius = self.max_blur_radius * progress
 
             if radius > 0.1:  # skip negligible blur
-                img_array = np.asarray(image)
-                # CHW → HWC if needed
-                if img_array.ndim == 3 and img_array.shape[0] in (1, 3):
-                    img_array = np.transpose(img_array, (1, 2, 0))
-
-                if img_array.dtype in (np.float32, np.float64):
-                    img_pil = Image.fromarray((img_array.squeeze() * 255).astype(np.uint8), mode="L")
-                else:
-                    img_pil = Image.fromarray(img_array.squeeze(), mode="L")
-
-                img_pil = img_pil.filter(ImageFilter.GaussianBlur(radius=radius))
-                blurred = np.array(img_pil, dtype=np.float32) / 255.0
-                image = blurred[np.newaxis, :, :]  # back to CHW
+                chw = np.asarray(image)
+                hwc = np.transpose(chw, (1, 2, 0))  # CHW -> HWC
+                img_pil = Image.fromarray(hwc, mode="RGB").filter(ImageFilter.GaussianBlur(radius=radius))
+                image = np.transpose(np.array(img_pil, dtype=chw.dtype), (2, 0, 1))  # back to CHW
 
         return image, target, metadata
 
@@ -168,14 +204,13 @@ class DegradedDataset:
 # gets wrapped with `DegradedDataset` to apply class-specific blur.
 #
 # - **Reference**: first 2 000 images — clean, unmodified
-# - **Incoming**: next 2 000 images (HF indices 3 000–5 999)
+# - **Incoming**: next 2 000 images (indices 2 000–3 999)
 #   — classes 1, 4, 7 get progressively blurred
 
 # %% tags=["remove_output"]
 
 # Wrap the incoming slice with degradation for classes 1, 4, 7
-incoming_hf = mnist_test.select(range(2000, 4000))
-incoming_maite = from_huggingface(incoming_hf)
+incoming_maite = OrderedView(mnist_maite_raw, _order[2000:4000])
 incoming_dataset = DegradedDataset(
     incoming_maite,
     degraded_classes={1, 4, 7},
@@ -206,8 +241,8 @@ for row, cls in enumerate(degraded_classes):
             t = np.asarray(target)
             label = int(np.argmax(t)) if t.ndim == 1 and t.size > 1 else int(t)
             if label == cls:
-                img_arr = np.asarray(img).squeeze()
-                axes[row, col].imshow(img_arr, cmap="gray", vmin=0, vmax=1)
+                img_arr = np.transpose(np.asarray(img), (1, 2, 0))  # CHW -> HWC
+                axes[row, col].imshow(img_arr)
                 radius = incoming_dataset.max_blur_radius * (i / max(len(incoming_dataset) - 1, 1))
                 axes[row, col].set_title(f"r={radius:.1f}", fontsize=9)
                 break
@@ -250,7 +285,7 @@ from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKN
 ref_config = DatasetProtocolConfig(
     name="reference",
     format="maite",
-    dataset=mnist_maite,  # full 10k — selection will subset it
+    dataset=mnist_maite,  # full 4k — selection will subset it
 )
 
 incoming_config = DatasetProtocolConfig(
@@ -309,8 +344,6 @@ overall_config = PipelineConfig(
 # ## Step 2: Run overall drift detection
 
 # %%
-from pathlib import Path
-
 overall_result = run_task(overall_task, overall_config, cache_dir=Path("./cache"))
 
 # %% [markdown]
@@ -450,8 +483,11 @@ plt.show()
 #
 # In this tutorial you learned how to:
 #
-# - **Load datasets in memory** using `from_huggingface` and `DatasetProtocolConfig`
-# - **Subset datasets** using `SelectionConfig` with `Indices` — no disk I/O needed
+# - **Materialize and load datasets** by writing a HuggingFace dataset to an
+#   ImageFolder layout and loading it with datamaite, then passing the result
+#   to `DatasetProtocolConfig`
+# - **Subset datasets** using `SelectionConfig` with `Indices` — no additional
+#   disk I/O needed beyond the initial load
 # - **Simulate class-specific degradation** with a lightweight dataset wrapper
 #   that applies progressive Gaussian blur to selected classes
 # - **Phase 1: Detect drift overall** — a chunked K-Neighbors confirms

@@ -8,20 +8,51 @@ COCO, YOLO, and torchvision formats, converting them to MAITE-compatible objects
 """
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, Protocol, runtime_checkable
 
 import numpy as np
 from dataeval.protocols import AnnotatedDataset, DatasetMetadata
-from datamaite import ImageClassificationDataset, ObjectDetectionDataset
 from numpy.typing import NDArray
 from pydantic import BaseModel
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
-MaiteDataset: TypeAlias = ImageClassificationDataset | ObjectDetectionDataset
+
+# Structural, rather than ``datamaite.ImageClassificationDataset | ObjectDetectionDataset``:
+# datamaite ships no PEP 561 ``py.typed`` marker, so its inline annotations are
+# unusable by a typed consumer and pyright resolves those classes to Unknown,
+# failing `pyright --verifytypes` (TR-8-S-1) on every public symbol that names them.
+# The datamaite dataset classes satisfy this protocol structurally. Revert to a
+# direct alias once datamaite marks itself typed.
+@runtime_checkable
+class MaiteDataset(Protocol):
+    """Protocol for a MAITE-compatible dataset.
+
+    Methods
+    -------
+    __getitem__(index: int)
+        Returns the ``(image, target, datum_metadata)`` tuple at the given index.
+    __len__()
+        Returns dataset length.
+    """
+
+    def __getitem__(self, index: int, /) -> tuple[Any, Any, Mapping[str, Any]]:
+        """Return the datum at index."""
+        ...
+
+    def __len__(self) -> int:
+        """Return length."""
+        ...
+
+    @property
+    def metadata(self) -> Mapping[str, Any]:
+        """Dataset-level metadata (``DatasetMetadata`` shape)."""
+        ...
+
 
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"})
 
@@ -441,15 +472,58 @@ def load_dataset(
     >>> ds = load_dataset(Path("/data/cifar10"))
     """
     if dataset_format == "huggingface":
-        return load_dataset_huggingface(path, split=split, task=task)
-    if dataset_format == "image_folder":
-        return load_dataset_image_folder(path, recursive=recursive, infer_labels=infer_labels)
-    if dataset_format == "coco":
-        return load_dataset_coco(path, annotations_file=annotations_file, images_dir=images_dir)
-    if dataset_format == "yolo":
-        return load_dataset_yolo(path)
-    msg = f"Unsupported dataset format: {dataset_format!r}"
+        dataset = load_dataset_huggingface(path, split=split, task=task)
+    elif dataset_format == "image_folder":
+        dataset = load_dataset_image_folder(path, recursive=recursive, infer_labels=infer_labels)
+    elif dataset_format == "coco":
+        dataset = load_dataset_coco(path, annotations_file=annotations_file, images_dir=images_dir)
+    elif dataset_format == "yolo":
+        dataset = load_dataset_yolo(path)
+    else:
+        msg = f"Unsupported dataset format: {dataset_format!r}"
+        raise ValueError(msg)
+
+    _reject_empty_dataset(dataset, path / split if split else path, dataset_format)
+    return dataset
+
+
+def _reject_empty_dataset(dataset: Any, root: Path, dataset_format: str) -> None:
+    """Raise when a loader yielded zero items.
+
+    datamaite's loaders log a warning and return an empty dataset when the
+    root exists but nothing matches the expected layout.  Left alone, that
+    silence surfaces much later as an opaque array error deep inside an
+    evaluator, so fail here with the layout hint instead.
+
+    Raises
+    ------
+    ValueError
+        If *dataset* contains no items.
+    """
+    if len(dataset) > 0:
+        return
+
+    msg = f"Loaded 0 items from {root} (format={dataset_format!r})."
+    if dataset_format == "huggingface" and _is_arrow_dump(root):
+        msg += (
+            " The directory is a `datasets.save_to_disk()` Arrow dump, which the"
+            " huggingface loader does not read — it expects the local ImageFolder"
+            " layout (class subdirectories, or images plus a metadata.csv/metadata.jsonl"
+            " whose rows carry a `label` column for classification or an `objects`"
+            " column for object detection)."
+        )
+    else:
+        msg += " Check the path, the split, and that the layout matches the format."
     raise ValueError(msg)
+
+
+def _is_arrow_dump(root: Path) -> bool:
+    """Return whether *root* looks like a ``datasets.save_to_disk()`` output."""
+    if not root.is_dir():
+        return False
+    if (root / "dataset_dict.json").is_file():
+        return True
+    return (root / "dataset_info.json").is_file() and any(root.glob("*.arrow"))
 
 
 # ---------------------------------------------------------------------------

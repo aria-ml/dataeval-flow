@@ -1208,3 +1208,138 @@ class TestRelativizePaths:
 
     def test_non_string_passthrough(self, tmp_path):
         assert _relativize_paths(42, tmp_path) == 42
+
+
+# ===========================================================================
+# Resolved dataset backfill
+# ===========================================================================
+
+
+class _TinyDataset:
+    """Minimal MAITE-shaped classification dataset."""
+
+    def __init__(self, size: int = 4) -> None:
+        self._size = size
+        self.metadata: dict[str, Any] = {"id": "tiny", "index2label": {0: "a", 1: "b"}}
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        import numpy as np
+
+        onehot = np.zeros(2, dtype=np.float32)
+        onehot[index % 2] = 1.0
+        return np.zeros((3, 4, 4), dtype=np.uint8), onehot, {"id": index}
+
+
+def _real_result(*, success: bool, **kwargs: Any):
+    """A genuine WorkflowResult — MagicMock would mask the None we care about."""
+    from dataeval_flow.workflow import WorkflowResult
+    from dataeval_flow.workflows.cleaning.outputs import (
+        DataCleaningMetadata,
+        DataCleaningOutputs,
+        DataCleaningRawOutputs,
+        DataCleaningReport,
+    )
+
+    return WorkflowResult(
+        name="data-cleaning",
+        success=success,
+        data=DataCleaningOutputs(
+            raw=DataCleaningRawOutputs(dataset_size=0),
+            report=DataCleaningReport(summary="", findings=[]),
+        ),
+        metadata=DataCleaningMetadata(),
+        **kwargs,
+    )
+
+
+class TestResolvedDatasetBackfill:
+    """Regression: a result must carry the dataset it ran on, failure included.
+
+    Workflows attach ``dataset`` on their success path only, so a failed run
+    used to come back with ``result.dataset is None`` — leaving callers (and
+    notebooks doing ``assert result.dataset is not None``) with no handle on
+    the inputs that produced the failure.
+    """
+
+    def _config(self, ds_names: list[str], selections: Any = None) -> MagicMock:
+        config = MagicMock()
+        config.datasets = [
+            HuggingFaceDatasetConfig(name=n, path=f"./{n}", split="train", task="image_classification")
+            for n in ds_names
+        ]
+        config.sources = [SourceConfig(name=f"src_{n}", dataset=n) for n in ds_names]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = selections
+        config.workflows = [_CLEAN_INSTANCE]
+        return config
+
+    def _workflow(self, result: Any) -> MagicMock:
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = result
+        return mock_wf
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_failed_result_carries_dataset(self, mock_load_ds: MagicMock):
+        dataset = _TinyDataset()
+        mock_load_ds.return_value = dataset
+        config = self._config(["ds"])
+        task = TaskConfig(name="t", workflow="clean", sources="src_ds")
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):
+            result = _run_single_task(task, config)
+
+        assert not result.success
+        assert result.dataset is dataset
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_backfilled_dataset_is_post_selection(self, mock_load_ds: MagicMock):
+        """The backfill reapplies the source's selection, as the workflow would."""
+        from dataeval_flow.config import SelectionConfig, SelectionStep
+
+        mock_load_ds.return_value = _TinyDataset(size=4)
+        config = self._config(
+            ["ds"], selections=[SelectionConfig(name="lim", steps=[SelectionStep(type="Limit", params={"size": 2})])]
+        )
+        config.sources = [SourceConfig(name="src_ds", dataset="ds", selection="lim")]
+        task = TaskConfig(name="t", workflow="clean", sources="src_ds")
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):
+            result = _run_single_task(task, config)
+
+        assert result.dataset is not None
+        assert len(result.dataset) == 2
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_workflow_supplied_dataset_is_not_replaced(self, mock_load_ds: MagicMock):
+        """A successful workflow's own post-selection dataset wins."""
+        mock_load_ds.return_value = _TinyDataset()
+        own = _TinyDataset(size=1)
+        config = self._config(["ds"])
+        task = TaskConfig(name="t", workflow="clean", sources="src_ds")
+
+        workflow = self._workflow(_real_result(success=True, dataset=own))
+        with patch("dataeval_flow.workflow.get_workflow", return_value=workflow):
+            result = _run_single_task(task, config)
+
+        assert result.dataset is own
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_multi_source_failure_backfills_sources(self, mock_load_ds: MagicMock):
+        """Multi-source workflows report per-source datasets, not a single one."""
+        datasets = [_TinyDataset(), _TinyDataset()]
+        mock_load_ds.side_effect = datasets
+        config = self._config(["ds_a", "ds_b"])
+        task = TaskConfig(name="t", workflow="clean", sources=["src_ds_a", "src_ds_b"])
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):
+            result = _run_single_task(task, config)
+
+        assert result.dataset is None
+        assert result.sources is not None
+        assert list(result.sources) == ["src_ds_a", "src_ds_b"]
+        assert result.sources["src_ds_a"] is datasets[0]

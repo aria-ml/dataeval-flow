@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -52,7 +52,8 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
+# - `datasets` (to download MNIST from HuggingFace Hub)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]

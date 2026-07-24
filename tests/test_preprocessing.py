@@ -188,3 +188,37 @@ class TestPreprocessingEndToEnd:
         # After normalize with mean=0.5, std=0.5: values in [-1, 1]
         assert output.min() >= -1.0
         assert output.max() <= 1.0
+
+
+class TestGrayscaleBridge:
+    """Regression: single-channel models need a way back from datamaite's RGB.
+
+    ``datamaite.maite._image.decode_image`` decodes every sample with
+    ``cv2.IMREAD_COLOR``, so a mode-``L`` PNG arrives as 3 identical channels
+    and a ``Conv2d(1, ...)`` model rejects it ("expected input[N, 3, H, W] to
+    have 1 channels").  A ``Grayscale`` step is the documented bridge, and it
+    must not alter the pixel values it collapses.
+    """
+
+    def test_collapses_replicated_channels_losslessly(self):
+        import numpy as np
+
+        gray = np.arange(28 * 28, dtype=np.uint8).reshape(28, 28)
+        image = np.stack([gray] * 3)  # what datamaite yields for MNIST
+
+        transform = build_preprocessing(
+            [
+                PreprocessingStep(step="ToImage", params={}),
+                PreprocessingStep(step="Grayscale", params={"num_output_channels": 1}),
+                PreprocessingStep(step="ToDtype", params={"dtype": "float32", "scale": True}),
+            ]
+        )
+        output = transform(image)
+
+        assert output.shape == (1, 28, 28)
+        assert output.dtype == np.float32
+        # Luminance weights sum to 1, so replicated grey survives to within
+        # a single uint8 level of rounding.
+        # float32 rounding can nudge the max a hair past the float64 boundary,
+        # so allow a small epsilon on top of the one-level tolerance.
+        assert np.abs(output[0] - gray.astype(np.float32) / 255.0).max() <= 1 / 255 + 1e-6

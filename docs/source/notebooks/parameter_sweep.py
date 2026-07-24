@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -73,10 +73,19 @@ set_seed(42)
 # Load MNIST train split
 mnist_train = cast(Dataset, hf_load("ylecun/mnist", split="train"))
 
-# Save a subset of 1000 images to disk for the tutorial
-# This size is large enough to contain natural similarities between digits
+# Save a subset of 1000 images to disk for the tutorial.  datamaite reads
+# datasets from a filesystem layout, so the in-memory HuggingFace `Dataset` is
+# materialized as a HuggingFace ImageFolder tree (`<label>/<file>.png`) — the
+# layout the `huggingface` dataset format reads.  (An Arrow dump from
+# `Dataset.save_to_disk()` is *not* readable: datamaite has no `datasets`
+# dependency.)  1000 images is large enough to contain natural similarities
+# between digits.
 data_path = Path("./data/mnist_sweep")
-mnist_train.select(range(1000)).save_to_disk(str(data_path))
+
+for seq, example in enumerate(mnist_train.select(range(1000))):
+    label_dir = data_path / str(example["label"])
+    label_dir.mkdir(parents=True, exist_ok=True)
+    example["image"].save(label_dir / f"{seq:05d}.png")
 
 # %% [markdown]
 # ## Step 1: Build the Sweep Configuration

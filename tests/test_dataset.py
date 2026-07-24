@@ -42,6 +42,13 @@ class TestImports:
         assert callable(run_tasks)
 
 
+def _stub_dataset(size: int = 1) -> MagicMock:
+    """A stand-in dataset with a length — ``load_dataset`` rejects empty loads."""
+    stub = MagicMock()
+    stub.__len__.return_value = size
+    return stub
+
+
 @pytest.mark.required
 class TestDatasetModule:
     """Test the dataset library module."""
@@ -49,7 +56,7 @@ class TestDatasetModule:
     def test_load_dataset_delegates(self) -> None:
         """Test load_dataset defaults to huggingface."""
         with patch("dataeval_flow.dataset.load_dataset_huggingface") as mock_hf:
-            mock_hf.return_value = MagicMock()
+            mock_hf.return_value = _stub_dataset()
 
             from dataeval_flow.dataset import load_dataset
 
@@ -59,7 +66,7 @@ class TestDatasetModule:
     def test_load_dataset_image_folder_dispatch(self) -> None:
         """Test load_dataset dispatches to image_folder loader."""
         with patch("dataeval_flow.dataset.load_dataset_image_folder") as mock_if:
-            mock_if.return_value = MagicMock()
+            mock_if.return_value = _stub_dataset()
 
             from dataeval_flow.dataset import load_dataset
 
@@ -69,7 +76,7 @@ class TestDatasetModule:
     def test_load_dataset_image_folder_with_infer_labels(self) -> None:
         """Test load_dataset passes infer_labels through."""
         with patch("dataeval_flow.dataset.load_dataset_image_folder") as mock_if:
-            mock_if.return_value = MagicMock()
+            mock_if.return_value = _stub_dataset()
 
             from dataeval_flow.dataset import load_dataset
 
@@ -86,7 +93,7 @@ class TestDatasetModule:
     def test_load_dataset_coco_dispatch(self) -> None:
         """Test load_dataset dispatches to COCO loader."""
         with patch("dataeval_flow.dataset.load_dataset_coco") as mock_coco:
-            mock_coco.return_value = MagicMock()
+            mock_coco.return_value = _stub_dataset()
 
             from dataeval_flow.dataset import load_dataset
 
@@ -101,7 +108,7 @@ class TestDatasetModule:
     def test_load_dataset_yolo_dispatch(self) -> None:
         """Test load_dataset dispatches to YOLO loader."""
         with patch("dataeval_flow.dataset.load_dataset_yolo") as mock_yolo:
-            mock_yolo.return_value = MagicMock()
+            mock_yolo.return_value = _stub_dataset()
 
             from dataeval_flow.dataset import load_dataset
 
@@ -1066,6 +1073,64 @@ class TestLoadDatasetYolo:
 
             load_dataset_yolo(Path("/data/yolo"))
         m_od.assert_called_once_with(Path("/data/yolo"), dataset_format="yolo")
+
+
+class TestLoadDatasetRejectsEmpty:
+    """A loader that finds nothing must fail at load time, not downstream.
+
+    datamaite's loaders log a warning and return a 0-item dataset when the root
+    exists but nothing matches the expected layout.  Left unchecked that reached
+    the evaluators as an empty embedding array, surfacing as an opaque
+    ``cannot reshape array of size 0`` deep inside the clusterer.
+    """
+
+    def test_empty_load_raises(self) -> None:
+        with patch("dataeval_flow.dataset.load_dataset_huggingface", return_value=_stub_dataset(0)):
+            from dataeval_flow.dataset import load_dataset
+
+            with pytest.raises(ValueError, match="Loaded 0 items"):
+                load_dataset(Path("/data/ds"))
+
+    def test_empty_load_names_the_split_directory(self) -> None:
+        with patch("dataeval_flow.dataset.load_dataset_huggingface", return_value=_stub_dataset(0)):
+            from dataeval_flow.dataset import load_dataset
+
+            with pytest.raises(ValueError, match=r"/data/ds/train"):
+                load_dataset(Path("/data/ds"), split="train")
+
+    def test_arrow_dump_gets_a_layout_hint(self, tmp_path: Path) -> None:
+        """A ``datasets.save_to_disk()`` dump is the common way to hit this."""
+        (tmp_path / "dataset_info.json").write_text("{}")
+        (tmp_path / "data-00000-of-00001.arrow").write_bytes(b"")
+
+        with patch("dataeval_flow.dataset.load_dataset_huggingface", return_value=_stub_dataset(0)):
+            from dataeval_flow.dataset import load_dataset
+
+            with pytest.raises(ValueError, match="save_to_disk"):
+                load_dataset(tmp_path)
+
+    def test_dataset_dict_dump_gets_a_layout_hint(self, tmp_path: Path) -> None:
+        (tmp_path / "dataset_dict.json").write_text("{}")
+
+        with patch("dataeval_flow.dataset.load_dataset_huggingface", return_value=_stub_dataset(0)):
+            from dataeval_flow.dataset import load_dataset
+
+            with pytest.raises(ValueError, match="ImageFolder layout"):
+                load_dataset(tmp_path)
+
+    def test_plain_empty_directory_gets_the_generic_hint(self, tmp_path: Path) -> None:
+        with patch("dataeval_flow.dataset.load_dataset_huggingface", return_value=_stub_dataset(0)):
+            from dataeval_flow.dataset import load_dataset
+
+            with pytest.raises(ValueError, match="Check the path, the split"):
+                load_dataset(tmp_path)
+
+    def test_non_empty_load_passes_through(self) -> None:
+        stub = _stub_dataset(3)
+        with patch("dataeval_flow.dataset.load_dataset_yolo", return_value=stub):
+            from dataeval_flow.dataset import load_dataset
+
+            assert load_dataset(Path("/data/yolo"), dataset_format="yolo") is stub
 
 
 class TestResolveDatasetsUnsupported:
