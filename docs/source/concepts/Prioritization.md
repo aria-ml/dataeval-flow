@@ -46,7 +46,7 @@ retrains.
 
 ### Tutorials
 
-- [Prioritizing data](../notebooks/data_prioritization) — ranking a pool with the
+- [Prioritizing data](../notebooks/data_prioritization.py) — ranking a pool with the
   `data-prioritization` workflow
 
 ### Authoritative reference

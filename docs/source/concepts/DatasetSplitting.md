@@ -44,7 +44,7 @@ fix the seed so the partition is reproducible across runs.
 
 ### Tutorials
 
-- [Splitting a dataset](../notebooks/dataset_splitting) — stratified train/val/test
+- [Splitting a dataset](../notebooks/dataset_splitting.py) — stratified train/val/test
   splitting with the `data-splitting` workflow
 
 ### Authoritative reference

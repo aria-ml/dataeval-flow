@@ -117,7 +117,7 @@ reproduce any finding travel with the finding itself.
 
 ### Tutorials
 
-- [Cleaning a dataset](../notebooks/data_cleaning) — a complete config-driven run,
+- [Cleaning a dataset](../notebooks/data_cleaning.py) — a complete config-driven run,
   end to end
-- [Parameter sweeps](../notebooks/parameter_sweep) — repeated evaluation where
+- [Parameter sweeps](../notebooks/parameter_sweep.py) — repeated evaluation where
   config-keyed caching reuse is most visible

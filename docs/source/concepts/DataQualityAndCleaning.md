@@ -40,7 +40,7 @@ labeling error.
 
 ### Tutorials
 
-- [Cleaning a dataset](../notebooks/data_cleaning) — the `data-cleaning` workflow
+- [Cleaning a dataset](../notebooks/data_cleaning.py) — the `data-cleaning` workflow
   end to end
 
 ### Authoritative reference

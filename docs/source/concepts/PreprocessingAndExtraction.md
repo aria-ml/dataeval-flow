@@ -92,9 +92,9 @@ they suit.
 
 ### Tutorials
 
-- [Extracting embeddings with ONNX](../notebooks/onnx_embeddings) — configuring an
+- [Extracting embeddings with ONNX](../notebooks/onnx_embeddings.py) — configuring an
   ONNX extractor and a preprocessing pipeline
-- [Analyzing a dataset](../notebooks/data_analysis) — embeddings feeding a
+- [Analyzing a dataset](../notebooks/data_analysis.py) — embeddings feeding a
   multi-finding analysis
 
 ### Authoritative reference

@@ -49,10 +49,10 @@ few classes.
 
 ### Tutorials
 
-- [Monitoring drift](../notebooks/drift_monitoring) — population-level drift
+- [Monitoring drift](../notebooks/drift_monitoring.py) — population-level drift
   detection against a reference
-- [Classwise drift](../notebooks/classwise_drift) — drift tracked per class
-- [Detecting OOD samples](../notebooks/ood_detection) — instance-level anomaly
+- [Classwise drift](../notebooks/classwise_drift.py) — drift tracked per class
+- [Detecting OOD samples](../notebooks/ood_detection.py) — instance-level anomaly
   detection
 
 ### Authoritative reference

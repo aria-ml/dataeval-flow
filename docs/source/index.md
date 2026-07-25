@@ -27,8 +27,8 @@ reproducible orchestration layer with native MAITE interoperability.
 | Rank abundant/unlabeled data for labeling | Prioritization | Ranked sample ordering |
 | Tune workflow parameters across a grid | Parameter Sweep | Per-configuration result comparison |
 
-See the [Tutorials](tutorials/index) for end-to-end walkthroughs and the
-[Explanations](concepts/index) for the concepts behind each workflow.
+See the [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the
+[Explanations](concepts/index.md) for the concepts behind each workflow.
 
 ## Critical limitations and requirements for use
 
@@ -44,8 +44,8 @@ See the [Tutorials](tutorials/index) for end-to-end walkthroughs and the
 - **Batch execution** — the container runs a pipeline to completion and exits; it
   is not a long-running service.
 
-See the [Container Reference](reference/containers) for hardware, architecture,
-and network requirements, and the [Installation guide](home/installation) to get
+See the [Container Reference](reference/containers.md) for hardware, architecture,
+and network requirements, and the [Installation guide](home/installation.md) to get
 started.
 
 <!-- TOC TREE -->

@@ -106,7 +106,7 @@ re-run (reproducibility).
 
 ### Tutorials
 
-- [Analyzing a dataset](../notebooks/data_analysis) — reading a multi-finding
+- [Analyzing a dataset](../notebooks/data_analysis.py) — reading a multi-finding
   report and inspecting its result envelope
-- [Cleaning a dataset](../notebooks/data_cleaning) — exporting a machine-readable
+- [Cleaning a dataset](../notebooks/data_cleaning.py) — exporting a machine-readable
   result alongside the text report
