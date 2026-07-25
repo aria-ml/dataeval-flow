@@ -24,7 +24,7 @@ class TestDatasetConfigs:
         assert cfg.model_dump()["path"] == "images"
 
     def test_huggingface_config_roundtrip(self) -> None:
-        cfg = HuggingFaceDatasetConfig(name="hf", path="placeholder")
+        cfg = HuggingFaceDatasetConfig(name="hf", path="placeholder", task="image_classification")
         assert cfg.format == "huggingface"
         assert cfg.name == "hf"
 
