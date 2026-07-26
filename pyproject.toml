@@ -123,6 +123,12 @@ dev = [
 ]
 
 [tool.uv]
+# hatch-vcs derives the version from git and writes src/dataeval_flow/_version.py
+# during the build. Without a git cache key, uv reuses a cached build whenever
+# pyproject.toml is unchanged, so the version-file hook never re-runs and a fresh
+# checkout ends up with no _version.py (__version__ == "unknown").
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
+
 # Pin minimum versions for transitive deps with known CVEs
 constraint-dependencies = [
     "pillow>=12.2.0",
