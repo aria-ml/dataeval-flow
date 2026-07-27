@@ -1622,7 +1622,7 @@ class TestMakeDsId:
 
         from dataeval_flow.config import HuggingFaceDatasetConfig
 
-        defaults: dict[str, Any] = {"path": f"data/{name}", "split": "train"}
+        defaults: dict[str, Any] = {"path": f"data/{name}", "split": "train", "task": "image_classification"}
         defaults.update(kwargs)
         cfg = HuggingFaceDatasetConfig(name=name, **defaults)
         return name, cfg.model_dump_json(exclude_defaults=False)

@@ -111,6 +111,7 @@ datasets:
     format: huggingface
     path: my-dataset       # relative to the data mount (/dataeval)
     split: train
+    task: image_classification   # image_classification | object_detection
 
   # Local image directory
   - name: photos
@@ -125,15 +126,11 @@ datasets:
     path: coco-data
     annotations_file: annotations.json
     images_dir: images
-    classes_file: classes.txt
 
   # YOLO format
   - name: yolo_train
     format: yolo
     path: yolo-data
-    images_dir: images
-    labels_dir: labels
-    classes_file: classes.txt
 ```
 
 ### Sources, extractors, and selections
@@ -295,6 +292,7 @@ datasets:
     format: huggingface
     path: my-dataset
     split: train
+    task: image_classification
 
 sources:
   - name: my_source

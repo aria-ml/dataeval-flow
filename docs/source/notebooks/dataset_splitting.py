@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -52,7 +52,8 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
+# - `datasets` (to download MNIST from HuggingFace Hub)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -72,12 +73,35 @@ from datasets import load_dataset as hf_load
 
 mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test"))
 
+# %% [markdown]
+# ### Materialize the split on disk
+#
+# datamaite reads datasets from a filesystem layout, so the in-memory HuggingFace
+# `Dataset` has to be written out before `dataeval-flow` can load it. We use the
+# HuggingFace **ImageFolder** convention — `<label>/<file>.png` — which is what the
+# `huggingface` dataset format reads. (An Arrow dump from `Dataset.save_to_disk()`
+# is *not* readable: datamaite has no `datasets` dependency.)
+
 # %% tags=["remove_output"]
 from pathlib import Path
 
-# Save to disk in HuggingFace arrow format
 data_path = Path("./data/mnist/test")
-mnist_test.save_to_disk(str(data_path))
+
+
+def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
+    """Materialize a HuggingFace image dataset as an ImageFolder tree.
+
+    Writes ``<root>/<label>/<seq>.png`` with a zero-padded sequence number.
+    Note that the loader groups images by class folder, so the reloaded sample
+    order is by label, not the original upload order.
+    """
+    for seq, example in enumerate(hf_dataset):
+        label_dir = root / str(example["label"])
+        label_dir.mkdir(parents=True, exist_ok=True)
+        example["image"].save(label_dir / f"{seq:05d}.png")
+
+
+write_imagefolder(mnist_test, data_path)
 
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
@@ -127,7 +151,7 @@ task = DataSplittingTaskConfig(
 # Build the full pipeline config — datasets, sources, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="mnist_test", path=str(data_path)),
+        HuggingFaceDatasetConfig(name="mnist_test", path=str(data_path), task="image_classification"),
     ],
     sources=[
         SourceConfig(name="mnist_src", dataset="mnist_test"),
@@ -295,18 +319,22 @@ for i, fold in enumerate(exported["raw"]["folds"]):
     print(f"Fold {i}: train={len(fold['train_indices'])}, val={len(fold['val_indices'])}")
 
 # %% [markdown]
-# The exported JSON contains the split indices directly. You can parse them and use
-# `Dataset.select()` to build filtered datasets for training, evaluation, or further
-# analysis.
+# The exported JSON contains the split indices directly. Pair them with
+# `result.dataset` — the resolved dataset the workflow actually ran on — and
+# `Select` to build filtered datasets for training, evaluation, or further analysis.
+#
+# Slicing `result.dataset` rather than re-loading from disk is what keeps the
+# indices meaningful: they refer to positions in *that* dataset.
 
 # %%
-from datasets import load_from_disk
+from dataeval.selection import Indices, Select
 
-ds = load_from_disk(str(data_path))
+ds = result.dataset
+assert ds is not None
 
-test_ds = ds.select(test_idx)
-train_ds = ds.select(exported["raw"]["folds"][0]["train_indices"])
-val_ds = ds.select(exported["raw"]["folds"][0]["val_indices"])
+test_ds = Select(ds, selections=[Indices(test_idx)])
+train_ds = Select(ds, selections=[Indices(exported["raw"]["folds"][0]["train_indices"])])
+val_ds = Select(ds, selections=[Indices(exported["raw"]["folds"][0]["val_indices"])])
 
 print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 
@@ -321,7 +349,7 @@ print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 # - **Access raw split indices** — train, val, and test index lists across multiple folds
 # - **Verify split integrity** — no overlap, full coverage, proportional class distribution
 # - **Inspect balance and diversity** metrics computed on the pre-split dataset
-# - **Use split indices** with `Dataset.select()` to build filtered datasets for downstream use
+# - **Use split indices** with `Select` on `result.dataset` to build filtered datasets for downstream use
 # - **Export** results to JSON and extract indices for integration with other tools
 
 # %% [markdown]

@@ -196,7 +196,11 @@ def _run_single_task(
     elapsed = time.monotonic() - start
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
-    # 7. Populate metadata envelope
+    # 7. Backfill the resolved dataset(s) when the workflow left them unset —
+    # notably on failure paths, where callers still need the inputs to debug.
+    _ensure_result_datasets(result, dataset_contexts)
+
+    # 8. Populate metadata envelope
     _populate_result_metadata(
         result,
         dataset_names,
@@ -210,6 +214,45 @@ def _run_single_task(
     )
 
     return result
+
+
+def _ensure_result_datasets(
+    result: "WorkflowResult[Any, Any]",
+    dataset_contexts: "Mapping[str, DatasetContext]",
+) -> None:
+    """Fill in ``result.dataset`` / ``result.sources`` when the workflow did not.
+
+    Workflows attach the resolved, post-selection dataset to successful
+    results only — an early return or an exception leaves the fields unset,
+    which strands callers that want to inspect the inputs that produced the
+    failure.  Rebuild the selection here for those cases; already-populated
+    fields are left untouched, so the success path is unaffected.
+    """
+    if not dataset_contexts:
+        return
+
+    single = len(dataset_contexts) == 1
+    needs_dataset = single and result.dataset is None
+    needs_sources = not single and result.sources is None
+    if not (needs_dataset or needs_sources):
+        return
+
+    from dataeval_flow.selection import build_selection
+
+    resolved: dict[str, Any] = {}
+    for name, dc in dataset_contexts.items():
+        dataset = dc.dataset
+        if dc.selection_steps:
+            try:
+                dataset = build_selection(dataset, list(dc.selection_steps))
+            except Exception:  # noqa: BLE001 — fall back to the unselected dataset
+                _logger.debug("Could not rebuild selection for source '%s'", name, exc_info=True)
+        resolved[name] = dataset
+
+    if needs_dataset:
+        result.dataset = next(iter(resolved.values()))
+    else:
+        result.sources = resolved
 
 
 def _populate_result_metadata(

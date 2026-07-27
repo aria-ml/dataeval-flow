@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -33,7 +33,7 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Download MNIST from HuggingFace and wrap it as an in-memory MAITE dataset
+# - Download MNIST from HuggingFace and load it as a MAITE dataset via datamaite
 # - Synthesize **incoming data** that mixes normal digits with out-of-distribution
 #   samples: **color-inverted** digits (via an in-memory transform)
 # - Configure the `ood-detection` workflow with **K-Neighbors** and
@@ -55,7 +55,8 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
+# - `datasets` (to download MNIST from HuggingFace Hub)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -64,8 +65,12 @@
 # %% [markdown]
 # ## Data Preparation: Download MNIST and build in-memory datasets
 #
-# We'll download the MNIST training split from HuggingFace and create two
-# in-memory datasets — no files written to disk:
+# datamaite has no in-memory constructor — every dataset comes from a
+# filesystem loader. We'll download the MNIST training split from HuggingFace,
+# materialize a 2 500-image subset once to a temporary **ImageFolder** layout
+# (`<label>/<file>.png`), and load it back with datamaite's `huggingface_vision`
+# loader. From that single loaded dataset we carve out two **in-memory** views —
+# no further files written to disk:
 #
 # - **Reference** — 2 000 normal MNIST digits (the "known good" distribution)
 # - **Incoming** — 500 digits where **odd-digit classes (1, 3, 5, 7, 9) are
@@ -85,17 +90,56 @@
 # :::
 
 # %% tags=["remove_output"]
+import tempfile
+from pathlib import Path
 from typing import Any, cast
 
+from datamaite import load_ic
 from datasets import Dataset
 from datasets import load_dataset as hf_load
-from maite_datasets.adapters import from_huggingface
 
-# Download MNIST training split (60 000 images of 28x28 handwritten digits)
-mnist_train = cast(Dataset, hf_load("ylecun/mnist", split="train"))
+# Download MNIST training split, keep the first 2 500 images (reference + incoming)
+mnist_train = cast(Dataset, hf_load("ylecun/mnist", split="train")).select(range(2500))
 
-# Reference: first 2 000 images, wrapped as a MAITE dataset
-ref_maite = from_huggingface(mnist_train.select(range(2000)))
+# Materialize as an ImageFolder tree: <root>/<label>/<seq>.png. The zero-padded
+# sequence number lets us recover the original download order after reload,
+# since datamaite's huggingface_vision loader groups samples by class folder.
+mnist_root = Path(tempfile.mkdtemp(prefix="dataeval_flow_mnist_"))
+for seq, example in enumerate(mnist_train):
+    label_dir = mnist_root / str(example["label"])
+    label_dir.mkdir(parents=True, exist_ok=True)
+    example["image"].save(label_dir / f"{seq:05d}.png")
+
+mnist_maite_raw = load_ic(mnist_root, dataset_format="huggingface_vision")
+_order = sorted(range(len(mnist_maite_raw)), key=lambda i: int(Path(mnist_maite_raw.samples[i].image_id).stem))
+
+
+class OrderedView:
+    """Presents *dataset* through a fixed list of source indices.
+
+    datamaite's ``huggingface_vision`` loader groups samples by class folder
+    for a deterministic layout, discarding upload order. We recover it via
+    ``_order`` (built from the sequence number embedded in each file name),
+    which also lets us slice out the reference and incoming splits below.
+    """
+
+    def __init__(self, dataset: Any, indices: list[int]) -> None:
+        self._dataset = dataset
+        self._indices = indices
+
+    def __len__(self) -> int:
+        return len(self._indices)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        return self._dataset[self._indices[index]]
+
+    @property
+    def metadata(self) -> Any:
+        return self._dataset.metadata
+
+
+# Reference: first 2 000 images, restored to original download order
+ref_maite = OrderedView(mnist_maite_raw, _order[:2000])
 
 print(f"Reference: {len(ref_maite)} images")
 print(f"Sample shape: image={ref_maite[0][0].shape}, dtype={ref_maite[0][0].dtype}, label={ref_maite[0][1]}")
@@ -103,10 +147,10 @@ print(f"Sample shape: image={ref_maite[0][0].shape}, dtype={ref_maite[0][0].dtyp
 # %% [markdown]
 # ### Build the incoming dataset with an in-memory inversion transform
 #
-# Instead of writing images to disk, we create a thin wrapper around the MAITE
-# dataset that **color-inverts samples by class**. All odd-digit classes
-# (1, 3, 5, 7, 9) are inverted while even digits remain unchanged. Since MNIST
-# is grayscale with pixel values in `[0, 255]` inversion is simply `255 - pixel_value`.
+# We create a thin wrapper around the MAITE dataset that **color-inverts
+# samples by class**. All odd-digit classes (1, 3, 5, 7, 9) are inverted while
+# even digits remain unchanged. datamaite decodes images as `uint8` pixel
+# values in `[0, 255]`, so inversion is simply `255 - pixel_value`.
 
 # %%
 from collections.abc import Mapping
@@ -141,9 +185,8 @@ class InvertedTailDataset:
         return image, target, metadata
 
 
-# Incoming: next 500 images (indices 2000–2500), odd-digit classes get inverted
-incoming_hf = mnist_train.select(range(2000, 2500))
-incoming_maite = from_huggingface(incoming_hf)
+# Incoming: next 500 images, restored to original download order, odd-digit classes get inverted
+incoming_maite = OrderedView(mnist_maite_raw, _order[2000:2500])
 incoming_dataset = InvertedTailDataset(incoming_maite, classes_to_invert=[1, 3, 5, 7, 9])
 
 n_inverted = sum(1 for i in range(len(incoming_dataset)) if np.argmax(incoming_dataset[i][1]) in [1, 3, 5, 7, 9])
@@ -161,17 +204,17 @@ fig, axes = plt.subplots(2, 8, figsize=(12, 4))
 
 # Row 0: sample reference images
 for col in range(8):
-    img_arr = np.asarray(ref_maite[col][0]).squeeze()
-    axes[0, col].imshow(img_arr, cmap="gray")
+    img_arr = np.transpose(np.asarray(ref_maite[col][0]), (1, 2, 0))  # CHW -> HWC
+    axes[0, col].imshow(img_arr)
     axes[0, col].set_title("ref", fontsize=9)
     axes[0, col].axis("off")
 
 # Row 1: color-inverted OOD samples (odd-digit classes)
 ood_indices = [i for i in range(len(incoming_dataset)) if np.argmax(incoming_dataset[i][1]) in [1, 3, 5, 7, 9]]
 for col in range(8):
-    img_arr = np.asarray(incoming_dataset[ood_indices[col]][0]).squeeze()
+    img_arr = np.transpose(np.asarray(incoming_dataset[ood_indices[col]][0]), (1, 2, 0))  # CHW -> HWC
     label = int(np.argmax(incoming_dataset[ood_indices[col]][1]))
-    axes[1, col].imshow(img_arr, cmap="gray")
+    axes[1, col].imshow(img_arr)
     axes[1, col].set_title(f"inverted\n(digit {label})", fontsize=8)
     axes[1, col].axis("off")
 
@@ -238,8 +281,6 @@ extractor_config = FlattenExtractorConfig(name="flatten", batch_size=64)
 # for the flagged samples.
 
 # %%
-from pathlib import Path
-
 from dataeval_flow.config import OODDetectionTaskConfig, OODDetectionWorkflowConfig
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.ood.params import (

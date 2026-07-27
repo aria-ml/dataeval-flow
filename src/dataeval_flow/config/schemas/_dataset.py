@@ -32,10 +32,12 @@ class HuggingFaceDatasetConfig(_DatasetConfigBase):
             format: huggingface
             path: ./cifar10
             split: train
+            task: image_classification
     """
 
     format: Literal["huggingface"] = "huggingface"
     split: str | None = None
+    task: Literal["image_classification", "object_detection"]
 
 
 class ImageFolderDatasetConfig(_DatasetConfigBase):
@@ -72,7 +74,6 @@ class CocoDatasetConfig(_DatasetConfigBase):
     format: Literal["coco"] = "coco"
     annotations_file: str | None = None
     images_dir: str | None = None
-    classes_file: str | None = None
 
 
 class YoloDatasetConfig(_DatasetConfigBase):
@@ -84,15 +85,9 @@ class YoloDatasetConfig(_DatasetConfigBase):
           - name: yolo_train
             format: yolo
             path: yolo
-            images_dir: images
-            labels_dir: labels
-            classes_file: classes.txt
     """
 
     format: Literal["yolo"] = "yolo"
-    images_dir: str | None = None
-    labels_dir: str | None = None
-    classes_file: str | None = None
 
 
 class DatasetProtocolConfig(BaseModel):

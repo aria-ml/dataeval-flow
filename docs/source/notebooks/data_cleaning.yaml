@@ -10,6 +10,7 @@ datasets:
   - name: cppe5_train
     format: huggingface
     path: data/cppe5/train
+    task: object_detection
 
 selections:
   - name: first500

@@ -30,7 +30,12 @@ class TestConfigToFactoryIntegration:
 
         # Multi-file config simulating real deployment
         (config_dir / "00-datasets.yaml").write_text(
-            "datasets:\n  - name: test_dataset\n    format: huggingface\n    path: ./test\n    split: train\n"
+            "datasets:\n"
+            "  - name: test_dataset\n"
+            "    format: huggingface\n"
+            "    path: ./test\n"
+            "    split: train\n"
+            "    task: image_classification\n"
         )
         (config_dir / "01-preprocessors.yaml").write_text(
             "preprocessors:\n  - name: basic\n    steps:\n      - step: ToTensor\n"
@@ -108,6 +113,7 @@ class TestConfigToFactoryIntegration:
             "    format: huggingface\n"
             "    path: ./a\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "  - name: dataset_b\n"
             "    format: coco\n"
             "    path: ./b\n"
@@ -175,6 +181,7 @@ class TestConfigToFactoryIntegration:
             "    format: huggingface\n"
             "    path: ./data\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "sources:\n"
             "  - name: shared_src\n"
             "    dataset: shared_dataset\n"
@@ -252,7 +259,12 @@ class TestConfigMergeBehavior:
 
         # First file defines dataset A
         (config_dir / "00-first.yaml").write_text(
-            "datasets:\n  - name: dataset_a\n    format: huggingface\n    path: ./a\n    split: train\n"
+            "datasets:\n"
+            "  - name: dataset_a\n"
+            "    format: huggingface\n"
+            "    path: ./a\n"
+            "    split: train\n"
+            "    task: image_classification\n"
         )
         # Second file defines dataset B
         (config_dir / "01-second.yaml").write_text("datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n")
@@ -290,12 +302,10 @@ class TestEndToEndCleaningWorkflow:
     @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
     @patch("dataeval_flow.cache.get_or_compute_stats")
     @patch("dataeval_flow.metadata.Metadata")
-    @patch("maite_datasets.adapters.from_huggingface")
-    @patch("datasets.load_from_disk")
+    @patch("datamaite.load_ic")
     def test_config_to_output(
         self,
-        mock_load_from_disk: MagicMock,
-        mock_from_huggingface: MagicMock,
+        mock_load_ic: MagicMock,
         mock_metadata_cls: MagicMock,
         mock_get_stats: MagicMock,
         mock_outliers_cls: MagicMock,
@@ -315,6 +325,7 @@ class TestEndToEndCleaningWorkflow:
             "    format: huggingface\n"
             "    path: ./dataset\n"
             "    split: train\n"
+            "    task: image_classification\n"
             "sources:\n"
             "  - name: test_src\n"
             "    dataset: test_ds\n"
@@ -332,8 +343,8 @@ class TestEndToEndCleaningWorkflow:
             "    sources: test_src\n"
         )
 
-        # ── 2. Create dataset directory (path.exists() check) ─────────
-        (tmp_path / "dataset").mkdir()
+        # ── 2. Create dataset split directory (path/split the loader resolves to) ─
+        (tmp_path / "dataset" / "train").mkdir(parents=True)
 
         # ── 3. Output directory ───────────────────────────────────────
         output_dir = tmp_path / "output"
@@ -341,17 +352,12 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 4. Mock external boundaries ───────────────────────────────
 
-        # 4a. HuggingFace dataset loading
-        mock_hf_dataset = MagicMock()
-        mock_hf_dataset.keys = MagicMock(return_value=["train"])
-        mock_hf_dataset.__getitem__ = MagicMock(return_value=mock_hf_dataset)
-        mock_load_from_disk.return_value = mock_hf_dataset
-
-        # 4b. MAITE conversion — return dataset-like object with __len__ and __getitem__
+        # 4a/4b. HuggingFace dataset loading via datamaite — return dataset-like
+        # object with __len__ and __getitem__
         mock_maite_ds = MagicMock()
         mock_maite_ds.__len__ = MagicMock(return_value=10)
         mock_maite_ds.__getitem__ = MagicMock(return_value={"image": "fake", "label": 0})
-        mock_from_huggingface.return_value = mock_maite_ds
+        mock_load_ic.return_value = mock_maite_ds
 
         # 4c. Metadata mock
         mock_metadata = MagicMock()
@@ -466,8 +472,7 @@ class TestEndToEndCleaningWorkflow:
         assert meta["execution_time_s"] is not None
 
         # ── 8. Verify mock calls ──────────────────────────────────────
-        mock_load_from_disk.assert_called_once()
-        mock_from_huggingface.assert_called_once()
+        mock_load_ic.assert_called_once()
         mock_get_stats.assert_called_once()
         mock_outliers_instance.from_stats.assert_called_once()
         mock_dup_instance.from_stats.assert_called_once()

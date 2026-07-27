@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -53,8 +53,9 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow` (includes `dataeval`, `datasets`, `maite-datasets`, `pydantic`)
+# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
 # - `dataeval-plots` (for visualizing flagged images)
+# - `datasets` (to download CPPE-5 from HuggingFace Hub)
 # - Internet connection (to download CPPE-5 from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -75,12 +76,57 @@ from datasets import load_dataset as hf_load
 
 cppe5_train = cast(Dataset, hf_load("rishitdagli/cppe-5", split="train"))
 
+# %% [markdown]
+# ### Materialize the split on disk
+#
+# datamaite reads datasets from a filesystem layout, so the in-memory HuggingFace
+# `Dataset` has to be written out before `dataeval-flow` can load it. We write the
+# HuggingFace **ImageFolder** object-detection convention: the image files plus a
+# `metadata.jsonl` whose `objects` column carries parallel `bbox` / `categories`
+# lists. Boxes need no conversion — CPPE-5 stores absolute-pixel `xywh`, which is
+# also this convention's format.
+#
+# :::{note}
+# **Class labels come back as integers, not names.** CPPE-5's names (`Coverall`,
+# `Face_Shield`, `Gloves`, `Goggles`, `Mask`) are declared as a HuggingFace
+# `ClassLabel` table in the dataset card, but datamaite's `huggingface_vision`
+# loader does not yet read feature schemas, so the report shows `0`–`4` instead.
+# Writing the names into `categories` directly does not help: the loader maps
+# only integer categories to MAITE labels, and string categories load as the
+# `-1` "unknown" sentinel. Full class-label round-tripping has been raised with
+# the datamaite developers and is under development. Until it lands, use the
+# COCO format instead if you need names preserved — its `categories` table is
+# read natively.
+# :::
+
 # %% tags=["remove_output"]
+import json
 from pathlib import Path
 
-# Save to disk in HuggingFace arrow format
 data_path = Path("./data/cppe5/train")
-cppe5_train.save_to_disk(str(data_path))
+
+
+def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
+    """Write a HuggingFace object-detection split in the ImageFolder convention."""
+    root.mkdir(parents=True, exist_ok=True)
+
+    with (root / "metadata.jsonl").open("w", encoding="utf-8") as fh:
+        for seq, example in enumerate(hf_dataset):
+            file_name = f"{seq:05d}.jpg"
+            example["image"].convert("RGB").save(root / file_name, quality=95)
+
+            objects = example["objects"]
+            row = {
+                "file_name": file_name,
+                "objects": {
+                    "bbox": [[float(v) for v in box] for box in objects["bbox"]],  # absolute-pixel xywh
+                    "categories": [int(category) for category in objects["category"]],
+                },
+            }
+            fh.write(json.dumps(row) + "\n")
+
+
+write_imagefolder(cppe5_train, data_path)
 
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
@@ -144,7 +190,7 @@ task = DataCleaningTaskConfig(
 # Build the full pipeline config — datasets, sources, extractors, selections, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path)),
+        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), task="object_detection"),
     ],
     selections=[
         SelectionConfig(name="first500", steps=[SelectionStep(type="Limit", params={"size": 500})]),

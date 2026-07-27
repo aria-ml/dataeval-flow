@@ -349,8 +349,7 @@ Configs can be saved as YAML or JSON.
 ## Dependencies
 
 - `dataeval` - Core evaluation library
-- `datasets` - Huggingface library
-- `maite-datasets` - MAITE protocol adapter
+- `datamaite` - MAITE protocol dataset loaders
 - `maite` - MAITE protocol library
 - `pydantic` - Structural typing and schema validation
 

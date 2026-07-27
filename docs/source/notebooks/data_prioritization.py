@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
 #     display_name: dataeval-flow
 #     language: python
@@ -51,7 +51,8 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow[cpu]` (includes `dataeval`, `datasets`, `maite-datasets`, `torch`)
+# - `dataeval-flow[cpu]` (includes `dataeval`, `datamaite`, `torch`)
+# - `datasets` (to download MNIST from HuggingFace Hub)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
 # %% [markdown]
@@ -60,33 +61,57 @@
 # %% [markdown]
 # ## Data Preparation: Download MNIST and build train/test splits
 #
-# We download [MNIST](https://huggingface.co/datasets/ylecun/mnist), then
-# save the train and test splits to disk. The train split will be filtered
-# to classes 0-7 to simulate a real scenario where the model has only seen
-# a subset of the label space.
+# We download [MNIST](https://huggingface.co/datasets/ylecun/mnist), filter the
+# train split to classes 0-7 (5 000 images) to simulate a real scenario where the
+# model has only seen a subset of the label space, and keep the first 1 000 test
+# images. datamaite has no in-memory constructor — every dataset it loads comes
+# from a filesystem layout — so both slices are materialized once to a temporary
+# **ImageFolder** tree (`<label>/<file>.png`) and loaded back with `datamaite.load_ic`.
 
 # %% tags=["remove_output"]
+import tempfile
 from pathlib import Path
 from typing import cast
 
+from datamaite import load_ic
 from datasets import Dataset
 from datasets import load_dataset as hf_load
 
 from dataeval_flow.preprocessing import PreprocessingStep
 
 mnist_train = cast(Dataset, hf_load("ylecun/mnist", split="train"))
-mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test"))
+mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test")).select(range(1000))
 
-train_path = Path("./data/mnist/train")
-test_path = Path("./data/mnist/test")
-mnist_train.save_to_disk(str(train_path))
-mnist_test.save_to_disk(str(test_path))
+# Filter training data to classes 0-7, limit to 5000 images — the model will
+# never see digits 8 and 9
+mask = [i for i, label in enumerate(mnist_train["label"]) if label <= 7][:5000]
+filtered_train = mnist_train.select(mask)
+
+
+def _write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
+    """Materialize a HuggingFace image dataset as an ImageFolder tree.
+
+    Writes ``<root>/<label>/<seq>.png`` with a zero-padded sequence number,
+    which lets us recover the original sample order after reload — datamaite's
+    ``huggingface_vision`` loader groups images by class folder for a
+    deterministic layout, discarding upload order.
+    """
+    for seq, example in enumerate(hf_dataset):
+        label_dir = root / str(example["label"])
+        label_dir.mkdir(parents=True, exist_ok=True)
+        example["image"].save(label_dir / f"{seq:05d}.png")
+
+
+train_path = Path(tempfile.mkdtemp(prefix="dataeval_flow_mnist_train_"))
+test_path = Path(tempfile.mkdtemp(prefix="dataeval_flow_mnist_test_"))
+_write_imagefolder(filtered_train, train_path)
+_write_imagefolder(mnist_test, test_path)
 
 # %% [markdown]
 # ### Inject corrupted and duplicate images into the test data
 #
-# Real incoming data is messy. We simulate this by corrupting a slice of
-# the test set so we can later see how prioritization handles it:
+# Real incoming data is messy. We simulate this with an in-memory wrapper that
+# corrupts a slice of the (uncorrupted, on-disk) test set on the fly:
 #
 # | Indices   | Corruption            |
 # |-----------|-----------------------|
@@ -97,50 +122,99 @@ mnist_test.save_to_disk(str(test_path))
 # | 980–999   | Underexposure         |
 
 # %% tags=["remove_output"]
+from collections.abc import Mapping
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image, ImageFilter
 
 
-def _corrupt_test_data(ds: Dataset) -> Dataset:
-    """Return a copy of *ds* with corrupted images at indices 900-999."""
-    images = list(ds["image"])  # list of PIL images
+class CorruptedTestDataset:
+    """Wraps a MAITE dataset and injects synthetic corruptions into indices 900-999.
 
-    # Exact duplicates: copy images 180-199 into slots 900-919
-    for i, src in zip(range(900, 920), range(200, 220), strict=True):
-        images[i] = images[src].copy()
+    Labels are left untouched throughout, so ground truth stays available for
+    verification even though the pixel content at those indices is corrupted.
+    """
 
-    # Gaussian blur (indices 920-939)
-    for i in range(920, 940):
-        images[i] = images[i].filter(ImageFilter.GaussianBlur(radius=3))
+    _DUPLICATE_OFFSET = 700  # maps index i in [900, 920) to source index i - 700
 
-    # Random noise (indices 940-959)
-    for i in range(940, 960):
-        arr = np.array(images[i], dtype=np.int16)
-        noise = np.random.default_rng(i).integers(-80, 80, arr.shape, dtype=np.int16)
-        images[i] = Image.fromarray(np.clip(arr + noise, 0, 255).astype(np.uint8))
+    def __init__(self, dataset: Any) -> None:
+        self._dataset = dataset
 
-    # Overexposure (indices 960-979)
-    for i in range(960, 980):
-        arr = np.array(images[i], dtype=np.int16)
-        images[i] = Image.fromarray(np.clip(arr + 100, 0, 255).astype(np.uint8))
+    def __len__(self) -> int:
+        return len(self._dataset)
 
-    # Underexposure (indices 980-999)
-    for i in range(980, 1000):
-        arr = np.array(images[i], dtype=np.int16)
-        images[i] = Image.fromarray((np.clip(arr - 200, 0, 255) // 2).astype(np.uint8))
+    def __getitem__(self, index: int) -> tuple[NDArray[Any], Any, Mapping[str, Any]]:
+        if 900 <= index < 920:
+            image, _, _ = self._dataset[index - self._DUPLICATE_OFFSET]
+            _, target, metadata = self._dataset[index]
+            return np.array(image, copy=True), target, metadata
 
-    return ds.select(range(len(ds))).map(
-        lambda _example, idx: {"image": images[idx]},
-        with_indices=True,
-    )
+        image, target, metadata = self._dataset[index]
+
+        if 920 <= index < 940:
+            image = self._blur(image)
+        elif 940 <= index < 960:
+            image = self._add_noise(image, seed=index)
+        elif 960 <= index < 980:
+            image = self._adjust_exposure(image, 100)
+        elif 980 <= index < 1000:
+            image = self._adjust_exposure(image, -200, halve=True)
+
+        return image, target, metadata
+
+    @staticmethod
+    def _blur(image: NDArray[Any]) -> NDArray[Any]:
+        hwc = np.transpose(image, (1, 2, 0))  # CHW -> HWC
+        blurred = Image.fromarray(hwc, mode="RGB").filter(ImageFilter.GaussianBlur(radius=3))
+        return np.transpose(np.array(blurred, dtype=image.dtype), (2, 0, 1))  # back to CHW
+
+    @staticmethod
+    def _add_noise(image: NDArray[Any], *, seed: int) -> NDArray[Any]:
+        arr = image.astype(np.int16)
+        noise = np.random.default_rng(seed).integers(-80, 80, arr.shape, dtype=np.int16)
+        return np.clip(arr + noise, 0, 255).astype(image.dtype)
+
+    @staticmethod
+    def _adjust_exposure(image: NDArray[Any], delta: int, *, halve: bool = False) -> NDArray[Any]:
+        arr = np.clip(image.astype(np.int16) + delta, 0, 255)
+        if halve:
+            arr = arr // 2
+        return arr.astype(image.dtype)
 
 
-mnist_test_corrupted = _corrupt_test_data(mnist_test)
+class OrderedView:
+    """Presents *dataset* through a fixed list of source indices.
 
-# Overwrite the saved test split with the corrupted version
-mnist_test_corrupted.save_to_disk(str(test_path))
+    datamaite's ``huggingface_vision`` loader groups samples by class folder
+    for a deterministic layout, discarding upload order. We recover it via
+    the sequence number embedded in each file name, so the corruption index
+    ranges above land on a representative mix of classes rather than a single
+    class's block.
+    """
+
+    def __init__(self, dataset: Any, indices: list[int]) -> None:
+        self._dataset = dataset
+        self._indices = indices
+
+    def __len__(self) -> int:
+        return len(self._indices)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        return self._dataset[self._indices[index]]
+
+    @property
+    def metadata(self) -> Any:
+        return self._dataset.metadata
+
+
+test_base_raw = load_ic(test_path, dataset_format="huggingface_vision")
+_test_order = sorted(range(len(test_base_raw)), key=lambda i: int(Path(test_base_raw.samples[i].image_id).stem))
+test_dataset = CorruptedTestDataset(OrderedView(test_base_raw, _test_order))
+
 print(
-    "Test data corrupted: 20 exact duplicates (900-919), "
+    "Test data corruption wrapper ready: 20 exact duplicates (900-919), "
     "20 blurred (920-939), 20 noisy (940-959), "
     "20 bright (960-979), 20 dark (980-999)"
 )
@@ -159,7 +233,6 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F  # noqa: N812
-from datasets import load_from_disk
 from torch.utils.data import DataLoader, TensorDataset
 
 # Fix all RNG seeds for reproducible training (same weights → same embeddings → stable demo)
@@ -167,11 +240,6 @@ random.seed(42)
 torch.manual_seed(42)
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.benchmark = False
-
-# Load and filter to classes 0-7, limit to 5000 images
-train_ds = load_from_disk(str(train_path))
-mask = [i for i, label in enumerate(train_ds["label"]) if label <= 7][:5000]
-filtered_train = train_ds.select(mask)
 
 # Convert to tensors
 train_images = torch.stack(
@@ -264,11 +332,8 @@ print(f"Model saved to {model_path}")
 # The pruning step should catch the corrupted images we injected.
 
 # %%
-from maite_datasets.adapters import from_huggingface
-
 from dataeval_flow.config import (
     DatasetProtocolConfig,
-    HuggingFaceDatasetConfig,
     PipelineConfig,
     PreprocessorConfig,
     SelectionConfig,
@@ -281,8 +346,8 @@ from dataeval_flow.config.schemas import (
     TorchExtractorConfig,
 )
 
-# Wrap the filtered training data as a MAITE-compatible dataset
-ref_dataset = from_huggingface(filtered_train)
+# Load the filtered training data (materialized above) as a MAITE-compatible dataset
+ref_dataset = load_ic(train_path, dataset_format="huggingface_vision")
 
 from dataeval_flow.workflows.prioritization.params import CleaningConfig
 
@@ -315,20 +380,29 @@ task = DataPrioritizationTaskConfig(
 # are the data to prioritize.  The `TorchExtractorConfig` points to
 # the saved `.pt` file and hooks the `embed` layer for 128-dim embeddings.
 #
-# We add a preprocessor to convert the uint8 images from the dataset into
-# float32 tensors scaled to [0, 1], matching how the model was trained.
+# We add a preprocessor to bring the dataset's images into the shape the model
+# was trained on:
+#
+# - **`Grayscale`** — datamaite decodes every image as 3-channel RGB, so MNIST
+#   arrives as `(3, 28, 28)` with the grey value repeated across channels. Our
+#   CNN's first layer is `Conv2d(1, 32, 3)`, so without this step the run fails
+#   with *"expected input[64, 3, 28, 28] to have 1 channels, but got 3"*.
+#   Collapsing back to one channel is lossless here (to within uint8 rounding),
+#   because all three channels hold the same value.
+# - **`ToDtype`** — converts uint8 to float32 scaled to [0, 1], matching training.
 
 # %%
 config = PipelineConfig(
     datasets=[
         DatasetProtocolConfig(name="ref_ds", dataset=ref_dataset),
-        HuggingFaceDatasetConfig(name="test_ds", path=str(test_path)),
+        DatasetProtocolConfig(name="test_ds", dataset=test_dataset),
     ],
     preprocessors=[
         PreprocessorConfig(
             name="to_float",
             steps=[
                 PreprocessingStep(step="ToImage", params={}),
+                PreprocessingStep(step="Grayscale", params={"num_output_channels": 1}),
                 PreprocessingStep(step="ToDtype", params={"dtype": "float32", "scale": True}),
             ],
         ),
@@ -441,15 +515,20 @@ if other_pruned:
 #
 # We look up the original labels for the top-ranked indices to check.
 
+
 # %%
-test_hf = load_from_disk(str(test_path))
+def _label_at(idx: int) -> int:
+    """Look up the ground-truth label for test index *idx* (corruption never touches labels)."""
+    _, target, _ = test_dataset[idx]
+    return int(np.argmax(target))
+
 
 # Get prioritized indices for the test dataset
 prioritized = result.data.raw.prioritizations[0]
 top_indices = prioritized["prioritized_indices"]
 
 # Look up original labels
-top_labels = [int(test_hf[idx]["label"]) for idx in top_indices[:50]]
+top_labels = [_label_at(idx) for idx in top_indices[:50]]
 
 print("Top 50 prioritized images — original labels:")
 print(top_labels)
@@ -461,7 +540,7 @@ print(f"Unseen classes (8, 9) in top 50: {unseen_count}/50")
 
 # %%
 # Cumulative unseen-class rate as we walk down the priority ranking
-all_labels = [int(test_hf[idx]["label"]) for idx in top_indices]
+all_labels = [_label_at(idx) for idx in top_indices]
 cumulative_unseen = np.cumsum([1 if label >= 8 else 0 for label in all_labels])
 n_items = np.arange(1, len(cumulative_unseen) + 1)
 unseen_pct = 100.0 * cumulative_unseen / n_items
@@ -509,9 +588,10 @@ try:
     fig, axes = plt.subplots(2, 5, figsize=(12, 5))
     for i, ax in enumerate(axes.flat):
         idx = top_indices[i]
-        img = test_hf[idx]["image"]
-        label = test_hf[idx]["label"]
-        ax.imshow(img, cmap="gray")
+        img, target, _ = test_dataset[idx]
+        img_arr = np.transpose(np.asarray(img), (1, 2, 0))  # CHW -> HWC
+        label = int(np.argmax(target))
+        ax.imshow(img_arr)
         ax.set_title(f"#{i + 1} idx={idx}\nlabel={label}", fontsize=9)
         ax.axis("off")
     fig.suptitle("Top 10 prioritized images (hard_first)", fontsize=13)

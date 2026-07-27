@@ -425,7 +425,9 @@ class TestConfigState:
 
     def test_validate_item_valid(self):
         state = ConfigState()
-        errors = state.validate_item("datasets", {"name": "ds1", "format": "huggingface", "path": "data"})
+        errors = state.validate_item(
+            "datasets", {"name": "ds1", "format": "huggingface", "path": "data", "task": "image_classification"}
+        )
         assert errors == []
 
     def test_validate_item_invalid(self):
