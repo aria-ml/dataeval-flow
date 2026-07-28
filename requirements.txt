@@ -132,9 +132,9 @@ cuda-bindings==12.9.4 ; platform_machine == 'x86_64' and sys_platform == 'linux'
 cuda-pathfinder==1.5.4 ; platform_machine == 'x86_64' and sys_platform == 'linux' \
     --hash=sha256:9563d3175ce1828531acf4b94e1c1c7d67208c347ca002493e2654878b26f4b7
     # via cuda-bindings
-dataeval==1.0.6 \
-    --hash=sha256:30eba1c68837b177897ab9fd861e37720dab0c686fbf46e9c5e4483c86fd573e \
-    --hash=sha256:5816dc1cefbcb9b6934064e9db70725100108c64c9316b7f9a4e5e52fbf5b1a6
+dataeval==1.1.0rc1 \
+    --hash=sha256:4f9f80ae0885ba00e3da10c78178be7ed2b868e8c004cfcbf9f3463489df85f4 \
+    --hash=sha256:6d61175cb427616ffb721b5335d9aa93123f8ffd214206b6e9890ed6fb45e05f
     # via dataeval-flow
 datamaite==0.3.0 \
     --hash=sha256:9b84e5a1c143d7dd23f092c73ea48f5022ec18e5fc087efb8a13dbd225be54a4 \
@@ -213,6 +213,10 @@ llvmlite==0.47.0 \
     --hash=sha256:f3079f25bdc24cd9d27c4b2b5e68f5f60c4fdb7e8ad5ee2b9b006007558f9df7 \
     --hash=sha256:f9d118bc1dd7623e0e65ca9ac485ec6dd543c3b77bc9928ddc45ebd34e1e30a7
     # via numba
+maite==0.9.5 \
+    --hash=sha256:a710ec5e3ffa93541a3dffb69ca9cc7002452d73aca744f911383e886ce7e233 \
+    --hash=sha256:abf14ecc6ed8cedb91aa7b1dc9c790409d0c954652731fb6f3cdd617bd8c42b8
+    # via dataeval
 markupsafe==3.0.3 \
     --hash=sha256:0303439a41979d9e74d18ff5e2dd8c43ed6c6001fd40e5bf2e43f7bd9bbc523f \
     --hash=sha256:068f375c472b3e7acbe2d5318dea141359e6900156b5b2ba06a30b169086b91a \
@@ -385,6 +389,7 @@ numpy==2.2.6 ; python_full_version < '3.11' \
     #   dataeval-flow
     #   datamaite
     #   lightgbm
+    #   maite
     #   numba
     #   opencv-python-headless
     #   scikit-learn
@@ -446,6 +451,7 @@ numpy==2.4.6 ; python_full_version >= '3.11' \
     #   dataeval-flow
     #   datamaite
     #   lightgbm
+    #   maite
     #   numba
     #   opencv-python-headless
     #   scikit-learn
@@ -1019,6 +1025,7 @@ typing-extensions==4.15.0 \
     # via
     #   dataeval
     #   exceptiongroup
+    #   maite
     #   pydantic
     #   pydantic-core
     #   pyright

@@ -277,10 +277,10 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
             list_transforms()
 
-            self.call_from_thread(loading.update_message, "Loading selections...")
-            from dataeval_flow._app._model._discover import list_selection_classes
+            self.call_from_thread(loading.update_message, "Loading views...")
+            from dataeval_flow._app._model._discover import list_view_operations
 
-            list_selection_classes()
+            list_view_operations()
 
             initial = self._initial_config_path
             if initial:

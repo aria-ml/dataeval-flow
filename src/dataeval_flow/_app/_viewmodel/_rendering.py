@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 def _snippet_steps(item: dict[str, Any], key: str) -> str:
     lines = [f"[bold]{item.get('name', '?')}[/bold]"]
-    for s in item.get("steps", []):
+    for s in item.get("steps") or item.get("operations") or []:
         label = s.get(key, "?")
         params = s.get("params", {})
         if params:
@@ -46,10 +46,10 @@ def _snippet_dataset(item: dict[str, Any]) -> str:
 def _snippet_source(item: dict[str, Any]) -> str:
     name = item.get("name", "?")
     dataset = item.get("dataset", "?")
-    selection = item.get("selection", "")
+    view = item.get("view", "")
     lines = [f"[bold]{name}[/bold]", f"  dataset: {dataset}"]
-    if selection:
-        lines.append(f"  selection: {selection}")
+    if view:
+        lines.append(f"  view: {view}")
     return "\n".join(lines)
 
 
@@ -108,7 +108,7 @@ def _snippet_task(item: dict[str, Any]) -> str:
 _SNIPPET_RENDERERS: dict[str, Any] = {
     "datasets": _snippet_dataset,
     "preprocessors": lambda item: _snippet_steps(item, "step"),
-    "selections": lambda item: _snippet_steps(item, "type"),
+    "views": lambda item: _snippet_steps(item, "type"),
     "sources": _snippet_source,
     "extractors": _snippet_extractor,
     "workflows": _snippet_workflow,
@@ -183,7 +183,7 @@ def snippet_config_item(category: str, item: dict[str, Any]) -> str:
     if category == "sources":
         dataset = item.get("dataset", "")
         return f"[bold]{name}[/bold] [dim]({dataset})[/dim]"
-    if category in ("preprocessors", "selections"):
-        n_steps = len(item.get("steps", []))
+    if category in ("preprocessors", "views"):
+        n_steps = len(item.get("steps") or item.get("operations") or [])
         return f"[bold]{name}[/bold] [dim]{n_steps} step{'s' if n_steps != 1 else ''}[/dim]"
     return f"[bold]{name}[/bold]"

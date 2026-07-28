@@ -18,12 +18,12 @@ from .conftest import _MinimalApp, _state_with_datasets
 
 
 class TestSectionModalStepBuilderCoverage:
-    async def test_step_builder_compose_selections(self) -> None:
-        """Selections section uses a step builder; verify step-select is present."""
+    async def test_step_builder_compose_views(self) -> None:
+        """Views section uses a step builder; verify step-select is present."""
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            modal = SectionModal("selections", state=state)
+            modal = SectionModal("views", state=state)
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
@@ -34,8 +34,8 @@ class TestSectionModalStepBuilderCoverage:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            existing = {"name": "sel1", "steps": [{"type": "Shuffle", "params": {"seed": 42}}]}
-            modal = SectionModal("selections", existing=existing, state=state)
+            existing = {"name": "sel1", "operations": [{"type": "Shuffle", "params": {"seed": 42}}]}
+            modal = SectionModal("views", existing=existing, state=state)
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
@@ -133,8 +133,8 @@ class TestSectionModalButtonHandlers:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            existing = {"name": "sel1", "steps": [{"type": "Shuffle"}]}
-            modal = SectionModal("selections", existing=existing, state=state)
+            existing = {"name": "sel1", "operations": [{"type": "Shuffle"}]}
+            modal = SectionModal("views", existing=existing, state=state)
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
@@ -146,8 +146,8 @@ class TestSectionModalButtonHandlers:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            existing = {"name": "sel1", "steps": [{"type": "Shuffle"}]}
-            modal = SectionModal("selections", existing=existing, state=state)
+            existing = {"name": "sel1", "operations": [{"type": "Shuffle"}]}
+            modal = SectionModal("views", existing=existing, state=state)
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
@@ -850,8 +850,8 @@ class TestSectionModalHandleListRemoveSuccess:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            existing = {"name": "sel1", "steps": [{"type": "Shuffle"}]}
-            modal = SectionModal("selections", existing=existing, state=state)
+            existing = {"name": "sel1", "operations": [{"type": "Shuffle"}]}
+            modal = SectionModal("views", existing=existing, state=state)
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
@@ -1071,11 +1071,11 @@ class TestSectionModalPopulateOneField:
             assert name_input.value == "t1"
 
     async def test_populate_step_builder_existing(self) -> None:
-        """Editing selections (step builder) populates step list."""
+        """Editing views (step builder) populates step list."""
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
-            existing = {"name": "sel1", "steps": [{"type": "Shuffle", "params": {"seed": 42}}]}
-            modal = SectionModal("selections", existing=existing, state=ConfigState())
+            existing = {"name": "sel1", "operations": [{"type": "Shuffle", "params": {"seed": 42}}]}
+            modal = SectionModal("views", existing=existing, state=ConfigState())
             await app.push_screen(modal)
             for _ in range(5):
                 await pilot.pause()

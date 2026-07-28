@@ -342,16 +342,26 @@ class TestSourceConfig:
     """Test SourceConfig schema."""
 
     def test_source_config_valid(self):
-        """SourceConfig with dataset and selection."""
-        src = SourceConfig(name="train_src", dataset="train_ds", selection="first_5k")
+        """SourceConfig with dataset and view."""
+        src = SourceConfig(name="train_src", dataset="train_ds", view="first_5k")
         assert src.name == "train_src"
         assert src.dataset == "train_ds"
-        assert src.selection == "first_5k"
+        assert src.view == "first_5k"
 
-    def test_source_config_no_selection(self):
-        """SourceConfig without selection defaults to None."""
+    def test_source_config_no_view(self):
+        """SourceConfig without view defaults to None."""
         src = SourceConfig(name="train_src", dataset="train_ds")
-        assert src.selection is None
+        assert src.view is None
+
+    def test_source_config_legacy_selection_alias(self):
+        """The deprecated ``selection`` key is still accepted and maps to ``view``."""
+        from dataeval_flow.config import PipelineConfig
+
+        payload = {"sources": [{"name": "s", "dataset": "d", "selection": "first_5k"}]}
+        with pytest.warns(DeprecationWarning, match="'selection' key"):
+            cfg = PipelineConfig.model_validate(payload)
+        assert cfg.sources is not None
+        assert cfg.sources[0].view == "first_5k"
 
     def test_source_config_missing_dataset_raises(self):
         """SourceConfig requires dataset field."""
@@ -487,7 +497,7 @@ class TestExtractorConfig:
 
 
 class TestP1SchemaClasses:
-    """Test P1 schema classes (DatasetConfig, PreprocessorConfig, SelectionConfig, TaskConfig)."""
+    """Test P1 schema classes (DatasetConfig, PreprocessorConfig, ViewConfig, TaskConfig)."""
 
     def test_dataset_config_with_split(self):
         """DatasetConfig with a split name."""
@@ -546,92 +556,113 @@ class TestP1SchemaClasses:
         assert config.steps[1].step == "ToTensor"
 
     def test_selection_step_valid(self):
-        """SelectionStep with type and params."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation with type and params."""
+        from dataeval_flow.config import ViewOperation
 
-        step = SelectionStep(type="Limit", params={"size": 10000})
+        step = ViewOperation(type="Limit", params={"size": 10000})
         assert step.type == "Limit"
         assert step.params == {"size": 10000}
 
     def test_selection_step_default_params(self):
-        """SelectionStep params defaults to empty dict."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation params defaults to empty dict."""
+        from dataeval_flow.config import ViewOperation
 
-        step = SelectionStep(type="ClassBalance")
+        step = ViewOperation(type="ClassBalance")
         assert step.type == "ClassBalance"
         assert step.params == {}
 
-    def test_selection_config_valid(self):
-        """SelectionConfig with named pipeline."""
-        from dataeval_flow.config import SelectionConfig, SelectionStep
+    def test_view_config_valid(self):
+        """ViewConfig with named pipeline."""
+        from dataeval_flow.config import ViewConfig, ViewOperation
 
-        config = SelectionConfig(
+        config = ViewConfig(
             name="training_subset",
-            steps=[
-                SelectionStep(type="Limit", params={"size": 10000}),
-                SelectionStep(type="ClassFilter", params={"classes": [0, 1, 2]}),
+            operations=[
+                ViewOperation(type="Limit", params={"size": 10000}),
+                ViewOperation(type="ClassFilter", params={"classes": [0, 1, 2]}),
             ],
         )
         assert config.name == "training_subset"
-        assert len(config.steps) == 2
-        assert config.steps[0].type == "Limit"
-        assert config.steps[1].type == "ClassFilter"
+        assert len(config.operations) == 2
+        assert config.operations[0].type == "Limit"
+        assert config.operations[1].type == "ClassFilter"
+
+    def test_view_config_legacy_steps_alias(self):
+        """The deprecated ``steps`` key still populates ``operations`` with a warning."""
+        from dataeval_flow.config import ViewConfig
+
+        payload = {"name": "subset", "steps": [{"type": "Limit", "params": {"size": 10}}]}
+        with pytest.warns(DeprecationWarning, match="'steps' key"):
+            config = ViewConfig.model_validate(payload)
+        assert config.operations[0].type == "Limit"
+
+    def test_deprecated_selection_classes_still_importable(self):
+        """SelectionConfig / SelectionStep remain importable as deprecated aliases."""
+        from dataeval_flow.config import SelectionConfig, SelectionStep, ViewOperation
+
+        with pytest.warns(DeprecationWarning, match="SelectionStep is deprecated"):
+            step = SelectionStep(type="Limit", params={"size": 5})
+        with pytest.warns(DeprecationWarning, match="SelectionConfig is deprecated"):
+            cfg = SelectionConfig(name="s", operations=[step])
+        assert isinstance(step, ViewOperation)
+        assert cfg.operations[0].type == "Limit"
+        assert cfg.operations[0].type == "Limit"
 
     def test_selection_step_indices_range_shorthand(self):
-        """SelectionStep expands indices range dict into a list."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation expands indices range dict into a list."""
+        from dataeval_flow.config import ViewOperation
 
-        step = SelectionStep(type="Indices", params={"indices": {"start": 500, "stop": 505}})
+        step = ViewOperation(type="Indices", params={"indices": {"start": 500, "stop": 505}})
         assert step.params["indices"] == [500, 501, 502, 503, 504]
 
     def test_selection_step_indices_range_with_step(self):
-        """SelectionStep expands indices range dict with custom step."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation expands indices range dict with custom step."""
+        from dataeval_flow.config import ViewOperation
 
-        step = SelectionStep(type="Indices", params={"indices": {"start": 0, "stop": 10, "step": 3}})
+        step = ViewOperation(type="Indices", params={"indices": {"start": 0, "stop": 10, "step": 3}})
         assert step.params["indices"] == [0, 3, 6, 9]
 
     def test_selection_step_indices_list_unchanged(self):
-        """SelectionStep leaves an explicit indices list untouched."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation leaves an explicit indices list untouched."""
+        from dataeval_flow.config import ViewOperation
 
-        step = SelectionStep(type="Indices", params={"indices": [1, 5, 42]})
+        step = ViewOperation(type="Indices", params={"indices": [1, 5, 42]})
         assert step.params["indices"] == [1, 5, 42]
 
     def test_selection_step_indices_range_rejects_invalid_keys(self):
-        """SelectionStep rejects unknown keys like 'end' in the range shorthand."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation rejects unknown keys like 'end' in the range shorthand."""
+        from dataeval_flow.config import ViewOperation
 
         with pytest.raises(ValidationError, match="Invalid keys"):
-            SelectionStep(type="Indices", params={"indices": {"start": 500, "end": 550}})
+            ViewOperation(type="Indices", params={"indices": {"start": 500, "end": 550}})
 
     def test_selection_step_indices_range_requires_start_and_stop(self):
-        """SelectionStep requires both 'start' and 'stop' in range shorthand."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation requires both 'start' and 'stop' in range shorthand."""
+        from dataeval_flow.config import ViewOperation
 
         with pytest.raises(ValidationError, match="requires both"):
-            SelectionStep(type="Indices", params={"indices": {"start": 500}})
+            ViewOperation(type="Indices", params={"indices": {"start": 500}})
 
     def test_selection_step_non_indices_params_unchanged(self):
-        """SelectionStep does not touch params without an indices key."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation does not touch params without an indices key."""
+        from dataeval_flow.config import ViewOperation
 
-        step = SelectionStep(type="Limit", params={"size": 100})
+        step = ViewOperation(type="Limit", params={"size": 100})
         assert step.params == {"size": 100}
 
     def test_selection_step_indices_range_too_large(self):
-        """SelectionStep rejects range shorthand exceeding 1M elements (line 83)."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation rejects range shorthand exceeding 1M elements (line 83)."""
+        from dataeval_flow.config import ViewOperation
 
         with pytest.raises(ValidationError, match="max 1,000,000"):
-            SelectionStep(type="Indices", params={"indices": {"start": 0, "stop": 2_000_000}})
+            ViewOperation(type="Indices", params={"indices": {"start": 0, "stop": 2_000_000}})
 
     def test_selection_step_rejects_non_dict_input(self):
-        """SelectionStep.model_validate rejects non-dict, non-instance input."""
-        from dataeval_flow.config import SelectionStep
+        """ViewOperation.model_validate rejects non-dict, non-instance input."""
+        from dataeval_flow.config import ViewOperation
 
         with pytest.raises(ValidationError, match="Input should be a valid dictionary"):
-            SelectionStep.model_validate("not a dict")
+            ViewOperation.model_validate("not a dict")
 
     def test_task_config_valid(self):
         """TaskConfig with sources and extractor references."""
@@ -679,16 +710,16 @@ class TestP1SchemaClasses:
             "  - name: basic\n"
             "    steps:\n"
             "      - step: ToTensor\n"
-            "selections:\n"
+            "views:\n"
             "  - name: subset\n"
-            "    steps:\n"
+            "    operations:\n"
             "      - type: Limit\n"
             "        params:\n"
             "          size: 1000\n"
             "sources:\n"
             "  - name: cppe5_src\n"
             "    dataset: cppe5\n"
-            "    selection: subset\n"
+            "    view: subset\n"
             "extractors:\n"
             "  - name: resnet_ext\n"
             "    model: onnx\n"
@@ -716,17 +747,17 @@ class TestP1SchemaClasses:
         assert len(config.preprocessors) == 1
         assert config.preprocessors[0].name == "basic"
 
-        # Verify selections
-        assert config.selections is not None
-        assert len(config.selections) == 1
-        assert config.selections[0].name == "subset"
+        # Verify views
+        assert config.views is not None
+        assert len(config.views) == 1
+        assert config.views[0].name == "subset"
 
         # Verify sources
         assert config.sources is not None
         assert len(config.sources) == 1
         assert config.sources[0].name == "cppe5_src"
         assert config.sources[0].dataset == "cppe5"
-        assert config.sources[0].selection == "subset"
+        assert config.sources[0].view == "subset"
 
         # Verify extractors
         assert config.extractors is not None

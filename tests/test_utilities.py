@@ -1,4 +1,4 @@
-"""Tests for utility modules — embeddings, metadata, selection."""
+"""Tests for utility modules — embeddings, metadata, view."""
 
 from unittest.mock import MagicMock, patch
 
@@ -6,14 +6,14 @@ import pytest
 
 import dataeval_flow.embeddings
 import dataeval_flow.metadata
-import dataeval_flow.selection  # noqa: F401
+import dataeval_flow.view  # noqa: F401
 from dataeval_flow.config import (
     BoVWExtractorConfig,
     FlattenExtractorConfig,
     OnnxExtractorConfig,
-    SelectionStep,
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
+    ViewOperation,
 )
 
 # ---------------------------------------------------------------------------
@@ -156,67 +156,67 @@ class TestBuildMetadata:
 
 
 # ---------------------------------------------------------------------------
-# build_selection
+# build_view
 # ---------------------------------------------------------------------------
 
 
-class TestBuildSelection:
-    @patch("dataeval_flow.selection.Select")
-    @patch("dataeval_flow.selection.sel")
-    def test_single_step(self, mock_sel_module: MagicMock, mock_select_cls: MagicMock):
-        from dataeval_flow.selection import build_selection
+class TestBuildView:
+    @patch("dataeval_flow.view.View")
+    @patch("dataeval_flow.view.ddata")
+    def test_single_operation(self, mock_data_module: MagicMock, mock_view_cls: MagicMock):
+        from dataeval_flow.view import build_view
 
         mock_limit_cls = MagicMock()
         mock_limit_instance = MagicMock()
         mock_limit_cls.return_value = mock_limit_instance
-        mock_sel_module.Limit = mock_limit_cls
+        mock_data_module.Limit = mock_limit_cls
 
         mock_dataset = MagicMock()
-        steps = [SelectionStep(type="Limit", params={"size": 100})]
+        operations = [ViewOperation(type="Limit", params={"size": 100})]
 
-        build_selection(mock_dataset, steps)
+        build_view(mock_dataset, operations)
 
         mock_limit_cls.assert_called_once_with(size=100)
-        mock_select_cls.assert_called_once_with(mock_dataset, selections=[mock_limit_instance])
+        mock_view_cls.assert_called_once_with(mock_dataset, operations=[mock_limit_instance])
 
-    @patch("dataeval_flow.selection.Select")
-    @patch("dataeval_flow.selection.sel")
-    def test_multiple_steps(self, mock_sel_module: MagicMock, mock_select_cls: MagicMock):
-        from dataeval_flow.selection import build_selection
+    @patch("dataeval_flow.view.View")
+    @patch("dataeval_flow.view.ddata")
+    def test_multiple_operations(self, mock_data_module: MagicMock, mock_view_cls: MagicMock):
+        from dataeval_flow.view import build_view
 
         mock_limit = MagicMock()
         mock_shuffle = MagicMock()
-        mock_sel_module.Limit.return_value = mock_limit
-        mock_sel_module.Shuffle.return_value = mock_shuffle
+        mock_data_module.Limit.return_value = mock_limit
+        mock_data_module.Shuffle.return_value = mock_shuffle
 
-        steps = [
-            SelectionStep(type="Limit", params={"size": 50}),
-            SelectionStep(type="Shuffle", params={}),
+        operations = [
+            ViewOperation(type="Limit", params={"size": 50}),
+            ViewOperation(type="Shuffle", params={}),
         ]
 
-        build_selection(MagicMock(), steps)
+        build_view(MagicMock(), operations)
 
-        selections = mock_select_cls.call_args[1]["selections"]
-        assert len(selections) == 2
+        ops = mock_view_cls.call_args[1]["operations"]
+        assert len(ops) == 2
 
-    @patch("dataeval_flow.selection.Select")
-    @patch("dataeval_flow.selection.sel")
-    def test_step_without_params(self, mock_sel_module: MagicMock, mock_select_cls: MagicMock):
-        from dataeval_flow.selection import build_selection
+    @patch("dataeval_flow.view.View")
+    @patch("dataeval_flow.view.ddata")
+    def test_operation_without_params(self, mock_data_module: MagicMock, mock_view_cls: MagicMock):
+        from dataeval_flow.view import build_view
 
         mock_reverse = MagicMock()
-        mock_sel_module.Reverse.return_value = mock_reverse
+        mock_data_module.Reverse.return_value = mock_reverse
 
-        steps = [SelectionStep(type="Reverse")]
-        build_selection(MagicMock(), steps)
+        operations = [ViewOperation(type="Reverse")]
+        build_view(MagicMock(), operations)
 
-        mock_sel_module.Reverse.assert_called_once_with()
+        mock_data_module.Reverse.assert_called_once_with()
 
-    def test_invalid_selection_type_raises(self):
+    def test_invalid_operation_type_raises(self):
         import pytest
 
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
-        steps = [SelectionStep(type="NonexistentSelector")]
-        with pytest.raises(ValueError, match="Unknown selection type"):
-            build_selection(MagicMock(), steps)
+        operations = [ViewOperation(type="NonexistentOperation")]
+        with pytest.raises(ValueError, match="Unknown view operation type"):
+            build_view(MagicMock(), operations)

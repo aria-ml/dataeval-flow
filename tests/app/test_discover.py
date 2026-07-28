@@ -8,10 +8,10 @@ from dataeval_flow._app._model._discover import (
     ParamInfo,
     _introspect_params,
     _simplify_type,
-    get_selection_params,
     get_transform_params,
-    list_selection_classes,
+    get_view_operation_params,
     list_transforms,
+    list_view_operations,
 )
 
 # ── _simplify_type ────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ class TestIntrospectParams:
         assert p.choices == []
 
 
-# ── list_transforms / list_selection_classes ───────────────────────────────
+# ── list_transforms / list_view_operations ─────────────────────────────────
 
 
 class TestListFunctions:
@@ -149,18 +149,21 @@ class TestListFunctions:
         for custom in CUSTOM_PREPROCESSORS:
             assert custom in names
 
-    def test_list_selection_classes_sorted_nonempty(self):
-        names = list_selection_classes()
+    def test_list_view_operations_sorted_nonempty(self):
+        names = list_view_operations()
         assert len(names) > 0
         assert names == sorted(names)
 
-    def test_list_selection_classes_excludes_skips(self):
-        names = list_selection_classes()
-        for skip in ("Selection", "Subselection"):
+    def test_list_view_operations_excludes_non_operations(self):
+        names = list_view_operations()
+        for skip in ("Operation", "View"):
             assert skip not in names
 
+    def test_list_view_operations_includes_limit(self):
+        assert "Limit" in list_view_operations()
 
-# ── get_transform_params / get_selection_params ───────────────────────────
+
+# ── get_transform_params / get_view_operation_params ──────────────────────
 
 
 class TestGetParams:
@@ -178,8 +181,8 @@ class TestGetParams:
         # params, so introspection returns an empty list rather than failing.
         assert get_transform_params("ToRGB") == []
 
-    def test_selection_params_invalid(self):
-        assert get_selection_params("NonExistentClass") == []
+    def test_view_operation_params_invalid(self):
+        assert get_view_operation_params("NonExistentClass") == []
 
 
 # ── Coverage: lru_cache clearing ───────────────────────────────────────────
@@ -194,9 +197,9 @@ class TestListFunctionsCoverage:
         assert len(names) > 0
         assert names == sorted(names)
 
-    def test_list_selection_classes_cache_cleared(self):
-        list_selection_classes.cache_clear()
-        names = list_selection_classes()
+    def test_list_view_operations_cache_cleared(self):
+        list_view_operations.cache_clear()
+        names = list_view_operations()
         assert len(names) > 0
         assert names == sorted(names)
 
@@ -209,12 +212,12 @@ class TestGetParamsCoverage:
         params = get_transform_params("Resize")
         assert len(params) > 0
 
-    def test_selection_params_cache_cleared(self):
-        get_selection_params.cache_clear()
-        # Get a valid selection class name
-        names = list_selection_classes()
+    def test_view_operation_params_cache_cleared(self):
+        get_view_operation_params.cache_clear()
+        # Get a valid view operation class name
+        names = list_view_operations()
         if names:
-            params = get_selection_params(names[0])
+            params = get_view_operation_params(names[0])
             assert isinstance(params, list)
 
 

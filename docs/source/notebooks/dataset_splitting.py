@@ -321,20 +321,20 @@ for i, fold in enumerate(exported["raw"]["folds"]):
 # %% [markdown]
 # The exported JSON contains the split indices directly. Pair them with
 # `result.dataset` — the resolved dataset the workflow actually ran on — and
-# `Select` to build filtered datasets for training, evaluation, or further analysis.
+# `View` to build filtered datasets for training, evaluation, or further analysis.
 #
 # Slicing `result.dataset` rather than re-loading from disk is what keeps the
 # indices meaningful: they refer to positions in *that* dataset.
 
 # %%
-from dataeval.selection import Indices, Select
+from dataeval.data import Indices, View
 
 ds = result.dataset
 assert ds is not None
 
-test_ds = Select(ds, selections=[Indices(test_idx)])
-train_ds = Select(ds, selections=[Indices(exported["raw"]["folds"][0]["train_indices"])])
-val_ds = Select(ds, selections=[Indices(exported["raw"]["folds"][0]["val_indices"])])
+test_ds = View(ds, operations=[Indices(test_idx)])
+train_ds = View(ds, operations=[Indices(exported["raw"]["folds"][0]["train_indices"])])
+val_ds = View(ds, operations=[Indices(exported["raw"]["folds"][0]["val_indices"])])
 
 print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 
@@ -349,7 +349,7 @@ print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 # - **Access raw split indices** — train, val, and test index lists across multiple folds
 # - **Verify split integrity** — no overlap, full coverage, proportional class distribution
 # - **Inspect balance and diversity** metrics computed on the pre-split dataset
-# - **Use split indices** with `Select` on `result.dataset` to build filtered datasets for downstream use
+# - **Use split indices** with `View` on `result.dataset` to build filtered datasets for downstream use
 # - **Export** results to JSON and extract indices for integration with other tools
 
 # %% [markdown]

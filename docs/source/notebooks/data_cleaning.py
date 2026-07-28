@@ -149,9 +149,9 @@ from dataeval_flow.config import (
     DataCleaningWorkflowConfig,
     HuggingFaceDatasetConfig,
     PipelineConfig,
-    SelectionConfig,
-    SelectionStep,
     SourceConfig,
+    ViewConfig,
+    ViewOperation,
 )
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
@@ -187,16 +187,16 @@ task = DataCleaningTaskConfig(
     extractor="bovw_ext",
 )
 
-# Build the full pipeline config — datasets, sources, extractors, selections, workflows, and tasks
+# Build the full pipeline config — datasets, sources, extractors, views, workflows, and tasks
 config = PipelineConfig(
     datasets=[
         HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), task="object_detection"),
     ],
-    selections=[
-        SelectionConfig(name="first500", steps=[SelectionStep(type="Limit", params={"size": 500})]),
+    views=[
+        ViewConfig(name="first500", operations=[ViewOperation(type="Limit", params={"size": 500})]),
     ],
     sources=[
-        SourceConfig(name="cppe5_src", dataset="cppe5_train", selection="first500"),
+        SourceConfig(name="cppe5_src", dataset="cppe5_train", view="first500"),
     ],
     extractors=[
         BoVWExtractorConfig(name="bovw_ext", vocab_size=512, batch_size=32),
@@ -268,7 +268,7 @@ print(result.report())
 # images directly in the notebook so we can judge whether they are genuine
 # quality issues or acceptable variation.
 #
-# The result object carries the resolved, post-selection dataset so we can
+# The result object carries the resolved, post-view dataset so we can
 # index into it directly — no need to reload from disk.
 
 # %%
@@ -356,7 +356,7 @@ task_prep = DataCleaningTaskConfig(
 
 config_prep = PipelineConfig(
     datasets=config.datasets,
-    selections=config.selections,
+    views=config.views,
     sources=config.sources,
     extractors=config.extractors,
     workflows=[advisory_workflow, prep_workflow],

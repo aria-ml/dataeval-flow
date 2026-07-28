@@ -24,7 +24,7 @@ class TestConfigToFactoryIntegration:
     """Test config loading → factory instantiation flow."""
 
     def test_full_config_with_all_p1_sections(self, tmp_path: Path):
-        """Load PipelineConfig with datasets, preprocessors, selections, sources, extractors, tasks."""
+        """Load PipelineConfig with datasets, preprocessors, views, sources, extractors, tasks."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
 
@@ -40,11 +40,11 @@ class TestConfigToFactoryIntegration:
         (config_dir / "01-preprocessors.yaml").write_text(
             "preprocessors:\n  - name: basic\n    steps:\n      - step: ToTensor\n"
         )
-        (config_dir / "02-selections.yaml").write_text(
-            "selections:\n  - name: subset\n    steps:\n      - type: Limit\n        params:\n          size: 100\n"
+        (config_dir / "02-views.yaml").write_text(
+            "views:\n  - name: subset\n    operations:\n      - type: Limit\n        params:\n          size: 100\n"
         )
         (config_dir / "03-sources.yaml").write_text(
-            "sources:\n  - name: test_src\n    dataset: test_dataset\n    selection: subset\n"
+            "sources:\n  - name: test_src\n    dataset: test_dataset\n    view: subset\n"
         )
         (config_dir / "04-extractors.yaml").write_text(
             "extractors:\n  - name: flat_ext\n    model: flatten\n    preprocessor: basic\n    batch_size: 32\n"
@@ -69,7 +69,7 @@ class TestConfigToFactoryIntegration:
         # Verify all sections loaded
         assert config.datasets is not None
         assert config.preprocessors is not None
-        assert config.selections is not None
+        assert config.views is not None
         assert config.sources is not None
         assert config.extractors is not None
         assert config.workflows is not None
@@ -78,7 +78,7 @@ class TestConfigToFactoryIntegration:
         # Verify counts
         assert len(config.datasets) == 1
         assert len(config.preprocessors) == 1
-        assert len(config.selections) == 1
+        assert len(config.views) == 1
         assert len(config.sources) == 1
         assert len(config.extractors) == 1
         assert len(config.workflows) == 1
@@ -94,7 +94,7 @@ class TestConfigToFactoryIntegration:
         # Verify source content
         src = config.sources[0]
         assert src.dataset == "test_dataset"
-        assert src.selection == "subset"
+        assert src.view == "subset"
 
         # Verify extractor content
         ext = config.extractors[0]
@@ -121,16 +121,16 @@ class TestConfigToFactoryIntegration:
             "  - name: preproc_x\n"
             "    steps:\n"
             "      - step: ToTensor\n"
-            "selections:\n"
+            "views:\n"
             "  - name: sel_1\n"
-            "    steps:\n"
+            "    operations:\n"
             "      - type: Limit\n"
             "        params:\n"
             "          size: 50\n"
             "sources:\n"
             "  - name: src_a\n"
             "    dataset: dataset_a\n"
-            "    selection: sel_1\n"
+            "    view: sel_1\n"
             "  - name: src_b\n"
             "    dataset: dataset_b\n"
             "extractors:\n"

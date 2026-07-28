@@ -170,12 +170,12 @@ class TestRunTask:
         assert dc.extractor.output_name == "layer4"
 
     @patch("dataeval_flow.dataset.load_dataset")
-    def test_run_task_with_selection(self, mock_load_ds: MagicMock):
-        """_run_single_task resolves selection config from source."""
-        from dataeval_flow.config import SelectionConfig, SelectionStep
+    def test_run_task_with_view(self, mock_load_ds: MagicMock):
+        """_run_single_task resolves view config from source."""
+        from dataeval_flow.config import ViewConfig, ViewOperation
 
         ds_config = HuggingFaceDatasetConfig(name="test_ds", path="./test", split="train", task="image_classification")
-        source = SourceConfig(name="src_test", dataset="test_ds", selection="sub")
+        source = SourceConfig(name="src_test", dataset="test_ds", view="sub")
 
         task = TaskConfig(name="test_task", workflow="clean", sources="src_test")
 
@@ -184,8 +184,8 @@ class TestRunTask:
         config.sources = [source]
         config.extractors = None
         config.preprocessors = None
-        config.selections = [
-            SelectionConfig(name="sub", steps=[SelectionStep(type="Limit", params={"size": 100})]),
+        config.views = [
+            ViewConfig(name="sub", operations=[ViewOperation(type="Limit", params={"size": 100})]),
         ]
         config.workflows = [_CLEAN_INSTANCE]
 
@@ -199,9 +199,9 @@ class TestRunTask:
         # Verify selection steps were passed into DatasetContext
         context = mock_wf.execute.call_args[0][0]
         dc = context.dataset_contexts["src_test"]
-        assert len(dc.selection_steps) == 1
-        assert dc.selection_steps[0].type == "Limit"
-        assert dc.selection_steps[0].params == {"size": 100}
+        assert len(dc.view_operations) == 1
+        assert dc.view_operations[0].type == "Limit"
+        assert dc.view_operations[0].params == {"size": 100}
 
     @patch("dataeval_flow.dataset.load_dataset")
     def test_run_task_validates_params(self, mock_load_ds: MagicMock):
@@ -727,12 +727,12 @@ class TestSourceNameKeying:
     @patch("dataeval_flow.dataset.load_dataset")
     def test_two_sources_same_dataset_different_keys(self, mock_load_ds: MagicMock):
         """Two sources referencing the same dataset get distinct context entries."""
-        from dataeval_flow.config import SelectionConfig, SelectionStep
+        from dataeval_flow.config import ViewConfig, ViewOperation
 
         ds = HuggingFaceDatasetConfig(name="cifar", path="./cifar", split="train", task="image_classification")
         src_full = SourceConfig(name="cifar_full", dataset="cifar")
-        src_sub = SourceConfig(name="cifar_sub", dataset="cifar", selection="first_5k")
-        sel = SelectionConfig(name="first_5k", steps=[SelectionStep(type="Limit", params={"size": 5000})])
+        src_sub = SourceConfig(name="cifar_sub", dataset="cifar", view="first_5k")
+        view = ViewConfig(name="first_5k", operations=[ViewOperation(type="Limit", params={"size": 5000})])
 
         task = TaskConfig(name="t", workflow="clean", sources=["cifar_full", "cifar_sub"])
 
@@ -741,7 +741,7 @@ class TestSourceNameKeying:
         config.sources = [src_full, src_sub]
         config.extractors = None
         config.preprocessors = None
-        config.selections = [sel]
+        config.views = [view]
         config.workflows = [_CLEAN_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
@@ -758,8 +758,8 @@ class TestSourceNameKeying:
         assert len(context.dataset_contexts) == 2
 
         # The sub source should have selection steps, the full should not
-        assert context.dataset_contexts["cifar_full"].selection_steps is None
-        assert context.dataset_contexts["cifar_sub"].selection_steps is not None
+        assert context.dataset_contexts["cifar_full"].view_operations is None
+        assert context.dataset_contexts["cifar_sub"].view_operations is not None
 
 
 # ---------------------------------------------------------------------------
@@ -1008,21 +1008,21 @@ class TestBuildResolvedConfig:
         ds_config = cfg["sources"][0]["dataset_config"]
         assert ds_config["name"] == "photos"
 
-    def test_source_with_selection_and_pipeline_config(self):
-        """Source with selection resolves selection config inline (lines 278-280)."""
+    def test_source_with_view_and_pipeline_config(self):
+        """Source with view resolves view config inline (lines 278-280)."""
         from dataeval_flow.config import (
             ImageFolderDatasetConfig,
             PipelineConfig,
-            SelectionConfig,
-            SelectionStep,
             SourceConfig,
+            ViewConfig,
+            ViewOperation,
         )
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
-        sel = SelectionConfig(name="sub", steps=[SelectionStep(type="Limit", params={"size": 100})])
-        source = SourceConfig(name="src", dataset="ds", selection="sub")
-        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source], selections=[sel])
+        view = ViewConfig(name="sub", operations=[ViewOperation(type="Limit", params={"size": 100})])
+        source = SourceConfig(name="src", dataset="ds", view="sub")
+        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source], views=[view])
 
         cfg = _build_resolved_config(
             sources=[source],
@@ -1032,9 +1032,9 @@ class TestBuildResolvedConfig:
         )
 
         entry = cfg["sources"][0]
-        assert entry["selection"] == "sub"
-        assert "selection_config" in entry
-        assert entry["selection_config"]["name"] == "sub"
+        assert entry["view"] == "sub"
+        assert "view_config" in entry
+        assert entry["view_config"]["name"] == "sub"
 
     def test_workflow_instance_included(self):
         """Workflow instance is included when not None (line 285-286)."""
@@ -1086,12 +1086,12 @@ class TestBuildResolvedConfig:
         assert "workflow" not in cfg
         assert "extractor" not in cfg
 
-    def test_source_with_selection_no_pipeline_config(self):
-        """Source with selection but no pipeline_config skips selection_config (line 278->281)."""
+    def test_source_with_view_no_pipeline_config(self):
+        """Source with view but no pipeline_config skips view_config (line 278->281)."""
         from dataeval_flow.config import SourceConfig
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
-        source = SourceConfig(name="src", dataset="ds", selection="sub")
+        source = SourceConfig(name="src", dataset="ds", view="sub")
         cfg = _build_resolved_config(
             sources=[source],
             workflow_instance=None,
@@ -1100,8 +1100,8 @@ class TestBuildResolvedConfig:
         )
 
         entry = cfg["sources"][0]
-        assert entry["selection"] == "sub"
-        assert "selection_config" not in entry
+        assert entry["view"] == "sub"
+        assert "view_config" not in entry
 
 
 # ---------------------------------------------------------------------------
@@ -1124,7 +1124,7 @@ class TestPopulateResultMetadataLabelSource:
             dataset=MagicMock(),
             extractor=None,
             transforms=None,
-            selection_steps=None,
+            view_operations=None,
             batch_size=None,
             label_source=None,
             cache=None,
@@ -1264,7 +1264,7 @@ class TestResolvedDatasetBackfill:
     the inputs that produced the failure.
     """
 
-    def _config(self, ds_names: list[str], selections: Any = None) -> MagicMock:
+    def _config(self, ds_names: list[str], views: Any = None) -> MagicMock:
         config = MagicMock()
         config.datasets = [
             HuggingFaceDatasetConfig(name=n, path=f"./{n}", split="train", task="image_classification")
@@ -1273,7 +1273,7 @@ class TestResolvedDatasetBackfill:
         config.sources = [SourceConfig(name=f"src_{n}", dataset=n) for n in ds_names]
         config.extractors = None
         config.preprocessors = None
-        config.selections = selections
+        config.views = views
         config.workflows = [_CLEAN_INSTANCE]
         return config
 
@@ -1297,15 +1297,15 @@ class TestResolvedDatasetBackfill:
         assert result.dataset is dataset
 
     @patch("dataeval_flow.dataset.load_dataset")
-    def test_backfilled_dataset_is_post_selection(self, mock_load_ds: MagicMock):
-        """The backfill reapplies the source's selection, as the workflow would."""
-        from dataeval_flow.config import SelectionConfig, SelectionStep
+    def test_backfilled_dataset_is_post_view(self, mock_load_ds: MagicMock):
+        """The backfill reapplies the source's view, as the workflow would."""
+        from dataeval_flow.config import ViewConfig, ViewOperation
 
         mock_load_ds.return_value = _TinyDataset(size=4)
         config = self._config(
-            ["ds"], selections=[SelectionConfig(name="lim", steps=[SelectionStep(type="Limit", params={"size": 2})])]
+            ["ds"], views=[ViewConfig(name="lim", operations=[ViewOperation(type="Limit", params={"size": 2})])]
         )
-        config.sources = [SourceConfig(name="src_ds", dataset="ds", selection="lim")]
+        config.sources = [SourceConfig(name="src_ds", dataset="ds", view="lim")]
         task = TaskConfig(name="t", workflow="clean", sources="src_ds")
 
         with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):

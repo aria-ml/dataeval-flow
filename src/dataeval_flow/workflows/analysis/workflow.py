@@ -1170,7 +1170,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
     ) -> WorkflowResult[DataAnalysisMetadata, DataAnalysisOutputs]:
         """Core execution logic after parameter validation."""
         from dataeval_flow.embeddings import build_embeddings
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
         # ── Phase 1: Compute shared data per split ──────────────────
         split_data: dict[str, SplitData] = {}
@@ -1182,8 +1182,8 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
             dataset = dc.dataset
 
             # Apply selection (Limit, Shuffle, ClassFilter, etc.) if configured
-            if dc.selection_steps:
-                dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
+            if dc.view_operations:
+                dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
 
             last_dataset = dataset
             source_datasets[split_name] = dataset

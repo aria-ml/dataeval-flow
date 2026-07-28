@@ -26,7 +26,6 @@ from dataeval_flow.config.schemas._extractor import (
 )
 from dataeval_flow.config.schemas._metadata import ResultMetadata
 from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
-from dataeval_flow.config.schemas._selection import SelectionConfig, SelectionStep
 from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
     DataAnalysisTaskConfig,
@@ -37,6 +36,12 @@ from dataeval_flow.config.schemas._task import (
     OODDetectionTaskConfig,
     ParameterSweepTaskConfig,
     TaskConfig,
+)
+from dataeval_flow.config.schemas._view import (
+    SelectionConfig,
+    SelectionStep,
+    ViewConfig,
+    ViewOperation,
 )
 from dataeval_flow.config.schemas._workflow import (
     DataAnalysisWorkflowConfig,
@@ -112,6 +117,9 @@ __all__ = [
     # Other
     "PreprocessorConfig",
     "ResultMetadata",
+    "ViewConfig",
+    "ViewOperation",
+    # Deprecated aliases (use ViewConfig / ViewOperation)
     "SelectionConfig",
     "SelectionStep",
 ]

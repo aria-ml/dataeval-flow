@@ -39,7 +39,7 @@ __all__ = [
 
 SECTIONS: list[tuple[str, str]] = [
     ("datasets", "Datasets"),
-    ("selections", "Selections"),
+    ("views", "Views"),
     ("sources", "Sources"),
     ("preprocessors", "Preprocessors"),
     ("extractors", "Extractors"),
@@ -130,7 +130,7 @@ VARIANT_REGISTRY, SECTION_MODELS = _build_registries()
 # ---------------------------------------------------------------------------
 
 CROSS_REFS: dict[str, dict[str, str]] = {
-    "sources": {"dataset": "datasets", "selection": "selections"},
+    "sources": {"dataset": "datasets", "view": "views"},
     "tasks": {"workflow": "workflows", "extractor": "extractors"},
     "extractors": {"preprocessor": "preprocessors"},
 }
@@ -140,19 +140,24 @@ MULTI_REF_FIELDS: dict[str, dict[str, str]] = {
 }
 
 # ---------------------------------------------------------------------------
-# Step-builder sections (preprocessors, selections)
+# Step-builder sections (preprocessors, views)
+#
+# ``collection_key`` is the config field holding the ordered list of steps for
+# that section (``steps`` for preprocessors, ``operations`` for views).
 # ---------------------------------------------------------------------------
 
 STEP_BUILDER_SECTIONS: dict[str, dict[str, str]] = {
     "preprocessors": {
+        "collection_key": "steps",
         "step_key": "step",
         "list_fn": "list_transforms",
         "params_fn": "get_transform_params",
     },
-    "selections": {
+    "views": {
+        "collection_key": "operations",
         "step_key": "type",
-        "list_fn": "list_selection_classes",
-        "params_fn": "get_selection_params",
+        "list_fn": "list_view_operations",
+        "params_fn": "get_view_operation_params",
     },
 }
 
@@ -220,7 +225,7 @@ def _build_skip_set(section: str, *, skip_name: bool) -> set[str]:
     if section == "workflows":
         skip.update(WORKFLOW_SKIP_FIELDS)
     if section in STEP_BUILDER_SECTIONS:
-        skip.add("steps")
+        skip.add(STEP_BUILDER_SECTIONS[section]["collection_key"])
     return skip
 
 

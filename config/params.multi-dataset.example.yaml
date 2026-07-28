@@ -2,7 +2,7 @@
 # Multi-Dataset Workflow Configuration Example
 # =============================================================================
 # Demonstrates how to configure multiple datasets with independent
-# extractors, preprocessors, and selections using the
+# extractors, preprocessors, and views using the
 # sources/extractors composition pattern.
 #
 # yaml-language-server: $schema=params.schema.json
@@ -61,17 +61,17 @@ preprocessors:
           size: [32, 32]
 
 # -----------------------------------------------------------------------------
-# SELECTIONS
+# VIEWS
 # -----------------------------------------------------------------------------
-selections:
+views:
   - name: first_5k
-    steps:
+    operations:
       - type: Limit
         params:
           size: 5000
 
 # -----------------------------------------------------------------------------
-# SOURCES — Dataset + optional selection bundles
+# SOURCES — Dataset + optional view bundles
 # -----------------------------------------------------------------------------
 sources:
   - name: cifar10_train_full
@@ -82,7 +82,7 @@ sources:
 
   - name: cifar10_train_5k
     dataset: cifar10_train
-    selection: first_5k
+    view: first_5k
 
   - name: raw_photos_full
     dataset: raw-photos

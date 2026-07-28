@@ -10,8 +10,8 @@ import pytest
 
 import dataeval_flow.embeddings
 import dataeval_flow.metadata
-import dataeval_flow.selection  # noqa: F401
-from dataeval_flow.config import OnnxExtractorConfig, SelectionStep
+import dataeval_flow.view  # noqa: F401
+from dataeval_flow.config import OnnxExtractorConfig, ViewOperation
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.cleaning.outputs import (
     DataCleaningMetadata,
@@ -399,26 +399,26 @@ class TestDataCleaningWorkflowExecute:
 
     @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_flow.metadata.Metadata")
-    @patch("dataeval_flow.selection.Select")
-    @patch("dataeval_flow.selection.sel")
-    def test_with_selection(
+    @patch("dataeval_flow.view.View")
+    @patch("dataeval_flow.view.ddata")
+    def test_with_view(
         self,
-        mock_sel_module: MagicMock,
-        mock_select_cls: MagicMock,
+        mock_data_module: MagicMock,
+        mock_view_cls: MagicMock,
         mock_meta_cls: MagicMock,
         mock_run_clean: MagicMock,
     ):
         wf = DataCleaningWorkflow()
         mock_dataset = MagicMock()
         selected_dataset = MagicMock()
-        mock_select_cls.return_value = selected_dataset
+        mock_view_cls.return_value = selected_dataset
 
         ctx = WorkflowContext(
             dataset_contexts={
                 "default": DatasetContext(
                     name="default",
                     dataset=mock_dataset,
-                    selection_steps=[SelectionStep(type="Limit", params={"size": 50})],
+                    view_operations=[ViewOperation(type="Limit", params={"size": 50})],
                 )
             }
         )
@@ -428,8 +428,8 @@ class TestDataCleaningWorkflowExecute:
 
         result = wf.execute(ctx, self._make_exec_params())
         assert result.success
-        mock_select_cls.assert_called_once()
-        # _run_cleaning should receive the selected dataset
+        mock_view_cls.assert_called_once()
+        # _run_cleaning should receive the view-wrapped dataset
         assert mock_run_clean.call_args[0][0] is selected_dataset
 
     @patch("dataeval_flow.workflows.cleaning.workflow.get_or_compute_metadata")
@@ -865,10 +865,11 @@ class TestComputeEmbeddings:
         import types
 
         # Stub the lazy-imported module
-        arrays_mod = types.ModuleType("dataeval.utils.arrays")
+        original = sys.modules.get("dataeval.utils._internal")
+        arrays_mod = types.ModuleType("dataeval.utils._internal")
         arrays_mod.flatten_samples = lambda x: x  # type: ignore[attr-defined]
         arrays_mod.to_numpy = lambda x: x  # type: ignore[attr-defined]
-        sys.modules["dataeval.utils.arrays"] = arrays_mod
+        sys.modules["dataeval.utils._internal"] = arrays_mod
         try:
             dataset = [(np.zeros((3, 32, 32))), (np.zeros((3, 32, 32)))]
             extractor = MagicMock(return_value=np.zeros((2, 64)))
@@ -877,7 +878,10 @@ class TestComputeEmbeddings:
             assert result is not None
             extractor.assert_called_once()
         finally:
-            sys.modules.pop("dataeval.utils.arrays", None)
+            if original is not None:
+                sys.modules["dataeval.utils._internal"] = original
+            else:
+                sys.modules.pop("dataeval.utils._internal", None)
 
 
 # ---------------------------------------------------------------------------

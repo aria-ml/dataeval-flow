@@ -125,13 +125,13 @@ class ParameterSweepWorkflow(WorkflowProtocol[ParameterSweepMetadata, ParameterS
         self, context: WorkflowContext, params: ParameterSweepParameters
     ) -> WorkflowResult[ParameterSweepMetadata, ParameterSweepOutputs]:
         from dataeval_flow.cache import selection_repr as _sel_repr
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
         # Parameter Sweep is single-dataset
         dc = next(iter(context.dataset_contexts.values()))
         dataset = dc.dataset
-        if dc.selection_steps:
-            dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
+        if dc.view_operations:
+            dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
 
         sel_key = _sel_repr(dataset)
         outlier_flags, hash_flags = _resolve_flags(params)

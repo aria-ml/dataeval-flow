@@ -854,12 +854,12 @@ class TestGetEmbeddingsWithCache:
 
 
 # ---------------------------------------------------------------------------
-# _execute — selection_steps branches
+# _execute — view_operations branches
 # ---------------------------------------------------------------------------
 
 
 class TestDriftExecuteSelections:
-    @patch("dataeval_flow.selection.build_selection")
+    @patch("dataeval_flow.view.build_view")
     def test_selection_applied_to_ref_and_test(self, mock_build_sel):
         """Lines 737, 744: build_selection called for ref and test datasets."""
         mock_build_sel.side_effect = lambda ds, _steps: ds  # passthrough
@@ -874,13 +874,13 @@ class TestDriftExecuteSelections:
             name="ref",
             dataset=ref_ds,
             extractor=MagicMock(),
-            selection_steps=[MagicMock()],
+            view_operations=[MagicMock()],
         )
         test_dc = DatasetContext(
             name="test",
             dataset=test_ds,
             extractor=MagicMock(),
-            selection_steps=[MagicMock()],
+            view_operations=[MagicMock()],
         )
         ctx = WorkflowContext(dataset_contexts={"ref": ref_dc, "test": test_dc})
         params = _make_params()

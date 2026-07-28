@@ -35,12 +35,15 @@ _logger = logging.getLogger(__name__)
 
 
 def _strip_empty_params(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove empty ``params`` dicts from step lists."""
+    """Remove empty ``params`` dicts from step lists (``steps`` or ``operations``)."""
     cleaned: list[dict[str, Any]] = []
     for item in items:
         item = dict(item)
-        if "steps" in item:
-            item["steps"] = [{k: v for k, v in s.items() if k != "params" or v} for s in item["steps"]]
+        for collection_key in ("steps", "operations"):
+            if collection_key in item:
+                item[collection_key] = [
+                    {k: v for k, v in s.items() if k != "params" or v} for s in item[collection_key]
+                ]
         cleaned.append(item)
     return cleaned
 
@@ -134,7 +137,7 @@ class ConfigState:
         for section in SECTION_KEYS:
             items = self._data[section]
             if items:
-                if section in ("preprocessors", "selections"):
+                if section in ("preprocessors", "views"):
                     items = _strip_empty_params(items)
                 result[section] = items
         return result
@@ -247,8 +250,8 @@ class ConfigState:
 
         if section == "datasets":
             warnings.extend(self._scrub_comp("sources", "dataset", removed_name, required=True))
-        elif section == "selections":
-            warnings.extend(self._scrub_comp("sources", "selection", removed_name, required=False))
+        elif section == "views":
+            warnings.extend(self._scrub_comp("sources", "view", removed_name, required=False))
         elif section == "preprocessors":
             warnings.extend(self._scrub_comp("extractors", "preprocessor", removed_name, required=False))
 

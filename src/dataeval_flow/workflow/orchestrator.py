@@ -111,7 +111,7 @@ def _run_single_task(
     """
     from dataeval_flow.cache import DatasetCache
     from dataeval_flow.config._models import SourceConfig
-    from dataeval_flow.config.schemas import ExtractorConfig, PreprocessorConfig, SelectionConfig
+    from dataeval_flow.config.schemas import ExtractorConfig, PreprocessorConfig, ViewConfig
     from dataeval_flow.dataset import resolve_dataset
     from dataeval_flow.preprocessing import build_preprocessing
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
@@ -150,11 +150,11 @@ def _run_single_task(
         resolved = resolve_dataset(ds_config, data_dir=data_dir)
         dataset_names.append(source.dataset)
 
-        # Resolve selection from source (optional)
-        selection_steps = None
-        if source.selection is not None:
-            sel_config: SelectionConfig = _resolve_by_name(config.selections, source.selection, "selection")
-            selection_steps = sel_config.steps
+        # Resolve view from source (optional)
+        view_operations = None
+        if source.view is not None:
+            view_config: ViewConfig = _resolve_by_name(config.views, source.view, "view")
+            view_operations = view_config.operations
 
         # Build per-dataset cache
         ds_cache = DatasetCache.get_or_create(
@@ -168,7 +168,7 @@ def _run_single_task(
             dataset=resolved.dataset,
             extractor=extractor_cfg,
             transforms=transforms,
-            selection_steps=selection_steps,
+            view_operations=view_operations,
             batch_size=batch_size,
             label_source=resolved.label_source,
             cache=ds_cache,
@@ -237,14 +237,14 @@ def _ensure_result_datasets(
     if not (needs_dataset or needs_sources):
         return
 
-    from dataeval_flow.selection import build_selection
+    from dataeval_flow.view import build_view
 
     resolved: dict[str, Any] = {}
     for name, dc in dataset_contexts.items():
         dataset = dc.dataset
-        if dc.selection_steps:
+        if dc.view_operations:
             try:
-                dataset = build_selection(dataset, list(dc.selection_steps))
+                dataset = build_view(dataset, list(dc.view_operations))
             except Exception:  # noqa: BLE001 — fall back to the unselected dataset
                 _logger.debug("Could not rebuild selection for source '%s'", name, exc_info=True)
         resolved[name] = dataset
@@ -273,16 +273,16 @@ def _populate_result_metadata(
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
 
-    # Source context — selection info
-    selection_names = [s.selection for s in sources if s.selection is not None]
-    if selection_names:
-        result.metadata.selection_id = selection_names[0] if len(selection_names) == 1 else ",".join(selection_names)
+    # Source context — view info
+    view_names = [s.view for s in sources if s.view is not None]
+    if view_names:
+        result.metadata.selection_id = view_names[0] if len(view_names) == 1 else ",".join(view_names)
 
-    # Build human-readable source descriptions: "src_name (dataset[selection])"
+    # Build human-readable source descriptions: "src_name (dataset[view])"
     source_descs: list[str] = []
     for src in sources:
-        if src.selection is not None:
-            source_descs.append(f"{src.name} ({src.dataset}[{src.selection}])")
+        if src.view is not None:
+            source_descs.append(f"{src.name} ({src.dataset}[{src.view}])")
         else:
             source_descs.append(f"{src.name} ({src.dataset})")
     result.metadata.source_descriptions = source_descs
@@ -314,7 +314,7 @@ def _build_resolved_config(
     """Build a fully resolved config dict for report traceability."""
     cfg: dict[str, Any] = {}
 
-    # Sources — expand dataset and selection configs inline
+    # Sources — expand dataset and view configs inline
     source_entries: list[dict[str, Any]] = []
     for src in sources:
         entry: dict[str, Any] = {"name": src.name, "dataset": src.dataset}
@@ -331,11 +331,11 @@ def _build_resolved_config(
                     "id": getattr(runtime_obj, "metadata", {}).get("id", "unknown"),
                 }
                 entry["dataset_config"] = dumped
-        if src.selection is not None:
-            entry["selection"] = src.selection
+        if src.view is not None:
+            entry["view"] = src.view
             if pipeline_config is not None:
-                sel = _resolve_by_name(pipeline_config.selections, src.selection, "selection")
-                entry["selection_config"] = sel.model_dump(mode="json")
+                view = _resolve_by_name(pipeline_config.views, src.view, "view")
+                entry["view_config"] = view.model_dump(mode="json")
         source_entries.append(entry)
     cfg["sources"] = source_entries
 

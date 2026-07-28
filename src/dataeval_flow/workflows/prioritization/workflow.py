@@ -407,7 +407,7 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
         dc_items: list[tuple[str, DatasetContext]],
     ) -> tuple[DatasetContext, AnnotatedDataset[Any], list[tuple[str, DatasetContext, AnnotatedDataset[Any]]]]:
         """Identify reference vs additional datasets and apply selections."""
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
         ref_name, ref_dc = dc_items[0]
         add_contexts = dc_items[1:]
@@ -419,14 +419,14 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
         )
 
         ref_dataset: AnnotatedDataset[Any] = ref_dc.dataset
-        if ref_dc.selection_steps:
-            ref_dataset = build_selection(ref_dataset, ref_dc.selection_steps)  # type: ignore[arg-type]
+        if ref_dc.view_operations:
+            ref_dataset = build_view(ref_dataset, ref_dc.view_operations)  # type: ignore[arg-type]
 
         add_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]] = []
         for a_name, a_dc in add_contexts:
             a_ds = a_dc.dataset
-            if a_dc.selection_steps:
-                a_ds = build_selection(a_ds, a_dc.selection_steps)  # type: ignore[arg-type]
+            if a_dc.view_operations:
+                a_ds = build_view(a_ds, a_dc.view_operations)  # type: ignore[arg-type]
             add_datasets.append((a_name, a_dc, a_ds))
 
         return ref_dc, ref_dataset, add_datasets

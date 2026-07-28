@@ -97,7 +97,7 @@ class TestGetFields:
     def test_source_fields_with_cross_refs(self):
         state = ConfigState()
         state.add("datasets", {"name": "ds1", "format": "huggingface", "path": "data"})
-        state.add("selections", {"name": "sel1", "steps": [{"type": "Limit", "params": {"size": 100}}]})
+        state.add("views", {"name": "sel1", "operations": [{"type": "Limit", "params": {"size": 100}}]})
 
         fields = get_fields("sources", None, state)
         names = {f.name: f for f in fields}
@@ -105,9 +105,9 @@ class TestGetFields:
         assert names["dataset"].kind == FieldKind.SELECT
         assert "ds1" in names["dataset"].choices
 
-        assert "selection" in names
-        assert names["selection"].kind == FieldKind.SELECT
-        assert "sel1" in names["selection"].choices
+        assert "view" in names
+        assert names["view"].kind == FieldKind.SELECT
+        assert "sel1" in names["view"].choices
 
     def test_task_fields_multi_ref(self):
         state = ConfigState()
@@ -269,8 +269,8 @@ class TestConfigState:
         state = ConfigState()
         state.add("datasets", {"name": "ds1", "format": "huggingface", "path": "data/ds1"})
         state.add("datasets", {"name": "ds2", "format": "coco", "path": "data/ds2"})
-        state.add("selections", {"name": "sel1", "steps": [{"type": "Limit", "params": {"size": 100}}]})
-        state.add("sources", {"name": "src1", "dataset": "ds1", "selection": "sel1"})
+        state.add("views", {"name": "sel1", "operations": [{"type": "Limit", "params": {"size": 100}}]})
+        state.add("sources", {"name": "src1", "dataset": "ds1", "view": "sel1"})
         state.add(
             "workflows",
             {"name": "wf1", "type": "data-cleaning", "outlier_method": "adaptive", "outlier_flags": ["dimension"]},
@@ -329,14 +329,14 @@ class TestConfigState:
         # Task that depended on the source should also be removed
         assert state.count("tasks") == 0
 
-    def test_remove_selection_scrubs_source_field(self):
+    def test_remove_view_scrubs_source_field(self):
         state = self._sample_state()
-        name, warnings = state.remove("selections", 0)  # remove sel1
+        name, warnings = state.remove("views", 0)  # remove sel1
         assert name == "sel1"
-        # Source still exists but selection field is gone
+        # Source still exists but view field is gone
         src = state.get("sources", 0)
         assert src is not None
-        assert "selection" not in src
+        assert "view" not in src
 
     def test_remove_workflow_scrubs_tasks(self):
         state = self._sample_state()
@@ -464,7 +464,7 @@ class TestConstants:
         assert set(SECTION_KEYS) == {
             "datasets",
             "preprocessors",
-            "selections",
+            "views",
             "sources",
             "extractors",
             "workflows",
@@ -480,7 +480,7 @@ class TestConstants:
         assert "extractors" in CROSS_REFS
 
     def test_step_builder_sections(self):
-        assert set(STEP_BUILDER_SECTIONS) == {"preprocessors", "selections"}
+        assert set(STEP_BUILDER_SECTIONS) == {"preprocessors", "views"}
 
 
 # ---------------------------------------------------------------------------

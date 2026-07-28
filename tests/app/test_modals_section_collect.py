@@ -53,10 +53,10 @@ class TestSectionModalCompose:
             assert modal.query_one("#btn-modal-add-step", Button)
             assert not modal.query("#md-fields")
 
-    async def test_compose_selections_step_builder(self) -> None:
+    async def test_compose_views_step_builder(self) -> None:
         app = _MinimalApp()
         async with app.run_test(size=(100, 40)) as pilot:
-            modal = SectionModal(section="selections", state=ConfigState())
+            modal = SectionModal(section="views", state=ConfigState())
             await app.push_screen(modal)
             await pilot.pause()
             assert modal.query_one("#modal-step-list", Vertical)

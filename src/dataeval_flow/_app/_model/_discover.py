@@ -1,7 +1,7 @@
-"""Runtime discovery of available transforms and selection classes.
+"""Runtime discovery of available transforms and view operation classes.
 
 Introspects dataeval_flow.preprocessors, torchvision.transforms.v2, and
-dataeval.selection to provide dropdown options and parameter schemas for the
+dataeval.data to provide dropdown options and parameter schemas for the
 builder TUI.
 """
 
@@ -18,7 +18,7 @@ from typing import Any, get_args, get_origin
 
 @dataclass
 class ParamInfo:
-    """Describes a single constructor parameter for a transform or selection class."""
+    """Describes a single constructor parameter for a transform or view operation class."""
 
     name: str
     type_hint: str  # human-readable type string
@@ -138,23 +138,20 @@ def list_transforms() -> list[str]:
 
 
 @lru_cache(maxsize=1)
-def list_selection_classes() -> list[str]:
-    """Return sorted names of available dataeval.selection classes."""
-    from dataeval import selection
-    from dataeval.selection._select import Selection
+def list_view_operations() -> list[str]:
+    """Return sorted names of available dataeval.data view operation classes."""
+    from dataeval import data
+    from dataeval.data import Operation
 
-    skip = {"Selection", "Subselection", "SelectionStage", "Select"}
     names = []
-    for name, obj in inspect.getmembers(selection):
-        if (
-            inspect.isclass(obj)
-            and not name.startswith("_")
-            and name not in skip
-            and issubclass(obj, Selection)
-            and obj is not Selection
-        ):
+    for name, obj in inspect.getmembers(data):
+        if inspect.isclass(obj) and not name.startswith("_") and issubclass(obj, Operation) and obj is not Operation:
             names.append(name)
     return sorted(names)
+
+
+# Deprecated alias retained for backward compatibility; use list_view_operations.
+list_selection_classes = list_view_operations
 
 
 @lru_cache(maxsize=64)
@@ -175,11 +172,15 @@ def get_transform_params(name: str) -> list[ParamInfo]:
 
 
 @lru_cache(maxsize=64)
-def get_selection_params(name: str) -> list[ParamInfo]:
-    """Get parameter info for a dataeval.selection class."""
-    from dataeval import selection
+def get_view_operation_params(name: str) -> list[ParamInfo]:
+    """Get parameter info for a dataeval.data view operation class."""
+    from dataeval import data
 
-    cls = getattr(selection, name, None)
+    cls = getattr(data, name, None)
     if cls is None:
         return []
     return _introspect_params(cls)
+
+
+# Deprecated alias retained for backward compatibility; use get_view_operation_params.
+get_selection_params = get_view_operation_params

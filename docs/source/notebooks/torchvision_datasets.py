@@ -40,10 +40,10 @@ from dataeval_flow.config import (
     DataCleaningWorkflowConfig,
     DatasetProtocolConfig,
     PipelineConfig,
-    SelectionConfig,
-    SelectionStep,
     SourceConfig,
     TaskConfig,
+    ViewConfig,
+    ViewOperation,
 )
 from dataeval_flow.workflow import run_tasks
 
@@ -53,8 +53,8 @@ tv_dataset = FashionMNIST(root="./data", train=True, download=True)
 # %%
 # 2. Build the full pipeline config (using a small subset for speed)
 datasets = [DatasetProtocolConfig(name="fmnist-train", format="torchvision", dataset=tv_dataset)]
-selections = [SelectionConfig(name="first500", steps=[SelectionStep(type="Limit", params={"size": 500})])]
-sources = [SourceConfig(name="fmnist-src", dataset="fmnist-train", selection="first500")]
+views = [ViewConfig(name="first500", operations=[ViewOperation(type="Limit", params={"size": 500})])]
+sources = [SourceConfig(name="fmnist-src", dataset="fmnist-train", view="first500")]
 extractors = [BoVWExtractorConfig(name="bovw", vocab_size=512, batch_size=64)]
 
 workflows = [
@@ -76,7 +76,7 @@ tasks = [
 
 config = PipelineConfig(
     datasets=datasets,
-    selections=selections,
+    views=views,
     sources=sources,
     extractors=extractors,
     workflows=workflows,

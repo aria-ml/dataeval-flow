@@ -32,7 +32,7 @@ class TestPipInstall:
             "dataeval_flow.preprocessing",
             "dataeval_flow.embeddings",
             "dataeval_flow.metadata",
-            "dataeval_flow.selection",
+            "dataeval_flow.view",
         ):
             assert importlib.import_module(name) is not None
 

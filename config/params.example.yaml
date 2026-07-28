@@ -10,8 +10,8 @@
 # Configuration follows a define-once, reference-by-name pattern:
 #
 #   datasets:      → named dataset definitions
-#   selections:    → named selection pipelines
-#   sources:       → dataset + optional selection bundles
+#   views:         → named view (dataset operation) pipelines
+#   sources:       → dataset + optional view bundles
 #   preprocessors: → named preprocessing pipelines
 #   extractors:    → model + optional preprocessor + batch_size bundles
 #   workflows:     → named workflow instances (type + params)
@@ -90,19 +90,19 @@
 #           std: [0.229, 0.224, 0.225]
 
 # -----------------------------------------------------------------------------
-# SELECTIONS (optional)
+# VIEWS (optional)
 # -----------------------------------------------------------------------------
-# Named selection pipelines. Sources reference these by name.
+# Named view pipelines (dataset operations). Sources reference these by name.
 #
-# selections:
+# views:
 #   - name: training_subset
-#     steps:
+#     operations:
 #       - type: Limit
 #         params:
 #           size: 10000
 
 # -----------------------------------------------------------------------------
-# SOURCES — Dataset + optional selection
+# SOURCES — Dataset + optional view
 # -----------------------------------------------------------------------------
 # Named source bundles. Tasks reference these by name.
 #
@@ -112,7 +112,7 @@
 #
 #   - name: my_dataset_subset
 #     dataset: my-dataset
-#     selection: training_subset
+#     view: training_subset
 
 # -----------------------------------------------------------------------------
 # EXTRACTORS — Model + optional preprocessor + batch_size

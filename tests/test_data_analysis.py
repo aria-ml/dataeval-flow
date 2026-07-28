@@ -9,7 +9,7 @@ import pytest
 from dataeval.core import LabelStatsResult, StatsResult
 from pydantic import ValidationError
 
-from dataeval_flow.config.schemas import SelectionStep
+from dataeval_flow.config.schemas import ViewOperation
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.analysis.outputs import (
     BiasResult,
@@ -1488,14 +1488,14 @@ class TestWorkflowRun:
         assert result.success is True
         mock_build_emb.assert_called_once()
 
-    @patch("dataeval_flow.selection.build_selection")
+    @patch("dataeval_flow.view.build_view")
     @patch(f"{_WF}._assess_bias")
     @patch(f"{_WF}._assess_label_health")
     @patch(f"{_WF}._assess_redundancy")
     @patch(f"{_WF}._assess_image_quality")
     @patch(f"{_WF}._compute_split_data")
-    def test_with_selection_steps(self, mock_compute, mock_iq, mock_rd, mock_lh, mock_bias, mock_build_sel):
-        """selection_steps on DatasetContext triggers build_selection (line 1186)."""
+    def test_with_view_operations(self, mock_compute, mock_iq, mock_rd, mock_lh, mock_bias, mock_build_sel):
+        """view_operations on DatasetContext triggers build_selection (line 1186)."""
         mock_selected = MagicMock(__len__=MagicMock(return_value=50))
         mock_build_sel.return_value = mock_selected
         mock_compute.return_value = MagicMock(dataset_len=50)
@@ -1506,8 +1506,8 @@ class TestWorkflowRun:
 
         wf = DataAnalysisWorkflow()
         ds = MagicMock(__len__=MagicMock(return_value=100))
-        steps = [SelectionStep(type="Limit", params={"size": 50})]
-        dc = DatasetContext(name="train", dataset=ds, selection_steps=steps)
+        steps = [ViewOperation(type="Limit", params={"size": 50})]
+        dc = DatasetContext(name="train", dataset=ds, view_operations=steps)
         ctx = WorkflowContext(dataset_contexts={"train": dc})
 
         result = wf.execute(ctx, _make_params())
