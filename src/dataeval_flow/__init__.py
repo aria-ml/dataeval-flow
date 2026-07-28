@@ -44,6 +44,8 @@ from dataeval_flow.config import (
     TaskConfig,
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
+    ViewConfig,
+    ViewOperation,
     YoloDatasetConfig,
     export_params_schema,
     load_config,
@@ -84,6 +86,9 @@ __all__ = [
     # --- Composition ---
     "SourceConfig",
     "PreprocessorConfig",
+    "ViewConfig",
+    "ViewOperation",
+    # Deprecated aliases (use ViewConfig / ViewOperation)
     "SelectionConfig",
     "SelectionStep",
     # --- Utilities ---

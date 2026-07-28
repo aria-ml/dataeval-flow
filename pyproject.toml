@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    "dataeval==1.0.6",
+    "dataeval==1.1.0-rc1",
     "datamaite[ic,od]==0.3.0",
     "numpy>=1.24.2",
     "pydantic>=2.0",
@@ -205,6 +205,7 @@ torchvision = { version = ">=0.17.0", source = "pytorch-cpu", optional = true }
 
 [tool.pyproject2conda.dependencies]
 # `datamaite` is pinned to an unreleased git commit; conda has no git resolver.
+dataeval = { skip = true, packages = "dataeval==1.1.0rc1" }
 datamaite = { pip = true }
 
 # --- Build System ---

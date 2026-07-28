@@ -1,14 +1,15 @@
 """Tests for workflow/__init__.py — WorkflowResult.report(), .export(), and discovery helpers."""
 
 import json
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
 
-from dataeval_flow.config import ResultMetadata
-from dataeval_flow.workflow import WorkflowResult, _source_lines, get_workflow, list_workflows
+from dataeval_flow.config import ResultMetadata, ViewOperation
+from dataeval_flow.workflow import DatasetContext, WorkflowResult, _source_lines, get_workflow, list_workflows
 from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
 
 # ---------------------------------------------------------------------------
@@ -550,6 +551,50 @@ class TestWorkflowDiscovery:
         for w in workflows:
             assert "name" in w
             assert "description" in w
+
+
+# ---------------------------------------------------------------------------
+# DatasetContext — deprecated selection_steps → view_operations migration
+# ---------------------------------------------------------------------------
+
+
+class TestDatasetContextViewOperations:
+    _OPS = [ViewOperation(type="Limit", params={"size": 5})]
+
+    def test_view_operations_no_warning(self):
+        """Passing view_operations directly stores them and fires no warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any warning becomes a test failure
+            ctx = DatasetContext(name="s", dataset=object(), view_operations=self._OPS)  # type: ignore
+        assert ctx.view_operations == self._OPS
+
+    def test_selection_steps_warns_and_populates(self):
+        """Deprecated selection_steps warns and is copied into view_operations."""
+        with pytest.warns(DeprecationWarning, match="selection_steps.*deprecated"):
+            ctx = DatasetContext(name="s", dataset=object(), selection_steps=self._OPS)  # type: ignore
+        assert ctx.view_operations == self._OPS
+        # InitVar is not stored on the instance — the passed value lives only in
+        # view_operations, so the two can never drift.
+        assert "selection_steps" not in vars(ctx)
+
+    def test_view_operations_wins_when_both_given(self):
+        """view_operations takes precedence; selection_steps is ignored but still warns."""
+        new_ops = [ViewOperation(type="Shuffle", params={})]
+        with pytest.warns(DeprecationWarning, match="selection_steps.*deprecated"):
+            ctx = DatasetContext(
+                name="s",
+                dataset=object(),  # type: ignore
+                view_operations=new_ops,
+                selection_steps=self._OPS,
+            )
+        assert ctx.view_operations == new_ops
+
+    def test_no_view_no_warning(self):
+        """Omitting both leaves view_operations as None with no warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            ctx = DatasetContext(name="s", dataset=object())  # type: ignore
+        assert ctx.view_operations is None
 
 
 # ---------------------------------------------------------------------------

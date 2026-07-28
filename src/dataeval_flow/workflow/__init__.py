@@ -11,8 +11,9 @@ __all__ = [
     "run_tasks",
 ]
 
+import warnings
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
 
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
 
     from dataeval_flow.cache import DatasetCache
-    from dataeval_flow.config.schemas import ExtractorConfig, ResultMetadata, SelectionStep
+    from dataeval_flow.config.schemas import ExtractorConfig, ResultMetadata, ViewOperation
 
 
 @dataclass
@@ -41,10 +42,22 @@ class DatasetContext:
     dataset: "AnnotatedDataset[Any]"
     extractor: "ExtractorConfig | None" = None
     transforms: Callable | None = None
-    selection_steps: "Sequence[SelectionStep] | None" = None
+    view_operations: "Sequence[ViewOperation] | None" = None
     batch_size: int | None = None
     label_source: str | None = None
     cache: "DatasetCache | None" = None
+    selection_steps: "InitVar[Sequence[ViewOperation] | None]" = None  # deprecated
+
+    def __post_init__(self, selection_steps: "Sequence[ViewOperation] | None" = None) -> None:
+        """Validate that the deprecated selection_steps parameter warns on use"""
+        if selection_steps is not None:
+            warnings.warn(
+                "DatasetContext(selection_steps=...) is deprecated; use view_operations instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            if self.view_operations is None:
+                self.view_operations = selection_steps
 
 
 @dataclass

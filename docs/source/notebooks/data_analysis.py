@@ -154,9 +154,9 @@ from dataeval_flow.config import (
     DataAnalysisWorkflowConfig,
     HuggingFaceDatasetConfig,
     PipelineConfig,
-    SelectionConfig,
-    SelectionStep,
     SourceConfig,
+    ViewConfig,
+    ViewOperation,
 )
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds
@@ -191,15 +191,15 @@ config = PipelineConfig(
         HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), split="train", task="object_detection"),
         HuggingFaceDatasetConfig(name="cppe5_test", path=str(data_path), split="test", task="object_detection"),
     ],
-    selections=[
-        SelectionConfig(name="trn-500", steps=[SelectionStep(type="Limit", params={"size": 500})]),
-        SelectionConfig(
-            name="val-50", steps=[SelectionStep(type="Indices", params={"indices": {"start": 500, "stop": 550}})]
+    views=[
+        ViewConfig(name="trn-500", operations=[ViewOperation(type="Limit", params={"size": 500})]),
+        ViewConfig(
+            name="val-50", operations=[ViewOperation(type="Indices", params={"indices": {"start": 500, "stop": 550}})]
         ),
     ],
     sources=[
-        SourceConfig(name="cppe5_trn_src", dataset="cppe5_train", selection="trn-500"),
-        SourceConfig(name="cppe5_val_src", dataset="cppe5_train", selection="val-50"),
+        SourceConfig(name="cppe5_trn_src", dataset="cppe5_train", view="trn-500"),
+        SourceConfig(name="cppe5_val_src", dataset="cppe5_train", view="val-50"),
         SourceConfig(name="cppe5_tst_src", dataset="cppe5_test"),
     ],
     workflows=[analysis_workflow],

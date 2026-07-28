@@ -421,7 +421,7 @@ class TestSectionViewModel:
         assert not vm.is_edit_mode
 
     def test_init_step_builder(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         assert vm.is_step_builder is True
 
     def test_init_with_existing(self) -> None:
@@ -432,8 +432,8 @@ class TestSectionViewModel:
         assert vm.is_edit_mode
 
     def test_init_step_builder_with_existing(self) -> None:
-        existing = {"name": "sel1", "steps": [{"type": "Shuffle", "params": {"seed": 42}}]}
-        vm = SectionViewModel("selections", existing=existing)
+        existing = {"name": "sel1", "operations": [{"type": "Shuffle", "params": {"seed": 42}}]}
+        vm = SectionViewModel("views", existing=existing)
         assert len(vm.steps) == 1
         assert vm.steps[0] == {"type": "Shuffle", "params": {"seed": 42}}
 
@@ -448,20 +448,20 @@ class TestSectionViewModel:
         assert vm.disc_field == "format"
 
     def test_step_choices(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         choices = vm.init_step_builder()
         assert len(choices) > 0
         assert "Shuffle" in choices
         assert vm.step_choices == choices
 
     def test_get_step_params(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         vm.init_step_builder()
         params = vm.get_step_params("Shuffle")
         assert len(params) > 0
 
     def test_add_remove_step(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         msg = vm.add_step("Shuffle", {"seed": 42})
         assert "Added step 'Shuffle'" in msg
         assert len(vm.steps) == 1
@@ -472,7 +472,7 @@ class TestSectionViewModel:
         assert not vm.remove_step(0)
 
     def test_step_display_lines_no_params(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         vm.add_step("all", {})
         assert vm.step_display_lines() == ["1. all"]
 
@@ -504,7 +504,7 @@ class TestSectionViewModel:
         assert vm.build_result("ds1", None, {}) is None  # Needs variant
 
     def test_build_result_step_builder_invalid(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         assert vm.build_result("sel1", None, {}) is None  # No steps
 
     def test_build_result_valid(self) -> None:
@@ -513,10 +513,10 @@ class TestSectionViewModel:
         assert result == {"name": "ds1", "format": "huggingface", "path": "foo"}
 
     def test_build_result_step_builder_valid(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         vm.add_step("Shuffle", {"seed": 42})
         result = vm.build_result("sel1", None, {})
-        assert result == {"name": "sel1", "steps": [{"type": "Shuffle", "params": {"seed": 42}}]}
+        assert result == {"name": "sel1", "operations": [{"type": "Shuffle", "params": {"seed": 42}}]}
 
     def test_check_dirty(self) -> None:
         vm = SectionViewModel("datasets")
@@ -535,7 +535,7 @@ class TestSectionViewModel:
         assert len(msg) > 0
 
     def test_get_step_params_no_init(self) -> None:
-        vm = SectionViewModel("selections")
+        vm = SectionViewModel("views")
         # No init_step_builder called
         assert vm.get_step_params("Shuffle") == []
 

@@ -215,7 +215,7 @@ def _prompt_nested_model(desc: FieldDescriptor, existing: Any) -> dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
-# Step builder (preprocessors / selections)
+# Step builder (preprocessors / views)
 # ---------------------------------------------------------------------------
 
 
@@ -290,7 +290,7 @@ def _steps_add(steps: list[dict[str, Any]], step_key: str, sec_vm: Any) -> None:
 
 
 def _prompt_steps(sec_vm: Any, existing_steps: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """Interactive step builder for preprocessor/selection pipelines."""
+    """Interactive step builder for preprocessor/view pipelines."""
     from dataeval_flow._app._model._registry import STEP_BUILDER_SECTIONS
 
     spec = STEP_BUILDER_SECTIONS[sec_vm.section]
@@ -360,7 +360,10 @@ def _prompt_item(
 
     # Step-builder sections
     if sec_vm.is_step_builder:
-        existing_steps = existing.get("steps", []) if existing else []
+        from dataeval_flow._app._model._registry import STEP_BUILDER_SECTIONS
+
+        collection_key = STEP_BUILDER_SECTIONS[section]["collection_key"]
+        existing_steps = existing.get(collection_key, []) if existing else []
         steps = _prompt_steps(sec_vm, existing_steps)
         if not steps:
             click.echo("At least one step is required.")

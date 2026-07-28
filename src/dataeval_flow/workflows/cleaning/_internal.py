@@ -29,7 +29,7 @@ def _compute_embeddings(
             batch_size=run_ctx.batch_size,
         )
 
-    from dataeval.utils.arrays import flatten_samples, to_numpy
+    from dataeval.utils._internal import flatten_samples, to_numpy
 
     images = [item[0] if isinstance(item, tuple) else item for item in dataset]
     embeddings = extractor(images)  # type: ignore[misc]

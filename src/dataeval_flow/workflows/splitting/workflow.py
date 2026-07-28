@@ -209,10 +209,10 @@ class DataSplittingWorkflow:
     ) -> WorkflowResult[DataSplittingMetadata, DataSplittingOutputs]:
         from dataeval.bias import Balance, Diversity
         from dataeval.core import label_stats
-        from dataeval.utils.data import split_dataset
+        from dataeval.data import split_dataset
 
         from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
         # --- Resolve single dataset ---
         if not context.dataset_contexts:
@@ -224,8 +224,8 @@ class DataSplittingWorkflow:
         dataset: Any = ds_ctx.dataset
 
         # Apply selection if configured
-        if ds_ctx.selection_steps:
-            dataset = build_selection(dataset, list(ds_ctx.selection_steps))
+        if ds_ctx.view_operations:
+            dataset = build_view(dataset, list(ds_ctx.view_operations))
 
         dataset_size = len(dataset)
         _logger.info("Step 1: Building metadata for %s (%d items)", ds_name, dataset_size)
@@ -272,7 +272,7 @@ class DataSplittingWorkflow:
         test_indices = splits.test.tolist()
 
         # --- Step 5: Optional rebalancing ---
-        # ClassBalance is a selection step that operates on a Select-wrapped dataset.
+        # ClassBalance is a view operation that operates on a View-wrapped dataset.
         # For now we store the raw indices; rebalancing modifies train indices.
         fold_infos: list[SplitInfo] = []
         for i, fold in enumerate(splits.folds):
@@ -281,11 +281,10 @@ class DataSplittingWorkflow:
 
             if params.rebalance_method is not None:
                 _logger.info("Step 5: Rebalancing fold %d train split (method=%s)", i, params.rebalance_method)
-                from dataeval.selection import ClassBalance, Indices, Select
+                from dataeval.data import ClassBalance, Indices, View
 
-                train_selected = Select(dataset, Indices(train_idx))
-                ClassBalance(method=params.rebalance_method)(train_selected)
-                train_idx = train_selected.resolve_indices()
+                train_view = View(dataset, [Indices(train_idx), ClassBalance(method=params.rebalance_method)])
+                train_idx = train_view.resolve_indices()
 
             fold_infos.append(
                 SplitInfo(

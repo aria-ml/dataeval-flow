@@ -1,4 +1,4 @@
-"""Param form helpers for step-builder modals (transforms/selections)."""
+"""Param form helpers for step-builder modals (transforms/view operations)."""
 
 from __future__ import annotations
 

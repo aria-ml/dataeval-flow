@@ -620,7 +620,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         dc_items: list[tuple[str, DatasetContext]],
     ) -> tuple[DatasetContext, AnnotatedDataset[Any], list[tuple[str, DatasetContext, AnnotatedDataset[Any]]]]:
         """Identify reference vs test datasets and apply selections."""
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
         ref_name, ref_dc = dc_items[0]
         test_contexts = dc_items[1:]
@@ -633,15 +633,15 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
 
         # Apply selection to reference
         ref_dataset: AnnotatedDataset[Any] = ref_dc.dataset
-        if ref_dc.selection_steps:
-            ref_dataset = build_selection(ref_dataset, ref_dc.selection_steps)  # type: ignore[arg-type]
+        if ref_dc.view_operations:
+            ref_dataset = build_view(ref_dataset, ref_dc.view_operations)  # type: ignore[arg-type]
 
         # Apply selection to test datasets
         test_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]] = []
         for t_name, t_dc in test_contexts:
             t_ds = t_dc.dataset
-            if t_dc.selection_steps:
-                t_ds = build_selection(t_ds, t_dc.selection_steps)  # type: ignore[arg-type]
+            if t_dc.view_operations:
+                t_ds = build_view(t_ds, t_dc.view_operations)  # type: ignore[arg-type]
             test_datasets.append((t_name, t_dc, t_ds))
 
         return ref_dc, ref_dataset, test_datasets

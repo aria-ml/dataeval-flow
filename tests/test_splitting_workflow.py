@@ -200,7 +200,7 @@ class TestDataSplittingWorkflow:
         assert result.errors
 
     @patch("dataeval_flow.metadata.build_metadata")
-    @patch("dataeval.utils.data.split_dataset")
+    @patch("dataeval.data.split_dataset")
     @patch("dataeval.core.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
@@ -433,11 +433,11 @@ class TestRunCoverage:
 class TestExecuteWithSelectionAndRebalance:
     @patch("dataeval_flow.workflows.splitting.workflow._run_coverage", return_value=None)
     @patch("dataeval_flow.metadata.build_metadata")
-    @patch("dataeval.utils.data.split_dataset")
+    @patch("dataeval.data.split_dataset")
     @patch("dataeval.core.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
-    @patch("dataeval_flow.selection.build_selection")
+    @patch("dataeval_flow.view.build_view")
     def test_selection_applied(
         self,
         mock_build_sel: MagicMock,
@@ -448,7 +448,7 @@ class TestExecuteWithSelectionAndRebalance:
         mock_build_meta: MagicMock,
         mock_run_cov: MagicMock,
     ) -> None:
-        """Line 374: build_selection is called when selection_steps are present."""
+        """Line 374: build_selection is called when view_operations are present."""
         dataset = _make_dataset(100)
         selected_dataset = _make_dataset(80)
         mock_build_sel.return_value = selected_dataset
@@ -472,7 +472,7 @@ class TestExecuteWithSelectionAndRebalance:
         }
         mock_split.return_value = _make_split_result(80)
 
-        ds_ctx = DatasetContext(name="ds", dataset=dataset, selection_steps=[MagicMock()])
+        ds_ctx = DatasetContext(name="ds", dataset=dataset, view_operations=[MagicMock()])
         ctx = WorkflowContext(dataset_contexts={"ds": ds_ctx})
 
         wf = DataSplittingWorkflow()
@@ -485,17 +485,17 @@ class TestExecuteWithSelectionAndRebalance:
 
     @patch("dataeval_flow.workflows.splitting.workflow._run_coverage", return_value=None)
     @patch("dataeval_flow.metadata.build_metadata")
-    @patch("dataeval.utils.data.split_dataset")
+    @patch("dataeval.data.split_dataset")
     @patch("dataeval.core.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
-    @patch("dataeval.selection.ClassBalance")
-    @patch("dataeval.selection.Select")
-    @patch("dataeval.selection.Indices")
+    @patch("dataeval.data.ClassBalance")
+    @patch("dataeval.data.View")
+    @patch("dataeval.data.Indices")
     def test_rebalance_applied(
         self,
         mock_indices: MagicMock,
-        mock_select: MagicMock,
+        mock_view: MagicMock,
         mock_class_balance: MagicMock,
         mock_diversity: MagicMock,
         mock_balance: MagicMock,
@@ -525,10 +525,10 @@ class TestExecuteWithSelectionAndRebalance:
         }
         mock_split.return_value = _make_split_result(100)
 
-        # Mock rebalance chain
-        mock_select_inst = MagicMock()
-        mock_select_inst.resolve_indices.return_value = list(range(70))
-        mock_select.return_value = mock_select_inst
+        # Mock rebalance chain — View(dataset, [Indices(...), ClassBalance(...)])
+        mock_view_inst = MagicMock()
+        mock_view_inst.resolve_indices.return_value = list(range(70))
+        mock_view.return_value = mock_view_inst
 
         ctx = WorkflowContext(
             dataset_contexts={"ds": DatasetContext(name="ds", dataset=dataset)},
@@ -539,7 +539,7 @@ class TestExecuteWithSelectionAndRebalance:
 
         assert result.success is True
         mock_class_balance.assert_called_once_with(method="global")
-        mock_select.assert_called_once()
+        mock_view.assert_called_once()
         assert result.metadata.rebalance_method == "global"
 
 

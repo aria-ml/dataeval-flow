@@ -152,15 +152,15 @@ class TestSnippetSource:
         assert "[bold]src1[/bold]" in result
         assert "dataset: ds1" in result
 
-    def test_with_selection(self) -> None:
-        item: dict[str, Any] = {"name": "src1", "dataset": "ds1", "selection": "sel1"}
+    def test_with_view(self) -> None:
+        item: dict[str, Any] = {"name": "src1", "dataset": "ds1", "view": "sel1"}
         result = _snippet_source(item)
-        assert "selection: sel1" in result
+        assert "view: sel1" in result
 
-    def test_without_selection(self) -> None:
+    def test_without_view(self) -> None:
         item: dict[str, Any] = {"name": "src1", "dataset": "ds1"}
         result = _snippet_source(item)
-        assert "selection" not in result
+        assert "view" not in result
 
     def test_missing_fields(self) -> None:
         item: dict[str, Any] = {}
@@ -168,10 +168,10 @@ class TestSnippetSource:
         assert "[bold]?[/bold]" in result
         assert "dataset: ?" in result
 
-    def test_empty_selection_not_shown(self) -> None:
-        item: dict[str, Any] = {"name": "src1", "dataset": "ds1", "selection": ""}
+    def test_empty_view_not_shown(self) -> None:
+        item: dict[str, Any] = {"name": "src1", "dataset": "ds1", "view": ""}
         result = _snippet_source(item)
-        assert "selection" not in result
+        assert "view" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -374,9 +374,9 @@ class TestItemToYamlSnippet:
         assert "pre1" in result
         assert "Resize" in result
 
-    def test_known_category_selections(self) -> None:
-        item: dict[str, Any] = {"name": "sel1", "steps": [{"type": "Limit"}]}
-        result = _item_to_yaml_snippet("selections", item)
+    def test_known_category_views(self) -> None:
+        item: dict[str, Any] = {"name": "sel1", "operations": [{"type": "Limit"}]}
+        result = _item_to_yaml_snippet("views", item)
         assert "sel1" in result
 
     def test_known_category_sources(self) -> None:
@@ -401,7 +401,7 @@ class TestItemToYamlSnippet:
         assert "value" in result
 
     def test_snippet_renderers_keys(self) -> None:
-        expected_keys = {"datasets", "preprocessors", "selections", "sources", "extractors", "workflows", "tasks"}
+        expected_keys = {"datasets", "preprocessors", "views", "sources", "extractors", "workflows", "tasks"}
         assert set(_SNIPPET_RENDERERS.keys()) == expected_keys
 
 
@@ -607,17 +607,17 @@ class TestSnippetConfigItem:
         result = snippet_config_item("preprocessors", item)
         assert "0 steps" in result
 
-    # -- selections --
+    # -- views --
 
-    def test_selections(self) -> None:
-        item: dict[str, Any] = {"name": "sel1", "steps": [{"type": "Limit"}, {"type": "Shuffle"}]}
-        result = snippet_config_item("selections", item)
+    def test_views(self) -> None:
+        item: dict[str, Any] = {"name": "sel1", "operations": [{"type": "Limit"}, {"type": "Shuffle"}]}
+        result = snippet_config_item("views", item)
         assert "[bold]sel1[/bold]" in result
         assert "2 steps" in result
 
-    def test_selections_single_step(self) -> None:
-        item: dict[str, Any] = {"name": "sel1", "steps": [{"type": "Limit"}]}
-        result = snippet_config_item("selections", item)
+    def test_views_single_operation(self) -> None:
+        item: dict[str, Any] = {"name": "sel1", "operations": [{"type": "Limit"}]}
+        result = snippet_config_item("views", item)
         assert "1 step" in result
         assert "1 steps" not in result
 

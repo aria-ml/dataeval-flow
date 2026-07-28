@@ -336,14 +336,14 @@ from dataeval_flow.config import (
     DatasetProtocolConfig,
     PipelineConfig,
     PreprocessorConfig,
-    SelectionConfig,
     SourceConfig,
+    ViewConfig,
 )
 from dataeval_flow.config.schemas import (
     DataPrioritizationTaskConfig,
     DataPrioritizationWorkflowConfig,
-    SelectionStep,
     TorchExtractorConfig,
+    ViewOperation,
 )
 
 # Load the filtered training data (materialized above) as a MAITE-compatible dataset
@@ -407,15 +407,15 @@ config = PipelineConfig(
             ],
         ),
     ],
-    selections=[
-        SelectionConfig(
+    views=[
+        ViewConfig(
             name="first_1000",
-            steps=[SelectionStep(type="Limit", params={"size": 1000})],
+            operations=[ViewOperation(type="Limit", params={"size": 1000})],
         ),
     ],
     sources=[
         SourceConfig(name="ref_src", dataset="ref_ds"),
-        SourceConfig(name="test_src", dataset="test_ds", selection="first_1000"),
+        SourceConfig(name="test_src", dataset="test_ds", view="first_1000"),
     ],
     extractors=[
         TorchExtractorConfig(

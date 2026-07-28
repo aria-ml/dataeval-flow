@@ -49,7 +49,8 @@ class SectionViewModel:
         self._get_step_params: Any = None
 
         if existing and section in STEP_BUILDER_SECTIONS:
-            self.steps = [dict(s) for s in existing.get("steps", [])]
+            collection_key = STEP_BUILDER_SECTIONS[section]["collection_key"]
+            self.steps = [dict(s) for s in existing.get(collection_key, [])]
 
     # -- Properties --------------------------------------------------------
 
@@ -203,7 +204,8 @@ class SectionViewModel:
         if self.is_step_builder:
             if not self.steps:
                 return None
-            return build_item_dict(self.section, name, variant_value, {"steps": list(self.steps)})
+            collection_key = STEP_BUILDER_SECTIONS[self.section]["collection_key"]
+            return build_item_dict(self.section, name, variant_value, {collection_key: list(self.steps)})
 
         # Preserve existing enabled state for tasks
         if self.section == "tasks" and self.existing:

@@ -11,7 +11,7 @@ PANE_IDS = ("config-pane", "task-pane", "result-pane")
 
 _CONFIG_SECTIONS = [
     ("datasets", "Datasets"),
-    ("selections", "Selections"),
+    ("views", "Views"),
     ("sources", "Sources"),
     ("preprocessors", "Preprocessors"),
     ("extractors", "Extractors"),

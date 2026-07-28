@@ -30,9 +30,19 @@ def _is_valid_config(data: dict[str, Any]) -> bool:
     This allows partial configs (e.g. only ``datasets:``) while rejecting
     unrelated files like JSON schemas.
     """
+    from pydantic import AliasChoices
+
     from dataeval_flow.config._models import PipelineConfig
 
     known_keys = set(PipelineConfig.model_fields)
+    # Include validation aliases (e.g. the deprecated ``selections`` -> ``views``)
+    # so legacy config fragments are still accepted by the folder merge.
+    for field in PipelineConfig.model_fields.values():
+        alias = field.validation_alias
+        if isinstance(alias, AliasChoices):
+            known_keys.update(choice for choice in alias.choices if isinstance(choice, str))
+        elif isinstance(alias, str):
+            known_keys.add(alias)
     file_keys = set(data.keys())
     return bool(file_keys) and file_keys <= known_keys
 

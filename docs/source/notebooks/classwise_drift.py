@@ -38,7 +38,7 @@
 #   layout that datamaite's `huggingface_vision` loader reads
 # - Build a **wrapper dataset** that applies increasing Gaussian blur to
 #   classes 1, 4, and 7 — simulating sensor degradation that worsens over time
-# - Use `SelectionConfig` with `Indices` to subset the dataset into reference
+# - Use `ViewConfig` with `Indices` to subset the dataset into reference
 #   and incoming slices
 # - **Phase 1**: Run **overall** drift detection with a chunked **Domain
 #   Classifier** to confirm drift exists and see *when* it started
@@ -49,7 +49,7 @@
 # ## What you'll learn
 #
 # - How to use in-memory HuggingFace datasets with `DatasetProtocolConfig`
-# - How to use `SelectionConfig` and `Indices` to subset datasets in the workflow config
+# - How to use `ViewConfig` and `Indices` to subset datasets in the workflow config
 # - How to simulate class-specific degradation with a thin dataset wrapper
 # - How to run a two-phase drift analysis: chunked overall first, then classwise
 # - How per-detector `classwise: true` breaks drift results down by class
@@ -199,7 +199,7 @@ class DegradedDataset:
 
 # %% [markdown]
 # Now let's prepare the datasets. We use the **same** underlying MAITE dataset
-# for both reference and incoming — the workflow's `SelectionConfig` with
+# for both reference and incoming — the workflow's `ViewConfig` with
 # `Indices` will subset each to the right index range. The incoming dataset
 # gets wrapped with `DegradedDataset` to apply class-specific blur.
 #
@@ -264,7 +264,7 @@ plt.show()
 # data into temporal windows so we can see not just *whether* drift occurred,
 # but *when* it started.
 #
-# We use `DatasetProtocolConfig` for in-memory datasets and `SelectionConfig`
+# We use `DatasetProtocolConfig` for in-memory datasets and `ViewConfig`
 # with `Indices` to subset the reference to the first 4 000 images.
 
 # %%
@@ -274,9 +274,9 @@ from dataeval_flow.config import (
     DriftMonitoringWorkflowConfig,
     FlattenExtractorConfig,
     PipelineConfig,
-    SelectionConfig,
-    SelectionStep,
     SourceConfig,
+    ViewConfig,
+    ViewOperation,
 )
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKNeighbors, DriftHealthThresholds
@@ -285,7 +285,7 @@ from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKN
 ref_config = DatasetProtocolConfig(
     name="reference",
     format="maite",
-    dataset=mnist_maite,  # full 4k — selection will subset it
+    dataset=mnist_maite,  # full 4k — view will subset it
 )
 
 incoming_config = DatasetProtocolConfig(
@@ -294,15 +294,15 @@ incoming_config = DatasetProtocolConfig(
     dataset=incoming_dataset,
 )
 
-# --- Selections ---
+# --- Views ---
 # Use Indices to select the first 2000 images as the reference baseline
-ref_selection = SelectionConfig(
+ref_view = ViewConfig(
     name="ref-first-2k",
-    steps=[SelectionStep(type="Indices", params={"indices": list(range(2000))})],
+    operations=[ViewOperation(type="Indices", params={"indices": list(range(2000))})],
 )
 
 # --- Sources ---
-ref_source_config = SourceConfig(name="reference_2k", dataset="reference", selection="ref-first-2k")
+ref_source_config = SourceConfig(name="reference_2k", dataset="reference", view="ref-first-2k")
 inc_source_config = SourceConfig(name="incoming_2k", dataset="incoming")
 
 # --- Extractors ---
@@ -333,7 +333,7 @@ overall_task = DriftMonitoringTaskConfig(
 
 overall_config = PipelineConfig(
     datasets=[ref_config, incoming_config],
-    selections=[ref_selection],
+    views=[ref_view],
     sources=[ref_source_config, inc_source_config],
     extractors=[extractor_config],
     workflows=[drift_workflow_config],
@@ -380,7 +380,7 @@ classwise_task = DriftMonitoringTaskConfig(
 
 classwise_config = PipelineConfig(
     datasets=[ref_config, incoming_config],
-    selections=[ref_selection],
+    views=[ref_view],
     sources=[ref_source_config, inc_source_config],
     extractors=[extractor_config],
     workflows=[
@@ -486,7 +486,7 @@ plt.show()
 # - **Materialize and load datasets** by writing a HuggingFace dataset to an
 #   ImageFolder layout and loading it with datamaite, then passing the result
 #   to `DatasetProtocolConfig`
-# - **Subset datasets** using `SelectionConfig` with `Indices` — no additional
+# - **Subset datasets** using `ViewConfig` with `Indices` — no additional
 #   disk I/O needed beyond the initial load
 # - **Simulate class-specific degradation** with a lightweight dataset wrapper
 #   that applies progressive Gaussian blur to selected classes

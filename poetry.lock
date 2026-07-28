@@ -519,7 +519,7 @@ files = [
     {file = "cffi-2.0.0-cp39-cp39-win_amd64.whl", hash = "sha256:b882b3df248017dba09d6b16defe9b5c407fe32fc7c65a9c69798e6175601be9"},
     {file = "cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529"},
 ]
-markers = {docs = "implementation_name == \"pypy\"", lock = "(platform_python_implementation != \"PyPy\" or sys_platform == \"darwin\") and (sys_platform == \"linux\" or sys_platform == \"darwin\")"}
+markers = {docs = "implementation_name == \"pypy\"", lock = "(sys_platform == \"linux\" or sys_platform == \"darwin\") and (platform_python_implementation != \"PyPy\" or sys_platform == \"darwin\")"}
 
 [package.dependencies]
 pycparser = {version = "*", markers = "implementation_name != \"PyPy\""}
@@ -726,7 +726,7 @@ files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-markers = {main = "platform_system == \"Windows\"", base = "sys_platform == \"win32\"", dev = "sys_platform == \"win32\"", docker = "sys_platform == \"win32\"", docs = "platform_system == \"Windows\" or sys_platform == \"win32\"", lint = "sys_platform == \"win32\"", lock = "platform_system == \"Windows\" or sys_platform == \"win32\" or os_name == \"nt\"", test = "sys_platform == \"win32\"", type = "sys_platform == \"win32\"", verify = "sys_platform == \"win32\""}
+markers = {main = "platform_system == \"Windows\"", base = "sys_platform == \"win32\"", dev = "sys_platform == \"win32\"", docker = "sys_platform == \"win32\"", docs = "platform_system == \"Windows\" or sys_platform == \"win32\"", lint = "sys_platform == \"win32\"", lock = "platform_system == \"Windows\" or os_name == \"nt\" or sys_platform == \"win32\"", test = "sys_platform == \"win32\"", type = "sys_platform == \"win32\"", verify = "sys_platform == \"win32\""}
 
 [[package]]
 name = "colorlog"
@@ -1151,18 +1151,19 @@ tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
 name = "dataeval"
-version = "1.0.6"
+version = "1.1.0rc1"
 description = "DataEval provides a simple interface to characterize image data and its impact on model performance across classification and object-detection tasks"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dataeval-1.0.6-py3-none-any.whl", hash = "sha256:30eba1c68837b177897ab9fd861e37720dab0c686fbf46e9c5e4483c86fd573e"},
-    {file = "dataeval-1.0.6.tar.gz", hash = "sha256:5816dc1cefbcb9b6934064e9db70725100108c64c9316b7f9a4e5e52fbf5b1a6"},
+    {file = "dataeval-1.1.0rc1-py3-none-any.whl", hash = "sha256:6d61175cb427616ffb721b5335d9aa93123f8ffd214206b6e9890ed6fb45e05f"},
+    {file = "dataeval-1.1.0rc1.tar.gz", hash = "sha256:4f9f80ae0885ba00e3da10c78178be7ed2b868e8c004cfcbf9f3463489df85f4"},
 ]
 
 [package.dependencies]
 lightgbm = ">=4"
+maite = ">=0.9.4"
 numba = ">=0.61.0"
 numpy = ">=1.24.2"
 polars = ">=1.0.0"
@@ -1177,10 +1178,11 @@ xxhash = ">=3.4"
 [package.extras]
 cpu = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
 cu118 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
-cu124 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
 cu128 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
-onnx = ["onnx", "onnxruntime (>=1.14.0)"]
-onnx-gpu = ["onnx", "onnxruntime-gpu (>=1.14.0)"]
+litert = ["ai-edge-litert (>=2.0) ; python_version <= \"3.14\""]
+onnx = ["onnx (>=1.14.0)", "onnxruntime (>=1.14.0) ; python_version >= \"3.11\"", "onnxruntime (>=1.14.0,<1.24) ; python_version == \"3.10\""]
+onnx-gpu = ["onnx (>=1.14.0)", "onnxruntime-gpu (>=1.14.0) ; python_version >= \"3.11\"", "onnxruntime-gpu (>=1.14.0,<1.24) ; python_version == \"3.10\""]
+ontology = ["rdflib (>=7.0)"]
 opencv = ["opencv-python-headless (>=4.8.0)"]
 
 [[package]]
@@ -2766,6 +2768,30 @@ files = [
 ]
 
 [[package]]
+name = "maite"
+version = "0.9.5"
+description = "Library of common types, protocols (a.k.a. structural subtypes), and utilities to support AI test and evaluation"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "maite-0.9.5-py3-none-any.whl", hash = "sha256:a710ec5e3ffa93541a3dffb69ca9cc7002452d73aca744f911383e886ce7e233"},
+    {file = "maite-0.9.5.tar.gz", hash = "sha256:abf14ecc6ed8cedb91aa7b1dc9c790409d0c954652731fb6f3cdd617bd8c42b8"},
+]
+
+[package.dependencies]
+numpy = ">=1.24.2"
+typing-extensions = ">=4.5,<4.6 || >4.6"
+
+[package.extras]
+builddocs = ["datasets (>=3)", "ipykernel (==6.30.1)", "jupyter", "kornia", "matplotlib", "nbconvert", "pycocotools", "pytest (>=7.0.0)", "torch (>=1.7,!=1.12.0)", "torchmetrics[detection] (>=1.7.0,<2.0.0)", "torchvision", "tox (>=4.24.2,<5.0.0)", "transformers", "ultralytics", "watermark"]
+dev = ["pre-commit", "tox"]
+mot-utils = ["av (>=16.0.1)"]
+test = ["hypothesis (>=6.61.0,<=6.113)", "jupytext (>=1.14.0)", "numpydoc (>=1.9.0,!=1.10.0)", "pip", "pyright[nodejs] (>=1.1.280,!=1.1.401)", "pytest (>=7.0.0)", "pytest-mock (>=3.10.0)", "torch (>=1.7,!=1.12.0)"]
+torchmetrics = ["torchmetrics[detection] (>=1.7.0,<2.0.0)"]
+yolo-models = ["boto3 (>=1.35)", "botocore (>=1.35)", "matplotlib (>=3.7.1)", "opencv-python-headless (>=4.6.0)", "pandas (>=2.0)", "roboflow (>=1.1.30)", "setuptools (>=70.0.0,<81)", "torch (>=2.2.0)", "ultralytics (>=8.2.78)", "yolov5 (<7.0.14)"]
+
+[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 description = "Python port of markdown-it. Markdown parsing, done right!"
@@ -3099,8 +3125,8 @@ files = [
 
 [package.dependencies]
 numpy = [
+    {version = ">=1.21.2", markers = "python_version >= \"3.10\""},
     {version = ">=1.23.3", markers = "python_version >= \"3.11\""},
-    {version = ">=1.21.2", markers = "python_version == \"3.10\""},
     {version = ">=2.1.0", markers = "python_version >= \"3.13\""},
     {version = ">=1.26.0", markers = "python_version == \"3.12\""},
 ]
@@ -4895,7 +4921,7 @@ files = [
     {file = "pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"},
     {file = "pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29"},
 ]
-markers = {docs = "implementation_name == \"pypy\"", lock = "(platform_python_implementation != \"PyPy\" or sys_platform == \"darwin\") and implementation_name != \"PyPy\" and (sys_platform == \"linux\" or sys_platform == \"darwin\")"}
+markers = {docs = "implementation_name == \"pypy\"", lock = "(sys_platform == \"linux\" or sys_platform == \"darwin\") and implementation_name != \"PyPy\" and (platform_python_implementation != \"PyPy\" or sys_platform == \"darwin\")"}
 
 [[package]]
 name = "pydantic"
@@ -7644,4 +7670,4 @@ opencv = ["opencv-python-headless"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "a16ded3bc5fb5b86b13cb57ffb0245c4f31d5e5c3fe8b16f9d07bb5db9ce5717"
+content-hash = "c98a1a8f727c6fb599ba65f1defb1f08c1907dc1697bfe3a1c0ca24c867308ca"

@@ -1,17 +1,29 @@
-"""Selection configuration schema."""
+"""View pipeline configuration schema.
 
+A *view* is a named pipeline of dataset operations (``Limit``, ``ClassFilter``,
+``Shuffle``, ...) applied to a source dataset — the config-layer counterpart of
+:class:`dataeval.data.View`.
+
+.. note::
+    The legacy ``selection``/``steps`` vocabulary is still accepted on input
+    (with a :class:`DeprecationWarning`) but is deprecated in favor of
+    ``view``/``operations``. The deprecated ``SelectionConfig`` and
+    ``SelectionStep`` classes remain importable as aliases.
+"""
+
+import warnings
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 _MAX_INDICES_RANGE = 1_000_000
 
 
-class SelectionStep(BaseModel):
-    """Single selection step - pass-through to dataeval.selection.
+class ViewOperation(BaseModel):
+    """Single view operation - pass-through to dataeval.data.
 
-    See: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/selection/index.html
+    See: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html
 
     The ``indices`` param supports a range shorthand so that contiguous
     index spans do not need to be enumerated in config files::
@@ -29,7 +41,7 @@ class SelectionStep(BaseModel):
           indices: {start: 0, stop: 100, step: 2}
     """
 
-    type: str = Field(description="Selection class from dataeval.selection")
+    type: str = Field(description="Operation class from dataeval.data")
     params: Mapping[str, Any] = Field(
         default_factory=dict,
         json_schema_extra={
@@ -90,11 +102,61 @@ class SelectionStep(BaseModel):
         return data
 
 
-class SelectionConfig(BaseModel):
-    """Named selection pipeline configuration.
+class ViewConfig(BaseModel):
+    """Named view pipeline configuration.
 
-    Similar to PreprocessorConfig - defines reusable selection pipelines.
+    Defines a reusable pipeline of dataset operations, referenced by name from
+    sources. Similar to PreprocessorConfig.
+
+    For backward compatibility the legacy ``steps`` key is accepted on input as
+    an alias for ``operations`` (with a :class:`DeprecationWarning`).
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+
     name: str
-    steps: Sequence[SelectionStep]
+    operations: Sequence[ViewOperation] = Field(
+        validation_alias=AliasChoices("operations", "steps"),
+        description="Ordered dataset operations from dataeval.data.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _warn_legacy_steps(cls, data: Any) -> Any:
+        """Emit a deprecation warning when the legacy ``steps`` key is used."""
+        if isinstance(data, Mapping) and "steps" in data and "operations" not in data:
+            warnings.warn(
+                "The 'steps' key in a view config is deprecated; use 'operations' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return data
+
+
+# ---------------------------------------------------------------------------
+# Deprecated aliases — retained so existing imports keep working.
+# ---------------------------------------------------------------------------
+
+
+class SelectionStep(ViewOperation):
+    """Deprecated alias for :class:`ViewOperation`."""
+
+    def __init__(self, **data: Any) -> None:
+        warnings.warn(
+            "SelectionStep is deprecated; use dataeval_flow.config.ViewOperation instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(**data)
+
+
+class SelectionConfig(ViewConfig):
+    """Deprecated alias for :class:`ViewConfig`."""
+
+    def __init__(self, **data: Any) -> None:
+        warnings.warn(
+            "SelectionConfig is deprecated; use dataeval_flow.config.ViewConfig instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(**data)

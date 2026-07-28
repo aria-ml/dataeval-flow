@@ -5,40 +5,49 @@ __all__ = [
     "SourceConfig",
 ]
 
-from collections.abc import Sequence
-from typing import Literal
+import warnings
+from collections.abc import Mapping, Sequence
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow.config.schemas import (
     DatasetConfig,
     DatasetProtocolConfig,
     ExtractorConfig,
     PreprocessorConfig,
-    SelectionConfig,
     TaskConfig,
+    ViewConfig,
     WorkflowConfig,
 )
 
 # ---------------------------------------------------------------------------
-# Source — dataset + optional selection
+# Source — dataset + optional view
 # ---------------------------------------------------------------------------
 
 
 class SourceConfig(BaseModel):
-    """Named source definition — bundles a dataset with an optional selection.
+    """Named source definition — bundles a dataset with an optional view.
 
     YAML example::
 
         sources:
           - name: cifar_train_subset
             dataset: cifar10_train
-            selection: first_5k
+            view: first_5k
+
+    The legacy ``selection`` key is accepted as a deprecated alias for ``view``.
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
 
     name: str = Field(description="Identifier for the source")
     dataset: str = Field(description="Reference to a dataset name")
-    selection: str | None = Field(default=None, description="Reference to a selection name (optional)")
+    view: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("view", "selection"),
+        description="Reference to a view name (optional)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -62,10 +71,15 @@ class PipelineConfig(BaseModel):
     """Top-level pipeline configuration.
 
     All sections use a define-once, reference-by-name pattern.
-    Sources compose datasets with optional selections; extractors
+    Sources compose datasets with optional views; extractors
     compose model type/params with optional preprocessors.
     Tasks reference workflows, sources, and extractors by name.
+
+    The legacy ``selections`` key is accepted as a deprecated alias for
+    ``views`` (with a :class:`DeprecationWarning`).
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
 
     # Logging
     logging: LoggingConfig | None = None
@@ -73,12 +87,16 @@ class PipelineConfig(BaseModel):
     # Named resource pools
     datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = None
     preprocessors: Sequence[PreprocessorConfig] | None = None
-    selections: Sequence[SelectionConfig] | None = None
+    views: Sequence[ViewConfig] | None = Field(
+        default=None,
+        validation_alias=AliasChoices("views", "selections"),
+        description="Named view pipeline definitions (dataset operations), referenced by sources",
+    )
 
     # Composition layers
     sources: Sequence[SourceConfig] | None = Field(
         default=None,
-        description="Named source definitions (dataset + optional selection)",
+        description="Named source definitions (dataset + optional view)",
     )
     extractors: Sequence[ExtractorConfig] | None = Field(
         default=None,
@@ -92,13 +110,33 @@ class PipelineConfig(BaseModel):
     )
     tasks: Sequence[TaskConfig] | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _warn_legacy_selection_keys(cls, data: Any) -> Any:
+        """Emit deprecation warnings for the legacy ``selections``/``selection`` keys."""
+        if isinstance(data, Mapping):
+            if "selections" in data and "views" not in data:
+                warnings.warn(
+                    "The 'selections' key is deprecated; use 'views' instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            for source in data.get("sources") or []:
+                if isinstance(source, Mapping) and "selection" in source and "view" not in source:
+                    warnings.warn(
+                        "The 'selection' key in a source is deprecated; use 'view' instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+        return data
+
     @model_validator(mode="after")
     def _check_unique_names(self) -> "PipelineConfig":
         """Raise if any section contains duplicate names."""
         sections: dict[str, Sequence | None] = {
             "datasets": self.datasets,
             "preprocessors": self.preprocessors,
-            "selections": self.selections,
+            "views": self.views,
             "sources": self.sources,
             "extractors": self.extractors,
             "workflows": self.workflows,

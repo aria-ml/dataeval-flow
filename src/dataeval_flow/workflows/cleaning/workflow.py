@@ -476,7 +476,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
         params: BaseModel | None = None,
     ) -> WorkflowResult[DataCleaningMetadata, DataCleaningOutputs]:
         """Run data cleaning workflow on dataset."""
-        from dataeval_flow.selection import build_selection
+        from dataeval_flow.view import build_view
 
         if not isinstance(context, WorkflowContext):
             return WorkflowResult(
@@ -518,10 +518,10 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
 
             # 1. Apply selection if configured
             dataset = dc.dataset
-            if dc.selection_steps:
-                _logger.info("[1/4] Applying selection (%d steps)…", len(dc.selection_steps))
+            if dc.view_operations:
+                _logger.info("[1/4] Applying selection (%d steps)…", len(dc.view_operations))
                 _t0 = _time.monotonic()
-                dataset = build_selection(dataset, dc.selection_steps)  # type: ignore[arg-type]
+                dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
                 _logger.info("[1/4] Selection applied in %.1fs", _time.monotonic() - _t0)
 
             # Compute selection key (shared by metadata + stats caching)

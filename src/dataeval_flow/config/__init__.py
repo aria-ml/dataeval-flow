@@ -41,6 +41,9 @@ __all__ = [
     # Other schemas
     "PreprocessorConfig",
     "ResultMetadata",
+    "ViewConfig",
+    "ViewOperation",
+    # Deprecated aliases (use ViewConfig / ViewOperation)
     "SelectionConfig",
     "SelectionStep",
     # Loader functions
@@ -84,5 +87,7 @@ from dataeval_flow.config.schemas import (
     TaskConfig,
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
+    ViewConfig,
+    ViewOperation,
     YoloDatasetConfig,
 )

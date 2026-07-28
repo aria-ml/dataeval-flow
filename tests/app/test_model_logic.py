@@ -129,7 +129,7 @@ class TestItemLogic:
 
     def test_diagnose_collect_failure(self) -> None:
         assert diagnose_collect_failure("datasets", "", [], [], None) == "Name is required."
-        assert diagnose_collect_failure("selections", "s1", [], [], None) == "Add at least one step."
+        assert diagnose_collect_failure("views", "s1", [], [], None) == "Add at least one step."
 
         desc = FieldDescriptor(name="f1", kind=FieldKind.STRING, description="", required=True)
         # 'sources' does not have a discriminator, so it will check for missing fields
@@ -262,14 +262,14 @@ class TestConfigState:
 
     def test_scrub_references_edge_cases(self) -> None:
         state = ConfigState()
-        state.add("selections", {"name": "sel1"})
-        state.add("sources", {"name": "s1", "dataset": "ds1", "selection": "sel1"})
+        state.add("views", {"name": "sel1"})
+        state.add("sources", {"name": "s1", "dataset": "ds1", "view": "sel1"})
 
-        # Scrub optional reference (selections -> sources)
-        _, warnings = state.remove("selections", 0)
+        # Scrub optional reference (views -> sources)
+        _, warnings = state.remove("views", 0)
         item = state.get("sources", 0)
         assert item is not None
-        assert item.get("selection") is None
+        assert item.get("view") is None
         assert not warnings  # Optional scrub doesn't add warning
 
         # Scrub extractor -> preprocessor

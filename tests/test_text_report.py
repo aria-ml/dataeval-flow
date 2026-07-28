@@ -651,23 +651,23 @@ class TestRenderConfigSection:
         text = "\n".join(lines)
         assert "range(0, 5)" in text
 
-    def test_source_with_selection(self):
-        """Sources with selection config render properly."""
+    def test_source_with_view(self):
+        """Sources with view config render properly."""
         resolved = {
             "sources": [
                 {
                     "name": "src",
                     "dataset": "ds",
-                    "selection": "subset",
-                    "selection_config": {
-                        "steps": [{"type": "Limit", "params": {"size": 1000}}],
+                    "view": "subset",
+                    "view_config": {
+                        "operations": [{"type": "Limit", "params": {"size": 1000}}],
                     },
                 }
             ],
         }
         lines = _render_config_section(resolved)
         text = "\n".join(lines)
-        assert "selection: subset" in text
+        assert "view: subset" in text
         assert "type: Limit" in text
         assert "size: 1000" in text
 

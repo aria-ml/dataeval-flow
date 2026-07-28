@@ -135,13 +135,13 @@ datasets:
 
 ### Sources, extractors, and selections
 
-Sources bundle a dataset with an optional selection. Extractors bundle a model
+Sources bundle a dataset with an optional view. Extractors bundle a model
 with an optional preprocessor. Tasks reference these by name.
 
 ```yaml
-selections:
+views:
   - name: first_5k
-    steps:
+    operations:
       - type: Limit
         params:
           size: 5000
@@ -152,7 +152,7 @@ sources:
 
   - name: train_subset
     dataset: hf_train
-    selection: first_5k
+    view: first_5k
 
 extractors:
   - name: bovw_extractor

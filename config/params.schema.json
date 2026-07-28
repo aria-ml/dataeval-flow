@@ -1986,82 +1986,8 @@
       "title": "PreprocessorConfig",
       "type": "object"
     },
-    "SelectionConfig": {
-      "description": "Named selection pipeline configuration.\n\nSimilar to PreprocessorConfig - defines reusable selection pipelines.",
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "steps": {
-          "items": {
-            "$ref": "#/$defs/SelectionStep"
-          },
-          "title": "Steps",
-          "type": "array"
-        }
-      },
-      "required": [
-        "name",
-        "steps"
-      ],
-      "title": "SelectionConfig",
-      "type": "object"
-    },
-    "SelectionStep": {
-      "description": "Single selection step - pass-through to dataeval.selection.\n\nSee: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/selection/index.html\n\nThe ``indices`` param supports a range shorthand so that contiguous\nindex spans do not need to be enumerated in config files::\n\n    # Expanded form (still supported)\n    params:\n      indices: [500, 501, 502, ..., 549]\n\n    # Range shorthand\n    params:\n      indices: {start: 500, stop: 550}\n\n    # Range with step\n    params:\n      indices: {start: 0, stop: 100, step: 2}",
-      "properties": {
-        "type": {
-          "description": "Selection class from dataeval.selection",
-          "title": "Type",
-          "type": "string"
-        },
-        "params": {
-          "additionalProperties": true,
-          "properties": {
-            "indices": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "integer"
-                  },
-                  "type": "array"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "start": {
-                      "type": "integer"
-                    },
-                    "stop": {
-                      "type": "integer"
-                    },
-                    "step": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "start",
-                    "stop"
-                  ],
-                  "type": "object"
-                }
-              ],
-              "description": "Indices as a list or {start, stop[, step]} range shorthand."
-            }
-          },
-          "title": "Params",
-          "type": "object"
-        }
-      },
-      "required": [
-        "type"
-      ],
-      "title": "SelectionStep",
-      "type": "object"
-    },
     "SourceConfig": {
-      "description": "Named source definition \u2014 bundles a dataset with an optional selection.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        selection: first_5k",
+      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
       "properties": {
         "name": {
           "description": "Identifier for the source",
@@ -2073,7 +1999,7 @@
           "title": "Dataset",
           "type": "string"
         },
-        "selection": {
+        "view": {
           "anyOf": [
             {
               "type": "string"
@@ -2083,8 +2009,8 @@
             }
           ],
           "default": null,
-          "description": "Reference to a selection name (optional)",
-          "title": "Selection"
+          "description": "Reference to a view name (optional)",
+          "title": "View"
         }
       },
       "required": [
@@ -2342,6 +2268,81 @@
       "title": "UpdateStrategyConfig",
       "type": "object"
     },
+    "ViewConfig": {
+      "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.\n\nFor backward compatibility the legacy ``steps`` key is accepted on input as\nan alias for ``operations`` (with a :class:`DeprecationWarning`).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "operations": {
+          "description": "Ordered dataset operations from dataeval.data.",
+          "items": {
+            "$ref": "#/$defs/ViewOperation"
+          },
+          "title": "Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "operations"
+      ],
+      "title": "ViewConfig",
+      "type": "object"
+    },
+    "ViewOperation": {
+      "description": "Single view operation - pass-through to dataeval.data.\n\nSee: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html\n\nThe ``indices`` param supports a range shorthand so that contiguous\nindex spans do not need to be enumerated in config files::\n\n    # Expanded form (still supported)\n    params:\n      indices: [500, 501, 502, ..., 549]\n\n    # Range shorthand\n    params:\n      indices: {start: 500, stop: 550}\n\n    # Range with step\n    params:\n      indices: {start: 0, stop: 100, step: 2}",
+      "properties": {
+        "type": {
+          "description": "Operation class from dataeval.data",
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "properties": {
+            "indices": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "type": "integer"
+                    },
+                    "stop": {
+                      "type": "integer"
+                    },
+                    "step": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "stop"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Indices as a list or {start, stop[, step]} range shorthand."
+            }
+          },
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ViewOperation",
+      "type": "object"
+    },
     "YoloDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo",
@@ -2369,7 +2370,7 @@
       "type": "object"
     }
   },
-  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional selections; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.",
+  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nThe legacy ``selections`` key is accepted as a deprecated alias for\n``views`` (with a :class:`DeprecationWarning`).",
   "properties": {
     "logging": {
       "anyOf": [
@@ -2441,11 +2442,11 @@
       "default": null,
       "title": "Preprocessors"
     },
-    "selections": {
+    "views": {
       "anyOf": [
         {
           "items": {
-            "$ref": "#/$defs/SelectionConfig"
+            "$ref": "#/$defs/ViewConfig"
           },
           "type": "array"
         },
@@ -2454,7 +2455,8 @@
         }
       ],
       "default": null,
-      "title": "Selections"
+      "description": "Named view pipeline definitions (dataset operations), referenced by sources",
+      "title": "Views"
     },
     "sources": {
       "anyOf": [
@@ -2469,7 +2471,7 @@
         }
       ],
       "default": null,
-      "description": "Named source definitions (dataset + optional selection)",
+      "description": "Named source definitions (dataset + optional view)",
       "title": "Sources"
     },
     "extractors": {

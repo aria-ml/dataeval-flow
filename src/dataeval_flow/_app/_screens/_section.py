@@ -471,7 +471,7 @@ class SectionModal(ComponentModal):
             self.app.notify(msg, severity="error")
         return result
 
-    # -- Step builder (preprocessors / selections) -------------------------
+    # -- Step builder (preprocessors / views) ------------------------------
 
     def _rebuild_step_params(self) -> None:
         step_name = _select_value(self.query_one("#md-step-select", Select))
