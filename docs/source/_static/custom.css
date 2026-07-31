@@ -40,3 +40,13 @@ pre, pre code, div.highlight pre {
     font-family: "Consolas", "Menlo", "Monaco", "Courier New", monospace;
     font-size: 0.9em;
 }
+
+/* Wrap notebook cell output (report text, stdout/stderr) instead of letting it
+   run off the page. Reports render at 80 columns, so wrapping only affects the
+   occasional over-long line: file paths, progress bars, wide tables. */
+div.cell_output pre,
+div.cell_output div.highlight pre,
+div.cell_output .output pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
