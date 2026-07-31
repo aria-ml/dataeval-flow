@@ -651,6 +651,321 @@
       "title": "DataCleaningWorkflowConfig",
       "type": "object"
     },
+    "DataCoverageHealthThresholds": {
+      "description": "Configurable warning thresholds for data coverage health status.\n\nEach threshold controls when the corresponding finding is elevated to\n``severity=\"warning\"``; otherwise it stays at ``severity=\"info\"``.\n\nAll ten are required numbers \u2014 ``None`` is not accepted. To stop a metric\nfrom ever warning, set it past the value it can reach: ``uncovered_rate=100.0``,\n``completeness_score=0.0``, ``leaf_coverage=0.0``, or a\n``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.",
+      "properties": {
+        "uncovered_rate": {
+          "default": 10.0,
+          "description": "Max allowable % of embedding observations flagged as uncovered. Default 10%. Lower for safety-critical datasets. Only applied when the headline result comes from coverage_naive \u2014 coverage_adaptive flags a fixed coverage_percent of observations, so its rate is not a health signal.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Uncovered Rate",
+          "type": "number"
+        },
+        "completeness_score": {
+          "default": 0.5,
+          "description": "Minimum dimensional completeness score before warning. Default 0.5. Raise to 0.7\u20130.8 for high-dimensional models.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Completeness Score",
+          "type": "number"
+        },
+        "class_imbalance_ratio": {
+          "default": 5.0,
+          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1.",
+          "minimum": 1.0,
+          "title": "Class Imbalance Ratio",
+          "type": "number"
+        },
+        "gap_count": {
+          "default": 3,
+          "description": "Number of metadata coverage gaps before elevating to warning. Default 3.",
+          "minimum": 0,
+          "title": "Gap Count",
+          "type": "integer"
+        },
+        "min_dispersion": {
+          "default": 0.5,
+          "description": "Minimum per-class dispersion before warning. A class below this spreads less than half as far as a typical class \u2014 clustered. Default 0.5.",
+          "minimum": 0.0,
+          "title": "Min Dispersion",
+          "type": "number"
+        },
+        "min_isotropy": {
+          "default": 0.5,
+          "description": "Minimum per-class isotropy before warning. A class below this varies along too few independent directions \u2014 one-dimensional. Default 0.5.",
+          "minimum": 0.0,
+          "title": "Min Isotropy",
+          "type": "number"
+        },
+        "max_near_duplicate_fraction": {
+          "default": 0.1,
+          "description": "Maximum share of a class allowed to sit in near-duplicate pairs before warning. Above this the class is padded with repeated frames. Default 0.1.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Near Duplicate Fraction",
+          "type": "number"
+        },
+        "leaf_coverage": {
+          "default": 0.9,
+          "description": "Minimum fraction of sanctioned leaf species with any examples before warning. Default 0.9. Applied only to a configured ontology \u2014 against a synthesized one leaf coverage is 1.0 by construction.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Leaf Coverage",
+          "type": "number"
+        },
+        "dark_branch_count": {
+          "default": 0,
+          "description": "Number of wholly-unpopulated ontology branches tolerated before warning. Default 0, so any dark branch warns. Applied only to a configured ontology.",
+          "minimum": 0,
+          "title": "Dark Branch Count",
+          "type": "integer"
+        },
+        "unmatched_class_count": {
+          "default": 0,
+          "description": "Number of class names that may fail to resolve to an ontology concept before warning. Default 0. Applied only to a configured ontology.",
+          "minimum": 0,
+          "title": "Unmatched Class Count",
+          "type": "integer"
+        }
+      },
+      "title": "DataCoverageHealthThresholds",
+      "type": "object"
+    },
+    "DataCoverageWorkflowConfig": {
+      "description": "Typed workflow configuration for ``data-coverage``.\n\nInherits all fields from :class:`DataCoverageParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        coverage_method: adaptive\n        balance: true\n        diversity_method: simpson\n        run_gap_analysis: true",
+      "properties": {
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
+        },
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "coverage_method": {
+          "default": "adaptive",
+          "description": "Coverage radius method. 'adaptive' flags the sparsest coverage_percent of observations \u2014 a useful shortlist, but its rate restates the config, so the uncovered_rate threshold is not applied to it. 'naive' compares each radius against a fixed geometric radius, giving a data-driven rate, but that radius grows with embedding dimensionality and saturates on wide embeddings. Either way, the per-class dispersion / isotropy / near-duplicate signals are the data-driven health signal.",
+          "enum": [
+            "naive",
+            "adaptive"
+          ],
+          "title": "Coverage Method",
+          "type": "string"
+        },
+        "coverage_percent": {
+          "default": 0.01,
+          "description": "Proportion of observations considered uncovered for coverage_adaptive.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Coverage Percent",
+          "type": "number"
+        },
+        "num_observations": {
+          "default": 50,
+          "description": "Number of neighbors for coverage functions.",
+          "minimum": 1,
+          "title": "Num Observations",
+          "type": "integer"
+        },
+        "min_class_samples": {
+          "default": 20,
+          "description": "Minimum samples for a class to get per-class variety signals. Smaller classes are reported with assessable=False and null dispersion/isotropy/near-duplicates.",
+          "minimum": 1,
+          "title": "Min Class Samples",
+          "type": "integer"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum samples for a class's isotropy to be reported. None means the embedding dimensionality plus one \u2014 isotropy is undefined below that.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "default": 0.5,
+          "description": "A within-class nearest-neighbor pair counts as a near-duplicate when it is closer than this multiple of the typical within-class neighbor distance.",
+          "exclusiveMinimum": 0.0,
+          "title": "Near Duplicate Factor",
+          "type": "number"
+        },
+        "run_completeness": {
+          "default": true,
+          "description": "Compute dimensional completeness when an extractor is available.",
+          "title": "Run Completeness",
+          "type": "boolean"
+        },
+        "balance": {
+          "default": true,
+          "description": "Run Balance (MI) analysis on metadata factors.",
+          "title": "Balance",
+          "type": "boolean"
+        },
+        "diversity_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "simpson",
+                "shannon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "simpson",
+          "description": "Diversity method (None = skip).",
+          "title": "Diversity Method"
+        },
+        "run_gap_analysis": {
+          "default": true,
+          "description": "Compute mutual information and cross-reference per-class metadata to identify gaps.",
+          "title": "Run Gap Analysis",
+          "type": "boolean"
+        },
+        "gap_mi_threshold": {
+          "default": 0.1,
+          "description": "Minimum MI score for a factor to be included in gap analysis.",
+          "minimum": 0.0,
+          "title": "Gap Mi Threshold",
+          "type": "number"
+        },
+        "gap_min_representation": {
+          "default": 5,
+          "description": "Minimum expected count per class-factor-value combination. Classes with fewer samples are flagged as gaps.",
+          "minimum": 1,
+          "title": "Gap Min Representation",
+          "type": "integer"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sanctioned label space. A nested mapping of concept to children is read as an inline hierarchy; a string is read as a path to a serialized RDF artifact (.ttl/.rdf/.owl/.xml/.nt/.jsonld), resolved against the data root. When unset, a flat ontology is synthesized from the dataset's index2label \u2014 enough for a class balance worklist, but it can only name classes the dataset already declares.",
+          "title": "Ontology"
+        },
+        "ontology_expected": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Class name to its minimum expected share of the dataset, as a fraction in [0, 1]. Named classes use this floor as their collection target instead of the uniform share, and a dataset below the floor is reported as a violation.",
+          "title": "Ontology Expected"
+        },
+        "ontology_label_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Regex that ontology concept labels must match, e.g. '^[a-z0-9_]+$' for a lowercase_snake_case lint. Labels that fail are reported. Ignored when the ontology is synthesized.",
+          "title": "Ontology Label Pattern"
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/DataCoverageHealthThresholds",
+          "description": "Warning thresholds for dataset coverage health status."
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-coverage",
+          "default": "data-coverage",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DataCoverageWorkflowConfig",
+      "type": "object"
+    },
     "DataPrioritizationHealthThresholds": {
       "description": "Thresholds that control finding severity for the prioritization report.",
       "properties": {
@@ -2524,6 +2839,7 @@
               "mapping": {
                 "data-analysis": "#/$defs/DataAnalysisWorkflowConfig",
                 "data-cleaning": "#/$defs/DataCleaningWorkflowConfig",
+                "data-coverage": "#/$defs/DataCoverageWorkflowConfig",
                 "data-prioritization": "#/$defs/DataPrioritizationWorkflowConfig",
                 "data-splitting": "#/$defs/DataSplittingWorkflowConfig",
                 "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
@@ -2538,6 +2854,9 @@
               },
               {
                 "$ref": "#/$defs/DataCleaningWorkflowConfig"
+              },
+              {
+                "$ref": "#/$defs/DataCoverageWorkflowConfig"
               },
               {
                 "$ref": "#/$defs/DataPrioritizationWorkflowConfig"

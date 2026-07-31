@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config.schemas._task import (
         DataAnalysisTaskConfig,
         DataCleaningTaskConfig,
+        DataCoverageTaskConfig,
         DataPrioritizationTaskConfig,
         DriftMonitoringTaskConfig,
         OODDetectionTaskConfig,
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
+    from dataeval_flow.workflows.coverage.outputs import DataCoverageMetadata, DataCoverageOutputs
     from dataeval_flow.workflows.drift.outputs import DriftMonitoringMetadata, DriftMonitoringOutputs
     from dataeval_flow.workflows.ood.outputs import OODDetectionMetadata, OODDetectionOutputs
     from dataeval_flow.workflows.parameter_sweep.outputs import (
@@ -473,6 +475,13 @@ def run_task(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
 ) -> "WorkflowResult[ParameterSweepMetadata, ParameterSweepOutputs]": ...
+@overload
+def run_task(
+    task: "DataCoverageTaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "WorkflowResult[DataCoverageMetadata, DataCoverageOutputs]": ...
 @overload
 def run_task(
     task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None

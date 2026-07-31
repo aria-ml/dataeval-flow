@@ -38,6 +38,8 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_co
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
+from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows.analysis.outputs import (
     BiasResult,
     CrossSplitLabelHealth,
@@ -94,27 +96,6 @@ class SplitData:
 # ---------------------------------------------------------------------------
 # Serialization / conversion helpers
 # ---------------------------------------------------------------------------
-
-
-def _to_serializable(obj: Any) -> Any:
-    """Convert non-JSON-serializable types to plain Python types recursively."""
-    if isinstance(obj, dict):
-        return {_to_serializable(k): _to_serializable(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_to_serializable(v) for v in obj]
-    if isinstance(obj, tuple):
-        return [_to_serializable(v) for v in obj]
-    if isinstance(obj, np.integer):
-        return int(obj)
-    if isinstance(obj, np.floating):
-        return float(obj)
-    if isinstance(obj, np.bool_):
-        return bool(obj)
-    if isinstance(obj, np.ndarray):
-        return _to_serializable(obj.tolist())
-    if isinstance(obj, frozenset | set):
-        return sorted(str(v) for v in obj)
-    return obj
 
 
 def _impute_array(arr: np.ndarray) -> np.ndarray | None:
@@ -200,41 +181,6 @@ def _inject_image_stats(
         # Classification: image-level rows are used directly by factor_data
         if img_factors:
             metadata.add_factors(img_factors, level="image")
-
-
-def _compute_metadata_summary(metadata: Metadata) -> dict[str, dict[str, Any]]:
-    """Compute per-factor summary statistics from metadata."""
-    summary: dict[str, dict[str, Any]] = {}
-    df = metadata.image_data
-    factor_info = metadata.factor_info
-
-    for name, info in factor_info.items():
-        stats: dict[str, Any] = {"type": info.factor_type}
-
-        if name not in df.columns:
-            summary[name] = stats
-            continue
-
-        col = df[name]
-        stats["null_count"] = col.null_count()
-
-        if info.factor_type == "continuous":
-            stats["min"] = col.min()
-            stats["max"] = col.max()
-            stats["mean"] = col.mean()
-            stats["std"] = col.std()
-        else:
-            stats["unique_values"] = col.n_unique()
-            vc = col.value_counts().sort("count", descending=True)
-            if len(vc) > 0:
-                top = min(10, len(vc))
-                values = vc[name].head(top).to_list()
-                counts = vc["count"].head(top).to_list()
-                stats["top_values"] = dict(zip(values, counts, strict=True))
-
-        summary[name] = stats
-
-    return _to_serializable(summary)
 
 
 def _labels_from_counts(label_counts: Mapping[int, int]) -> np.ndarray:
