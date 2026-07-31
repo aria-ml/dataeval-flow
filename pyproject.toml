@@ -33,6 +33,7 @@ onnx = ["onnx>=1.15", "onnxruntime>=1.20"]
 onnx-gpu = ["onnx>=1.15", "onnxruntime-gpu>=1.20"]
 opencv = ["opencv-python-headless>=4.8.0"]
 app = ["textual>=3.0; python_version < '3.14'"]
+ontology = ["dataeval[ontology]==1.1.0-rc1"]
 # Convenience extras for common combinations
 all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
 all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
@@ -80,6 +81,7 @@ test = [
     "pytest-cov>=6.1",
     "pytest-xdist>=3.6.1",
     "coverage[toml]>=7.6",
+    "rdflib>=7.0",
 ]
 verify = [
     { include-group = "base" },

@@ -6,6 +6,7 @@ from pydantic import Field
 
 from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+from dataeval_flow.workflows.coverage.params import DataCoverageParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
 from dataeval_flow.workflows.ood.params import OODDetectionParameters
 from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
@@ -32,6 +33,27 @@ class DataAnalysisWorkflowConfig(DataAnalysisParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["data-analysis"] = "data-analysis"
+
+
+class DataCoverageWorkflowConfig(DataCoverageParameters):
+    """Typed workflow configuration for ``data-coverage``.
+
+    Inherits all fields from :class:`DataCoverageParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: coverage_check
+            type: data-coverage
+            coverage_method: adaptive
+            balance: true
+            diversity_method: simpson
+            run_gap_analysis: true
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["data-coverage"] = "data-coverage"
 
 
 class DataCleaningWorkflowConfig(DataCleaningParameters):

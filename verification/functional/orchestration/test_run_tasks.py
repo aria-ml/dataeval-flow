@@ -22,6 +22,7 @@ class TestOrchestration:
         assert names == {
             "data-analysis",
             "data-cleaning",
+            "data-coverage",
             "drift-monitoring",
             "ood-detection",
             "parameter-sweep",

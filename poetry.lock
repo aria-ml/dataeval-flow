@@ -1169,6 +1169,7 @@ numpy = ">=1.24.2"
 polars = ">=1.0.0"
 psutil = ">=7.0.0"
 pydantic = ">=2.8"
+rdflib = {version = ">=7.0", optional = true, markers = "extra == \"ontology\""}
 scikit-learn = ">=1.5.0"
 scipy = ">=1.10.0"
 torch = ">=2.2.0"
@@ -2256,6 +2257,19 @@ files = [
 
 [package.dependencies]
 pygments = "*"
+
+[[package]]
+name = "isodate"
+version = "0.7.2"
+description = "An ISO 8601 date/time/duration parser and formatter"
+optional = false
+python-versions = ">=3.7"
+groups = ["main", "dev", "test"]
+markers = "python_version == \"3.10\""
+files = [
+    {file = "isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15"},
+    {file = "isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6"},
+]
 
 [[package]]
 name = "jaraco-classes"
@@ -5126,7 +5140,7 @@ version = "3.3.2"
 description = "pyparsing - Classes and methods to define and execute parsing grammars"
 optional = false
 python-versions = ">=3.9"
-groups = ["docs"]
+groups = ["main", "dev", "docs", "test"]
 files = [
     {file = "pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d"},
     {file = "pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc"},
@@ -5618,6 +5632,31 @@ files = [
 
 [package.extras]
 all = ["numpy"]
+
+[[package]]
+name = "rdflib"
+version = "7.6.0"
+description = "RDFLib is a Python library for working with RDF, a simple yet powerful language for representing information."
+optional = false
+python-versions = ">=3.8.1"
+groups = ["main", "dev", "test"]
+files = [
+    {file = "rdflib-7.6.0-py3-none-any.whl", hash = "sha256:30c0a3ebf4c0e09215f066be7246794b6492e054e782d7ac2a34c9f70a15e0dd"},
+    {file = "rdflib-7.6.0.tar.gz", hash = "sha256:6c831288d5e4a5a7ece85d0ccde9877d512a3d0f02d7c06455d00d6d0ea379df"},
+]
+
+[package.dependencies]
+isodate = {version = ">=0.7.2,<1.0.0", markers = "python_version < \"3.11\""}
+pyparsing = ">=2.1.0,<4"
+
+[package.extras]
+berkeleydb = ["berkeleydb (>=18.1.0,<19.0.0)"]
+graphdb = ["httpx (>=0.28.1,<0.29.0)"]
+html = ["html5rdf (>=1.2,<2)"]
+lxml = ["lxml (>=4.3,<6.0)"]
+networkx = ["networkx (>=2,<4)"]
+orjson = ["orjson (>=3.9.14,<4)"]
+rdf4j = ["httpx (>=0.28.1,<0.29.0)"]
 
 [[package]]
 name = "referencing"
@@ -7665,9 +7704,10 @@ cu118 = ["torch", "torchvision"]
 cu128 = ["torch", "torchvision"]
 onnx = ["onnx", "onnxruntime"]
 onnx-gpu = ["onnx", "onnxruntime-gpu"]
+ontology = ["dataeval"]
 opencv = ["opencv-python-headless"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "c98a1a8f727c6fb599ba65f1defb1f08c1907dc1697bfe3a1c0ca24c867308ca"
+content-hash = "2f70ab266bb85e44fe64fa4e97eb8125d4cd7d78069d1e700a45f98c991374f6"

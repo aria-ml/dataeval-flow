@@ -30,6 +30,7 @@ from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
     DataAnalysisTaskConfig,
     DataCleaningTaskConfig,
+    DataCoverageTaskConfig,
     DataPrioritizationTaskConfig,
     DataSplittingTaskConfig,
     DriftMonitoringTaskConfig,
@@ -46,6 +47,7 @@ from dataeval_flow.config.schemas._view import (
 from dataeval_flow.config.schemas._workflow import (
     DataAnalysisWorkflowConfig,
     DataCleaningWorkflowConfig,
+    DataCoverageWorkflowConfig,
     DataPrioritizationWorkflowConfig,
     DataSplittingWorkflowConfig,
     DriftMonitoringWorkflowConfig,
@@ -72,6 +74,7 @@ ExtractorConfig = Annotated[
 WorkflowConfig = Annotated[
     DataAnalysisWorkflowConfig
     | DataCleaningWorkflowConfig
+    | DataCoverageWorkflowConfig
     | DataPrioritizationWorkflowConfig
     | DataSplittingWorkflowConfig
     | DriftMonitoringWorkflowConfig
@@ -98,6 +101,7 @@ __all__ = [
     # Workflow
     "DataAnalysisWorkflowConfig",
     "DataCleaningWorkflowConfig",
+    "DataCoverageWorkflowConfig",
     "DataPrioritizationWorkflowConfig",
     "DataSplittingWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
@@ -108,6 +112,7 @@ __all__ = [
     "AutoBinMethod",
     "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",
+    "DataCoverageTaskConfig",
     "DataPrioritizationTaskConfig",
     "DataSplittingTaskConfig",
     "DriftMonitoringTaskConfig",

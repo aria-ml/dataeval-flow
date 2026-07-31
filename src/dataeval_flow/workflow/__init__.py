@@ -307,6 +307,7 @@ def _ensure_initialized() -> None:
     if not _initialized:
         from dataeval_flow.workflows.analysis.workflow import DataAnalysisWorkflow
         from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
+        from dataeval_flow.workflows.coverage.workflow import DataCoverageWorkflow
         from dataeval_flow.workflows.drift.workflow import DriftMonitoringWorkflow
         from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
         from dataeval_flow.workflows.parameter_sweep.workflow import ParameterSweepWorkflow
@@ -317,6 +318,7 @@ def _ensure_initialized() -> None:
             DataAnalysisWorkflow,
             DataCleaningWorkflow,
             ParameterSweepWorkflow,
+            DataCoverageWorkflow,
             DataPrioritizationWorkflow,
             DataSplittingWorkflow,
             DriftMonitoringWorkflow,

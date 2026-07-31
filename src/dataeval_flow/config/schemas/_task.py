@@ -59,6 +59,10 @@ class DataCleaningTaskConfig(TaskConfig):
     """
 
 
+class DataCoverageTaskConfig(TaskConfig):
+    """Task config for ``data-coverage`` workflows."""
+
+
 class DataSplittingTaskConfig(TaskConfig):
     """Task config for ``data-splitting`` workflows."""
 

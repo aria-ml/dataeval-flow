@@ -7,6 +7,7 @@ Learning-oriented guides that walk you through using DataEval Flow step by step.
 
 ../notebooks/data_analysis
 ../notebooks/data_cleaning
+../notebooks/data_coverage
 ../notebooks/data_prioritization
 ../notebooks/dataset_splitting
 ../notebooks/drift_monitoring

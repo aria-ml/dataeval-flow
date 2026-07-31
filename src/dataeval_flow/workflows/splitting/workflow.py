@@ -8,6 +8,8 @@ import numpy as np
 from pydantic import BaseModel
 
 from dataeval_flow.workflow import WorkflowContext, WorkflowResult
+from dataeval_flow.workflows._common import normalize_unit_interval
+from dataeval_flow.workflows._common import serialize_coverage as _serialize_coverage
 from dataeval_flow.workflows.splitting.outputs import (
     DataSplittingMetadata,
     DataSplittingOutputs,
@@ -69,18 +71,6 @@ def _serialize_diversity(output: Any) -> dict[str, Any]:
     return result
 
 
-def _serialize_coverage(coverage_result: Any) -> dict[str, Any]:
-    """Convert CoverageResult to a plain dict."""
-    result: dict[str, Any] = {}
-    for key in ("uncovered_indices", "critical_value_radii", "coverage_radius"):
-        val = coverage_result.get(key, None) if hasattr(coverage_result, "get") else getattr(coverage_result, key, None)
-        if val is not None:
-            if hasattr(val, "tolist"):
-                val = val.tolist()
-            result[key] = val
-    return result
-
-
 # ---------------------------------------------------------------------------
 # Embedding-space coverage helper (step 7)
 # Extracted from _execute to satisfy C901 complexity limit.
@@ -111,14 +101,7 @@ def _run_coverage(
         transforms=ds_ctx.transforms,
         batch_size=ds_ctx.batch_size,
     )
-    all_embeddings = np.array(embeddings_obj)
-
-    # Normalize to [0, 1]
-    emb_min = all_embeddings.min(axis=0, keepdims=True)
-    emb_max = all_embeddings.max(axis=0, keepdims=True)
-    emb_range = emb_max - emb_min
-    emb_range[emb_range == 0] = 1.0
-    all_embeddings = (all_embeddings - emb_min) / emb_range
+    all_embeddings = normalize_unit_interval(np.array(embeddings_obj))
 
     for fold_info in fold_infos:
         train_embs = all_embeddings[fold_info.train_indices]
