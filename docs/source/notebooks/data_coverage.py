@@ -20,6 +20,22 @@
 # embedding blind spots using the config-driven `data-coverage` workflow.
 
 # %% [markdown]
+# **Who this is for** — T&E engineers and data scientists who need to establish
+# whether a dataset actually spans the operational conditions a model will face,
+# before that dataset is used to train or to certify.
+#
+# **Where this fits** — Coverage assessment belongs at the front of the data
+# pipeline, alongside [data cleaning](data_cleaning). Cleaning asks whether the
+# data you collected is *sound*; coverage asks whether it is *complete* — whether
+# any sanctioned class, metadata condition, or region of the embedding space was
+# never collected at all. Gaps found here drive targeted collection, and they
+# bound how much a downstream [drift](drift_monitoring) or
+# [OOD](ood_detection) baseline can be trusted: a reference set with a blind spot
+# cannot flag drift into it. See the
+# [Dataset coverage](../concepts/Coverage.md) concept page for the ideas behind
+# the checks.
+
+# %% [markdown]
 # ## What you'll do
 #
 # - Load MNIST from HuggingFace and build a **deliberately biased** subset
@@ -880,5 +896,23 @@ print(json_str[:500] + "\n...")
 #   versioned SKOS or OWL file (`ontology: ./taxonomy.ttl`), which also
 #   carries synonyms, definitions and stable concept ids. Needs
 #   `pip install "dataeval[ontology]"`.
-# - **Run in Docker** — See the [Containerized Workflows how-to](../how_to/containerized_workflows.md) to
-#   build a container image, write a YAML config, and run a workflow with `docker run`
+# - **Targeted labeling** — Feed the gap findings into the
+#   `prioritization` workflow to rank unlabeled candidates that fall in
+#   the under-covered regions
+
+# %% [markdown]
+# ## Related guides
+#
+# - **Concept** — [Dataset coverage](../concepts/Coverage.md): the label-space
+#   and embedding-space completeness ideas behind this workflow.
+# - **How-to: Declare an ontology** — [Declare an ontology](../how_to/declare_an_ontology.md)
+#   to define the sanctioned label space this workflow checks a dataset against,
+#   inline or as a versioned SKOS/OWL file.
+# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
+#   to build a container image, write a YAML config, and run this workflow with `docker run`.
+# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
+#   to swap the BoVW extractor used here for a pretrained model with higher-fidelity embeddings.
+# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
+#   to interpret the coverage report, its health severities, and the exported result envelope.
+# - **How-to: Reuse results with the disk cache** — [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md)
+#   for the `cache_dir` used throughout this tutorial — what it stores and what invalidates it.

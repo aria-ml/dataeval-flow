@@ -414,6 +414,13 @@ print(json_str[:500] + "\n...")
 #
 # - **Concept** — [Data quality and cleaning](../concepts/DataQualityAndCleaning.md):
 #   the outlier and duplicate detection ideas behind this workflow.
+# - **How-to: Configure outlier detection** — [Configure outlier detection](../how_to/configure_outlier_detection.md)
+#   to pick a statistical method, choose which statistics to test, add cluster-based detection, and set the
+#   thresholds that turn a finding into a warning.
+# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
+#   to interpret the report, export the result envelope, and pull the flagged indices out for inspection.
+# - **How-to: Narrow a dataset with views** — [Narrow a dataset with views](../how_to/build_dataset_views.md)
+#   to limit, filter, or sample the dataset before this workflow sees it.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to build a container image, write a YAML config, and run this workflow with `docker run`.
 # - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)

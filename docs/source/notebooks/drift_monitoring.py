@@ -429,6 +429,8 @@ print(json_str[:600] + "\n...")
 #
 # - **Concept** — [Distribution shift](../concepts/DistributionShift.md):
 #   how drift, classwise drift, and OOD detection relate, and what each detector measures.
+# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
+#   to interpret per-batch drift flags and p-values and export them for a monitoring dashboard.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to run drift monitoring on a schedule against live data pipelines from a container.
 # - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)

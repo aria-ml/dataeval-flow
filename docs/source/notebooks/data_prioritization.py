@@ -628,5 +628,10 @@ except ImportError:
 #
 # - **Concept** — [Prioritization](../concepts/Prioritization.md):
 #   the ranking methods (`knn`, `kmeans_distance`, `hdbscan_complexity`) and ordering policies.
+# - **How-to: Use a PyTorch model for embeddings** — [PyTorch embeddings](../how_to/torch_embeddings.md)
+#   to read an intermediate layer of the CNN trained here — the `layer_name: embed` configuration used above,
+#   explained in full.
+# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
+#   to interpret the ranking report and export the ordering for a labeling queue.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to run prioritization from a YAML config inside a container for production pipelines.

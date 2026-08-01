@@ -473,6 +473,10 @@ print(json_str[:500] + "\n...")
 #
 # - **Concept** — [Data quality and cleaning](../concepts/DataQualityAndCleaning.md):
 #   the five assessment areas and cross-split checks behind this report.
+# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
+#   to interpret the report's severities and reach the per-split raw results behind each finding.
+# - **How-to: Narrow a dataset with views** — [Narrow a dataset with views](../how_to/build_dataset_views.md)
+#   to limit, filter, or sample each split before it is profiled.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to mount your dataset and config YAML, then run `dataeval-flow` as a container with the
 #   same configuration.

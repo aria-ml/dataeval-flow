@@ -27,6 +27,7 @@
 #
 # - [Clean a dataset](data_cleaning)
 # - [Analyze dataset quality across splits](data_analysis)
+# - [Assess dataset coverage](data_coverage)
 # - [Monitor incoming data for drift](drift_monitoring)
 # - [Detect out-of-distribution samples](ood_detection)
 

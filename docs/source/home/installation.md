@@ -1,5 +1,9 @@
 # Installation
 
+DataEval Flow is developed and tested on Linux (Ubuntu 22.04 / 24.04, including WSL2) on linux/amd64, against Python
+3.10–3.13. See {doc}`quickstart` for the supported-platform summary and {doc}`../reference/containers` for the full
+hardware, architecture, and network requirements.
+
 ## Using pip
 
 PyTorch is hosted on a separate wheel index, so pass `--extra-index-url`

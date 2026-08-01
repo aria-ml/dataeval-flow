@@ -515,6 +515,8 @@ print(json_str[:600] + "\n...")
 #
 # - **Concept** — [Distribution shift](../concepts/DistributionShift.md):
 #   how OOD detection relates to drift monitoring and what each detector measures.
+# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
+#   to interpret per-sample OOD scores and pull the flagged images out of the result for review.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to run OOD detection on a schedule against live data pipelines from a container.
 # - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)

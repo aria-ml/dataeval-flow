@@ -143,6 +143,11 @@ markdownlint:
 # Markdown link check [DR-3.3-H-4]
 # Allow failure: link checking is sensitive to transient network issues and
 # anti-scraping measures on some sites. Warnings should be reviewed but not block merges.
+#
+# `markdown-link-check` takes FILES, not directories — passing `./docs/source`
+# silently checked nothing (and the resulting error was swallowed by
+# allow_failure). Enumerate the files with `find` so docs/source is really
+# covered, and accumulate the exit status so one bad file does not mask the rest.
 linkchecker:
   extends: [.rules_main_mr]
   stage: lint
@@ -150,9 +155,15 @@ linkchecker:
   image:
     name: ghcr.io/tcort/markdown-link-check:stable
     entrypoint: ['/bin/sh', '-c']
-  script:
-    - markdown-link-check --config docs/.markdown-link-check.json BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md GEMINI.md README.md ROADMAP.md SECURITY.md docs/CACHE_MANAGEMENT.md
-    - markdown-link-check --config docs/.markdown-link-check.json ./docs/source
+  script: |
+    FAIL=0
+    markdown-link-check --config docs/.markdown-link-check.json \
+      BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md GEMINI.md \
+      README.md ROADMAP.md SECURITY.md docs/CACHE_MANAGEMENT.md || FAIL=1
+    # -print0/-0 so paths with spaces survive; -r keeps xargs from running on an empty set.
+    find docs/source -name '*.md' -not -path '*/.jupyter_cache/*' -print0 \
+      | xargs -0 -r -n1 markdown-link-check --config docs/.markdown-link-check.json || FAIL=1
+    exit $FAIL
   allow_failure: true
 
 # -----------------------------------------------------------------------------

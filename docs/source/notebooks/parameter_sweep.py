@@ -195,5 +195,9 @@ print(result.report())
 #   across runs.
 # - **Tutorial** — [Clean a dataset](data_cleaning): apply the parameters you select
 #   here in a standard `data-cleaning` run.
+# - **How-to: Configure outlier detection** — [Configure outlier detection](../how_to/configure_outlier_detection.md)
+#   for what each swept parameter actually controls, and which are worth sweeping rather than guessing.
+# - **How-to: Reuse results with the disk cache** — [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md)
+#   to persist embeddings and statistics so each grid point does not recompute them.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to run a parameter sweep from a YAML config inside a container.

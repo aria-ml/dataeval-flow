@@ -1,9 +1,9 @@
 # DataEval Flow
 
 DataEval Flow provides workflow orchestration for DataEval evaluators, packaging
-data cleaning, drift monitoring, OOD detection, analysis, splitting,
-prioritization, and parameter-sweep pipelines behind a single declarative
-configuration format and both headless and interactive CLIs.
+data cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
+detection, splitting, prioritization, and parameter-sweep pipelines behind a
+single declarative configuration format and both headless and interactive CLIs.
 
 DataEval Flow lets T&E engineers compose and run multi-stage data evaluation
 pipelines without writing Python glue code. Pipelines are described in YAML or
@@ -20,6 +20,7 @@ reproducible orchestration layer with native MAITE interoperability.
 | --- | --- | --- |
 | Find and flag dataset quality issues | Data Cleaning | Outliers, duplicates, and label issues |
 | Profile dataset quality across splits | Data Analysis | Statistical summaries and quality metrics |
+| Find gaps in dataset coverage before training | Data Coverage | Class and metadata gaps, ontology findings, embedding blind spots |
 | Build leakage-free train/val/test splits | Dataset Splitting | Stratified or random splits |
 | Monitor operational data for population drift | Drift Detection | Per-batch drift flags and p-values |
 | Track drift on a per-class basis | Classwise Drift | Per-class drift signals |
@@ -44,9 +45,10 @@ See the [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the
 - **Batch execution** — the container runs a pipeline to completion and exits; it
   is not a long-running service.
 
-See the [Container Reference](reference/containers.md) for hardware, architecture,
-and network requirements, and the [Installation guide](home/installation.md) to get
-started.
+New here? The [Quickstart](home/quickstart.md) installs the package and runs a first
+evaluation end to end. See the [Installation guide](home/installation.md) for every
+supported install path, and the [Container Reference](reference/containers.md) for
+hardware, architecture, and network requirements.
 
 <!-- TOC TREE -->
 
@@ -56,6 +58,7 @@ started.
 
 Welcome <self>
 home/installation.md
+home/quickstart.md
 Change Log <home/changelog.md>
 :::
 

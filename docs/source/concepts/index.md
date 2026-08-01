@@ -32,6 +32,8 @@ duplicate them.
 
 - [Data Quality and Cleaning](DataQualityAndCleaning.md) — outliers, duplicates,
   and label issues
+- [Dataset Coverage](Coverage.md) — label-space gaps checked against an ontology,
+  and embedding-space blind spots
 - [Distribution Shift](DistributionShift.md) — population-level drift,
   instance-level OOD, and classwise drift
 - [Dataset Splitting](DatasetSplitting.md) — stratified versus random splits and
@@ -46,6 +48,10 @@ science in depth. The most relevant explanation pages are:
 
 - [Data Integrity](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html)
   — outliers, duplicates, and label issues
+- [Dataset Bias and Coverage](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html)
+  — coverage, balance, and bias measures
+- [Ontology](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html)
+  — label-space vocabularies and the operations performed over them
 - [Distribution Shift](https://dataeval.readthedocs.io/en/latest/concepts/DistributionShift.html)
   — drift and out-of-distribution detection
 - [Embeddings](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html)
@@ -64,6 +70,7 @@ Reproducibility
 Provenance
 PreprocessingAndExtraction
 DataQualityAndCleaning
+Coverage
 DistributionShift
 DatasetSplitting
 Prioritization

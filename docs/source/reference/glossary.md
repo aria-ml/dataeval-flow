@@ -22,6 +22,14 @@ Classwise Drift
     {term}`Drift` measured separately for each class, revealing which classes a
     distribution shift most affects rather than only an aggregate signal.
 
+Coverage
+    How completely a dataset spans the conditions a model will meet in operation,
+    measured along two axes: which categories are present (labels checked against
+    an {term}`ontology<Ontology>`) and how varied each one is
+    ({term}`embeddings<Embedding>` checked for clustering, low dimensionality, and
+    duplication). See [Dataset Coverage](../concepts/Coverage.md) and the
+    [DataEval Dataset Bias and Coverage explanation](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html).
+
 Data Cleaning
     The process of identifying and flagging quality issues in a dataset —
     {term}`outliers<Outlier>`, {term}`duplicates<Duplicates>`, and label
@@ -64,6 +72,13 @@ Extractor
     {term}`BoVW<Bag-of-Visual-Words (BoVW)>`, Flatten, and Uncertainty
     extractors; an extractor may reference a {term}`preprocessor<Preprocessor>`.
 
+Health Threshold
+    A configurable limit on a workflow metric (for example, the maximum allowable
+    percentage of near-duplicates) above which the corresponding finding is
+    elevated from `info` to `warning` severity. Thresholds set the risk tolerance
+    of a run; the report's *health* line summarizes how many findings breached
+    theirs.
+
 MAITE
     Modular AI Trustworthy Engineering — the JATIC protocol for interoperable
     AI/ML datasets, models, and components. MAITE-compliant inputs give DataEval
@@ -74,10 +89,22 @@ Maximum Mean Discrepancy (MMD)
     {term}`embeddings<Embedding>` of a reference and an incoming sample in a
     kernel feature space.
 
+Mode
+    Whether a workflow reports or acts. `advisory` (the default) flags findings
+    and leaves the dataset untouched; `preparatory` applies the workflow's
+    remedy — for example, removing the samples data cleaning flagged.
+
 ONNX
     Open Neural Network Exchange — an open model format. DataEval Flow can use an
     ONNX model as a {term}`feature extractor<Extractor>` for embedding
     extraction.
+
+Ontology
+    A machine-readable statement of the sanctioned label space — the concepts in a
+    domain and how they relate. Declaring one lets the coverage workflow validate
+    a dataset's labels and name classes that are missing entirely, which raw counts
+    cannot do. See the
+    [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html).
 
 Out-of-Distribution (OOD)
     A sample that differs significantly from the training distribution. Where
@@ -109,10 +136,23 @@ Prioritization
     Ranking abundant or unlabeled samples by how informative they are for
     labeling or review, typically using {term}`embedding<Embedding>` structure.
 
+Provenance
+    The lineage a result carries: which dataset, under which {term}`view<View>`,
+    represented by which model, evaluated with which resolved configuration, by
+    which version of the tool, and when. Recorded in the
+    {term}`result envelope<Result Envelope>`, provenance is what makes a finding
+    auditable. See [Provenance](../concepts/Provenance.md).
+
 Reference Dataset
     The baseline (typically training) dataset against which {term}`drift<Drift>`
     and {term}`OOD<Out-of-Distribution (OOD)>` detectors are calibrated.
     Detection quality is bounded by how representative the reference is.
+
+Reproducibility
+    The property that the same evaluation over the same data yields the same
+    result. DataEval Flow pursues it through declarative configuration, config
+    validation, and config-keyed {term}`caching<Caching>`. See
+    [Reproducibility](../concepts/Reproducibility.md).
 
 Result Envelope
     The machine-readable output object emitted by a workflow alongside the
@@ -134,11 +174,17 @@ Task
     binding a {term}`source<Source>` (or sources) to a {term}`workflow<Workflow>`
     and its parameters.
 
+View
+    A named, ordered pipeline of dataset operations (`Limit`, `ClassFilter`,
+    `Shuffle`, …) applied to a dataset before evaluation, referenced by name from
+    a {term}`source<Source>`. The config-layer counterpart of `dataeval.data.View`.
+    The legacy key `selection` is a deprecated alias.
+
 Workflow
     A built-in evaluator type DataEval Flow can run: Data Cleaning, Data
-    Analysis, Dataset Splitting, Drift Detection, OOD Detection, Prioritization,
-    or Parameter Sweep. Each has its own configuration schema, defaults, and
-    {term}`caching<Caching>` contract.
+    Analysis, Data Coverage, Dataset Splitting, Drift Detection, Classwise Drift,
+    OOD Detection, Prioritization, or Parameter Sweep. Each has its own
+    configuration schema, defaults, and {term}`caching<Caching>` contract.
 
 Workflow Configuration
     A YAML or JSON file specifying the {term}`sources<Source>`,

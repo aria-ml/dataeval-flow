@@ -1,9 +1,9 @@
 # DataEval Flow
 
 DataEval Flow provides workflow orchestration for DataEval evaluators, packaging
-data cleaning, drift monitoring, OOD detection, analysis, splitting,
-prioritization, and parameter-sweep pipelines behind a single declarative
-configuration format and both headless and interactive CLIs.
+data cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
+detection, splitting, prioritization, and parameter-sweep pipelines behind a
+single declarative configuration format and both headless and interactive CLIs.
 
 📖 **Documentation:** <https://dataeval-flow.readthedocs.io/>
 
@@ -17,9 +17,10 @@ JSON, executed locally or in a CUDA-enabled container, and produce both
 human-readable reports and machine-readable result envelopes that satisfy JATIC
 interoperability requirements. It builds directly on the
 [DataEval](https://dataeval.readthedocs.io/) library, so the underlying
-evaluators — outlier and duplicate detection, drift and OOD monitoring, dataset
-splitting, prioritization, and statistical analysis — are the same algorithms
-DataEval exposes, wrapped in a reproducible orchestration layer.
+evaluators — outlier and duplicate detection, coverage and gap analysis, drift
+and OOD monitoring, dataset splitting, prioritization, and statistical analysis —
+are the same algorithms DataEval exposes, wrapped in a reproducible
+orchestration layer.
 
 <!-- end needs -->
 
@@ -223,7 +224,7 @@ precedence over them (see [Input Precedence](#input-precedence) below).
 | ----------------- | ----------------------------------------------- | --------------------------------------------------------- |
 | `DATAEVAL_DATA`   | Input data root — datasets, models, and configs | `/dataeval` in the container; current directory otherwise |
 | `DATAEVAL_OUTPUT` | Directory for results and reports               | `/output` in the container                                |
-| `DATAEVAL_CACHE`  | Disk-backed computation cache (optional)        | `/cache` when that mount is present                       |
+| `DATAEVAL_CACHE`  | Disk-backed computation cache (optional)        | `/cache` when that mount is present and writable          |
 
 No secret mounts or credentials are required — DataEval Flow uses no API keys,
 tokens, or passwords. (`DATAEVAL_FLOW_VERSION` and `DATAEVAL_NOX_UV_EXTRAS_OVERRIDE`

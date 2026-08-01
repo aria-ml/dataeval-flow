@@ -58,7 +58,15 @@ All runtime environment variables are optional.
 | ----------------- | ------------------------------------------- | ------------------------------------------------------------------------- |
 | `DATAEVAL_DATA`   | Input data root (datasets, models, configs) | `/dataeval` in the container; current working directory otherwise         |
 | `DATAEVAL_OUTPUT` | Output directory for results and reports    | `/output` in the container                                                |
-| `DATAEVAL_CACHE`  | Disk-backed computation cache directory     | `/cache` when that mount is present (otherwise caching is in-memory only) |
+| `DATAEVAL_CACHE`  | Disk-backed computation cache directory     | Auto-set to `/cache` when that mount is present and writable (see below)  |
+
+`DATAEVAL_DATA` and `DATAEVAL_OUTPUT` are baked into the image as `/dataeval` and
+`/output`. `DATAEVAL_CACHE` is **not** — the entrypoint sets it to `/cache` only when
+you have not already set it *and* `/cache` exists, is writable, and is a real mount
+rather than the image's unmounted placeholder. If any of those is false the variable
+stays unset and caching falls back to in-memory only, which is silent: the run
+succeeds but nothing persists between runs. Pass `--cache` explicitly if you need to
+be certain.
 
 `HF_HUB_OFFLINE` / `HF_DATASETS_OFFLINE` are standard HuggingFace variables you
 may set to force fully offline operation (see [Internet access](#internet-access)).
@@ -75,7 +83,12 @@ The following are **build-time only** and are not read at run time:
 | `-d`, `--data PATH`   | Input data root                   | `$DATAEVAL_DATA`, else the container default / CWD |
 | `-o`, `--output PATH` | Output directory for artifacts    | `$DATAEVAL_OUTPUT`, else `/output`                 |
 | `-k`, `--cache PATH`  | Disk-backed computation cache     | `$DATAEVAL_CACHE`, else `/cache` if mounted        |
+| `-v`, `--verbose`     | Increase verbosity (repeatable)   | Off — see below                                    |
 | `-h`, `--help`        | Print the interface help and exit | —                                                  |
+
+`--verbose` is a counting flag: `-v` prints the text report to stdout, `-vv` adds `INFO`
+logs, and `-vvv` adds `DEBUG` logs. Artifacts are written to the output directory
+regardless of verbosity.
 
 Optional sub-commands (default is the headless pipeline):
 
