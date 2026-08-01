@@ -783,7 +783,7 @@ class DatasetCache:
             arr = np.load(path, allow_pickle=False)
             self._mem_set(selection_repr, obj_key, arr)
             return arr
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.warning(
                 "Failed to load embeddings from cache for %s/%s — recomputing",
                 self._dataset_name,
@@ -901,7 +901,7 @@ class DatasetCache:
             }
             self._mem_set(selection_repr, obj_key, result)
             return result
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.warning(
                 "Failed to load cluster result from cache for %s/%s — recomputing",
                 self._dataset_name,
@@ -1054,7 +1054,7 @@ class DatasetCache:
 
             self._mem_set(selection_repr, obj_key, meta)
             return meta
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.warning(
                 "Failed to load Metadata from cache for %s/%s — recomputing",
                 self._dataset_name,
@@ -1219,7 +1219,7 @@ class DatasetCache:
             )
             self._mem_set(selection_repr, obj_key, result)
             return result
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.warning(
                 "Failed to load stats from cache for %s/%s (scope=%s) — recomputing",
                 self._dataset_name,

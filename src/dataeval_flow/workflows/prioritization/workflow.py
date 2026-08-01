@@ -353,8 +353,10 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
                 success=False,
                 data=self._empty_outputs(),
                 errors=[
-                    f"Data prioritization requires at least 2 datasets (reference + data to prioritize), "
-                    f"got {len(dc_items)}: {[n for n, _ in dc_items]}"
+                    (
+                        f"Data prioritization requires at least 2 datasets (reference + data to prioritize), "
+                        f"got {len(dc_items)}: {[n for n, _ in dc_items]}"
+                    )
                 ],
                 metadata=DataPrioritizationMetadata(),
             )

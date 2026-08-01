@@ -215,7 +215,7 @@ def _run_all_ood_detectors(
 
             ood_count = int(np.sum(output.is_ood))
             _logger.info("  %s: %d/%d OOD (%.1f%%)", display, ood_count, test_size, 100.0 * ood_count / test_size)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _logger.warning("OOD detector %s failed: %s", display, e, exc_info=True)
             detector_errors.append(f"{display}: {e}")
 
@@ -262,7 +262,7 @@ def _extract_metadata_factors(
                 factors["class_label"] = labels
 
         return factors if factors else None
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.warning("Failed to extract metadata factors", exc_info=True)
         return None
 
@@ -298,7 +298,7 @@ def _extract_stats_factors(
             if np.issubdtype(arr.dtype, np.number) and len(arr) == n_images:
                 factors[f"f_{name}"] = arr
         return factors if factors else None
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.warning("Failed to extract stats factors", exc_info=True)
         return None
 
@@ -467,7 +467,7 @@ def _compute_metadata_insights(
             FactorDeviationDict(index=idx, deviations=dict(devs))
             for idx, devs in zip(capped_indices, raw_devs, strict=True)
         ]
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.warning("factor_deviation failed", exc_info=True)
 
     # Compute factor_predictors across all OOD samples
@@ -475,7 +475,7 @@ def _compute_metadata_insights(
     try:
         raw_preds = factor_predictors(test_factors_common, ood_indices)
         predictors = {k: round(float(v), 4) for k, v in sorted(raw_preds.items(), key=lambda x: -x[1])}
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.warning("factor_predictors failed", exc_info=True)
 
     _logger.info("[5/5] Metadata insights complete in %.1fs", _time.monotonic() - t0)
@@ -569,8 +569,10 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
                 success=False,
                 data=self._empty_outputs(),
                 errors=[
-                    f"OOD detection requires at least 2 datasets (reference + test), "
-                    f"got {len(dc_items)}: {[n for n, _ in dc_items]}"
+                    (
+                        f"OOD detection requires at least 2 datasets (reference + test), "
+                        f"got {len(dc_items)}: {[n for n, _ in dc_items]}"
+                    )
                 ],
                 metadata=OODDetectionMetadata(),
             )

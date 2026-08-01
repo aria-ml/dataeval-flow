@@ -247,7 +247,7 @@ def _ensure_result_datasets(
         if dc.view_operations:
             try:
                 dataset = build_view(dataset, list(dc.view_operations))
-            except Exception:  # noqa: BLE001 — fall back to the unselected dataset
+            except Exception:
                 _logger.debug("Could not rebuild selection for source '%s'", name, exc_info=True)
         resolved[name] = dataset
 

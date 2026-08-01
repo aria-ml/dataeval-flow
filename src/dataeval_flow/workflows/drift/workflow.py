@@ -194,7 +194,7 @@ def _extract_labels(dataset: AnnotatedDataset[Any]) -> NDArray[np.intp] | None:
             else:
                 return None
         return np.array(labels, dtype=np.intp)
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.debug("Could not extract labels for classwise drift", exc_info=True)
         return None
 
@@ -289,7 +289,7 @@ def _run_classwise_drift(
                         p_val=float(p_val) if p_val is not None else None,
                     )
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _logger.warning("Classwise detector %s failed for class %s", name, cls, exc_info=True)
                 continue
 
@@ -365,7 +365,7 @@ def _run_all_detectors(
 
             status = "DRIFT" if output.drifted else "ok"
             _logger.info("  %s: %s (distance=%.4f, threshold=%.4f)", display, status, output.distance, output.threshold)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _logger.warning("Detector %s failed: %s", display, e, exc_info=True)
             detector_errors.append(f"{display}: {e}")
 
@@ -487,8 +487,10 @@ class DriftMonitoringWorkflow(WorkflowProtocol[DriftMonitoringMetadata, DriftMon
                 success=False,
                 data=self._empty_outputs(),
                 errors=[
-                    f"Drift monitoring requires at least 2 datasets (reference + test), "
-                    f"got {len(dc_items)}: {[n for n, _ in dc_items]}"
+                    (
+                        f"Drift monitoring requires at least 2 datasets (reference + test), "
+                        f"got {len(dc_items)}: {[n for n, _ in dc_items]}"
+                    )
                 ],
                 metadata=DriftMonitoringMetadata(),
             )

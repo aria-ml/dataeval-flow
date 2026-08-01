@@ -339,7 +339,7 @@ def _compute_classwise_pivot(
             "level": "target" if has_targets else "image",
             "rows": rows,
         }
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.warning("Classwise pivot unavailable", exc_info=True)
     return None
 
