@@ -83,7 +83,7 @@ dependencies (PyTorch, NumPy, SciPy) provide x86-64 wheels.
 | CPU      | 2 cores         | 4+ cores            | Dataset loading and statistical analysis are CPU-bound.                                                                                                                                                                                                    |
 | Memory   | 8 GB            | 16+ GB              | Datasets and embeddings are held in memory during a run; peak scales with dataset and batch size. **Memory is the primary limit on dataset size.**                                                                                                         |
 | Disk     | 10 GB           | 20+ GB              | Several GB for the container image / dependencies, plus dataset and `/cache` storage.                                                                                                                                                                      |
-| GPU      | none (optional) | NVIDIA, ≥ 4 GB VRAM | Optional — used only to accelerate model-based embedding extraction (ONNX / PyTorch). Every workflow runs CPU-only via the `cpu` image / `[cpu]` extra; a GPU mainly speeds up embedding-heavy workflows (drift / OOD / prioritization) on large datasets. |
+| GPU      | none (optional) | NVIDIA, ≥ 4 GB VRAM | Optional — used only to accelerate model-based embedding extraction (ONNX / PyTorch). Every workflow runs CPU-only via the `cpu` image or a CPU torch build; a GPU speeds up embedding-heavy workflows (drift / OOD / prioritization) on large datasets.   |
 
 A GPU is never required. When deploying the container under Kubernetes, request
 at least the minimum CPU/memory above; size memory to your largest dataset.
@@ -380,31 +380,61 @@ The `dataeval_flow` package can be used standalone without Docker.
 
 **Installation:**
 
-Three installer toolchains are supported. Choose whichever fits your environment;
-all three install the same dependencies pinned in their respective lockfiles.
+See the [Installation guide](https://dataeval-flow.readthedocs.io/en/latest/home/installation.html)
+for the full matrix. In short:
 
-`uv` (default toolchain):
+`pip` from PyPI (no source checkout). PyTorch arrives transitively via `dataeval`.
+To choose a variant, install `torch` from that variant's index **first**, then install
+DataEval Flow — it accepts the build already present (omit step 1 and you'll get the
+CUDA-bundled manylinux build of torch from PyPI, which is much larger):
+
+```bash
+# 1. Pick your PyTorch build (cpu / cu118 / cu128)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+# 2. Install DataEval Flow
+pip install dataeval-flow
+```
+
+> **Use `--index-url`, not `--extra-index-url`, to pick a CUDA build.**
+> `--extra-index-url` *adds* an index instead of replacing PyPI, and pip then takes the
+> highest version across both. The CUDA indexes lag the latest PyTorch release, so PyPI
+> usually wins and you silently get the default CUDA-bundled build — the install
+> succeeds with no warning. `--index-url` replaces the index outright, so it is
+> reliable. (For CPU only, `pip install dataeval-flow --extra-index-url
+> https://download.pytorch.org/whl/cpu` does work, because the CPU index tracks the
+> latest release.)
+
+`torchvision` is not installed by default — it is imported lazily and is only needed
+for preprocessing pipelines, the torchvision dataset adapter, and the TUI's transform
+discovery. Install it together with `torch` in step 1 so both come from the same index.
+Feature extras (`onnx`, `onnx-gpu`, `opencv`, `app`, `ontology`) work normally under
+pip and are independent of the PyTorch variant:
+
+```bash
+pip install "dataeval-flow[onnx,opencv,app]"
+```
+
+> **The `cpu` / `cu118` / `cu128` extras do not select a PyTorch variant under pip.**
+> All three declare the same requirements (`torch`, `torchvision`); what distinguishes
+> them is `[tool.uv.sources]`, which routes those packages to the right wheel index.
+> That is project metadata applied by uv when resolving **from source** — it is not
+> part of the published wheel. Under pip their only real effect is pulling in
+> `torchvision`. Select the variant with `--index-url` under pip, `--torch-backend`
+> under `uv pip`, and use the extras only for source installs.
+
+`uv` from PyPI:
+
+```bash
+uv pip install dataeval-flow --torch-backend cpu     # or cu118 / cu128 / auto
+```
+
+`uv` from source (default toolchain; uses committed `uv.lock`) — extras apply here:
 
 ```bash
 git clone https://github.com/aria-ml/dataeval-flow.git
 cd dataeval-flow
-uv sync --extra cpu      # or cu118 / cu128 for CUDA variants
-```
-
-`pip` from PyPI (no source checkout). PyTorch is hosted on a separate
-wheel index, so pass `--extra-index-url` matching the variant you want
-(omit it and you'll get the CUDA-bundled manylinux build of torch from
-PyPI, which is much larger):
-
-```bash
-# CPU-only PyTorch
-pip install "dataeval-flow[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
-
-# CUDA 11.8 PyTorch
-pip install "dataeval-flow[cu118]" --extra-index-url https://download.pytorch.org/whl/cu118
-
-# CUDA 12.8 PyTorch
-pip install "dataeval-flow[cu128]" --extra-index-url https://download.pytorch.org/whl/cu128
+uv sync --extra cpu      # or cu118 / cu128; all-cpu / all-cu118 / all-cu128 add onnx+opencv+app
 ```
 
 `poetry` (source checkout; uses committed `poetry.lock`):

@@ -19,11 +19,16 @@ for both the container and the Python-library forms.
 ## Step 2: Install
 
 ```bash
-pip install "dataeval-flow[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
+pip install dataeval-flow --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-PyTorch is hosted on a separate wheel index, so the `--extra-index-url` matters. See {doc}`installation` for the uv,
-Poetry, conda, source, and Docker paths, and for the CUDA variants.
+PyTorch lives on a separate wheel index, and that flag is what gets you the CPU build — without it you get the much
+larger CUDA-bundled build from PyPI.
+
+For a **CUDA** build, install `torch` from its index first and then DataEval Flow; `--extra-index-url` is not reliable
+for the CUDA variants. And note that the `cpu` / `cu118` / `cu128` extras do *not* select a PyTorch variant under pip —
+they exist for uv source installs. See {doc}`installation` for both points in full, plus the uv, Poetry, conda, source,
+and Docker paths.
 
 ## Step 3: Describe a pipeline
 

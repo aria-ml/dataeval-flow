@@ -51,7 +51,7 @@
 # %% [markdown]
 # ## What you'll need
 #
-# - `dataeval-flow[cpu]` (includes `dataeval`, `datamaite`, `torch`)
+# - `dataeval-flow` (brings in `dataeval`, `datamaite`, and `torch`) plus `torchvision`
 # - `datasets` (to download MNIST from HuggingFace Hub)
 # - Internet connection (to download MNIST from HuggingFace Hub on first run)
 
