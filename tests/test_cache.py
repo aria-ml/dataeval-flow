@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import polars as pl
 import pytest
+from dataeval import Metadata
 
 from dataeval_flow.cache import (
     CACHE_VERSION,
@@ -27,6 +28,8 @@ from dataeval_flow.cache import (
     scope_key,
     selection_repr,
 )
+
+pytestmark = pytest.mark.required
 
 
 @pytest.fixture(autouse=True)
@@ -343,7 +346,7 @@ class TestCorruptedCacheResilience:
 
     def test_load_metadata_corrupted_json(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_mock_metadata()
+        meta = _make_metadata()
         cache.save_metadata("sel:all", meta)
         # Corrupt the json file
         s = _config_hash("sel:all")
@@ -917,30 +920,87 @@ class TestGetOrComputeStats:
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_metadata() -> MagicMock:
-    """Build a mock Metadata with the attributes DatasetCache serializes."""
-    meta = MagicMock()
-    meta.dataframe = pl.DataFrame(
-        {
-            "class_label": [0, 1, 0, 1, 2],
-            "target_index": [None, None, None, None, None],
-            "brightness": [0.5, 0.6, 0.7, 0.8, 0.9],
-        }
-    )
-    meta.class_labels = np.array([0, 1, 0, 1, 2], dtype=np.intp)
-    meta.index2label = {0: "cat", 1: "dog", 2: "bird"}
-    meta.item_indices = np.array([0, 1, 2, 3, 4], dtype=np.intp)
-    meta.item_count = 5
-    meta._image_factors = {"brightness"}
-    meta._target_factors = set()
-    meta._has_targets = False
-    return meta
+class _FakeICDataset:
+    """Minimal MAITE image-classification dataset: 5 images, 3 classes, 1 factor."""
+
+    _BRIGHTNESS = (0.1, 0.3, 0.5, 0.7, 0.9)
+    _LABELS = (0, 1, 0, 1, 2)
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return {"id": "fake-ic", "index2label": {0: "cat", 1: "dog", 2: "bird"}}
+
+    def __len__(self) -> int:
+        return len(self._LABELS)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        one_hot = np.zeros(3, dtype=np.float32)
+        one_hot[self._LABELS[index]] = 1.0
+        return (
+            np.zeros((1, 1, 1), dtype=np.float32),
+            one_hot,
+            {"id": index, "brightness": self._BRIGHTNESS[index]},
+        )
+
+
+class _FakeODTarget:
+    def __init__(self, labels: Any, boxes: Any, scores: Any) -> None:
+        self.labels = labels
+        self.boxes = boxes
+        self.scores = scores
+
+
+class _FakeODDataset:
+    """Minimal MAITE object-detection dataset — two levels, uneven detections per image.
+
+    The instance level is what makes the row layout non-trivial: image-level
+    factors are propagated onto detection rows, and ``detection_area`` is
+    binned at the instance level.  A cached Metadata has to reproduce both.
+    """
+
+    _DETECTIONS = (2, 0, 3, 1)
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return {"id": "fake-od", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return len(self._DETECTIONS)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        count = self._DETECTIONS[index]
+        target = _FakeODTarget(
+            np.arange(count, dtype=np.intp) % 2,
+            np.tile(np.array([0.0, 0.0, 4.0, 4.0], dtype=np.float32), (count, 1)),
+            np.ones(count, dtype=np.float32),
+        )
+        return (
+            np.zeros((1, 8, 8), dtype=np.float32),
+            target,
+            {
+                "id": index,
+                "brightness": 0.2 * index,
+                "detection_area": [1.5 * (index + d) for d in range(count)],
+            },
+        )
+
+
+def _make_metadata(dataset: Any = None, **kwargs: Any) -> Metadata:
+    """Build a real, structured Metadata — what DatasetCache actually caches.
+
+    Reaching for the real class rather than a mock is deliberate: the cache
+    reconstructs Metadata from its internals, so a mock would keep passing
+    while an upstream restructure silently broke every cache hit.
+    """
+    metadata = Metadata(_FakeICDataset() if dataset is None else dataset, **kwargs)  # type: ignore
+    metadata.dataframe  # noqa: B018  # force structuring, as a real workflow would
+    return metadata
 
 
 class TestMetadataCache:
     def test_save_creates_files(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_mock_metadata()
+        meta = _make_metadata()
 
         cache.save_metadata("sel:all", meta)
 
@@ -953,37 +1013,36 @@ class TestMetadataCache:
 
     def test_save_parquet_contains_dataframe(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_mock_metadata()
+        meta = _make_metadata()
 
         cache.save_metadata("sel:all", meta)
 
         s = _config_hash("sel:all")
         df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.parquet")
         assert "brightness" in df.columns
-        assert len(df) == 5
+        # Every level's rows are stored, not just the labelled ones.
+        assert df.filter(pl.col("level") == "image").height == 5
+        assert df.filter(pl.col("level") == "instance").height == 5
 
     def test_save_strips_binned_columns(self, tmp_path: Path):
         """Binned (↕) and digitized (#) columns are dropped before saving."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_mock_metadata()
-        # Add binned/digitized columns to the mock dataframe
-        meta.dataframe = meta.dataframe.with_columns(
-            pl.Series("brightness↕", [0, 1, 0, 1, 2]), pl.Series("brightness#", [0, 1, 0, 1, 2])
-        )
+        meta = _make_metadata()
+        meta.factor_data  # noqa: B018  # force binning, adding ↕/# companion columns
+        assert any(c.endswith(("↕", "#")) for c in meta.dataframe.columns)
 
         cache.save_metadata("sel:all", meta)
 
         s = _config_hash("sel:all")
         df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.parquet")
         assert "brightness" in df.columns
-        assert "brightness↕" not in df.columns
-        assert "brightness#" not in df.columns
+        assert not [c for c in df.columns if c.endswith(("↕", "#"))]
 
     def test_save_json_contains_auxiliary(self, tmp_path: Path):
         import json
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_mock_metadata()
+        meta = _make_metadata()
 
         cache.save_metadata("sel:all", meta)
 
@@ -991,16 +1050,34 @@ class TestMetadataCache:
         with open(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.json") as f:
             aux = json.load(f)
 
+        assert aux["task"] == "IC"
         assert aux["item_count"] == 5
         assert aux["class_labels"] == [0, 1, 0, 1, 2]
         assert aux["index2label"]["0"] == "cat"
-        assert aux["image_factors"] == ["brightness"]
-        assert aux["target_factors"] == []
-        assert aux["has_targets"] is False
+        assert aux["factors_by_level"] == {"image": ["brightness", "id"], "instance": []}
+        assert aux["dropped_factors"] == {}
+        # The row layout: one block per level, with each block's position within
+        # every ancestor level's block.
+        assert [(b["level"], b["size"]) for b in aux["blocks"]] == [("image", 5), ("instance", 5)]
+        assert aux["blocks"][1]["ancestor_pos"]["image"] == [0, 1, 2, 3, 4]
+
+    def test_save_skips_unrebuildable_task(self, tmp_path: Path):
+        """A factors-only Metadata has no structurer recipe, so nothing is written."""
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        meta = Metadata.from_factors({"brightness": np.array([0.1, 0.5, 0.9])}, np.array([0, 1, 0]))
+
+        cache.save_metadata("sel:all", meta)
+
+        s = _config_hash("sel:all")
+        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
+        assert not (sel_dir / "metadata.parquet").exists()
+        assert not (sel_dir / "metadata.json").exists()
+        # Still served from memory within the process.
+        assert cache.load_metadata("sel:all", _FakeICDataset()) is meta  # type: ignore
 
     def test_load_returns_none_on_miss(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        assert cache.load_metadata("sel:all", MagicMock()) is None
+        assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
 
     def test_load_returns_none_when_only_parquet_exists(self, tmp_path: Path):
         """Both files must exist for a cache hit."""
@@ -1012,36 +1089,73 @@ class TestMetadataCache:
         sel_dir.mkdir(parents=True)
         pl.DataFrame({"x": [1]}).write_parquet(sel_dir / "metadata.parquet")
 
-        assert cache.load_metadata("sel:all", MagicMock()) is None
+        assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
+
+    def test_load_returns_none_for_unrebuildable_task(self, tmp_path: Path):
+        """A task with no structurer recipe is a miss, not a wrong reconstruction."""
+        import json
+
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        cache.save_metadata("sel:all", _make_metadata())
+
+        s = _config_hash("sel:all")
+        json_path = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.json"
+        aux = json.loads(json_path.read_text())
+        aux["task"] = "factors"
+        json_path.write_text(json.dumps(aux))
+        cache._memory.clear()  # Force disk round-trip
+
+        assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
 
     def test_load_reconstructs_metadata(self, tmp_path: Path):
         """Full save → load round trip with real Metadata reconstruction."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        dataset = _FakeICDataset()
+        meta = _make_metadata(dataset)
 
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
         cache._memory.clear()  # Force disk round-trip
-        loaded = cache.load_metadata("sel:all", MagicMock())
+        loaded = cache.load_metadata("sel:all", dataset)  # type: ignore
 
         assert loaded is not None
-        # Verify reconstructed attributes
         assert loaded.item_count == 5
         np.testing.assert_array_equal(loaded.class_labels, np.array([0, 1, 0, 1, 2], dtype=np.intp))
         assert loaded.index2label[0] == "cat"
         assert loaded.index2label[1] == "dog"
         assert loaded.index2label[2] == "bird"
         np.testing.assert_array_equal(loaded.item_indices, np.array([0, 1, 2, 3, 4], dtype=np.intp))
-        # Loaded metadata is unbinned — factor_names comes from _factors dict
-        assert "brightness" in loaded._factors
+        assert list(loaded.factor_names) == list(meta.factor_names)
+        # Binning the cached raw data must land exactly where a fresh build does.
+        np.testing.assert_array_equal(loaded.factor_data, meta.factor_data)
+
+    def test_load_reconstructs_object_detection_levels(self, tmp_path: Path):
+        """Detection rows, their layout and their own factors survive the round trip."""
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dataset = _FakeODDataset()
+        meta = _make_metadata(dataset)
+
+        cache.save_metadata("sel:all", meta)
+        cache._memory.clear()  # Force disk round-trip
+        loaded = cache.load_metadata("sel:all", dataset)  # type: ignore
+
+        assert loaded is not None
+        assert loaded.multi_target is True
+        assert dict(loaded.level_counts) == dict(meta.level_counts)
+        np.testing.assert_array_equal(loaded.class_labels, meta.class_labels)
+        np.testing.assert_array_equal(loaded.item_indices, meta.item_indices)
+        # detection_area is binned at the instance level, brightness at the image
+        # level and then propagated onto the detection rows — both need the layout.
+        np.testing.assert_array_equal(loaded.factor_data, meta.factor_data)
+        np.testing.assert_array_equal(loaded.at("image").factor_data, meta.at("image").factor_data)
 
     def test_load_sets_is_binned_false(self, tmp_path: Path):
         """Loaded metadata has _is_binned=False so _bin() runs lazily."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
         cache._memory.clear()  # Force disk round-trip
-        loaded = cache.load_metadata("sel:all", MagicMock())
+        loaded = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
 
         assert loaded is not None
         assert loaded._is_binned is False
@@ -1050,12 +1164,16 @@ class TestMetadataCache:
     def test_load_applies_caller_config(self, tmp_path: Path):
         """Loaded metadata has the caller's binning config applied."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
         cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata(
-            "sel:all", MagicMock(), auto_bin_method="clusters", exclude=["x"], continuous_factor_bins={"y": [0.0, 1.0]}
+            "sel:all",
+            _FakeICDataset(),  # type: ignore
+            auto_bin_method="clusters",
+            exclude=["x"],
+            continuous_factor_bins={"y": [0.0, 1.0]},
         )
 
         assert loaded is not None
@@ -1063,43 +1181,46 @@ class TestMetadataCache:
         assert loaded._exclude == {"x"}
         assert loaded._continuous_factor_bins == {"y": [0.0, 1.0]}
 
-    def test_load_sets_has_targets(self, tmp_path: Path):
-        """Loaded metadata preserves the has_targets flag."""
+    def test_load_preserves_task(self, tmp_path: Path):
+        """The structurer is rebuilt, so the level model survives the round trip."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
         cache._memory.clear()  # Force disk round-trip
-        loaded = cache.load_metadata("sel:all", MagicMock())
+        loaded = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
 
         assert loaded is not None
-        assert loaded._has_targets is False
+        assert loaded.multi_target is False
+        assert list(loaded.levels) == list(meta.levels)
+        assert loaded.item_level == meta.item_level
+        assert loaded.label_level == meta.label_level
 
     def test_load_dataframe_accessible(self, tmp_path: Path):
         """Loaded metadata exposes the cached DataFrame."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
         cache._memory.clear()  # Force disk round-trip
-        loaded = cache.load_metadata("sel:all", MagicMock())
+        loaded = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
 
         assert loaded is not None
         df = loaded._dataframe
         assert "brightness" in df.columns
-        assert len(df) == 5
+        assert len(df) == len(meta.dataframe)
 
     def test_same_cache_entry_reused_across_configs(self, tmp_path: Path):
         """Different binning configs reuse the same raw cache entry."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
         cache._memory.clear()  # Force disk round-trip
 
-        loaded_a = cache.load_metadata("sel:all", MagicMock(), auto_bin_method="uniform_width")
+        loaded_a = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="uniform_width")  # type: ignore
         cache._memory.clear()  # Force second disk read with different config
-        loaded_b = cache.load_metadata("sel:all", MagicMock(), auto_bin_method="clusters")
+        loaded_b = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="clusters")  # type: ignore
 
         assert loaded_a is not None
         assert loaded_b is not None
@@ -1119,13 +1240,13 @@ class TestLoadOrComputeMetadata:
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             result = cache.load_or_compute_metadata("sel:all", MagicMock())
             mock_build.assert_called_once()
 
-        assert result is mock_meta
+        assert result is meta
         # Verify saved to cache
         cached = cache.load_metadata("sel:all", MagicMock())
         assert cached is not None
@@ -1133,10 +1254,10 @@ class TestLoadOrComputeMetadata:
 
     def test_full_hit_skips_compute(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
         # Pre-populate cache
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
 
         with patch(self._BUILD_METADATA_PATH) as mock_build:
             result = cache.load_or_compute_metadata("sel:all", MagicMock())
@@ -1147,10 +1268,10 @@ class TestLoadOrComputeMetadata:
 
     def test_passes_config_kwargs_to_build(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
         dataset = MagicMock()
 
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             cache.load_or_compute_metadata(
                 "sel:all",
                 dataset,
@@ -1165,10 +1286,10 @@ class TestLoadOrComputeMetadata:
     def test_different_configs_share_same_cache_entry(self, tmp_path: Path):
         """Different binning configs reuse the same raw cache entry."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
         # First call — cache miss, computes and saves
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             cache.load_or_compute_metadata("sel:all", MagicMock(), auto_bin_method="uniform_width")
             mock_build.assert_called_once()
 
@@ -1193,33 +1314,33 @@ class TestGetOrComputeMetadata:
     _BUILD_METADATA_PATH = "dataeval_flow.metadata.build_metadata"
 
     def test_without_cache_computes_directly(self):
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             result = get_or_compute_metadata(dataset=MagicMock())
             mock_build.assert_called_once()
 
-        assert result is mock_meta
+        assert result is meta
 
     def test_with_cache_delegates_to_workflow_cache(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             result = get_or_compute_metadata(dataset=MagicMock())
             mock_build.assert_called_once()
 
-        assert result is mock_meta
+        assert result is meta
         # Should be saved to cache
         cached = cache.load_metadata("sel:all", MagicMock())
         assert cached is not None
 
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
         # Pre-populate cache
-        cache.save_metadata("sel:all", mock_meta)
+        cache.save_metadata("sel:all", meta)
 
         with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH) as mock_build:
             result = get_or_compute_metadata(dataset=MagicMock())
@@ -1230,20 +1351,20 @@ class TestGetOrComputeMetadata:
 
     def test_no_active_cache_computes_directly(self):
         """When no active_cache context is set, computes directly without caching."""
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
 
-        with patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             result = get_or_compute_metadata(dataset=MagicMock())
             mock_build.assert_called_once()
 
-        assert result is mock_meta
+        assert result is meta
 
     def test_config_kwargs_forwarded(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        mock_meta = _make_mock_metadata()
+        meta = _make_metadata()
         dataset = MagicMock()
 
-        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=mock_meta) as mock_build:
+        with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
             get_or_compute_metadata(
                 dataset=dataset,
                 auto_bin_method="uniform_width",
@@ -1288,7 +1409,7 @@ class TestCacheIsolation:
         # Stats (unified)
         cache.save_stats("sel:all", "img+tgt", _make_calc_result(2))
         # Metadata
-        cache.save_metadata("sel:all", _make_mock_metadata())
+        cache.save_metadata("sel:all", _make_metadata())
 
         # All should be loadable
         assert cache.load_embeddings("sel:all", "cfg", "none") is not None

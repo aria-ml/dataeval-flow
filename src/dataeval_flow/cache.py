@@ -24,7 +24,8 @@ Provides load/save methods for four component types:
 
 - **Embeddings** — Dense numpy arrays stored as ``.npy``
 - **Cluster results** — Clustering output stored as ``.npz``
-- **Metadata** — Polars DataFrame as ``.parquet`` + auxiliary attributes as ``.json``
+- **Metadata** — Polars DataFrame as ``.parquet`` + the level structure
+  (task, factors per level, row layout) as ``.json``
 - **Stats** — Unified ``StatsResult`` stored as ``.parquet`` + ``.json``.
   Metrics accumulate incrementally: different workflows requesting different
   ``ImageStats`` flags share the same cache entry and only compute the
@@ -93,7 +94,16 @@ _logger = logging.getLogger(__name__)
 # Bump this when the on-disk cache format changes in a backwards-incompatible
 # way.  Cached artifacts are stored under ``v{CACHE_VERSION}/`` so different
 # versions coexist and users can ``rm -rf`` old directories to reclaim space.
-CACHE_VERSION = "0"
+#
+# v1 — metadata sidecar rewritten for the levelled ``dataeval.Metadata``
+#      (dataeval 1.1.0rc2): ``task`` / ``factors_by_level`` / ``blocks``
+#      replace the flat ``image_factors`` / ``target_factors`` / ``has_targets``.
+CACHE_VERSION = "1"
+
+# Metadata tasks the cache can rebuild.  Both are recreated from the task name
+# alone; a factors-only or unknown structurer has no such recipe, so a cache
+# entry claiming one is discarded rather than reconstructed incorrectly.
+_CACHEABLE_TASKS: tuple[str, ...] = ("IC", "OD")
 
 # Default for the ``persist_memory`` constructor parameter.  When ``True``
 # (the default), ``DatasetCache`` instances hold computed artifacts in an
@@ -1006,6 +1016,7 @@ class DatasetCache:
             return cached
 
         from dataeval import Metadata as MetadataClass
+        from dataeval._structurers import RowLayout, select_structurer
 
         pq_path, json_path = self._metadata_paths(selection_repr)
         if pq_path is None or json_path is None or not pq_path.exists() or not json_path.exists():
@@ -1018,30 +1029,62 @@ class DatasetCache:
             with open(json_path, encoding="utf-8") as f:
                 aux = json.load(f)
 
-            # Reconstruct Metadata without calling __init__ (which requires a dataset).
-            # We bypass __init__ and set internal attributes directly so that
-            # _structure() is never invoked (it requires a live dataset).
-            # _is_binned is False so _bin() will run lazily with the caller's config.
-            meta = object.__new__(MetadataClass)
-            meta._dataframe = df  # noqa: SLF001
-            meta._is_structured = True  # noqa: SLF001  # skip _structure()
-            meta._is_binned = False  # noqa: SLF001  # _bin() will run lazily
+            # Only the dataset-backed tasks can be rebuilt: their structurer is
+            # recreated from the task name alone.  Anything else (a factors-only
+            # or unknown structurer) is treated as a miss rather than guessed at.
+            if aux.get("task") not in _CACHEABLE_TASKS:
+                _logger.warning(
+                    "Cached metadata for %s/%s was built by an unsupported task (%r) — recomputing",
+                    self._dataset_name,
+                    selection_repr,
+                    aux.get("task"),
+                )
+                return None
+            task: Literal["IC", "OD"] = "OD" if aux["task"] == "OD" else "IC"
+
+            # Build an *unbound* instance: __init__ then owns every attribute that
+            # is not part of the structure — view, filters, binning config, the
+            # lazily-computed factor cache — so only the structural state below has
+            # to be restored by hand.  Unbound so that no dataset is touched here:
+            # __init__ probes a bound dataset to validate its datum shape.
+            meta = MetadataClass(
+                None,
+                task=task,
+                continuous_factor_bins=continuous_factor_bins,
+                auto_bin_method=auto_bin_method or "uniform_width",
+                exclude=exclude,
+            )
+
+            # Mirror of ``Metadata._adopt()`` — the same fields, taken from the
+            # cache instead of from a freshly structured dataset.  _is_binned is
+            # left False so _bin() runs lazily with the caller's config.
+            structurer = select_structurer(dataset, task)
+            factors_by_level = {level: set(names) for level, names in aux["factors_by_level"].items()}
+            for level in structurer.levels:
+                factors_by_level.setdefault(level, set())
+
             meta._dataset = dataset  # noqa: SLF001
-            meta._has_targets = aux.get("has_targets")  # noqa: SLF001
-            meta._count = aux["item_count"]  # noqa: SLF001
+            meta._count = int(aux["item_count"])  # noqa: SLF001
+            meta._structurer = structurer  # noqa: SLF001
+            meta._layout = RowLayout(  # noqa: SLF001
+                tuple(
+                    (
+                        block["level"],
+                        int(block["size"]),
+                        {level: np.asarray(pos, dtype=np.intp) for level, pos in block["ancestor_pos"].items()},
+                    )
+                    for block in aux["blocks"]
+                )
+            )
+            meta._factors_by_level = factors_by_level  # noqa: SLF001
+            # Per-item metadata dicts are not cached — they are unbounded in size
+            # and nothing downstream reads Metadata.raw off a cached instance.
+            meta._raw = []  # noqa: SLF001
             meta._class_labels = np.asarray(aux["class_labels"], dtype=np.intp)  # noqa: SLF001
             meta._index2label = {int(k): v for k, v in aux["index2label"].items()}  # noqa: SLF001
-            meta._item_indices = np.asarray(aux["item_indices"], dtype=np.intp)  # noqa: SLF001
-            meta._dropped_factors = {}  # noqa: SLF001
-            meta._image_factors = set(aux.get("image_factors", []))  # noqa: SLF001
-            meta._target_factors = set(aux.get("target_factors", []))  # noqa: SLF001
-            meta._raw = []  # noqa: SLF001
-            meta._exclude = set(exclude or ())  # noqa: SLF001
-            meta._include = set()  # noqa: SLF001
-            meta._continuous_factor_bins = dict(continuous_factor_bins) if continuous_factor_bins else {}  # noqa: SLF001
-            meta._auto_bin_method = auto_bin_method or "uniform_width"  # noqa: SLF001
-            meta._target_factors_only = False  # noqa: SLF001
-            # Build _factors dict from image/target factor sets
+            meta._dropped_factors = {k: list(v) for k, v in aux["dropped_factors"].items()}  # noqa: SLF001
+            meta._dataframe = df  # noqa: SLF001
+            meta._is_structured = True  # noqa: SLF001  # skip _structure()
             meta._build_factors()  # noqa: SLF001
 
             # Smoke-test the reconstructed object: access commonly-used
@@ -1051,6 +1094,8 @@ class DatasetCache:
             meta.class_labels  # noqa: B018
             meta.index2label  # noqa: B018
             meta.item_count  # noqa: B018
+            meta.item_indices  # noqa: B018
+            meta.factor_names  # noqa: B018
 
             self._mem_set(selection_repr, obj_key, meta)
             return meta
@@ -1073,6 +1118,12 @@ class DatasetCache:
         Only the structured DataFrame is saved — binned/digitized columns
         (``↕`` / ``#`` suffixes) are stripped so that a single cache entry
         can be reused across different binning configurations.
+
+        The JSON sidecar carries the level structure the DataFrame alone does
+        not describe: which task produced it, which level each factor is
+        defined at, and the row layout that propagates a factor from its own
+        level down to its descendants.  :meth:`load_metadata` needs all three
+        to rebuild an instance that bins exactly as a freshly built one would.
         """
         self._mem_set(selection_repr, "metadata", metadata)
 
@@ -1088,15 +1139,42 @@ class DatasetCache:
         if drop_cols:
             df = df.drop(drop_cols)
 
-        # Auxiliary attributes — factor sets instead of factor_info
+        task = metadata._structurer.task  # noqa: SLF001
+        if task not in _CACHEABLE_TASKS:
+            # :meth:`load_metadata` could not rebuild this instance, so writing it
+            # would only cost disk and produce a warning on every read.
+            _logger.debug(
+                "Skipping metadata cache write for %s/%s: task %r cannot be reconstructed",
+                self._dataset_name,
+                selection_repr,
+                task,
+            )
+            return
+
+        # Auxiliary attributes — everything ``Metadata._adopt()`` sets that the
+        # DataFrame does not already hold.  ``item_indices`` is not among them:
+        # upstream reads it back off the frame's ``item_index`` column.
         aux = {
-            "class_labels": metadata.class_labels.tolist(),
+            "task": task,
+            # Read from the label level rather than through the ``class_labels``
+            # property, which is defined against the current view and raises for
+            # a view above the labels.  The cache stores view-independent state.
+            "class_labels": metadata._class_labels.tolist(),  # noqa: SLF001
             "index2label": {str(k): v for k, v in metadata.index2label.items()},
-            "item_indices": metadata.item_indices.tolist(),
             "item_count": metadata.item_count,
-            "image_factors": sorted(metadata._image_factors),  # noqa: SLF001
-            "target_factors": sorted(metadata._target_factors),  # noqa: SLF001
-            "has_targets": metadata._has_targets,  # noqa: SLF001
+            "factors_by_level": {
+                level: sorted(names)
+                for level, names in metadata._factors_by_level.items()  # noqa: SLF001
+            },
+            "dropped_factors": {k: list(v) for k, v in metadata.dropped_factors.items()},
+            "blocks": [
+                {
+                    "level": level,
+                    "size": int(size),
+                    "ancestor_pos": {lvl: np.asarray(pos, dtype=np.intp).tolist() for lvl, pos in ancestors.items()},
+                }
+                for level, size, ancestors in metadata._layout.blocks  # noqa: SLF001
+            ],
         }
         _atomic_write_pair(
             pq_path,
