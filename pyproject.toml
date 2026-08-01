@@ -206,7 +206,9 @@ torch = { version = ">=2.2.0", source = "pytorch-cpu", optional = true }
 torchvision = { version = ">=0.17.0", source = "pytorch-cpu", optional = true }
 
 [tool.pyproject2conda.dependencies]
+# Conda follows PEP versioning which deviates from PyPI semver
 dataeval = { skip = true, packages = "dataeval==1.1.0rc2" }
+datamaite = { pip = true }
 
 # --- Build System ---
 

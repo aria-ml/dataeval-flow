@@ -12,7 +12,9 @@ dependencies:
   - python<3.14,>=3.10
   - click>=8.0
   - dataeval==1.1.0rc2
-  - datamaite==0.4.0
   - numpy>=1.24.2
   - pydantic>=2.0
   - pyyaml>=6.0
+  - pip
+  - pip:
+      - datamaite[ic,od]==0.4.0
