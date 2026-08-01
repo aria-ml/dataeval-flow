@@ -8,6 +8,8 @@ from dataeval_flow._app._viewmodel._builder_vm import BuilderViewModel
 from dataeval_flow._app._viewmodel._model_vm import ModelViewModel
 from dataeval_flow._app._viewmodel._section_vm import SectionViewModel
 
+pytestmark = pytest.mark.optional
+
 
 class TestBuilderViewModel:
     def test_init(self) -> None:

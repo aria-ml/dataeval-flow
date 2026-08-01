@@ -18,6 +18,7 @@ ex:truck   a skos:Concept ; skos:prefLabel "truck"; skos:broader ex:vehicle .
 """
 
 
+@pytest.mark.required
 class TestLoadInline:
     def test_nested_mapping(self) -> None:
         onto, source = load_ontology({"vehicle": ["car", "truck"]})
@@ -96,6 +97,7 @@ ex:vehicle a skos:Concept ; skos:prefLabel "véhicule" .
         assert "dataeval[ontology]" in str(exc.value)
 
 
+@pytest.mark.required
 class TestSynthesize:
     def test_flat_from_index2label(self) -> None:
         onto, source = synthesize_ontology({0: "cat", 1: "dog", 2: "bird"})

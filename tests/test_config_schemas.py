@@ -30,6 +30,8 @@ from dataeval_flow.workflows.cleaning import (
     DataCleaningReport,
 )
 
+pytestmark = pytest.mark.required
+
 # Valid required parameters for reuse in tests
 VALID_REQUIRED_PARAMS = {
     "outlier_method": "modzscore",

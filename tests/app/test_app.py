@@ -7,9 +7,13 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from dataeval_flow._app._panes import _CONFIG_SECTIONS, CfgItem, CfgSectionHeader, ResultCard, TaskCard, TaskPaneHeader
 from dataeval_flow._app._screens._settings import ExecutionSettings
 from dataeval_flow._app.app import CSS, FlowApp, LoadingScreen
+
+pytestmark = pytest.mark.optional
 
 
 def _make_push_screen_capture() -> tuple[list, object]:

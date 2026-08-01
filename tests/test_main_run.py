@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.required
+
 
 class TestRunTasks:
     @patch("dataeval_flow.workflow.run_tasks")

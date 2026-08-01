@@ -11,6 +11,8 @@ from pydantic import ValidationError
 
 from dataeval_flow import PipelineConfig, load_config, load_config_folder
 
+pytestmark = pytest.mark.required
+
 MINIMAL_CONFIG = {
     "datasets": [
         {"name": "main", "format": "image_folder", "path": "images"},

@@ -14,6 +14,8 @@ from dataeval_flow.workflows.drift.params import (
     UpdateStrategyConfig,
 )
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # DriftDetectorUnivariate
 # ---------------------------------------------------------------------------

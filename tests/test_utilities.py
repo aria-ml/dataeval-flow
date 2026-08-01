@@ -16,6 +16,8 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # build_embeddings
 # ---------------------------------------------------------------------------

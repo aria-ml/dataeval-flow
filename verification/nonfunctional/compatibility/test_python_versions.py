@@ -8,6 +8,8 @@ import sys
 import pytest
 from packaging.specifiers import SpecifierSet
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("1-1")
 class TestPythonVersions:

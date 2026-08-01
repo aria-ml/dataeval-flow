@@ -105,7 +105,8 @@ scanning, container scanning, or secret detection.
           that does not reach it)
        3. A re-evaluation date (typically 90 days out)
 
-   - **Container scanning** (GitLab `container_scanning` job, Trivy analyzer)
+   - **Container scanning** (GitLab `container_scanning` /
+     `container_scanning:edge` jobs, Trivy analyzer)
      - Suppressions live in the GitLab Vulnerability Report, not in a
        file in the repo. Open the finding → **Dismiss** → choose a
        reason → leave a comment containing:
@@ -117,7 +118,8 @@ scanning, container scanning, or secret detection.
      - Severity gate is set via `CS_SEVERITY_THRESHOLD` in
        [.gitlab-ci.yml](.gitlab-ci.yml); the container-scanning job's
        `allow_failure: false` ensures un-dismissed findings at or above
-       that threshold block `promote:floating`.
+       that threshold block promotion to a floating tag (`promote:floating`
+       on release pipelines, `promote:floating:edge` on main).
 
    - **Secret Detection**
      - True positives must be rotated immediately (the secret is already

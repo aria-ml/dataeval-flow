@@ -169,7 +169,7 @@ requirements:
     origin: DR-1.5
     origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
     file: NFR-4-configuration-reproducibility.md
-    test_cases: ["11-1"]
+    test_cases: ["11-1", "21-1"]
 
   NFR-5:
     name: Logging Integration
@@ -494,6 +494,25 @@ test_cases:
     expected_results:
       - output/coverage.xml exists
       - Total line coverage is ≥ 90%
+
+  "21-1":
+    name: Seeded Reproducibility
+    test_type: Non-Functional
+    business_case: >-
+      Verify that a pipeline-level seed pins every stochastic component of a run
+      through DataEval's seed configuration, and that the seed is recorded in the
+      result envelope so a run can be repeated from its provenance alone
+      (CR-7-S-1, NFR-4).
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic ImageFolder dataset configured
+      - A workflow with a stochastic component (cluster-based outlier detection)
+    expected_results:
+      - PipelineConfig.seed defaults to None and deterministic defaults to False
+      - Running a seeded pipeline sets DataEval's seed configuration to that value
+      - The seed and deterministic flag appear in metadata.resolved_config
+      - An unseeded run records no seed in its resolved config
+      - Two runs with the same seed produce identical stochastic output
 
   "20-1":
     name: Data Coverage Workflow

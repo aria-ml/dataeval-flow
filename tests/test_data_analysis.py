@@ -57,6 +57,8 @@ from dataeval_flow.workflows.analysis.workflow import (
     _to_serializable,
 )
 
+pytestmark = pytest.mark.required
+
 _WF = "dataeval_flow.workflows.analysis.workflow"
 _DEFAULT_THRESHOLDS = DataAnalysisHealthThresholds()
 

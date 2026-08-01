@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import polars as pl
+import pytest
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import BaseModel, ValidationError
 
@@ -45,6 +46,8 @@ from dataeval_flow.workflows.coverage.workflow import (
     _run_gap_analysis,
     _to_serializable,
 )
+
+pytestmark = pytest.mark.required
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -22,6 +22,8 @@ from dataeval_flow._app._model._item import (
 )
 from dataeval_flow._app._model._state import ConfigState, _strip_empty_params, _to_dict
 
+pytestmark = pytest.mark.optional
+
 
 class TestCoerceLogic:
     @pytest.mark.parametrize(

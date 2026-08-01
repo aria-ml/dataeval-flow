@@ -11,6 +11,8 @@ import pytest
 
 from dataeval_flow._app._model._execution import ExecutionState, TaskExecution
 
+pytestmark = pytest.mark.optional
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

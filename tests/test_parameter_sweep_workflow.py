@@ -2,9 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
 from dataeval_flow.workflows.parameter_sweep.workflow import ParameterSweepWorkflow
+
+pytestmark = pytest.mark.required
 
 
 def _make_params(**overrides: object) -> ParameterSweepParameters:

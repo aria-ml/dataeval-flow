@@ -38,6 +38,8 @@ from dataeval_flow.workflows.drift.workflow import (
     _unique_method_keys,
 )
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

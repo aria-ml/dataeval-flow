@@ -5,12 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 from textual.widgets import Button, Input
 
 from dataeval_flow._app._screens._pathpicker import PathPickerScreen
 from dataeval_flow._app._screens._settings import ExecutionSettings, SettingsModal
 
 from .conftest import _MinimalApp, _wait_for_result
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # ExecutionSettings dataclass

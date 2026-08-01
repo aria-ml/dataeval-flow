@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("1-1")
 class TestPublicAPI:

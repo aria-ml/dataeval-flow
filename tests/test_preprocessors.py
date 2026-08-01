@@ -1,8 +1,11 @@
 """Tests for custom named preprocessors."""
 
+import pytest
 import torch
 
 from dataeval_flow.preprocessors import CUSTOM_PREPROCESSORS, ToRGB, resolve_custom
+
+pytestmark = pytest.mark.required
 
 
 class TestToRGB:

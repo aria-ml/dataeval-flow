@@ -13,6 +13,8 @@ from dataeval_flow import (
 )
 from dataeval_flow.workflows.drift.params import DriftDetectorKNeighbors
 
+pytestmark = pytest.mark.required
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path

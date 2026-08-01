@@ -12,6 +12,8 @@ from dataeval_flow import (
     UncertaintyExtractorConfig,
 )
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("4-1")
 class TestExtractorConfigs:

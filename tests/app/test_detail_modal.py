@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from textual.widgets import Button, Static
 
 from dataeval_flow._app._screens._detail import (
@@ -16,6 +17,8 @@ from dataeval_flow._app._screens._detail import (
 )
 
 from .conftest import _MinimalApp, _wait_for_result
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # _colorize_marker  (lines 35-40)

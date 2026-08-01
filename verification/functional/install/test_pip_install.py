@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 
+@pytest.mark.required
 @pytest.mark.test_case("1-1")
 class TestPipInstall:
     def test_import_dataeval_flow(self) -> None:
@@ -42,6 +43,7 @@ class TestPipInstall:
         assert (Path(dataeval_flow.__file__).parent / "py.typed").exists()
 
 
+@pytest.mark.optional
 @pytest.mark.test_case("1-2")
 class TestOptionalExtras:
     @pytest.mark.parametrize(

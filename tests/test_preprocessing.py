@@ -4,6 +4,8 @@ import pytest
 
 from dataeval_flow.preprocessing import PreprocessingStep, build_preprocessing
 
+pytestmark = pytest.mark.required
+
 
 class TestPreprocessingStep:
     """Test PreprocessingStep schema."""

@@ -25,6 +25,8 @@ from dataeval_flow._app.cli import (
     run_cli_builder,
 )
 
+pytestmark = pytest.mark.optional
+
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------

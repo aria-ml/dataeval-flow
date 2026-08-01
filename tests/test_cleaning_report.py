@@ -1,5 +1,7 @@
 """Tests for cleaning report."""
 
+import pytest
+
 from dataeval_flow.workflows.cleaning.outputs import DataCleaningRawOutputs
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 from dataeval_flow.workflows.cleaning.report import (
@@ -10,6 +12,8 @@ from dataeval_flow.workflows.cleaning.report import (
     build_findings,
     collect_flagged_indices,
 )
+
+pytestmark = pytest.mark.required
 
 # ---------------------------------------------------------------------------
 # _item_id_of

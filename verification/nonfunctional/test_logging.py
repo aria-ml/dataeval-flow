@@ -6,6 +6,8 @@ import logging
 
 import pytest
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("16-1")
 class TestLogging:

@@ -12,6 +12,8 @@ from dataeval_flow.config.schemas import (
     DataPrioritizationWorkflowConfig,
 )
 
+pytestmark = pytest.mark.required
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path

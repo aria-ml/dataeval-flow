@@ -77,6 +77,19 @@ views:
 Always pass a `seed` to `Shuffle`. Without one the view differs between runs, which makes the result
 non-reproducible — and, because the cache key includes the view, defeats caching as well.
 
+A `Shuffle` seed pins only that operation's ordering. To pin every stochastic component of the run — clustering,
+random splits, sampling — set the pipeline-level `seed` as well:
+
+```yaml
+seed: 42
+
+views:
+  - name: two_classes_sample
+    operations: [...]
+```
+
+See [Reproducibility](../concepts/Reproducibility.md) for how the two interact.
+
 ## Select an index range without enumerating it
 
 `Indices` accepts a range shorthand so a contiguous span does not have to be written out:

@@ -4,6 +4,8 @@ import inspect
 import typing
 from typing import Literal
 
+import pytest
+
 from dataeval_flow._app._model._discover import (
     ParamInfo,
     _introspect_params,
@@ -13,6 +15,8 @@ from dataeval_flow._app._model._discover import (
     list_transforms,
     list_view_operations,
 )
+
+pytestmark = pytest.mark.optional
 
 # ── _simplify_type ────────────────────────────────────────────────────────
 

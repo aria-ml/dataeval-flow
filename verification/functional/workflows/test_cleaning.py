@@ -12,6 +12,8 @@ from dataeval_flow import (
     run_tasks,
 )
 
+pytestmark = pytest.mark.required
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path

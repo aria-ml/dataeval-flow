@@ -34,6 +34,8 @@ from dataeval_flow.workflows.ood.workflow import (
     _serialize_ood_result,
 )
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

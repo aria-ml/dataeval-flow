@@ -12,6 +12,8 @@ from dataeval_flow.config import ResultMetadata, ViewOperation
 from dataeval_flow.workflow import DatasetContext, WorkflowResult, _source_lines, get_workflow, list_workflows
 from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -22,6 +22,8 @@ from importlib.metadata import distribution
 
 import pytest
 
+pytestmark = pytest.mark.required
+
 DIST_NAME = "dataeval-flow"
 PROTOCOL_PREFIX = "maite.protocols"
 TASKS_PREFIX = "maite.tasks"

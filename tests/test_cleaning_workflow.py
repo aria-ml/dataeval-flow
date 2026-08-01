@@ -41,6 +41,8 @@ from dataeval_flow.workflows.cleaning.workflow import (
     _validate_cluster_params,
 )
 
+pytestmark = pytest.mark.required
+
 
 def _make_params(**overrides: object) -> DataCleaningParameters:
     """Build DataCleaningParameters with defaults for testing."""

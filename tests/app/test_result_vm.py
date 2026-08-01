@@ -6,8 +6,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+import pytest
+
 from dataeval_flow._app._viewmodel._result_vm import FindingSummary, ResultViewModel
 from dataeval_flow.workflow.base import Reportable
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # Helpers — build fake WorkflowResult with typed findings

@@ -22,6 +22,17 @@
 # and configs centralized.
 
 # -----------------------------------------------------------------------------
+# REPRODUCIBILITY (optional)
+# -----------------------------------------------------------------------------
+# Pins every stochastic component of the run — clustering, random splits,
+# shuffled views, sampling — through DataEval's seed configuration. Applied
+# before each task, and recorded in the result envelope's resolved config.
+# Leave unset if the run does not need to be bit-reproducible.
+#
+# seed: 42
+# deterministic: false    # force PyTorch deterministic algorithms (slower)
+
+# -----------------------------------------------------------------------------
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:

@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import polars as pl
+import pytest
 
 from dataeval_flow.config import PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas import (
@@ -11,6 +12,8 @@ from dataeval_flow.config.schemas import (
     ParameterSweepWorkflowConfig,
 )
 from dataeval_flow.workflow import run_tasks
+
+pytestmark = pytest.mark.required
 
 
 class TestParameterSweepE2E:

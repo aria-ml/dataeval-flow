@@ -92,8 +92,8 @@ the project in line with Maturity I expectations.
 - [ ] Label-driven semver release automation (`release::*` MR labels)
 - [ ] CI scripts for `create_release.py`, `create_patch_release.py`, `validate_release_label.py`
 - [ ] Release branch lifecycle (`release/vX.Y` long-lived branches)
-- [x] Container scan promoted to a gate — `container_scanning` runs `allow_failure: false` at
-      `CS_SEVERITY_THRESHOLD: HIGH`, blocking `promote:floating` (CS-2-H-2 / DSOR-3-H-2)
+- [x] Container scan promoted to a gate — container scanning runs `allow_failure: false` at
+      `CS_SEVERITY_THRESHOLD: HIGH`, blocking floating-tag promotion (CS-2-H-2 / DSOR-3-H-2)
 - [x] SBOM published with releases — per-image CycloneDX cosign attestation (CS-2-H-4)
 - [ ] Link checking promoted from `allow_failure: true` to gating once the external-link
       flake rate is understood (DR-3.3-H-4)

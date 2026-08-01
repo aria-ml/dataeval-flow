@@ -10,6 +10,8 @@ import pytest
 from dataeval_flow.config._models import PipelineConfig
 from dataeval_flow.runner import _resolve_config
 
+pytestmark = pytest.mark.required
+
 
 @pytest.fixture
 def dummy_config() -> PipelineConfig:

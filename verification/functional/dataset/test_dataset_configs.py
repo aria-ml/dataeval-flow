@@ -16,6 +16,8 @@ from dataeval_flow import (
 )
 from verification.fixtures import write_image_folder
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("3-1")
 class TestDatasetConfigs:

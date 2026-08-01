@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.optional
+
 
 class TestBuildParser:
     def test_headless_defaults(self) -> None:

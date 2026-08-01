@@ -6,6 +6,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from dataeval_flow._app._model._coerce import coerce_field_value, coerce_value, validate_value
 from dataeval_flow._app._model._introspect import FieldKind
 from dataeval_flow._app._model._registry import (
@@ -20,6 +22,8 @@ from dataeval_flow._app._model._registry import (
     get_variant_choices,
 )
 from dataeval_flow._app._model._state import ConfigState
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # Registry helpers

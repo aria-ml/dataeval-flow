@@ -21,6 +21,8 @@ from dataeval_flow.workflows.drift.report import (
 from dataeval_flow.workflows.drift.workflow import _serialize_result
 from tests.test_drift_workflow import _make_chunk_results, _make_detector_result, _make_params
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # Severity helpers
 # ---------------------------------------------------------------------------

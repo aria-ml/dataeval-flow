@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from textual.containers import Vertical
 from textual.widgets import Button, Input, Select, Static
 
@@ -10,6 +11,8 @@ from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens import SectionModal
 
 from .conftest import _MinimalApp, _state_with_datasets
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # SectionModal -- compose and init

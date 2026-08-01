@@ -573,11 +573,12 @@ for row in onto.representation.worklist[:6]:
 # unsanctioned class shows up as **unmatched**.
 
 # %%
+from dataeval import Ontology
 from dataeval.core import label_reconciliation
 
-from dataeval_flow.workflows._ontology import load_ontology
-
-ontology_obj, _ = load_ontology(postal_ontology)
+# The workflow builds this for you from the `ontology` field; here we construct
+# the same object directly so we can reconcile an arbitrary label list against it.
+ontology_obj = Ontology.from_hierarchy(postal_ontology)
 check = label_reconciliation(["0", "1", "oh", "seven"], ontology_obj)
 print("matched:  ", dict(check["matched"]))
 print("unmatched:", list(check["unmatched"]))

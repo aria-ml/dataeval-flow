@@ -1,11 +1,15 @@
 """Tests for the dataset splitting report."""
 
+import pytest
+
 from dataeval_flow.workflows.splitting.outputs import DataSplittingRawOutputs, SplitInfo
 from dataeval_flow.workflows.splitting.report import (
     _format_factor_table,
     _normalize_label_counts,
     build_findings,
 )
+
+pytestmark = pytest.mark.required
 
 # ---------------------------------------------------------------------------
 # TestBuildFindings

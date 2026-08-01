@@ -10,6 +10,8 @@ import pytest
 from dataeval_flow import WorkflowResult, get_workflow, list_workflows, run_tasks
 from dataeval_flow.workflow import WorkflowProtocol
 
+pytestmark = pytest.mark.required
+
 if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 

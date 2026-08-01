@@ -7,6 +7,8 @@ import pytest
 from dataeval_flow.config._merge import _deep_merge, merge_config_folder
 from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 
+pytestmark = pytest.mark.required
+
 
 class TestDeepMerge:
     """Tests for _deep_merge function."""

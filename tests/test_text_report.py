@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from dataeval_flow.workflow._text_report import (
     _WIDTH,
     _brief_value,
@@ -19,6 +21,8 @@ from dataeval_flow.workflow._text_report import (
     _summary_line,
 )
 from dataeval_flow.workflow.base import Reportable
+
+pytestmark = pytest.mark.required
 
 # ---------------------------------------------------------------------------
 # _brief_value

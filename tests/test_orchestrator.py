@@ -25,6 +25,8 @@ from dataeval_flow.workflow.orchestrator import (
     run_tasks,
 )
 
+pytestmark = pytest.mark.required
+
 # Shared workflow instance used across tests
 _CLEAN_INSTANCE = DataCleaningWorkflowConfig(
     name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"]

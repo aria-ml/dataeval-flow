@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.required
+
 COVERAGE_XML = Path(__file__).resolve().parents[2] / "output" / "coverage.xml"
 THRESHOLD = 0.90
 

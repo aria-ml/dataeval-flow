@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
 from textual.widgets import Button, Input, Select
 
 from dataeval_flow._app._screens._model import ModelModal
 from dataeval_flow._app._screens._pathpicker import PathPickerScreen
 
 from .conftest import _MinimalApp
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # ModelModal

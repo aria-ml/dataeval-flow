@@ -28,6 +28,8 @@ from dataeval_flow.workflows.splitting.workflow import (
     _serialize_label_stats,
 )
 
+pytestmark = pytest.mark.required
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

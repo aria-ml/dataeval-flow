@@ -84,6 +84,24 @@ class PipelineConfig(BaseModel):
     # Logging
     logging: LoggingConfig | None = None
 
+    # Reproducibility [CR-7-S-1]
+    seed: int | None = Field(
+        default=None,
+        description=(
+            "Seed for every stochastic component of the run (clustering, random splits, "
+            "shuffled views, sampling). Applied through DataEval's seed configuration before "
+            "each task, so a task's result does not depend on what ran before it. "
+            "None (the default) leaves randomness unseeded."
+        ),
+    )
+    deterministic: bool = Field(
+        default=False,
+        description=(
+            "Force PyTorch to use deterministic algorithms. Only meaningful alongside `seed`. "
+            "Improves run-to-run reproducibility on GPU at some cost to performance."
+        ),
+    )
+
     # Named resource pools
     datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = None
     preprocessors: Sequence[PreprocessorConfig] | None = None

@@ -1,5 +1,7 @@
 """Tests for OOD detection report."""
 
+import pytest
+
 from dataeval_flow.workflows.ood.outputs import FactorDeviationDict, OODDetectionRawOutputs, OODSampleDict
 from dataeval_flow.workflows.ood.params import OODHealthThresholds
 from dataeval_flow.workflows.ood.report import (
@@ -14,6 +16,8 @@ from dataeval_flow.workflows.ood.report import (
     build_findings,
 )
 from tests.test_ood_workflow import _make_detector_result, _make_params
+
+pytestmark = pytest.mark.required
 
 # ---------------------------------------------------------------------------
 # Severity helpers

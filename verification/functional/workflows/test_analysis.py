@@ -9,6 +9,8 @@ import pytest
 from dataeval_flow import run_tasks
 from dataeval_flow.config import DataAnalysisTaskConfig, DataAnalysisWorkflowConfig
 
+pytestmark = pytest.mark.required
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path

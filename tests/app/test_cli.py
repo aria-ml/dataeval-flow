@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from dataeval_flow._app._model._introspect import FieldKind
 from dataeval_flow._app._viewmodel._builder_vm import BuilderViewModel
 from dataeval_flow._app.cli import _show_items
+
+pytestmark = pytest.mark.optional
 
 
 class TestShowItems:

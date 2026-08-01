@@ -2,9 +2,12 @@
 
 from typing import Annotated, Literal
 
+import pytest
 from pydantic import BaseModel, Field
 
 from dataeval_flow._app._model._introspect import FieldKind, introspect_model
+
+pytestmark = pytest.mark.optional
 
 
 class SimpleModel(BaseModel):

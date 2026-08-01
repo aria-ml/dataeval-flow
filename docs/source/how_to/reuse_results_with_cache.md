@@ -97,7 +97,7 @@ version is bumped and older data is simply ignored — it is not deleted, so it 
 yourself:
 
 ```bash
-rm -rf ./cache/v1        # drop a superseded cache version
+rm -rf ./cache/v0        # drop a superseded cache version
 rm -rf ./cache           # start completely clean
 ```
 

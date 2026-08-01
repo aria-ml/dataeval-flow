@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("10-1")
 class TestTypeSafety:

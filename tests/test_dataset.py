@@ -1002,6 +1002,7 @@ class TestResultMetadata:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.required
 class TestLoadDatasetHuggingFace:
     def test_ic_task_calls_load_ic(self):
         with patch("datamaite.load_ic", return_value=MagicMock()) as m_ic:
@@ -1032,6 +1033,7 @@ class TestLoadDatasetHuggingFace:
         m_ic.assert_called_once_with(Path("/data/ds"), dataset_format="huggingface_vision")
 
 
+@pytest.mark.required
 class TestLoadDatasetImageFolder:
     def test_returns_image_folder_dataset(self, tmp_path: Path) -> None:
         from PIL import Image
@@ -1045,6 +1047,7 @@ class TestLoadDatasetImageFolder:
         assert isinstance(ds, ImageFolderDataset)
 
 
+@pytest.mark.required
 class TestLoadDatasetCoco:
     def test_passes_optional_kwargs(self):
         with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
@@ -1066,6 +1069,7 @@ class TestLoadDatasetCoco:
         m_od.assert_called_once_with(Path("/data/coco"), dataset_format="coco")
 
 
+@pytest.mark.required
 class TestLoadDatasetYolo:
     def test_calls_load_od_yolo(self):
         with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
@@ -1075,6 +1079,7 @@ class TestLoadDatasetYolo:
         m_od.assert_called_once_with(Path("/data/yolo"), dataset_format="yolo")
 
 
+@pytest.mark.required
 class TestLoadDatasetRejectsEmpty:
     """A loader that finds nothing must fail at load time, not downstream.
 
@@ -1133,6 +1138,7 @@ class TestLoadDatasetRejectsEmpty:
             assert load_dataset(Path("/data/yolo"), dataset_format="yolo") is stub
 
 
+@pytest.mark.required
 class TestResolveDatasetsUnsupported:
     def test_raises_for_unsupported_config(self) -> None:
         from pydantic import BaseModel

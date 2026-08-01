@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from textual.css.query import NoMatches
 from textual.widgets import Button, Input, Select
 
@@ -11,6 +12,8 @@ from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens._section import SectionModal
 
 from .conftest import _MinimalApp, _state_with_datasets
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # Step builder compose and mount

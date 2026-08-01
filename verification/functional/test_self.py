@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from verification.fixtures import (
     SyntheticDataset,
@@ -19,6 +20,8 @@ from verification.fixtures import (
     write_image_folder,
 )
 from verification.helpers import safe_import
+
+pytestmark = pytest.mark.required
 
 
 def test_make_synthetic_images_deterministic() -> None:

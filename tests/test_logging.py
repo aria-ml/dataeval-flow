@@ -7,6 +7,8 @@ import pytest
 
 from dataeval_flow._logging import configure_log_levels, setup_logging
 
+pytestmark = pytest.mark.required
+
 
 def _find_log_file(tmp_path: Path) -> Path:
     """Find the result.log file in the output directory."""

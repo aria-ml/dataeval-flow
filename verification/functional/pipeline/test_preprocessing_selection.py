@@ -8,6 +8,8 @@ from dataeval_flow import PreprocessorConfig, ViewConfig, ViewOperation
 from dataeval_flow.preprocessing import PreprocessingStep
 from verification.fixtures import make_synthetic_dataset
 
+pytestmark = pytest.mark.required
+
 
 @pytest.mark.test_case("5-1")
 class TestPreprocessingView:

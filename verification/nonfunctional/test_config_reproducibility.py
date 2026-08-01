@@ -22,10 +22,13 @@ from dataeval_flow import (
 from dataeval_flow.config.schemas import DataSplittingTaskConfig, DataSplittingWorkflowConfig
 from verification.fixtures import write_image_folder
 
+pytestmark = pytest.mark.required
 
-def _build_split_cfg(data_root: Path, test_frac: float) -> PipelineConfig:
+
+def _build_split_cfg(data_root: Path, test_frac: float, seed: int | None = 42) -> PipelineConfig:
     write_image_folder(data_root / "imgs", n_per_class=8, n_classes=2)
     return PipelineConfig(
+        seed=seed,
         datasets=[
             ImageFolderDatasetConfig(
                 name="main_ds",
@@ -69,11 +72,11 @@ def _run(data_root: Path, test_frac: float) -> dict[str, Any]:
     The fold/test index determinism comes from ``KFold(shuffle=False)`` inherent
     to the splitter configuration. The pre-split balance/diversity MI analyses,
     however, use DataEval's MI estimators which sample from the global RNG, so a
-    fixed seed is required for full ``to_dict()`` equality across runs.
+    fixed seed is required for full ``to_dict()`` equality across runs. That seed
+    is supplied through ``PipelineConfig.seed`` [CR-7-S-1] rather than by seeding
+    DataEval directly, so this test exercises the product's own reproducibility
+    mechanism.
     """
-    from dataeval.config import set_seed
-
-    set_seed(42)
     result = run_tasks(_build_split_cfg(data_root, test_frac=test_frac), data_dir=data_root)[0]
     return _strip_volatile_metadata(result.to_dict())
 

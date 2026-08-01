@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+import pytest
+
 from dataeval_flow._app._model._execution import TaskExecution
 from dataeval_flow._app._viewmodel._rendering import (
     _SNIPPET_RENDERERS,
@@ -18,6 +20,8 @@ from dataeval_flow._app._viewmodel._rendering import (
     snippet_config_item,
     snippet_task_with_execution,
 )
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # _snippet_steps

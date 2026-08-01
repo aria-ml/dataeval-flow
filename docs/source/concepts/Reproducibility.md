@@ -64,6 +64,32 @@ laptop and inside a container where the data is mounted at a fixed location. The
 [container reference](../reference/containers.md) documents the mounts and
 precedence rules that anchor a run.
 
+## Randomness is pinned, not hoped for
+
+A declarative configuration only determines the result if nothing inside the run is
+free to vary. Several evaluators are stochastic — clustering for cluster-based
+outlier and duplicate detection, random splits, shuffled {term}`views <View>`, the
+sampling inside mutual-information estimators. Left unseeded, two runs of the same
+configuration can legitimately disagree.
+
+Setting `seed` at the top level of a configuration pins them all:
+
+```yaml
+seed: 42
+deterministic: false   # optional; forces PyTorch's deterministic algorithms
+```
+
+The seed is applied through DataEval's own seed configuration, so it reaches the
+evaluators and the NumPy and PyTorch global generators together — a partial seeding
+would leave some component free to drift. It is applied **before each task** rather
+than once per pipeline, so a task's result does not depend on which tasks happened to
+run before it.
+
+A seeded run records its seed in the {term}`result envelope <Result Envelope>`'s
+resolved configuration, which is what lets the envelope alone be enough to repeat the
+run. Leaving `seed` unset is a deliberate choice, not an oversight: it says this run
+does not need to be bit-reproducible, and nothing is recorded to claim otherwise.
+
 ## Caching preserves the result, not just the time
 
 Re-running an evaluation should be cheap, but caching is only safe if it never

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
 from textual.containers import Vertical
 from textual.widgets import Checkbox, Input, Select
 
 from dataeval_flow._app._screens import _select_value, build_param_form, collect_param_form, validate_param_form
 
 from .conftest import FakeParam, _ParamFormApp
+
+pytestmark = pytest.mark.optional
 
 
 class TestBuildParamForm:

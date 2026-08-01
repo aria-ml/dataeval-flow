@@ -10,6 +10,8 @@ from dataeval_flow import run_tasks
 from dataeval_flow.config import OODDetectionTaskConfig, OODDetectionWorkflowConfig
 from dataeval_flow.workflows.ood.params import OODDetectorKNeighbors
 
+pytestmark = pytest.mark.required
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path

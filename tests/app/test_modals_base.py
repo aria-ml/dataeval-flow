@@ -5,12 +5,15 @@ from __future__ import annotations
 from pathlib import Path as _Path
 from typing import Any
 
+import pytest
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, Select, Static
 
 from dataeval_flow._app._model._item import DELETE_SENTINEL
 from dataeval_flow._app._screens import PathPickerScreen, _select_value
 
 from .conftest import _MinimalApp, _TestComponentModal, _wait_for_result
+
+pytestmark = pytest.mark.optional
 
 # ---------------------------------------------------------------------------
 # _select_value

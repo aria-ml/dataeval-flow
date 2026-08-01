@@ -99,6 +99,29 @@ def _resolve_extractor_paths(extractor_cfg: E, data_dir: Path | None) -> E:
     return extractor_cfg
 
 
+def _apply_seed(config: "PipelineConfig") -> None:
+    """Apply the pipeline's seed through DataEval's seed configuration [CR-7-S-1].
+
+    Delegates to :func:`dataeval.config.set_seed` so DataEval's evaluators and the
+    NumPy/PyTorch global generators are all pinned by the same value — a partial
+    seeding would leave clustering or sampling free to vary between runs.
+
+    A ``seed`` of ``None`` is a no-op: it leaves whatever randomness state the
+    process already has rather than actively reseeding it.
+    """
+    if config.seed is None:
+        return
+
+    from dataeval.config import set_seed
+
+    set_seed(config.seed, all_generators=True, deterministic=config.deterministic)
+    _logger.info(
+        "Seeded run with seed=%d (deterministic=%s)",
+        config.seed,
+        config.deterministic,
+    )
+
+
 def _run_single_task(
     task: "TaskConfig",
     config: "PipelineConfig",
@@ -119,6 +142,10 @@ def _run_single_task(
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
 
     _logger.info("Task '%s': starting (workflow_instance=%s)", task.name, task.workflow)
+
+    # 0. Seed every stochastic component [CR-7-S-1]. Applied per task rather than
+    #    once per pipeline so a task's result does not depend on what ran before it.
+    _apply_seed(config)
 
     # 1. Normalize sources to list
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)
@@ -348,6 +375,11 @@ def _build_resolved_config(
     # Extractor
     if extractor_cfg is not None:
         cfg["extractor"] = extractor_cfg.model_dump(mode="json")
+
+    # Reproducibility — recorded so the envelope alone is enough to repeat the run.
+    if pipeline_config is not None and pipeline_config.seed is not None:
+        cfg["seed"] = pipeline_config.seed
+        cfg["deterministic"] = pipeline_config.deterministic
 
     return _relativize_paths(cfg, root=data_dir)
 

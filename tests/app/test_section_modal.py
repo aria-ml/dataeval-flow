@@ -8,6 +8,8 @@ from dataeval_flow._app._model._registry import get_fields, get_variant_choices
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens import SectionModal
 
+pytestmark = pytest.mark.optional
+
 
 class TestSectionModalInit:
     """Test that SectionModal initializes correctly for each section type."""

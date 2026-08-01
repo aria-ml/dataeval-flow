@@ -12,12 +12,15 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import polars as pl
+import pytest
 
 # Ensure target modules are in sys.modules for @patch with xdist
 import dataeval_flow.dataset
 import dataeval_flow.metadata
 import dataeval_flow.workflows.cleaning.workflow  # noqa: F401
 from dataeval_flow.config import HuggingFaceDatasetConfig, load_config_folder
+
+pytestmark = pytest.mark.required
 
 
 class TestConfigToFactoryIntegration:
