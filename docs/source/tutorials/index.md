@@ -9,6 +9,26 @@ evaluation working end to end.
 
 The tutorials are grouped by where the task falls in the data lifecycle.
 
+## Start here
+
+The whole operating loop once, start to finish, before drilling into any single workflow.
+
+```{toctree}
+:hidden:
+
+../notebooks/end_to_end
+```
+
+:::{list-table}
+:widths: 35 65
+:header-rows: 0
+
+- - {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
+  - Load a dataset, write one config, run three workflows against it, read and export the
+    results — then run the identical pipeline in a container.
+
+:::
+
 ## Preparing data
 
 Assessing and conditioning a dataset before it is used to train or evaluate.
