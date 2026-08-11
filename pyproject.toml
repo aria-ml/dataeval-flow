@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    "dataeval==1.1.0-rc2",
+    "dataeval==1.1.0-rc3",
     "datamaite[ic,od]==0.4.0",
     "numpy>=1.24.2",
     "pydantic>=2.0",
@@ -29,15 +29,20 @@ dependencies = [
 cpu = ["torch>=2.2.0", "torchvision>=0.17.0"]
 cu118 = ["torch>=2.2.0", "torchvision>=0.17.0"]
 cu128 = ["torch>=2.2.0", "torchvision>=0.17.0"]
-onnx = ["onnx>=1.15", "onnxruntime>=1.20"]
-onnx-gpu = ["onnx>=1.15", "onnxruntime-gpu>=1.20"]
+onnx = [
+  "onnx>=1.15",
+  "onnxruntime>=1.20,<1.24; python_version == '3.10'",  # 1.24+ drops cp310 wheels
+  "onnxruntime>=1.20; python_version >= '3.11'",
+]
+onnx-gpu = [
+  "onnx>=1.15",
+  # 1.23.2 is the floor for the CUDA 12.8 images (see docker/variants.yaml).
+  "onnxruntime-gpu>=1.23.2,<1.24; python_version == '3.10'",  # 1.24+ drops cp310 wheels
+  "onnxruntime-gpu>=1.23.2,<1.27; python_version >= '3.11'",  # 1.27+ requires CUDA 13.0
+]
 opencv = ["opencv-python-headless>=4.8.0"]
 app = ["textual>=3.0; python_version < '3.14'"]
-ontology = ["dataeval[ontology]==1.1.0-rc2"]
-# Convenience extras for common combinations
-all-cpu = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
-all-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.20", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
-all-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0", "onnx>=1.15", "onnxruntime-gpu>=1.23.2", "opencv-python-headless>=4.8.0", "textual>=3.0; python_version < '3.14'"]
+ontology = ["dataeval[ontology]==1.1.0-rc3"]
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"
@@ -145,16 +150,10 @@ conflicts = [
     { extra = "cpu" },
     { extra = "cu118" },
     { extra = "cu128" },
-    { extra = "all-cpu" },
-    { extra = "all-cu118" },
-    { extra = "all-cu128" },
   ],
   [
     { extra = "onnx" },
     { extra = "onnx-gpu" },
-    { extra = "all-cpu" },
-    { extra = "all-cu118" },
-    { extra = "all-cu128" },
   ]
 ]
 
@@ -176,19 +175,13 @@ explicit = true
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
-  { index = "pytorch-cpu", extra = "all-cpu" },
   { index = "pytorch-cu118", extra = "cu118" },
-  { index = "pytorch-cu118", extra = "all-cu118" },
   { index = "pytorch-cu128", extra = "cu128" },
-  { index = "pytorch-cu128", extra = "all-cu128" },
 ]
 torchvision = [
   { index = "pytorch-cpu", extra = "cpu" },
-  { index = "pytorch-cpu", extra = "all-cpu" },
   { index = "pytorch-cu118", extra = "cu118" },
-  { index = "pytorch-cu118", extra = "all-cu118" },
   { index = "pytorch-cu128", extra = "cu128" },
-  { index = "pytorch-cu128", extra = "all-cu128" },
 ]
 
 [tool.poetry]

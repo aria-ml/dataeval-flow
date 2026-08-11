@@ -6,7 +6,7 @@
 # CI passes the resolved version via --build-arg DATAEVAL_FLOW_VERSION=...
 # Local `docker build` uses the default below, set to the last published tag
 # by docker/generate.py so the committed value is stable across regenerations.
-ARG DATAEVAL_FLOW_VERSION="0.1.0"
+ARG DATAEVAL_FLOW_VERSION="0.1.2"
 
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
@@ -34,7 +34,7 @@ RUN touch README.md
 
 # Install ONLY production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra all-cpu --no-install-project
+    uv sync --frozen --no-dev --extra cpu --extra onnx --extra opencv --extra app --no-install-project
 
 # =============================================================================
 # Stage 2: Test — extend build with dev deps, run nox, validate code
@@ -49,7 +49,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 
 # Add dev dependencies on top of prod venv
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --group dev --extra all-cpu --no-install-project
+    uv sync --frozen --group dev --extra cpu --extra onnx --extra opencv --extra app --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 

@@ -105,17 +105,18 @@ cd dataeval-flow
 ### With uv
 
 ```bash
-uv sync --extra cpu          # torch + torchvision, CPU build
-uv sync --extra all-cpu      # the above plus onnx, opencv, and app
+uv sync --extra cpu                                        # torch + torchvision, CPU build
+uv sync --extra cpu --extra onnx --extra opencv --extra app  # plus the feature extras
 ```
 
-Substitute `cu118` / `cu128` (or `all-cu118` / `all-cu128`) for the CUDA variants. These
-extras are mutually exclusive and uv enforces that.
+Substitute `cu118` / `cu128` for the CUDA variants, and `onnx-gpu` for `onnx` alongside
+them. The PyTorch variant extras are mutually exclusive, as are `onnx` and `onnx-gpu`;
+uv enforces both.
 
 ### With Poetry
 
 ```bash
-poetry install --extras all-cpu
+poetry install --extras "cpu onnx opencv app"
 ```
 
 Poetry resolves `torch` and `torchvision` from the CPU wheel index, so the Poetry path

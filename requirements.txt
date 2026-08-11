@@ -117,9 +117,9 @@ cuda-pathfinder==1.6.0 ; sys_platform == 'linux' \
 cuda-toolkit==13.0.3.0 ; sys_platform == 'linux' \
     --hash=sha256:d693caaa261214ddd7dbb60d68e71cbed884e68c2be7509778f3051da0b91c3f
     # via torch
-dataeval==1.1.0rc2 \
-    --hash=sha256:6d7787bc0f74e87e397df8c09367c14b231390443916058bafca2bdc92a15980 \
-    --hash=sha256:998b38d24b8cb885432c2eb56444c83b92c659efadcf83200d00fa8fc00f8b16
+dataeval==1.1.0rc3 \
+    --hash=sha256:9159e41ba5ff1c7d188ccb7c12ae270ab9a5a13c1ca85d6e81f7b92304fef39f \
+    --hash=sha256:f975878020ea4f9ee24e1c1bdf92ee64f2e8fc15fabe2eadc43cb34d6a440c7b
     # via dataeval-flow
 datamaite==0.4.0 \
     --hash=sha256:5e7c2cf3bd41e859601f52aac807e015ff56df2ef3a8b5446fde56c7eb7e8ab7 \

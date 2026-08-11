@@ -434,7 +434,7 @@ uv pip install dataeval-flow --torch-backend cpu     # or cu118 / cu128 / auto
 ```bash
 git clone https://github.com/aria-ml/dataeval-flow.git
 cd dataeval-flow
-uv sync --extra cpu      # or cu118 / cu128; all-cpu / all-cu118 / all-cu128 add onnx+opencv+app
+uv sync --extra cpu      # or cu118 / cu128; add --extra onnx --extra opencv --extra app as needed
 ```
 
 `poetry` (source checkout; uses committed `poetry.lock`):
