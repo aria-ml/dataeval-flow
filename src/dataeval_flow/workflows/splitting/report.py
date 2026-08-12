@@ -31,13 +31,23 @@ def _format_factor_table(
     return lines
 
 
-def _normalize_label_counts(label_counts: dict[str, int] | list[int] | None) -> dict[str, int]:
-    """Normalize label_counts_per_class to ``{str_key: count}``."""
+def _normalize_label_counts(
+    label_counts: dict[Any, int] | list[int] | None,
+    index2label: dict[Any, str] | None = None,
+) -> dict[str, int]:
+    """Normalize label_counts_per_class to ``{class_name: count}``.
+
+    ``label_counts_per_class`` is keyed by class index; ``index2label`` names those
+    indices when the dataset carries a class-name table. Indices with no name keep
+    their stringified index, which is what unnamed label spaces report. Keys are
+    compared as strings because a JSON round-trip turns the integer indices into
+    strings on both sides.
+    """
     if not label_counts:
         return {}
-    if isinstance(label_counts, dict):
-        return {str(k): v for k, v in label_counts.items()}
-    return {str(i): c for i, c in enumerate(label_counts)}
+    names = {str(index): name for index, name in (index2label or {}).items()}
+    pairs = label_counts.items() if isinstance(label_counts, dict) else enumerate(label_counts)
+    return {names.get(str(index), str(index)): count for index, count in pairs}
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +178,9 @@ def _build_cross_split_distribution(
     raw: DataSplittingRawOutputs,
 ) -> list[Reportable]:
     """Build cross-split class distribution pivot table(s)."""
-    full_counts = _normalize_label_counts(raw.label_stats_full.get("label_counts_per_class"))
+    # One name table for every split, so the per-split keys line up with the full ones.
+    index2label = raw.label_stats_full.get("index2label")
+    full_counts = _normalize_label_counts(raw.label_stats_full.get("label_counts_per_class"), index2label)
     if not full_counts:
         return []
 
@@ -176,15 +188,15 @@ def _build_cross_split_distribution(
     if not folds_with_stats:
         return []
 
-    test_counts = _normalize_label_counts(raw.label_stats_test.get("label_counts_per_class"))
+    test_counts = _normalize_label_counts(raw.label_stats_test.get("label_counts_per_class"), index2label)
     has_test = bool(test_counts)
 
     findings: list[Reportable] = []
     folds_to_show = folds_with_stats[:1] if len(folds_with_stats) > 1 else folds_with_stats
 
     for fold_info in folds_to_show:
-        train_counts = _normalize_label_counts(fold_info.label_stats_train.get("label_counts_per_class"))
-        val_counts = _normalize_label_counts(fold_info.label_stats_val.get("label_counts_per_class"))
+        train_counts = _normalize_label_counts(fold_info.label_stats_train.get("label_counts_per_class"), index2label)
+        val_counts = _normalize_label_counts(fold_info.label_stats_val.get("label_counts_per_class"), index2label)
 
         splits: dict[str, dict[str, int]] = {"Train": train_counts, "Val": val_counts}
         if has_test:
@@ -276,6 +288,7 @@ def _worst_deviation_across_folds(
     full_counts: dict[str, int],
     full_total: int,
     test_counts: dict[str, int],
+    index2label: dict[Any, str] | None = None,
 ) -> tuple[float, str, str, int]:
     """Find the worst proportion deviation across all folds.
 
@@ -287,8 +300,8 @@ def _worst_deviation_across_folds(
     worst_fold = 0
 
     for fold_info in folds_with_stats:
-        train_counts = _normalize_label_counts(fold_info.label_stats_train.get("label_counts_per_class"))
-        val_counts = _normalize_label_counts(fold_info.label_stats_val.get("label_counts_per_class"))
+        train_counts = _normalize_label_counts(fold_info.label_stats_train.get("label_counts_per_class"), index2label)
+        val_counts = _normalize_label_counts(fold_info.label_stats_val.get("label_counts_per_class"), index2label)
 
         splits: dict[str, dict[str, int]] = {"train": train_counts, "val": val_counts}
         if test_counts:
@@ -315,7 +328,8 @@ def _worst_deviation_across_folds(
 
 def _build_stratification_check(raw: DataSplittingRawOutputs) -> list[Reportable]:
     """Build a stratification quality health-check finding."""
-    full_counts = _normalize_label_counts(raw.label_stats_full.get("label_counts_per_class"))
+    index2label = raw.label_stats_full.get("index2label")
+    full_counts = _normalize_label_counts(raw.label_stats_full.get("label_counts_per_class"), index2label)
     if not full_counts:
         return []
 
@@ -323,13 +337,13 @@ def _build_stratification_check(raw: DataSplittingRawOutputs) -> list[Reportable
     if not folds_with_stats:
         return []
 
-    test_counts = _normalize_label_counts(raw.label_stats_test.get("label_counts_per_class"))
+    test_counts = _normalize_label_counts(raw.label_stats_test.get("label_counts_per_class"), index2label)
     full_total = sum(full_counts.values())
     if full_total == 0:
         return []
 
     global_max_dev, global_worst_class, global_worst_split, global_worst_fold = _worst_deviation_across_folds(
-        folds_with_stats, full_counts, full_total, test_counts
+        folds_with_stats, full_counts, full_total, test_counts, index2label
     )
 
     # Severity thresholds
@@ -387,7 +401,7 @@ def build_findings(
     # --- 1. Full-dataset label distribution ---
     label_counts = raw.label_stats_full.get("label_counts_per_class")
     if label_counts:
-        normalized = _normalize_label_counts(label_counts)
+        normalized = _normalize_label_counts(label_counts, raw.label_stats_full.get("index2label"))
         counts = list(normalized.values())
         max_count = max(counts) if counts else 0
         min_count = min(counts) if counts else 0

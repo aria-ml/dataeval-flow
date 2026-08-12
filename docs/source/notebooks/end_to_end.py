@@ -76,19 +76,20 @@ for split_name, split in cppe5.items():
 #
 # DataEval Flow reads datasets from a filesystem layout, so the in-memory HuggingFace
 # `Dataset` has to be written out first. We use the HuggingFace **ImageFolder**
-# object-detection convention — image files plus a `metadata.jsonl` whose `objects` column
-# carries parallel `bbox` / `categories` lists. CPPE-5 already stores absolute-pixel `xywh`
+# object-detection convention — image files plus a `metadata.parquet` whose `objects` column
+# carries parallel `bbox` / `category` lists. CPPE-5 already stores absolute-pixel `xywh`
 # boxes, which is what this convention expects, so no coordinate conversion is needed.
 #
 # :::{note}
-# **Class labels come back as integers, not names.** datamaite's `huggingface_vision`
-# loader does not yet read HuggingFace `ClassLabel` feature schemas, so reports show `0`–`4`
-# rather than `Coverall`, `Face_Shield`, `Gloves`, `Goggles`, `Mask`. Use the COCO format
-# instead if you need names preserved — its `categories` table is read natively.
+# **Write `metadata.parquet`, not `metadata.jsonl`, to keep class names.** Parquet is the only
+# ImageFolder metadata format with a schema channel: `Dataset.to_parquet()` embeds the
+# HuggingFace features schema in the file header, and datamaite reads the `ClassLabel` name
+# table out of it. That is why the reports below name `Coverall` and `Face_Shield` instead of
+# `0` and `1`. `metadata.csv` and `metadata.jsonl` carry no schema, so integer categories stay
+# integers there — matching HuggingFace's own behavior.
 # :::
 
 # %% tags=["remove_output"]
-import json
 from pathlib import Path
 
 from datasets import Dataset
@@ -99,21 +100,19 @@ data_path = Path("./data/cppe5")
 def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
     """Write a HuggingFace object-detection split in the ImageFolder convention."""
     root.mkdir(parents=True, exist_ok=True)
+    for stale in root.glob("metadata.*"):  # a leftover metadata file is read alongside the new one
+        stale.unlink()
 
-    with (root / "metadata.jsonl").open("w", encoding="utf-8") as fh:
-        for seq, example in enumerate(hf_dataset):
-            file_name = f"{seq:05d}.jpg"
-            example["image"].convert("RGB").save(root / file_name, quality=95)
+    file_names = []
+    for seq, example in enumerate(hf_dataset):
+        file_name = f"{seq:05d}.jpg"
+        example["image"].convert("RGB").save(root / file_name, quality=95)
+        file_names.append(file_name)
 
-            objects = example["objects"]
-            row = {
-                "file_name": file_name,
-                "objects": {
-                    "bbox": [[float(v) for v in box] for box in objects["bbox"]],  # absolute-pixel xywh
-                    "categories": [int(category) for category in objects["category"]],
-                },
-            }
-            fh.write(json.dumps(row) + "\n")
+    # Carry the source `objects` column through untouched so its `category` ClassLabel — the
+    # Coverall/Face_Shield/... name table — lands in the parquet features schema.
+    metadata = hf_dataset.remove_columns(["image", "image_id", "width", "height"]).add_column("file_name", file_names)
+    metadata.to_parquet(root / "metadata.parquet")
 
 
 for split_name, split in cppe5.items():
@@ -134,10 +133,10 @@ from dataeval_flow import load_dataset
 train_ds = load_dataset(data_path, split="train", dataset_format="huggingface", task="object_detection")
 image, target, _ = train_ds[0]
 
-print(f"Images:     {len(train_ds)}")
-print(f"Image shape:{image.shape}")
-print(f"Boxes:      {len(target.boxes)}")
-print(f"Classes:    {sorted({int(label) for label in target.labels})}")
+print(f"Images:      {len(train_ds)}")
+print(f"Image shape: {image.shape}")
+print(f"Boxes:       {len(target.boxes)}")
+print(f"Classes:     {train_ds.metadata['index2label']}")
 
 # %% [markdown]
 # ## Step 2: Set up the configuration
@@ -332,6 +331,8 @@ for task, result in zip(config.tasks, results, strict=True):
     print(f"{written}  ({written.stat().st_size:,} bytes)")
 
 # %%
+import json
+
 envelope = json.loads((output_dir / "split_train.json").read_text())
 
 print(f"Top-level keys: {list(envelope)}")

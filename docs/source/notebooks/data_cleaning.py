@@ -82,25 +82,21 @@ cppe5_train = cast(Dataset, hf_load("rishitdagli/cppe-5", split="train"))
 # datamaite reads datasets from a filesystem layout, so the in-memory HuggingFace
 # `Dataset` has to be written out before `dataeval-flow` can load it. We write the
 # HuggingFace **ImageFolder** object-detection convention: the image files plus a
-# `metadata.jsonl` whose `objects` column carries parallel `bbox` / `categories`
+# `metadata.parquet` whose `objects` column carries parallel `bbox` / `category`
 # lists. Boxes need no conversion — CPPE-5 stores absolute-pixel `xywh`, which is
 # also this convention's format.
 #
 # :::{note}
-# **Class labels come back as integers, not names.** CPPE-5's names (`Coverall`,
-# `Face_Shield`, `Gloves`, `Goggles`, `Mask`) are declared as a HuggingFace
-# `ClassLabel` table in the dataset card, but datamaite's `huggingface_vision`
-# loader does not yet read feature schemas, so the report shows `0`–`4` instead.
-# Writing the names into `categories` directly does not help: the loader maps
-# only integer categories to MAITE labels, and string categories load as the
-# `-1` "unknown" sentinel. Full class-label round-tripping has been raised with
-# the datamaite developers and is under development. Until it lands, use the
-# COCO format instead if you need names preserved — its `categories` table is
-# read natively.
+# **Write `metadata.parquet`, not `metadata.jsonl`, to keep class names.** CPPE-5's
+# names (`Coverall`, `Face_Shield`, `Gloves`, `Goggles`, `Mask`) are declared as a
+# HuggingFace `ClassLabel` table, and parquet is the only ImageFolder metadata format
+# with a schema channel to carry it: `Dataset.to_parquet()` embeds the features schema
+# in the file header, and datamaite reads the name table out of it. `metadata.csv` and
+# `metadata.jsonl` have no schema channel, so integer categories stay integers there —
+# matching HuggingFace's own behavior.
 # :::
 
 # %% tags=["remove_output"]
-import json
 from pathlib import Path
 
 data_path = Path("./data/cppe5/train")
@@ -109,21 +105,19 @@ data_path = Path("./data/cppe5/train")
 def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
     """Write a HuggingFace object-detection split in the ImageFolder convention."""
     root.mkdir(parents=True, exist_ok=True)
+    for stale in root.glob("metadata.*"):  # a leftover metadata file is read alongside the new one
+        stale.unlink()
 
-    with (root / "metadata.jsonl").open("w", encoding="utf-8") as fh:
-        for seq, example in enumerate(hf_dataset):
-            file_name = f"{seq:05d}.jpg"
-            example["image"].convert("RGB").save(root / file_name, quality=95)
+    file_names = []
+    for seq, example in enumerate(hf_dataset):
+        file_name = f"{seq:05d}.jpg"
+        example["image"].convert("RGB").save(root / file_name, quality=95)
+        file_names.append(file_name)
 
-            objects = example["objects"]
-            row = {
-                "file_name": file_name,
-                "objects": {
-                    "bbox": [[float(v) for v in box] for box in objects["bbox"]],  # absolute-pixel xywh
-                    "categories": [int(category) for category in objects["category"]],
-                },
-            }
-            fh.write(json.dumps(row) + "\n")
+    # Carry the source `objects` column through untouched so its `category` ClassLabel — the
+    # Coverall/Face_Shield/... name table — lands in the parquet features schema.
+    metadata = hf_dataset.remove_columns(["image", "image_id", "width", "height"]).add_column("file_name", file_names)
+    metadata.to_parquet(root / "metadata.parquet")
 
 
 write_imagefolder(cppe5_train, data_path)

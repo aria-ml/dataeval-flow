@@ -40,6 +40,22 @@ class TestBuildFindings:
         label_finding = next(f for f in findings if "Class distribution" in f.title)
         assert label_finding.severity == "warning"  # 55/5 = 11:1 > 10
 
+    def test_label_distribution_uses_class_names(self) -> None:
+        """A dataset carrying a class-name table reports names, not class indices."""
+        raw = DataSplittingRawOutputs(
+            dataset_size=100,
+            label_stats_full={
+                "label_counts_per_class": {0: 50, 1: 45},
+                "index2label": {0: "Coverall", 1: "Mask"},
+            },
+            test_indices=list(range(20)),
+            folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
+        )
+        findings = build_findings(raw)
+        label_finding = next(f for f in findings if "Class distribution" in f.title)
+        assert isinstance(label_finding.data, dict)
+        assert label_finding.data["table_data"] == {"Coverall": 50, "Mask": 45}
+
     def test_label_distribution_warning(self) -> None:
         raw = DataSplittingRawOutputs(
             dataset_size=100,
@@ -166,6 +182,23 @@ class TestNormalizeLabelCounts:
 
     def test_list(self) -> None:
         assert _normalize_label_counts([30, 20, 10]) == {"0": 30, "1": 20, "2": 10}
+
+    def test_dict_named_via_index2label(self) -> None:
+        counts = _normalize_label_counts({0: 10, 1: 5}, {0: "Coverall", 1: "Mask"})
+        assert counts == {"Coverall": 10, "Mask": 5}
+
+    def test_list_named_via_index2label(self) -> None:
+        counts = _normalize_label_counts([30, 20], {0: "Coverall", 1: "Mask"})
+        assert counts == {"Coverall": 30, "Mask": 20}
+
+    def test_index2label_with_string_keys(self) -> None:
+        """A JSON round-trip stringifies both the count keys and the name-table keys."""
+        counts = _normalize_label_counts({"0": 10, "1": 5}, {"0": "Coverall", "1": "Mask"})
+        assert counts == {"Coverall": 10, "Mask": 5}
+
+    def test_unnamed_indices_keep_their_index(self) -> None:
+        counts = _normalize_label_counts({0: 10, 7: 5}, {0: "Coverall"})
+        assert counts == {"Coverall": 10, "7": 5}
 
 
 # ---------------------------------------------------------------------------
