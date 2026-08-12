@@ -43,7 +43,7 @@ onnx-gpu = [
   "onnxruntime-gpu>=1.24,<1.27; python_version >= '3.14'",  # 1.24+ for cp314 wheels
 ]
 opencv = ["opencv-python-headless>=4.8.0"]
-app = ["textual>=3.0; python_version < '3.14'"]
+app = ["textual>=3.0"]
 ontology = ["dataeval[ontology]==1.1.0-rc3"]
 
 [project.urls]

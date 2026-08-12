@@ -1557,7 +1557,7 @@ dependencies = [
 
 [package.optional-dependencies]
 app = [
-    { name = "textual", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
+    { name = "textual" },
 ]
 cpu = [
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-13-dataeval-flow-cpu') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
@@ -1699,7 +1699,7 @@ requires-dist = [
     { name = "opencv-python-headless", marker = "extra == 'opencv'", specifier = ">=4.8.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "textual", marker = "python_full_version < '3.14' and extra == 'app'", specifier = ">=3.0" },
+    { name = "textual", marker = "extra == 'app'", specifier = ">=3.0" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "dataeval-flow", extra = "cpu" } },
     { name = "torch", marker = "extra == 'cu118'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cu118", conflict = { package = "dataeval-flow", extra = "cu118" } },
     { name = "torch", marker = "extra == 'cu128'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "dataeval-flow", extra = "cu128" } },
@@ -3079,7 +3079,7 @@ name = "linkify-it-py"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "uc-micro-py", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
+    { name = "uc-micro-py" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2e/c9/06ea13676ef354f0af6169587ae292d3e2406e212876a413bf9eece4eb23/linkify_it_py-2.1.0.tar.gz", hash = "sha256:43360231720999c10e9328dc3691160e27a718e280673d444c38d7d3aaa3b98b", size = 29158, upload-time = "2026-03-01T07:48:47.683Z" }
 wheels = [
@@ -3338,7 +3338,7 @@ wheels = [
 
 [package.optional-dependencies]
 linkify = [
-    { name = "linkify-it-py", marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version < '3.11' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (python_full_version < '3.11' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version < '3.11' and extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version >= '3.14' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (python_full_version >= '3.14' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version >= '3.14' and extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version < '3.11' and extra != 'extra-13-dataeval-flow-cu128' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu') or (python_full_version >= '3.14' and extra != 'extra-13-dataeval-flow-cu128' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu') or (python_full_version < '3.11' and extra != 'extra-13-dataeval-flow-cpu' and extra != 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu') or (python_full_version >= '3.14' and extra != 'extra-13-dataeval-flow-cpu' and extra != 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
+    { name = "linkify-it-py", marker = "python_full_version >= '3.11' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
 ]
 
 [[package]]
@@ -8844,12 +8844,12 @@ version = "8.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py", version = "3.0.0", source = { registry = "https://pypi.org/simple" }, extra = ["linkify"], marker = "python_full_version < '3.11' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
-    { name = "markdown-it-py", version = "4.2.0", source = { registry = "https://pypi.org/simple" }, extra = ["linkify"], marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version < '3.11' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (python_full_version < '3.11' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version < '3.11' and extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version >= '3.14' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (python_full_version >= '3.14' and extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version >= '3.14' and extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (python_full_version < '3.11' and extra != 'extra-13-dataeval-flow-cu128' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu') or (python_full_version >= '3.14' and extra != 'extra-13-dataeval-flow-cu128' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu') or (python_full_version < '3.11' and extra != 'extra-13-dataeval-flow-cpu' and extra != 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu') or (python_full_version >= '3.14' and extra != 'extra-13-dataeval-flow-cpu' and extra != 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
-    { name = "mdit-py-plugins", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
-    { name = "platformdirs", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
-    { name = "pygments", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
-    { name = "rich", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
-    { name = "typing-extensions", marker = "python_full_version < '3.14' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
+    { name = "markdown-it-py", version = "4.2.0", source = { registry = "https://pypi.org/simple" }, extra = ["linkify"], marker = "python_full_version >= '3.11' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu118') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-cu118' and extra == 'extra-13-dataeval-flow-cu128') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-gpu')" },
+    { name = "mdit-py-plugins" },
+    { name = "platformdirs" },
+    { name = "pygments" },
+    { name = "rich" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/00/21/39a76b01bd5eea82a04baaca7580e105d8c59450df03998345bb2cfb307b/textual-8.2.8.tar.gz", hash = "sha256:3f106a9fbc73e39dd266c9712432087de78a6d644084c7c241d6a25c3169115b", size = 1860502, upload-time = "2026-06-30T06:51:24.495Z" }
 wheels = [
