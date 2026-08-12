@@ -1,0 +1,117 @@
+# End-to-end pipeline — clean, profile, and split one dataset
+#
+# This is the single source of truth for the `end_to_end` tutorial. The notebook
+# loads this exact file, and the container runs this exact file — nothing in the
+# pipeline is defined in Python.
+#
+# All paths are relative to the data root:
+#   * notebook  — docs/source/notebooks/
+#   * container — the directory bind-mounted at /dataeval
+#
+# Run it locally:
+#   dataeval-flow --config end_to_end.yaml --data . --output ./output --cache ./cache -v
+#
+# yaml-language-server: $schema=../../../config/params.schema.json
+
+# Pin every stochastic component (clustering, splitting) so re-runs match.
+seed: 42
+
+# -----------------------------------------------------------------------------
+# DATASETS — where the data lives and how to read it
+# -----------------------------------------------------------------------------
+datasets:
+  - name: cppe5_train
+    format: huggingface
+    path: data/cppe5
+    split: train
+    task: object_detection
+
+  - name: cppe5_test
+    format: huggingface
+    path: data/cppe5
+    split: test
+    task: object_detection
+
+# -----------------------------------------------------------------------------
+# VIEWS — narrow a dataset without touching what is on disk
+# -----------------------------------------------------------------------------
+views:
+  - name: first_250
+    operations:
+      - type: Limit
+        params:
+          size: 250
+
+# -----------------------------------------------------------------------------
+# SOURCES — dataset + optional view, referenced by tasks
+# -----------------------------------------------------------------------------
+sources:
+  - name: train_src
+    dataset: cppe5_train
+    view: first_250
+
+  - name: test_src
+    dataset: cppe5_test
+
+# -----------------------------------------------------------------------------
+# EXTRACTORS — how embeddings are produced (BoVW needs no model file)
+# -----------------------------------------------------------------------------
+extractors:
+  - name: bovw_ext
+    model: bovw
+    vocab_size: 512
+    batch_size: 32
+
+# -----------------------------------------------------------------------------
+# WORKFLOWS — named parameter sets, one per evaluation
+# -----------------------------------------------------------------------------
+workflows:
+  - name: clean
+    type: data-cleaning
+    mode: advisory
+    outlier_method: adaptive
+    outlier_threshold: 3.5
+    outlier_flags: [dimension, pixel, visual]
+    duplicate_cluster_sensitivity: 0.5
+    health_thresholds:
+      exact_duplicates: 0.0
+      near_duplicates: 5.0
+      image_outliers: 5.0
+      target_outliers: 10.0
+      classwise_outliers: 12.0
+      class_label_imbalance: 5.0
+
+  - name: profile
+    type: data-analysis
+    outlier_method: adaptive
+    outlier_threshold: 4.0
+    outlier_flags: [dimension, pixel, visual]
+    balance: true
+    diversity_method: simpson
+    include_image_stats: true
+
+  - name: split
+    type: data-splitting
+    test_frac: 0.2
+    val_frac: 0.1
+    num_folds: 1
+    stratify: true
+
+# -----------------------------------------------------------------------------
+# TASKS — bind a workflow to sources (and an extractor when embeddings are used)
+# -----------------------------------------------------------------------------
+tasks:
+  - name: clean_train
+    workflow: clean
+    sources: train_src
+    extractor: bovw_ext
+
+  - name: profile_splits
+    workflow: profile
+    sources:
+      - train_src
+      - test_src
+
+  - name: split_train
+    workflow: split
+    sources: train_src

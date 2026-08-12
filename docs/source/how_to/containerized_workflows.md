@@ -8,6 +8,7 @@ config file, and launch with bind-mounted data.
 Every DataEval Flow workflow can be run from a container, so this guide is
 referenced from all of the tutorials:
 
+- {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
 - {doc}`Clean a dataset <../notebooks/data_cleaning>`
 - {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
 - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
@@ -399,16 +400,24 @@ docker run --rm \
 
 ## 5. View results
 
-Results are written to the output mount under a directory named after each task:
+Results are written to the output mount as one merged file per format, plus a run log:
 
 ```bash
-ls workspace/output/
-# clean_my_data/
-#   results.json
+find workspace/output -type f
+# workspace/output/result.log
+# workspace/output/results/result.json
+# workspace/output/results/result.txt
 ```
 
-The JSON report contains the workflow results — the same data you'd get from
-`result.report(format="json")` in the Python API.
+`result.json` is keyed by task name — each entry holds that task's `metadata`, `raw`,
+and `report` sections, the same data you'd get from `result.to_dict()` in the Python
+API. `result.txt` holds the detailed text reports, the same as `result.report()`.
+
+```bash
+jq -r 'keys[]' workspace/output/results/result.json
+jq -r '.clean_my_data.report.findings[] | "\(.severity)\t\(.title)"' \
+    workspace/output/results/result.json
+```
 
 ## Container mount reference
 
