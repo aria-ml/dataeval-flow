@@ -149,7 +149,6 @@ markdownlint:
     markdownlint-cli2 CODE_OF_CONDUCT.md || FAIL=1
     markdownlint-cli2 CHANGELOG.md || FAIL=1
     markdownlint-cli2 SECURITY.md || FAIL=1
-    markdownlint-cli2 GEMINI.md || FAIL=1
     markdownlint-cli2 'docs/**/*.md' '#node_modules' || FAIL=1
     exit $FAIL
 
@@ -171,7 +170,7 @@ linkchecker:
   script: |
     FAIL=0
     markdown-link-check --config docs/.markdown-link-check.json \
-      BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md GEMINI.md \
+      BRANCHING.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md \
       README.md ROADMAP.md SECURITY.md docs/CACHE_MANAGEMENT.md || FAIL=1
     # -print0/-0 so paths with spaces survive; -r keeps xargs from running on an empty set.
     find docs/source -name '*.md' -not -path '*/.jupyter_cache/*' -print0 \
