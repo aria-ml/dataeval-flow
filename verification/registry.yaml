@@ -4,7 +4,14 @@
 # and VCRM) from automated verification test results.
 
 metarepo:
+  # GitLab project id of the JATIC meta repo (shared with dataeval).
   project_id: 409
+  # Top-level directory owned by this project inside the meta repo. dataeval
+  # writes to DataEval/; every generated file lands under <path>/ so the two
+  # projects' identically-named artifacts (vcrm.md, test-case-1-1.md) cannot
+  # collide. Only vcrm.md and test-cases/*.md are managed by CI — anything else
+  # under this path (FR-*.md requirement docs) is hand-maintained and untouched.
+  path: DataEval-Flow
 
 # ---------------------------------------------------------------------------
 # Requirements — rows in the VCRM

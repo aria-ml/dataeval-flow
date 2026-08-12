@@ -1,6 +1,7 @@
 """Nox automation for DataEval Workflows."""
 
 import os
+import sys
 
 import nox
 import nox_uv
@@ -23,6 +24,24 @@ UV_EXTRAS_WITH_ONNX = UV_EXTRAS + ["onnx" if UV_EXTRAS_OVERRIDE == "cpu" else "o
 UV_EXTRAS_WITH_ONNX_AND_OPENCV = UV_EXTRAS_WITH_ONNX + ["opencv"]
 
 DOCS_ENVS = {"LANG": "C", "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "PYDEVD_DISABLE_FILE_VALIDATION": "1"}
+
+
+def python_version(session: nox.Session) -> str:
+    """Return the ``major.minor`` version of the session's interpreter.
+
+    Test artifacts are suffixed with this. The CI matrix (3.10/3.11/3.12) merges
+    every job's ``output/`` into one artifact set, so unsuffixed reports would
+    overwrite each other and leave nothing for the `coverage` job to combine.
+    """
+    out = session.run(
+        "python",
+        "-c",
+        "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+        silent=True,
+        log=False,
+    )
+    # session.run returns True under --no-install/dry-run; fall back to the nox interpreter.
+    return out.strip() if isinstance(out, str) else f"{sys.version_info.major}.{sys.version_info.minor}"
 
 
 @nox_uv.session(uv_only_groups=["lint"], uv_no_install_project=True)
@@ -59,18 +78,24 @@ def test(session: nox.Session) -> None:
 
     Only ``tests/`` runs here. The requirements verification suite lives in its
     own ``verify`` session so it stays out of the unit-coverage gate.
+
+    Reports are suffixed with the interpreter version so the CI matrix jobs can
+    coexist in one artifact set, and the combined data file is moved under
+    ``output/`` for the pipeline's `coverage` job to ``coverage combine``.
     """
+    py = python_version(session)
     session.run(
         "pytest",
         "-n4",
         "--dist=loadscope",
         "--cov=src/dataeval_flow",
         "--cov-report=term",
-        "--cov-report=xml:output/coverage.xml",
-        "--cov-report=html:output/htmlcov",
+        f"--cov-report=xml:output/coverage.{py}.xml",
+        f"--cov-report=html:output/htmlcov.{py}",
         "--cov-fail-under=90",
-        "--junitxml=output/junit.xml",
+        f"--junitxml=output/junit.{py}.xml",
     )
+    session.run("mv", ".coverage", f"output/.coverage.{py}", external=True)
 
 
 @nox_uv.session(uv_groups=["verify"], uv_extras=UV_EXTRAS)
@@ -88,6 +113,10 @@ def verify(session: nox.Session) -> None:
         "--junitxml=output/verify.xml",
         *session.posargs,
     )
+    # Render the meta repo artifacts (test-case stubs + VCRM) from that report.
+    # Runs on every verify, not just at publish time, so a registry.yaml that no
+    # longer matches the test suite fails in the MR rather than at release.
+    session.run("python", "verification/generate_metarepo.py")
 
 
 @nox_uv.session(python="3.10", uv_only_groups=["base"], reuse_venv=False)

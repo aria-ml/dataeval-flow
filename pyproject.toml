@@ -297,6 +297,9 @@ exclude = [
     ".nox",
     "prototype",
     "src/dataeval_flow/_version.py",
+    # Vendored verbatim from dataeval's .gitlab/scripts so the two stay in sync;
+    # linting it here would fork it. push_verification.py is NOT excluded.
+    ".gitlab/scripts/rest.py",
 ]
 line-length = 120
 target-version = "py310"

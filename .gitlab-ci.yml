@@ -66,24 +66,37 @@ variables:
   after_script:
     - uv cache prune --ci
 
+# PUBLISH_VERIFICATION is a standalone workflow: a web-triggered pipeline that
+# only regenerates and republishes meta repo artifacts. Every other job opts out
+# of it via this anchor so the trigger doesn't rebuild containers or rerun the
+# test matrix. Anchor (not a rule template) so it can be prepended to jobs that
+# already declare their own inline `rules:`.
+.skip_publish_verification: &skip_publish_verification
+  if: $PUBLISH_VERIFICATION
+  when: never
+
 # Shared rule sets
 .rules_main_mr:
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 .rules_mr_only:
   rules:
+    - *skip_publish_verification
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 .rules_main_only:
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # Run only when dependency-defining files change (or on main). Used to gate
 # the install-validation jobs so they don't run on docs/code-only MRs.
 .rules_main_mr_deps:
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -178,15 +191,15 @@ test:
       - PYTHON_VERSION: ["3.10", "3.11", "3.12"]
   script:
     - uvx --with nox-uv nox -s test
-  coverage: '/TOTAL.*\s+(\d+%)/'
   artifacts:
+    # Directory form (not `output/*`) so the dotted coverage data files
+    # (output/.coverage.3.11) survive into the `coverage` job.
+    # The per-job cobertura report and the coverage: regex live on that job
+    # instead, so the MR widget shows one combined number, not a matrix average.
     paths:
       - output/
     reports:
-      junit: output/junit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: output/coverage.xml
+      junit: output/junit.*.xml
     expire_in: 1 week
 
 # Requirements verification suite (FR/NFR compliance) — runs separately from
@@ -202,6 +215,9 @@ verify:
   artifacts:
     paths:
       - output/verification_report.json
+      # Rendered test cases + VCRM. Not pushed anywhere from here — downloadable
+      # on the MR so meta repo changes are reviewable before a release publishes them.
+      - output/metarepo/
     reports:
       junit: output/verify.xml
     expire_in: 1 week
@@ -303,6 +319,50 @@ install:conda:
     - dataeval-flow --help
 
 # -----------------------------------------------------------------------------
+# Coverage aggregation
+# Merges the per-interpreter coverage data files produced by the test matrix
+# (output/.coverage.3.10 … .3.12) into one report. The 90% gate is enforced
+# twice: per matrix job by --cov-fail-under, and here on the union via
+# [tool.coverage.report] fail_under.
+#
+# htmlcov/ is what the Pages jobs publish (MR preview + main /coverage site).
+# -----------------------------------------------------------------------------
+
+coverage:
+  extends: [.rules_main_mr]
+  stage: publish
+  image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+  needs:
+    - job: test
+      artifacts: true
+  before_script:
+    - uv pip install coverage --system
+  script:
+    - coverage combine ./output
+    # Reports before the gate. Every coverage subcommand honours
+    # [tool.coverage.report] fail_under and exits 2 when it isn't met, so
+    # gating first would skip report generation exactly when it's most useful.
+    # --fail-under=0 keeps these steps purely about writing files.
+    # Explicit -o/-d: pyproject points both at output/, which is already
+    # occupied by the per-matrix reports downloaded above.
+    - coverage xml --skip-empty --fail-under=0 -o coverage.xml
+    - coverage html --skip-empty --fail-under=0 -d htmlcov
+    # The 90% gate on the union of all matrix runs.
+    - coverage report -m --skip-empty --precision=2
+  coverage: '/(?i)total.*? (100(?:\.0+)?%|[1-9]?\d(?:\.\d+)?%)$/'
+  artifacts:
+    # always: a failed gate still publishes the report showing what's uncovered.
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 1 week
+
+# -----------------------------------------------------------------------------
 # Documentation — runs in parallel with container jobs
 # -----------------------------------------------------------------------------
 
@@ -357,6 +417,59 @@ pages:
       - public
       - output/docs
 
+# One Pages deployment per merge request, published under a path prefix
+# (parallel deployments) rather than through the Pages artifacts proxy, which
+# GitLab 19 rejects with a 403. Serves a landing page linking to whichever of
+# the docs and coverage builds actually ran — both needs are optional, so a
+# skipped or filtered-out upstream job degrades the site instead of failing it.
+pages preview:
+  extends: [.rules_mr_only]
+  stage: release
+  image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+  needs:
+    - job: docs:preview
+      artifacts: true
+      optional: true
+    - job: coverage
+      artifacts: true
+      optional: true
+  script:
+    - bash .gitlab/scripts/build_preview_site.sh
+  pages:
+    publish: public
+    path_prefix: 'mr-$CI_MERGE_REQUEST_IID'
+    expire_in: 1 week
+  artifacts:
+    paths:
+      - public/
+  environment:
+    name: 'preview/$CI_MERGE_REQUEST_IID'
+    # Inside a Pages job CI_PAGES_URL already includes the path prefix;
+    # appending it here would duplicate the mr-<iid> segment.
+    url: '$CI_PAGES_URL'
+    auto_stop_in: '1 week'
+
+# Coverage report for the default branch, published as its own parallel
+# deployment at <pages url>/coverage so it refreshes independently of the root
+# docs site. `pages.publish` deploys straight from htmlcov/, so this job never
+# competes with the `pages` job for public/.
+pages coverage:
+  extends: [.rules_main_only]
+  stage: release
+  image: alpine:latest
+  needs:
+    - job: coverage
+      artifacts: true
+  script:
+    - echo "Publishing coverage report to $CI_PAGES_URL"
+  pages:
+    publish: htmlcov
+    path_prefix: coverage
+    expire_in: never
+  artifacts:
+    paths:
+      - htmlcov/
+
 # -----------------------------------------------------------------------------
 # Container — runs in parallel with documentation jobs
 # -----------------------------------------------------------------------------
@@ -367,6 +480,7 @@ pages:
   variables:
     COSIGN_PASSWORD: ""
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
@@ -400,6 +514,7 @@ resolve:version:
     reports:
       dotenv: version.env
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
@@ -538,6 +653,7 @@ container_scanning:
     - echo "Scanning ${CS_IMAGE}"
   allow_failure: false
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
@@ -555,6 +671,7 @@ semgrep-sast:
     SAST_EXCLUDED_ANALYZERS: "eslint,gosec,kubesec,nodejs-scan,phpcs-security-audit,pmd-apex,security-code-scan,sobelow,spotbugs"
     SAST_EXCLUDED_PATHS: "config, docker, docs, output, tests"
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
@@ -562,6 +679,7 @@ semgrep-sast:
 gemnasium-python-dependency_scanning:
   stage: security
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
@@ -569,6 +687,7 @@ gemnasium-python-dependency_scanning:
 secret_detection:
   stage: security
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
@@ -629,6 +748,7 @@ release:sbom:
   parallel:
     matrix: *variants
   rules:
+    - *skip_publish_verification
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
     # DATAEVAL_FLOW_VERSION / DATAEVAL_FLOW_IMAGE_TAG inherited from resolve:version
@@ -640,3 +760,49 @@ release:sbom:
     paths:
       - sbom-*.json
     expire_in: never
+
+# -----------------------------------------------------------------------------
+# Verification Artifacts [TR-6, DR-3.3]
+# Publish the generated test cases + VCRM to the JATIC meta repo.
+# -----------------------------------------------------------------------------
+
+# Reruns the verification suite, regenerates output/metarepo/ from the fresh
+# report, and commits it to the meta repo project under the directory declared
+# in verification/registry.yaml (project 409, DataEval-Flow/).
+#
+# Triggers:
+#   - tag pipelines (v*) — every release republishes the VCRM
+#   - a web pipeline with PUBLISH_VERIFICATION set — republish on demand without
+#     rebuilding anything; every other job opts out via .skip_publish_verification
+#
+# That directory also holds hand-maintained requirement docs (the FR-*.md files
+# the VCRM links to). push_verification.py only creates/updates the files it
+# generates and never deletes, so the manual content already there is safe.
+# Set VERIFICATION_PUSH_ARGS on the trigger to change that:
+#   --dry-run   print the commit plan and exit without writing
+#   --prune     also delete stale test-case-*.md files dropped from registry.yaml
+#
+# Requires the group-level DATAEVAL_BUILD_PAT variable (same token as the docs
+# cache push) with api scope on the meta repo.
+publish:verification:
+  extends: [.nox]
+  stage: release
+  needs: []
+  rules:
+    - if: $PUBLISH_VERIFICATION
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+  variables:
+    VERIFICATION_PUSH_ARGS: ""
+  before_script:
+    - !reference [.nox, before_script]
+    - uv pip install --system requests pyyaml
+  script:
+    - uvx --with nox-uv nox -s verify
+    - python3 .gitlab/scripts/push_verification.py $VERIFICATION_PUSH_ARGS
+  artifacts:
+    # always: keep the generated artifacts even if the push is rejected, so the
+    # commit can be inspected or replayed.
+    when: always
+    paths:
+      - output/metarepo/
+    expire_in: 1 week
