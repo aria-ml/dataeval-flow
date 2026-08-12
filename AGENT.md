@@ -1,4 +1,4 @@
-# Gemini Agent Instructions
+# Agent Instructions
 
 Use `nox` sessions `lint` `schema` `type` `test` to validate changes
 Ensure test coverage of newly created files are >=90% targeting 100%
