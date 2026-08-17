@@ -531,7 +531,7 @@ class TestClasswiseFinding:
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
-                "level": "image",
+                "count_basis": "image",
                 "rows": [
                     {"class_name": "cat", "count": 5, "pct": 10.0},
                     {"class_name": "dog", "count": 2, "pct": 4.0},
@@ -543,14 +543,14 @@ class TestClasswiseFinding:
         assert finding.title == "Classwise Outliers"
         assert finding.data["worst_class"] == "cat"  # type: ignore[index]
         assert finding.data["worst_pct"] == 10.0  # type: ignore[index]
-        assert finding.data["level"] == "image"  # type: ignore[index]
+        assert finding.data["count_basis"] == "image"  # type: ignore[index]
 
     def test_warning_when_total_exceeds_threshold(self):
         raw = DataCleaningRawOutputs(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
-                "level": "target",
+                "count_basis": "annotation",
                 "rows": [
                     {"class_name": "a", "count": 20, "pct": 40.0},
                     {"class_name": "Total", "count": 20, "pct": 40.0},
@@ -647,7 +647,7 @@ class TestClasswiseFindingThresholdAndBrief:
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
-                "level": "image",
+                "count_basis": "image",
                 "rows": [
                     {"class_name": "cat", "count": 8, "pct": 8.0},
                     {"class_name": "dog", "count": 3, "pct": 3.0},
@@ -663,7 +663,7 @@ class TestClasswiseFindingThresholdAndBrief:
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
-                "level": "image",
+                "count_basis": "image",
                 "rows": [
                     {"class_name": "cat", "count": 2, "pct": 2.0},
                     {"class_name": "dog", "count": 1, "pct": 1.0},

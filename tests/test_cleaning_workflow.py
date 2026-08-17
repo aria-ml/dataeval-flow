@@ -837,9 +837,9 @@ class TestComputeClasswisePivot:
         )
         result = _compute_classwise_pivot(None, img_issues, metadata=metadata)
         assert result is not None
-        assert "level" in result
+        assert "count_basis" in result
         assert "rows" in result
-        assert result["level"] == "image"
+        assert result["count_basis"] == "image"
         rows = result["rows"]
         # Last row is Total
         assert rows[-1]["class_name"] == "Total"
@@ -871,9 +871,9 @@ class TestComputeClasswisePivot:
         img_issues = pl.DataFrame({"item_index": [], "metric_name": [], "metric_value": []})
         result = _compute_classwise_pivot(target_issues, img_issues, metadata=metadata)
         assert result is not None
-        assert "level" in result
+        assert "count_basis" in result
         assert "rows" in result
-        assert result["level"] == "target"
+        assert result["count_basis"] == "annotation"
         assert result["rows"][-1]["class_name"] == "Total"
 
 

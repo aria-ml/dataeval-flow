@@ -120,7 +120,11 @@ class ClasswisePivotDict(TypedDict, total=False):
     to a single class).
     """
 
-    level: str  # "image" or "target"
+    # What a row counts.  Deliberately not named "level": DataEval uses that
+    # key for metadata levels (unit, instance, track, sequence) and for
+    # duplicate levels (item, target), and three meanings under one key is a
+    # trap for anyone reading an envelope.
+    count_basis: str  # "image" or "annotation"
     rows: list[ClasswiseRowDict]  # one per class + Total row
 
 

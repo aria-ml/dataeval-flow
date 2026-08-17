@@ -127,7 +127,7 @@ def _classwise_finding(raw: DataCleaningRawOutputs, thresholds: DataCleaningHeal
             title="Classwise Outliers",
             data={
                 "brief": "no outliers detected",
-                "level": "image",
+                "count_basis": "image",
                 "table_data": [],
                 "table_headers": ["Class Name", "Count", "%"],
                 "worst_class": None,
@@ -137,7 +137,7 @@ def _classwise_finding(raw: DataCleaningRawOutputs, thresholds: DataCleaningHeal
             description="No outliers detected — classwise breakdown not applicable.",
         )
 
-    level = pivot.get("level", "image")  # type: ignore[union-attr]
+    count_basis = pivot.get("count_basis", "image")  # type: ignore[union-attr]
 
     # The last row is the "Total" row
     total_row = rows[-1] if rows else {}
@@ -168,7 +168,7 @@ def _classwise_finding(raw: DataCleaningRawOutputs, thresholds: DataCleaningHeal
         title="Classwise Outliers",
         data={
             "brief": brief,
-            "level": level,
+            "count_basis": count_basis,
             "table_data": rows,
             "table_headers": ["Class Name", "Count", "%"],
             "worst_class": worst_name,
