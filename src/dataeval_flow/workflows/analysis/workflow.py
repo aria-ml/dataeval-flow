@@ -187,6 +187,7 @@ def _compute_split_data(
         dataset=dataset,
         per_image=True,
         per_target=is_od,
+        value_range=params.value_range,
     )
     source_index = calc_result["source_index"]
     img_mask = np.array([si.target is None for si in source_index])

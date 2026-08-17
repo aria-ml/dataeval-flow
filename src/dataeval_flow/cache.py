@@ -419,19 +419,28 @@ def dataset_fingerprint(dataset: Any) -> str:
 def scope_key(
     per_image: bool = True,
     per_target: bool = True,
+    value_range: tuple[float, float] | None = None,
 ) -> str:
     """Build a deterministic scope key from per_image/per_target settings.
 
     Stats computed with different scope settings have incompatible
     ``source_index`` arrays and cannot be merged.  The scope key ensures
     they are cached separately.
+
+    ``value_range`` participates because it changes the values themselves:
+    the VISUAL family, ``PIXEL_HISTOGRAM``, ``PIXEL_ENTROPY`` and
+    ``DIMENSION_DEPTH`` all read it, and answer ``NaN`` without one on float
+    data.  Two runs declaring different ranges must not share an entry.
     """
     parts: list[str] = []
     if per_image:
         parts.append("img")
     if per_target:
         parts.append("tgt")
-    return "+".join(parts) or "none"
+    key = "+".join(parts) or "none"
+    if value_range is not None:
+        key = f"{key}_vr{value_range[0]:g}-{value_range[1]:g}"
+    return key
 
 
 def missing_flags(cached_metrics: set[str], desired_flags: ImageStats) -> ImageStats:
@@ -471,6 +480,7 @@ def _do_compute_stats(
     desired_flags: ImageStats,
     per_image: bool = True,
     per_target: bool = True,
+    value_range: tuple[float, float] | None = None,
 ) -> StatsResult:
     """Compute stats and return.
 
@@ -489,6 +499,7 @@ def _do_compute_stats(
         per_image=per_image,
         per_target=per_target,
         normalize_pixel_values=False,
+        value_range=value_range,
     )
 
 
@@ -543,6 +554,7 @@ def get_or_compute_stats(
     dataset: AnnotatedDataset[Any],
     per_image: bool = True,
     per_target: bool = True,
+    value_range: tuple[float, float] | None = None,
 ) -> StatsResult:
     """Centralized stats computation with context-aware caching.
 
@@ -554,14 +566,15 @@ def get_or_compute_stats(
         cache, sel_key = ctx
         return cache.load_or_compute_stats(
             sel_key,
-            scope_key(per_image, per_target),
+            scope_key(per_image, per_target, value_range),
             desired_flags,
             dataset,
             per_image=per_image,
             per_target=per_target,
+            value_range=value_range,
         )
     _logger.info("Computing stats (no cache)")
-    return _do_compute_stats(dataset, desired_flags, per_image, per_target)
+    return _do_compute_stats(dataset, desired_flags, per_image, per_target, value_range)
 
 
 def get_or_compute_metadata(
@@ -1327,6 +1340,7 @@ class DatasetCache:
         dataset: AnnotatedDataset[Any],
         per_image: bool = True,
         per_target: bool = True,
+        value_range: tuple[float, float] | None = None,
     ) -> StatsResult:
         """Load cached stats, compute any missing metrics, merge, and save.
 
@@ -1367,7 +1381,7 @@ class DatasetCache:
             )
 
         # Compute the missing stats
-        fresh = _do_compute_stats(dataset, to_compute, per_image, per_target)
+        fresh = _do_compute_stats(dataset, to_compute, per_image, per_target, value_range)
 
         if cached is None:
             self.save_stats(selection_repr, scope, dict(fresh))

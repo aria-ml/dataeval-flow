@@ -297,6 +297,7 @@ def _extract_metadata_factors(
 def _extract_stats_factors(
     dc: DatasetContext,
     dataset: AnnotatedDataset[Any],
+    value_range: tuple[float, float] | None = None,
 ) -> dict[str, NDArray[Any]] | None:
     """Compute per-image stats and return as ``{metric_name: array}``."""
     from dataeval.flags import ImageStats
@@ -311,6 +312,7 @@ def _extract_stats_factors(
                 dataset=dataset,
                 per_image=True,
                 per_target=False,
+                value_range=value_range,
             )
         stats_map = stats_result.get("stats", {})
         if not stats_map:
@@ -429,11 +431,11 @@ def _collect_numeric_factors(
     *None* when no usable numeric factors are available.
     """
     # --- Stats factors (always available) ---
-    ref_stats = _extract_stats_factors(ref_dc, ref_dataset)
+    ref_stats = _extract_stats_factors(ref_dc, ref_dataset, params.value_range)
 
     test_stats_parts: list[dict[str, NDArray[Any]]] = []
     for _, t_dc, t_ds in test_datasets:
-        t_stats = _extract_stats_factors(t_dc, t_ds)
+        t_stats = _extract_stats_factors(t_dc, t_ds, params.value_range)
         if t_stats is not None:
             test_stats_parts.append(t_stats)
 

@@ -52,6 +52,10 @@
 - Metadata factor records now emitted by the data cleaning and OOD detection workflows, which accepted the binning
   configuration but reported none of its effect
 - Factor and binning detail rendered in the text report, alongside any diagnostics
+- `value_range` on the data analysis, data cleaning, data coverage, data prioritization, and OOD detection
+  workflows. Float image data has no inherent range, and the statistics that need one — the whole visual family,
+  pixel histogram and entropy, and dimension depth — answer `NaN` without it. It participates in the stats cache
+  key, so two runs declaring different ranges do not share an entry
 
 ### Removed
 

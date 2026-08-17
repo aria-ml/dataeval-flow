@@ -290,6 +290,29 @@
     "DataAnalysisWorkflowConfig": {
       "description": "Typed workflow configuration for ``data-analysis``.\n\nInherits all fields from :class:`DataAnalysisParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
       "properties": {
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -515,6 +538,29 @@
     "DataCleaningWorkflowConfig": {
       "description": "Typed workflow configuration for ``data-cleaning``.\n\nInherits all fields from :class:`DataCleaningParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
       "properties": {
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -833,6 +879,29 @@
     "DataCoverageWorkflowConfig": {
       "description": "Typed workflow configuration for ``data-coverage``.\n\nInherits all fields from :class:`DataCoverageParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        coverage_method: adaptive\n        balance: true\n        diversity_method: simpson\n        run_gap_analysis: true",
       "properties": {
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -1082,6 +1151,29 @@
     "DataPrioritizationWorkflowConfig": {
       "description": "Typed workflow configuration for ``data-prioritization``.\n\nInherits all fields from :class:`DataPrioritizationParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
       "properties": {
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",
@@ -1891,6 +1983,29 @@
     "OODDetectionWorkflowConfig": {
       "description": "Typed workflow configuration for ``ood-detection``.\n\nInherits all fields from :class:`OODDetectionParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {

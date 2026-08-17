@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow.workflow.base import MetadataConfigMixin, WorkflowParametersBase
+from dataeval_flow.workflow.base import MetadataConfigMixin, StatsConfigMixin, WorkflowParametersBase
 
 __all__ = ["DataAnalysisHealthThresholds", "DataAnalysisParameters"]
 
@@ -68,7 +68,7 @@ class DataAnalysisHealthThresholds(BaseModel):
     )
 
 
-class DataAnalysisParameters(WorkflowParametersBase, MetadataConfigMixin):
+class DataAnalysisParameters(WorkflowParametersBase, MetadataConfigMixin, StatsConfigMixin):
     """Parameters for data analysis workflow.
 
     Required parameters must be explicitly set per CR-4.14-G-1

@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from dataeval_flow.workflow.base import WorkflowParametersBase
+from dataeval_flow.workflow.base import StatsConfigMixin, WorkflowParametersBase
 
 __all__ = [
     "CleaningConfig",
@@ -64,7 +64,7 @@ class DataPrioritizationHealthThresholds(BaseModel):
     )
 
 
-class DataPrioritizationParameters(WorkflowParametersBase):
+class DataPrioritizationParameters(WorkflowParametersBase, StatsConfigMixin):
     """Parameters for the data-prioritization workflow.
 
     Requires at least two sources: the first is the reference (labeled) dataset,

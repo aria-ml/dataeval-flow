@@ -10,6 +10,7 @@ from dataeval_flow.config.schemas import AutoBinMethod
 __all__ = [
     "MetadataConfigMixin",
     "Reportable",
+    "StatsConfigMixin",
     "WorkflowOutputsBase",
     "WorkflowParametersBase",
     "WorkflowReportBase",
@@ -30,6 +31,23 @@ class MetadataConfigMixin(BaseModel):
     metadata_auto_bin_method: AutoBinMethod | None = None
     metadata_exclude: Sequence[str] = Field(default_factory=list)
     metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None
+
+
+class StatsConfigMixin(BaseModel):
+    """Mixin for workflows that compute image statistics.
+
+    Mix into workflow parameter classes that call ``compute_stats``.
+    """
+
+    value_range: tuple[float, float] | None = Field(
+        default=None,
+        description=(
+            "Interval the image data occupies, as (low, high). Integer encodings state "
+            "their own range; float data does not, and the statistics that need one "
+            "answer NaN without it — the whole visual family, pixel histogram and "
+            "entropy, and dimension depth. Leave unset for integer imagery."
+        ),
+    )
 
 
 # --- Parameter base ---

@@ -113,6 +113,7 @@ def _run_outlier_detection_per_source(
     hash_flags: ImageStats,
     dc: DatasetContext,
     dataset: AnnotatedDataset[Any],
+    value_range: tuple[float, float] | None = None,
 ) -> set[int]:
     """Run stats-based outlier detection on a single dataset.
 
@@ -125,6 +126,7 @@ def _run_outlier_detection_per_source(
         calc_result = get_or_compute_stats(
             desired_flags=outlier_flags | hash_flags,
             dataset=dataset,
+            value_range=value_range,
         )
 
     outliers_eval = Outliers(
@@ -182,6 +184,7 @@ def _run_cleaning(
     ref_dc: DatasetContext,
     ref_dataset: AnnotatedDataset[Any],
     add_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
+    value_range: tuple[float, float] | None = None,
 ) -> tuple[
     dict[str, set[int]],  # per-source flagged indices
     CleaningSummaryDict,
@@ -200,7 +203,7 @@ def _run_cleaning(
     flagged_outliers: dict[str, set[int]] = {}
     total_outliers = 0
     for name, dc, ds in all_sources:
-        flagged = _run_outlier_detection_per_source(cleaning, outlier_flags, hash_flags, dc, ds)
+        flagged = _run_outlier_detection_per_source(cleaning, outlier_flags, hash_flags, dc, ds, value_range)
         flagged_outliers[name] = flagged
         total_outliers += len(flagged)
         _logger.info("  Outliers in %s: %d", name, len(flagged))
@@ -373,7 +376,9 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
         total_removed = 0
 
         if params.cleaning is not None:
-            per_source_flagged, cleaning_summary = _run_cleaning(params.cleaning, ref_dc, ref_dataset, add_datasets)
+            per_source_flagged, cleaning_summary = _run_cleaning(
+                params.cleaning, ref_dc, ref_dataset, add_datasets, params.value_range
+            )
             total_removed = cleaning_summary["total_removed"]
 
         # --- 5. Build clean embeddings ---

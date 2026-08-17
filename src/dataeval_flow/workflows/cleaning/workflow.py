@@ -398,6 +398,7 @@ def _run_cleaning(
     calc_result = get_or_compute_stats(
         desired_flags=outlier_flags | hash_flags,
         dataset=dataset,
+        value_range=params.value_range,
     )
     _logger.info("  [4a] Image stats ready in %.1fs", _time.monotonic() - _t0)
 

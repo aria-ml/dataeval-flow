@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow.workflow.base import MetadataConfigMixin, WorkflowParametersBase
+from dataeval_flow.workflow.base import MetadataConfigMixin, StatsConfigMixin, WorkflowParametersBase
 
 __all__ = ["DataCoverageHealthThresholds", "DataCoverageParameters"]
 
@@ -106,7 +106,7 @@ class DataCoverageHealthThresholds(BaseModel):
     )
 
 
-class DataCoverageParameters(WorkflowParametersBase, MetadataConfigMixin):
+class DataCoverageParameters(WorkflowParametersBase, MetadataConfigMixin, StatsConfigMixin):
     """Parameters for data coverage workflow.
 
     Embedding-based analyses (coverage, completeness) require an extractor
