@@ -1,10 +1,8 @@
 # Change Log
 
-## 0.1.0 (Unreleased)
+The authoritative change log is [`CHANGELOG.md`](https://github.com/aria-ml/dataeval-flow/blob/main/CHANGELOG.md)
+at the repository root; it is included verbatim below so the two cannot drift apart.
 
-- Initial release
-- Dataset loading and inspection (HuggingFace, local)
-- Data cleaning workflow with configurable outlier detection
-- ONNX model embedding extraction
-- JATIC-compliant metadata output
-- Docker containerization (GPU and CPU)
+```{include} ../../../CHANGELOG.md
+:start-after: "# Changelog"
+```

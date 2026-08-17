@@ -12,6 +12,12 @@
 - `Balance` values corrected for chance, so factors of differing cardinality rank differently
 - Workflow cache bumped to `v3` for the pixel rescale; reclaim old entries with `rm -rf <cache_dir>/v2`
 - Stored image statistics and `Balance` results need recomputing before comparison against fresh ones
+- Dataset loaders ported from `maite-datasets` to `datamaite`, including HuggingFace class-label support
+- Container mounts follow SDP IR conventions
+- Classwise outlier pivots report `count_basis` (`image` / `annotation`) where they previously reported `level`
+  (`image` / `target`). The old key collided with DataEval's `level`, which names metadata levels (`unit`,
+  `instance`, `track`, `sequence`) and duplicate levels (`item`, `target`) — three different meanings under one key.
+  Consumers reading `level` off a classwise finding need updating.
 
 ### Fixed
 
@@ -25,10 +31,57 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- Data coverage workflow (`data-coverage`) — class balance, metadata factor gaps, ontology findings, and per-class
+  embedding variety, with an `ontology` extra for loading a label space from an RDF artifact
+- `metadata_auto_bin_method`, `metadata_exclude`, and `metadata_continuous_factor_bins` on the data analysis, data
+  cleaning, data coverage, and OOD detection workflows
+- `task` field on HuggingFace datasets, selecting the loader explicitly rather than inferring it
+- MAITE entry points for the dataset adapters and task runner, so both are discoverable by other MAITE-aware tools
+- Python 3.13 and 3.14 support; CI now runs the full 3.10 through 3.14 matrix
 
 ### Removed
 
 - Unused `per_channel` parameter from `get_or_compute_stats`, `scope_key`, and `DatasetCache.load_or_compute_stats`
+- COCO and YOLO config fields that were never supported by the underlying loaders
+
+## v0.1.2
+
+### Added
+
+- Custom preprocessors module and the `ToRGB` preprocessor, coercing mixed-channel datasets to three channels
+
+### Infrastructure
+
+- Documentation caching for the publish job
+
+## v0.1.1
+
+### Added
+
+- Parameter sweep workflow (`parameter-sweep`), running a workflow across a grid of parameters and comparing results
+- Poetry and conda packaging support alongside pip and uv
+- Dynamic versioning via hatch-vcs
+
+### Changed
+
+- DataEval bumped to v1.0.6
+- Logging patterns normalized against DataEval's
+- HuggingFace dataset paths must now include the namespace
+
+### Fixed
+
+- `DataSplitting` workflow was not exported and could not be referenced from a config
+
+### Removed
+
+- CUDA 12.4 container variant
+
+### Infrastructure
+
+- Container hardening for SDP 1.2 — pinned Trivy, per-image SBOM attestation, GitLab Container-Scanning template,
+  PEP/OCI-compliant versioned tags with promotion gated on image scans
+- Markdown lint and link-check jobs; governance and DSOR documentation
+- FR/NFR verification tests and metarepo artifacts
 
 ## v0.1.0
 

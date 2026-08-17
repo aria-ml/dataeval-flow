@@ -1,3 +1,6 @@
+<!-- markdownlint-disable MD041 -->
+![DataEval Flow](docs/source/_static/images/DataEvalFlow_Logo.png)
+
 # DataEval Flow
 
 DataEval Flow provides workflow orchestration for DataEval evaluators, packaging
@@ -483,9 +486,15 @@ print(results[0].report())
 **Development:**
 
 ```bash
-uv sync --group dev
-nox
+uvx --with nox-uv nox -s dev     # build .venv with the dev toolchain
+source .venv/bin/activate
+nox                              # run the default sessions
 ```
+
+`nox -s dev` prompts for the Python version and device variant, records the choice
+in `.cuda-version` so the other sessions match it, and installs the `onnx` and
+`app` extras alongside. See
+[Development Setup](./CONTRIBUTING.md#development-setup) for the arguments it takes.
 
 ## Versioning
 

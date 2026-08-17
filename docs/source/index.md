@@ -1,9 +1,32 @@
 # DataEval Flow
 
+::::{grid}
+:reverse:
+:gutter: 3 4 4 4
+:margin: 1 2 1 2
+
+:::{grid-item}
+:columns: 12 4 4 4
+
+:::{image} _static/images/DataEvalFlow_Logo.png
+:width: 200px
+:class: sd-m-auto
+:alt: DataEval Flow
+
+:::
+
+:::{grid-item}
+:columns: 12 8 8 8
+:child-align: justify
+:class: sd-fs-5
+
 DataEval Flow provides workflow orchestration for DataEval evaluators, packaging
 data cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
 detection, splitting, prioritization, and parameter-sweep pipelines behind a
 single declarative configuration format and both headless and interactive CLIs.
+
+:::
+::::
 
 DataEval Flow lets T&E engineers compose and run multi-stage data evaluation
 pipelines without writing Python glue code. Pipelines are described in YAML or

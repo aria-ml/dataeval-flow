@@ -106,6 +106,8 @@ nb_execution_timeout = -1  # No per-cell timeout; total runtime is bounded by ca
 # -----------------------------------------------------------------------------
 
 html_theme = "sphinx_immaterial"
+html_logo = "_static/images/DataEvalFlow_Logo.png"
+html_favicon = "_static/images/DataEvalFlow_Favicon.png"
 
 html_show_sourcelink = True
 html_static_path = ["_static"]

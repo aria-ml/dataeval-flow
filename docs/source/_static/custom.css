@@ -50,3 +50,38 @@ div.cell_output .output pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+
+/* Keep the logo visible below the desktop breakpoint. sphinx-immaterial hides
+   the header logo under 76.25em, which would drop branding on tablets
+   entirely. Ported from dataeval's ARiA.css; the drawer-button hide that
+   follows it there is navigation behavior, not logo theming, so it is
+   deliberately not carried over. */
+@media screen and (min-width: 30em) {
+    .md-header__button.md-logo {
+        display: inline-block;
+    }
+}
+
+@media screen and (min-width: 30em) and (max-width: 76.2344em) {
+    .md-header__button.md-logo {
+        order: 1;   /* push logo to the right of the drawer button */
+    }
+    .md-header__button[for=__drawer] {
+        order: 0;   /* pull drawer button to the left of the logo  */
+    }
+    .md-header__title {
+        order: 2;
+    }
+    .md-header__option {
+        order: 3;
+    }
+    .md-header__button[for=__search] {
+        order: 4;
+    }
+    .md-search {
+        order: 4;
+    }
+    .md-header__source {
+        order: 5;
+    }
+}
