@@ -33,13 +33,19 @@ workflows:
 
 `outlier_flags` selects the *groups* of image statistics the method is applied to. At least one is required.
 
-- `dimension` — geometry: width, height, aspect ratio, channel count, bit depth, total pixel count, and (for detection
+- `dimension` — geometry: width, height, aspect ratio, channel count, value range, total pixel count, and (for detection
   boxes) offsets and distances to the image center and edges. Catches the wrong-shaped image, the accidental
   thumbnail, the one grayscale file in an RGB set, the degenerate bounding box.
 - `pixel` — the intensity *distribution*: mean, standard deviation, variance, skew, kurtosis, entropy, and the
-  fraction of zero or missing/NaN pixels. Catches corrupt, truncated, and constant-valued frames.
+  fraction of zero or missing/NaN pixels. Catches corrupt, truncated, and constant-valued frames. As of DataEval
+  v1.1 these are reported in the units the data is stored in rather than normalized to `[0, 1]`, so their magnitude
+  depends on the encoding — a 12-bit mean reads in the thousands, not in fractions.
 - `visual` — perceived appearance derived from intensity percentiles: brightness, contrast, darkness, and
-  edge-detection sharpness. Catches the blown-out, the underexposed, and the out-of-focus capture.
+  edge-detection sharpness. Catches the blown-out, the underexposed, and the out-of-focus capture. These read the
+  0–255 display range regardless of encoding, so one image answers the same whatever it is stored as.
+
+Float imagery needs `value_range` before the `visual` group — and pixel histogram and entropy — can be computed at
+all; without it they answer `NaN`. See {doc}`configure_metadata_binning`.
 
 Narrow the list when you already know what kind of defect you are hunting. A dimension-only run over a freshly
 converted dataset is fast and answers one question cleanly.
@@ -57,6 +63,13 @@ you chose; raise it to flag less, lower it to flag more.
 Because the right value depends on the dataset, this is the parameter most worth sweeping rather than guessing — see
 {doc}`the Parameter Sweep tutorial <../notebooks/parameter_sweep>` to run a grid and compare the flag rates side by
 side.
+
+:::{note}
+The DataEval v1.1 pixel rescale did **not** move any outlier flag, and a threshold tuned before the upgrade is still
+correct. Every method offered here is location-scale equivariant: each measures distance in units of the
+distribution's own spread, so scaling every value by a constant moves the statistic and the cutoff together. See
+{doc}`../migration/v1.1`.
+:::
 
 ## Add cluster-based detection
 
@@ -126,6 +139,8 @@ inspection.
 
 ## Related material
 
+- {doc}`configure_metadata_binning` — the `metadata_*` settings this workflow also accepts, and `value_range` for
+  float imagery
 - [Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) — the concepts behind outlier and duplicate
   detection
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the

@@ -125,6 +125,8 @@ someone added without updating the taxonomy.
 
 ## Related material
 
+- {doc}`configure_metadata_binning` — how this workflow's metadata factors are discretized before gap analysis
+  reads them
 - [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them

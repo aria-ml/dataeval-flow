@@ -60,6 +60,7 @@ torch_embeddings
 :hidden:
 
 configure_outlier_detection
+configure_metadata_binning
 ```
 
 :::{list-table}
@@ -69,6 +70,9 @@ configure_outlier_detection
 - - {doc}`Configure outlier detection <configure_outlier_detection>`
   - Pick a statistical method, choose which statistics to test, add cluster-based detection, and set the thresholds
     that turn a finding into a warning.
+- - {doc}`Configure metadata binning <configure_metadata_binning>`
+  - Choose how factors are discretized before bias and coverage analyses read them, declare the range of float
+    image data, and read back what the run decided.
 
 :::
 

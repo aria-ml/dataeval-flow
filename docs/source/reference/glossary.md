@@ -12,11 +12,21 @@ Bag-of-Visual-Words (BoVW)
     {term}`embedding<Embedding>` from a histogram of quantized local image
     features (SIFT descriptors). Useful when no trained model is available.
 
+Binning
+    Cutting a continuous {term}`factor<Factor>` into intervals so evaluators read
+    interval codes rather than measured values. Bias, balance, diversity, and
+    parity all operate on binned codes, so where the cuts fall changes the
+    numbers they report. A categorical factor is *digitized* instead — mapped to
+    ordinals, one code per distinct value. See
+    [Configure metadata binning](../how_to/configure_metadata_binning.md).
+
 Caching
     Reuse of intermediate computation (loaded datasets, embeddings, evaluator
     results) keyed on the configuration and inputs that produced them, so that
     re-running an unchanged pipeline does not recompute it. DataEval Flow
     supports in-memory caching and a disk-backed cache at the `/cache` mount.
+    Artifacts live under a version directory (currently `v3`) so incompatible
+    formats can coexist.
 
 Classwise Drift
     {term}`Drift` measured separately for each class, revealing which classes a
@@ -72,6 +82,14 @@ Extractor
     {term}`BoVW<Bag-of-Visual-Words (BoVW)>`, Flatten, and Uncertainty
     extractors; an extractor may reference a {term}`preprocessor<Preprocessor>`.
 
+Factor
+    A per-sample metadata field evaluators can analyze — a sensor name, a
+    timestamp, an elevation, a class label. Factors are what bias, balance, and
+    coverage analyses correlate against each other and against the class labels.
+    Each carries a type (categorical, discrete, or continuous) and a
+    {term}`level<Metadata Level>`, and reaches evaluators through
+    {term}`binning<Binning>`.
+
 Health Threshold
     A configurable limit on a workflow metric (for example, the maximum allowable
     percentage of near-duplicates) above which the corresponding finding is
@@ -88,6 +106,14 @@ Maximum Mean Discrepancy (MMD)
     A multivariate drift statistic that measures the distance between the mean
     {term}`embeddings<Embedding>` of a reference and an incoming sample in a
     kernel feature space.
+
+Metadata Level
+    The entity a {term}`factor<Factor>` describes: `sequence`, `unit`, `track`, or
+    `instance`. For a still-image task `unit` is the image and `instance` is the
+    target. A factor is summarized and binned at its own level, so a per-image
+    factor is not weighted by how many detections each image happens to carry.
+    Introduced in DataEval v1.1, replacing the fixed image/target split. Distinct
+    from the `level` reported on duplicate groups, which is `item` or `target`.
 
 Mode
     Whether a workflow reports or acts. `advisory` (the default) flags findings
@@ -114,7 +140,7 @@ Out-of-Distribution (OOD)
 
 Outlier
     A sample that deviates significantly from the rest of a dataset, detected
-    via statistical methods (modified z-score, z-score, or IQR) over image
+    via statistical methods (adaptive, modified z-score, z-score, or IQR) over image
     statistics or {term}`embeddings<Embedding>`.
 
 Parameter Sweep

@@ -96,6 +96,8 @@ The `metadata` block is what makes a finding auditable and interoperable with ot
 | `label_source` | Where labels came from |
 | `model_id` / `preprocessor_id` | The extractor model and preprocessing pipeline used |
 | `resolved_config` | The fully resolved configuration, after merge and defaults |
+| `metadata_binning` | How each factor was typed and discretized — see below |
+| `diagnostics` | Library warnings raised during the run |
 
 `resolved_config` is the field that makes a run repeatable: it is the configuration as actually executed, not as
 written. Keep the envelope and you can reproduce the run without the original config file.
@@ -122,6 +124,31 @@ onto_findings = result.data.raw.ontology
 
 Each workflow declares its own raw output model, so field names differ by workflow — the
 {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` lists them per workflow.
+
+### How metadata factors were treated
+
+Bias, balance, diversity, and coverage analyses read factors as *codes* — a continuous factor cut into intervals, a
+categorical one mapped to ordinals — so what a run decided about binning is part of what the result means.
+`result.metadata.metadata_binning` records it: per factor, the type, the {term}`level <Metadata Level>` it was
+binned at, whether it was binned or digitized, and the observed range and population of every bin.
+`result.metadata.diagnostics` carries the library warnings the run raised. Both render in the text report under
+**METADATA FACTORS**.
+
+Per-factor summaries in `raw` carry the same shape of information alongside the values: `level` and `is_binned` per
+factor, plus `dropped_factors` naming vector-valued statistics (`histogram`, `percentiles`, `center`) that have no
+single-column form and so never became factors at all. `invalid_box` is carried through as a factor rather than
+discarded with the hash columns.
+
+{doc}`configure_metadata_binning` covers how to control any of this.
+
+:::{note}
+`level` means two different things in a result, on two different axes. Per-factor metadata summaries report a
+{term}`metadata level <Metadata Level>` — `sequence`, `unit`, `track`, or `instance`. Duplicate groups report `item`
+or `target`, which is unrelated and unchanged. Classwise outlier pivots report `count_basis` (`image` or
+`annotation`) rather than `level`, precisely so the three cannot be read as one.
+:::
+
+## Getting at more of the run
 
 Two more fields are useful for follow-up work and are deliberately *not* serialized into the envelope:
 
