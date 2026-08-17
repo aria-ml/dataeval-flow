@@ -135,7 +135,7 @@ datasets:
     path: yolo-data
 ```
 
-### Sources, extractors, and selections
+### Sources, extractors, and views
 
 Sources bundle a dataset with an optional view. Extractors bundle a model
 with an optional preprocessor. Tasks reference these by name.
@@ -172,7 +172,7 @@ extractors:
 
 ### Workflow types
 
-Five workflow types are available. Define named instances in the `workflows`
+Eight workflow types are available. Define named instances in the `workflows`
 section, then reference them from tasks.
 
 `````{tab-set}
@@ -257,6 +257,57 @@ workflows:
         distance_metric: cosine    # cosine | euclidean
         threshold_perc: 95
     metadata_insights: true
+```
+````
+
+````{tab-item} data-coverage
+Class balance, metadata gaps, ontology findings, and embedding blind spots.
+See the {doc}`Data Coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
+
+```yaml
+workflows:
+  - name: coverage_check
+    type: data-coverage
+    coverage_method: adaptive
+    balance: true
+    run_gap_analysis: true
+    ontology: config/taxonomy.ttl   # optional; unlocks the label-space findings
+    health_thresholds:
+      leaf_coverage: 0.9
+      dark_branch_count: 0
+```
+````
+
+````{tab-item} data-prioritization
+Rank an abundant or unlabeled pool so the most informative samples come first.
+See the {doc}`Prioritization tutorial <../notebooks/data_prioritization>` for a full walkthrough.
+
+```yaml
+workflows:
+  - name: label_next
+    type: data-prioritization
+    method: knn                    # knn | kmeans_distance | kmeans_complexity
+                                   # | hdbscan_distance | hdbscan_complexity
+    order: hard_first              # or easy_first
+    policy: difficulty             # difficulty | stratified | class_balanced
+```
+````
+
+````{tab-item} parameter-sweep
+Sweep data-cleaning parameters across a grid and compare the results.
+See the {doc}`Parameter Sweep tutorial <../notebooks/parameter_sweep>` for a full walkthrough.
+
+A sweep varies data-cleaning parameters. There is no separate grid block: any
+swept field takes a *list* of values and the workflow runs every combination,
+while static fields take a single value shared across all runs.
+
+```yaml
+workflows:
+  - name: threshold_sweep
+    type: parameter-sweep
+    outlier_flags: [dimension, pixel, visual]   # static — the stat groups to test
+    outlier_method: [modzscore, iqr]            # swept — 2 values
+    outlier_threshold: [2.5, 3.0, 3.5]          # swept — 3 values, so 6 runs
 ```
 ````
 `````

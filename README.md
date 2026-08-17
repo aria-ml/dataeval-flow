@@ -65,8 +65,8 @@ The guidance below applies to both the container and the Python-library forms.
 ### Tested platforms
 
 DataEval Flow is developed and tested on Linux (Ubuntu 22.04 and 24.04, including
-WSL2). The Python package supports **Python 3.10–3.13**; the CI test matrix runs
-3.10, 3.11, and 3.12. The container images are built on Ubuntu 22.04 (cu118) and
+WSL2). The Python package supports **Python 3.10–3.14**; the CI test matrix runs
+all five. The container images are built on Ubuntu 22.04 (cu118) and
 Ubuntu 24.04 (cpu, cu128). macOS and Windows are supported only through Docker or
 WSL2 and are not part of the CI test matrix — if you hit an issue on those hosts,
 the OS/hardware may be the root cause.

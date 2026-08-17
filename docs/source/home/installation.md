@@ -1,6 +1,6 @@
 # Installation
 
-DataEval Flow supports **Python 3.10–3.13**. It is developed and tested on Linux
+DataEval Flow supports **Python 3.10–3.14**. It is developed and tested on Linux
 (Ubuntu 22.04 / 24.04, including WSL2) on linux/amd64. See {doc}`quickstart` for the
 supported-platform summary and {doc}`../reference/containers` for the full hardware,
 architecture, and network requirements.

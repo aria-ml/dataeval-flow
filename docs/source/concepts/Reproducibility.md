@@ -27,7 +27,7 @@ version-controllable artifact, the same configuration applied to the same data
 produces the same result, and that fact can be checked into version control,
 reviewed, and replayed.
 
-The configuration is organized as named building blocks — datasets, selections,
+The configuration is organized as named building blocks — datasets, views,
 preprocessors, extractors, workflows — that tasks reference *by name*. Selecting a
 workflow by a registered name rather than by importing a Python class is what
 keeps the configuration the single source of truth for what runs: there is no
@@ -99,7 +99,7 @@ metadata, clustering results — under a key derived from **everything that affe
 the result**:
 
 - a fingerprint of the **dataset**,
-- the **selection** (subset or ordering) applied to it, and
+- the **view** (subset or ordering) applied to it, and
 - a hash of the producing **configuration** — the extractor, its parameters, and
   the preprocessing pipeline.
 

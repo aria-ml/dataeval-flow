@@ -5,7 +5,7 @@ Run your first DataEval Flow evaluation — install the package, describe a pipe
 ## Step 1: Check your machine
 
 DataEval Flow is developed and tested on **Linux** (Ubuntu 22.04 and 24.04, including WSL2) on **linux/amd64
-(x86-64)**, against **Python 3.10–3.13** (CI runs 3.10, 3.11, and 3.12). macOS and Windows are supported only through
+(x86-64)**, against **Python 3.10–3.14** (CI runs all five). macOS and Windows are supported only through
 Docker or WSL2 and are not part of the CI test matrix — if you hit a problem on those hosts, the OS or hardware may be
 the root cause. arm64 / Apple Silicon is not built or tested.
 

@@ -46,7 +46,7 @@ reproducible orchestration layer with native MAITE interoperability.
 | Find gaps in dataset coverage before training | Data Coverage | Class and metadata gaps, ontology findings, embedding blind spots |
 | Build leakage-free train/val/test splits | Dataset Splitting | Stratified or random splits |
 | Monitor operational data for population drift | Drift Detection | Per-batch drift flags and p-values |
-| Track drift on a per-class basis | Classwise Drift | Per-class drift signals |
+| Track drift on a per-class basis | Drift Detection (`classwise: true`) | Per-class drift signals |
 | Flag anomalous individual samples | OOD Detection | Per-sample out-of-distribution scores |
 | Rank abundant/unlabeled data for labeling | Prioritization | Ranked sample ordering |
 | Tune workflow parameters across a grid | Parameter Sweep | Per-configuration result comparison |
