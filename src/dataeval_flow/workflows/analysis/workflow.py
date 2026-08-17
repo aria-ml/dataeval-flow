@@ -34,6 +34,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
 
+from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
@@ -1177,6 +1178,9 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
             mode=params.mode,
             split_names=list(context.dataset_contexts.keys()),
         )
+        # Splits are binned independently, so each is recorded separately —
+        # two splits of one dataset can land on different edges.
+        attach_binning(result_metadata, {name: d.metadata for name, d in split_data.items()}, params)
         if params.mode == "preparatory":
             findings.append(
                 Reportable(

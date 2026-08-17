@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from dataeval_flow.workflow._text_report import (
     _WIDTH,
+    _render_binning_section,
     _render_config_section,
     _render_detail_section,
     _summary_line,
@@ -152,6 +153,7 @@ class WorkflowResult(Generic[TMetadata, TData]):
         lines.extend(self._summary_lines(findings))
         if detailed:
             lines.extend(self._detail_lines(findings))
+        lines.extend(_render_binning_section(self.metadata.metadata_binning, self.metadata.diagnostics))
         lines.extend(_render_config_section(self.metadata.resolved_config))
         lines.append("")
         lines.append("=" * _WIDTH)

@@ -15,6 +15,7 @@ from dataeval.shift import OODDomainClassifier, OODKNeighbors, OODOutput
 from numpy.typing import NDArray
 from pydantic import BaseModel
 
+from dataeval_flow.binning import describe_binning
 from dataeval_flow.cache import (
     active_cache,
     get_or_compute_embeddings,
@@ -232,11 +233,17 @@ def _extract_metadata_factors(
     dc: DatasetContext,
     dataset: AnnotatedDataset[Any],
     params: OODDetectionParameters,
+    binning_sink: dict[str, Any] | None = None,
 ) -> dict[str, NDArray[Any]] | None:
     """Extract metadata factor arrays from a dataset, returning None on failure.
 
     Drops the ``id`` factor (not useful for deviation analysis) and includes
     class labels when available.
+
+    ``binning_sink``, when given, receives the binning record for this
+    dataset's metadata.  The ``Metadata`` is built here and nowhere else in this
+    workflow, so this is the only point the decisions can be observed without
+    recomputing them.
     """
     try:
         with contextlib.ExitStack() as stack:
@@ -249,6 +256,17 @@ def _extract_metadata_factors(
                 exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
                 continuous_factor_bins=params.metadata_continuous_factor_bins,
             )
+        if binning_sink is not None:
+            try:
+                binning_sink.update(
+                    describe_binning(
+                        metadata,
+                        excluded=list(params.metadata_exclude) if params.metadata_exclude else None,
+                        requested_bins=params.metadata_continuous_factor_bins,
+                    )
+                )
+            except Exception:
+                _logger.warning("Binning record unavailable", exc_info=True)
         factor_names = list(metadata.factor_names)
 
         # Extract raw continuous values for deviation analysis.  `dataframe`
@@ -399,6 +417,7 @@ def _collect_numeric_factors(
     ref_dataset: AnnotatedDataset[Any],
     test_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
     params: OODDetectionParameters,
+    binning_sink: dict[str, Any] | None = None,
 ) -> tuple[dict[str, NDArray[Any]], dict[str, NDArray[Any]]] | None:
     """Collect and intersect numeric metadata + stats factors from reference and test datasets.
 
@@ -419,7 +438,7 @@ def _collect_numeric_factors(
             test_stats_parts.append(t_stats)
 
     # --- Metadata factors (may be absent on test data) ---
-    ref_meta = _extract_metadata_factors(ref_dc, ref_dataset, params)
+    ref_meta = _extract_metadata_factors(ref_dc, ref_dataset, params, binning_sink)
 
     test_meta_parts: list[dict[str, NDArray[Any]]] = []
     for _, t_dc, t_ds in test_datasets:
@@ -455,17 +474,18 @@ def _compute_metadata_insights(
     ood_indices: list[int],
     max_insights: int,
     params: OODDetectionParameters,
-) -> tuple[list[FactorDeviationDict] | None, dict[str, float] | None]:
-    """Compute factor_deviation and factor_predictors for OOD samples."""
+) -> tuple[list[FactorDeviationDict] | None, dict[str, float] | None, dict[str, Any] | None]:
+    """Compute factor_deviation, factor_predictors, and the binning record."""
     if not ood_indices:
-        return None, None
+        return None, None, None
 
     _logger.info("[5/5] Computing metadata insights for %d OOD samples…", len(ood_indices))
     t0 = _time.monotonic()
 
-    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params)
+    binning: dict[str, Any] = {}
+    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params, binning)
     if collected is None:
-        return None, None
+        return None, None, binning or None
     ref_factors_common, test_factors_common = collected
 
     # Compute factor_deviation for top OOD samples
@@ -489,7 +509,7 @@ def _compute_metadata_insights(
         _logger.warning("factor_predictors failed", exc_info=True)
 
     _logger.info("[5/5] Metadata insights complete in %.1fs", _time.monotonic() - t0)
-    return deviations_list, predictors
+    return deviations_list, predictors, binning or None
 
 
 # ---------------------------------------------------------------------------
@@ -609,8 +629,9 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         # --- 6. Metadata insights ---
         factor_devs: list[FactorDeviationDict] | None = None
         factor_preds: dict[str, float] | None = None
+        metadata_binning: dict[str, Any] | None = None
         if params.metadata_insights and ood_indices:
-            factor_devs, factor_preds = _compute_metadata_insights(
+            factor_devs, factor_preds, metadata_binning = _compute_metadata_insights(
                 ref_dc, ref_dataset, test_datasets, ood_indices, params.max_ood_insights, params
             )
 
@@ -625,6 +646,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
             ood_indices,
             factor_devs,
             factor_preds,
+            metadata_binning,
         )
 
     def _prepare_datasets(
@@ -701,6 +723,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         ood_indices: list[int],
         factor_deviations: list[FactorDeviationDict] | None,
         factor_predictors_result: dict[str, float] | None,
+        metadata_binning: dict[str, Any] | None = None,
     ) -> WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]:
         """Build the final workflow result from raw outputs."""
         raw = OODDetectionRawOutputs(
@@ -724,6 +747,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
             detectors_used=list(detector_results.keys()),
             metadata_insights_enabled=params.metadata_insights and bool(ood_indices),
         )
+        result_metadata.metadata_binning = metadata_binning
 
         return WorkflowResult(
             name=self.name,

@@ -27,6 +27,13 @@ class ResultMetadata(BaseModel):
     tool_version: str = ""
     execution_time_s: float | None = None
 
+    #: How each metadata factor was typed and discretized — factor type, level,
+    #: bin populations and their observed ranges, category mappings, and what
+    #: was excluded or dropped.  ``None`` for workflows that build no metadata.
+    #: Recorded because binning decides what every evaluator reads, and it is
+    #: otherwise reported only in logs that no envelope references.
+    metadata_binning: dict[str, Any] | None = None
+
     #: Library diagnostics raised while the workflow ran — the decisions
     #: DataEval made on the caller's behalf and the ranges it could not resolve.
     #: Empty when the run raised none.

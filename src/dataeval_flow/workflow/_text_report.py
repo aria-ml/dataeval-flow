@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from dataeval_flow.workflow.base import Reportable
 
-__all__ = ["_WIDTH", "_render_config_section", "_render_detail_section", "_summary_line"]
+__all__ = [
+    "_WIDTH",
+    "_render_binning_section",
+    "_render_config_section",
+    "_render_detail_section",
+    "_summary_line",
+]
 
 # Width of the report (matches the === bars).
 _WIDTH = 80
@@ -509,3 +516,80 @@ def _compact_indices(indices: list[int]) -> str:
             return f"range({indices[0]}, {stop})"
         return f"range({indices[0]}, {stop}, {step})"
     return str(indices)
+
+
+def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
+    """Render one factor: what it is, and what discretizing did to it."""
+    level = info.get("level", "?")
+    ftype = info.get("type", "?")
+
+    if info.get("is_binned"):
+        bins = info.get("bins") or []
+        how = f"{info['bins_requested']} (requested)" if "bins_requested" in info else f"{len(bins)} auto"
+        lines = [f"    {name} [{ftype} @ {level}] — binned, {how}"]
+        lines.extend(
+            f"        bin {b['code']}: n={b['count']}  [{_fmt_num(b['min'])}, {_fmt_num(b['max'])}]" for b in bins
+        )
+        return lines
+
+    if info.get("is_digitized"):
+        cats = info.get("categories") or []
+        lines = [f"    {name} [{ftype} @ {level}] — {len(cats)} categories"]
+        lines.extend(f"        {c['code']}: {c['value']} (n={c['count']})" for c in cats)
+        return lines
+
+    return [f"    {name} [{ftype} @ {level}] — not discretized"]
+
+
+def _render_binning_record(record: dict[str, Any], split_name: str | None = None) -> list[str]:
+    """Render one dataset's (or split's) factor and binning record."""
+    lines: list[str] = []
+    if split_name is not None:
+        lines.append(f"  [{split_name}]")
+
+    if record.get("auto_bin_method"):
+        lines.append(f"  Auto-bin method: {record['auto_bin_method']}")
+    if record.get("excluded"):
+        lines.append(f"  Excluded:        {', '.join(record['excluded'])}")
+    if record.get("unmatched_bin_requests"):
+        lines.append(f"  Unmatched bins:  {', '.join(record['unmatched_bin_requests'])}")
+
+    for name, info in record.get("factors", {}).items():
+        lines.extend(_render_factor_line(name, info))
+
+    lines.extend(f"    {name} — dropped: {', '.join(reasons)}" for name, reasons in record.get("dropped", {}).items())
+    return lines
+
+
+def _render_binning_section(binning: dict[str, Any] | None, diagnostics: Sequence[str] = ()) -> list[str]:
+    """Render how factors were typed and binned, plus any library diagnostics.
+
+    Binning decides what every evaluator reads — a continuous factor reaches
+    balance and diversity as interval codes, not as the values measured — so the
+    report states it rather than leaving it to the envelope alone.
+    """
+    if not binning and not diagnostics:
+        return []
+
+    lines: list[str] = ["", "-" * _WIDTH, "  METADATA FACTORS", "-" * _WIDTH]
+
+    if binning and "per_split" in binning:
+        # A multi-split workflow bins each split independently.
+        for split_name, record in binning["per_split"].items():
+            lines.extend(_render_binning_record(record, split_name))
+    elif binning:
+        lines.extend(_render_binning_record(binning))
+
+    if diagnostics:
+        lines.append("")
+        lines.append("  Diagnostics:")
+        lines.extend(f"    {message}" for message in diagnostics)
+
+    return lines
+
+
+def _fmt_num(value: Any) -> str:
+    """Format a bin bound compactly without losing small differences."""
+    if isinstance(value, float):
+        return f"{value:.4g}"
+    return str(value)

@@ -463,7 +463,7 @@ class TestComputeMetadataInsights:
         from dataeval_flow.workflows.ood.workflow import _compute_metadata_insights
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [], 50, _make_params())
+        devs, preds, _binning = _compute_metadata_insights(dc, dc.dataset, [], [], 50, _make_params())
         assert devs is None
         assert preds is None
 
@@ -473,7 +473,7 @@ class TestComputeMetadataInsights:
 
         mock_collect.return_value = None
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0, 1], 50, _make_params())
+        devs, preds, _binning = _compute_metadata_insights(dc, dc.dataset, [], [0, 1], 50, _make_params())
         assert devs is None
         assert preds is None
 
@@ -490,7 +490,7 @@ class TestComputeMetadataInsights:
         mock_pred.return_value = {"a": 0.5}
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0], 50, _make_params())
+        devs, preds, _binning = _compute_metadata_insights(dc, dc.dataset, [], [0], 50, _make_params())
         assert devs is None  # failed
         assert preds is not None  # still succeeded
 
@@ -507,7 +507,7 @@ class TestComputeMetadataInsights:
         mock_pred.side_effect = RuntimeError("predictors failed")
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0], 50, _make_params())
+        devs, preds, _binning = _compute_metadata_insights(dc, dc.dataset, [], [0], 50, _make_params())
         assert devs is not None  # succeeded
         assert preds is None  # failed
 
@@ -813,7 +813,7 @@ class TestOODDetectionWorkflowExecute:
         test_emb = _make_embeddings(50, seed=2)
         test_emb[40:] += 20.0  # shift last 10 samples
         mock_get_emb.side_effect = [ref_emb, test_emb]
-        mock_insights.return_value = (None, None)
+        mock_insights.return_value = (None, None, None)
 
         wf = self._make_workflow()
         ctx = self._make_context()
@@ -1140,7 +1140,7 @@ class TestOODExecuteSelections:
                 ),
             ),
             patch("dataeval_flow.workflows.ood.workflow._run_all_ood_detectors", return_value=({}, {}, [], [])),
-            patch("dataeval_flow.workflows.ood.workflow._compute_metadata_insights", return_value=(None, None)),
+            patch("dataeval_flow.workflows.ood.workflow._compute_metadata_insights", return_value=(None, None, None)),
         ):
             result = wf.execute(ctx, params)
 

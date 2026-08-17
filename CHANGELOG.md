@@ -38,8 +38,14 @@
 - `task` field on HuggingFace datasets, selecting the loader explicitly rather than inferring it
 - MAITE entry points for the dataset adapters and task runner, so both are discoverable by other MAITE-aware tools
 - Python 3.13 and 3.14 support; CI now runs the full 3.10 through 3.14 matrix
+- `metadata_binning` in the result envelope — per-factor type, level, and what discretizing did: observed range and
+  population of every bin, the ordinal-to-value map of every category, what was excluded, and what was dropped.
+  Binning decides what evaluators read, and was previously reported only in logs no envelope referenced
 - `diagnostics` in the result envelope, capturing the library warnings a run raised rather than leaving them to a
   log file the envelope does not point at
+- Metadata factor records now emitted by the data cleaning and OOD detection workflows, which accepted the binning
+  configuration but reported none of its effect
+- Factor and binning detail rendered in the text report, alongside any diagnostics
 
 ### Removed
 

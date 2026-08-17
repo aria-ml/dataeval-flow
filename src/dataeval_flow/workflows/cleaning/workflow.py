@@ -15,6 +15,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, Outliers
 from pydantic import BaseModel
 
+from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
@@ -336,7 +337,10 @@ def _compute_classwise_pivot(
         rows.append({"class_name": "Total", "count": grand_total, "pct": total_pct})
 
         return {
-            "level": "target" if has_targets else "image",
+            # Flow's own label for what a row counts, deliberately not named
+            # "level" — DataEval uses that key for metadata levels (unit,
+            # instance, track, sequence) and duplicate levels (item, target).
+            "count_basis": "annotation" if has_targets else "image",
             "rows": rows,
         }
     except Exception:
@@ -586,6 +590,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 mode=params.mode,
                 evaluators=["outliers", "duplicates"],
             )
+            attach_binning(result_metadata, metadata, params)
             if params.mode == "preparatory":
                 flagged = collect_flagged_indices(raw)
                 all_indices = set(range(raw.dataset_size))

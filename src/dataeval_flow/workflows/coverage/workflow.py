@@ -21,6 +21,7 @@ from dataeval.core import label_stats, mutual_info
 from dataeval.protocols import AnnotatedDataset, ObjectDetectionTarget
 from pydantic import BaseModel
 
+from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_embeddings, get_or_compute_metadata
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
@@ -720,6 +721,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
             mode=params.mode,
             has_extractor=has_extractor,
         )
+        attach_binning(result_metadata, metadata, params)
 
         return WorkflowResult(
             name=self.name,
