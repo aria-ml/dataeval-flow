@@ -38,7 +38,12 @@ UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
 UV_EXTRAS_WITH_ONNX = UV_EXTRAS + [onnx_extra(UV_EXTRAS_OVERRIDE)]
 UV_EXTRAS_WITH_ONNX_AND_OPENCV = UV_EXTRAS_WITH_ONNX + ["opencv"]
 
-DOCS_ENVS = {"LANG": "C", "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True", "PYDEVD_DISABLE_FILE_VALIDATION": "1"}
+DOCS_ENVS = {
+    "LANG": "C",
+    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+    "PYDEVD_DISABLE_FILE_VALIDATION": "1",
+    "IPYTHONDIR": os.path.abspath("docs/source/.ipython"),
+}
 
 
 def python_version(session: nox.Session) -> str:

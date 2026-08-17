@@ -37,6 +37,12 @@ output/
 # Jupyter execution cache (stored in docs-artifacts/<branch> orphan branch instead)
 .jupyter_cache/
 
+# IPython runtime files and configuration
+docs/source/.ipython/*
+!docs/source/.ipython/profile_default/
+docs/source/.ipython/profile_default/*
+!docs/source/.ipython/profile_default/ipython_kernel_config.py
+
 # Nox
 .nox/
 .cuda-version

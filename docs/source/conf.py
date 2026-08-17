@@ -46,6 +46,7 @@ exclude_patterns = [
     ".DS_Store",
     "build",
     ".jupyter_cache",
+    ".ipython",
     "notebooks/*.ipynb",
     "cache",
     "data",
