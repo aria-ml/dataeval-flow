@@ -21,7 +21,7 @@ from dataeval.core import label_stats, mutual_info
 from dataeval.protocols import AnnotatedDataset, ObjectDetectionTarget
 from pydantic import BaseModel
 
-from dataeval_flow.binning import attach_binning
+from dataeval_flow.binning import attach_binning, mi_discrete_features
 from dataeval_flow.cache import active_cache, get_or_compute_embeddings, get_or_compute_metadata
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
@@ -424,7 +424,7 @@ def _run_gap_analysis(
             mi_result = mutual_info(
                 class_labels=metadata.class_labels,
                 factor_data=metadata.factor_data,
-                discrete_features=metadata.is_discrete,
+                discrete_features=mi_discrete_features(metadata),
             )
 
         # mi_result["class_to_factor"] is 1D array: MI between class label and each factor.

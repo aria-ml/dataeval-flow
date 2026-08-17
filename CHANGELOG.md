@@ -13,6 +13,12 @@
 - Workflow cache bumped to `v3` for the pixel rescale; reclaim old entries with `rm -rf <cache_dir>/v2`
 - Stored image statistics and `Balance` results need recomputing before comparison against fresh ones
 - Dataset loaders ported from `maite-datasets` to `datamaite`, including HuggingFace class-label support
+- Coverage gap analysis now computes factor-to-class mutual information the way `Balance` does. It previously
+  passed each factor's original continuous/discrete nature as `discrete_features`, but `factor_data` holds integer
+  codes for every factor, so a binned continuous factor was marked continuous and routed to the neighbor-based
+  estimator — moving its score away from the one `Balance` reports for the same data, and making it depend on the
+  seed. Gap findings could therefore differ depending on whether `balance` was enabled, since the two paths feed the
+  same `gap_mi_threshold`
 - Container mounts follow SDP IR conventions
 - Classwise outlier pivots report `count_basis` (`image` / `annotation`) where they previously reported `level`
   (`image` / `target`). The old key collided with DataEval's `level`, which names metadata levels (`unit`,
