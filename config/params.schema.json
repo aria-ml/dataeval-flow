@@ -290,6 +290,55 @@
     "DataAnalysisWorkflowConfig": {
       "description": "Typed workflow configuration for ``data-analysis``.\n\nInherits all fields from :class:`DataAnalysisParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
       "properties": {
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
+        },
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",
@@ -466,6 +515,55 @@
     "DataCleaningWorkflowConfig": {
       "description": "Typed workflow configuration for ``data-cleaning``.\n\nInherits all fields from :class:`DataCleaningParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
       "properties": {
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
+        },
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",
@@ -1793,6 +1891,55 @@
     "OODDetectionWorkflowConfig": {
       "description": "Typed workflow configuration for ``ood-detection``.\n\nInherits all fields from :class:`OODDetectionParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
+        },
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",

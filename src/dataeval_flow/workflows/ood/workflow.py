@@ -231,6 +231,7 @@ def _run_all_ood_detectors(
 def _extract_metadata_factors(
     dc: DatasetContext,
     dataset: AnnotatedDataset[Any],
+    params: OODDetectionParameters,
 ) -> dict[str, NDArray[Any]] | None:
     """Extract metadata factor arrays from a dataset, returning None on failure.
 
@@ -242,11 +243,19 @@ def _extract_metadata_factors(
             if dc.cache is not None:
                 sel_key = selection_repr(dataset)
                 stack.enter_context(active_cache(dc.cache, sel_key))
-            metadata = get_or_compute_metadata(dataset)
+            metadata = get_or_compute_metadata(
+                dataset,
+                auto_bin_method=params.metadata_auto_bin_method,
+                exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
+                continuous_factor_bins=params.metadata_continuous_factor_bins,
+            )
         factor_names = list(metadata.factor_names)
 
-        # Extract raw continuous values from the dataframe for deviation analysis
-        df = metadata.dataframe
+        # Extract raw continuous values for deviation analysis.  `dataframe`
+        # interleaves the rows of every level, so it is longer than the label
+        # population and does not line up with `class_labels`; the rows at the
+        # view (the label level by default) are the ones that do.
+        df = metadata.rows_at(metadata.view)
         factors: dict[str, NDArray[Any]] = {}
         for name in factor_names:
             if name in df.columns:
@@ -284,7 +293,6 @@ def _extract_stats_factors(
                 dataset=dataset,
                 per_image=True,
                 per_target=False,
-                per_channel=False,
             )
         stats_map = stats_result.get("stats", {})
         if not stats_map:
@@ -390,6 +398,7 @@ def _collect_numeric_factors(
     ref_dc: DatasetContext,
     ref_dataset: AnnotatedDataset[Any],
     test_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
+    params: OODDetectionParameters,
 ) -> tuple[dict[str, NDArray[Any]], dict[str, NDArray[Any]]] | None:
     """Collect and intersect numeric metadata + stats factors from reference and test datasets.
 
@@ -410,11 +419,11 @@ def _collect_numeric_factors(
             test_stats_parts.append(t_stats)
 
     # --- Metadata factors (may be absent on test data) ---
-    ref_meta = _extract_metadata_factors(ref_dc, ref_dataset)
+    ref_meta = _extract_metadata_factors(ref_dc, ref_dataset, params)
 
     test_meta_parts: list[dict[str, NDArray[Any]]] = []
     for _, t_dc, t_ds in test_datasets:
-        t_meta = _extract_metadata_factors(t_dc, t_ds)
+        t_meta = _extract_metadata_factors(t_dc, t_ds, params)
         if t_meta is not None:
             test_meta_parts.append(t_meta)
 
@@ -445,6 +454,7 @@ def _compute_metadata_insights(
     test_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
     ood_indices: list[int],
     max_insights: int,
+    params: OODDetectionParameters,
 ) -> tuple[list[FactorDeviationDict] | None, dict[str, float] | None]:
     """Compute factor_deviation and factor_predictors for OOD samples."""
     if not ood_indices:
@@ -453,7 +463,7 @@ def _compute_metadata_insights(
     _logger.info("[5/5] Computing metadata insights for %d OOD samples…", len(ood_indices))
     t0 = _time.monotonic()
 
-    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets)
+    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params)
     if collected is None:
         return None, None
     ref_factors_common, test_factors_common = collected
@@ -601,7 +611,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         factor_preds: dict[str, float] | None = None
         if params.metadata_insights and ood_indices:
             factor_devs, factor_preds = _compute_metadata_insights(
-                ref_dc, ref_dataset, test_datasets, ood_indices, params.max_ood_insights
+                ref_dc, ref_dataset, test_datasets, ood_indices, params.max_ood_insights, params
             )
 
         # --- 7. Build outputs ---

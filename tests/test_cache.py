@@ -8,6 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 from dataeval import Metadata
+from dataeval.protocols import DatasetMetadata
 
 from dataeval_flow.cache import (
     CACHE_VERSION,
@@ -184,16 +185,16 @@ class TestScopeKey:
         assert scope_key() == "img+tgt"
 
     def test_all_flags(self):
-        assert scope_key(True, True, True) == "img+tgt+ch"
+        assert scope_key(True, True) == "img+tgt"
 
     def test_image_only(self):
-        assert scope_key(True, False, False) == "img"
+        assert scope_key(True, False) == "img"
 
     def test_target_only(self):
-        assert scope_key(False, True, False) == "tgt"
+        assert scope_key(False, True) == "tgt"
 
     def test_none_scope(self):
-        assert scope_key(False, False, False) == "none"
+        assert scope_key(False, False) == "none"
 
 
 # ---------------------------------------------------------------------------
@@ -333,29 +334,26 @@ class TestCorruptedCacheResilience:
         result = cache.load_stats("sel:all", "img+tgt")
         assert result is None
 
-    def test_load_metadata_corrupted_parquet(self, tmp_path: Path):
+    def test_load_metadata_not_an_archive(self, tmp_path: Path):
+        """A file that is not a zip at all is a miss, not an exception."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        s = _config_hash("sel:all")
-        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
-        sel_dir.mkdir(parents=True)
-        (sel_dir / "metadata.parquet").write_bytes(b"bad parquet")
-        (sel_dir / "metadata.json").write_text('{"item_count":0}')
+        path = _metadata_path(tmp_path)
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"not a zip archive")
 
-        result = cache.load_metadata("sel:all", MagicMock())
+        result = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
         assert result is None
 
-    def test_load_metadata_corrupted_json(self, tmp_path: Path):
+    def test_load_metadata_truncated_archive(self, tmp_path: Path):
+        """A half-written archive is a miss, not an exception."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
-        cache.save_metadata("sel:all", meta)
-        # Corrupt the json file
-        s = _config_hash("sel:all")
-        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
-        (sel_dir / "metadata.json").write_text("{invalid json")
+        cache.save_metadata("sel:all", _make_metadata())
+        path = _metadata_path(tmp_path)
+        path.write_bytes(path.read_bytes()[: path.stat().st_size // 2])
         # Clear in-memory cache so the disk corruption is actually tested
         cache._memory.clear()
 
-        result = cache.load_metadata("sel:all", MagicMock())
+        result = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
         assert result is None
 
 
@@ -769,8 +767,36 @@ class TestStatsCache:
 # ---------------------------------------------------------------------------
 
 
+class TestComputeStatsArguments:
+    """The arguments flow pins on every ``compute_stats`` call."""
+
+    _CALC_STATS_PATH = "dataeval.core.compute_stats"
+
+    def _call(self) -> Any:
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import _do_compute_stats
+
+        with patch(self._CALC_STATS_PATH, return_value=_make_calc_result(3)) as mock_calc:
+            _do_compute_stats(MagicMock(), ImageStats.PIXEL_MEAN)
+        _, kwargs = mock_calc.call_args
+        return kwargs
+
+    def test_normalize_pixel_values_pinned_false(self):
+        """Pixel statistics are reported in the units the data is stored in.
+
+        Passed explicitly rather than left to the default so the scale is a
+        property of this project, not of the installed dataeval.
+        """
+        assert self._call()["normalize_pixel_values"] is False
+
+    def test_per_channel_not_passed(self):
+        """Deprecated in dataeval 1.1 — channel rows can never reach Metadata."""
+        assert "per_channel" not in self._call()
+
+
 class TestLoadOrComputeStats:
-    _CALC_STATS_PATH = "dataeval.core._compute_stats.compute_stats"
+    _CALC_STATS_PATH = "dataeval.core.compute_stats"
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         from dataeval.flags import ImageStats
@@ -779,9 +805,7 @@ class TestLoadOrComputeStats:
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = cache.load_or_compute_stats(
-                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True, False
-            )
+            result = cache.load_or_compute_stats("sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True)
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -797,9 +821,7 @@ class TestLoadOrComputeStats:
         cache.save_stats("sel:all", "img+tgt", stats)
 
         with patch(self._CALC_STATS_PATH) as mock_calc:
-            result = cache.load_or_compute_stats(
-                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True, False
-            )
+            result = cache.load_or_compute_stats("sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True)
             # Should NOT call compute_stats — full cache hit
             mock_calc.assert_not_called()
 
@@ -820,7 +842,7 @@ class TestLoadOrComputeStats:
 
         with patch(self._CALC_STATS_PATH, return_value=fresh_result) as mock_calc:
             result = cache.load_or_compute_stats(
-                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD, MagicMock(), True, True, False
+                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD, MagicMock(), True, True
             )
             mock_calc.assert_called_once()
             # Should request only PIXEL_STD (mean is cached)
@@ -848,7 +870,7 @@ class TestLoadOrComputeStats:
 
         with patch(self._CALC_STATS_PATH, return_value=fresh):
             cache.load_or_compute_stats(
-                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD, MagicMock(), True, True, False
+                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD, MagicMock(), True, True
             )
 
         # Cache should now have both metrics
@@ -861,7 +883,7 @@ class TestLoadOrComputeStats:
 class TestGetOrComputeStats:
     """Tests for the centralized get_or_compute_stats() entry point."""
 
-    _CALC_STATS_PATH = "dataeval.core._compute_stats.compute_stats"
+    _CALC_STATS_PATH = "dataeval.core.compute_stats"
 
     def test_without_cache_computes_directly(self):
         from dataeval.flags import ImageStats
@@ -916,7 +938,7 @@ class TestGetOrComputeStats:
 
 
 # ---------------------------------------------------------------------------
-# Metadata cache (.parquet + .json)
+# Metadata cache (.dem)
 # ---------------------------------------------------------------------------
 
 
@@ -927,7 +949,7 @@ class _FakeICDataset:
     _LABELS = (0, 1, 0, 1, 2)
 
     @property
-    def metadata(self) -> dict[str, Any]:
+    def metadata(self) -> DatasetMetadata:
         return {"id": "fake-ic", "index2label": {0: "cat", 1: "dog", 2: "bird"}}
 
     def __len__(self) -> int:
@@ -989,43 +1011,74 @@ def _make_metadata(dataset: Any = None, **kwargs: Any) -> Metadata:
     """Build a real, structured Metadata — what DatasetCache actually caches.
 
     Reaching for the real class rather than a mock is deliberate: the cache
-    reconstructs Metadata from its internals, so a mock would keep passing
-    while an upstream restructure silently broke every cache hit.
+    round-trips Metadata through ``save``/``load``, so a mock would keep passing
+    while an upstream format change silently broke every cache hit.
     """
     metadata = Metadata(_FakeICDataset() if dataset is None else dataset, **kwargs)  # type: ignore
     metadata.dataframe  # noqa: B018  # force structuring, as a real workflow would
     return metadata
 
 
+def _metadata_path(cache_dir: Path, selection: str = "sel:all", dataset_name: str = "ds") -> Path:
+    """Where ``DatasetCache`` writes the metadata archive for a selection."""
+    return cache_dir / f"v{CACHE_VERSION}" / dataset_name / f"sel_{_config_hash(selection)}" / "metadata.dem"
+
+
+def _rewrite_manifest(path: Path, **changes: Any) -> None:
+    """Rewrite the manifest inside a ``.dem`` archive, leaving every other member."""
+    import json
+    import zipfile
+
+    with zipfile.ZipFile(path) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    manifest = json.loads(members["manifest.json"])
+    manifest.update(changes)
+    members["manifest.json"] = json.dumps(manifest).encode()
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, payload in members.items():
+            archive.writestr(name, payload)
+
+
+class _ShortICDataset(_FakeICDataset):
+    """Same shape as :class:`_FakeICDataset`, three items instead of five."""
+
+    _BRIGHTNESS = (0.1, 0.3, 0.5)
+    _LABELS = (0, 1, 0)
+
+
 class TestMetadataCache:
-    def test_save_creates_files(self, tmp_path: Path):
+    def test_save_creates_archive(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", meta)
+        cache.save_metadata("sel:all", _make_metadata())
 
-        s = _config_hash("sel:all")
-        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
-        pq = sel_dir / "metadata.parquet"
-        js = sel_dir / "metadata.json"
-        assert pq.exists()
-        assert js.exists()
+        path = _metadata_path(tmp_path)
+        assert path.exists()
+        # The old two-file layout is gone: one self-describing archive replaces it.
+        assert not (path.parent / "metadata.parquet").exists()
+        assert not (path.parent / "metadata.json").exists()
 
-    def test_save_parquet_contains_dataframe(self, tmp_path: Path):
+    def test_save_writes_manifest_and_frames(self, tmp_path: Path):
+        """The archive is dataeval's own container: a manifest plus a frame per level."""
+        import zipfile
+
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
+        cache.save_metadata("sel:all", _make_metadata())
 
-        cache.save_metadata("sel:all", meta)
-
-        s = _config_hash("sel:all")
-        df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.parquet")
-        assert "brightness" in df.columns
-        # Every level's rows are stored, not just the labelled ones.
-        assert df.filter(pl.col("level") == "image").height == 5
-        assert df.filter(pl.col("level") == "instance").height == 5
+        with zipfile.ZipFile(_metadata_path(tmp_path)) as archive:
+            names = archive.namelist()
+        assert "manifest.json" in names
+        assert any(n.startswith("frames/") and n.endswith(".parquet") for n in names)
 
     def test_save_strips_binned_columns(self, tmp_path: Path):
-        """Binned (↕) and digitized (#) columns are dropped before saving."""
+        """Binned (↕) and digitized (#) columns are dropped before saving.
+
+        This is what lets one archive serve every binning configuration a caller
+        might read it back with.
+        """
+        import io
+        import zipfile
+
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_metadata()
         meta.factor_data  # noqa: B018  # force binning, adding ↕/# companion columns
@@ -1033,79 +1086,62 @@ class TestMetadataCache:
 
         cache.save_metadata("sel:all", meta)
 
-        s = _config_hash("sel:all")
-        df = pl.read_parquet(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.parquet")
-        assert "brightness" in df.columns
-        assert not [c for c in df.columns if c.endswith(("↕", "#"))]
+        with zipfile.ZipFile(_metadata_path(tmp_path)) as archive:
+            frames = [n for n in archive.namelist() if n.startswith("frames/")]
+            columns = [c for n in frames for c in pl.read_parquet(io.BytesIO(archive.read(n))).columns]
+        assert "brightness" in columns
+        assert not [c for c in columns if c.endswith(("↕", "#"))]
 
-    def test_save_json_contains_auxiliary(self, tmp_path: Path):
-        import json
-
+    def test_save_persists_factors_only_metadata(self, tmp_path: Path):
+        """A factors-only Metadata now round-trips instead of being skipped."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
+        meta = Metadata.from_factors({"brightness": np.array([0.1, 0.5, 0.9])}, np.array([0, 1, 0]), level="unit")
 
         cache.save_metadata("sel:all", meta)
+        cache._memory.clear()  # Force disk round-trip
+        loaded = cache.load_metadata("sel:all", None)  # type: ignore
 
-        s = _config_hash("sel:all")
-        with open(tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.json") as f:
-            aux = json.load(f)
-
-        assert aux["task"] == "IC"
-        assert aux["item_count"] == 5
-        assert aux["class_labels"] == [0, 1, 0, 1, 2]
-        assert aux["index2label"]["0"] == "cat"
-        assert aux["factors_by_level"] == {"image": ["brightness", "id"], "instance": []}
-        assert aux["dropped_factors"] == {}
-        # The row layout: one block per level, with each block's position within
-        # every ancestor level's block.
-        assert [(b["level"], b["size"]) for b in aux["blocks"]] == [("image", 5), ("instance", 5)]
-        assert aux["blocks"][1]["ancestor_pos"]["image"] == [0, 1, 2, 3, 4]
-
-    def test_save_skips_unrebuildable_task(self, tmp_path: Path):
-        """A factors-only Metadata has no structurer recipe, so nothing is written."""
-        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = Metadata.from_factors({"brightness": np.array([0.1, 0.5, 0.9])}, np.array([0, 1, 0]))
-
-        cache.save_metadata("sel:all", meta)
-
-        s = _config_hash("sel:all")
-        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
-        assert not (sel_dir / "metadata.parquet").exists()
-        assert not (sel_dir / "metadata.json").exists()
-        # Still served from memory within the process.
-        assert cache.load_metadata("sel:all", _FakeICDataset()) is meta  # type: ignore
+        assert _metadata_path(tmp_path).exists()
+        assert loaded is not None
+        np.testing.assert_array_equal(loaded.factor_data, meta.factor_data)
 
     def test_load_returns_none_on_miss(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
 
-    def test_load_returns_none_when_only_parquet_exists(self, tmp_path: Path):
-        """Both files must exist for a cache hit."""
-        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+    def test_load_returns_none_on_format_drift(self, tmp_path: Path):
+        """A file written by an incompatible dataeval is a miss, not a wrong answer.
 
-        # Create just the parquet file in the versioned path
-        s = _config_hash("sel:all")
-        sel_dir = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}"
-        sel_dir.mkdir(parents=True)
-        pl.DataFrame({"x": [1]}).write_parquet(sel_dir / "metadata.parquet")
-
-        assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
-
-    def test_load_returns_none_for_unrebuildable_task(self, tmp_path: Path):
-        """A task with no structurer recipe is a miss, not a wrong reconstruction."""
-        import json
-
+        This is the designed outcome upstream: ``MetadataFormatError`` means
+        recompute, so it must never surface as an exception to a workflow.
+        """
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cache.save_metadata("sel:all", _make_metadata())
-
-        s = _config_hash("sel:all")
-        json_path = tmp_path / f"v{CACHE_VERSION}" / "ds" / f"sel_{s}" / "metadata.json"
-        aux = json.loads(json_path.read_text())
-        aux["task"] = "factors"
-        json_path.write_text(json.dumps(aux))
+        _rewrite_manifest(_metadata_path(tmp_path), format_version=999)
         cache._memory.clear()  # Force disk round-trip
 
         assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
+
+    def test_load_returns_none_on_schema_drift(self, tmp_path: Path):
+        """Rows laid out against a different level graph are refused, not gathered."""
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        cache.save_metadata("sel:all", _make_metadata())
+        _rewrite_manifest(_metadata_path(tmp_path), levels=["unit", "instance", "invented"])
+        cache._memory.clear()  # Force disk round-trip
+
+        assert cache.load_metadata("sel:all", _FakeICDataset()) is None  # type: ignore
+
+    def test_load_returns_none_on_dataset_length_mismatch(self, tmp_path: Path):
+        """Rows saved for one dataset must not be served against a different one.
+
+        Upstream raises ``ValueError`` rather than ``MetadataFormatError`` here, so
+        the cache has to catch it separately or a mismatched dataset kills the run.
+        """
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        cache.save_metadata("sel:all", _make_metadata(_FakeICDataset()))
+        cache._memory.clear()  # Force disk round-trip
+
+        assert cache.load_metadata("sel:all", _ShortICDataset()) is None  # type: ignore
 
     def test_load_reconstructs_metadata(self, tmp_path: Path):
         """Full save → load round trip with real Metadata reconstruction."""
@@ -1129,7 +1165,7 @@ class TestMetadataCache:
         np.testing.assert_array_equal(loaded.factor_data, meta.factor_data)
 
     def test_load_reconstructs_object_detection_levels(self, tmp_path: Path):
-        """Detection rows, their layout and their own factors survive the round trip."""
+        """Detection rows, their links and their own factors survive the round trip."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dataset = _FakeODDataset()
         meta = _make_metadata(dataset)
@@ -1143,17 +1179,16 @@ class TestMetadataCache:
         assert dict(loaded.level_counts) == dict(meta.level_counts)
         np.testing.assert_array_equal(loaded.class_labels, meta.class_labels)
         np.testing.assert_array_equal(loaded.item_indices, meta.item_indices)
-        # detection_area is binned at the instance level, brightness at the image
-        # level and then propagated onto the detection rows — both need the layout.
+        # detection_area is binned at the instance level, brightness at the unit
+        # level and then propagated onto the detection rows — both need the links.
         np.testing.assert_array_equal(loaded.factor_data, meta.factor_data)
-        np.testing.assert_array_equal(loaded.at("image").factor_data, meta.at("image").factor_data)
+        np.testing.assert_array_equal(loaded.at("unit").factor_data, meta.at("unit").factor_data)
 
-    def test_load_sets_is_binned_false(self, tmp_path: Path):
-        """Loaded metadata has _is_binned=False so _bin() runs lazily."""
+    def test_load_leaves_binning_lazy(self, tmp_path: Path):
+        """Loaded metadata is structured but not yet binned, so _bin() runs lazily."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", meta)
+        cache.save_metadata("sel:all", _make_metadata())
         cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
 
@@ -1161,12 +1196,27 @@ class TestMetadataCache:
         assert loaded._is_binned is False
         assert loaded._is_structured is True
 
+    def test_load_omits_raw(self, tmp_path: Path):
+        """The per-item dicts are not written, and a loaded instance says so.
+
+        Upstream raises rather than returning ``[]``, which would read as a dataset
+        that carried no metadata at all.
+        """
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+
+        cache.save_metadata("sel:all", _make_metadata())
+        cache._memory.clear()  # Force disk round-trip
+        loaded = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
+
+        assert loaded is not None
+        with pytest.raises(ValueError, match="loaded from a file"):
+            loaded.raw  # noqa: B018
+
     def test_load_applies_caller_config(self, tmp_path: Path):
         """Loaded metadata has the caller's binning config applied."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", meta)
+        cache.save_metadata("sel:all", _make_metadata())
         cache._memory.clear()  # Force disk round-trip
         loaded = cache.load_metadata(
             "sel:all",
@@ -1177,9 +1227,9 @@ class TestMetadataCache:
         )
 
         assert loaded is not None
-        assert loaded._auto_bin_method == "clusters"
-        assert loaded._exclude == {"x"}
-        assert loaded._continuous_factor_bins == {"y": [0.0, 1.0]}
+        assert loaded.auto_bin_method == "clusters"
+        assert loaded.exclude == {"x"}
+        assert dict(loaded.continuous_factor_bins) == {"y": [0.0, 1.0]}
 
     def test_load_preserves_task(self, tmp_path: Path):
         """The structurer is rebuilt, so the level model survives the round trip."""
@@ -1197,7 +1247,7 @@ class TestMetadataCache:
         assert loaded.label_level == meta.label_level
 
     def test_load_dataframe_accessible(self, tmp_path: Path):
-        """Loaded metadata exposes the cached DataFrame."""
+        """Loaded metadata exposes the cached rows as a flat frame."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_metadata()
 
@@ -1206,28 +1256,96 @@ class TestMetadataCache:
         loaded = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
 
         assert loaded is not None
-        df = loaded._dataframe
-        assert "brightness" in df.columns
-        assert len(df) == len(meta.dataframe)
+        assert "brightness" in loaded.dataframe.columns
+        assert len(loaded.dataframe) == len(meta.dataframe)
 
-    def test_same_cache_entry_reused_across_configs(self, tmp_path: Path):
-        """Different binning configs reuse the same raw cache entry."""
+    def test_one_archive_serves_every_binning_config(self, tmp_path: Path):
+        """Binning is not written, so one archive is re-readable at any config."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
 
-        cache.save_metadata("sel:all", meta)
+        cache.save_metadata("sel:all", _make_metadata())
         cache._memory.clear()  # Force disk round-trip
 
         loaded_a = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="uniform_width")  # type: ignore
-        cache._memory.clear()  # Force second disk read with different config
         loaded_b = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="clusters")  # type: ignore
 
         assert loaded_a is not None
         assert loaded_b is not None
-        assert loaded_a._auto_bin_method == "uniform_width"
-        assert loaded_b._auto_bin_method == "clusters"
-        # Both loaded from the same cache files
+        assert loaded_a.auto_bin_method == "uniform_width"
+        assert loaded_b.auto_bin_method == "clusters"
+        # Both came from the one archive on disk.
         assert loaded_a.item_count == loaded_b.item_count
+
+
+class TestMetadataMemoryCache:
+    """The in-process cache is keyed by binning config, the archive is not.
+
+    A memoized ``Metadata`` carries the configuration it was built with, so serving
+    one to a caller that asked for different bins hands back the wrong binning
+    silently. The archive has no such problem — binning is re-applied on every read
+    — which is why only the memory key carries the config.
+    """
+
+    def _build(self, **kwargs: Any) -> Any:
+        return {k: v for k, v in kwargs.items() if v is not None}
+
+    def test_same_config_served_from_memory(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dataset = _FakeICDataset()
+
+        first = cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
+        second = cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
+
+        assert second is first
+
+    def test_different_bins_do_not_reuse_memoized_instance(self, tmp_path: Path):
+        """The regression: coverage asks for custom bins after analysis used defaults."""
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dataset = _FakeICDataset()
+
+        default = cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
+        custom = cache.load_or_compute_metadata(  # type: ignore
+            "sel:all", dataset, continuous_factor_bins={"brightness": 2}
+        )
+
+        assert custom is not default
+        assert dict(custom.continuous_factor_bins) == {"brightness": 2}
+        assert dict(default.continuous_factor_bins) == {}
+
+    def test_different_auto_bin_method_does_not_reuse(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dataset = _FakeICDataset()
+
+        cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="uniform_width")  # type: ignore
+        clustered = cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="clusters")  # type: ignore
+
+        assert clustered.auto_bin_method == "clusters"
+
+    def test_different_exclude_does_not_reuse(self, tmp_path: Path):
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dataset = _FakeICDataset()
+
+        cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
+        excluded = cache.load_or_compute_metadata("sel:all", dataset, exclude=["brightness"])  # type: ignore
+
+        assert excluded.exclude == {"brightness"}
+        assert "brightness" not in excluded.factor_names
+
+    def test_second_config_reads_disk_without_rebuilding(self, tmp_path: Path):
+        """A different binning config must cost a disk read, never a re-walk."""
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        dataset = _FakeICDataset()
+
+        with patch(
+            "dataeval_flow.metadata.build_metadata",
+            side_effect=lambda ds, **kw: _make_metadata(ds, **self._build(**kw)),
+        ) as mock_build:
+            cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
+            cache.load_or_compute_metadata(  # type: ignore
+                "sel:all", dataset, continuous_factor_bins={"brightness": 2}
+            )
+
+        assert mock_build.call_count == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1247,8 +1365,9 @@ class TestLoadOrComputeMetadata:
             mock_build.assert_called_once()
 
         assert result is meta
-        # Verify saved to cache
-        cached = cache.load_metadata("sel:all", MagicMock())
+        # Verify saved to disk, not merely memoized
+        cache._memory.clear()
+        cached = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
         assert cached is not None
         assert cached.item_count == 5
 
@@ -1284,25 +1403,27 @@ class TestLoadOrComputeMetadata:
             )
 
     def test_different_configs_share_same_cache_entry(self, tmp_path: Path):
-        """Different binning configs reuse the same raw cache entry."""
+        """Different binning configs reuse the same archive on disk.
+
+        No memory clearing between the calls: the binning-aware memory key is what
+        keeps the second caller from being handed the first caller's binning.
+        """
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        meta = _make_metadata()
+        dataset = _FakeICDataset()
+        meta = _make_metadata(dataset)
 
         # First call — cache miss, computes and saves
         with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
-            cache.load_or_compute_metadata("sel:all", MagicMock(), auto_bin_method="uniform_width")
+            cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="uniform_width")  # type: ignore
             mock_build.assert_called_once()
-
-        # Clear memory to force disk round-trip with different config
-        cache._memory.clear()
 
         # Second call with different config — disk hit, skips compute
         with patch(self._BUILD_METADATA_PATH) as mock_build:
-            result = cache.load_or_compute_metadata("sel:all", MagicMock(), auto_bin_method="clusters")
+            result = cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="clusters")  # type: ignore
             mock_build.assert_not_called()
 
         assert result is not None
-        assert result._auto_bin_method == "clusters"
+        assert result.auto_bin_method == "clusters"
 
 
 # ---------------------------------------------------------------------------
@@ -1332,7 +1453,8 @@ class TestGetOrComputeMetadata:
 
         assert result is meta
         # Should be saved to cache
-        cached = cache.load_metadata("sel:all", MagicMock())
+        cache._memory.clear()
+        cached = cache.load_metadata("sel:all", _FakeICDataset())  # type: ignore
         assert cached is not None
 
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
@@ -1414,7 +1536,7 @@ class TestCacheIsolation:
         # All should be loadable
         assert cache.load_embeddings("sel:all", "cfg", "none") is not None
         assert cache.load_stats("sel:all", "img+tgt") is not None
-        assert cache.load_metadata("sel:all", MagicMock()) is not None
+        assert cache.load_metadata("sel:all", _FakeICDataset()) is not None  # type: ignore
 
 
 # ---------------------------------------------------------------------------

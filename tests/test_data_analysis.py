@@ -7,6 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 from dataeval.core import LabelStatsResult, StatsResult
+from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import ValidationError
 
 from dataeval_flow.config.schemas import ViewOperation
@@ -42,7 +43,6 @@ from dataeval_flow.workflows.analysis.workflow import (
     _divergence_level,
     _extract_balance_insights,
     _extract_diversity_insights,
-    _extract_level_stats,
     _finding_bias,
     _finding_distribution_shift,
     _finding_image_quality,
@@ -51,7 +51,6 @@ from dataeval_flow.workflows.analysis.workflow import (
     _finding_label_parity,
     _finding_leakage,
     _finding_redundancy,
-    _impute_array,
     _inject_image_stats,
     _labels_from_counts,
     _to_serializable,
@@ -65,6 +64,35 @@ _DEFAULT_THRESHOLDS = DataAnalysisHealthThresholds()
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+class _Target:
+    """Minimal object-detection target (boxes / labels / scores)."""
+
+    def __init__(self, boxes: list[list[float]], labels: list[int]) -> None:
+        self.boxes = np.asarray(boxes, dtype=np.float64)
+        self.labels = np.asarray(labels, dtype=np.intp)
+        self.scores = np.ones((len(self.labels), 2), dtype=np.float32)
+
+
+class _ODDataset:
+    """A real (unmocked) tiny object-detection dataset — two boxes per image."""
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "od", "index2label": {0: "cat", 1: "dog"}})
+
+    def __init__(self, n_images: int = 6) -> None:
+        rng = np.random.default_rng(0)
+        self._items: list[tuple[Any, Any, DatumMetadata]] = []
+        for i in range(n_images):
+            image = rng.integers(0, 255, (3, 32, 32), dtype=np.uint8)
+            datum_metadata: DatumMetadata = {"id": i, "weather": "sun" if i % 2 else "rain"}  # type: ignore[typeddict-unknown-key]
+            self._items.append((image, _Target([[2, 2, 20, 20], [8, 8, 30, 30]], [0, 1]), datum_metadata))
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, DatumMetadata]:
+        return self._items[index]
 
 
 def _make_cr(stats: dict[str, Any]) -> StatsResult:
@@ -705,150 +733,184 @@ class TestHealthThresholds:
 
 
 # ===========================================================================
-# _impute_array
-# ===========================================================================
-
-
-class TestImputeArray:
-    def test_returns_array_unchanged_when_all_finite(self):
-        arr = np.array([1.0, 2.0, 3.0])
-        result = _impute_array(arr)
-        assert result is not None
-        np.testing.assert_array_equal(result, arr)
-
-    def test_replaces_nan_with_median(self):
-        arr = np.array([1.0, np.nan, 3.0])
-        result = _impute_array(arr)
-        assert result is not None
-        assert np.isfinite(result).all()
-        assert result[1] == 2.0  # median of [1.0, 3.0]
-
-    def test_replaces_inf_with_median(self):
-        arr = np.array([1.0, np.inf, 3.0])
-        result = _impute_array(arr)
-        assert result is not None
-        assert np.isfinite(result).all()
-
-    def test_all_non_finite_returns_none(self):
-        arr = np.array([np.nan, np.inf, -np.inf])
-        result = _impute_array(arr)
-        assert result is None
-
-
-# ===========================================================================
-# _extract_level_stats
-# ===========================================================================
-
-
-class TestExtractLevelStats:
-    def test_extracts_numeric_1d(self):
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0, 4.0])})
-        mask = np.array([True, True, False, False])
-        result = _extract_level_stats(calc_result, mask, expected_len=2)
-        assert "brightness" in result
-        np.testing.assert_array_equal(result["brightness"], [1.0, 2.0])
-
-    def test_skips_non_numeric(self):
-        calc_result = _make_cr(stats={"hash": np.array(["abc", "def"])})
-        mask = np.array([True, True])
-        result = _extract_level_stats(calc_result, mask, expected_len=2)
-        assert result == {}
-
-    def test_skips_non_1d(self):
-        calc_result = _make_cr(stats={"matrix": np.array([[1, 2], [3, 4]])})
-        mask = np.array([True, True])
-        result = _extract_level_stats(calc_result, mask, expected_len=2)
-        assert result == {}
-
-    def test_skips_wrong_length(self):
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0])})
-        mask = np.array([True, True, True])
-        result = _extract_level_stats(calc_result, mask, expected_len=5)
-        assert result == {}
-
-    def test_skips_when_impute_returns_none(self):
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0])})
-        mask = np.array([True, True])
-        with patch(f"{_WF}._impute_array", return_value=None):
-            result = _extract_level_stats(calc_result, mask, expected_len=2)
-        assert result == {}
-
-
-# ===========================================================================
 # _inject_image_stats
 # ===========================================================================
 
 
 class TestInjectImageStats:
-    def test_classification_path(self):
-        metadata = MagicMock()
-        metadata.has_targets.return_value = False
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0])})
-        img_mask = np.array([True, True, True])
+    """Placement is delegated to ``add_factors(source_index=...)``.
 
-        _inject_image_stats(metadata, calc_result, img_mask, n_images=3)
+    What this layer still owns is *which* arrays are handed over, so the unit
+    tests cover the filter and the round-trip test covers the placement.
+    """
+
+    def test_passes_source_index_not_level(self):
+        metadata = MagicMock()
+        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0])})
+        calc_result["source_index"] = ["si0", "si1", "si2"]  # type: ignore[typeddict-unknown-key]
+
+        _inject_image_stats(metadata, calc_result)
+
         metadata.add_factors.assert_called_once()
         _, kwargs = metadata.add_factors.call_args
-        assert kwargs["level"] == "image"
+        assert kwargs["source_index"] == ["si0", "si1", "si2"]
+        # `level` and `source_index` are mutually exclusive in dataeval 1.1.
+        assert "level" not in kwargs
 
-    def test_od_path_broadcasts(self):
+    def test_drops_non_numeric_hashes(self):
+        """Hashes ride along in the same stats result and must not become factors.
+
+        They are near-unique per image, so digitizing them yields one category
+        per item — a factor that correlates with everything and means nothing.
+        """
         metadata = MagicMock()
-        metadata.has_targets.return_value = True
-        metadata.item_indices = np.array([0, 0, 1, 1, 2])
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0, 10.0, 20.0])})
-        img_mask = np.array([True, True, True, False, False])
+        calc_result = _make_cr(
+            stats={
+                "brightness": np.array([1.0, 2.0]),
+                "xxhash": np.array(["abc", "def"]),
+            }
+        )
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result, img_mask, n_images=3)
-        assert metadata.add_factors.call_count >= 1
-        # First call should be target-level broadcast
-        _, kwargs = metadata.add_factors.call_args_list[0]
-        assert kwargs["level"] == "target"
+        _inject_image_stats(metadata, calc_result)
 
-    def test_od_path_with_target_stats(self):
+        factors, _ = metadata.add_factors.call_args
+        assert set(factors[0]) == {"brightness"}
+
+    def test_forwards_multidimensional_to_be_recorded(self):
+        """Vector stats are forwarded, not filtered, so the drop gets recorded.
+
+        Dropping them here would lose them silently; ``add_factors`` puts them
+        in ``dropped_factors`` where the metadata summary can report them.
+        """
         metadata = MagicMock()
-        metadata.has_targets.return_value = True
-        metadata.item_indices = np.array([0, 1])
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 10.0, 20.0])})
-        img_mask = np.array([True, True, False, False])
+        calc_result = _make_cr(stats={"histogram": np.array([[1, 2], [3, 4]])})
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result, img_mask, n_images=2)
-        # Should have calls for image-level broadcast AND target-level stats
-        assert metadata.add_factors.call_count == 2
+        _inject_image_stats(metadata, calc_result)
 
-    def test_no_factors_skips(self):
+        factors, _ = metadata.add_factors.call_args
+        assert "histogram" in factors[0]
+
+    def test_keeps_boolean_factors(self):
+        """Bool digitizes to a two-value category — usable, unlike a hash."""
         metadata = MagicMock()
-        metadata.has_targets.return_value = False
-        calc_result = _make_cr(stats={"hash": np.array(["a", "b"])})
-        img_mask = np.array([True, True])
+        calc_result = _make_cr(stats={"invalid_box": np.array([True, False])})
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result, img_mask, n_images=2)
+        _inject_image_stats(metadata, calc_result)
+
+        factors, _ = metadata.add_factors.call_args
+        assert "invalid_box" in factors[0]
+
+    def test_no_usable_factors_skips(self):
+        metadata = MagicMock()
+        calc_result = _make_cr(stats={"xxhash": np.array(["a", "b"])})
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
+
+        _inject_image_stats(metadata, calc_result)
         metadata.add_factors.assert_not_called()
 
-    def test_od_no_img_factors_skips_broadcast(self):
-        metadata = MagicMock()
-        metadata.has_targets.return_value = True
-        metadata.item_indices = np.array([0])
-        # Non-numeric stats — no factors extracted
-        calc_result = _make_cr(stats={"hash": np.array(["a", "b"])})
-        img_mask = np.array([True, False])
 
-        _inject_image_stats(metadata, calc_result, img_mask, n_images=1)
-        metadata.add_factors.assert_not_called()
+class TestInjectImageStatsRoundTrip:
+    """Against a real dataset and a real ``Metadata`` — no mocks."""
 
-    def test_od_no_target_rows(self):
-        """OD path where tgt_mask is all False (no target-level rows)."""
-        metadata = MagicMock()
-        metadata.has_targets.return_value = True
-        metadata.item_indices = np.array([0, 1])
-        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0])})
-        # All rows are image-level — no target rows
-        img_mask = np.array([True, True])
+    def test_od_stats_split_by_level(self):
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
 
-        _inject_image_stats(metadata, calc_result, img_mask, n_images=2)
-        # Should broadcast image-level to target-level, but skip target stats
-        assert metadata.add_factors.call_count == 1
-        _, kwargs = metadata.add_factors.call_args
-        assert kwargs["level"] == "target"
+        dataset = _ODDataset(n_images=6)
+        metadata = Metadata(dataset)
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.VISUAL_BRIGHTNESS,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+
+        _inject_image_stats(metadata, calc_result)
+
+        # One factor per level, each named for the level it was measured at.
+        assert "unit_brightness" in metadata.factor_names
+        assert "instance_brightness" in metadata.factor_names
+
+        info = metadata.factor_info
+        assert info["unit_brightness"].level == "unit"
+        assert info["instance_brightness"].level == "instance"
+
+    def test_unit_factor_binned_over_images_not_detections(self):
+        """The level a factor is stored at is the level it is binned at.
+
+        Each image carries two boxes here, so binning a per-image factor over
+        the instance rows would score it on a doubled population.
+        """
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(n_images=6)
+        metadata = Metadata(dataset)
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.VISUAL_BRIGHTNESS,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+        _inject_image_stats(metadata, calc_result)
+
+        unit_rows = metadata.rows_at("unit")
+        instance_rows = metadata.rows_at("instance")
+
+        assert len(unit_rows) == 6
+        assert len(instance_rows) == 12
+        # The unit factor holds one value per image at its own level...
+        assert unit_rows["unit_brightness"].null_count() == 0
+        # ...and propagates down to every detection of that image.
+        assert instance_rows["unit_brightness"].null_count() == 0
+
+    def test_hashes_never_reach_factors(self):
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(n_images=6)
+        metadata = Metadata(dataset)
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.VISUAL_BRIGHTNESS | ImageStats.HASH,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+
+        _inject_image_stats(metadata, calc_result)
+
+        assert not [n for n in metadata.factor_names if "hash" in n]
+
+    def test_vector_stats_reach_the_summary_as_dropped(self):
+        """End to end: a vector stat is recorded and surfaces in the summary."""
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(n_images=6)
+        metadata = Metadata(dataset)
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.DIMENSION_CENTER,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+
+        _inject_image_stats(metadata, calc_result)
+
+        assert "center" in metadata.dropped_factors
+        summary = _compute_metadata_summary(metadata)
+        assert summary["center"]["type"] == "dropped"
 
 
 # ===========================================================================
@@ -857,54 +919,95 @@ class TestInjectImageStats:
 
 
 class TestComputeMetadataSummary:
-    def test_continuous_factor(self):
+    """Each factor is summarized over the rows at its own level."""
+
+    @staticmethod
+    def _metadata(df: pl.DataFrame, factor_info: dict[str, Any]) -> MagicMock:
         metadata = MagicMock()
-        metadata.image_data = pl.DataFrame({"width": [100.0, 200.0, 300.0]})
+        metadata.factor_info = factor_info
+        metadata.dropped_factors = {}
+        metadata.rows_at.return_value = df
+        return metadata
+
+    @staticmethod
+    def _info(factor_type: str, level: str = "unit", is_binned: bool = False) -> MagicMock:
         info = MagicMock()
-        info.factor_type = "continuous"
-        metadata.factor_info = {"width": info}
+        info.factor_type = factor_type
+        info.level = level
+        info.is_binned = is_binned
+        return info
+
+    def test_continuous_factor(self):
+        metadata = self._metadata(pl.DataFrame({"width": [100.0, 200.0, 300.0]}), {"width": self._info("continuous")})
 
         result = _compute_metadata_summary(metadata)
-        assert "width" in result
         assert result["width"]["type"] == "continuous"
         assert result["width"]["min"] == 100.0
         assert result["width"]["max"] == 300.0
 
     def test_categorical_factor(self):
-        metadata = MagicMock()
-        metadata.image_data = pl.DataFrame({"color": ["red", "blue", "red"]})
-        info = MagicMock()
-        info.factor_type = "categorical"
-        metadata.factor_info = {"color": info}
+        metadata = self._metadata(pl.DataFrame({"color": ["red", "blue", "red"]}), {"color": self._info("categorical")})
 
         result = _compute_metadata_summary(metadata)
-        assert "color" in result
         assert result["color"]["type"] == "categorical"
         assert result["color"]["unique_values"] == 2
         assert "top_values" in result["color"]
 
     def test_factor_not_in_columns(self):
-        metadata = MagicMock()
-        metadata.image_data = pl.DataFrame({"other": [1]})
-        info = MagicMock()
-        info.factor_type = "continuous"
-        metadata.factor_info = {"missing_col": info}
+        metadata = self._metadata(pl.DataFrame({"other": [1]}), {"missing_col": self._info("continuous")})
 
         result = _compute_metadata_summary(metadata)
-        assert result["missing_col"] == {"type": "continuous"}
+        assert result["missing_col"] == {"type": "continuous", "level": "unit", "is_binned": False}
 
     def test_categorical_empty_column(self):
         """Categorical factor with empty column — empty value_counts."""
-        metadata = MagicMock()
-        metadata.image_data = pl.DataFrame({"color": pl.Series([], dtype=pl.Utf8)})
-        info = MagicMock()
-        info.factor_type = "categorical"
-        metadata.factor_info = {"color": info}
+        metadata = self._metadata(
+            pl.DataFrame({"color": pl.Series([], dtype=pl.Utf8)}), {"color": self._info("categorical")}
+        )
 
         result = _compute_metadata_summary(metadata)
-        assert "color" in result
         assert result["color"]["unique_values"] == 0
         assert "top_values" not in result["color"]
+
+    def test_reports_level_and_binning(self):
+        """`is_binned` is the only record that a factor reached the evaluators as codes."""
+        metadata = self._metadata(
+            pl.DataFrame({"area": [1.0, 2.0, 3.0]}),
+            {"area": self._info("continuous", level="instance", is_binned=True)},
+        )
+
+        result = _compute_metadata_summary(metadata)
+        assert result["area"]["level"] == "instance"
+        assert result["area"]["is_binned"] is True
+
+    def test_reads_each_factor_at_its_own_level(self):
+        """A unit factor must not be summarized over the replicated instance rows."""
+        frames = {
+            "unit": pl.DataFrame({"brightness": [10.0, 20.0]}),
+            "instance": pl.DataFrame({"area": [1.0, 1.0, 2.0, 2.0]}),
+        }
+        metadata = MagicMock()
+        metadata.dropped_factors = {}
+        metadata.factor_info = {
+            "brightness": self._info("continuous", level="unit"),
+            "area": self._info("continuous", level="instance"),
+        }
+        metadata.rows_at.side_effect = lambda level: frames[level]
+
+        result = _compute_metadata_summary(metadata)
+
+        # Mean over the 2 image rows, not over the 4 replicated detection rows.
+        assert result["brightness"]["mean"] == 15.0
+        assert result["area"]["mean"] == 1.5
+
+    def test_reports_dropped_factors(self):
+        """Vector-valued stats never became factors; absence alone reads as 'not measured'."""
+        metadata = self._metadata(pl.DataFrame({"width": [1.0]}), {"width": self._info("continuous")})
+        metadata.dropped_factors = {"histogram": ["multi-dimensional"]}
+
+        result = _compute_metadata_summary(metadata)
+        assert result["histogram"]["type"] == "dropped"
+        assert result["histogram"]["dropped_reasons"] == ["multi-dimensional"]
 
 
 # ===========================================================================
@@ -939,13 +1042,47 @@ class TestComputeSplitData:
     @patch(f"{_WF}.label_stats")
     @patch(f"{_WF}.get_or_compute_stats")
     @patch(f"{_WF}.get_or_compute_metadata")
+    def test_binning_config_reaches_metadata(self, mock_get_meta, mock_get_stats, mock_ls):
+        """Binning is the largest uncontrolled variable on the metadata side.
+
+        Configured edges that never reach ``Metadata`` are discarded silently:
+        the run still succeeds and still reports numbers, computed against
+        automatic bins the user did not choose.
+        """
+        dataset = MagicMock()
+        dataset.__len__ = MagicMock(return_value=10)
+        dataset.metadata = {"index2label": {0: "cat"}}
+
+        mock_meta = MagicMock()
+        mock_meta.multi_target = False
+        mock_meta.class_labels = np.array([0, 0, 1])
+        mock_meta.item_indices = np.array([0, 1, 2])
+        mock_get_meta.return_value = mock_meta
+        mock_get_stats.return_value = _mock_calc_result(10)
+        mock_ls.return_value = _mock_label_stats()
+
+        params = _make_params(
+            metadata_auto_bin_method="uniform_count",
+            metadata_exclude=["id"],
+            metadata_continuous_factor_bins={"temp_c": [-1.0, 0.0, 1.0]},
+        )
+        _compute_split_data(dataset, params=params, split_name="train")
+
+        _, kwargs = mock_get_meta.call_args
+        assert kwargs["auto_bin_method"] == "uniform_count"
+        assert kwargs["exclude"] == ["id"]
+        assert kwargs["continuous_factor_bins"] == {"temp_c": [-1.0, 0.0, 1.0]}
+
+    @patch(f"{_WF}.label_stats")
+    @patch(f"{_WF}.get_or_compute_stats")
+    @patch(f"{_WF}.get_or_compute_metadata")
     def test_basic_flow(self, mock_get_meta, mock_get_stats, mock_ls):
         dataset = MagicMock()
         dataset.__len__ = MagicMock(return_value=10)
         dataset.metadata = {"index2label": {0: "cat"}}
 
         mock_meta = MagicMock()
-        mock_meta.has_targets.return_value = False
+        mock_meta.multi_target = False
         mock_meta.class_labels = np.array([0, 0, 1])
         mock_meta.item_indices = np.array([0, 1, 2])
         mock_get_meta.return_value = mock_meta
@@ -969,7 +1106,7 @@ class TestComputeSplitData:
         dataset.metadata = {"index2label": {0: "cat"}}
 
         mock_meta = MagicMock()
-        mock_meta.has_targets.return_value = False
+        mock_meta.multi_target = False
         mock_meta.class_labels = np.array([0])
         mock_meta.item_indices = np.array([0])
         mock_get_meta.return_value = mock_meta
@@ -999,7 +1136,7 @@ class TestComputeSplitData:
         dataset.metadata = {"index2label": {}}
 
         mock_meta = MagicMock()
-        mock_meta.has_targets.return_value = False
+        mock_meta.multi_target = False
         mock_meta.class_labels = np.array([0])
         mock_meta.item_indices = np.array([0])
         mock_get_meta.return_value = mock_meta

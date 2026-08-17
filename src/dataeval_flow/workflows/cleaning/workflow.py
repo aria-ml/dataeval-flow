@@ -264,15 +264,15 @@ def _build_class_labels_df(
 ) -> tuple[pl.DataFrame, list[str], dict[str, int]]:
     """Build a DataFrame mapping items/targets to class names and label counts."""
     index2label = metadata.index2label
-    has_targets = metadata.has_targets()
+    has_targets = metadata.multi_target
 
     label_counts: dict[str, int] = {}
     for lbl in metadata.class_labels:
         name = index2label.get(lbl, str(lbl))
         label_counts[name] = label_counts.get(name, 0) + 1
 
-    if has_targets and hasattr(metadata, "target_data"):
-        td = metadata.target_data.select("item_index", "target_index", "class_label")
+    if has_targets:
+        td = metadata.rows_at(metadata.label_level).select("item_index", "target_index", "class_label")
         names = [index2label.get(int(c), str(c)) for c in td["class_label"].to_list()]
         labels_df = td.with_columns(pl.Series("class_name", names)).select("item_index", "target_index", "class_name")
         id_cols = ["item_index", "target_index"]
@@ -295,7 +295,7 @@ def _compute_classwise_pivot(
         return None
     try:
         # Use target-level issues for OD datasets, image-level otherwise
-        has_targets = metadata.has_targets()
+        has_targets = metadata.multi_target
         if has_targets:
             if target_issues is None or target_issues.shape[0] == 0:
                 return None
@@ -552,7 +552,12 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 # 3. Build metadata for label stats (cache-aware via active_cache)
                 _logger.info("[3/4] Loading metadata…")
                 _t0 = _time.monotonic()
-                metadata = get_or_compute_metadata(dataset)
+                metadata = get_or_compute_metadata(
+                    dataset,
+                    auto_bin_method=params.metadata_auto_bin_method,
+                    exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
+                    continuous_factor_bins=params.metadata_continuous_factor_bins,
+                )
                 _logger.info("[3/4] Metadata ready in %.1fs", _time.monotonic() - _t0)
 
                 # 4. Run cleaning evaluators (cache-aware via active_cache)

@@ -57,13 +57,34 @@ def serialize_coverage(coverage_result: Any) -> dict[str, Any]:
 
 
 def compute_metadata_summary(metadata: "Metadata") -> dict[str, dict[str, Any]]:
-    """Compute per-factor summary statistics from metadata."""
+    """Compute per-factor summary statistics from metadata.
+
+    Each factor is summarized over the rows at **its own level**, which is the
+    level it was binned at.  Reading every factor off one level would describe a
+    per-image factor by its replicated copy — on an object detection dataset
+    that weights each image by how many detections it carries, so the mean and
+    standard deviation reported would not be the ones the factor was binned on.
+
+    ``is_binned`` is reported alongside the type because it is the only record
+    that a continuous factor reached the evaluators as interval codes rather
+    than as the values measured.
+    """
     summary: dict[str, dict[str, Any]] = {}
-    df = metadata.image_data
     factor_info = metadata.factor_info
 
+    # One frame per level, fetched once — rows_at() materializes a frame per call.
+    rows_by_level: dict[str, Any] = {}
+
     for name, info in factor_info.items():
-        stats: dict[str, Any] = {"type": info.factor_type}
+        stats: dict[str, Any] = {
+            "type": info.factor_type,
+            "level": info.level,
+            "is_binned": info.is_binned,
+        }
+
+        if info.level not in rows_by_level:
+            rows_by_level[info.level] = metadata.rows_at(info.level)
+        df = rows_by_level[info.level]
 
         if name not in df.columns:
             summary[name] = stats
@@ -87,6 +108,13 @@ def compute_metadata_summary(metadata: "Metadata") -> dict[str, dict[str, Any]]:
                 stats["top_values"] = dict(zip(values, counts, strict=True))
 
         summary[name] = stats
+
+    # Vector-valued statistics (histogram, percentiles, center) have no
+    # single-column form and never became factors.  Without this they are
+    # simply absent, which reads as "not measured" rather than "measured and
+    # not representable".
+    for name, reasons in metadata.dropped_factors.items():
+        summary.setdefault(name, {"type": "dropped", "dropped_reasons": list(reasons)})
 
     return to_serializable(summary)
 

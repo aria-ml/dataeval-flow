@@ -98,89 +98,40 @@ class SplitData:
 # ---------------------------------------------------------------------------
 
 
-def _impute_array(arr: np.ndarray) -> np.ndarray | None:
-    """Replace NaN/inf with the median of finite values.
-
-    Non-RGB images (e.g. 1-channel palette) can overflow float16 in
-    ``compute_stats()``, producing inf/NaN that would corrupt the int64 cast
-    in ``Metadata.factor_data``.
-
-    Returns ``None`` when *all* values are non-finite (the factor should
-    be skipped entirely).
-    """
-    finite_mask = np.isfinite(arr)
-    if not finite_mask.any():
-        return None
-    if finite_mask.all():
-        return arr
-    median = np.median(arr[finite_mask])
-    result = arr.copy()
-    result[~finite_mask] = median
-    return result
-
-
-def _extract_level_stats(
-    calc_result: "StatsResult",
-    mask: np.ndarray,
-    expected_len: int,
-) -> dict[str, np.ndarray]:
-    """Extract and impute 1-D numeric stats arrays for a given source-index level.
-
-    Non-numeric arrays (e.g. hash strings) are silently skipped.
-    """
-    factors: dict[str, np.ndarray] = {}
-    for name, arr in calc_result["stats"].items():
-        if arr.ndim != 1 or not np.issubdtype(arr.dtype, np.number):
-            continue
-        level_arr = arr[mask]
-        if len(level_arr) != expected_len:
-            continue
-        imputed = _impute_array(level_arr)
-        if imputed is not None:
-            factors[name] = imputed
-    return factors
-
-
-def _inject_image_stats(
-    metadata: Metadata,
-    calc_result: "StatsResult",
-    img_mask: np.ndarray,
-    n_images: int,
-) -> None:
+def _inject_image_stats(metadata: Metadata, calc_result: "StatsResult") -> None:
     """Inject computed image/target statistics into *metadata* as factors.
 
-    For **object-detection** datasets ``factor_data`` reads from target-level
-    rows, so image-level factors stored at ``level="image"`` would be null
-    and corrupt the int64 cast.  This helper avoids that by broadcasting
-    image-level arrays to target level via ``item_indices`` and adding
-    everything at ``level="target"``.
+    The stats result labels every value with the entity it describes, so
+    ``source_index`` places each one at its own level: a whole-image
+    measurement lands on the unit rows and a per-box measurement on the
+    instance rows.  Unit-level values propagate down to instance rows, so
+    both halves stay visible to the bias evaluators without being
+    broadcast by hand.
 
-    For **classification** datasets (no targets) the stats are simply added
-    at ``level="image"``.
+    Where a statistic is measured at both levels the factor is split in
+    two, named for the level it was measured at — ``unit_brightness`` for
+    the image and ``instance_brightness`` for the box.  Each is then binned
+    over its own population rather than over the replicated copy.
+
+    The only arrays withheld are the hashes.  They travel in the same result
+    — one ``compute_stats`` pass serves both outlier and duplicate detection —
+    and are near-unique per image, so digitizing them would yield a category
+    per item: a factor that correlates with everything and describes nothing.
+
+    Everything else is handed over as it comes, including the vector-valued
+    statistics (``histogram``, ``percentiles``, ``center``).  Those have no
+    single-column form and cannot become factors either, but dropping them
+    *here* would drop them silently; ``add_factors`` records them in
+    :attr:`~dataeval.Metadata.dropped_factors`, which is what lets the
+    metadata summary report them as measured-but-not-representable rather
+    than leaving them missing without explanation.
     """
-    is_od = metadata.has_targets()
-
-    # ── Image-level stats ──────────────────────────────────────────────
-    img_factors = _extract_level_stats(calc_result, img_mask, n_images)
-
-    if is_od:
-        # Broadcast image-level → target-level via item_indices
-        if img_factors:
-            broadcast = {k: v[metadata.item_indices] for k, v in img_factors.items()}
-            metadata.add_factors(broadcast, level="target")
-
-        # ── Target-level stats ─────────────────────────────────────────
-        tgt_mask = ~img_mask
-        if tgt_mask.any():
-            n_targets = int(tgt_mask.sum())
-            tgt_factors = _extract_level_stats(calc_result, tgt_mask, n_targets)
-            if tgt_factors:
-                prefixed = {f"target_{k}": v for k, v in tgt_factors.items()}
-                metadata.add_factors(prefixed, level="target")
-    else:
-        # Classification: image-level rows are used directly by factor_data
-        if img_factors:
-            metadata.add_factors(img_factors, level="image")
+    # Object, unicode, bytes and void dtypes are the hash columns.  Numeric and
+    # boolean arrays are both usable — bool digitizes to a two-value category.
+    usable = {name: arr for name, arr in calc_result["stats"].items() if arr.dtype.kind not in "OUSV"}
+    if not usable:
+        return
+    metadata.add_factors(usable, source_index=calc_result["source_index"])
 
 
 def _labels_from_counts(label_counts: Mapping[int, int]) -> np.ndarray:
@@ -217,11 +168,16 @@ def _compute_split_data(
     assessment functions.
     """
     _logger.info("  Processing metadata for '%s' ...", split_name)
-    metadata = get_or_compute_metadata(dataset)
+    metadata = get_or_compute_metadata(
+        dataset,
+        auto_bin_method=params.metadata_auto_bin_method,
+        exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
+        continuous_factor_bins=params.metadata_continuous_factor_bins,
+    )
 
     # Single compute_stats() call — combines image-stat, outlier-stat,
     # and hash flags into one pass over the dataset.
-    is_od = metadata.has_targets()
+    is_od = metadata.multi_target
     _logger.info("  Computing image statistics for '%s' ...", split_name)
     outlier_flags = _resolve_outlier_flags(params)
     all_flags = outlier_flags | ImageStats.HASH
@@ -236,7 +192,7 @@ def _compute_split_data(
 
     # Inject image stats as metadata factors for bias analysis
     if params.include_image_stats:
-        _inject_image_stats(metadata, calc_result, img_mask, len(dataset))  # type: ignore[arg-type]
+        _inject_image_stats(metadata, calc_result)
 
     # Label statistics
     _logger.info("  Computing label statistics for '%s' ...", split_name)

@@ -24,8 +24,10 @@ Provides load/save methods for four component types:
 
 - **Embeddings** — Dense numpy arrays stored as ``.npy``
 - **Cluster results** — Clustering output stored as ``.npz``
-- **Metadata** — Polars DataFrame as ``.parquet`` + the level structure
-  (task, factors per level, row layout) as ``.json``
+- **Metadata** — One ``.dem`` archive written by ``dataeval.Metadata.save``,
+  holding every level's rows and the links between them.  Binning is
+  deliberately *not* stored, so a single archive serves every
+  ``continuous_factor_bins`` / ``auto_bin_method`` a workflow reads it with.
 - **Stats** — Unified ``StatsResult`` stored as ``.parquet`` + ``.json``.
   Metrics accumulate incrementally: different workflows requesting different
   ``ImageStats`` flags share the same cache entry and only compute the
@@ -39,8 +41,7 @@ Cache layout (disk-backed mode)::
           sel_{selection_hash}/
             embeddings_{config_hash}.npy
             clusters_{config_hash}.npz
-            metadata.parquet
-            metadata.json
+            metadata.dem
             stats_{scope_hash}.parquet
             stats_{scope_hash}.json
 
@@ -74,7 +75,7 @@ import logging
 import os
 import tempfile
 import threading
-from collections.abc import Callable, Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -98,12 +99,15 @@ _logger = logging.getLogger(__name__)
 # v1 — metadata sidecar rewritten for the levelled ``dataeval.Metadata``
 #      (dataeval 1.1.0rc2): ``task`` / ``factors_by_level`` / ``blocks``
 #      replace the flat ``image_factors`` / ``target_factors`` / ``has_targets``.
-CACHE_VERSION = "1"
-
-# Metadata tasks the cache can rebuild.  Both are recreated from the task name
-# alone; a factors-only or unknown structurer has no such recipe, so a cache
-# entry claiming one is discarded rather than reconstructed incorrectly.
-_CACHEABLE_TASKS: tuple[str, ...] = ("IC", "OD")
+# v2 — metadata delegated to ``dataeval.Metadata.save`` / ``.load`` (dataeval
+#      1.1.0rc4): one ``metadata.dem`` archive replaces the hand-rolled
+#      ``metadata.parquet`` + ``metadata.json`` pair, which reconstructed the
+#      instance by assigning its private attributes.
+# v3 — pixel statistics are cached in the units the data is stored in
+#      (``normalize_pixel_values=False``, dataeval 1.1's default).  A v2 entry
+#      holds the same metric under the old ``[0, 1]`` normalization, so the two
+#      are numerically incompatible and must not be served interchangeably.
+CACHE_VERSION = "3"
 
 # Default for the ``persist_memory`` constructor parameter.  When ``True``
 # (the default), ``DatasetCache`` instances hold computed artifacts in an
@@ -206,6 +210,44 @@ def _file_content_hash(path: str | Path) -> str:
         return h.hexdigest()[:8]
     except OSError:
         return "missing"
+
+
+def _metadata_config_key(
+    auto_bin_method: Any = None,
+    exclude: Iterable[str] | None = None,
+    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
+) -> str:
+    """Build the in-memory cache key for one binning configuration.
+
+    The archive on disk holds no binning at all — it is re-applied on every read,
+    so one file serves every configuration and needs no key beyond the selection.
+    A memoized ``Metadata`` is the opposite: it carries the configuration it was
+    built with baked in, so serving one to a caller that asked for different bins
+    answers with the wrong binning and says nothing about it.  Keying the memory
+    entry by configuration is what keeps the two consistent.
+
+    Normalised rather than hashed as given, so that the value read back off a
+    ``Metadata`` (a ``set``, a ``Mapping``) keys identically to the value a caller
+    passed in (a ``list``, a ``dict``, or ``None`` for "use the default").
+    """
+    bins = {
+        name: int(value) if isinstance(value, (int, np.integer)) else [float(edge) for edge in value]
+        for name, value in (continuous_factor_bins or {}).items()
+    }
+    # ``default=str`` so building a key never raises: this runs on the path to
+    # every metadata read, and a key that cannot be built would take the workflow
+    # down over a caching detail.  Config supplies plain strings and numbers here,
+    # so the fallback only catches values the schema does not produce.
+    config = json.dumps(
+        {
+            "auto_bin_method": auto_bin_method or "uniform_width",
+            "exclude": sorted(exclude or (), key=str),
+            "continuous_factor_bins": bins,
+        },
+        sort_keys=True,
+        default=str,
+    )
+    return f"metadata_{_config_hash(config)}"
 
 
 def _extractor_config_key(extractor_config: Any) -> str:
@@ -377,9 +419,8 @@ def dataset_fingerprint(dataset: Any) -> str:
 def scope_key(
     per_image: bool = True,
     per_target: bool = True,
-    per_channel: bool = False,
 ) -> str:
-    """Build a deterministic scope key from per_image/per_target/per_channel settings.
+    """Build a deterministic scope key from per_image/per_target settings.
 
     Stats computed with different scope settings have incompatible
     ``source_index`` arrays and cannot be merged.  The scope key ensures
@@ -390,8 +431,6 @@ def scope_key(
         parts.append("img")
     if per_target:
         parts.append("tgt")
-    if per_channel:
-        parts.append("ch")
     return "+".join(parts) or "none"
 
 
@@ -432,18 +471,24 @@ def _do_compute_stats(
     desired_flags: ImageStats,
     per_image: bool = True,
     per_target: bool = True,
-    per_channel: bool = False,
 ) -> StatsResult:
-    """Compute stats and return."""
-    from dataeval.core._compute_stats import compute_stats
+    """Compute stats and return.
+
+    ``normalize_pixel_values`` is passed explicitly rather than left to the
+    default so the scale is pinned by this project rather than by the
+    installed dataeval.  ``False`` reports pixel statistics in the units the
+    data is stored in; the outlier thresholds flow uses (``zscore``,
+    ``modzscore``, ``iqr``) are location-scale equivariant, so the scale
+    changes what a metric reads without changing which items it flags.
+    """
+    from dataeval.core import compute_stats
 
     return compute_stats(
         dataset,
         stats=desired_flags,
         per_image=per_image,
         per_target=per_target,
-        per_channel=per_channel,
-        normalize_pixel_values=True,
+        normalize_pixel_values=False,
     )
 
 
@@ -498,7 +543,6 @@ def get_or_compute_stats(
     dataset: AnnotatedDataset[Any],
     per_image: bool = True,
     per_target: bool = True,
-    per_channel: bool = False,
 ) -> StatsResult:
     """Centralized stats computation with context-aware caching.
 
@@ -510,15 +554,14 @@ def get_or_compute_stats(
         cache, sel_key = ctx
         return cache.load_or_compute_stats(
             sel_key,
-            scope_key(per_image, per_target, per_channel),
+            scope_key(per_image, per_target),
             desired_flags,
             dataset,
             per_image=per_image,
             per_target=per_target,
-            per_channel=per_channel,
         )
     _logger.info("Computing stats (no cache)")
-    return _do_compute_stats(dataset, desired_flags, per_image, per_target, per_channel)
+    return _do_compute_stats(dataset, desired_flags, per_image, per_target)
 
 
 def get_or_compute_metadata(
@@ -985,14 +1028,14 @@ class DatasetCache:
         return cluster_result
 
     # =====================================================================
-    # Metadata (.parquet + .json sidecar)
+    # Metadata (.dem archive)
     # =====================================================================
 
-    def _metadata_paths(self, selection_repr: str) -> tuple[Path, Path] | tuple[None, None]:
+    def _metadata_path(self, selection_repr: str) -> Path | None:
         sel_dir = self._selection_dir(selection_repr)
         if sel_dir is None:
-            return None, None
-        return sel_dir / "metadata.parquet", sel_dir / "metadata.json"
+            return None
+        return sel_dir / "metadata.dem"
 
     def load_metadata(
         self,
@@ -1002,104 +1045,50 @@ class DatasetCache:
         exclude: Sequence[str] | None = None,
         continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
     ) -> "Metadata | None":
-        """Load cached raw Metadata, or ``None`` on miss.
+        """Load cached Metadata, or ``None`` on miss.
 
-        Reconstructs a ``dataeval.Metadata`` instance from the cached
-        parquet + JSON files with ``_is_binned = False``.  The caller's
-        binning configuration is applied so that ``_bin()`` runs lazily
-        with the current settings when factor data is first accessed.
+        Reads the archive written by :meth:`save_metadata` through
+        ``dataeval.Metadata.load``.  Binning is not stored in it, so the caller's
+        configuration is applied here and runs lazily when factor data is first
+        accessed — which is what lets one archive serve every configuration.
         """
-        obj_key = "metadata"
+        obj_key = _metadata_config_key(auto_bin_method, exclude, continuous_factor_bins)
         cached = self._mem_get(selection_repr, obj_key)
         if cached is not None:
             _logger.debug("Memory hit: metadata for %s/%s", self._dataset_name, selection_repr)
             return cached
 
         from dataeval import Metadata as MetadataClass
-        from dataeval._structurers import RowLayout, select_structurer
+        from dataeval.exceptions import MetadataFormatError
 
-        pq_path, json_path = self._metadata_paths(selection_repr)
-        if pq_path is None or json_path is None or not pq_path.exists() or not json_path.exists():
+        path = self._metadata_path(selection_repr)
+        if path is None or not path.exists():
             return None
 
-        _logger.info("Cache hit: metadata for %s/%s", self._dataset_name, selection_repr)
-
         try:
-            df = pl.read_parquet(pq_path)
-            with open(json_path, encoding="utf-8") as f:
-                aux = json.load(f)
-
-            # Only the dataset-backed tasks can be rebuilt: their structurer is
-            # recreated from the task name alone.  Anything else (a factors-only
-            # or unknown structurer) is treated as a miss rather than guessed at.
-            if aux.get("task") not in _CACHEABLE_TASKS:
-                _logger.warning(
-                    "Cached metadata for %s/%s was built by an unsupported task (%r) — recomputing",
-                    self._dataset_name,
-                    selection_repr,
-                    aux.get("task"),
-                )
-                return None
-            task: Literal["IC", "OD"] = "OD" if aux["task"] == "OD" else "IC"
-
-            # Build an *unbound* instance: __init__ then owns every attribute that
-            # is not part of the structure — view, filters, binning config, the
-            # lazily-computed factor cache — so only the structural state below has
-            # to be restored by hand.  Unbound so that no dataset is touched here:
-            # __init__ probes a bound dataset to validate its datum shape.
-            meta = MetadataClass(
-                None,
-                task=task,
-                continuous_factor_bins=continuous_factor_bins,
+            meta = MetadataClass.load(
+                path,
+                dataset,
                 auto_bin_method=auto_bin_method or "uniform_width",
                 exclude=exclude,
+                continuous_factor_bins=continuous_factor_bins,
             )
-
-            # Mirror of ``Metadata._adopt()`` — the same fields, taken from the
-            # cache instead of from a freshly structured dataset.  _is_binned is
-            # left False so _bin() runs lazily with the caller's config.
-            structurer = select_structurer(dataset, task)
-            factors_by_level = {level: set(names) for level, names in aux["factors_by_level"].items()}
-            for level in structurer.levels:
-                factors_by_level.setdefault(level, set())
-
-            meta._dataset = dataset  # noqa: SLF001
-            meta._count = int(aux["item_count"])  # noqa: SLF001
-            meta._structurer = structurer  # noqa: SLF001
-            meta._layout = RowLayout(  # noqa: SLF001
-                tuple(
-                    (
-                        block["level"],
-                        int(block["size"]),
-                        {level: np.asarray(pos, dtype=np.intp) for level, pos in block["ancestor_pos"].items()},
-                    )
-                    for block in aux["blocks"]
-                )
+        except MetadataFormatError as exc:
+            # A stale archive is the designed outcome of a dataeval upgrade rather
+            # than a fault — upstream refuses instead of guessing, and expects the
+            # caller to recompute.  Logged at debug so an upgrade does not warn on
+            # every read until the cache refills.
+            _logger.debug(
+                "Cached metadata for %s/%s is not readable by this dataeval (%s) — recomputing",
+                self._dataset_name,
+                selection_repr,
+                exc,
             )
-            meta._factors_by_level = factors_by_level  # noqa: SLF001
-            # Per-item metadata dicts are not cached — they are unbounded in size
-            # and nothing downstream reads Metadata.raw off a cached instance.
-            meta._raw = []  # noqa: SLF001
-            meta._class_labels = np.asarray(aux["class_labels"], dtype=np.intp)  # noqa: SLF001
-            meta._index2label = {int(k): v for k, v in aux["index2label"].items()}  # noqa: SLF001
-            meta._dropped_factors = {k: list(v) for k, v in aux["dropped_factors"].items()}  # noqa: SLF001
-            meta._dataframe = df  # noqa: SLF001
-            meta._is_structured = True  # noqa: SLF001  # skip _structure()
-            meta._build_factors()  # noqa: SLF001
-
-            # Smoke-test the reconstructed object: access commonly-used
-            # public properties so that missing attributes surface here
-            # (at cache-load time) rather than causing a late AttributeError
-            # if upstream Metadata adds new internal state.
-            meta.class_labels  # noqa: B018
-            meta.index2label  # noqa: B018
-            meta.item_count  # noqa: B018
-            meta.item_indices  # noqa: B018
-            meta.factor_names  # noqa: B018
-
-            self._mem_set(selection_repr, obj_key, meta)
-            return meta
+            return None
         except Exception:
+            # Notably a plain ValueError when the bound dataset is a different
+            # length than the archive was saved for.  That one is worth a warning:
+            # it means a cache key collided with a genuinely different dataset.
             _logger.warning(
                 "Failed to load Metadata from cache for %s/%s — recomputing",
                 self._dataset_name,
@@ -1108,82 +1097,53 @@ class DatasetCache:
             )
             return None
 
+        _logger.info("Cache hit: metadata for %s/%s", self._dataset_name, selection_repr)
+        self._mem_set(selection_repr, obj_key, meta)
+        return meta
+
     def save_metadata(
         self,
         selection_repr: str,
         metadata: "Metadata",
     ) -> None:
-        """Persist raw (pre-binned) Metadata to cache (no-op on disk when not disk-backed).
+        """Persist Metadata to cache (no-op on disk when not disk-backed).
 
-        Only the structured DataFrame is saved — binned/digitized columns
-        (``↕`` / ``#`` suffixes) are stripped so that a single cache entry
-        can be reused across different binning configurations.
+        ``dataeval.Metadata.save`` writes one archive holding every level's rows
+        and the positional links between them.  Binned/digitized columns (``↕`` /
+        ``#`` suffixes) are stripped on the way out, so a single entry is reusable
+        across every binning configuration a later reader might ask for.
 
-        The JSON sidecar carries the level structure the DataFrame alone does
-        not describe: which task produced it, which level each factor is
-        defined at, and the row layout that propagates a factor from its own
-        level down to its descendants.  :meth:`load_metadata` needs all three
-        to rebuild an instance that bins exactly as a freshly built one would.
+        The write is atomic upstream — a temporary file renamed into place — so a
+        concurrent reader sees either the previous archive or the new one, never a
+        half-written one.
         """
-        self._mem_set(selection_repr, "metadata", metadata)
+        # Keyed by the configuration this instance carries, not by the one a later
+        # reader wants: see :func:`_metadata_config_key`.
+        self._mem_set(
+            selection_repr,
+            _metadata_config_key(metadata.auto_bin_method, metadata.exclude, metadata.continuous_factor_bins),
+            metadata,
+        )
 
-        pq_path, json_path = self._metadata_paths(selection_repr)
-        if pq_path is None or json_path is None:
+        path = self._metadata_path(selection_repr)
+        if path is None:
             return
 
-        # .dataframe triggers _structure() but NOT _bin(), giving us
-        # the raw structured data.  Drop any binned/digitized columns
-        # that may exist if _bin() was already called on this object.
-        df = metadata.dataframe
-        drop_cols = [c for c in df.columns if c.endswith("↕") or c.endswith("#")]
-        if drop_cols:
-            df = df.drop(drop_cols)
-
-        task = metadata._structurer.task  # noqa: SLF001
-        if task not in _CACHEABLE_TASKS:
-            # :meth:`load_metadata` could not rebuild this instance, so writing it
-            # would only cost disk and produce a warning on every read.
-            _logger.debug(
-                "Skipping metadata cache write for %s/%s: task %r cannot be reconstructed",
+        try:
+            metadata.save(path)
+        except Exception:
+            # A failed cache write must not take the workflow down with it.  The
+            # value is memoized either way, so this run is unaffected and the next
+            # one simply misses.
+            _logger.warning(
+                "Failed to save Metadata to cache for %s/%s",
                 self._dataset_name,
                 selection_repr,
-                task,
+                exc_info=True,
             )
             return
 
-        # Auxiliary attributes — everything ``Metadata._adopt()`` sets that the
-        # DataFrame does not already hold.  ``item_indices`` is not among them:
-        # upstream reads it back off the frame's ``item_index`` column.
-        aux = {
-            "task": task,
-            # Read from the label level rather than through the ``class_labels``
-            # property, which is defined against the current view and raises for
-            # a view above the labels.  The cache stores view-independent state.
-            "class_labels": metadata._class_labels.tolist(),  # noqa: SLF001
-            "index2label": {str(k): v for k, v in metadata.index2label.items()},
-            "item_count": metadata.item_count,
-            "factors_by_level": {
-                level: sorted(names)
-                for level, names in metadata._factors_by_level.items()  # noqa: SLF001
-            },
-            "dropped_factors": {k: list(v) for k, v in metadata.dropped_factors.items()},
-            "blocks": [
-                {
-                    "level": level,
-                    "size": int(size),
-                    "ancestor_pos": {lvl: np.asarray(pos, dtype=np.intp).tolist() for lvl, pos in ancestors.items()},
-                }
-                for level, size, ancestors in metadata._layout.blocks  # noqa: SLF001
-            ],
-        }
-        _atomic_write_pair(
-            pq_path,
-            lambda p: df.write_parquet(p),
-            json_path,
-            lambda p: p.write_text(json.dumps(aux, sort_keys=True), encoding="utf-8"),
-        )
-
-        _logger.info("Cache save: metadata for %s/%s (%s)", self._dataset_name, selection_repr, pq_path.name)
+        _logger.info("Cache save: metadata for %s/%s (%s)", self._dataset_name, selection_repr, path.name)
 
     def load_or_compute_metadata(
         self,
@@ -1195,10 +1155,10 @@ class DatasetCache:
     ) -> "Metadata":
         """Load cached metadata or build, cache, and return it.
 
-        The cache stores only raw (pre-binned) metadata keyed by dataset
-        selection.  On hit, the caller's binning configuration is applied
-        so that ``_bin()`` runs lazily.  On miss, the metadata is built,
-        raw data is saved, and the full object is returned.
+        The archive on disk holds no binning and is keyed by dataset selection
+        alone.  On hit, the caller's binning configuration is applied so that
+        binning runs lazily.  On miss, the metadata is built, saved, and
+        returned.
 
         Parameters
         ----------
@@ -1367,7 +1327,6 @@ class DatasetCache:
         dataset: AnnotatedDataset[Any],
         per_image: bool = True,
         per_target: bool = True,
-        per_channel: bool = False,
     ) -> StatsResult:
         """Load cached stats, compute any missing metrics, merge, and save.
 
@@ -1381,7 +1340,7 @@ class DatasetCache:
             All flags the caller needs.
         dataset
             The dataset to pass to ``compute_stats()`` on miss.
-        per_image, per_target, per_channel
+        per_image, per_target
             Scope settings for ``compute_stats()``.
 
         Returns
@@ -1408,7 +1367,7 @@ class DatasetCache:
             )
 
         # Compute the missing stats
-        fresh = _do_compute_stats(dataset, to_compute, per_image, per_target, per_channel)
+        fresh = _do_compute_stats(dataset, to_compute, per_image, per_target)
 
         if cached is None:
             self.save_stats(selection_repr, scope, dict(fresh))

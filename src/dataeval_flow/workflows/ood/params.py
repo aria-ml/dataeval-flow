@@ -5,7 +5,7 @@ from typing import Annotated, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from dataeval_flow.workflow.base import WorkflowParametersBase
+from dataeval_flow.workflow.base import MetadataConfigMixin, WorkflowParametersBase
 
 __all__ = [
     "OODDetectionParameters",
@@ -130,7 +130,7 @@ class OODHealthThresholds(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class OODDetectionParameters(WorkflowParametersBase):
+class OODDetectionParameters(WorkflowParametersBase, MetadataConfigMixin):
     """Parameters for the ood-detection workflow.
 
     At least one detector must be configured.  Metadata insights are

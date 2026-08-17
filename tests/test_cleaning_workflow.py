@@ -437,6 +437,39 @@ class TestDataCleaningWorkflowExecute:
     @patch("dataeval_flow.workflows.cleaning.workflow.get_or_compute_metadata")
     @patch("dataeval_flow.workflows.cleaning.workflow.active_cache")
     @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
+    @patch("dataeval_flow.workflows.cleaning.workflow.build_extractor")
+    def test_binning_config_reaches_metadata(
+        self,
+        mock_build_ext: MagicMock,
+        mock_run_clean: MagicMock,
+        mock_cache: MagicMock,
+        mock_get_meta: MagicMock,
+    ):
+        """Configured bins that never reach Metadata are discarded silently."""
+        wf = DataCleaningWorkflow()
+        ctx = WorkflowContext(
+            dataset_contexts={
+                "default": DatasetContext(name="default", dataset=MagicMock(), cache=MagicMock()),
+            }
+        )
+        mock_run_clean.return_value = DataCleaningRawOutputs(dataset_size=100, img_outliers={"count": 0, "issues": []})
+
+        params = _make_params(
+            metadata_auto_bin_method="uniform_count",
+            metadata_exclude=["id"],
+            metadata_continuous_factor_bins={"temp_c": [-1.0, 0.0, 1.0]},
+        )
+        result = wf.execute(ctx, params)
+
+        assert result.success
+        _, kwargs = mock_get_meta.call_args
+        assert kwargs["auto_bin_method"] == "uniform_count"
+        assert kwargs["exclude"] == ["id"]
+        assert kwargs["continuous_factor_bins"] == {"temp_c": [-1.0, 0.0, 1.0]}
+
+    @patch("dataeval_flow.workflows.cleaning.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.cleaning.workflow.active_cache")
+    @patch("dataeval_flow.workflows.cleaning.workflow._run_cleaning")
     @patch("dataeval_flow.metadata.Metadata")
     @patch("dataeval_flow.workflows.cleaning.workflow.build_extractor")
     def test_with_embeddings(
@@ -741,7 +774,7 @@ class TestBuildClassLabelsDf:
         metadata = MagicMock()
         metadata.class_labels = [0, 0, 1, 2]
         metadata.index2label = {0: "cat", 1: "dog", 2: "bird"}
-        metadata.has_targets.return_value = False
+        metadata.multi_target = False
         metadata.item_indices = [0, 1, 2, 3]
 
         labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
@@ -751,12 +784,13 @@ class TestBuildClassLabelsDf:
         assert label_counts == {"cat": 2, "dog": 1, "bird": 1}
 
     def test_od_dataset_with_targets(self):
-        """Object-detection dataset with target_data uses target_index."""
+        """Object-detection dataset uses the label-level rows and target_index."""
         metadata = MagicMock()
         metadata.class_labels = [0, 1]
         metadata.index2label = {0: "cat", 1: "dog"}
-        metadata.has_targets.return_value = True
-        metadata.target_data = pl.DataFrame(
+        metadata.multi_target = True
+        metadata.label_level = "instance"
+        metadata.rows_at.return_value = pl.DataFrame(
             {
                 "item_index": [0, 0, 1],
                 "target_index": [0, 1, 0],
@@ -782,14 +816,14 @@ class TestComputeClasswisePivot:
 
     def test_returns_none_when_no_issues(self):
         metadata = MagicMock()
-        metadata.has_targets.return_value = False
+        metadata.multi_target = False
         empty = pl.DataFrame({"item_index": [], "metric_name": [], "metric_value": []})
         assert _compute_classwise_pivot(None, empty, metadata=metadata) is None
 
     def test_classification_pivot(self):
         """Image-level issues are grouped by class."""
         metadata = MagicMock()
-        metadata.has_targets.return_value = False
+        metadata.multi_target = False
         metadata.class_labels = [0, 0, 1, 1]
         metadata.index2label = {0: "cat", 1: "dog"}
         metadata.item_indices = [0, 1, 2, 3]
@@ -814,10 +848,11 @@ class TestComputeClasswisePivot:
     def test_od_pivot_uses_target_issues(self):
         """Object-detection datasets use target_issues for pivot."""
         metadata = MagicMock()
-        metadata.has_targets.return_value = True
+        metadata.multi_target = True
         metadata.class_labels = [0, 1]
         metadata.index2label = {0: "cat", 1: "dog"}
-        metadata.target_data = pl.DataFrame(
+        metadata.label_level = "instance"
+        metadata.rows_at.return_value = pl.DataFrame(
             {
                 "item_index": [0, 0, 1],
                 "target_index": [0, 1, 0],
@@ -1089,7 +1124,7 @@ class TestIsCleaningResult:
 class TestComputeClasswisePivotException:
     def test_exception_returns_none(self):
         metadata = MagicMock()
-        metadata.has_targets.return_value = False
+        metadata.multi_target = False
         metadata.class_labels = None  # will cause iteration to fail
 
         img_issues = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.5]})

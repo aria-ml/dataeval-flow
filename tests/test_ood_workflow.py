@@ -301,23 +301,75 @@ class TestExtractMetadataFactors:
     def test_basic_extraction(self, mock_metadata: MagicMock):
         from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
 
-        # Build a mock metadata result with a dataframe
-        mock_df = MagicMock()
-        mock_df.columns = ["brightness", "contrast"]
-        mock_df.__len__ = lambda _self: 2
-        mock_df.__getitem__ = lambda _self, _key: MagicMock(to_numpy=lambda: np.array([1.0, 2.0]))
+        # Factors are read off the rows at the view — the label-level rows,
+        # which are the ones that align with class_labels.
+        mock_rows = MagicMock()
+        mock_rows.columns = ["brightness", "contrast"]
+        mock_rows.__len__ = lambda _self: 2
+        mock_rows.__getitem__ = lambda _self, _key: MagicMock(to_numpy=lambda: np.array([1.0, 2.0]))
         mock_meta = MagicMock()
         mock_meta.factor_names = ["brightness", "contrast"]
-        mock_meta.dataframe = mock_df
+        mock_meta.view = "instance"
+        mock_meta.rows_at = MagicMock(return_value=mock_rows)
         mock_meta.class_labels = np.array([0, 1])
         mock_metadata.return_value = mock_meta
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        result = _extract_metadata_factors(dc, dc.dataset)
+        result = _extract_metadata_factors(dc, dc.dataset, _make_params())
 
         assert result is not None
         assert "brightness" in result
         assert "class_label" in result
+
+    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
+    def test_reads_rows_at_the_view_not_the_full_frame(self, mock_metadata: MagicMock):
+        """``dataframe`` interleaves every level and is longer than the labels.
+
+        Reading factors off it would misalign the values against class_labels
+        on any object detection dataset.
+        """
+        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+
+        mock_rows = MagicMock()
+        mock_rows.columns = ["brightness"]
+        mock_rows.__len__ = lambda _self: 2
+        mock_rows.__getitem__ = lambda _self, _key: MagicMock(to_numpy=lambda: np.array([1.0, 2.0]))
+        mock_meta = MagicMock()
+        mock_meta.factor_names = ["brightness"]
+        mock_meta.view = "instance"
+        mock_meta.rows_at = MagicMock(return_value=mock_rows)
+        mock_meta.class_labels = np.array([0, 1])
+        mock_metadata.return_value = mock_meta
+
+        dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
+        _extract_metadata_factors(dc, dc.dataset, _make_params())
+
+        mock_meta.rows_at.assert_called_once_with("instance")
+
+    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
+    def test_binning_config_reaches_metadata(self, mock_metadata: MagicMock):
+        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+
+        mock_rows = MagicMock()
+        mock_rows.columns = []
+        mock_rows.__len__ = lambda _self: 0
+        mock_meta = MagicMock()
+        mock_meta.factor_names = []
+        mock_meta.view = "unit"
+        mock_meta.rows_at = MagicMock(return_value=mock_rows)
+        mock_meta.class_labels = None
+        mock_metadata.return_value = mock_meta
+
+        dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
+        params = _make_params(
+            metadata_auto_bin_method="clusters",
+            metadata_continuous_factor_bins={"temp_c": [-1.0, 0.0, 1.0]},
+        )
+        _extract_metadata_factors(dc, dc.dataset, params)
+
+        _, kwargs = mock_metadata.call_args
+        assert kwargs["auto_bin_method"] == "clusters"
+        assert kwargs["continuous_factor_bins"] == {"temp_c": [-1.0, 0.0, 1.0]}
 
     @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
     def test_returns_none_on_exception(self, mock_metadata: MagicMock):
@@ -325,7 +377,7 @@ class TestExtractMetadataFactors:
 
         mock_metadata.side_effect = RuntimeError("fail")
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        result = _extract_metadata_factors(dc, dc.dataset)
+        result = _extract_metadata_factors(dc, dc.dataset, _make_params())
         assert result is None
 
 
@@ -389,7 +441,7 @@ class TestCollectNumericFactors:
         mock_stats.return_value = None
 
         ref_dc = DatasetContext(name="ref", dataset=MagicMock(), extractor=None)
-        result = _collect_numeric_factors(ref_dc, ref_dc.dataset, [])
+        result = _collect_numeric_factors(ref_dc, ref_dc.dataset, [], _make_params())
         assert result is None
 
     @patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors")
@@ -402,7 +454,7 @@ class TestCollectNumericFactors:
 
         ref_dc = DatasetContext(name="ref", dataset=MagicMock(), extractor=None)
         test_dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        result = _collect_numeric_factors(ref_dc, ref_dc.dataset, [("test", test_dc, test_dc.dataset)])
+        result = _collect_numeric_factors(ref_dc, ref_dc.dataset, [("test", test_dc, test_dc.dataset)], _make_params())
         assert result is None
 
 
@@ -411,7 +463,7 @@ class TestComputeMetadataInsights:
         from dataeval_flow.workflows.ood.workflow import _compute_metadata_insights
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [], 50)
+        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [], 50, _make_params())
         assert devs is None
         assert preds is None
 
@@ -421,7 +473,7 @@ class TestComputeMetadataInsights:
 
         mock_collect.return_value = None
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0, 1], 50)
+        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0, 1], 50, _make_params())
         assert devs is None
         assert preds is None
 
@@ -438,7 +490,7 @@ class TestComputeMetadataInsights:
         mock_pred.return_value = {"a": 0.5}
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0], 50)
+        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0], 50, _make_params())
         assert devs is None  # failed
         assert preds is not None  # still succeeded
 
@@ -455,7 +507,7 @@ class TestComputeMetadataInsights:
         mock_pred.side_effect = RuntimeError("predictors failed")
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
-        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0], 50)
+        devs, preds = _compute_metadata_insights(dc, dc.dataset, [], [0], 50, _make_params())
         assert devs is not None  # succeeded
         assert preds is None  # failed
 
@@ -937,16 +989,18 @@ class TestExtractMetadataFactorsBranches:
 
         mock_meta = MagicMock()
         mock_meta.factor_names = ["brightness", "missing_col"]
-        mock_meta.dataframe = MagicMock()
-        mock_meta.dataframe.columns = ["brightness"]
-        mock_meta.dataframe.__len__ = MagicMock(return_value=10)
-        mock_meta.dataframe.__getitem__ = MagicMock(
+        rows = MagicMock()
+        rows.columns = ["brightness"]
+        rows.__len__ = MagicMock(return_value=10)
+        rows.__getitem__ = MagicMock(
             return_value=MagicMock(to_numpy=MagicMock(return_value=np.arange(10, dtype=float)))
         )
+        mock_meta.view = "instance"
+        mock_meta.rows_at = MagicMock(return_value=rows)
         mock_meta.class_labels = None
 
         with patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata", return_value=mock_meta):
-            result = _extract_metadata_factors(dc, ds)
+            result = _extract_metadata_factors(dc, ds, _make_params())
 
         assert result is not None
         assert "brightness" in result
@@ -961,16 +1015,18 @@ class TestExtractMetadataFactorsBranches:
 
         mock_meta = MagicMock()
         mock_meta.factor_names = ["brightness"]
-        mock_meta.dataframe = MagicMock()
-        mock_meta.dataframe.columns = ["brightness"]
-        mock_meta.dataframe.__len__ = MagicMock(return_value=10)
-        mock_meta.dataframe.__getitem__ = MagicMock(
+        rows = MagicMock()
+        rows.columns = ["brightness"]
+        rows.__len__ = MagicMock(return_value=10)
+        rows.__getitem__ = MagicMock(
             return_value=MagicMock(to_numpy=MagicMock(return_value=np.arange(10, dtype=float)))
         )
+        mock_meta.view = "instance"
+        mock_meta.rows_at = MagicMock(return_value=rows)
         mock_meta.class_labels = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
 
         with patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata", return_value=mock_meta):
-            result = _extract_metadata_factors(dc, ds)
+            result = _extract_metadata_factors(dc, ds, _make_params())
 
         assert result is not None
         assert "class_label" in result
@@ -1000,7 +1056,7 @@ class TestCollectNumericFactorsBranches:
             patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", side_effect=[ref_meta, test_meta]),
             patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", side_effect=[ref_stats, test_stats]),
         ):
-            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets)  # type: ignore[arg-type]
+            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets, _make_params())  # type: ignore[arg-type]
 
         assert result is not None
 
@@ -1016,7 +1072,7 @@ class TestCollectNumericFactorsBranches:
             patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", return_value=None),
             patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", return_value=None),
         ):
-            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets)  # type: ignore[arg-type]
+            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets, _make_params())  # type: ignore[arg-type]
 
         assert result is None
 
@@ -1034,7 +1090,7 @@ class TestCollectNumericFactorsBranches:
             patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", return_value=None),
             patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", side_effect=[ref_stats, None]),
         ):
-            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets)  # type: ignore[arg-type]
+            result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets, _make_params())  # type: ignore[arg-type]
 
         assert result is None
 

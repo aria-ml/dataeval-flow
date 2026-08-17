@@ -435,12 +435,12 @@ def _run_gap_analysis(
                 mi_per_factor[fname] = float(class_to_factor[mi_idx])
 
     # Cross-tabulate per-class metadata distributions for high-MI factors.
-    # Target-level rows are the only ones that align with class_labels: they are the
+    # Label-level rows are the only ones that align with class_labels: they are the
     # item rows themselves for image classification, and one row per detection for
-    # object detection (where `dataframe` interleaves both levels and is therefore
-    # longer).  This mirrors how dataeval builds `Metadata.factor_data` — image-level
-    # factors are replicated onto target rows.
-    df = metadata.target_data
+    # object detection (where `dataframe` interleaves every level and is therefore
+    # longer).  This mirrors how dataeval builds `Metadata.factor_data` — unit-level
+    # factors propagate down onto the label rows.
+    df = metadata.rows_at(metadata.label_level)
     if df is None or len(df) == 0:
         return MetadataGapResult(mutual_info_class_to_factor=mi_per_factor, gaps=[])
 

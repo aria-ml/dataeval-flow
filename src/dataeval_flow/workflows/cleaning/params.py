@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow.workflow.base import WorkflowParametersBase
+from dataeval_flow.workflow.base import MetadataConfigMixin, WorkflowParametersBase
 
 __all__ = ["DataCleaningParameters", "DataCleaningHealthThresholds"]
 
@@ -92,7 +92,7 @@ class DataCleaningHealthThresholds(BaseModel):
     )
 
 
-class DataCleaningParameters(WorkflowParametersBase):
+class DataCleaningParameters(WorkflowParametersBase, MetadataConfigMixin):
     """Parameters for data cleaning workflow.
 
     Required parameters must be explicitly set per CR-4.14-G-1

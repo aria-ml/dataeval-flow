@@ -10,6 +10,15 @@ from pathlib import Path
 _initialized: bool = False
 _APP_LOGGERS: tuple[str, ...] = ("dataeval_flow",)
 
+# Third-party loggers carrying diagnostics we never want dropped as library
+# noise.  DataEval reports several decisions it makes on the caller's behalf
+# only as WARNING records — which factors it binned automatically and with what
+# edges, and which arrays it could not resolve a ``value_range`` for (answered
+# as NaN).  Both describe the results the run produced, so they are held at
+# WARNING even when ``lib_level`` is raised to quiet genuinely noisy libraries.
+_LIB_DIAGNOSTIC_LOGGERS: tuple[str, ...] = ("dataeval",)
+_LIB_DIAGNOSTIC_CEILING = logging.WARNING
+
 # Marker attributes used to make setup_logging additive and idempotent: each
 # handler we attach is tagged with its role so repeat calls never duplicate it
 # and the file handler can be added on a later call than the console handler.
@@ -124,6 +133,10 @@ def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
     for name in _APP_LOGGERS:
         logging.getLogger(name).setLevel(logging.DEBUG)
 
+    # --- Library diagnostics pinned so they survive a raised lib_level ---
+    for name in _LIB_DIAGNOSTIC_LOGGERS:
+        logging.getLogger(name).setLevel(_LIB_DIAGNOSTIC_CEILING)
+
 
 def configure_log_levels(
     app_level: str = "DEBUG",
@@ -146,6 +159,13 @@ def configure_log_levels(
 
     root_level = getattr(logging, lib_level, logging.WARNING)
     logging.getLogger().setLevel(root_level)
+
+    # Keep DataEval's binning and value_range diagnostics at WARNING even when
+    # lib_level is raised above it — they report what this run computed, not
+    # library chatter.  A lib_level *below* WARNING still wins, so asking for
+    # more detail works.
+    for name in _LIB_DIAGNOSTIC_LOGGERS:
+        logging.getLogger(name).setLevel(min(root_level, _LIB_DIAGNOSTIC_CEILING))
 
 
 def flush_logs() -> None:

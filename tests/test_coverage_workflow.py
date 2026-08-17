@@ -85,26 +85,33 @@ def _make_metadata(n: int = 100, num_classes: int = 3) -> MagicMock:
         ]
     )
     meta.is_discrete = np.array([True, True])
-    meta.has_targets.return_value = False
+    meta.multi_target = False
+    # Set explicitly: dataeval's evaluators refuse a filtered metadata paired with
+    # embeddings, and an auto-created MagicMock attribute is truthy, so leaving it
+    # unset makes every Coverage call look like it was filtered by where()/having().
+    meta.is_filtered = False
 
-    # Mock image_data as Polars DataFrame
     df = pl.DataFrame(
         {
             "brightness": np.random.default_rng(42).integers(0, 5, size=n).tolist(),
             "contrast": np.random.default_rng(43).integers(0, 3, size=n).tolist(),
         }
     )
-    meta.image_data = df
     meta.dataframe = df
-    meta.target_data = df
+    meta.label_level = "instance"
+    meta.view = "instance"
+    meta.rows_at.return_value = df
 
     # Mock factor_info
     factor_info = {}
     for name in ["brightness", "contrast"]:
         info = MagicMock()
         info.factor_type = "discrete"
+        info.level = "unit"
+        info.is_binned = False
         factor_info[name] = info
     meta.factor_info = factor_info
+    meta.dropped_factors = {}
 
     # Delete metadata attribute so it does not match AnnotatedDataset protocol
     del meta.metadata
@@ -450,12 +457,12 @@ class TestRunGapAnalysis:
         meta.factor_names = ["time_of_day", "weather"]
         meta.factor_data = np.column_stack([np.array(time_of_day), np.zeros(n, dtype=int)])
         meta.is_discrete = np.array([True, True])
-        meta.has_targets.return_value = False
+        meta.multi_target = False
 
         df = pl.DataFrame({"time_of_day": time_of_day, "weather": [0] * n})
         meta.dataframe = df
-        meta.image_data = df
-        meta.target_data = df
+        meta.label_level = "instance"
+        meta.rows_at.return_value = df
 
         index2label = {0: "cat", 1: "dog", 2: "bird"}
         params = _make_params(gap_mi_threshold=0.1, gap_min_representation=3)
@@ -490,9 +497,10 @@ class TestRunGapAnalysis:
         meta.factor_names = ["weather"]
         meta.factor_data = np.array(weather).reshape(-1, 1)
         meta.is_discrete = np.array([True])
-        meta.has_targets.return_value = True
+        meta.multi_target = True
 
-        meta.target_data = pl.DataFrame({"weather": weather})
+        meta.label_level = "instance"
+        meta.rows_at.return_value = pl.DataFrame({"weather": weather})
         # The misaligned source: image rows prepended to target rows.
         meta.dataframe = pl.DataFrame({"weather": [0] * n_images + weather})
         assert len(meta.dataframe) != n_targets
@@ -521,8 +529,9 @@ class TestRunGapAnalysis:
         meta.class_labels = np.array([0] * 20 + [1] * 10, dtype=np.intp)
         meta.factor_names = ["weather"]
         meta.is_discrete = np.array([True])
-        meta.has_targets.return_value = False
-        meta.target_data = pl.DataFrame({"weather": weather})
+        meta.multi_target = False
+        meta.label_level = "instance"
+        meta.rows_at.return_value = pl.DataFrame({"weather": weather})
 
         params = _make_params(gap_mi_threshold=0.1, gap_min_representation=3)
         result = _run_gap_analysis(meta, {0: "cat", 1: "dog"}, params, precomputed_mi={"weather": 0.5})
