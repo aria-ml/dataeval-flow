@@ -94,10 +94,13 @@ cache_dir/
 
 Artifacts live under a version directory so that formats can coexist. When the cache format changes incompatibly the
 version is bumped and older data is simply ignored — it is not deleted, so it is worth removing stale versions
-yourself:
+yourself.
+
+The current version is `v3`. It moved there in DataEval v1.1, when pixel statistics changed to stored units and
+every cached statistic became incomparable with a fresh one — see {doc}`../migration/v1.1`.
 
 ```bash
-rm -rf ./cache/v0        # drop a superseded cache version
+rm -rf ./cache/v2        # drop the superseded v2 cache
 rm -rf ./cache           # start completely clean
 ```
 

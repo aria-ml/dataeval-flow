@@ -83,6 +83,7 @@ Welcome <self>
 home/installation.md
 home/quickstart.md
 Change Log <home/changelog.md>
+Migrating to DataEval v1.1 <migration/v1.1.md>
 :::
 
 :::{toctree}
