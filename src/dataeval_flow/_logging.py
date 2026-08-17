@@ -4,7 +4,8 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 _initialized: bool = False
@@ -166,6 +167,58 @@ def configure_log_levels(
     # more detail works.
     for name in _LIB_DIAGNOSTIC_LOGGERS:
         logging.getLogger(name).setLevel(min(root_level, _LIB_DIAGNOSTIC_CEILING))
+
+
+class _DiagnosticCollector(logging.Handler):
+    """Collect library diagnostic records as formatted strings.
+
+    Deduplicates on the formatted message: DataEval already groups its per-datum
+    warnings by message, but a pipeline running several workflows over one
+    dataset re-raises the same diagnostic per workflow.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=_LIB_DIAGNOSTIC_CEILING)
+        self.messages: list[str] = []
+        self._seen: set[str] = set()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = f"{record.levelname}: {record.name}: {record.getMessage()}"
+        except Exception:  # noqa: BLE001 - a handler must never propagate out of a log call
+            return
+        if message not in self._seen:
+            self._seen.add(message)
+            self.messages.append(message)
+
+
+@contextmanager
+def capture_diagnostics() -> "Iterator[list[str]]":
+    """Collect library diagnostics emitted inside the block.
+
+    DataEval reports the decisions it makes on the caller's behalf — which
+    factors it binned and with what edges, which arrays it could not resolve a
+    ``value_range`` for — only as log records.  Those reach the console and the
+    log file but not the result envelope, so a result archived on its own cannot
+    say whether a statistic came back ``NaN`` because the data said so or
+    because nothing declared a range.  Capturing them here lets the envelope
+    carry the answer.
+
+    Yields
+    ------
+    list[str]
+        Messages collected so far.  The list is populated as records arrive and
+        is complete once the block exits.
+    """
+    collector = _DiagnosticCollector()
+    loggers = [logging.getLogger(name) for name in _LIB_DIAGNOSTIC_LOGGERS]
+    for logger in loggers:
+        logger.addHandler(collector)
+    try:
+        yield collector.messages
+    finally:
+        for logger in loggers:
+            logger.removeHandler(collector)
 
 
 def flush_logs() -> None:

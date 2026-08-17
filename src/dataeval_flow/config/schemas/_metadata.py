@@ -26,3 +26,8 @@ class ResultMetadata(BaseModel):
     tool: str = "dataeval-flow"
     tool_version: str = ""
     execution_time_s: float | None = None
+
+    #: Library diagnostics raised while the workflow ran — the decisions
+    #: DataEval made on the caller's behalf and the ranges it could not resolve.
+    #: Empty when the run raised none.
+    diagnostics: Sequence[str] = ()

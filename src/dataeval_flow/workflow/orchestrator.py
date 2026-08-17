@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, overload, runtime_chec
 
 from pydantic import BaseModel
 
+from dataeval_flow._logging import capture_diagnostics
+
 _logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -221,8 +223,14 @@ def _run_single_task(
     # 6. Run workflow with timing
     _logger.debug("Task '%s': executing workflow", task.name)
     start = time.monotonic()
-    result = workflow.execute(context, instance)
+    # Library diagnostics are captured here rather than left to the log file:
+    # they name the binning and value_range decisions this run made, and the
+    # envelope has to be able to answer for them on its own.
+    with capture_diagnostics() as diagnostics:
+        result = workflow.execute(context, instance)
     elapsed = time.monotonic() - start
+    if diagnostics:
+        result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 7. Backfill the resolved dataset(s) when the workflow left them unset —

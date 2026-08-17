@@ -38,6 +38,8 @@
 - `task` field on HuggingFace datasets, selecting the loader explicitly rather than inferring it
 - MAITE entry points for the dataset adapters and task runner, so both are discoverable by other MAITE-aware tools
 - Python 3.13 and 3.14 support; CI now runs the full 3.10 through 3.14 matrix
+- `diagnostics` in the result envelope, capturing the library warnings a run raised rather than leaving them to a
+  log file the envelope does not point at
 
 ### Removed
 
