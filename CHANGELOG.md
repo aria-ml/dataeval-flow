@@ -20,6 +20,10 @@
   seed. Gap findings could therefore differ depending on whether `balance` was enabled, since the two paths feed the
   same `gap_mi_threshold`
 - Container mounts follow SDP IR conventions
+- Text report **METADATA FACTORS** lists per-bin and per-category detail only for factors with 12 or fewer buckets.
+  Above that it reports the count and how the buckets were populated, and labels a factor holding one category per
+  sample `(one per sample)` — an identifier column such as `file_name` previously printed one line per sample. The
+  result envelope is unchanged and still carries the full map
 - Classwise outlier pivots report `count_basis` (`image` / `annotation`) where they previously reported `level`
   (`image` / `target`). The old key collided with DataEval's `level`, which names metadata levels (`unit`,
   `instance`, `track`, `sequence`) and duplicate levels (`item`, `target`) — three different meanings under one key.

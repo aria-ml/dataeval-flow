@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from dataeval_flow.workflow._text_report import (
+    _MAX_ENUMERATED,
     _WIDTH,
     _brief_value,
     _compact_indices,
@@ -14,6 +15,7 @@ from dataeval_flow.workflow._text_report import (
     _render_classwise_table,
     _render_config_section,
     _render_detail_section,
+    _render_factor_line,
     _render_key_value,
     _render_pivot_table,
     _render_table,
@@ -799,3 +801,111 @@ class TestFormatValueListFallback:
         text = "\n".join(lines)
         assert "a" * 80 in text
         assert "    -" in text
+
+
+# ---------------------------------------------------------------------------
+# _render_factor_line — high-cardinality collapse
+# ---------------------------------------------------------------------------
+
+
+def _cats(values_counts: list[tuple[str, int]]) -> list[dict[str, object]]:
+    """Build a categories list in the shape binning.describe_binning emits."""
+    return [{"code": i, "value": v, "count": n} for i, (v, n) in enumerate(values_counts)]
+
+
+def _bins(ranges: list[tuple[int, float, float]]) -> list[dict[str, object]]:
+    """Build a bins list in the shape binning.describe_binning emits."""
+    return [{"code": c, "count": n, "min": lo, "max": hi} for c, (n, lo, hi) in enumerate(ranges, start=1)]
+
+
+class TestRenderFactorLineCategories:
+    def test_enumerates_at_threshold(self):
+        """A factor with exactly _MAX_ENUMERATED categories still lists every one."""
+        cats = _cats([(f"v{i}", i + 1) for i in range(_MAX_ENUMERATED)])
+        lines = _render_factor_line(
+            "sensor", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
+        )
+        assert lines[0] == f"    sensor [categorical @ unit] — {_MAX_ENUMERATED} categories"
+        assert len(lines) == _MAX_ENUMERATED + 1
+        assert lines[1] == "        0: v0 (n=1)"
+
+    def test_small_factor_unchanged(self):
+        """The documented three-category rendering is untouched."""
+        cats = _cats([("a", 15), ("b", 22), ("c", 23)])
+        lines = _render_factor_line(
+            "sensor", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
+        )
+        assert lines == [
+            "    sensor [categorical @ unit] — 3 categories",
+            "        0: a (n=15)",
+            "        1: b (n=22)",
+            "        2: c (n=23)",
+        ]
+
+    def test_collapses_above_threshold_with_spread(self):
+        """Above the threshold the values are dropped for a count and a population spread."""
+        cats = _cats([(f"c{i}", 3 + (i % 17)) for i in range(40)])
+        lines = _render_factor_line(
+            "klass", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
+        )
+        assert lines == ["    klass [categorical @ unit] — 40 categories, n=3–19 per category"]
+
+    def test_uniform_population_reports_single_count(self):
+        """A collapsed factor whose categories are all the same size states one number."""
+        cats = _cats([(f"c{i}", 5) for i in range(20)])
+        lines = _render_factor_line(
+            "klass", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
+        )
+        assert lines == ["    klass [categorical @ unit] — 20 categories, n=5 per category"]
+
+    def test_identifier_factor_flagged(self):
+        """One category per sample is called out instead of dumping every filename."""
+        cats = _cats([(f"{i:05d}.jpg", 1) for i in range(250)])
+        lines = _render_factor_line(
+            "file_name", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
+        )
+        assert lines == ["    file_name [categorical @ unit] — 250 categories (one per sample)"]
+
+    def test_identifier_flag_needs_high_cardinality(self):
+        """A genuinely tiny all-singleton factor is still enumerated rather than flagged."""
+        cats = _cats([("a", 1), ("b", 1)])
+        lines = _render_factor_line(
+            "pair", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
+        )
+        assert lines == [
+            "    pair [categorical @ unit] — 2 categories",
+            "        0: a (n=1)",
+            "        1: b (n=1)",
+        ]
+
+    def test_missing_categories_list(self):
+        """A digitized factor whose companion column was unreadable renders its header alone."""
+        lines = _render_factor_line("sensor", {"type": "categorical", "level": "unit", "is_digitized": True})
+        assert lines == ["    sensor [categorical @ unit] — 0 categories"]
+
+
+class TestRenderFactorLineBins:
+    def test_small_binned_factor_unchanged(self):
+        """The documented four-bin rendering is untouched."""
+        bins = _bins([(4, 41.87, 68.52), (19, 68.85, 94.77), (25, 96.02, 119.6), (12, 122.6, 149.0)])
+        lines = _render_factor_line(
+            "elevation",
+            {
+                "type": "continuous",
+                "level": "unit",
+                "is_binned": True,
+                "bins_requested": 4,
+                "bins": bins,
+            },
+        )
+        assert lines[0] == "    elevation [continuous @ unit] — binned, 4 (requested)"
+        assert lines[1] == "        bin 1: n=4  [41.87, 68.52]"
+        assert len(lines) == 5
+
+    def test_collapses_above_threshold_with_overall_span(self):
+        """Many bins collapse to the count and the span the bins actually covered."""
+        bins = _bins([(2, float(i), i + 0.5) for i in range(100)])
+        lines = _render_factor_line(
+            "elevation", {"type": "continuous", "level": "unit", "is_binned": True, "bins": bins}
+        )
+        assert lines == ["    elevation [continuous @ unit] — binned, 100 auto, [0, 99.5] overall"]

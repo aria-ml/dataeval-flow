@@ -20,6 +20,10 @@ __all__ = [
 _WIDTH = 80
 # Maximum bar chart width in characters.
 _BAR_MAX = 30
+# Above this many bins or categories, per-entry detail is dropped for a summary
+# line.  A factor holding one category per sample would otherwise print one line
+# per sample, burying every factor that carries real signal.
+_MAX_ENUMERATED = 12
 # Unicode left-filling fractional block characters (index 1 = 1/8 .. 7 = 7/8).
 _FRAC_BLOCKS = " \u258f\u258e\u258d\u258c\u258b\u258a\u2589"
 
@@ -518,15 +522,32 @@ def _compact_indices(indices: list[int]) -> str:
     return str(indices)
 
 
+def _population_summary(counts: Sequence[int]) -> str:
+    """How many samples landed in each bucket, as a spread or a single number."""
+    low, high = min(counts), max(counts)
+    return f"n={low}" if low == high else f"n={low}–{high}"
+
+
 def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
-    """Render one factor: what it is, and what discretizing did to it."""
+    """Render one factor: what it is, and what discretizing did to it.
+
+    A factor with more buckets than ``_MAX_ENUMERATED`` reports what the reader
+    can act on — how many, and how they were populated — instead of listing
+    them.  The full ordinal-to-value map stays in the envelope either way.
+    """
     level = info.get("level", "?")
     ftype = info.get("type", "?")
+    head = f"    {name} [{ftype} @ {level}]"
 
     if info.get("is_binned"):
         bins = info.get("bins") or []
         how = f"{info['bins_requested']} (requested)" if "bins_requested" in info else f"{len(bins)} auto"
-        lines = [f"    {name} [{ftype} @ {level}] — binned, {how}"]
+        if len(bins) > _MAX_ENUMERATED:
+            # The span the bins actually covered is the one thing worth keeping
+            # when the per-bin rows go.
+            low, high = min(b["min"] for b in bins), max(b["max"] for b in bins)
+            return [f"{head} — binned, {how}, [{_fmt_num(low)}, {_fmt_num(high)}] overall"]
+        lines = [f"{head} — binned, {how}"]
         lines.extend(
             f"        bin {b['code']}: n={b['count']}  [{_fmt_num(b['min'])}, {_fmt_num(b['max'])}]" for b in bins
         )
@@ -534,11 +555,19 @@ def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
 
     if info.get("is_digitized"):
         cats = info.get("categories") or []
-        lines = [f"    {name} [{ftype} @ {level}] — {len(cats)} categories"]
+        if len(cats) > _MAX_ENUMERATED:
+            counts = [c["count"] for c in cats]
+            # One category per sample means an identifier column, not a
+            # grouping: it carries nothing for balance or diversity, and saying
+            # so is the whole of what a reader needs from it.
+            if max(counts) == 1:
+                return [f"{head} — {len(cats)} categories (one per sample)"]
+            return [f"{head} — {len(cats)} categories, {_population_summary(counts)} per category"]
+        lines = [f"{head} — {len(cats)} categories"]
         lines.extend(f"        {c['code']}: {c['value']} (n={c['count']})" for c in cats)
         return lines
 
-    return [f"    {name} [{ftype} @ {level}] — not discretized"]
+    return [f"{head} — not discretized"]
 
 
 def _render_binning_record(record: dict[str, Any], split_name: str | None = None) -> list[str]:

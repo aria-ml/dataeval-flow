@@ -122,12 +122,20 @@ record appears in the text report under **METADATA FACTORS** and in the result e
         0: a (n=15)
         1: b (n=22)
         2: c (n=23)
+    file_name [categorical @ unit] — 250 categories (one per sample)
 ```
 
-Per factor it records the type, the {term}`level <Metadata Level>` it was binned at, whether it was binned or
-digitized, and the decision itself — the observed range and population of every bin, or the ordinal-to-value map of
-every category. Observed ranges are reported rather than nominal edges: they describe what the run actually did and
-stay meaningful for a bin that ended up empty or clipped.
+Per factor the envelope records the type, the {term}`level <Metadata Level>` it was binned at, whether it was binned
+or digitized, and the decision itself — the observed range and population of every bin, or the ordinal-to-value map
+of every category. Observed ranges are reported rather than nominal edges: they describe what the run actually did
+and stay meaningful for a bin that ended up empty or clipped.
+
+The text report shows that detail only for a factor with 12 or fewer bins or categories. Above that it gives the
+count and how the buckets were populated — `40 categories, n=3–19 per category`, or the overall span for a binned
+factor — so one high-cardinality factor cannot bury the rest. A factor holding exactly one category per sample is an
+identifier rather than a grouping, and is labelled `(one per sample)`; it contributes nothing to balance or
+diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffected by the cap — read
+`binning["factors"][name]["categories"]` for the full map.
 
 From Python:
 
