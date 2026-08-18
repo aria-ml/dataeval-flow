@@ -75,6 +75,10 @@ variables:
   if: $PUBLISH_VERIFICATION
   when: never
 
+.skip_nightly_docs: &skip_nightly_docs
+  if: $NIGHTLY_DOCS == "true" || $DOCS_CLEAN == "true"
+  when: never
+
 # Shared rule sets
 .rules_main_mr:
   rules:
@@ -90,7 +94,12 @@ variables:
 .rules_main_only:
   rules:
     - *skip_publish_verification
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && ($NIGHTLY_DOCS == "true" || $DOCS_CLEAN == "true")
+      variables:
+        DOCS_ARG: "-- clean"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        DOCS_ARG: ""
 
 # Run only when dependency-defining files change (or on main). Used to gate
 # the install-validation jobs so they don't run on docs/code-only MRs.
@@ -401,7 +410,7 @@ pages:
       paths:
         - docs/source/notebooks/cache/
   script:
-    - uvx --with nox-uv nox -s docs
+    - uvx --with nox-uv nox -s docs $DOCS_ARG
     # Push the freshly-built jupyter-cache to the docs-artifacts/main orphan branch
     # so ReadTheDocs (and future CI builds) can fetch it. Requires the group-level
     # DATAEVAL_BUILD_PAT CI/CD variable. See docs/CACHE_MANAGEMENT.md.
@@ -480,6 +489,7 @@ pages coverage:
     COSIGN_PASSWORD: ""
   rules:
     - *skip_publish_verification
+    - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
@@ -514,6 +524,7 @@ resolve:version:
       dotenv: version.env
   rules:
     - *skip_publish_verification
+    - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
@@ -653,6 +664,7 @@ container_scanning:
   allow_failure: false
   rules:
     - *skip_publish_verification
+    - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
