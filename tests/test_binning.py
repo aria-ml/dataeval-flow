@@ -87,6 +87,36 @@ class TestDescribeBinning:
         assert {level["value"] for level in entry["fit"]["levels"]} == {"a", "b", "c"}
         assert sum(level["count"] for level in entry["fit"]["levels"]) == 60
 
+    def test_records_the_names_dataeval_gives_each_code(self):
+        """Names travel with the record so an archived result re-renders identically.
+
+        Asked of DataEval rather than derived from the edges, because these are the strings
+        its own outputs use — `ParityOutput.insufficient_data` keys and `label=` axis
+        groups — and a second renderer would disagree with them.
+        """
+        record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}))
+        assert record["factors"]["elevation"]["names"] == {"1": "< 0", "2": ">= 0"}
+        assert record["factors"]["sensor"]["names"] == {"0": "a", "1": "b", "2": "c"}
+
+    def test_names_cover_declared_bins_nothing_reached(self):
+        """An empty bin is a finding, and reporting one means naming it."""
+        record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, 1.0, np.inf]}))
+        entry = record["factors"]["elevation"]
+
+        assert entry["fit"]["empty"] == [1, 2]
+        assert set(entry["names"]) >= {"1", "2"}
+
+    def test_names_keep_large_magnitudes_distinct(self):
+        """Six significant figures collapses epoch-millisecond bins onto one label."""
+        rng = np.random.default_rng(3)
+        base = 1787011240000000
+        md = Metadata.from_factors(
+            {"capture_ms": (base + rng.integers(0, 1_200_000, 200)).astype(float)},
+            continuous_factor_bins={"capture_ms": 6},
+        )
+        names = describe_binning(md)["factors"]["capture_ms"]["names"]
+        assert len(set(names.values())) == len(names)
+
     def test_records_auto_bin_method_when_not_requested(self):
         record = describe_binning(_metadata(auto_bin_method="uniform_count"))
         assert record["auto_bin_method"] == "uniform_count"

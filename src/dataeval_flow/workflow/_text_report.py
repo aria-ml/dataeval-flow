@@ -537,29 +537,20 @@ _PROVENANCE = {
 }
 
 
-def _edge_text(edge: Any) -> str:
-    """Render one recorded edge.  Infinities arrive from the descriptor as words."""
-    return _fmt_num(edge) if isinstance(edge, (int, float)) else str(edge)
+def _bin_names(info: dict[str, Any], declared: int) -> dict[int, str]:
+    """Name each declared bin, preferring what DataEval called it.
 
+    The names travel in the record because DataEval chooses them: one precision across a
+    whole cut, picked by magnitude and by distinctness, so that no two bins print the same
+    label.  Rendering them here instead reproduced the defect that logic exists to prevent
+    — seven epoch-millisecond bins collapsing onto three labels — and would have disagreed
+    with the labels {attr}`ParityOutput.insufficient_data` reports for the same bin.
 
-def _bin_names(edges: Sequence[Any]) -> dict[int, str]:
-    """Name each declared bin from the edges that produced it, not from its contents.
-
-    Naming a bin after what landed in it made the label move with the sample and hid a
-    declared cutoff from its own label: ``[-inf, 0.0, inf]`` printed as ``[-40, -0.3]``,
-    with nothing saying that zero was where the meaning was.  An open outer edge reads as
-    a half-line, since ``[-inf, 0)`` says less than ``< 0`` does.
+    Falls back to the bare code where the record carries no name, which is what a release
+    without the accessor leaves.
     """
-    names: dict[int, str] = {}
-    for code in range(1, len(edges)):
-        low, high = edges[code - 1], edges[code]
-        if low == "-inf":
-            names[code] = f"< {_edge_text(high)}"
-        elif high == "inf":
-            names[code] = f">= {_edge_text(low)}"
-        else:
-            names[code] = f"[{_edge_text(low)}, {_edge_text(high)})"
-    return names
+    names = info.get("names") or {}
+    return {code: str(names.get(str(code), code)) for code in range(1, declared + 1)}
 
 
 def _how_encoded(encoding: dict[str, Any]) -> str:
@@ -573,10 +564,9 @@ def _how_encoded(encoding: dict[str, Any]) -> str:
     return f"{how} ({method})" if method and how == "derived" else how
 
 
-def _render_binned_factor(head: str, encoding: dict[str, Any], fit: dict[str, Any]) -> list[str]:
+def _render_binned_factor(head: str, info: dict[str, Any], encoding: dict[str, Any], fit: dict[str, Any]) -> list[str]:
     """A cut, its provenance, and how this run's rows fell into it."""
-    edges = list(encoding.get("edges") or ())
-    names = _bin_names(edges)
+    names = _bin_names(info, max(len(encoding.get("edges") or ()) - 1, 0))
     populated = {b["code"]: b for b in fit.get("bins") or []}
     empty = set(fit.get("empty") or ())
     declared = len(names)
@@ -646,7 +636,7 @@ def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
     if fit is None:
         return [f"{head} — {_how_encoded(encoding)}"]
     if encoding.get("kind") == "bins":
-        return _render_binned_factor(head, encoding, fit)
+        return _render_binned_factor(head, info, encoding, fit)
     return _render_digitized_factor(head, encoding, fit)
 
 
@@ -698,7 +688,18 @@ def _render_binning_section(binning: dict[str, Any] | None, diagnostics: Sequenc
 
 
 def _fmt_num(value: Any) -> str:
-    """Format a bin bound compactly without losing small differences."""
-    if isinstance(value, float):
-        return f"{value:.4g}"
-    return str(value)
+    """Format an observed bound compactly without losing the digits that distinguish it.
+
+    Four significant figures suits most factors and hides everything informative about the
+    ones with large magnitudes: a capture time in epoch milliseconds sits near 1.787e15, so
+    a span printed that way reads ``[1.787e+15, 1.787e+15]`` however wide it is.  Large
+    values therefore write out in full, which is the same trade DataEval makes when it
+    names the bins these spans sit beside.
+    """
+    if not isinstance(value, float):
+        return str(value)
+    if value != value or value in (float("inf"), float("-inf")):
+        return f"{value:g}"
+    if abs(value) >= 1e6:
+        return f"{value:.0f}" if value == int(value) else f"{value:.2f}"
+    return f"{value:.4g}"

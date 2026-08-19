@@ -821,17 +821,33 @@ def _digitized(values_counts: list[tuple[str, int]], provenance: str = "derived"
     }
 
 
+def _bin_labels(edges: list[object]) -> dict[str, str]:
+    """The names DataEval hands back for a cut, in the shape describe_binning stores them."""
+    labels: dict[str, str] = {}
+    for code in range(1, len(edges)):
+        low, high = edges[code - 1], edges[code]
+        if low == "-inf":
+            labels[str(code)] = f"< {high:g}"
+        elif high == "inf":
+            labels[str(code)] = f">= {low:g}"
+        else:
+            labels[str(code)] = f"[{low:g}, {high:g})"
+    return labels
+
+
 def _binned(
     edges: list[object],
     occupied: dict[int, tuple[int, float, float]],
     provenance: str = "derived",
     method: str | None = "uniform_width",
+    names: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    """A binned factor in the shape describe_binning emits: policy plus fit."""
+    """A binned factor in the shape describe_binning emits: policy, names, and fit."""
     return {
         "type": "continuous",
         "level": "unit",
         "encoding": {"kind": "bins", "edges": edges, "provenance": provenance, "method": method},
+        "names": _bin_labels(edges) if names is None else names,
         "fit": {
             "bins": [
                 {"code": code, "count": n, "min": lo, "max": hi} for code, (n, lo, hi) in sorted(occupied.items())
@@ -907,7 +923,7 @@ class TestRenderFactorLineLevels:
 
 
 class TestRenderFactorLineBins:
-    def test_names_bins_from_the_edges_not_from_their_contents(self):
+    def test_names_bins_from_the_record_not_from_their_contents(self):
         """The defect this replaces: a declared cutoff never reached its own label.
 
         `{"temp_c": [-inf, 0.0, inf]}` used to render as `[-40, -0.3]` — a fact about the
@@ -918,6 +934,14 @@ class TestRenderFactorLineBins:
         assert lines[0] == "    temp_c [continuous @ unit] — 2 bins, edges declared"
         assert lines[1].startswith("        < 0 ")
         assert lines[2].startswith("        >= 0 ")
+        # The observed span is reported beside the name, never as it.
+        assert "occupied [-40, -0.3]" in lines[1]
+
+    def test_falls_back_to_the_code_where_the_record_carries_no_name(self):
+        """A release without the accessor costs the labels, not the report."""
+        info = _binned(["-inf", 0.0, "inf"], {1: (1, -1.0, -0.5)}, "edges", None, names={})
+        lines = _render_factor_line("temp_c", info)
+        assert lines[1].startswith("        1 ")
 
     def test_reports_a_declared_bin_nothing_reached(self):
         """An empty declared bin is what a locked policy no longer fitting looks like."""
@@ -937,6 +961,14 @@ class TestRenderFactorLineBins:
         info = _binned(["-inf", 0.0, 10.0, "inf"], {2: (5, 1.0, 9.0)}, "edges", None)
         lines = _render_factor_line("temp_c", info)
         assert lines[2].startswith("        [0, 10) ")
+
+    def test_large_magnitudes_keep_the_digits_that_distinguish_them(self):
+        """Four significant figures printed every epoch-millisecond span identically."""
+        base = 1787011240000000.0
+        info = _binned(["-inf", base, "inf"], {2: (5, base + 1788.0, base + 191686.0)}, "edges", None)
+        lines = _render_factor_line("capture_ms", info)
+        assert "1.787e+15" not in lines[2]
+        assert "occupied [1787011240001788, 1787011240191686]" in lines[2]
 
     def test_collapses_above_threshold_with_occupied_span(self):
         """Many bins collapse to the count and the span the bins actually covered."""

@@ -101,6 +101,33 @@ def _descriptor(metadata: "Metadata") -> dict[str, dict[str, Any]]:
     return factors if isinstance(factors, dict) else {}
 
 
+def _code_names(metadata: "Metadata") -> dict[str, dict[str, str]]:
+    """What each factor's codes read as, per DataEval's own naming.
+
+    Captured here rather than rendered when a report is drawn, because a report is drawn
+    from an archived envelope and the names come from a live ``Metadata``.  Carrying them
+    means an archived result re-renders to the same strings, and anything reading the JSON
+    gets them without recomputing.
+
+    Asked of DataEval rather than derived from the edges, because the two must agree:
+    these are the strings :attr:`ParityOutput.insufficient_data` reports and the ``label=``
+    axis groups carry, and choosing a precision is not the local decision it looks like —
+    six significant figures collapses seven epoch-millisecond bins onto three labels.
+
+    Best effort: a release without the accessor costs the names, and codes stand in.
+    """
+    names = getattr(metadata, "code_names", None)
+    if names is None:
+        return {}
+    try:
+        # JSON has no integer keys, so a record that round-trips would come back stringed
+        # anyway. Stringed here so it reads the same either way.
+        return {factor: {str(code): label for code, label in lookup.items()} for factor, lookup in names().items()}
+    except Exception:  # names are worth less than the record they describe
+        _logger.debug("Code names unavailable", exc_info=True)
+        return {}
+
+
 def _declared_bins(record: Mapping[str, Any]) -> int:
     """Intervals the edges describe — the bins the cut is a claim *about*.
 
@@ -172,7 +199,13 @@ def _level_fit(df: pl.DataFrame, name: str, record: Mapping[str, Any]) -> dict[s
     }
 
 
-def _factor_entry(name: str, info: Any, df: pl.DataFrame, record: Mapping[str, Any] | None) -> dict[str, Any]:
+def _factor_entry(
+    name: str,
+    info: Any,
+    df: pl.DataFrame,
+    record: Mapping[str, Any] | None,
+    names: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     """One factor's record: what it is, how it was encoded, and how that encoding fits."""
     entry: dict[str, Any] = {"type": info.factor_type, "level": info.level}
     if getattr(info, "aggregated_from", None) is not None:
@@ -183,6 +216,10 @@ def _factor_entry(name: str, info: Any, df: pl.DataFrame, record: Mapping[str, A
         return entry
 
     entry["encoding"] = dict(record)
+    # Beside the record rather than inside it: the encoding member is byte-for-byte what a
+    # committed descriptor holds, and names are read off a record rather than part of one.
+    if names:
+        entry["names"] = dict(names)
     fit = _bin_fit(df, name, record) if record.get("kind") == "bins" else _level_fit(df, name, record)
     if fit is not None:
         entry["fit"] = fit
@@ -251,11 +288,14 @@ def describe_binning(
     rows_by_level: dict[str, pl.DataFrame] = {}
 
     encodings = _descriptor(metadata)
+    names = _code_names(metadata)
 
     for name, info in factor_info.items():
         if info.level not in rows_by_level:
             rows_by_level[info.level] = metadata.rows_at(info.level)
-        record["factors"][name] = _factor_entry(name, info, rows_by_level[info.level], encodings.get(name))
+        record["factors"][name] = _factor_entry(
+            name, info, rows_by_level[info.level], encodings.get(name), names.get(name)
+        )
 
     # A request naming a factor the dataset does not carry is silently ignored
     # by DataEval (it warns and moves on), so it is called out here rather than

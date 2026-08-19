@@ -25,7 +25,11 @@
 - Text report **METADATA FACTORS** names bins from their edges rather than their contents (`< 0`, `[0, 10)`,
   `>= 10`), states each factor's provenance, and reports declared bins nothing reached as `empty`. Levels are listed
   in value order rather than code order, since a vocabulary grows append-only and a late level carries an
-  out-of-order code
+  out-of-order code. The names come from `Metadata.code_names`, so they are the strings DataEval's own outputs use —
+  `ParityOutput.insufficient_data` keys and `label=` axis groups — rather than a second rendering that would disagree
+  with them, and they travel in the envelope so an archived result re-renders identically
+- Observed spans in the text report write large magnitudes out in full. Four significant figures printed every
+  epoch-millisecond span as `[1.787e+15, 1.787e+15]` however wide it was
 - Coverage gap analysis now runs `Balance` for its factor-to-class mutual information rather than calling
   `mutual_info` with flags chosen to imitate it. Imitating it is no longer possible: `factor_source` decides per
   factor whether the codes or the measured values are read, consulting the encoding record's provenance, and a
