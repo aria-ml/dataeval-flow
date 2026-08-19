@@ -37,7 +37,7 @@ from pydantic import BaseModel
 from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow.cache import selection_repr as _sel_repr
-from dataeval_flow.policy import policy_for, resolve_policy
+from dataeval_flow.policy import derive_from, policy_for, resolve_policy
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
@@ -159,6 +159,33 @@ def _resolve_outlier_flags(params: DataAnalysisParameters) -> ImageStats:
     for name in params.outlier_flags:
         flags |= FLAG_MAP[name]
     return flags
+
+
+def _split_order(names: list[str], reference: str | None) -> list[str]:
+    """Split names with the reference first, since the others take their encoding from it.
+
+    Defaults to the first split the task names — config order, which is where a user writes
+    ``train``.  Defaulted rather than required because leaving it unset must not silently
+    mean *independent cuts*, which is the behaviour being retired; named rather than
+    positional-only because "the first split in the file" is a fact about the file and the
+    policy split is a decision.
+    """
+    if reference is None:
+        return names
+    if reference not in names:
+        raise ValueError(
+            f"Metadata policy names reference_split={reference!r}, which this task does not "
+            f"have. Its splits are {names}.",
+        )
+    return [reference, *(name for name in names if name != reference)]
+
+
+def _descriptor_of(metadata: Any) -> dict[str, Any] | None:
+    """The reference's encoding as the descriptor spells it, for the derived cache key."""
+    from dataeval_flow.binning import _descriptor
+
+    factors, _ = _descriptor(metadata)
+    return factors or None
 
 
 def _compute_split_data(
@@ -1084,7 +1111,18 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
         source_datasets: dict[str, AnnotatedDataset[Any]] = {}
         last_dataset: AnnotatedDataset[Any] | None = None
 
-        for split_idx, (split_name, dc) in enumerate(context.dataset_contexts.items(), 1):
+        # One encoding for the whole run, taken from the reference split and applied to the
+        # rest. Encoded independently, two splits of one dataset land on different cuts for
+        # the same factor — the automatic bin count comes from each draw — and their
+        # per-factor statistics are then not comparable, which is exactly what a reader
+        # does with them. The reference is built first so the others can follow it.
+        run_policy = policy_for(context, params)
+        split_order = _split_order(list(context.dataset_contexts), run_policy.reference_split)
+        reference_split = split_order[0]
+        split_policy = run_policy
+
+        for split_idx, split_name in enumerate(split_order, 1):
+            dc = context.dataset_contexts[split_name]
             dataset = dc.dataset
 
             # Apply selection (Limit, Shuffle, ClassFilter, etc.) if configured
@@ -1122,8 +1160,12 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                     params=params,
                     extractor=embeddings,
                     split_name=split_name,
-                    policy=policy_for(context, params),
+                    policy=split_policy,
                 )
+
+            if split_name == reference_split:
+                metadata = split_data[split_name].metadata
+                split_policy = derive_from(run_policy, metadata, _descriptor_of(metadata))
 
         # ── Phase 2: Run per-split assessments ──────────────────────
         split_results: dict[str, SplitResult] = {}
@@ -1182,8 +1224,9 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
             mode=params.mode,
             split_names=list(context.dataset_contexts.keys()),
         )
-        # Splits are binned independently, so each is recorded separately —
-        # two splits of one dataset can land on different edges.
+        # Recorded per split even though they now share one encoding: what varies is the
+        # fit, not the policy. The digests being equal is what says so, and is what makes
+        # the per-split statistics comparable.
         attach_binning(result_metadata, {name: d.metadata for name, d in split_data.items()}, params)
         if params.mode == "preparatory":
             findings.append(

@@ -1966,3 +1966,47 @@ class TestIsAnalysisResult:
         result = MagicMock()
         result.metadata = MagicMock()
         assert is_analysis_result(result) is False
+
+
+class TestOnePolicyPerRun:
+    """Splits share the reference split's encoding, so their statistics are comparable."""
+
+    def test_the_reference_comes_first_by_default(self):
+        from dataeval_flow.workflows.analysis.workflow import _split_order
+
+        assert _split_order(["train", "val", "test"], None) == ["train", "val", "test"]
+
+    def test_a_named_reference_is_moved_to_the_front(self):
+        from dataeval_flow.workflows.analysis.workflow import _split_order
+
+        assert _split_order(["train", "val", "test"], "test") == ["test", "train", "val"]
+
+    def test_a_reference_the_task_does_not_have_is_refused(self):
+        """Silently falling back would encode every split against a policy nobody chose."""
+        from dataeval_flow.workflows.analysis.workflow import _split_order
+
+        with pytest.raises(ValueError, match="reference_split='holdout'"):
+            _split_order(["train", "test"], "holdout")
+
+    def test_splits_share_one_encoding_end_to_end(self):
+        """The defect this fixes: train got four bins and test three, for one factor."""
+        import warnings
+
+        from dataeval import Metadata
+
+        from dataeval_flow.binning import _descriptor
+        from dataeval_flow.policy import ResolvedPolicy, derive_from
+
+        def build(seed, n, **kwargs):
+            rng = np.random.default_rng(seed)
+            return Metadata.from_factors({"elevation": rng.normal(100.0, 25.0, n)}, **kwargs)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            train = build(0, 400)
+            factors, _ = _descriptor(train)
+            follower = build(7, 60, **derive_from(ResolvedPolicy(), train, factors).metadata_kwargs())
+            independent = build(7, 60)
+
+        assert follower.encoding("elevation").edges == train.encoding("elevation").edges
+        assert independent.encoding("elevation").edges != train.encoding("elevation").edges

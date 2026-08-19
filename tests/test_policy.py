@@ -196,3 +196,76 @@ class TestPolicyFor:
 
         params = MetadataConfigMixin(metadata_auto_bin_method="uniform_count")
         assert policy_for(_Ctx(), params).auto_bin_method == "uniform_count"
+
+
+class TestDeriveFrom:
+    """One split's encoding, applied to the rest, is what makes them comparable."""
+
+    @staticmethod
+    def _metadata(seed: int, n: int, **kwargs):
+        import numpy as np
+        from dataeval import Metadata
+
+        rng = np.random.default_rng(seed)
+        return Metadata.from_factors(
+            {"elevation": rng.normal(100.0, 25.0, n), "sensor": rng.choice(list("ab"), n)}, **kwargs
+        )
+
+    def _derived(self, reference):
+        from dataeval_flow.binning import _descriptor
+        from dataeval_flow.policy import derive_from
+
+        factors, _ = _descriptor(reference)
+        return derive_from(ResolvedPolicy(), reference, factors)
+
+    def test_the_next_dataset_gets_the_reference_cuts(self):
+        reference = self._metadata(0, 400)
+        derived = self._derived(reference)
+        follower = self._metadata(7, 60, **derived.metadata_kwargs())
+
+        assert follower.encoding("elevation").edges == reference.encoding("elevation").edges
+
+    def test_an_independent_split_would_have_cut_differently(self):
+        """Without this the two are not comparable, which is the whole point."""
+        reference = self._metadata(0, 400)
+        independent = self._metadata(7, 60)
+        follower = self._metadata(7, 60, **self._derived(reference).metadata_kwargs())
+
+        assert independent.encoding("elevation").edges != reference.encoding("elevation").edges
+        assert follower.encoding("elevation").edges == reference.encoding("elevation").edges
+
+    def test_a_new_category_appends_rather_than_renumbering(self):
+        import numpy as np
+        from dataeval import Metadata
+
+        reference = self._metadata(0, 400)
+        derived = self._derived(reference)
+        rng = np.random.default_rng(3)
+        follower = Metadata.from_factors(
+            {"elevation": rng.normal(100.0, 25.0, 60), "sensor": rng.choice(list("abc"), 60)},
+            **derived.metadata_kwargs(),
+        )
+
+        before = reference.encoding("sensor").levels
+        after = follower.encoding("sensor").levels
+        assert after[: len(before)] == before  # shared codes keep their meaning
+        assert set(after) - set(before) == {"c"}
+
+    def test_the_derived_policy_keys_differently(self):
+        """A follower is a different cache entry from a split cut on its own draw."""
+        reference = self._metadata(0, 400)
+        assert policy_key(self._derived(reference)) != policy_key(ResolvedPolicy())
+
+    def test_declaration_inputs_are_dropped_once_resolved(self):
+        """The records already say where every declared cut fell; passing both is refused."""
+        reference = self._metadata(0, 400, continuous_factor_bins={"elevation": 4})
+        from dataeval_flow.binning import _descriptor
+        from dataeval_flow.policy import derive_from
+
+        factors, _ = _descriptor(reference)
+        derived = derive_from(ResolvedPolicy(continuous_factor_bins={"elevation": 4}), reference, factors)
+        assert derived.continuous_factor_bins == {}
+        assert "continuous_factor_bins" not in derived.metadata_kwargs()
+
+    def test_a_container_with_no_record_is_left_alone(self):
+        assert self._derived(object()) == ResolvedPolicy()

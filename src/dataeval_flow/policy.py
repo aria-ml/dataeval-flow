@@ -18,7 +18,7 @@ __all__ = ["ResolvedPolicy", "policy_for", "policy_key", "resolve_policy"]
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -60,6 +60,15 @@ class ResolvedPolicy:
     contents are what decide whether a cached result is still the right one. A descriptor
     edited in place under an unchanged path is a different policy.
     """
+    encoding_specs: Mapping[str, Any] | None = None
+    """Records taken from an already-built ``Metadata``, applied to the next dataset.
+
+    How one split's encoding reaches the others (see :func:`derive_from`).  Held as the
+    objects DataEval hands back rather than as a file, because the point is to reuse a cut
+    that was resolved from data rather than one somebody wrote down.  Excluded from the
+    cache key, which reads the JSON-able ``encoding`` beside it — the two describe the same
+    records and only one of them can be hashed.
+    """
     factor_levels: Mapping[str, Sequence[Any]] | None = None
     strict: bool = False
     factor_source: "FactorSource | None" = None
@@ -79,7 +88,10 @@ class ResolvedPolicy:
             kwargs["exclude"] = list(self.exclude)
         if self.continuous_factor_bins:
             kwargs["continuous_factor_bins"] = dict(self.continuous_factor_bins)
-        if self.encoding_path is not None:
+        if self.encoding_specs is not None:
+            # Records in hand beat a file to re-read, and are what a derived split gets.
+            kwargs["encoding"] = dict(self.encoding_specs)
+        elif self.encoding_path is not None:
             # The path, not the parsed contents: DataEval owns the descriptor format and
             # reads it itself, so a file written by one release is understood exactly as
             # that release meant it rather than reinterpreted here.
@@ -284,3 +296,49 @@ def policy_for(context: Any, params: "MetadataConfigMixin") -> ResolvedPolicy:
     if resolved is not None:
         return resolved
     return resolve_policy(params)
+
+
+def derive_from(policy: ResolvedPolicy, metadata: Any, descriptor: Mapping[str, Any] | None) -> ResolvedPolicy:
+    """A policy that applies an already-built metadata's encoding to the next dataset.
+
+    What makes several splits of one dataset comparable.  Encoded independently they land
+    on different cuts for the same factor — the automatic bin count is derived from each
+    draw — and their per-factor statistics then sit side by side under different alphabets,
+    which a reader has every reason to compare and no way to know they should not.
+
+    ``Metadata.new`` exists for exactly this and says so: *encoding this dataset against a
+    record and the next one against its own draw is the drift the record exists to
+    prevent*.  This is the same move, routed through the cache so a split that was built
+    before is not walked again.
+
+    Parameters
+    ----------
+    policy : ResolvedPolicy
+        The run's policy, whose other settings carry over unchanged.
+    metadata : Metadata
+        The reference split's metadata, already built.
+    descriptor : Mapping | None
+        The same records rendered as the descriptor writes them, for the cache key.
+
+    Returns
+    -------
+    ResolvedPolicy
+        ``policy`` with the reference's records in place of its own encoding inputs.
+    """
+    encoding = getattr(metadata, "encoding", None)
+    if encoding is None:
+        return policy
+    specs = {name: spec for name, spec in encoding().items() if spec is not None}
+    if not specs:
+        return policy
+    return replace(
+        policy,
+        encoding_specs=specs,
+        encoding=dict(descriptor or {}),
+        encoding_path=None,
+        # Subsumed by the records above, which already say where every declared cut fell.
+        # Passing both is what DataEval refuses per factor, and the records are the
+        # resolved form of exactly these requests.
+        continuous_factor_bins={},
+        factor_levels=None,
+    )

@@ -63,6 +63,15 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- `data-analysis` gives every split one encoding, taken from the reference split, instead of encoding each
+  independently. An automatic bin count is derived from each split's own draw, so two splits of one dataset routinely
+  landed on different cuts for the same factor and their per-factor statistics were not comparable — while sitting
+  side by side in one report with nothing saying so. A metadata policy's `reference_split` names which split sets it,
+  defaulting to the first the task names. **This moves per-split `Balance` and `Diversity` numbers** wherever a
+  non-reference split previously derived its own cuts; the cross-split findings are unaffected, since redundancy,
+  label health and distribution shift read stats, `index2label` and embeddings rather than factor codes
+- The text report says whether splits are comparable, naming the factors that differ when they are not. A vocabulary
+  that merely grew is still comparable — appending leaves every shared code meaning what it meant
 - Result envelopes and the text report name the factors nobody reviewed. `unreviewed` lists every factor whose
   encoding still reads `provenance: "derived"` — cut by DataEval from this sample, with a bin count that moves with
   the draw and no claim behind it. Requiring declared cuts only encodes domain knowledge if the un-reviewed state is

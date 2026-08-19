@@ -272,8 +272,31 @@ for name, info in binning["factors"].items():
 Note `requested_bins` records what was *asked for* and `encoding` records what was *applied*. A request of `10` is a
 count; where its nine interior cuts landed is in `encoding["edges"]`.
 
-For `data-analysis`, splits are binned independently — two splits of one dataset can land on different edges — so the
-record is nested one level deeper, under `binning["per_split"][split_name]`.
+For `data-analysis` the record is nested one level deeper, under `binning["per_split"][split_name]`.
+
+### Give every split the same cuts
+
+`data-analysis` reads several splits. Encoded independently they land on different cuts for the same factor — an
+automatic bin count comes from each split's own draw — and their per-factor statistics then sit side by side in one
+report under different alphabets. So the **reference split** is encoded first and every other split takes its
+encoding:
+
+```yaml
+metadata:
+  - name: standard
+    reference_split: train      # default: the first split the task names
+```
+
+The report says which split set the policy and whether the result holds:
+
+```text
+  Splits share one encoding — factor statistics are comparable across them.
+```
+
+A vocabulary still grows: a category the reference never saw takes the next free code in the split that has it, so
+shared codes keep meaning what they meant and the splits stay comparable. Only a genuinely different cut, or a
+reordered vocabulary, makes them not — and the report then names the factors responsible rather than condemning the
+whole record.
 
 ### Tell whether two results are comparable
 

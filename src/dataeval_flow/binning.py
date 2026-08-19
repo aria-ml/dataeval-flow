@@ -98,10 +98,14 @@ def _descriptor(metadata: "Metadata") -> tuple[dict[str, dict[str, Any]], int | 
     export = getattr(metadata, "export_encoding", None)
     if export is None:
         return {}, None
-    with tempfile.TemporaryDirectory() as scratch:
-        path = Path(scratch) / "encoding.json"
-        export(path)
-        document = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / "encoding.json"
+            export(path)
+            document = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # the record is worth less than the run it would otherwise take down
+        _logger.debug("Encoding record unavailable", exc_info=True)
+        return {}, None
     factors = document.get("factors")
     version = document.get("version")
     return (factors if isinstance(factors, dict) else {}), (version if isinstance(version, int) else None)

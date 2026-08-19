@@ -987,28 +987,75 @@ class TestRenderFactorLineBins:
 
 
 class TestSplitComparability:
-    """Two splits binned independently are not comparable, and the report says so."""
+    """Two splits are comparable when the same code means the same thing in both."""
 
     @staticmethod
-    def _record(digest: str) -> dict[str, object]:
-        return {"encoding_digest": digest, "factors": {}, "dropped": {}}
+    def _split(**factors) -> dict[str, object]:
+        return {"factors": {name: {"encoding": enc} for name, enc in factors.items()}, "dropped": {}}
 
-    def test_matching_digests_read_as_comparable(self):
-        lines = _render_split_comparability({"train": self._record("abc"), "test": self._record("abc")})
+    @staticmethod
+    def _bins(*edges) -> dict[str, object]:
+        return {"kind": "bins", "edges": list(edges), "provenance": "edges", "method": None}
+
+    @staticmethod
+    def _levels(*values) -> dict[str, object]:
+        return {"kind": "levels", "levels": list(values), "provenance": "derived"}
+
+    def test_identical_encodings_read_as_comparable(self):
+        split = self._split(temp_c=self._bins("-inf", 0.0, "inf"))
+        lines = _render_split_comparability({"train": split, "test": split})
         assert any("comparable across them" in line and "NOT" not in line for line in lines)
 
-    def test_differing_digests_are_called_out(self):
-        lines = _render_split_comparability({"train": self._record("abc"), "test": self._record("def")})
+    def test_a_grown_vocabulary_is_still_comparable(self):
+        """Append-only growth leaves every shared code meaning what it meant.
+
+        Reporting this as a disagreement would flag the ordinary case of one split holding
+        a level another lacks, which is the false alarm that teaches people to ignore the
+        true ones.
+        """
+        lines = _render_split_comparability(
+            {
+                "train": self._split(sensor=self._levels("a", "b")),
+                "test": self._split(sensor=self._levels("a", "b", "c")),
+            }
+        )
+        assert any("comparable across them" in line and "NOT" not in line for line in lines)
+
+    def test_a_reordered_vocabulary_is_not_comparable(self):
+        """Same values, different codes — the one thing append-only ordering prevents."""
+        lines = _render_split_comparability(
+            {
+                "train": self._split(sensor=self._levels("a", "b")),
+                "test": self._split(sensor=self._levels("b", "a")),
+            }
+        )
         assert any("NOT comparable" in line for line in lines)
 
-    def test_one_split_says_nothing(self):
-        assert _render_split_comparability({"train": self._record("abc")}) == []
+    def test_different_cuts_are_not_comparable(self):
+        lines = _render_split_comparability(
+            {
+                "train": self._split(temp_c=self._bins("-inf", 0.0, "inf")),
+                "test": self._split(temp_c=self._bins("-inf", 5.0, "inf")),
+            }
+        )
+        assert any("NOT comparable" in line for line in lines)
 
-    def test_a_missing_digest_says_nothing(self):
-        """Silence beats a claim the record cannot support."""
-        record = self._record("abc")
-        record["encoding_digest"] = None
-        assert _render_split_comparability({"train": record, "test": self._record("def")}) == []
+    def test_names_only_the_factors_that_differ(self):
+        lines = _render_split_comparability(
+            {
+                "train": self._split(temp_c=self._bins("-inf", 0.0, "inf"), sensor=self._levels("a")),
+                "test": self._split(temp_c=self._bins("-inf", 5.0, "inf"), sensor=self._levels("a")),
+            }
+        )
+        verdict = next(line for line in lines if "NOT comparable" in line)
+        assert "temp_c" in verdict
+        assert "sensor" not in verdict
+
+    def test_one_split_says_nothing(self):
+        assert _render_split_comparability({"train": self._split(a=self._levels("x"))}) == []
+
+    def test_no_encodings_says_nothing(self):
+        assert _render_split_comparability({"train": self._split(), "test": self._split()}) == []
 
     def test_the_section_carries_the_digest(self):
         section = _render_binning_section({"encoding_digest": "2b6530cc3015f1fe", "factors": {}, "dropped": {}})

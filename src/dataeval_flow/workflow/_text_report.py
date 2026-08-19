@@ -688,23 +688,61 @@ def _render_review_state(record: dict[str, Any]) -> list[str]:
     ]
 
 
+def _encodings_agree(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """Whether two encodings of one factor assign the same meaning to the same codes.
+
+    Not equality.  A vocabulary grows **append-only**: a category the other split never saw
+    takes the next free code and goes on the end, so every code they share still stands for
+    the same value.  Treating that as a disagreement would report the ordinary case of one
+    split holding a level another lacks as *not comparable*, which is both wrong and the
+    kind of false alarm that teaches people to ignore the true ones.
+
+    A cut is different: bin edges have no append, so anything but identical edges means the
+    same code names a different interval.
+    """
+    if a == b:
+        return True
+    if a.get("kind") != b.get("kind") or a.get("kind") != "levels":
+        return False
+    first, second = a.get("levels") or [], b.get("levels") or []
+    shorter, longer = sorted((first, second), key=len)
+    return list(longer[: len(shorter)]) == list(shorter)
+
+
+def _divergent_factors(per_split: dict[str, Any]) -> list[str]:
+    """Factors that do not mean the same thing in every split."""
+    encodings: dict[str, list[dict[str, Any]]] = {}
+    for record in per_split.values():
+        for name, info in (record.get("factors") or {}).items():
+            if encoding := info.get("encoding"):
+                encodings.setdefault(name, []).append(encoding)
+    return sorted(
+        name for name, seen in encodings.items() if any(not _encodings_agree(seen[0], other) for other in seen[1:])
+    )
+
+
 def _render_split_comparability(per_split: dict[str, Any]) -> list[str]:
     """Say whether the splits were read under one encoding, where there is more than one.
 
-    Splits are binned independently, so two splits of one dataset can land on different
-    edges for the same factor.  Their per-factor statistics then sit side by side in one
-    report under different alphabets, which a reader has every reason to compare and no
-    way to know they should not.  The digests are what settle it.
+    Splits encoded independently land on different cuts for the same factor, and their
+    per-factor statistics then sit side by side in one report under different alphabets,
+    which a reader has every reason to compare and no way to know they should not.
     """
-    digests = {name: record.get("encoding_digest") for name, record in per_split.items()}
-    if len(digests) < 2 or any(digest is None for digest in digests.values()):
+    if len(per_split) < 2:
         return []
-    if len(set(digests.values())) == 1:
+    if not any((record.get("factors") or {}) for record in per_split.values()):
+        return []
+
+    divergent = _divergent_factors(per_split)
+    if not divergent:
         return ["", "  Splits share one encoding — factor statistics are comparable across them."]
     return [
         "",
-        "  Splits were encoded differently — factor statistics are NOT comparable across them.",
-        "  Declare cutoffs, or apply one committed encoding to every split.",
+        f"  Splits encode {', '.join(divergent)} differently — statistics on "
+        + ("that factor are" if len(divergent) == 1 else "those factors are")
+        + " NOT comparable across them.",
+        "  Set a metadata policy's `reference_split`, or apply a committed `encoding`, so every",
+        "  split is cut the same way.",
     ]
 
 
