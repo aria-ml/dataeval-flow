@@ -49,6 +49,11 @@
 - `metadata_factor_source` (`coded` / `values` / `auto`) on every workflow that reads metadata, and recorded in the
   result envelope. It selects which representation the bias statistics read, so it moves every number they report —
   two workflows meant to be compared want the same one
+- Result envelopes now carry the warnings DataEval raises, not only its log records. The advice a caller is meant to
+  act on — factors binned with nobody's say-so, a declared cut that has stopped fitting the data, an encoding naming
+  a factor that is not one — is raised with `warnings.warn` rather than logged, so a handler-only collector archived
+  the per-factor footnotes and dropped every finding. Warnings are also no longer lost to the once-per-location
+  registry, which had attributed several workflows to one call site in this package and told only the first
 - Metadata cache entries write a `metadata_{policy_hash}.json` sidecar naming the encoding the archive was built
   under, so a cache directory can be read without loading an archive
 - Data coverage workflow (`data-coverage`) — class balance, metadata factor gaps, ontology findings, and per-class

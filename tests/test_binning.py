@@ -152,6 +152,74 @@ class TestCaptureDiagnostics:
         assert messages == []
 
 
+class TestCapturesLibraryWarnings:
+    """DataEval's most actionable advice is a warning, not a log record.
+
+    A ``NullHandler`` on the ``dataeval`` root logger means log records reach only
+    callers who configured logging, so the aggregated binning advice and the whole
+    encoding-fit report are raised with ``warnings.warn``.  A handler-only collector
+    archived the per-factor footnotes and dropped every one of those findings.
+    """
+
+    @staticmethod
+    def _auto_binned() -> Metadata:
+        md = _metadata()
+        md.factor_info  # noqa: B018 - forces binning, which is what announces
+        return md
+
+    def test_collects_the_auto_binning_advice(self):
+        with capture_diagnostics() as messages:
+            self._auto_binned()
+        assert any("binned automatically" in m for m in messages), messages
+
+    def test_collects_the_occupancy_report(self):
+        """A declared cut that no longer fits is stage 7's whole deliverable."""
+        with capture_diagnostics() as messages:
+            md = Metadata.from_factors(
+                {"elevation": np.full(60, 100.0) + np.arange(60) * 1e-3},
+                continuous_factor_bins={"elevation": [-np.inf, 0.0, 1.0, np.inf]},
+            )
+            md.factor_info  # noqa: B018
+
+        assert any("left bins unused" in m for m in messages), messages
+
+    def test_survives_the_warn_once_registry(self):
+        """Two workflows through one call site must each be told, not just the first.
+
+        ``warnings.warn`` keys its bookkeeping on the frame ``stacklevel`` selects, and
+        DataEval points that at its caller — this package. Without an "always" filter the
+        second workflow's diagnostic is suppressed before anything can record it.
+        """
+        with capture_diagnostics() as first:
+            self._auto_binned()
+        with capture_diagnostics() as second:
+            self._auto_binned()
+
+        assert any("binned automatically" in m for m in first), first
+        assert any("binned automatically" in m for m in second), second
+
+    def test_deduplicates_within_one_block(self):
+        with capture_diagnostics() as messages:
+            self._auto_binned()
+            self._auto_binned()
+        assert sum("binned automatically" in m for m in messages) == 1, messages
+
+    def test_ignores_warnings_from_elsewhere(self):
+        import warnings
+
+        with capture_diagnostics() as messages:
+            warnings.warn("not a library decision", UserWarning, stacklevel=1)
+        assert messages == []
+
+    def test_restores_the_warning_hook_on_exit(self):
+        import warnings
+
+        before = warnings.showwarning
+        with capture_diagnostics():
+            pass
+        assert warnings.showwarning is before
+
+
 class TestGapMiAgreesWithBalance:
     """Gap analysis compares against `gap_mi_threshold`, so its MI must be Balance's.
 

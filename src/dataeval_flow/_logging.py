@@ -1,9 +1,11 @@
 """Logging configuration for the dataeval_flow package."""
 
+import inspect
 import logging
 import os
 import sys
 import time
+import warnings
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -170,11 +172,19 @@ def configure_log_levels(
 
 
 class _DiagnosticCollector(logging.Handler):
-    """Collect library diagnostic records as formatted strings.
+    """Collect library diagnostics as formatted strings, from logs and warnings alike.
+
+    Two sources because DataEval uses two.  The per-factor detail stays on the logger;
+    the advice a caller is meant to act on — which factors were binned with nobody's
+    say-so, where a declared cut no longer fits the data, which encoding named a factor
+    that is not one — is raised with :func:`warnings.warn`, because a ``NullHandler`` on
+    the ``dataeval`` root logger means log records reach only callers who configured
+    logging.  Capturing one and not the other would archive the footnotes and drop the
+    finding.
 
     Deduplicates on the formatted message: DataEval already groups its per-datum
-    warnings by message, but a pipeline running several workflows over one
-    dataset re-raises the same diagnostic per workflow.
+    warnings by message, but a pipeline running several workflows over one dataset
+    re-raises the same diagnostic per workflow.
     """
 
     def __init__(self) -> None:
@@ -182,27 +192,70 @@ class _DiagnosticCollector(logging.Handler):
         self.messages: list[str] = []
         self._seen: set[str] = set()
 
+    def add(self, message: str) -> bool:
+        """Record one message, answering whether it had not been seen before."""
+        if message in self._seen:
+            return False
+        self._seen.add(message)
+        self.messages.append(message)
+        return True
+
     def emit(self, record: logging.LogRecord) -> None:
         try:
             message = f"{record.levelname}: {record.name}: {record.getMessage()}"
         except Exception:  # noqa: BLE001 - a handler must never propagate out of a log call
             return
-        if message not in self._seen:
-            self._seen.add(message)
-            self.messages.append(message)
+        self.add(message)
+
+
+def _library_root() -> str | None:
+    """Directory the diagnostic library's own frames live in, or None if it is absent."""
+    try:
+        library = __import__(_LIB_DIAGNOSTIC_LOGGERS[0])
+        return str(Path(library.__file__).parent) if library.__file__ else None
+    except Exception:  # noqa: BLE001 - no library is a reason to capture nothing, not to fail
+        return None
+
+
+def _raised_within(root: str) -> bool:
+    """Whether any frame below this one belongs to *root*.
+
+    The filename ``showwarning`` is handed is the *caller's*, not the library's: DataEval
+    computes a ``stacklevel`` that points at the first frame outside itself, deliberately,
+    so that "warn once" is keyed per calling site.  That makes the filename useless for
+    telling its warnings from NumPy's, and the stack the only place the answer survives.
+    ``warn`` calls ``showwarning`` synchronously, so the frames that raised it are still
+    below this one.
+    """
+    frame = inspect.currentframe()
+    while frame is not None:
+        if frame.f_code.co_filename.startswith(root):
+            return True
+        frame = frame.f_back
+    return False
 
 
 @contextmanager
 def capture_diagnostics() -> "Iterator[list[str]]":
     """Collect library diagnostics emitted inside the block.
 
-    DataEval reports the decisions it makes on the caller's behalf — which
-    factors it binned and with what edges, which arrays it could not resolve a
-    ``value_range`` for — only as log records.  Those reach the console and the
-    log file but not the result envelope, so a result archived on its own cannot
-    say whether a statistic came back ``NaN`` because the data said so or
-    because nothing declared a range.  Capturing them here lets the envelope
-    carry the answer.
+    DataEval reports the decisions it makes on the caller's behalf — which factors it
+    binned and with what edges, where a declared cut has stopped fitting the data, which
+    arrays it could not resolve a ``value_range`` for — as log records and as warnings.
+    Neither reaches the result envelope on its own, so a result archived alone cannot say
+    whether a statistic came back ``NaN`` because the data said so or because nothing
+    declared a range.  Capturing both here lets the envelope carry the answer.
+
+    Warnings are re-emitted as they arrive, so a user watching the console still sees
+    them — once each, which is what they saw before.
+
+    ``simplefilter("always")`` is load-bearing rather than tidy.  :func:`warnings.warn`
+    keeps its once-per-location bookkeeping in the globals of the frame its
+    ``stacklevel`` selects, and DataEval points that at *its caller* — which is this
+    package.  Two workflows building metadata through one line of flow therefore share a
+    registry entry, and the second one's diagnostic would be suppressed before anything
+    could record it, leaving its envelope quietly missing a finding that applies to it.
+    Deduplication happens here instead, where it is per message rather than per line.
 
     Yields
     ------
@@ -214,11 +267,28 @@ def capture_diagnostics() -> "Iterator[list[str]]":
     loggers = [logging.getLogger(name) for name in _LIB_DIAGNOSTIC_LOGGERS]
     for logger in loggers:
         logger.addHandler(collector)
-    try:
-        yield collector.messages
-    finally:
-        for logger in loggers:
-            logger.removeHandler(collector)
+
+    root = _library_root()
+
+    with warnings.catch_warnings():
+        # Restored on exit along with showwarning, both by catch_warnings itself.
+        warnings.simplefilter("always")
+        previous = warnings.showwarning
+
+        def _show(message, category, filename, lineno, file=None, line=None) -> None:  # noqa: ANN001
+            ours = root is not None and issubclass(category, UserWarning) and _raised_within(root)
+            recorded = collector.add(f"{category.__name__}: {_LIB_DIAGNOSTIC_LOGGERS[0]}: {message}") if ours else False
+            # Shown unless it is a repeat this block has already recorded, so the console
+            # keeps the once-each behaviour the default filter gave it.
+            if recorded or not ours:
+                previous(message, category, filename, lineno, file, line)
+
+        warnings.showwarning = _show
+        try:
+            yield collector.messages
+        finally:
+            for logger in loggers:
+                logger.removeHandler(collector)
 
 
 def flush_logs() -> None:
