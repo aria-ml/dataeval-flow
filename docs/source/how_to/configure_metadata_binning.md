@@ -60,6 +60,41 @@ Everything a policy says is checked before the dataset is read, so a mistake cos
 | One factor named by both `encoding` and `continuous_factor_bins` | Error |
 | `strict: true` over a descriptor with unreviewed vocabularies | Error, naming them (see below) |
 
+### Get a descriptor out of a run
+
+The descriptor is not something to write by hand. Every run records the encoding it used, and a run with `-o` writes
+it beside the results:
+
+```text
+output/results/
+  result.json      # the record, per factor
+  result.txt
+  encoding.json    # the same record, as the artifact you commit
+```
+
+Any archived `result.json` yields one too, which matters because the case where pinning an encoding is worth doing is
+usually noticed weeks after the run:
+
+```console
+dataeval-flow encoding output/results/result.json -o policy/factor_bins.json
+git add policy/factor_bins.json
+```
+
+Then reference it, and every later run is cut the same way:
+
+```yaml
+metadata:
+  - name: standard
+    encoding: policy/factor_bins.json
+```
+
+Review it before committing. `provenance` is the field to read — an entry still saying `derived` is one nobody has
+looked at, and pinning it locks in a cut DataEval chose from one sample. Editing `provenance` to `accepted` is how
+you say you read it and it is right, and it is what lets `strict` be set later.
+
+A run whose tasks encoded the dataset differently writes no `encoding.json`, because no single descriptor describes
+it; pass `--task <name>` to take one. Splits work the same way — see `reference_split`.
+
 ### Apply a committed encoding
 
 `encoding` points at a descriptor — the artifact `dataeval-flow encoding` writes — held under the data root and

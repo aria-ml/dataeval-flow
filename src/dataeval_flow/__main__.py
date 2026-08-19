@@ -90,6 +90,34 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Directory for disk-backed computation cache (embeddings, metadata, stats).",
     )
 
+    # --- encoding (extract a committable descriptor from a result) ---
+    encoding_parser = subparsers.add_parser(
+        "encoding",
+        help="Write the encoding descriptor a result was computed under",
+        description=(
+            "Extract the encoding descriptor from an archived result.json and write it "
+            "where it can be reviewed and committed. Reference it from a metadata policy's "
+            "`encoding` to cut a later dataset the same way."
+        ),
+    )
+    encoding_parser.add_argument(
+        "result",
+        type=Path,
+        help="Path to a result.json written by a run",
+    )
+    encoding_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
+        help="Where to write the descriptor (default: print it)",
+    )
+    encoding_parser.add_argument(
+        "--task",
+        default=None,
+        help="Which task's encoding to extract, when the result holds several that differ",
+    )
+
     # --- config (simple CLI builder) ---
     config_parser = subparsers.add_parser(
         "config",
@@ -131,6 +159,11 @@ def main() -> NoReturn:
 
         run_builder(config_path=args.config, data_dir=args.data, cache_dir=args.cache)
         sys.exit(0)
+
+    if args.command == "encoding":
+        from dataeval_flow._encoding_cli import write_encoding
+
+        sys.exit(write_encoding(args.result, args.output, args.task))
 
     if args.command == "config":
         from dataeval_flow._app.cli import run_cli_builder

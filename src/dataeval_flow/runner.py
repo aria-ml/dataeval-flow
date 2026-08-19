@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json as json_mod
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -85,6 +86,7 @@ def run(
     failures = 0
     merged: dict[str, dict] = {}
     text_parts: list[str] = []
+    binning: dict[str, dict] = {}
 
     for task, result in zip(config.tasks, results, strict=True):
         if not result.success:
@@ -101,19 +103,65 @@ def run(
         # --- Collect for file output ---
         merged[task.name] = result.to_dict()
         text_parts.append(result.report(detailed=True))
+        if record := getattr(result.metadata, "metadata_binning", None):
+            binning[task.name] = record
 
         _logger.info("  OK: %s", task.name)
         flush_logs()
 
     # --- Write file artifacts (only when output_dir is set) ---
     if output_dir is not None and merged:
-        import json as json_mod
-
         results_dir = output_dir / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
         (results_dir / "result.json").write_text(json_mod.dumps(merged, indent=2), encoding="utf-8")
         (results_dir / "result.txt").write_text("\n".join(text_parts), encoding="utf-8")
         _logger.info("  Wrote result.json and result.txt to %s", results_dir)
+        _write_encoding_descriptor(binning, results_dir)
 
     _logger.info("Done. %d/%d succeeded.", len(config.tasks) - failures, len(config.tasks))
     return 1 if failures else 0
+
+
+def _write_encoding_descriptor(binning: dict[str, dict], results_dir: Path) -> None:
+    """Write the run's encoding descriptor beside its results, when there is one to write.
+
+    The artifact stage six of the lifecycle asks for: lock the encoding in, commit it, and
+    hand it back through a policy's ``encoding`` so the next dataset is cut the same way.
+    Writing it here makes that a copy rather than a transcription from a report.
+
+    Only where the tasks agree.  A run whose workflows encoded a dataset differently has no
+    single descriptor, and writing one of them would hand somebody a policy nobody chose —
+    ``dataeval-flow encoding <result.json> --task <name>`` extracts a specific one instead.
+
+    Never fatal: the descriptor is a convenience, and ``result.json`` already carries every
+    record it is built from.
+    """
+    from dataeval_flow.binning import descriptor_from_record
+
+    def _descriptor(name: str, record: dict) -> dict | None:
+        """One task's descriptor, or None where it has none to give."""
+        try:
+            return descriptor_from_record(record)
+        except ValueError as exc:  # nothing to write, or splits that disagree
+            _logger.debug("  No encoding descriptor for task '%s': %s", name, exc)
+            return None
+
+    descriptors = {
+        name: descriptor for name, record in binning.items() if (descriptor := _descriptor(name, record)) is not None
+    }
+
+    if not descriptors:
+        return
+
+    distinct = {json_mod.dumps(d, sort_keys=True) for d in descriptors.values()}
+    if len(distinct) > 1:
+        _logger.warning(
+            "  Tasks %s encoded their factors differently, so no single encoding.json was "
+            "written. Extract one with `dataeval-flow encoding <result.json> --task <name>`.",
+            sorted(descriptors),
+        )
+        return
+
+    path = results_dir / "encoding.json"
+    path.write_text(json_mod.dumps(next(iter(descriptors.values())), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _logger.info("  Wrote encoding.json to %s — commit it and reference it as a policy `encoding`", results_dir)

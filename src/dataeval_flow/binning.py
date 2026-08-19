@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config.schemas._metadata import ResultMetadata
     from dataeval_flow.workflow.base import MetadataConfigMixin
 
-__all__ = ["attach_binning", "describe_binning"]
+__all__ = ["attach_binning", "descriptor_from_record", "describe_binning", "write_descriptor"]
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def _default_factor_source() -> str | None:
         return None
 
 
-def _descriptor(metadata: "Metadata") -> dict[str, dict[str, Any]]:
+def _descriptor(metadata: "Metadata") -> tuple[dict[str, dict[str, Any]], int | None]:
     """Every factor's encoding, as the committed descriptor spells it.
 
     Round-tripped through ``Metadata.export_encoding`` rather than rendered here.  That
@@ -87,18 +87,24 @@ def _descriptor(metadata: "Metadata") -> dict[str, dict[str, Any]]:
     here would give the envelope, the cache sidecar and a committed descriptor three
     chances to disagree about what the same record is.
 
+    The format version travels back with the factors and is recorded rather than assumed.
+    A descriptor written from this envelope has to say which format it is — that is the
+    whole point of the field — and the number belongs to DataEval, so reading it off what
+    DataEval just wrote is the only spelling that stays true when it changes.
+
     Best effort: a release that cannot write one costs the policy half of the record, and
     the caller still gets ``fit``.
     """
     export = getattr(metadata, "export_encoding", None)
     if export is None:
-        return {}
+        return {}, None
     with tempfile.TemporaryDirectory() as scratch:
         path = Path(scratch) / "encoding.json"
         export(path)
         document = json.loads(path.read_text(encoding="utf-8"))
     factors = document.get("factors")
-    return factors if isinstance(factors, dict) else {}
+    version = document.get("version")
+    return (factors if isinstance(factors, dict) else {}), (version if isinstance(version, int) else None)
 
 
 def _code_names(metadata: "Metadata") -> dict[str, dict[str, str]]:
@@ -258,8 +264,8 @@ def describe_binning(
     -------
     dict
         JSON-serializable record with ``auto_bin_method``, ``encoding_digest``,
-        ``factor_source``, ``requested_bins``, ``excluded``, per-factor ``factors``,
-        and ``dropped``.
+        ``descriptor_version``, ``factor_source``, ``requested_bins``, ``excluded``,
+        per-factor ``factors``, and ``dropped``.
         Each factor carries its ``encoding`` (the policy) and its ``fit`` (what
         this run's rows did against it) — see the module docstring.
 
@@ -289,7 +295,8 @@ def describe_binning(
     # One frame per level, fetched once — rows_at() materializes a frame per call.
     rows_by_level: dict[str, pl.DataFrame] = {}
 
-    encodings = _descriptor(metadata)
+    encodings, descriptor_version = _descriptor(metadata)
+    record["descriptor_version"] = descriptor_version
     names = _code_names(metadata)
 
     for name, info in factor_info.items():
@@ -363,3 +370,72 @@ def _common_digest(records: "Iterable[Mapping[str, Any]]") -> str | None:
         return None
     only = digests.pop()
     return str(only) if only is not None else None
+
+
+def descriptor_from_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Render a binning record back into the descriptor a person commits.
+
+    Stage six of the lifecycle: lock the encoding in and put it under review.  The record
+    is where this comes from rather than a live ``Metadata``, because the artifact has to
+    be obtainable from a result somebody archived weeks ago — which is the case where
+    pinning an encoding actually matters, and the one where re-running to get it is the
+    thing you are trying to avoid.
+
+    Byte-compatible with :meth:`dataeval.Metadata.export_encoding` by construction: the
+    per-factor entries are exactly what that writer produced, carried through the envelope
+    untouched.  So what comes out here is what goes back in through a policy's
+    ``encoding``.
+
+    Parameters
+    ----------
+    record : Mapping
+        One ``metadata_binning`` record — either a single run's or one split's.
+
+    Returns
+    -------
+    dict
+        ``{"version": ..., "factors": {...}}``.
+
+    Raises
+    ------
+    ValueError
+        When the record carries no encodings at all, or when it holds several splits that
+        were not encoded alike — there is no single descriptor to write for those, and
+        writing one of them would silently pick a policy nobody chose.
+    """
+    if "per_split" in record:
+        record = _one_split(record["per_split"])
+
+    factors = {
+        name: entry["encoding"] for name, entry in (record.get("factors") or {}).items() if entry.get("encoding")
+    }
+    if not factors:
+        raise ValueError(
+            "This result records no encodings, so there is no descriptor to write. Only a "
+            "workflow that builds metadata produces one.",
+        )
+    version = record.get("descriptor_version")
+    return {"version": version if isinstance(version, int) else 1, "factors": factors}
+
+
+def _one_split(per_split: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any]:
+    """The single encoding a multi-split result ran under, or a refusal naming the problem."""
+    digests = {name: split.get("encoding_digest") for name, split in per_split.items()}
+    if len(set(digests.values())) > 1:
+        raise ValueError(
+            f"These splits were encoded differently ({digests}), so no one descriptor "
+            "describes the run. Give every split the same encoding — set a policy's "
+            "`reference_split`, or apply a committed `encoding` — and re-run.",
+        )
+    return next(iter(per_split.values()))
+
+
+def write_descriptor(record: Mapping[str, Any], path: "str | Path") -> None:
+    """Write the descriptor for one binning record, for review and for committing.
+
+    JSON with sorted keys and a fixed indent, matching what DataEval writes, so that the
+    same encoding produces the same bytes and a change to one factor reads as a change to
+    one factor in a pull request.
+    """
+    document = json.dumps(descriptor_from_record(record), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    Path(path).write_text(document, encoding="utf-8")

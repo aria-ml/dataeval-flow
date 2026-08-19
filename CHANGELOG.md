@@ -63,6 +63,13 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- `dataeval-flow encoding <result.json>` writes the encoding descriptor a result was computed under, ready to review
+  and commit. A run with `-o` also writes `results/encoding.json` beside its results, so locking an encoding in is a
+  copy rather than a transcription from a report. Both are byte-identical to what `Metadata.export_encoding` writes,
+  and both come from the archived record rather than a live object — which is what makes the artifact obtainable from
+  a result kept weeks ago, the case where pinning an encoding is actually worth doing
+- Result envelopes record `descriptor_version`, read from what DataEval wrote rather than assumed, so a descriptor
+  rendered from an archived result says which format it is
 - Top-level `metadata:` key defining named metadata policies, referenced by workflows the way `datasets`, `views`,
   `sources` and `extractors` already are. A policy carries `encoding`, `factor_levels`, `strict`, `auto_bin_method`,
   `exclude`, `continuous_factor_bins`, `factor_source` and `reference_split`. Defined once and shared, because the

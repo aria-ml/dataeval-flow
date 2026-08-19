@@ -75,3 +75,54 @@ class TestResolveConfig:
 
         mock_load.assert_called_once_with(tmp_path / "my_config.yaml")
         assert result is dummy_config
+
+
+class TestWriteEncodingDescriptor:
+    """A run writes the descriptor its results were computed under, beside them."""
+
+    @staticmethod
+    def _record(digest: str, edges: list) -> dict:
+        return {
+            "encoding_digest": digest,
+            "descriptor_version": 1,
+            "factors": {
+                "temp_c": {"encoding": {"kind": "bins", "edges": edges, "provenance": "edges", "method": None}}
+            },
+        }
+
+    def test_writes_one_when_the_tasks_agree(self, tmp_path: Path):
+        from dataeval_flow.runner import _write_encoding_descriptor
+
+        record = self._record("abc", ["-inf", 0.0, "inf"])
+        _write_encoding_descriptor({"a": record, "b": record}, tmp_path)
+
+        import json
+
+        written = json.loads((tmp_path / "encoding.json").read_text())
+        assert written["factors"]["temp_c"]["edges"] == ["-inf", 0.0, "inf"]
+        assert written["version"] == 1
+
+    def test_writes_nothing_when_the_tasks_disagree(self, tmp_path: Path, caplog):
+        """Writing one of them would hand somebody a policy nobody chose."""
+        from dataeval_flow.runner import _write_encoding_descriptor
+
+        _write_encoding_descriptor(
+            {"a": self._record("abc", ["-inf", 0.0, "inf"]), "b": self._record("def", ["-inf", 5.0, "inf"])},
+            tmp_path,
+        )
+
+        assert not (tmp_path / "encoding.json").exists()
+        assert "dataeval-flow encoding" in caplog.text
+
+    def test_writes_nothing_when_no_task_built_metadata(self, tmp_path: Path):
+        from dataeval_flow.runner import _write_encoding_descriptor
+
+        _write_encoding_descriptor({}, tmp_path)
+        assert not (tmp_path / "encoding.json").exists()
+
+    def test_a_record_with_no_encodings_is_skipped_quietly(self, tmp_path: Path):
+        """Never fatal: result.json already carries every record it is built from."""
+        from dataeval_flow.runner import _write_encoding_descriptor
+
+        _write_encoding_descriptor({"a": {"factors": {}}}, tmp_path)
+        assert not (tmp_path / "encoding.json").exists()
