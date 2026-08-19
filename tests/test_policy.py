@@ -152,9 +152,44 @@ class TestStrictMustBeEarned:
         config = _config(encoding="policy.json", strict=True)
         assert resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path).strict is True
 
-    def test_strict_without_a_descriptor_is_left_alone(self):
-        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(strict=True))
+    def test_strict_declaring_a_vocabulary_directly_is_allowed(self):
+        """`factor_levels` is a declaration, so there is something strict can honestly close."""
+        config = _config(strict=True, factor_levels={"weather": ["clear", "rain"]})
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config)
         assert policy.strict is True
+
+    def test_strict_declaring_nothing_at_all_is_refused(self):
+        """The same rule as a derived descriptor, for the spelling that names no descriptor.
+
+        With neither channel set, every vocabulary strict closes is one DataEval cut from
+        this draw — the state `_check_strict_is_earned` exists to refuse. Left alone, it
+        fails the run on the first category the sample happened to miss.
+        """
+        with pytest.raises(ValueError, match="declares no vocabulary"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), _config(strict=True))
+
+
+class TestDoubleDeclaration:
+    """A factor declared through two channels is refused before the data is read."""
+
+    def test_encoding_and_bins_conflict(self, tmp_path: Path):
+        _descriptor(tmp_path, _DECLARED_BINS)
+        config = _config(encoding="policy.json", continuous_factor_bins={"temp_c": 4})
+        with pytest.raises(ValueError, match="both `encoding` and `continuous_factor_bins`"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+
+    def test_encoding_and_factor_levels_conflict(self, tmp_path: Path):
+        """DataEval refuses this too, halfway through a run. Refused here instead."""
+        _descriptor(tmp_path, _REVIEWED_LEVELS)
+        config = _config(encoding="policy.json", factor_levels={"weather": ["clear", "rain"]})
+        with pytest.raises(ValueError, match="both `encoding` and `factor_levels`"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+
+    def test_bins_and_factor_levels_conflict(self):
+        """Refused with no descriptor in play at all — the check is not gated on one."""
+        config = _config(continuous_factor_bins={"temp_c": 4}, factor_levels={"temp_c": [1, 2]})
+        with pytest.raises(ValueError, match="both `continuous_factor_bins` and `factor_levels`"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config)
 
 
 class TestPolicyKey:
@@ -269,3 +304,72 @@ class TestDeriveFrom:
 
     def test_a_container_with_no_record_is_left_alone(self):
         assert self._derived(object()) == ResolvedPolicy()
+
+
+class TestMetadataKwargsForLoad:
+    """`Metadata.load` and `Metadata(...)` do not take the same arguments."""
+
+    def test_factor_levels_is_construction_only(self):
+        """Passing it to `load` is a TypeError the cache swallows as a permanent miss."""
+        import inspect
+
+        from dataeval import Metadata
+
+        policy = ResolvedPolicy(factor_levels={"weather": ["clear", "rain"]})
+        assert "factor_levels" in policy.metadata_kwargs()
+        assert "factor_levels" not in policy.metadata_kwargs(for_load=True)
+        assert "factor_levels" not in inspect.signature(Metadata.load).parameters
+
+    def test_every_load_kwarg_is_one_load_accepts(self):
+        """Derived rather than listed, so a future field cannot reintroduce the same break."""
+        import inspect
+
+        from dataeval import Metadata
+
+        policy = ResolvedPolicy(
+            auto_bin_method="clusters",
+            exclude=("id",),
+            continuous_factor_bins={"temp_c": 4},
+            factor_levels={"weather": ["clear"]},
+            strict=True,
+        )
+        accepted = set(inspect.signature(Metadata.load).parameters)
+        assert set(policy.metadata_kwargs(for_load=True)) <= accepted
+
+
+class TestDerivedPolicyDoesNotCloseUnreviewedVocabularies:
+    """`strict` over cuts DataEval derived from the reference split's draw fails the run."""
+
+    def test_strict_is_dropped_when_a_derived_vocabulary_rides_along(self, caplog):
+        import logging as _logging
+
+        import numpy as np
+        from dataeval import Metadata
+
+        from dataeval_flow.policy import derive_from
+
+        rng = np.random.default_rng(0)
+        reference = Metadata.from_factors(
+            {"sensor": rng.choice(["a", "b"], 40), "temp_c": rng.normal(0.0, 1.0, 40)},
+        )
+        with caplog.at_level(_logging.WARNING, logger="dataeval_flow.policy"):
+            derived = derive_from(ResolvedPolicy(strict=True), reference, None)
+
+        assert derived.strict is False
+        explained = next(r.getMessage() for r in caplog.records if r.name == "dataeval_flow.policy")
+        assert "'sensor'" in explained  # the vocabulary nobody reviewed
+        assert "temp_c" not in explained  # a cut, not a vocabulary
+
+    def test_strict_survives_where_every_vocabulary_was_reviewed(self):
+        import numpy as np
+        from dataeval import Metadata
+
+        from dataeval_flow.policy import derive_from
+
+        rng = np.random.default_rng(0)
+        reference = Metadata.from_factors(
+            {"sensor": rng.choice(["a", "b"], 40)},
+            factor_levels={"sensor": ["a", "b"]},
+        )
+        derived = derive_from(ResolvedPolicy(strict=True), reference, None)
+        assert derived.strict is True

@@ -464,16 +464,28 @@ class TestConfigState:
 
 class TestConstants:
     def test_sections_coverage(self):
-        assert len(SECTIONS) == 7
         assert set(SECTION_KEYS) == {
             "datasets",
             "preprocessors",
             "views",
             "sources",
             "extractors",
+            "metadata",
             "workflows",
             "tasks",
         }
+        assert len(SECTIONS) == len(SECTION_KEYS)
+
+    def test_sections_cover_every_named_pool(self):
+        """Every named pool PipelineConfig declares has a section, or the builder drops it.
+
+        Derived rather than listed: the builder round-trips a config through SECTION_KEYS,
+        so a pool missing here is silently deleted on save while the workflows referencing
+        it keep their references — a config that no longer loads, with nothing said.
+        """
+        from dataeval_flow._app._model._registry import SECTION_MODELS, VARIANT_REGISTRY
+
+        assert set(SECTION_MODELS) | set(VARIANT_REGISTRY) == set(SECTION_KEYS)
 
     def test_variant_registry_keys(self):
         assert set(VARIANT_REGISTRY) == {"datasets", "extractors", "workflows"}

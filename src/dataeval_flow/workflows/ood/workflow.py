@@ -256,14 +256,19 @@ def _extract_metadata_factors(
             if dc.cache is not None:
                 sel_key = selection_repr(dataset)
                 stack.enter_context(active_cache(dc.cache, sel_key))
-            metadata = get_or_compute_metadata(dataset, policy if policy is not None else resolve_policy(params))
+            effective = policy if policy is not None else resolve_policy(params)
+            metadata = get_or_compute_metadata(dataset, effective)
         if binning_sink is not None:
             try:
+                # From the resolved policy, not the workflow's `metadata_*` fields: naming a
+                # policy leaves those empty, and the record would then state an exclusion
+                # list and a factor source the run did not use.
                 binning_sink.update(
                     describe_binning(
                         metadata,
-                        excluded=list(params.metadata_exclude) if params.metadata_exclude else None,
-                        requested_bins=params.metadata_continuous_factor_bins,
+                        excluded=list(effective.exclude) or None,
+                        requested_bins=dict(effective.continuous_factor_bins) or None,
+                        factor_source=effective.factor_source,
                     )
                 )
             except Exception:
@@ -759,6 +764,10 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
             metadata_insights_enabled=params.metadata_insights and bool(ood_indices),
         )
         result_metadata.metadata_binning = metadata_binning
+        # Stamped here rather than left None: `encoding_digest` is what says whether two
+        # archived results were read under the same cuts, and a workflow that records a
+        # binning record but no digest cannot answer that.
+        result_metadata.encoding_digest = metadata_binning.get("encoding_digest") if metadata_binning else None
 
         return WorkflowResult(
             name=self.name,

@@ -1051,6 +1051,36 @@ class TestSplitComparability:
         assert "temp_c" in verdict
         assert "sensor" not in verdict
 
+    def test_three_splits_that_each_extend_a_third_are_not_comparable(self):
+        """Append-only agreement is not transitive, and comparing only to the first misses it.
+
+        `test` and `val` each merely extend `train`, so pairwise-against-the-first says
+        comparable — while code 1 means `b` in one and `c` in the other, which is the exact
+        false reassurance this section exists to prevent.
+        """
+        lines = _render_split_comparability(
+            {
+                "train": self._split(sensor=self._levels("a")),
+                "test": self._split(sensor=self._levels("a", "b")),
+                "val": self._split(sensor=self._levels("a", "c")),
+            }
+        )
+        assert any("NOT comparable" in line for line in lines)
+
+    def test_a_grown_vocabulary_does_not_claim_one_shared_digest(self):
+        """The line must not contradict the `encoding_digest` printed above it.
+
+        Growth appends, so the codes still agree — but the digests differ and the envelope's
+        `encoding_digest` is then None. Saying "share one encoding" over that is a report
+        disagreeing with its own record.
+        """
+        train = {**self._split(sensor=self._levels("a", "b")), "encoding_digest": "aaaa"}
+        test = {**self._split(sensor=self._levels("a", "b", "c")), "encoding_digest": "bbbb"}
+        lines = _render_split_comparability({"train": train, "test": test})
+
+        assert any("comparable" in line and "NOT" not in line for line in lines)
+        assert not any("share one encoding" in line for line in lines)
+
     def test_one_split_says_nothing(self):
         assert _render_split_comparability({"train": self._split(a=self._levels("x"))}) == []
 

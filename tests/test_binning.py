@@ -12,6 +12,7 @@ from dataeval import Metadata
 from dataeval_flow._logging import capture_diagnostics
 from dataeval_flow.binning import attach_binning, describe_binning
 from dataeval_flow.config.schemas._metadata import ResultMetadata
+from dataeval_flow.policy import ResolvedPolicy
 from dataeval_flow.workflow.base import MetadataConfigMixin
 
 
@@ -29,7 +30,12 @@ def _metadata(n: int = 60, **kwargs: Any) -> Metadata:
 
 
 class _Params(MetadataConfigMixin):
-    """Minimal params carrier for attach_binning."""
+    """Minimal params carrier, for the fields that still live on a workflow."""
+
+
+def _policy(**kwargs) -> ResolvedPolicy:
+    """The resolved policy attach_binning records from."""
+    return ResolvedPolicy(**kwargs)
 
 
 class TestDescribeBinning:
@@ -158,20 +164,20 @@ class TestDescribeBinning:
 class TestAttachBinning:
     def test_attaches_single_record(self):
         meta = ResultMetadata()
-        attach_binning(meta, _metadata(), _Params())
+        attach_binning(meta, _metadata(), _policy())
         assert meta.metadata_binning is not None
         assert "elevation" in meta.metadata_binning["factors"]
 
     def test_attaches_per_split_record(self):
         meta = ResultMetadata()
-        attach_binning(meta, {"train": _metadata(), "test": _metadata()}, _Params())
+        attach_binning(meta, {"train": _metadata(), "test": _metadata()}, _policy())
         assert meta.metadata_binning is not None
         assert set(meta.metadata_binning["per_split"]) == {"train", "test"}
 
     def test_forwards_configured_exclusions_and_bins(self):
         meta = ResultMetadata()
-        params = _Params(metadata_exclude=["id"], metadata_continuous_factor_bins={"elevation": 5})
-        attach_binning(meta, _metadata(continuous_factor_bins={"elevation": 5}), params)
+        policy = _policy(exclude=("id",), continuous_factor_bins={"elevation": 5})
+        attach_binning(meta, _metadata(continuous_factor_bins={"elevation": 5}), policy)
         assert meta.metadata_binning is not None
         assert meta.metadata_binning["excluded"] == ["id"]
         # What was asked for, alongside what it resolved to.
@@ -183,7 +189,7 @@ class TestAttachBinning:
         meta = ResultMetadata()
         broken = object()
         with caplog.at_level(logging.WARNING):
-            attach_binning(meta, broken, _Params())  # type: ignore[arg-type]
+            attach_binning(meta, broken, _policy())  # type: ignore[arg-type]
         assert meta.metadata_binning is None
         assert "Binning record unavailable" in caplog.text
 
@@ -218,7 +224,7 @@ class TestEncodingDigest:
 
     def test_single_metadata_stamps_its_digest(self):
         meta = ResultMetadata()
-        attach_binning(meta, _metadata(), MetadataConfigMixin())
+        attach_binning(meta, _metadata(), _policy())
         assert meta.metadata_binning is not None
         assert meta.encoding_digest
         assert meta.encoding_digest == meta.metadata_binning["encoding_digest"]
@@ -227,18 +233,18 @@ class TestEncodingDigest:
         """The digest covers the policy, so it does not move when only the data does."""
         declared = {"elevation": [-np.inf, 90.0, 110.0, np.inf]}
         first, second = ResultMetadata(), ResultMetadata()
-        attach_binning(first, _metadata(continuous_factor_bins=declared), MetadataConfigMixin())
-        attach_binning(second, _metadata(n=120, continuous_factor_bins=declared), MetadataConfigMixin())
+        attach_binning(first, _metadata(continuous_factor_bins=declared), _policy())
+        attach_binning(second, _metadata(n=120, continuous_factor_bins=declared), _policy())
 
         assert first.encoding_digest == second.encoding_digest
 
     def test_a_declared_cut_changes_the_digest(self):
         plain, declared = ResultMetadata(), ResultMetadata()
-        attach_binning(plain, _metadata(), MetadataConfigMixin())
+        attach_binning(plain, _metadata(), _policy())
         attach_binning(
             declared,
             _metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}),
-            MetadataConfigMixin(),
+            _policy(),
         )
         assert plain.encoding_digest != declared.encoding_digest
 
@@ -251,7 +257,7 @@ class TestEncodingDigest:
                 "train": _metadata(continuous_factor_bins=declared),
                 "test": _metadata(n=120, continuous_factor_bins=declared),
             },
-            MetadataConfigMixin(),
+            _policy(),
         )
         assert meta.encoding_digest
 
@@ -264,7 +270,7 @@ class TestEncodingDigest:
                 "train": _metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}),
                 "test": _metadata(continuous_factor_bins={"elevation": [-np.inf, 50.0, np.inf]}),
             },
-            MetadataConfigMixin(),
+            _policy(),
         )
         assert meta.encoding_digest is None
         # The per-split records still say what each one ran under.
@@ -365,6 +371,46 @@ class TestCapturesLibraryWarnings:
         assert warnings.showwarning is before
 
 
+class TestAttributingWarnings:
+    """This package installs beside the library it captures diagnostics for."""
+
+    def test_a_sibling_package_is_not_the_library(self, monkeypatch: pytest.MonkeyPatch):
+        """`site-packages/dataeval_flow/...` must not match the `site-packages/dataeval` root.
+
+        A bare prefix test matches it — and since the matcher's own frame lives in this
+        package, every UserWarning raised anywhere inside a run would be archived as
+        DataEval's and deduped off the console.
+        """
+        import warnings as _warnings
+        from pathlib import Path as _Path
+
+        from dataeval_flow._logging import _library_root, _raised_within
+
+        root = _library_root()
+        assert root is not None
+        assert root.endswith(("/", "\\"))
+        assert not str(_Path(__file__)).startswith(root)
+
+        with capture_diagnostics() as diagnostics:
+            _warnings.warn("somebody else's warning", UserWarning, stacklevel=1)
+        assert diagnostics == []
+        assert not _raised_within(root)
+
+    def test_a_third_party_warning_still_shows_once(self, monkeypatch: pytest.MonkeyPatch):
+        """The capture filter must not turn a per-sample library warning into per-sample output."""
+        import warnings as _warnings
+
+        seen: list[str] = []
+        monkeypatch.setattr(
+            "warnings.showwarning",
+            lambda message, *_args, **_kwargs: seen.append(str(message)),
+        )
+        with capture_diagnostics():
+            for _ in range(5):
+                _warnings.warn("noisy dependency", UserWarning, stacklevel=1)
+        assert seen == ["noisy dependency"]
+
+
 class TestGapMiAgreesWithBalance:
     """Gap analysis compares against `gap_mi_threshold`, so its MI must be Balance's.
 
@@ -451,9 +497,9 @@ class TestRecordsFactorSource:
 
         assert record["factor_source"] == Balance().factor_source
 
-    def test_attach_carries_it_from_params(self):
+    def test_attach_carries_it_from_the_resolved_policy(self):
+        """From the policy, not the workflow's fields: naming a policy leaves those empty."""
         result_metadata = ResultMetadata()
-        params = MetadataConfigMixin(metadata_factor_source="values")
-        attach_binning(result_metadata, _metadata(), params)
+        attach_binning(result_metadata, _metadata(), _policy(factor_source="values"))
         assert result_metadata.metadata_binning is not None
         assert result_metadata.metadata_binning["factor_source"] == "values"

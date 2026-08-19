@@ -49,11 +49,27 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
 
     from dataeval_flow.binning import descriptor_from_record
 
-    rendered = {name: json.dumps(descriptor_from_record(record), sort_keys=True) for name, record in records.items()}
+    def _rendered(name: str, record: Any) -> str | None:
+        """One task's descriptor as bytes, or None where it has none to write."""
+        try:
+            return json.dumps(descriptor_from_record(record), sort_keys=True)
+        except ValueError:
+            _logger.debug("Task %r records no descriptor", name, exc_info=True)
+            return None
+
+    # A task whose record yields no descriptor is skipped rather than fatal: it says
+    # nothing about whether the rest agree, and refusing on it would make one task without
+    # an encoding hide every task that has one.
+    rendered = {name: text for name, record in records.items() if (text := _rendered(name, record)) is not None}
+    if not rendered:
+        raise ValueError(
+            "This result records no encodings. Only a workflow that builds metadata "
+            "produces one — data-analysis, data-cleaning, data-coverage or ood-detection.",
+        )
     if len(set(rendered.values())) == 1:
-        return next(iter(records.values()))
+        return records[next(iter(rendered))]
     raise ValueError(
-        f"Tasks {sorted(records)} were encoded differently, so no one descriptor describes "
+        f"Tasks {sorted(rendered)} were encoded differently, so no one descriptor describes "
         "this result. Name the one you want with --task.",
     )
 

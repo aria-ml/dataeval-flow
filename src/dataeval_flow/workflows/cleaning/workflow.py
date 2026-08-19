@@ -20,7 +20,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.policy import policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
-from dataeval_flow.workflow.base import MetadataConfigMixin, Reportable
+from dataeval_flow.workflow.base import Reportable
 from dataeval_flow.workflows.cleaning._internal import (
     _compute_embeddings,
     _merge_duplicate_results,
@@ -484,8 +484,6 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
         """Run data cleaning workflow on dataset."""
         from dataeval_flow.view import build_view
 
-        policy = policy_for(context, params) if isinstance(params, MetadataConfigMixin) else None
-
         if not isinstance(context, WorkflowContext):
             return WorkflowResult(
                 name=self.name,
@@ -512,6 +510,10 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 errors=[f"Expected DataCleaningParameters, got {type(params).__name__}"],
                 metadata=DataCleaningMetadata(),
             )
+
+        # Resolved after the guards: `DataCleaningParameters` is a `MetadataConfigMixin`,
+        # so from here the policy is always available and never optional.
+        policy = policy_for(context, params)
 
         try:
             import time as _time
@@ -589,7 +591,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 mode=params.mode,
                 evaluators=["outliers", "duplicates"],
             )
-            attach_binning(result_metadata, metadata, params)
+            attach_binning(result_metadata, metadata, policy)
             if params.mode == "preparatory":
                 flagged = collect_flagged_indices(raw)
                 all_indices = set(range(raw.dataset_size))

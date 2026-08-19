@@ -1988,6 +1988,43 @@ class TestOnePolicyPerRun:
         with pytest.raises(ValueError, match="reference_split='holdout'"):
             _split_order(["train", "test"], "holdout")
 
+    def test_the_reference_split_does_not_rename_cross_split_comparisons(self):
+        """Build order and result order are different things.
+
+        The reference is built first so the others can follow its encoding — but if that
+        order also drove the pairing, `reference_split: test` would produce `test_vs_train`
+        where an otherwise identical config produces `train_vs_test`, and would hand
+        `_assess_cross_label_health` its two splits the other way round. `label_parity`
+        normalizes expected to observed, so swapping them moves the chi-squared statistic.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from dataeval_flow.workflows.analysis.workflow import _assess_cross_splits
+
+        params = _make_params()
+        splits = {name: MagicMock() for name in ("train", "val", "test")}
+
+        # The build order the reference split would impose, if it reached this far.
+        reordered = {name: splits[name] for name in ("test", "train", "val")}
+        with (
+            patch(
+                "dataeval_flow.workflows.analysis.workflow._assess_cross_redundancy",
+                return_value=CrossSplitRedundancy(),
+            ),
+            patch(
+                "dataeval_flow.workflows.analysis.workflow._assess_cross_label_health",
+                return_value=CrossSplitLabelHealth(
+                    label_overlap={"shared_classes": [], "train_only": [], "test_only": []}
+                ),
+            ),
+            patch(
+                "dataeval_flow.workflows.analysis.workflow._assess_distribution_shift",
+                return_value=DistributionShiftResult(),
+            ),
+        ):
+            assert list(_assess_cross_splits(splits, params)) == ["train_vs_val", "train_vs_test", "val_vs_test"]  # type: ignore
+            assert list(_assess_cross_splits(reordered, params)) == ["test_vs_train", "test_vs_val", "train_vs_val"]  # type: ignore
+
     def test_splits_share_one_encoding_end_to_end(self):
         """The defect this fixes: train got four bins and test three, for one factor."""
         import warnings

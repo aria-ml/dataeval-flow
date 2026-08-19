@@ -1006,6 +1006,18 @@ class TestPipelineConfigDuplicateNames:
                 ]
             )
 
+    def test_duplicate_metadata_policy_name_raises(self):
+        """A silently discarded policy is a run cut by edges nobody chose."""
+        with pytest.raises(ValidationError, match="Duplicate name 'std' in metadata"):
+            PipelineConfig.model_validate(
+                {
+                    "metadata": [
+                        {"name": "std", "auto_bin_method": "clusters"},
+                        {"name": "std", "auto_bin_method": "uniform_count"},
+                    ]
+                }
+            )
+
     def test_unique_names_pass(self):
         config = PipelineConfig(
             sources=[

@@ -19,6 +19,7 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -74,12 +75,22 @@ class ResolvedPolicy:
     factor_source: "FactorSource | None" = None
     reference_split: str | None = None
 
-    def metadata_kwargs(self) -> dict[str, Any]:
+    def metadata_kwargs(self, *, for_load: bool = False) -> dict[str, Any]:
         """What to hand :class:`dataeval.Metadata`, omitting anything left unset.
 
         Omitted rather than passed as None so that DataEval's own defaults apply, and so
         that a release without one of these arguments still works with a policy that does
         not use it.
+
+        Parameters
+        ----------
+        for_load : bool
+            Whether these arguments are bound for :meth:`dataeval.Metadata.load` rather
+            than the constructor.  ``factor_levels`` is a construction-time argument only:
+            an archive persists the encoding record it was built under, so the declared
+            vocabulary is already in the file, and the policy hash naming that file is
+            what guarantees it is the one this policy asked for.  Passing it to ``load``
+            is a ``TypeError``, which the cache would swallow as a permanent miss.
         """
         kwargs: dict[str, Any] = {}
         if self.auto_bin_method is not None:
@@ -96,7 +107,7 @@ class ResolvedPolicy:
             # reads it itself, so a file written by one release is understood exactly as
             # that release meant it rather than reinterpreted here.
             kwargs["encoding"] = self.encoding_path
-        if self.factor_levels:
+        if self.factor_levels and not for_load:
             kwargs["factor_levels"] = {name: list(levels) for name, levels in self.factor_levels.items()}
         if self.strict:
             kwargs["strict"] = True
@@ -150,17 +161,40 @@ def _read_descriptor(path: Path, source: str) -> Mapping[str, Any]:
     return factors
 
 
-def _check_no_double_declaration(factors: Mapping[str, Any], bins: Mapping[str, Any], source: str) -> None:
-    """Refuse a factor declared through both channels rather than picking one."""
-    if both := sorted(set(factors) & set(bins)):
-        raise ValueError(
-            f"{source} declares {both} through both `encoding` and `continuous_factor_bins`. "
-            "Two sources disagreeing about one factor has no good resolution — drop it from "
-            "one of them.",
-        )
+def _check_no_double_declaration(
+    factors: Mapping[str, Any],
+    bins: Mapping[str, Any],
+    levels: Mapping[str, Any],
+    source: str,
+) -> None:
+    """Refuse a factor declared through two channels rather than picking one.
+
+    All three pairs, because DataEval refuses all three — and it refuses them once the
+    dataset has been walked, which is the cost this check exists to convert into a config
+    error.  ``encoding`` × ``continuous_factor_bins`` is a cut declared twice;
+    ``factor_levels`` against either is a vocabulary declared twice.
+    """
+    channels = (
+        ("encoding", factors),
+        ("continuous_factor_bins", bins),
+        ("factor_levels", levels),
+    )
+    for (first_name, first), (second_name, second) in combinations(channels, 2):
+        if both := sorted(set(first) & set(second)):
+            raise ValueError(
+                f"{source} declares {both} through both `{first_name}` and `{second_name}`. "
+                "Two sources disagreeing about one factor has no good resolution — drop it "
+                "from one of them.",
+            )
 
 
-def _check_strict_is_earned(factors: Mapping[str, Any], strict: bool, source: str) -> None:
+def _check_strict_is_earned(
+    factors: Mapping[str, Any],
+    strict: bool,
+    source: str,
+    *,
+    declares_levels: bool = False,
+) -> None:
     """Refuse to close a vocabulary nobody has reviewed.
 
     ``strict`` does not consult provenance: it is applied to any recorded vocabulary,
@@ -170,9 +204,20 @@ def _check_strict_is_earned(factors: Mapping[str, Any], strict: bool, source: st
     "declared vocabulary" when nothing was declared.  The check goes the other way, and
     turns ``strict`` from a setting that is dangerous to default into one that is safe to
     set deliberately.
+
+    Setting ``strict`` while declaring no vocabulary at all is the same mistake with
+    nothing to point at: every vocabulary is then one DataEval derived from this draw, and
+    closing them fails the run on the first category the sample happened to miss.
     """
     if not strict:
         return
+    if not factors and not declares_levels:
+        raise ValueError(
+            f"{source} sets strict but declares no vocabulary, so the only vocabularies to "
+            "close are the ones DataEval derives from this run's draw — nobody reviewed "
+            "them, and the first category the sample missed fails the run. Declare the "
+            "vocabularies with `factor_levels` or a committed `encoding`, or drop strict.",
+        )
     derived = sorted(
         name
         for name, entry in factors.items()
@@ -262,9 +307,13 @@ def resolve_policy(
     if descriptor_path:
         resolved_path = resolve_path(descriptor_path, data_dir)
         factors = _read_descriptor(resolved_path, source)
-        _check_no_double_declaration(factors, bins, source)
-        _check_strict_is_earned(factors, strict, source)
         _logger.info("Applying encoding descriptor %s (%d factors)", descriptor_path, len(factors))
+
+    # Outside the descriptor branch: `factor_levels` conflicts with `continuous_factor_bins`
+    # whether or not a descriptor is named, and strict with nothing declared is the one
+    # spelling that would otherwise reach DataEval unchecked.
+    _check_no_double_declaration(factors or {}, bins, factor_levels or {}, source)
+    _check_strict_is_earned(factors or {}, strict, source, declares_levels=bool(factor_levels))
 
     return ResolvedPolicy(
         auto_bin_method=auto_bin_method,
@@ -331,11 +380,35 @@ def derive_from(policy: ResolvedPolicy, metadata: Any, descriptor: Mapping[str, 
     specs = {name: spec for name, spec in encoding().items() if spec is not None}
     if not specs:
         return policy
+
+    # `strict` closes every vocabulary it is applied to, and the specs above include ones
+    # DataEval derived from the reference split's draw.  Closing those fails the run on the
+    # first category the reference happened not to contain — which is the same refusal
+    # `_check_strict_is_earned` makes at config time, arriving too late to be a config
+    # error.  So strict carries over only where every vocabulary here was reviewed.
+    strict = policy.strict
+    if strict:
+        unreviewed = sorted(
+            name
+            for name, spec in specs.items()
+            if getattr(spec, "levels", None) is not None and getattr(spec, "provenance", None) == "derived"
+        )
+        if unreviewed:
+            strict = False
+            _logger.warning(
+                "Not applying strict to the encoding derived from the reference split: %s "
+                'still read provenance="derived", so closing them would fail on the first '
+                "category the reference split did not contain. Declare them with "
+                "`factor_levels` or a committed `encoding` to close them.",
+                unreviewed,
+            )
+
     return replace(
         policy,
         encoding_specs=specs,
         encoding=dict(descriptor or {}),
         encoding_path=None,
+        strict=strict,
         # Subsumed by the records above, which already say where every declared cut fell.
         # Passing both is what DataEval refuses per factor, and the records are the
         # resolved form of exactly these requests.

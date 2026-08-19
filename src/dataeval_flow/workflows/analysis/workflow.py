@@ -67,6 +67,7 @@ __all__ = ["DataAnalysisWorkflow"]
 
 
 if TYPE_CHECKING:
+    from dataeval_flow.config.schemas import FactorSource
     from dataeval_flow.policy import ResolvedPolicy
 
 
@@ -327,6 +328,7 @@ def _assess_bias(
     data: SplitData,
     balance: bool,
     diversity_method: Literal["simpson", "shannon"] | None,
+    factor_source: "FactorSource | None" = None,
 ) -> BiasResult:
     """Assess metadata bias via Balance and Diversity evaluators."""
     if balance or diversity_method:
@@ -342,7 +344,7 @@ def _assess_bias(
         warnings.filterwarnings("ignore", message=".*unique classes.*", module="sklearn")
 
         if balance and data.metadata.factor_names:
-            bal_result = Balance().evaluate(data.metadata)
+            bal_result = Balance(factor_source=factor_source).evaluate(data.metadata)
             balance_summary = _to_serializable(
                 {
                     "balance": bal_result.balance.to_dicts(),
@@ -1018,6 +1020,33 @@ def _build_findings(
 # ---------------------------------------------------------------------------
 
 
+def _assess_cross_splits(
+    split_data: "dict[str, SplitData]",
+    params: DataAnalysisParameters,
+) -> dict[str, CrossSplitResult]:
+    """Compare every pair of splits, keyed in the order the task named them.
+
+    Pair order is the task's, not the build order: the reference split is built first so
+    the others can follow its encoding, but which split supplies the encoding must not
+    decide what a comparison is called, nor which side of the label-parity test each one
+    is on.
+    """
+    if len(split_data) < 2:
+        return {}
+
+    _logger.info("[data-analysis] Running cross-split analysis (%d splits)", len(split_data))
+    cross_split: dict[str, CrossSplitResult] = {}
+    for name_a, name_b in combinations(split_data, 2):
+        da, db = split_data[name_a], split_data[name_b]
+        _logger.info("  Comparing %s vs %s ...", name_a, name_b)
+        cross_split[f"{name_a}_vs_{name_b}"] = CrossSplitResult(
+            redundancy=_assess_cross_redundancy(da.calc_result, db.calc_result, name_a, name_b),
+            label_health=_assess_cross_label_health(da.label_stats, db.label_stats, name_a, name_b),
+            distribution_shift=_assess_distribution_shift(da.embeddings, db.embeddings, params.divergence_method),
+        )
+    return cross_split
+
+
 class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOutputs]):
     """Comprehensive quality analysis across dataset splits.
 
@@ -1109,7 +1138,6 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
         split_data: dict[str, SplitData] = {}
         # Track resolved datasets per source for the WorkflowResult
         source_datasets: dict[str, AnnotatedDataset[Any]] = {}
-        last_dataset: AnnotatedDataset[Any] | None = None
 
         # One encoding for the whole run, taken from the reference split and applied to the
         # rest. Encoded independently, two splits of one dataset land on different cuts for
@@ -1118,6 +1146,14 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
         # does with them. The reference is built first so the others can follow it.
         run_policy = policy_for(context, params)
         split_order = _split_order(list(context.dataset_contexts), run_policy.reference_split)
+        if not split_order:
+            return WorkflowResult(
+                name=self.name,
+                success=False,
+                data=self._empty_outputs(),
+                errors=["No dataset contexts to analyze"],
+                metadata=DataAnalysisMetadata(mode=params.mode),
+            )
         reference_split = split_order[0]
         split_policy = run_policy
 
@@ -1129,7 +1165,6 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
             if dc.view_operations:
                 dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
 
-            last_dataset = dataset
             source_datasets[split_name] = dataset
             sel_key = _sel_repr(dataset)
 
@@ -1167,6 +1202,15 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                 metadata = split_data[split_name].metadata
                 split_policy = derive_from(run_policy, metadata, _descriptor_of(metadata))
 
+        # Back to the task's declared order. `split_order` decides only what is *built*
+        # first, because the reference has to exist before the others can follow it — it
+        # must not decide what anything is *named*. Iterated as built, `combinations` would
+        # rename every cross-split key (`train_vs_test` → `test_vs_train`) and flip the
+        # direction of the label-parity test, so picking a reference split would move
+        # numbers that have nothing to do with encoding.
+        split_data = {name: split_data[name] for name in context.dataset_contexts if name in split_data}
+        last_dataset = next(reversed(source_datasets.values()), None)
+
         # ── Phase 2: Run per-split assessments ──────────────────────
         split_results: dict[str, SplitResult] = {}
         total_samples = 0
@@ -1178,42 +1222,13 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                 image_quality=_assess_image_quality(data, params.outlier_method, params.outlier_threshold),
                 redundancy=_assess_redundancy(data),
                 label_health=_assess_label_health(data),
-                bias=_assess_bias(data, params.balance, params.diversity_method),
+                bias=_assess_bias(data, params.balance, params.diversity_method, run_policy.factor_source),
             )
             split_results[split_name] = sr
             total_samples += sr.num_samples
 
         # ── Phase 3: Cross-split assessments ────────────────────────
-        cross_split: dict[str, CrossSplitResult] = {}
-        if len(context.dataset_contexts) >= 2:
-            _logger.info(
-                "[data-analysis] Running cross-split analysis (%d splits)",
-                len(context.dataset_contexts),
-            )
-            for name_a, name_b in combinations(split_data.keys(), 2):
-                key = f"{name_a}_vs_{name_b}"
-                da, db = split_data[name_a], split_data[name_b]
-
-                _logger.info("  Comparing %s vs %s ...", name_a, name_b)
-                cross_split[key] = CrossSplitResult(
-                    redundancy=_assess_cross_redundancy(
-                        da.calc_result,
-                        db.calc_result,
-                        name_a,
-                        name_b,
-                    ),
-                    label_health=_assess_cross_label_health(
-                        da.label_stats,
-                        db.label_stats,
-                        name_a,
-                        name_b,
-                    ),
-                    distribution_shift=_assess_distribution_shift(
-                        da.embeddings,
-                        db.embeddings,
-                        params.divergence_method,
-                    ),
-                )
+        cross_split = _assess_cross_splits(split_data, params)
 
         # ── Phase 4: Assemble outputs & findings ────────────────────
         _logger.info("[data-analysis] Building report (%d total samples)", total_samples)
@@ -1227,7 +1242,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
         # Recorded per split even though they now share one encoding: what varies is the
         # fit, not the policy. The digests being equal is what says so, and is what makes
         # the per-split statistics comparable.
-        attach_binning(result_metadata, {name: d.metadata for name, d in split_data.items()}, params)
+        attach_binning(result_metadata, {name: d.metadata for name, d in split_data.items()}, run_policy)
         if params.mode == "preparatory":
             findings.append(
                 Reportable(

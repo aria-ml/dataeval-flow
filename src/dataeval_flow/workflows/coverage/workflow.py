@@ -25,7 +25,7 @@ from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_embeddings, get_or_compute_metadata
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.config.schemas import FactorSource
-from dataeval_flow.policy import policy_for
+from dataeval_flow.policy import ResolvedPolicy, policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import normalize_unit_interval
@@ -425,6 +425,7 @@ def _run_gap_analysis(
     metadata: Metadata,
     index2label: dict[int, str] | None,
     params: DataCoverageParameters,
+    policy: ResolvedPolicy,
     precomputed_mi: dict[str, float] | None = None,
 ) -> MetadataGapResult:
     """Identify metadata coverage gaps by class using mutual information.
@@ -444,7 +445,7 @@ def _run_gap_analysis(
         computed = precomputed_mi
     else:
         _logger.debug("  Computing class-to-factor MI through Balance")
-        computed = _balance_class_to_factor(metadata, params.metadata_factor_source)
+        computed = _balance_class_to_factor(metadata, policy.factor_source)
     mi_per_factor = {fname: computed[fname] for fname in factor_names if fname in computed}
 
     # Cross-tabulate per-class metadata distributions for high-MI factors.
@@ -486,6 +487,7 @@ def _run_gap_analysis(
 def _assess_metadata_distribution(
     metadata: Metadata,
     params: DataCoverageParameters,
+    policy: ResolvedPolicy,
 ) -> MetadataDistributionResult:
     """Assess metadata factor balance and diversity."""
     from dataeval.bias import Balance, Diversity
@@ -498,7 +500,7 @@ def _assess_metadata_distribution(
         warnings.filterwarnings("ignore", message=".*unique classes.*", module="sklearn")
 
         if params.balance and metadata.factor_names:
-            bal_result = Balance(factor_source=params.metadata_factor_source).evaluate(metadata)
+            bal_result = Balance(factor_source=policy.factor_source).evaluate(metadata)
             balance_summary = _to_serializable(
                 {
                     "balance": bal_result.balance.to_dicts(),
@@ -684,7 +686,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
         )
 
         # ── Phase 4: Metadata distribution ──────────────────────────
-        metadata_dist = _assess_metadata_distribution(metadata, params)
+        metadata_dist = _assess_metadata_distribution(metadata, params, policy)
 
         # ── Phase 5: Metadata gap analysis ──────────────────────────
         metadata_gaps = None
@@ -693,6 +695,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
                 metadata,
                 index2label,
                 params,
+                policy,
                 precomputed_mi=_mi_from_balance(metadata_dist.balance_summary, list(metadata.factor_names)),
             )
 
@@ -730,7 +733,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
             mode=params.mode,
             has_extractor=has_extractor,
         )
-        attach_binning(result_metadata, metadata, params)
+        attach_binning(result_metadata, metadata, policy)
 
         return WorkflowResult(
             name=self.name,

@@ -9,6 +9,7 @@ import pytest
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import BaseModel, ValidationError
 
+from dataeval_flow.policy import ResolvedPolicy
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflow._text_report import _render_detail_section
 from dataeval_flow.workflow.base import MetadataConfigMixin, WorkflowParametersBase
@@ -463,7 +464,7 @@ class TestRunGapAnalysis:
         index2label = {0: "cat", 1: "dog", 2: "bird"}
         params = _make_params(gap_mi_threshold=0.1, gap_min_representation=3)
 
-        result = _run_gap_analysis(meta, index2label, params)
+        result = _run_gap_analysis(meta, index2label, params, ResolvedPolicy())
 
         assert isinstance(result, MetadataGapResult)
         assert "time_of_day" in result.mutual_info_class_to_factor
@@ -502,7 +503,7 @@ class TestRunGapAnalysis:
         assert len(meta.dataframe) != n_targets
 
         params = _make_params(gap_mi_threshold=0.1, gap_min_representation=3)
-        result = _run_gap_analysis(meta, {0: "cat", 1: "dog"}, params)
+        result = _run_gap_analysis(meta, {0: "cat", 1: "dog"}, params, ResolvedPolicy())
 
         assert [(g.class_name, g.factor_name, g.factor_value) for g in result.gaps] == [("dog", "weather", "1")]
         assert result.gaps[0].class_count == 0
@@ -513,7 +514,7 @@ class TestRunGapAnalysis:
         meta = MagicMock()
         meta.factor_names = []
         params = _make_params()
-        result = _run_gap_analysis(meta, None, params)
+        result = _run_gap_analysis(meta, None, params, ResolvedPolicy())
         assert result.gaps == []
         mock_mi.assert_not_called()
 
@@ -530,7 +531,9 @@ class TestRunGapAnalysis:
         meta.rows_at.return_value = pl.DataFrame({"weather": weather})
 
         params = _make_params(gap_mi_threshold=0.1, gap_min_representation=3)
-        result = _run_gap_analysis(meta, {0: "cat", 1: "dog"}, params, precomputed_mi={"weather": 0.5})
+        result = _run_gap_analysis(
+            meta, {0: "cat", 1: "dog"}, params, ResolvedPolicy(), precomputed_mi={"weather": 0.5}
+        )
 
         mock_mi.assert_not_called()
         assert result.mutual_info_class_to_factor == {"weather": 0.5}

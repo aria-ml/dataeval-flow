@@ -1084,7 +1084,7 @@ class DatasetCache:
             return None
 
         try:
-            meta = MetadataClass.load(path, dataset, **policy.metadata_kwargs())
+            meta = MetadataClass.load(path, dataset, **policy.metadata_kwargs(for_load=True))
         except MetadataFormatError as exc:
             # A stale archive is the designed outcome of a dataeval upgrade rather
             # than a fault — upstream refuses instead of guessing, and expects the

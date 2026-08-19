@@ -42,9 +42,16 @@ if TYPE_CHECKING:
     from dataeval import Metadata
 
     from dataeval_flow.config.schemas._metadata import ResultMetadata
-    from dataeval_flow.workflow.base import MetadataConfigMixin
+    from dataeval_flow.policy import ResolvedPolicy
 
-__all__ = ["attach_binning", "descriptor_from_record", "describe_binning", "write_descriptor"]
+__all__ = [
+    "attach_binning",
+    "describe_binning",
+    "descriptor_from_record",
+    "divergent_factors",
+    "encodings_agree",
+    "write_descriptor",
+]
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -333,9 +340,14 @@ def describe_binning(
 def attach_binning(
     result_metadata: "ResultMetadata",
     metadata: "Metadata | Mapping[str, Metadata]",
-    params: "MetadataConfigMixin",
+    policy: "ResolvedPolicy",
 ) -> None:
     """Record binning decisions on a workflow's metadata envelope.
+
+    Reads the resolved policy rather than the workflow's ``metadata_*`` fields, because
+    those two are alternative spellings and naming a policy leaves the fields empty: a run
+    under a named policy would otherwise record ``excluded: []`` and DataEval's default
+    factor source no matter what the policy applied.
 
     Accepts either a single ``Metadata`` or a mapping of split name to one, so a
     multi-split workflow records each split separately — splits are binned
@@ -352,9 +364,9 @@ def attach_binning(
     run, and the diagnostics captured alongside it still name the decision.
     """
     try:
-        excluded = list(params.metadata_exclude) if params.metadata_exclude else None
-        requested = params.metadata_continuous_factor_bins
-        source = params.metadata_factor_source
+        excluded = list(policy.exclude) or None
+        requested = dict(policy.continuous_factor_bins) or None
+        source = policy.factor_source
 
         if isinstance(metadata, Mapping):
             per_split = {
@@ -432,16 +444,94 @@ def descriptor_from_record(record: Mapping[str, Any]) -> dict[str, Any]:
     return {"version": version if isinstance(version, int) else 1, "factors": factors}
 
 
+def encodings_agree(a: Mapping[str, Any], b: Mapping[str, Any]) -> bool:
+    """Whether two encodings of one factor assign the same meaning to the same codes.
+
+    Not equality.  A vocabulary grows **append-only**: a category the other split never saw
+    takes the next free code and goes on the end, so every code they share still stands for
+    the same value.  Treating that as a disagreement would report the ordinary case of one
+    split holding a level another lacks as *not comparable*, which is both wrong and the
+    kind of false alarm that teaches people to ignore the true ones.
+
+    A cut is different: bin edges have no append, so anything but identical edges means the
+    same code names a different interval.
+
+    Defined here rather than in the renderer because it is a property of the record: the
+    descriptor writer and the report have to reach the same verdict, and two spellings of
+    "comparable" would eventually disagree in one result.
+    """
+    if a == b:
+        return True
+    if a.get("kind") != b.get("kind") or a.get("kind") != "levels":
+        return False
+    first, second = a.get("levels") or [], b.get("levels") or []
+    shorter, longer = sorted((first, second), key=len)
+    return list(longer[: len(shorter)]) == list(shorter)
+
+
+def _widest(encodings: "Sequence[Mapping[str, Any]]") -> Mapping[str, Any]:
+    """The encoding that subsumes the rest, for factors whose encodings agree.
+
+    Append-only means every vocabulary is a prefix of the longest, so the longest is the
+    one that names every code any split used.
+    """
+    return max(encodings, key=lambda encoding: len(encoding.get("levels") or ()))
+
+
+def _encodings_by_factor(per_split: "Iterable[Mapping[str, Any]]") -> dict[str, list[Mapping[str, Any]]]:
+    """Every split's encoding for each factor, keyed by factor name."""
+    by_factor: dict[str, list[Mapping[str, Any]]] = {}
+    for record in per_split:
+        for name, info in (record.get("factors") or {}).items():
+            if encoding := info.get("encoding"):
+                by_factor.setdefault(name, []).append(encoding)
+    return by_factor
+
+
+def divergent_factors(per_split: "Iterable[Mapping[str, Any]]") -> list[str]:
+    """Factors that do not mean the same thing in every split.
+
+    Every encoding is compared against the widest rather than against the first, because
+    the append-only rule is not transitive: two splits that each merely extend a third can
+    still assign the same code to different values.
+    """
+    return sorted(
+        name
+        for name, seen in _encodings_by_factor(per_split).items()
+        if any(not encodings_agree(_widest(seen), other) for other in seen)
+    )
+
+
 def _one_split(per_split: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any]:
-    """The single encoding a multi-split result ran under, or a refusal naming the problem."""
-    digests = {name: split.get("encoding_digest") for name, split in per_split.items()}
-    if len(set(digests.values())) > 1:
+    """The one encoding a multi-split result ran under, or a refusal naming the problem.
+
+    Splits whose vocabularies merely grew do describe one encoding: the widest, which names
+    every code any split used and agrees with all of them on the codes they share.  Refused
+    only where a factor genuinely means two things — the same test the report renders, so a
+    result the report calls comparable is one this can write a descriptor for.
+    """
+    if not per_split:
         raise ValueError(
-            f"These splits were encoded differently ({digests}), so no one descriptor "
+            "This result records no splits, so there is no descriptor to write. Only a "
+            "workflow that builds metadata produces one.",
+        )
+    if divergent := divergent_factors(per_split.values()):
+        digests = {name: split.get("encoding_digest") for name, split in per_split.items()}
+        raise ValueError(
+            f"These splits encode {divergent} differently ({digests}), so no one descriptor "
             "describes the run. Give every split the same encoding — set a policy's "
             "`reference_split`, or apply a committed `encoding` — and re-run.",
         )
-    return next(iter(per_split.values()))
+
+    widest = {name: _widest(seen) for name, seen in _encodings_by_factor(per_split.values()).items()}
+    template = next(iter(per_split.values()))
+    return {
+        **template,
+        "factors": {
+            name: {**entry, "encoding": widest[name]} if name in widest else entry
+            for name, entry in (template.get("factors") or {}).items()
+        },
+    }
 
 
 def write_descriptor(record: Mapping[str, Any], path: "str | Path") -> None:

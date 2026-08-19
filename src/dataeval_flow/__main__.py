@@ -162,7 +162,14 @@ def main() -> NoReturn:
 
     if args.command == "encoding":
         from dataeval_flow._encoding_cli import write_encoding
+        from dataeval_flow._logging import setup_logging
 
+        # Console logging first: the package attaches a NullHandler to its own logger, so
+        # without this every message this command emits — the error explaining why it
+        # refused, and the "commit it" hand-off when it succeeds — is dropped and the user
+        # is left with a bare exit code. At INFO because this command's whole output is
+        # one artifact and one sentence saying where it went.
+        setup_logging(verbosity=max(args.verbose, 2))
         sys.exit(write_encoding(args.result, args.output, args.task))
 
     if args.command == "config":

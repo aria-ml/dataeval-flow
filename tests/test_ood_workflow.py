@@ -1149,3 +1149,41 @@ class TestOODExecuteSelections:
 
         assert result.success
         assert mock_build_sel.call_count == 2
+
+
+class TestOODRecordsItsEncoding:
+    """A result envelope that cannot name its cuts cannot be compared with another."""
+
+    def test_the_digest_reaches_the_envelope(self):
+        """`metadata.encoding_digest` is on every result envelope, this one included."""
+        import numpy as np
+
+        from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
+
+        params = _make_params()
+        embeddings = np.zeros((4, 3), dtype=np.float32)
+        result = OODDetectionWorkflow()._build_workflow_result(
+            params,
+            embeddings,
+            embeddings,
+            {},
+            {},
+            [],
+            [],
+            None,
+            None,
+            {"encoding_digest": "2b6530cc3015f1fe", "factors": {}, "dropped": {}},
+        )
+        assert result.metadata.encoding_digest == "2b6530cc3015f1fe"
+
+    def test_no_binning_record_leaves_no_digest(self):
+        import numpy as np
+
+        from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
+
+        params = _make_params()
+        embeddings = np.zeros((4, 3), dtype=np.float32)
+        result = OODDetectionWorkflow()._build_workflow_result(
+            params, embeddings, embeddings, {}, {}, [], [], None, None, None
+        )
+        assert result.metadata.encoding_digest is None

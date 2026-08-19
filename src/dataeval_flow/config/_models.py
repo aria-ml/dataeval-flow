@@ -160,22 +160,23 @@ class PipelineConfig(BaseModel):
 
     @model_validator(mode="after")
     def _check_unique_names(self) -> "PipelineConfig":
-        """Raise if any section contains duplicate names."""
-        sections: dict[str, Sequence | None] = {
-            "datasets": self.datasets,
-            "preprocessors": self.preprocessors,
-            "views": self.views,
-            "sources": self.sources,
-            "extractors": self.extractors,
-            "workflows": self.workflows,
-            "tasks": self.tasks,
-        }
-        for section_name, items in sections.items():
-            if items is None:
+        """Raise if any named pool contains duplicate names.
+
+        The pools are discovered rather than listed.  A reference resolves by first match,
+        so a pool omitted from a hand-maintained list silently keeps the first definition
+        and drops the second — most likely the one the user just edited — with the run
+        reporting no problem.
+        """
+        for section_name in type(self).model_fields:
+            items = getattr(self, section_name, None)
+            if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
                 continue
             seen: set[str] = set()
             for item in items:
-                if item.name in seen:
-                    raise ValueError(f"Duplicate name '{item.name}' in {section_name}")
-                seen.add(item.name)
+                name = getattr(item, "name", None)
+                if name is None:
+                    break
+                if name in seen:
+                    raise ValueError(f"Duplicate name '{name}' in {section_name}")
+                seen.add(name)
         return self

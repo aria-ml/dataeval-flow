@@ -61,6 +61,25 @@ class TestDescriptorFromRecord:
         }
         assert "temp_c" in descriptor_from_record(record)["factors"]
 
+    def test_a_grown_vocabulary_still_writes_one_descriptor(self):
+        """The state `reference_split` produces, so refusing it makes the artifact unreachable.
+
+        Appending leaves every shared code meaning what it meant, so the widest vocabulary
+        describes the run — and it is what a user should commit.
+        """
+        record = {
+            "per_split": {
+                "train": {"factors": {"w": {"encoding": {"kind": "levels", "levels": ["a", "b"]}}}},
+                "test": {"factors": {"w": {"encoding": {"kind": "levels", "levels": ["a", "b", "c"]}}}},
+            }
+        }
+        assert descriptor_from_record(record)["factors"]["w"]["levels"] == ["a", "b", "c"]
+
+    def test_a_record_with_no_splits_raises_value_error(self):
+        """Both callers guard on ValueError, so a StopIteration escapes as a traceback."""
+        with pytest.raises(ValueError, match="no splits"):
+            descriptor_from_record({"per_split": {}})
+
     def test_splits_encoded_differently_are_refused(self):
         """Picking one would hand somebody a policy nobody chose."""
         record = {
@@ -69,8 +88,28 @@ class TestDescriptorFromRecord:
                 "test": describe_binning(_metadata(continuous_factor_bins={"temp_c": [-np.inf, 5.0, np.inf]})),
             }
         }
-        with pytest.raises(ValueError, match="encoded differently"):
+        with pytest.raises(ValueError, match=r"encode \['temp_c'\] differently"):
             descriptor_from_record(record)
+
+
+class TestSelectingAcrossTasks:
+    """A result holds one entry per task, and they need not all record an encoding."""
+
+    def test_a_task_without_an_encoding_does_not_hide_one_that_has_it(self, tmp_path: Path):
+        encoded = {"factors": {"w": {"encoding": {"kind": "levels", "levels": ["a"]}}}}
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "good": {"metadata": {"metadata_binning": encoded}},
+                    "no_encoding": {"metadata": {"metadata_binning": {"factors": {"w": {}}}}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        out = tmp_path / "encoding.json"
+        assert write_encoding(result, out) == 0
+        assert json.loads(out.read_text())["factors"]["w"]["levels"] == ["a"]
 
 
 class TestWriteEncodingCommand:

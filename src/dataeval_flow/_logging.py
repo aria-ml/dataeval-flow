@@ -209,10 +209,17 @@ class _DiagnosticCollector(logging.Handler):
 
 
 def _library_root() -> str | None:
-    """Directory the diagnostic library's own frames live in, or None if it is absent."""
+    """Directory the diagnostic library's own frames live in, or None if it is absent.
+
+    Returned with a trailing separator, because the match below is a prefix test and this
+    package installs *beside* the library it is testing for: without the separator
+    ``site-packages/dataeval_flow/...`` matches the ``site-packages/dataeval`` root, and
+    every warning raised anywhere under this package — which is all of them, since the
+    matcher's own frame lives here — would be attributed to DataEval.
+    """
     try:
         library = __import__(_LIB_DIAGNOSTIC_LOGGERS[0])
-        return str(Path(library.__file__).parent) if library.__file__ else None
+        return str(Path(library.__file__).parent) + os.sep if library.__file__ else None
     except Exception:  # noqa: BLE001 - no library is a reason to capture nothing, not to fail
         return None
 
@@ -247,9 +254,10 @@ def capture_diagnostics() -> "Iterator[list[str]]":
     declared a range.  Capturing both here lets the envelope carry the answer.
 
     Warnings are re-emitted as they arrive, so a user watching the console still sees
-    them — once each, which is what they saw before.
+    them — once each, which is what they saw before, for this library's warnings and for
+    everybody else's alike.
 
-    ``simplefilter("always")`` is load-bearing rather than tidy.  :func:`warnings.warn`
+    The inserted ``"always"`` filter is load-bearing rather than tidy.  :func:`warnings.warn`
     keeps its once-per-location bookkeeping in the globals of the frame its
     ``stacklevel`` selects, and DataEval points that at *its caller* — which is this
     package.  Two workflows building metadata through one line of flow therefore share a
@@ -272,15 +280,30 @@ def capture_diagnostics() -> "Iterator[list[str]]":
 
     with warnings.catch_warnings():
         # Restored on exit along with showwarning, both by catch_warnings itself.
-        warnings.simplefilter("always")
+        #
+        # Inserted rather than `simplefilter`, and only for the category the diagnostics
+        # use.  Replacing the whole filter list would also un-suppress every dependency's
+        # DeprecationWarnings and neutralise a caller's `-W error` or pytest
+        # `filterwarnings` for categories this block has no interest in — for the whole
+        # duration of a workflow run.
+        warnings.filterwarnings("always", category=UserWarning)
         previous = warnings.showwarning
+        shown: set[tuple[str, str, int, str]] = set()
 
         def _show(message, category, filename, lineno, file=None, line=None) -> None:  # noqa: ANN001
             ours = root is not None and issubclass(category, UserWarning) and _raised_within(root)
-            recorded = collector.add(f"{category.__name__}: {_LIB_DIAGNOSTIC_LOGGERS[0]}: {message}") if ours else False
-            # Shown unless it is a repeat this block has already recorded, so the console
-            # keeps the once-each behaviour the default filter gave it.
-            if recorded or not ours:
+            if ours:
+                # Shown unless it is a repeat this block has already recorded, so the
+                # console keeps the once-each behaviour the default filter gave it.
+                if collector.add(f"{category.__name__}: {_LIB_DIAGNOSTIC_LOGGERS[0]}: {message}"):
+                    previous(message, category, filename, lineno, file, line)
+                return
+            # Somebody else's warning. The filter above bypasses the once-per-location
+            # registry for its category, so a library warning raised per sample would
+            # otherwise print per sample; keyed here instead to restore what it had.
+            key = (category.__name__, filename, lineno, str(message))
+            if key not in shown:
+                shown.add(key)
                 previous(message, category, filename, lineno, file, line)
 
         warnings.showwarning = _show

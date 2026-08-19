@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+from dataeval_flow.binning import divergent_factors
+
 if TYPE_CHECKING:
     from dataeval_flow.workflow.base import Reportable
 
@@ -688,54 +690,36 @@ def _render_review_state(record: dict[str, Any]) -> list[str]:
     ]
 
 
-def _encodings_agree(a: dict[str, Any], b: dict[str, Any]) -> bool:
-    """Whether two encodings of one factor assign the same meaning to the same codes.
-
-    Not equality.  A vocabulary grows **append-only**: a category the other split never saw
-    takes the next free code and goes on the end, so every code they share still stands for
-    the same value.  Treating that as a disagreement would report the ordinary case of one
-    split holding a level another lacks as *not comparable*, which is both wrong and the
-    kind of false alarm that teaches people to ignore the true ones.
-
-    A cut is different: bin edges have no append, so anything but identical edges means the
-    same code names a different interval.
-    """
-    if a == b:
-        return True
-    if a.get("kind") != b.get("kind") or a.get("kind") != "levels":
-        return False
-    first, second = a.get("levels") or [], b.get("levels") or []
-    shorter, longer = sorted((first, second), key=len)
-    return list(longer[: len(shorter)]) == list(shorter)
-
-
-def _divergent_factors(per_split: dict[str, Any]) -> list[str]:
-    """Factors that do not mean the same thing in every split."""
-    encodings: dict[str, list[dict[str, Any]]] = {}
-    for record in per_split.values():
-        for name, info in (record.get("factors") or {}).items():
-            if encoding := info.get("encoding"):
-                encodings.setdefault(name, []).append(encoding)
-    return sorted(
-        name for name, seen in encodings.items() if any(not _encodings_agree(seen[0], other) for other in seen[1:])
-    )
-
-
 def _render_split_comparability(per_split: dict[str, Any]) -> list[str]:
     """Say whether the splits were read under one encoding, where there is more than one.
 
     Splits encoded independently land on different cuts for the same factor, and their
     per-factor statistics then sit side by side in one report under different alphabets,
     which a reader has every reason to compare and no way to know they should not.
+
+    The verdict comes from :func:`dataeval_flow.binning.divergent_factors` rather than a
+    rule of its own, so what this line claims and what the envelope's ``encoding_digest``
+    and the descriptor writer will do are one answer rather than three.
     """
     if len(per_split) < 2:
         return []
     if not any((record.get("factors") or {}) for record in per_split.values()):
         return []
 
-    divergent = _divergent_factors(per_split)
+    divergent = divergent_factors(per_split.values())
     if not divergent:
-        return ["", "  Splits share one encoding — factor statistics are comparable across them."]
+        # Comparable is not the same as identical: an append-only vocabulary that grew
+        # leaves every shared code meaning what it meant, but the digests differ and
+        # `encoding_digest` is then None. Saying "share one encoding" over that would
+        # contradict the envelope printed a few lines above.
+        digests = {record.get("encoding_digest") for record in per_split.values()}
+        if len(digests) == 1:
+            return ["", "  Splits share one encoding — factor statistics are comparable across them."]
+        return [
+            "",
+            "  Splits encode every shared code the same way — factor statistics are comparable",
+            "  across them. The digests differ only because a vocabulary grew, which appends.",
+        ]
     return [
         "",
         f"  Splits encode {', '.join(divergent)} differently — statistics on "
