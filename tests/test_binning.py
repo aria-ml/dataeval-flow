@@ -188,6 +188,31 @@ class TestAttachBinning:
         assert "Binning record unavailable" in caplog.text
 
 
+class TestReviewState:
+    """`derived` is the un-reviewed state, and the forcing function needs it visible."""
+
+    def test_names_the_factors_nobody_chose(self):
+        record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}))
+        # elevation was declared; the other two were cut by DataEval from this sample.
+        assert record["unreviewed"] == ["count", "sensor"]
+
+    def test_a_fully_declared_encoding_leaves_nothing_unreviewed(self):
+        record = describe_binning(
+            _metadata(
+                continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]},
+                exclude=["sensor", "count"],
+            )
+        )
+        assert record["unreviewed"] == []
+
+    def test_an_accepted_encoding_counts_as_reviewed(self):
+        """Ratifying what DataEval chose is the semantic work; it just changed no edges."""
+        md = _metadata()
+        md.accept()
+        record = describe_binning(md)
+        assert record["unreviewed"] == []
+
+
 class TestEncodingDigest:
     """A result that cannot say which cuts produced it cannot be compared with another."""
 

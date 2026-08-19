@@ -19,6 +19,7 @@ from dataeval_flow.workflow._text_report import (
     _render_factor_line,
     _render_key_value,
     _render_pivot_table,
+    _render_review_state,
     _render_split_comparability,
     _render_table,
     _section_header,
@@ -1012,3 +1013,32 @@ class TestSplitComparability:
     def test_the_section_carries_the_digest(self):
         section = _render_binning_section({"encoding_digest": "2b6530cc3015f1fe", "factors": {}, "dropped": {}})
         assert any("2b6530cc3015f1fe" in line for line in section)
+
+
+class TestReviewState:
+    """The report leads with how much of the encoding is nobody's decision."""
+
+    @staticmethod
+    def _record(unreviewed: list[str], encoded: list[str]) -> dict:
+        return {
+            "unreviewed": unreviewed,
+            "factors": {name: {"encoding": {"kind": "bins"}} for name in encoded},
+            "dropped": {},
+        }
+
+    def test_counts_and_names_the_unreviewed(self):
+        lines = _render_review_state(self._record(["b"], ["a", "b"]))
+        assert "1 of 2 factors still derived" in lines[0]
+        assert "(b)" in lines[1]
+
+    def test_says_so_when_everything_was_decided(self):
+        lines = _render_review_state(self._record([], ["a", "b"]))
+        assert lines == ["  Policy:          all 2 factors declared or reviewed"]
+
+    def test_says_nothing_when_no_factor_was_encoded(self):
+        assert _render_review_state(self._record([], [])) == []
+
+    def test_says_nothing_for_a_record_written_before_this_was_tracked(self):
+        record = self._record([], ["a"])
+        del record["unreviewed"]
+        assert _render_review_state(record) == []

@@ -265,7 +265,7 @@ def describe_binning(
     dict
         JSON-serializable record with ``auto_bin_method``, ``encoding_digest``,
         ``descriptor_version``, ``factor_source``, ``requested_bins``, ``excluded``,
-        per-factor ``factors``, and ``dropped``.
+        per-factor ``factors``, ``unreviewed``, and ``dropped``.
         Each factor carries its ``encoding`` (the policy) and its ``fit`` (what
         this run's rows did against it) — see the module docstring.
 
@@ -305,6 +305,16 @@ def describe_binning(
         record["factors"][name] = _factor_entry(
             name, info, rows_by_level[info.level], encodings.get(name), names.get(name)
         )
+
+    # The state a reviewer audits for. A factor whose encoding reads "derived" is one
+    # DataEval chose from this sample and nobody has looked at: its cuts are not stable
+    # across draws, and pinning them without reading them locks in an accident. Counted
+    # here so the envelope can be gated on it rather than a reader having to scan.
+    record["unreviewed"] = sorted(
+        name
+        for name, entry in record["factors"].items()
+        if (entry.get("encoding") or {}).get("provenance") == "derived"
+    )
 
     # A request naming a factor the dataset does not carry is silently ignored
     # by DataEval (it warns and moves on), so it is called out here rather than

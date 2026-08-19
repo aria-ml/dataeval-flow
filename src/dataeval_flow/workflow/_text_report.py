@@ -654,12 +654,38 @@ def _render_binning_record(record: dict[str, Any], split_name: str | None = None
         lines.append(f"  Excluded:        {', '.join(record['excluded'])}")
     if record.get("unmatched_bin_requests"):
         lines.append(f"  Unmatched bins:  {', '.join(record['unmatched_bin_requests'])}")
+    lines.extend(_render_review_state(record))
 
     for name, info in record.get("factors", {}).items():
         lines.extend(_render_factor_line(name, info))
 
     lines.extend(f"    {name} — dropped: {', '.join(reasons)}" for name, reasons in record.get("dropped", {}).items())
     return lines
+
+
+def _render_review_state(record: dict[str, Any]) -> list[str]:
+    """Say how much of this encoding is somebody's decision and how much is nobody's.
+
+    Requiring declared cuts is meant to make engineers encode domain knowledge they would
+    otherwise skip — *below 10 lux is night*, *over 500 px is a large object*.  That only
+    works if the un-reviewed state is visible: a factor reading `derived` was cut by
+    DataEval from this sample, its bin count moves with the draw, and nothing about it is
+    a claim anyone made.  Saying so is the whole forcing function.
+    """
+    factors = record.get("factors") or {}
+    encoded = [name for name, info in factors.items() if info.get("encoding")]
+    if not encoded:
+        return []
+
+    unreviewed = record.get("unreviewed")
+    if unreviewed is None:  # a record written before this was tracked
+        return []
+    if not unreviewed:
+        return [f"  Policy:          all {len(encoded)} factors declared or reviewed"]
+    return [
+        f"  Policy:          {len(unreviewed)} of {len(encoded)} factors still derived — nobody has reviewed them",
+        f"                   ({', '.join(unreviewed)})",
+    ]
 
 
 def _render_split_comparability(per_split: dict[str, Any]) -> list[str]:

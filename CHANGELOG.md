@@ -63,6 +63,10 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- Result envelopes and the text report name the factors nobody reviewed. `unreviewed` lists every factor whose
+  encoding still reads `provenance: "derived"` — cut by DataEval from this sample, with a bin count that moves with
+  the draw and no claim behind it. Requiring declared cuts only encodes domain knowledge if the un-reviewed state is
+  visible, so the report leads the section with it
 - `dataeval-flow encoding <result.json>` writes the encoding descriptor a result was computed under, ready to review
   and commit. A run with `-o` also writes `results/encoding.json` beside its results, so locking an encoding in is a
   copy rather than a transcription from a report. Both are byte-identical to what `Metadata.export_encoding` writes,
