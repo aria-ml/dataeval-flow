@@ -362,6 +362,24 @@
           "default": null,
           "title": "Metadata Continuous Factor Bins"
         },
+        "metadata_factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
+          "title": "Metadata Factor Source"
+        },
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",
@@ -609,6 +627,24 @@
           ],
           "default": null,
           "title": "Metadata Continuous Factor Bins"
+        },
+        "metadata_factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
+          "title": "Metadata Factor Source"
         },
         "mode": {
           "default": "advisory",
@@ -950,6 +986,24 @@
           ],
           "default": null,
           "title": "Metadata Continuous Factor Bins"
+        },
+        "metadata_factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
+          "title": "Metadata Factor Source"
         },
         "mode": {
           "default": "advisory",
@@ -2054,6 +2108,24 @@
           ],
           "default": null,
           "title": "Metadata Continuous Factor Bins"
+        },
+        "metadata_factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
+          "title": "Metadata Factor Source"
         },
         "mode": {
           "default": "advisory",

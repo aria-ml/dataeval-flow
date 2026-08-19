@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config.schemas._metadata import ResultMetadata
     from dataeval_flow.workflow.base import MetadataConfigMixin
 
-__all__ = ["attach_binning", "describe_binning", "mi_discrete_features"]
+__all__ = ["attach_binning", "describe_binning"]
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -39,6 +39,21 @@ _logger: logging.Logger = logging.getLogger(__name__)
 # rather than raising ImportError on a working install.
 _BINNED_SUFFIX = "↕"
 _DIGITIZED_SUFFIX = "#"
+
+
+def _default_factor_source() -> str | None:
+    """What ``factor_source`` a workflow leaving it unset actually gets.
+
+    Read off a constructed evaluator rather than imported: the constant lives in a
+    private module, and this record is worth less than the run it would take down on a
+    release that spells it differently.  Constructing a ``Balance`` runs no statistics.
+    """
+    try:
+        from dataeval.bias import Balance
+
+        return str(Balance().factor_source)
+    except Exception:  # noqa: BLE001 - a release without the setting records nothing for it
+        return None
 
 
 def _bin_ranges(df: pl.DataFrame, name: str, companion: str) -> list[dict[str, Any]] | None:
@@ -139,6 +154,7 @@ def describe_binning(
     *,
     excluded: Sequence[str] | None = None,
     requested_bins: Mapping[str, int | Sequence[float]] | None = None,
+    factor_source: str | None = None,
 ) -> dict[str, Any]:
     """Describe how every factor was typed and discretized.
 
@@ -155,12 +171,17 @@ def describe_binning(
         The configured ``continuous_factor_bins``.  Defaults to what the
         ``Metadata`` was constructed with; pass explicitly to record a request
         that named a factor the dataset does not carry.
+    factor_source : str | None
+        The configured ``factor_source``, or None to record DataEval's default.
+        Recorded because it decides whether each bias statistic read a factor's
+        codes or its measured values, which moves every number those statistics
+        report — and it leaves no other trace in the result.
 
     Returns
     -------
     dict
-        JSON-serializable record with ``auto_bin_method``, ``requested_bins``,
-        ``excluded``, per-factor ``factors``, and ``dropped``.
+        JSON-serializable record with ``auto_bin_method``, ``factor_source``,
+        ``requested_bins``, ``excluded``, per-factor ``factors``, and ``dropped``.
     """
     # Read factor_info first: it forces _bin(), which is what writes the
     # companion columns the frames below are read for.
@@ -171,6 +192,7 @@ def describe_binning(
 
     record: dict[str, Any] = {
         "auto_bin_method": getattr(metadata, "auto_bin_method", None),
+        "factor_source": factor_source or _default_factor_source(),
         "requested_bins": dict(requested_bins),
         "excluded": list(excluded or ()),
         "factors": {},
@@ -215,54 +237,18 @@ def attach_binning(
     try:
         excluded = list(params.metadata_exclude) if params.metadata_exclude else None
         requested = params.metadata_continuous_factor_bins
+        source = params.metadata_factor_source
 
         if isinstance(metadata, Mapping):
             result_metadata.metadata_binning = {
                 "per_split": {
-                    name: describe_binning(md, excluded=excluded, requested_bins=requested)
+                    name: describe_binning(md, excluded=excluded, requested_bins=requested, factor_source=source)
                     for name, md in metadata.items()
                 }
             }
         else:
-            result_metadata.metadata_binning = describe_binning(metadata, excluded=excluded, requested_bins=requested)
+            result_metadata.metadata_binning = describe_binning(
+                metadata, excluded=excluded, requested_bins=requested, factor_source=source
+            )
     except Exception:
         _logger.warning("Binning record unavailable", exc_info=True)
-
-
-def mi_discrete_features(metadata: "Metadata") -> list[bool]:
-    """What to pass as ``discrete_features`` to :func:`dataeval.core.mutual_info`.
-
-    Mirrors what :class:`~dataeval.bias.Balance` passes, so a coverage run computing
-    its own class-to-factor mutual information lands on the same numbers as one
-    reusing Balance's.  The two must agree: ``gap_mi_threshold`` is compared against
-    whichever of them ran.
-
-    The correct answer moved between DataEval releases, because the flag's job moved:
-
-    * Where ``Metadata`` exposes ``is_binned`` (rc5 onward), which estimator reads a
-      column is decided from the column's own values, and ``discrete_features``
-      decides only whether that column's entropy is a legitimate ceiling.  A binned
-      factor's alphabet came out of where the cuts fell rather than out of the
-      variable, so it is not — the answer is ``not is_binned``.
-    * On earlier releases the same flag *also* selects the estimator, while
-      ``factor_data`` holds integer codes for every factor, binned or digitized.
-      Every column is therefore discrete and the answer is all ``True`` — which is
-      exactly what rc4's ``Balance`` passes.  Handing it the factor's original
-      continuous/discrete nature instead marks a binned factor continuous, which
-      routes it to the neighbor-based estimator and changes its reported score.
-
-    ``is_binned`` is *added* to ``Metadata`` and to the ``MetadataLike`` protocol in
-    rc5; only the protocol deprecates ``is_discrete`` in its favor.
-    ``Metadata.is_discrete`` stays, because it answers a different question — whether
-    the *variable* is discrete, not whether its codes came from cutting a range — and
-    that question is the wrong one here on every release.
-    """
-    binned = getattr(metadata, "is_binned", None)
-    if binned is not None:
-        try:
-            return [not bool(value) for value in binned]
-        except TypeError:
-            # A container reporting is_binned as something non-iterable is treated
-            # as not providing it at all.
-            pass
-    return [True] * len(list(metadata.factor_names))

@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
+FactorSource = Literal["coded", "values", "auto"]
 
 
 class TaskConfig(BaseModel):

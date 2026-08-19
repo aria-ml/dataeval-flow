@@ -17,13 +17,14 @@ from typing import Any
 import numpy as np
 import polars as pl
 from dataeval import Metadata
-from dataeval.core import label_stats, mutual_info
+from dataeval.core import label_stats
 from dataeval.protocols import AnnotatedDataset, ObjectDetectionTarget
 from pydantic import BaseModel
 
-from dataeval_flow.binning import attach_binning, mi_discrete_features
+from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_embeddings, get_or_compute_metadata
 from dataeval_flow.cache import selection_repr as _sel_repr
+from dataeval_flow.config.schemas import FactorSource
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import normalize_unit_interval
@@ -373,13 +374,12 @@ def _find_factor_gaps(
 
 
 def _mi_from_balance(balance_summary: dict[str, Any] | None, factor_names: list[str]) -> dict[str, float] | None:
-    """Recover class-to-factor MI from a Balance result, or None if unusable.
+    """Recover class-to-factor MI from a Balance result already computed, or None if unusable.
 
-    ``Balance.evaluate`` already calls ``mutual_info`` with the same class labels,
-    factor data and discreteness flags that gap analysis needs, and exposes the
-    class-to-factor row as its ``balance`` frame.  Reusing it avoids a second pass
-    over (n_factors + 1) sklearn MI fits.  Returns None unless every factor is
-    accounted for, so any shape change falls back to computing MI directly.
+    ``Balance.evaluate`` exposes the class-to-factor row as its ``balance`` frame, so a
+    coverage run that assessed metadata distribution has already paid for the numbers gap
+    analysis needs.  Returns None unless every factor is accounted for, in which case
+    :func:`_balance_class_to_factor` computes them.
     """
     if not balance_summary:
         return None
@@ -396,6 +396,30 @@ def _mi_from_balance(balance_summary: dict[str, Any] | None, factor_names: list[
     return mi if wanted.issubset(mi) else None
 
 
+def _balance_class_to_factor(metadata: Metadata, factor_source: FactorSource | None) -> dict[str, float]:
+    """Class-to-factor mutual information, computed the way Balance computes it.
+
+    Gap analysis compares these against ``gap_mi_threshold``, and a threshold is only
+    meaningful if it always names the same quantity — so this runs Balance rather than
+    calling :func:`~dataeval.core.mutual_info` with flags chosen to imitate it.
+
+    Imitating it is no longer possible.  ``factor_source`` decides per factor whether the
+    codes or the measured values are read, consulting the encoding record's provenance: a
+    cut somebody declared or ratified is honored, and one DataEval derived is read past.
+    That is a per-factor decision over two different estimators, and the ``discrete_features``
+    flag this used to pass is one boolean per column that no longer selects anything.  A
+    coverage run computing its own MI would land on numbers Balance does not report, under a
+    threshold documented against Balance's.
+    """
+    from dataeval.bias import Balance
+
+    with warnings.catch_warnings():
+        # sklearn warns about high-cardinality discrete factors from inside the estimator.
+        warnings.filterwarnings("ignore", message=".*unique classes.*", module="sklearn")
+        output = Balance(factor_source=factor_source).evaluate(metadata)
+    return {str(row["factor_name"]): float(row["mi_value"]) for row in output.balance.to_dicts()}
+
+
 def _run_gap_analysis(
     metadata: Metadata,
     index2label: dict[int, str] | None,
@@ -404,8 +428,9 @@ def _run_gap_analysis(
 ) -> MetadataGapResult:
     """Identify metadata coverage gaps by class using mutual information.
 
-    ``precomputed_mi`` supplies class-to-factor MI already computed by Balance; when
-    absent this calls :func:`mutual_info` itself.
+    ``precomputed_mi`` supplies class-to-factor MI a Balance run already produced; when
+    absent this runs Balance itself, so the numbers compared against ``gap_mi_threshold``
+    are Balance's either way.
     """
     _logger.info("  Running metadata gap analysis ...")
 
@@ -413,27 +438,13 @@ def _run_gap_analysis(
     if not factor_names:
         return MetadataGapResult(mutual_info_class_to_factor={}, gaps=[])
 
-    mi_per_factor: dict[str, float] = {}
     if precomputed_mi is not None:
         _logger.debug("  Reusing class-to-factor MI computed by Balance")
-        mi_per_factor = {fname: precomputed_mi[fname] for fname in factor_names}
+        computed = precomputed_mi
     else:
-        # Suppress sklearn warning about high-cardinality discrete factors
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*unique classes.*", module="sklearn")
-            mi_result = mutual_info(
-                class_labels=metadata.class_labels,
-                factor_data=metadata.factor_data,
-                discrete_features=mi_discrete_features(metadata),
-            )
-
-        # mi_result["class_to_factor"] is 1D array: MI between class label and each factor.
-        # First element is class-to-class MI (always 1.0), remaining are factors.
-        class_to_factor = mi_result["class_to_factor"]
-        for i, fname in enumerate(factor_names):
-            mi_idx = i + 1
-            if mi_idx < len(class_to_factor):
-                mi_per_factor[fname] = float(class_to_factor[mi_idx])
+        _logger.debug("  Computing class-to-factor MI through Balance")
+        computed = _balance_class_to_factor(metadata, params.metadata_factor_source)
+    mi_per_factor = {fname: computed[fname] for fname in factor_names if fname in computed}
 
     # Cross-tabulate per-class metadata distributions for high-MI factors.
     # Label-level rows are the only ones that align with class_labels: they are the
@@ -486,7 +497,7 @@ def _assess_metadata_distribution(
         warnings.filterwarnings("ignore", message=".*unique classes.*", module="sklearn")
 
         if params.balance and metadata.factor_names:
-            bal_result = Balance().evaluate(metadata)
+            bal_result = Balance(factor_source=params.metadata_factor_source).evaluate(metadata)
             balance_summary = _to_serializable(
                 {
                     "balance": bal_result.balance.to_dicts(),

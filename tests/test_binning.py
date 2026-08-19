@@ -10,7 +10,7 @@ import pytest
 from dataeval import Metadata
 
 from dataeval_flow._logging import capture_diagnostics
-from dataeval_flow.binning import attach_binning, describe_binning, mi_discrete_features
+from dataeval_flow.binning import attach_binning, describe_binning
 from dataeval_flow.config.schemas._metadata import ResultMetadata
 from dataeval_flow.workflow.base import MetadataConfigMixin
 
@@ -152,62 +152,24 @@ class TestCaptureDiagnostics:
         assert messages == []
 
 
-class TestMiDiscreteFeatures:
-    """What gets handed to mutual_info as discrete_features, per DataEval release."""
+class TestGapMiAgreesWithBalance:
+    """Gap analysis compares against `gap_mi_threshold`, so its MI must be Balance's.
 
-    def test_prefers_is_binned_when_present(self):
-        """rc5 onward: the flag is only an entropy ceiling, so a binned factor is False."""
+    A boolean `discrete_features` used to be able to imitate Balance. It cannot any more:
+    `factor_source` decides per factor whether the codes or the measured values are read,
+    consulting the encoding record's provenance, and that is two estimators chosen per
+    column rather than one flag per column.
+    """
 
-        class _Meta:
-            is_binned = [True, False, True]
-            is_discrete = [False, True, True]  # the wrong question — must not be read
-            factor_names = ["a", "b", "c"]
-
-        assert mi_discrete_features(_Meta()) == [False, True, False]  # type: ignore[arg-type]
-
-    def test_falls_back_to_all_true(self):
-        """rc4: the flag also picks the estimator, and factor_data is codes throughout.
-
-        This is what rc4's Balance passes. Reading is_discrete here would mark a binned
-        continuous factor continuous and move its class-to-factor score away from the
-        value Balance reports for the same data.
-        """
-
-        class _Meta:
-            is_discrete = [False, True, True]
-            factor_names = ["a", "b", "c"]
-
-        assert mi_discrete_features(_Meta()) == [True, True, True]  # type: ignore[arg-type]
-
-    def test_non_iterable_is_binned_falls_back(self):
-        class _Meta:
-            is_binned = object()
-            factor_names = ["a", "b"]
-
-        assert mi_discrete_features(_Meta()) == [True, True]  # type: ignore[arg-type]
-
-    def test_empty_when_there_are_no_factors(self):
-        class _Meta:
-            factor_names: list[str] = []
-
-        assert mi_discrete_features(_Meta()) == []  # type: ignore[arg-type]
-
-
-class TestAgreesWithBalance:
-    """The fallback exists to match Balance; assert that on the installed release."""
-
-    def test_class_to_factor_matches_balance(self):
-        import warnings
-
-        from dataeval.bias import Balance
+    @staticmethod
+    def _metadata_with_signal() -> Metadata:
         from dataeval.config import set_seed
-        from dataeval.core import mutual_info
 
         set_seed(42)
         rng = np.random.default_rng(0)
         n = 600
         labels = rng.integers(0, 3, n)
-        md = Metadata.from_factors(
+        return Metadata.from_factors(
             {
                 "elevation": labels * 50.0 + rng.normal(0, 8, n),  # continuous -> binned
                 "sensor": np.where(labels == 0, "a", rng.choice(list("bc"), n)),
@@ -215,15 +177,70 @@ class TestAgreesWithBalance:
             },
             class_labels=labels,
         )
+
+    @pytest.mark.parametrize("factor_source", [None, "auto", "coded", "values"])
+    def test_matches_balance_under_every_factor_source(self, factor_source):
+        import warnings
+
+        from dataeval.bias import Balance
+
+        from dataeval_flow.workflows.coverage.workflow import _balance_class_to_factor
+
+        md = self._metadata_with_signal()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            expected = {
+                row["factor_name"]: float(row["mi_value"])
+                for row in Balance(factor_source=factor_source).evaluate(md).balance.to_dicts()
+            }
+            actual = _balance_class_to_factor(md, factor_source)
+
+        assert actual.keys() >= set(md.factor_names)
+        for name in md.factor_names:
+            assert actual[name] == pytest.approx(expected[name], abs=1e-9), (
+                f"{name}: coverage's MI diverged from Balance's under factor_source={factor_source!r}"
+            )
+
+    def test_reuses_a_balance_result_rather_than_recomputing(self):
+        """The precomputed path and the computed path must agree, or reuse changes numbers."""
+        import warnings
+
+        from dataeval_flow.workflows.coverage.workflow import _balance_class_to_factor, _mi_from_balance
+
+        md = self._metadata_with_signal()
         names = list(md.factor_names)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            balance = {row["factor_name"]: float(row["mi_value"]) for row in Balance().evaluate(md).balance.to_dicts()}
-            result = mutual_info(md.class_labels, md.factor_data, mi_discrete_features(md))
+            from dataeval.bias import Balance
 
-        class_to_factor = result["class_to_factor"]
-        for i, name in enumerate(names):
-            assert balance[name] == pytest.approx(float(class_to_factor[i + 1]), abs=1e-9), (
-                f"{name}: coverage's own MI diverged from Balance's"
-            )
+            summary = {"balance": Balance().evaluate(md).balance.to_dicts()}
+            computed = _balance_class_to_factor(md, None)
+
+        reused = _mi_from_balance(summary, names)
+        assert reused is not None
+        for name in names:
+            assert reused[name] == pytest.approx(computed[name], abs=1e-9)
+
+
+class TestRecordsFactorSource:
+    """`factor_source` moves every bias number and leaves no other trace in the result."""
+
+    def test_records_the_configured_source(self):
+        record = describe_binning(_metadata(), factor_source="coded")
+        assert record["factor_source"] == "coded"
+
+    def test_records_the_default_when_unset(self):
+        record = describe_binning(_metadata())
+        # Whatever the installed release defaults to -- read off the evaluator, not assumed.
+        from dataeval.bias import Balance
+
+        assert record["factor_source"] == Balance().factor_source
+
+    def test_attach_carries_it_from_params(self):
+        result_metadata = ResultMetadata()
+        params = MetadataConfigMixin(metadata_factor_source="values")
+        attach_binning(result_metadata, _metadata(), params)
+        assert result_metadata.metadata_binning is not None
+        assert result_metadata.metadata_binning["factor_source"] == "values"

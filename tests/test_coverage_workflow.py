@@ -439,14 +439,10 @@ class TestRunCompleteness:
 
 
 class TestRunGapAnalysis:
-    @patch("dataeval_flow.workflows.coverage.workflow.mutual_info")
+    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
     def test_identifies_gaps(self, mock_mi: MagicMock) -> None:
         """Test that gap analysis identifies under-represented class-factor combinations."""
-        mock_mi.return_value = {
-            # class_to_factor[0] is self-MI, then one per factor
-            "class_to_factor": np.array([1.0, 0.5, 0.02]),
-            "interfactor": np.eye(2),
-        }
+        mock_mi.return_value = {"time_of_day": 0.5, "weather": 0.02}
 
         n = 90
         # time_of_day=1 appears in 40/90 samples overall, but never for class 2 ("bird"),
@@ -478,7 +474,7 @@ class TestRunGapAnalysis:
         assert gap.expected_count == 4.4
         assert gap.deficit == 1.0
 
-    @patch("dataeval_flow.workflows.coverage.workflow.mutual_info")
+    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
     def test_object_detection_uses_target_rows(self, mock_mi: MagicMock) -> None:
         """Gap analysis reads target-level rows, which always align with class_labels.
 
@@ -486,7 +482,7 @@ class TestRunGapAnalysis:
         image with one target-level row per detection, so it is longer than
         ``class_labels`` and cannot be masked by class.
         """
-        mock_mi.return_value = {"class_to_factor": np.array([1.0, 0.5]), "interfactor": np.eye(1)}
+        mock_mi.return_value = {"weather": 0.5}
 
         # 12 images, 30 detections: class 0 gets 20, class 1 gets 10.
         n_images, n_targets = 12, 30
@@ -512,7 +508,7 @@ class TestRunGapAnalysis:
         assert result.gaps[0].class_count == 0
         assert result.gaps[0].expected_count == 3.3
 
-    @patch("dataeval_flow.workflows.coverage.workflow.mutual_info")
+    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
     def test_no_factors(self, mock_mi: MagicMock) -> None:
         meta = MagicMock()
         meta.factor_names = []
@@ -521,7 +517,7 @@ class TestRunGapAnalysis:
         assert result.gaps == []
         mock_mi.assert_not_called()
 
-    @patch("dataeval_flow.workflows.coverage.workflow.mutual_info")
+    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
     def test_precomputed_mi_skips_second_pass(self, mock_mi: MagicMock) -> None:
         """Balance already computed this MI — do not pay for it twice."""
         weather = [0] * 10 + [1] * 10 + [0] * 10
@@ -1343,7 +1339,7 @@ class TestDataCoverageWorkflow:
         assert result.success is True
         mock_get_or_compute_emb.assert_called_once_with(dataset, extractor, transforms, 16)
 
-    @patch("dataeval_flow.workflows.coverage.workflow.mutual_info")
+    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
     @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
     @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
     @patch("dataeval.bias.Balance")

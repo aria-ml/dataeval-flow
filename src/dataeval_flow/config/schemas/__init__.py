@@ -34,6 +34,7 @@ from dataeval_flow.config.schemas._task import (
     DataPrioritizationTaskConfig,
     DataSplittingTaskConfig,
     DriftMonitoringTaskConfig,
+    FactorSource,
     OODDetectionTaskConfig,
     ParameterSweepTaskConfig,
     TaskConfig,
@@ -110,6 +111,7 @@ __all__ = [
     "WorkflowConfig",
     # Task
     "AutoBinMethod",
+    "FactorSource",
     "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",
     "DataCoverageTaskConfig",

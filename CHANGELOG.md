@@ -13,12 +13,11 @@
 - Workflow cache bumped to `v3` for the pixel rescale; reclaim old entries with `rm -rf <cache_dir>/v2`
 - Stored image statistics and `Balance` results need recomputing before comparison against fresh ones
 - Dataset loaders ported from `maite-datasets` to `datamaite`, including HuggingFace class-label support
-- Coverage gap analysis now computes factor-to-class mutual information the way `Balance` does. It previously
-  passed each factor's original continuous/discrete nature as `discrete_features`, but `factor_data` holds integer
-  codes for every factor, so a binned continuous factor was marked continuous and routed to the neighbor-based
-  estimator — moving its score away from the one `Balance` reports for the same data, and making it depend on the
-  seed. Gap findings could therefore differ depending on whether `balance` was enabled, since the two paths feed the
-  same `gap_mi_threshold`
+- Coverage gap analysis now runs `Balance` for its factor-to-class mutual information rather than calling
+  `mutual_info` with flags chosen to imitate it. Imitating it is no longer possible: `factor_source` decides per
+  factor whether the codes or the measured values are read, consulting the encoding record's provenance, and a
+  per-column boolean cannot express a per-column choice between two estimators. Gap findings could otherwise differ
+  depending on whether `balance` was enabled, since both paths feed the same `gap_mi_threshold`
 - Container mounts follow SDP IR conventions
 - Text report **METADATA FACTORS** lists per-bin and per-category detail only for factors with 12 or fewer buckets.
   Above that it reports the count and how the buckets were populated, and labels a factor holding one category per
@@ -41,6 +40,9 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- `metadata_factor_source` (`coded` / `values` / `auto`) on every workflow that reads metadata, and recorded in the
+  result envelope. It selects which representation the bias statistics read, so it moves every number they report —
+  two workflows meant to be compared want the same one
 - Data coverage workflow (`data-coverage`) — class balance, metadata factor gaps, ontology findings, and per-class
   embedding variety, with an `ontology` extra for loading a label space from an RDF artifact
 - `metadata_auto_bin_method`, `metadata_exclude`, and `metadata_continuous_factor_bins` on the data analysis, data

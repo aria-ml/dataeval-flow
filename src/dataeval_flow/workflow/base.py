@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow.config.schemas import AutoBinMethod
+from dataeval_flow.config.schemas import AutoBinMethod, FactorSource
 
 __all__ = [
     "MetadataConfigMixin",
@@ -31,6 +31,18 @@ class MetadataConfigMixin(BaseModel):
     metadata_auto_bin_method: AutoBinMethod | None = None
     metadata_exclude: Sequence[str] = Field(default_factory=list)
     metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None
+    metadata_factor_source: FactorSource | None = Field(
+        default=None,
+        description=(
+            "Which representation of each factor the bias statistics read. `coded` reads "
+            "the integer codes binning produced; `values` reads the measurements, which "
+            "recovers resolution a cut threw away at roughly 11x the cost; `auto` decides "
+            "per factor, keeping codes wherever somebody declared or ratified the cut and "
+            "reading values where nobody did. Leave unset for DataEval's default (`auto`). "
+            "It governs every bias number a workflow reports, so two workflows meant to be "
+            "compared want the same one."
+        ),
+    )
 
 
 class StatsConfigMixin(BaseModel):
