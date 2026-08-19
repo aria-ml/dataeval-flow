@@ -808,104 +808,144 @@ class TestFormatValueListFallback:
 # ---------------------------------------------------------------------------
 
 
-def _cats(values_counts: list[tuple[str, int]]) -> list[dict[str, object]]:
-    """Build a categories list in the shape binning.describe_binning emits."""
-    return [{"code": i, "value": v, "count": n} for i, (v, n) in enumerate(values_counts)]
+def _digitized(values_counts: list[tuple[str, int]], provenance: str = "derived") -> dict[str, object]:
+    """A digitized factor in the shape describe_binning emits: policy plus fit."""
+    return {
+        "type": "categorical",
+        "level": "unit",
+        "encoding": {"kind": "levels", "levels": [v for v, _ in values_counts], "provenance": provenance},
+        "fit": {
+            "levels": [{"code": i, "value": v, "count": n} for i, (v, n) in enumerate(values_counts)],
+            "empty": [i for i, (_, count) in enumerate(values_counts) if count == 0],
+        },
+    }
 
 
-def _bins(ranges: list[tuple[int, float, float]]) -> list[dict[str, object]]:
-    """Build a bins list in the shape binning.describe_binning emits."""
-    return [{"code": c, "count": n, "min": lo, "max": hi} for c, (n, lo, hi) in enumerate(ranges, start=1)]
+def _binned(
+    edges: list[object],
+    occupied: dict[int, tuple[int, float, float]],
+    provenance: str = "derived",
+    method: str | None = "uniform_width",
+) -> dict[str, object]:
+    """A binned factor in the shape describe_binning emits: policy plus fit."""
+    return {
+        "type": "continuous",
+        "level": "unit",
+        "encoding": {"kind": "bins", "edges": edges, "provenance": provenance, "method": method},
+        "fit": {
+            "bins": [
+                {"code": code, "count": n, "min": lo, "max": hi} for code, (n, lo, hi) in sorted(occupied.items())
+            ],
+            "empty": [code for code in range(1, len(edges)) if code not in occupied],
+        },
+    }
 
 
-class TestRenderFactorLineCategories:
+class TestRenderFactorLineLevels:
     def test_enumerates_at_threshold(self):
-        """A factor with exactly _MAX_ENUMERATED categories still lists every one."""
-        cats = _cats([(f"v{i}", i + 1) for i in range(_MAX_ENUMERATED)])
-        lines = _render_factor_line(
-            "sensor", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
-        )
-        assert lines[0] == f"    sensor [categorical @ unit] — {_MAX_ENUMERATED} categories"
+        """A factor with exactly _MAX_ENUMERATED levels still lists every one."""
+        info = _digitized([(f"v{i}", i + 1) for i in range(_MAX_ENUMERATED)])
+        lines = _render_factor_line("sensor", info)
+        assert lines[0] == f"    sensor [categorical @ unit] — {_MAX_ENUMERATED} levels, derived"
         assert len(lines) == _MAX_ENUMERATED + 1
-        assert lines[1] == "        0: v0 (n=1)"
+        assert lines[1] == "        v0 (0): n=1"
 
-    def test_small_factor_unchanged(self):
-        """The documented three-category rendering is untouched."""
-        cats = _cats([("a", 15), ("b", 22), ("c", 23)])
-        lines = _render_factor_line(
-            "sensor", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
-        )
+    def test_small_factor_lists_every_level_with_its_provenance(self):
+        lines = _render_factor_line("sensor", _digitized([("a", 15), ("b", 22), ("c", 23)]))
         assert lines == [
-            "    sensor [categorical @ unit] — 3 categories",
-            "        0: a (n=15)",
-            "        1: b (n=22)",
-            "        2: c (n=23)",
+            "    sensor [categorical @ unit] — 3 levels, derived",
+            "        a (0): n=15",
+            "        b (1): n=22",
+            "        c (2): n=23",
         ]
 
+    def test_declared_vocabulary_says_so(self):
+        """`declared` is the state a reviewer audits for; `derived` is nobody's decision."""
+        lines = _render_factor_line("sensor", _digitized([("a", 1)], provenance="declared"))
+        assert lines[0] == "    sensor [categorical @ unit] — 1 levels, declared"
+
+    def test_levels_sort_by_value_not_by_code(self):
+        """A vocabulary grows append-only, so a late level carries an out-of-order code."""
+        info = _digitized([("b", 1), ("c", 2)])
+        # `a` arrived after the first structuring and took the next free code.
+        info["fit"]["levels"].append({"code": 2, "value": "a", "count": 3})  # type: ignore[index]
+        lines = _render_factor_line("sensor", info)
+        assert [line.split("(")[0].strip() for line in lines[1:]] == ["a", "b", "c"]
+
     def test_collapses_above_threshold_with_spread(self):
-        """Above the threshold the values are dropped for a count and a population spread."""
-        cats = _cats([(f"c{i}", 3 + (i % 17)) for i in range(40)])
-        lines = _render_factor_line(
-            "klass", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
-        )
-        assert lines == ["    klass [categorical @ unit] — 40 categories, n=3–19 per category"]
+        info = _digitized([(f"c{i}", 3 + (i % 17)) for i in range(40)])
+        lines = _render_factor_line("klass", info)
+        assert lines == ["    klass [categorical @ unit] — 40 levels, derived, n=3–19 per level"]
 
     def test_uniform_population_reports_single_count(self):
-        """A collapsed factor whose categories are all the same size states one number."""
-        cats = _cats([(f"c{i}", 5) for i in range(20)])
-        lines = _render_factor_line(
-            "klass", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
-        )
-        assert lines == ["    klass [categorical @ unit] — 20 categories, n=5 per category"]
+        lines = _render_factor_line("klass", _digitized([(f"c{i}", 5) for i in range(20)]))
+        assert lines == ["    klass [categorical @ unit] — 20 levels, derived, n=5 per level"]
 
     def test_identifier_factor_flagged(self):
-        """One category per sample is called out instead of dumping every filename."""
-        cats = _cats([(f"{i:05d}.jpg", 1) for i in range(250)])
-        lines = _render_factor_line(
-            "file_name", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
-        )
-        assert lines == ["    file_name [categorical @ unit] — 250 categories (one per sample)"]
+        """One level per sample is called out instead of dumping every filename."""
+        lines = _render_factor_line("file_name", _digitized([(f"{i:05d}.jpg", 1) for i in range(250)]))
+        assert lines == ["    file_name [categorical @ unit] — 250 levels, derived (one per sample)"]
 
     def test_identifier_flag_needs_high_cardinality(self):
         """A genuinely tiny all-singleton factor is still enumerated rather than flagged."""
-        cats = _cats([("a", 1), ("b", 1)])
-        lines = _render_factor_line(
-            "pair", {"type": "categorical", "level": "unit", "is_digitized": True, "categories": cats}
-        )
+        lines = _render_factor_line("pair", _digitized([("a", 1), ("b", 1)]))
         assert lines == [
-            "    pair [categorical @ unit] — 2 categories",
-            "        0: a (n=1)",
-            "        1: b (n=1)",
+            "    pair [categorical @ unit] — 2 levels, derived",
+            "        a (0): n=1",
+            "        b (1): n=1",
         ]
 
-    def test_missing_categories_list(self):
-        """A digitized factor whose companion column was unreadable renders its header alone."""
-        lines = _render_factor_line("sensor", {"type": "categorical", "level": "unit", "is_digitized": True})
-        assert lines == ["    sensor [categorical @ unit] — 0 categories"]
+    def test_unreadable_fit_renders_the_policy_alone(self):
+        """A companion column renamed upstream costs the counts, not the record."""
+        info = _digitized([("a", 1)])
+        del info["fit"]
+        assert _render_factor_line("sensor", info) == ["    sensor [categorical @ unit] — derived"]
+
+    def test_no_encoding_at_all(self):
+        lines = _render_factor_line("sensor", {"type": "categorical", "level": "unit"})
+        assert lines == ["    sensor [categorical @ unit] — not encoded"]
 
 
 class TestRenderFactorLineBins:
-    def test_small_binned_factor_unchanged(self):
-        """The documented four-bin rendering is untouched."""
-        bins = _bins([(4, 41.87, 68.52), (19, 68.85, 94.77), (25, 96.02, 119.6), (12, 122.6, 149.0)])
-        lines = _render_factor_line(
-            "elevation",
-            {
-                "type": "continuous",
-                "level": "unit",
-                "is_binned": True,
-                "bins_requested": 4,
-                "bins": bins,
-            },
-        )
-        assert lines[0] == "    elevation [continuous @ unit] — binned, 4 (requested)"
-        assert lines[1] == "        bin 1: n=4  [41.87, 68.52]"
-        assert len(lines) == 5
+    def test_names_bins_from_the_edges_not_from_their_contents(self):
+        """The defect this replaces: a declared cutoff never reached its own label.
 
-    def test_collapses_above_threshold_with_overall_span(self):
-        """Many bins collapse to the count and the span the bins actually covered."""
-        bins = _bins([(2, float(i), i + 0.5) for i in range(100)])
-        lines = _render_factor_line(
-            "elevation", {"type": "continuous", "level": "unit", "is_binned": True, "bins": bins}
+        `{"temp_c": [-inf, 0.0, inf]}` used to render as `[-40, -0.3]` — a fact about the
+        sample, printed where the decision belonged.
+        """
+        info = _binned(["-inf", 0.0, "inf"], {1: (30, -40.0, -0.3), 2: (30, 0.1, 25.0)}, "edges", None)
+        lines = _render_factor_line("temp_c", info)
+        assert lines[0] == "    temp_c [continuous @ unit] — 2 bins, edges declared"
+        assert lines[1].startswith("        < 0 ")
+        assert lines[2].startswith("        >= 0 ")
+
+    def test_reports_a_declared_bin_nothing_reached(self):
+        """An empty declared bin is what a locked policy no longer fitting looks like."""
+        info = _binned(["-inf", 0.0, 10.0, "inf"], {3: (60, 12.9, 25.07)}, "edges", None)
+        lines = _render_factor_line("temp_c", info)
+        assert lines[0] == "    temp_c [continuous @ unit] — 3 bins, edges declared, 2 empty"
+        assert "empty" in lines[1]
+        assert "occupied" in lines[3]
+
+    def test_derived_cut_names_the_method_that_placed_it(self):
+        info = _binned(["-inf", 50.0, "inf"], {1: (30, 1.0, 49.0), 2: (30, 51.0, 99.0)})
+        assert _render_factor_line("elevation", info)[0] == (
+            "    elevation [continuous @ unit] — 2 bins, derived (uniform_width)"
         )
-        assert lines == ["    elevation [continuous @ unit] — binned, 100 auto, [0, 99.5] overall"]
+
+    def test_interior_bins_render_as_half_open_intervals(self):
+        info = _binned(["-inf", 0.0, 10.0, "inf"], {2: (5, 1.0, 9.0)}, "edges", None)
+        lines = _render_factor_line("temp_c", info)
+        assert lines[2].startswith("        [0, 10) ")
+
+    def test_collapses_above_threshold_with_occupied_span(self):
+        """Many bins collapse to the count and the span the bins actually covered."""
+        edges: list[object] = ["-inf", *[float(i) for i in range(1, 100)], "inf"]
+        info = _binned(edges, {i: (2, float(i), i + 0.5) for i in range(1, 101)})
+        lines = _render_factor_line("elevation", info)
+        assert lines == ["    elevation [continuous @ unit] — 100 bins, derived (uniform_width), [1, 100.5] occupied"]
+
+    def test_unreadable_fit_renders_the_policy_alone(self):
+        info = _binned(["-inf", 0.0, "inf"], {1: (1, 0.0, 1.0)}, "edges", None)
+        del info["fit"]
+        assert _render_factor_line("temp_c", info) == ["    temp_c [continuous @ unit] — edges declared"]

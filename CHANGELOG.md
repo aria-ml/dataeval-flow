@@ -13,6 +13,19 @@
 - Workflow cache bumped to `v3` for the pixel rescale; reclaim old entries with `rm -rf <cache_dir>/v2`
 - Stored image statistics and `Balance` results need recomputing before comparison against fresh ones
 - Dataset loaders ported from `maite-datasets` to `datamaite`, including HuggingFace class-label support
+- Metadata factor records now carry the encoding DataEval applied rather than one reconstructed from the data. Each
+  factor reports `encoding` — the edges or the vocabulary, `provenance` (`edges` / `count` / `declared` / `accepted` /
+  `derived`), and the `method` that placed them — beside `fit`, which is what this run's rows did against it. The two
+  were previously collapsed into observed per-bin ranges, which described the draw rather than the decision: the same
+  cut over a different sample recorded different numbers, a `continuous_factor_bins` count discarded where its
+  interior cuts actually landed, and a declared cutoff never survived into its own label, so
+  `{"temp_c": [-inf, 0.0, inf]}` was reported and printed as `[-40, -0.3]`. Consumers reading `bins`, `bin_count`,
+  `bins_requested`, `binned_by`, `categories`, `category_count`, `is_binned` or `is_digitized` off a factor record
+  need updating; `encoding` and `fit` replace them
+- Text report **METADATA FACTORS** names bins from their edges rather than their contents (`< 0`, `[0, 10)`,
+  `>= 10`), states each factor's provenance, and reports declared bins nothing reached as `empty`. Levels are listed
+  in value order rather than code order, since a vocabulary grows append-only and a late level carries an
+  out-of-order code
 - Coverage gap analysis now runs `Balance` for its factor-to-class mutual information rather than calling
   `mutual_info` with flags chosen to imitate it. Imitating it is no longer possible: `factor_source` decides per
   factor whether the codes or the measured values are read, consulting the encoding record's provenance, and a

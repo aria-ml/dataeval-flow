@@ -528,46 +528,126 @@ def _population_summary(counts: Sequence[int]) -> str:
     return f"n={low}" if low == high else f"n={low}–{high}"
 
 
-def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
-    """Render one factor: what it is, and what discretizing did to it.
+_PROVENANCE = {
+    "edges": "edges declared",
+    "count": "count declared",
+    "declared": "declared",
+    "accepted": "accepted",
+    "derived": "derived",
+}
 
-    A factor with more buckets than ``_MAX_ENUMERATED`` reports what the reader
-    can act on — how many, and how they were populated — instead of listing
-    them.  The full ordinal-to-value map stays in the envelope either way.
+
+def _edge_text(edge: Any) -> str:
+    """Render one recorded edge.  Infinities arrive from the descriptor as words."""
+    return _fmt_num(edge) if isinstance(edge, (int, float)) else str(edge)
+
+
+def _bin_names(edges: Sequence[Any]) -> dict[int, str]:
+    """Name each declared bin from the edges that produced it, not from its contents.
+
+    Naming a bin after what landed in it made the label move with the sample and hid a
+    declared cutoff from its own label: ``[-inf, 0.0, inf]`` printed as ``[-40, -0.3]``,
+    with nothing saying that zero was where the meaning was.  An open outer edge reads as
+    a half-line, since ``[-inf, 0)`` says less than ``< 0`` does.
     """
-    level = info.get("level", "?")
-    ftype = info.get("type", "?")
-    head = f"    {name} [{ftype} @ {level}]"
+    names: dict[int, str] = {}
+    for code in range(1, len(edges)):
+        low, high = edges[code - 1], edges[code]
+        if low == "-inf":
+            names[code] = f"< {_edge_text(high)}"
+        elif high == "inf":
+            names[code] = f">= {_edge_text(low)}"
+        else:
+            names[code] = f"[{_edge_text(low)}, {_edge_text(high)})"
+    return names
 
-    if info.get("is_binned"):
-        bins = info.get("bins") or []
-        how = f"{info['bins_requested']} (requested)" if "bins_requested" in info else f"{len(bins)} auto"
-        if len(bins) > _MAX_ENUMERATED:
-            # The span the bins actually covered is the one thing worth keeping
-            # when the per-bin rows go.
-            low, high = min(b["min"] for b in bins), max(b["max"] for b in bins)
-            return [f"{head} — binned, {how}, [{_fmt_num(low)}, {_fmt_num(high)}] overall"]
-        lines = [f"{head} — binned, {how}"]
-        lines.extend(
-            f"        bin {b['code']}: n={b['count']}  [{_fmt_num(b['min'])}, {_fmt_num(b['max'])}]" for b in bins
-        )
-        return lines
 
-    if info.get("is_digitized"):
-        cats = info.get("categories") or []
-        if len(cats) > _MAX_ENUMERATED:
-            counts = [c["count"] for c in cats]
-            # One category per sample means an identifier column, not a
-            # grouping: it carries nothing for balance or diversity, and saying
-            # so is the whole of what a reader needs from it.
-            if max(counts) == 1:
-                return [f"{head} — {len(cats)} categories (one per sample)"]
-            return [f"{head} — {len(cats)} categories, {_population_summary(counts)} per category"]
-        lines = [f"{head} — {len(cats)} categories"]
-        lines.extend(f"        {c['code']}: {c['value']} (n={c['count']})" for c in cats)
-        return lines
+def _how_encoded(encoding: dict[str, Any]) -> str:
+    """Who chose this encoding, and how it was placed.
 
-    return [f"{head} — not discretized"]
+    ``provenance`` is the field a reviewer audits: a descriptor still carrying ``derived``
+    entries is one nobody has finished reviewing.
+    """
+    how = _PROVENANCE.get(encoding.get("provenance", ""), str(encoding.get("provenance")))
+    method = encoding.get("method")
+    return f"{how} ({method})" if method and how == "derived" else how
+
+
+def _render_binned_factor(head: str, encoding: dict[str, Any], fit: dict[str, Any]) -> list[str]:
+    """A cut, its provenance, and how this run's rows fell into it."""
+    edges = list(encoding.get("edges") or ())
+    names = _bin_names(edges)
+    populated = {b["code"]: b for b in fit.get("bins") or []}
+    empty = set(fit.get("empty") or ())
+    declared = len(names)
+
+    summary = f"{head} — {declared} bins, {_how_encoded(encoding)}"
+    if empty:
+        summary += f", {len(empty)} empty"
+
+    if declared > _MAX_ENUMERATED:
+        spans = [b for b in populated.values()]
+        if not spans:
+            return [summary]
+        low, high = min(b["min"] for b in spans), max(b["max"] for b in spans)
+        return [f"{summary}, [{_fmt_num(low)}, {_fmt_num(high)}] occupied"]
+
+    width = max((len(n) for n in names.values()), default=0)
+    lines = [summary]
+    for code in sorted(names):
+        bucket = populated.get(code)
+        if bucket is None:
+            lines.append(f"        {names[code]:<{width}}  n=0    empty")
+        else:
+            span = f"[{_fmt_num(bucket['min'])}, {_fmt_num(bucket['max'])}]"
+            lines.append(f"        {names[code]:<{width}}  n={bucket['count']:<4} occupied {span}")
+    for label, key in (("below range", "below_range"), ("above range", "above_range"), ("missing", "missing")):
+        if fit.get(key):
+            lines.append(f"        {label:<{width}}  n={fit[key]}")
+    return lines
+
+
+def _render_digitized_factor(head: str, encoding: dict[str, Any], fit: dict[str, Any]) -> list[str]:
+    """A vocabulary, its provenance, and how this run's rows fell across it."""
+    levels = fit.get("levels") or []
+    summary = f"{head} — {len(levels)} levels, {_how_encoded(encoding)}"
+
+    if len(levels) > _MAX_ENUMERATED:
+        counts = [entry["count"] for entry in levels]
+        # One category per sample means an identifier column, not a grouping: it carries
+        # nothing for balance or diversity, and saying so is all a reader needs from it.
+        if counts and max(counts) == 1:
+            return [f"{summary} (one per sample)"]
+        return [f"{summary}, {_population_summary(counts)} per level"] if counts else [summary]
+
+    # Sorted by value rather than by code: a vocabulary grows append-only, so a level
+    # added after the first structuring carries a code out of sort order and listing by
+    # code would read as scrambled.
+    lines = [summary]
+    lines.extend(
+        f"        {entry['value']} ({entry['code']}): n={entry['count']}"
+        for entry in sorted(levels, key=lambda e: (e["value"] is None, str(e["value"])))
+    )
+    return lines
+
+
+def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
+    """Render one factor: what it is, how it was encoded, and how that encoding fits.
+
+    A factor with more buckets than ``_MAX_ENUMERATED`` reports what the reader can act
+    on — how many, and how they were populated — instead of listing them.  The full map
+    stays in the envelope either way.
+    """
+    head = f"    {name} [{info.get('type', '?')} @ {info.get('level', '?')}]"
+    encoding, fit = info.get("encoding"), info.get("fit")
+
+    if not encoding:
+        return [f"{head} — not encoded"]
+    if fit is None:
+        return [f"{head} — {_how_encoded(encoding)}"]
+    if encoding.get("kind") == "bins":
+        return _render_binned_factor(head, encoding, fit)
+    return _render_digitized_factor(head, encoding, fit)
 
 
 def _render_binning_record(record: dict[str, Any], split_name: str | None = None) -> list[str]:

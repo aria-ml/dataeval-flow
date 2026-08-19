@@ -113,29 +113,42 @@ record appears in the text report under **METADATA FACTORS** and in the result e
   Auto-bin method: uniform_width
   Excluded:        id
   Unmatched bins:  not_a_factor
-    elevation [continuous @ unit] — binned, 4 (requested)
-        bin 1: n=4   [41.87, 68.52]
-        bin 2: n=19  [68.85, 94.77]
-        bin 3: n=25  [96.02, 119.6]
-        bin 4: n=12  [122.6, 149]
-    sensor [categorical @ unit] — 3 categories
-        0: a (n=15)
-        1: b (n=22)
-        2: c (n=23)
-    file_name [categorical @ unit] — 250 categories (one per sample)
+    elevation [continuous @ unit] — 4 bins, count declared
+        < 68.66         n=4    occupied [41.87, 68.52]
+        [68.66, 95.44)  n=19   occupied [68.85, 94.77]
+        [95.44, 122.2)  n=25   occupied [96.02, 119.6]
+        >= 122.2        n=12   occupied [122.6, 149]
+    temp_c [continuous @ unit] — 3 bins, edges declared, 2 empty
+        < 0      n=0    empty
+        [0, 10)  n=0    empty
+        >= 10    n=60   occupied [12.9, 25.07]
+    sensor [categorical @ unit] — 3 levels, derived
+        a (0): n=15
+        b (1): n=22
+        c (2): n=23
+    file_name [categorical @ unit] — 250 levels, derived (one per sample)
 ```
 
-Per factor the envelope records the type, the {term}`level <Metadata Level>` it was binned at, whether it was binned
-or digitized, and the decision itself — the observed range and population of every bin, or the ordinal-to-value map
-of every category. Observed ranges are reported rather than nominal edges: they describe what the run actually did
-and stay meaningful for a bin that ended up empty or clipped.
+Each factor carries two things, and the distinction is the point:
 
-The text report shows that detail only for a factor with 12 or fewer bins or categories. Above that it gives the
-count and how the buckets were populated — `40 categories, n=3–19 per category`, or the overall span for a binned
-factor — so one high-cardinality factor cannot bury the rest. A factor holding exactly one category per sample is an
+`encoding` — **the policy.** The cut points or the vocabulary, who chose them, and how they were placed. `provenance`
+is the field to read: `edges declared` means you said where to cut, `count declared` means you said how many and
+DataEval placed them, and `derived` means nobody decided — DataEval chose both, from this sample. A factor still
+reading `derived` is one nobody has reviewed.
+
+`fit` — **the observation.** How many rows reached each bin in this run, the span they occupied, and which declared
+bins nothing reached at all. `2 empty` above says the freezing and cold bins are unpopulated: the cut still applies
+and the codes are unchanged, but the data has moved out from under the policy.
+
+Bins are named from their edges rather than from their contents. That is what lets a declared cutoff survive into its
+own label — `{"temp_c": [-inf, 0.0, 10.0, inf]}` reads as `< 0`, not as whatever the coldest sample happened to be —
+and it means the same policy prints the same names over a different draw.
+
+The text report shows per-bucket detail only for a factor with 12 or fewer bins or levels. Above that it gives the
+count and how the buckets were populated — `40 levels, derived, n=3–19 per level`, or the occupied span for a binned
+factor — so one high-cardinality factor cannot bury the rest. A factor holding exactly one level per sample is an
 identifier rather than a grouping, and is labelled `(one per sample)`; it contributes nothing to balance or
-diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffected by the cap — read
-`binning["factors"][name]["categories"]` for the full map.
+diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffected by the cap.
 
 From Python:
 
@@ -144,9 +157,13 @@ result = run_task(task, config)
 
 binning = result.metadata.metadata_binning
 for name, info in binning["factors"].items():
-    if info["is_binned"]:
-        print(name, info["bin_count"], [(b["min"], b["max"]) for b in info["bins"]])
+    encoding = info.get("encoding")
+    if encoding and encoding["kind"] == "bins":
+        print(name, encoding["provenance"], encoding["edges"], "empty:", info["fit"]["empty"])
 ```
+
+Note `requested_bins` records what was *asked for* and `encoding` records what was *applied*. A request of `10` is a
+count; where its nine interior cuts landed is in `encoding["edges"]`.
 
 For `data-analysis`, splits are binned independently — two splits of one dataset can land on different edges — so the
 record is nested one level deeper, under `binning["per_split"][split_name]`.

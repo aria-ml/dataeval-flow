@@ -1,21 +1,37 @@
-"""Record of how metadata factors were typed and binned.
+"""Record of how metadata factors were encoded, and how well that encoding fits.
 
-DataEval decides each factor's type on the caller's behalf and, for a continuous
-one, where its bin edges fall.  Those decisions change what every downstream
-evaluator sees — balance, diversity and parity read binned codes rather than the
-values measured — but DataEval reports them only as log records, which do not
-survive into a result envelope.  A result archived today therefore cannot answer
-"was this factor binned, and over what range?", which is exactly what a reviewer
-comparing two runs needs to know.
+A bin edge is a claim about the world — *below 0 °C is freezing* — so where the
+cuts fell, and who chose them, is part of what a result computed from the factor
+means.  Balance, diversity and parity read codes rather than the values measured,
+and the map from one to the other is the thing a reviewer comparing two runs has
+to be able to see.
 
-This module reconstructs those decisions from the companion columns DataEval
-writes alongside each factor, so the envelope carries them.  Observed per-bin
-ranges are recorded rather than the nominal edges: they describe what the run
-actually did, and they remain meaningful for an empty or clipped bin.
+Two members per factor, answering two different questions:
+
+``encoding``
+    The **policy**: the edges or the vocabulary, who chose them (``provenance``),
+    and how they were placed (``method``).  Read from DataEval's own record and
+    rendered by DataEval's own writer, so this is byte-for-byte what a committed
+    descriptor holds and what the cache sidecar names.
+``fit``
+    The **observation**: how many rows reached each code in this run, the span
+    they occupied, and which declared bins nothing reached at all.
+
+The split matters because it was previously collapsed.  This module used to
+reconstruct the policy from the observed contents of each bin, which described
+the draw rather than the decision: the same cut over a different sample printed
+a different record, and a declared cutoff never survived into its own label —
+``{"temp_c": [-inf, 0.0, inf]}`` was reported as ``[-40, -0.3]``, with nothing
+saying that zero was where the meaning was.  The record now comes from the record.
+Occupancy is still measured, and is still worth having; it is just no longer
+mistaken for the policy.
 """
 
+import json
 import logging
+import tempfile
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -32,11 +48,15 @@ __all__ = ["attach_binning", "describe_binning"]
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
-# DataEval writes one companion column per factor: bin indices for a binned
-# continuous factor, category ordinals for a digitized one.  The suffixes come
-# from dataeval's private ``_metadata._columns``; they are mirrored here rather
-# than imported so that a private rename upstream costs us the per-bin detail
-# rather than raising ImportError on a working install.
+# DataEval writes one companion column per factor holding its codes: bin indices
+# for a binned continuous factor, category ordinals for a digitized one.  The
+# suffixes come from dataeval's private ``_metadata._columns``; they are mirrored
+# here rather than imported so that a private rename upstream costs us the
+# occupancy detail rather than raising ImportError on a working install.
+#
+# Only ``fit`` reads them.  ``encoding`` comes from the public record, so a rename
+# now costs the observation and leaves the policy — which is the half that has to
+# be right — untouched.
 _BINNED_SUFFIX = "↕"
 _DIGITIZED_SUFFIX = "#"
 
@@ -56,96 +76,116 @@ def _default_factor_source() -> str | None:
         return None
 
 
-def _bin_ranges(df: pl.DataFrame, name: str, companion: str) -> list[dict[str, Any]] | None:
-    """Observed value range and population of each bin, in bin order."""
-    if name not in df.columns or companion not in df.columns:
+def _descriptor(metadata: "Metadata") -> dict[str, dict[str, Any]]:
+    """Every factor's encoding, as the committed descriptor spells it.
+
+    Round-tripped through ``Metadata.export_encoding`` rather than rendered here.  That
+    writer is the only public one, and it owns decisions this module should not be making
+    a second time: an infinity is the word ``"inf"`` because JSON has no literal for one,
+    a missing level is ``null`` rather than a bare ``NaN`` token no other reader accepts,
+    and a NumPy scalar unwraps to the Python value it stands for.  Reimplementing that
+    here would give the envelope, the cache sidecar and a committed descriptor three
+    chances to disagree about what the same record is.
+
+    Best effort: a release that cannot write one costs the policy half of the record, and
+    the caller still gets ``fit``.
+    """
+    export = getattr(metadata, "export_encoding", None)
+    if export is None:
+        return {}
+    with tempfile.TemporaryDirectory() as scratch:
+        path = Path(scratch) / "encoding.json"
+        export(path)
+        document = json.loads(path.read_text(encoding="utf-8"))
+    factors = document.get("factors")
+    return factors if isinstance(factors, dict) else {}
+
+
+def _declared_bins(record: Mapping[str, Any]) -> int:
+    """Intervals the edges describe — the bins the cut is a claim *about*.
+
+    Not every code a value can land in.  Digitizing has to put an out-of-range value
+    somewhere, so a finitely bounded list also yields a below-first and an above-last
+    catchall.  Nobody declared those and their being empty is the *good* case: it says
+    every value fell inside the range described.  Mirrors DataEval's own definition, so
+    "empty" means the same thing here as in the warning it raises.
+    """
+    return max(len(record.get("edges") or ()) - 1, 0)
+
+
+def _codes(df: pl.DataFrame, companion: str) -> pl.Series | None:
+    """The code column for one factor, or None where the companion column is absent."""
+    return df[companion] if companion in df.columns else None
+
+
+def _bin_fit(df: pl.DataFrame, name: str, record: Mapping[str, Any]) -> dict[str, Any] | None:
+    """How the rows of this run fell into a cut the record describes."""
+    codes = _codes(df, f"{name}{_BINNED_SUFFIX}")
+    if codes is None or name not in df.columns:
         return None
 
-    # Both inputs are renamed to fixed internal names first: a factor is free to
-    # be called "count", "min" or "max", and aggregating into those aliases
-    # alongside it raises a duplicate-column error.
+    # Renamed to fixed internal names first: a factor is free to be called "count", "min"
+    # or "max", and aggregating into those aliases alongside it is a duplicate-column error.
     grouped = (
-        df.select([pl.col(companion).alias("_code"), pl.col(name).alias("_value")])
+        df.select([codes.alias("_code"), pl.col(name).alias("_value")])
         .drop_nulls()
         .group_by("_code")
-        .agg(
-            pl.len().alias("_n"),
-            pl.col("_value").min().alias("_min"),
-            pl.col("_value").max().alias("_max"),
-        )
+        .agg(pl.len().alias("_n"), pl.col("_value").min().alias("_min"), pl.col("_value").max().alias("_max"))
         .sort("_code")
     )
-    return [
-        {
-            "code": int(row["_code"]),
-            "count": int(row["_n"]),
-            "min": row["_min"],
-            "max": row["_max"],
-        }
+    populated = {
+        int(row["_code"]): {"code": int(row["_code"]), "count": int(row["_n"]), "min": row["_min"], "max": row["_max"]}
         for row in grouped.to_dicts()
-    ]
+    }
+
+    declared = _declared_bins(record)
+    # Codes 1..declared are the intervals somebody described. Below-first is 0 and
+    # above-last is `declared + 1`; both are catchalls nobody asked for, and the missing
+    # code sits above them.
+    fit: dict[str, Any] = {
+        "bins": [populated[code] for code in sorted(populated) if 1 <= code <= declared],
+        "empty": [code for code in range(1, declared + 1) if code not in populated],
+    }
+    for label, code in (("below_range", 0), ("above_range", declared + 1), ("missing", declared + 2)):
+        if code in populated:
+            fit[label] = populated[code]["count"]
+    return fit
 
 
-def _categories(df: pl.DataFrame, name: str, companion: str) -> list[dict[str, Any]] | None:
-    """Ordinal-to-value mapping and population of each category, in ordinal order."""
-    if name not in df.columns or companion not in df.columns:
+def _level_fit(df: pl.DataFrame, name: str, record: Mapping[str, Any]) -> dict[str, Any] | None:
+    """How the rows of this run fell across a vocabulary the record describes."""
+    codes = _codes(df, f"{name}{_DIGITIZED_SUFFIX}")
+    if codes is None:
         return None
 
-    # Renamed first for the same reason as _bin_ranges: a factor may be called
-    # "count" or "value".
-    grouped = (
-        df.select([pl.col(companion).alias("_code"), pl.col(name).alias("_value")])
-        .drop_nulls()
-        .group_by(["_code", "_value"])
-        .agg(pl.len().alias("_n"))
-        .sort("_code")
-    )
-    return [
-        {
-            "code": int(row["_code"]),
-            "value": row["_value"],
-            "count": int(row["_n"]),
-        }
-        for row in grouped.to_dicts()
-    ]
+    counts = df.select([codes.alias("_code")]).drop_nulls().group_by("_code").agg(pl.len().alias("_n")).sort("_code")
+    populated = {int(row["_code"]): int(row["_n"]) for row in counts.to_dicts()}
 
-
-def _factor_entry(
-    name: str,
-    info: Any,
-    df: pl.DataFrame,
-    requested_bins: Mapping[str, int | Sequence[float]],
-    auto_bin_method: str | None,
-) -> dict[str, Any]:
-    """Build one factor's record: its type, level, and what discretizing did."""
-    entry: dict[str, Any] = {
-        "type": info.factor_type,
-        "level": info.level,
-        "is_binned": info.is_binned,
-        "is_digitized": info.is_digitized,
+    # Named from the record rather than from the column, so a level the vocabulary holds
+    # and this sample does not still appears — which is the whole point of asking.
+    levels = list(record.get("levels") or ())
+    return {
+        "levels": [
+            {"code": code, "value": value, "count": populated.get(code, 0)} for code, value in enumerate(levels)
+        ],
+        "empty": [code for code in range(len(levels)) if code not in populated],
     }
+
+
+def _factor_entry(name: str, info: Any, df: pl.DataFrame, record: Mapping[str, Any] | None) -> dict[str, Any]:
+    """One factor's record: what it is, how it was encoded, and how that encoding fits."""
+    entry: dict[str, Any] = {"type": info.factor_type, "level": info.level}
     if getattr(info, "aggregated_from", None) is not None:
         entry["aggregated_from"] = info.aggregated_from
 
-    # A factor the caller asked to bin explicitly is distinguished from one
-    # binned by the automatic method, since only the latter can move when the
-    # data changes.
-    if name in requested_bins:
-        entry["bins_requested"] = requested_bins[name]
-    elif info.is_binned:
-        entry["binned_by"] = auto_bin_method
+    if record is None:
+        # Neither encoding path was reached, or the record could not be read.
+        return entry
 
-    if info.is_binned:
-        bins = _bin_ranges(df, name, f"{name}{_BINNED_SUFFIX}")
-        if bins is not None:
-            entry["bins"] = bins
-            entry["bin_count"] = len(bins)
-    elif info.is_digitized:
-        categories = _categories(df, name, f"{name}{_DIGITIZED_SUFFIX}")
-        if categories is not None:
-            entry["categories"] = categories
-            entry["category_count"] = len(categories)
-
+    entry["encoding"] = dict(record)
+    fit = _bin_fit(df, name, record) if record.get("kind") == "bins" else _level_fit(df, name, record)
+    if fit is not None:
+        entry["fit"] = fit
     return entry
 
 
@@ -156,14 +196,14 @@ def describe_binning(
     requested_bins: Mapping[str, int | Sequence[float]] | None = None,
     factor_source: str | None = None,
 ) -> dict[str, Any]:
-    """Describe how every factor was typed and discretized.
+    """Describe how every factor was encoded, and how well that encoding fits this run.
 
     Parameters
     ----------
     metadata : Metadata
         A bound DataEval ``Metadata``.  Reading ``factor_info`` forces binning,
-        so the companion columns this reads are guaranteed to exist by the time
-        the frames are fetched.
+        so both the record and the companion columns are guaranteed to exist by
+        the time they are read.
     excluded : Sequence[str] | None
         Factor names the configuration excluded.  Recorded because an excluded
         factor leaves no other trace — it is simply absent from the results.
@@ -182,6 +222,14 @@ def describe_binning(
     dict
         JSON-serializable record with ``auto_bin_method``, ``factor_source``,
         ``requested_bins``, ``excluded``, per-factor ``factors``, and ``dropped``.
+        Each factor carries its ``encoding`` (the policy) and its ``fit`` (what
+        this run's rows did against it) — see the module docstring.
+
+    Notes
+    -----
+    ``requested_bins`` records what was *asked for*; ``factors[name]["encoding"]``
+    records what was *applied*, which is not the same thing.  A request of ``10``
+    is a count, and where its nine interior cuts landed used to be discarded.
     """
     # Read factor_info first: it forces _bin(), which is what writes the
     # companion columns the frames below are read for.
@@ -202,12 +250,12 @@ def describe_binning(
     # One frame per level, fetched once — rows_at() materializes a frame per call.
     rows_by_level: dict[str, pl.DataFrame] = {}
 
+    encodings = _descriptor(metadata)
+
     for name, info in factor_info.items():
         if info.level not in rows_by_level:
             rows_by_level[info.level] = metadata.rows_at(info.level)
-        record["factors"][name] = _factor_entry(
-            name, info, rows_by_level[info.level], requested_bins, record["auto_bin_method"]
-        )
+        record["factors"][name] = _factor_entry(name, info, rows_by_level[info.level], encodings.get(name))
 
     # A request naming a factor the dataset does not carry is silently ignored
     # by DataEval (it warns and moves on), so it is called out here rather than

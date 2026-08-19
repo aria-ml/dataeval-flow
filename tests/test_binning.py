@@ -41,35 +41,59 @@ class TestDescribeBinning:
         # v1.1 metadata levels, not the retired "image"/"target" pair
         assert record["factors"]["elevation"]["level"] == "unit"
 
-    def test_records_bin_ranges_for_continuous_factor(self):
+    def test_records_the_cut_a_count_request_resolved_to(self):
+        """A count says how many, not where. Where used to be derived and discarded."""
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": 4}))
         entry = record["factors"]["elevation"]
 
-        assert entry["is_binned"] is True
-        assert entry["bin_count"] == 4
-        assert entry["bins_requested"] == 4
+        assert entry["encoding"]["kind"] == "bins"
+        assert entry["encoding"]["provenance"] == "count"
+        # Four intervals means five edges, the outer two open.
+        edges = entry["encoding"]["edges"]
+        assert len(edges) == 5
+        assert (edges[0], edges[-1]) == ("-inf", "inf")
+        assert all(isinstance(edge, float) for edge in edges[1:-1])
 
-        bins = entry["bins"]
+        bins = entry["fit"]["bins"]
         assert sum(b["count"] for b in bins) == 60
-        # Bins partition the line, so each one's range sits above the last.
+        # Bins partition the line, so each one's occupied span sits above the last.
         for lower, upper in itertools.pairwise(bins):
             assert lower["max"] <= upper["min"]
 
-    def test_records_category_values_for_digitized_factor(self):
+    def test_declared_edges_survive_verbatim(self):
+        """The defect this replaces: a declared cutoff never reached its own record."""
+        record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}))
+        entry = record["factors"]["elevation"]
+
+        assert entry["encoding"]["provenance"] == "edges"
+        assert entry["encoding"]["edges"] == ["-inf", 0.0, "inf"]
+        assert entry["encoding"]["method"] is None
+
+    def test_reports_declared_bins_nothing_reached(self):
+        """Occupancy is a question about fit, and an empty declared bin is the answer."""
+        record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, 1.0, np.inf]}))
+        fit = record["factors"]["elevation"]["fit"]
+
+        # Every value is a positive elevation, so the two low bins hold nothing.
+        assert fit["empty"] == [1, 2]
+        assert sum(b["count"] for b in fit["bins"]) == 60
+
+    def test_records_the_vocabulary_for_a_digitized_factor(self):
         record = describe_binning(_metadata())
         entry = record["factors"]["sensor"]
 
-        assert entry["is_digitized"] is True
-        assert entry["category_count"] == 3
-        assert {c["value"] for c in entry["categories"]} == {"a", "b", "c"}
-        assert sum(c["count"] for c in entry["categories"]) == 60
+        assert entry["encoding"]["kind"] == "levels"
+        assert entry["encoding"]["levels"] == ["a", "b", "c"]
+        assert {level["value"] for level in entry["fit"]["levels"]} == {"a", "b", "c"}
+        assert sum(level["count"] for level in entry["fit"]["levels"]) == 60
 
     def test_records_auto_bin_method_when_not_requested(self):
         record = describe_binning(_metadata(auto_bin_method="uniform_count"))
         assert record["auto_bin_method"] == "uniform_count"
-        # A factor binned automatically names the method that placed its edges.
-        assert record["factors"]["elevation"]["binned_by"] == "uniform_count"
-        assert "bins_requested" not in record["factors"]["elevation"]
+        # A factor nobody declared names the method that placed its edges, and says so.
+        encoding = record["factors"]["elevation"]["encoding"]
+        assert encoding["provenance"] == "derived"
+        assert encoding["method"] == "uniform_count"
 
     def test_records_exclusions(self):
         record = describe_binning(_metadata(), excluded=["id", "width"])
@@ -87,14 +111,19 @@ class TestDescribeBinning:
         # The envelope is written as JSON, so numpy scalars must already be gone.
         assert json.loads(json.dumps(record)) == record
 
-    def test_missing_companion_column_degrades_to_no_detail(self, monkeypatch: pytest.MonkeyPatch):
-        """An upstream rename costs the per-bin detail, not the record."""
+    def test_missing_companion_column_costs_the_fit_and_keeps_the_policy(self, monkeypatch: pytest.MonkeyPatch):
+        """An upstream rename costs the observation, not the decision.
+
+        The suffixes are mirrored from a private module. They used to carry the record
+        itself, so a rename lost it; now only occupancy reads them, and the policy comes
+        from the public record.
+        """
         monkeypatch.setattr("dataeval_flow.binning._BINNED_SUFFIX", "~renamed~")
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": 4}))
         entry = record["factors"]["elevation"]
 
-        assert entry["is_binned"] is True  # still stated
-        assert "bins" not in entry  # detail simply absent
+        assert entry["encoding"]["provenance"] == "count"  # the policy survives
+        assert "fit" not in entry  # the observation simply absent
 
 
 class TestAttachBinning:
@@ -116,7 +145,9 @@ class TestAttachBinning:
         attach_binning(meta, _metadata(continuous_factor_bins={"elevation": 5}), params)
         assert meta.metadata_binning is not None
         assert meta.metadata_binning["excluded"] == ["id"]
-        assert meta.metadata_binning["factors"]["elevation"]["bins_requested"] == 5
+        # What was asked for, alongside what it resolved to.
+        assert meta.metadata_binning["requested_bins"] == {"elevation": 5}
+        assert meta.metadata_binning["factors"]["elevation"]["encoding"]["provenance"] == "count"
 
     def test_never_raises(self, caplog: pytest.LogCaptureFixture):
         """A broken Metadata costs the record, not the run."""
