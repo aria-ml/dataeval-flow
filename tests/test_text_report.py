@@ -11,6 +11,7 @@ from dataeval_flow.workflow._text_report import (
     _compact_indices,
     _flow_repr,
     _format_value,
+    _render_binning_section,
     _render_chunk_table,
     _render_classwise_table,
     _render_config_section,
@@ -18,6 +19,7 @@ from dataeval_flow.workflow._text_report import (
     _render_factor_line,
     _render_key_value,
     _render_pivot_table,
+    _render_split_comparability,
     _render_table,
     _section_header,
     _summary_line,
@@ -981,3 +983,32 @@ class TestRenderFactorLineBins:
         info = _binned(["-inf", 0.0, "inf"], {1: (1, 0.0, 1.0)}, "edges", None)
         del info["fit"]
         assert _render_factor_line("temp_c", info) == ["    temp_c [continuous @ unit] — edges declared"]
+
+
+class TestSplitComparability:
+    """Two splits binned independently are not comparable, and the report says so."""
+
+    @staticmethod
+    def _record(digest: str) -> dict[str, object]:
+        return {"encoding_digest": digest, "factors": {}, "dropped": {}}
+
+    def test_matching_digests_read_as_comparable(self):
+        lines = _render_split_comparability({"train": self._record("abc"), "test": self._record("abc")})
+        assert any("comparable across them" in line and "NOT" not in line for line in lines)
+
+    def test_differing_digests_are_called_out(self):
+        lines = _render_split_comparability({"train": self._record("abc"), "test": self._record("def")})
+        assert any("NOT comparable" in line for line in lines)
+
+    def test_one_split_says_nothing(self):
+        assert _render_split_comparability({"train": self._record("abc")}) == []
+
+    def test_a_missing_digest_says_nothing(self):
+        """Silence beats a claim the record cannot support."""
+        record = self._record("abc")
+        record["encoding_digest"] = None
+        assert _render_split_comparability({"train": record, "test": self._record("def")}) == []
+
+    def test_the_section_carries_the_digest(self):
+        section = _render_binning_section({"encoding_digest": "2b6530cc3015f1fe", "factors": {}, "dropped": {}})
+        assert any("2b6530cc3015f1fe" in line for line in section)

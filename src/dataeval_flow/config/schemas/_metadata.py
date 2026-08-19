@@ -27,12 +27,23 @@ class ResultMetadata(BaseModel):
     tool_version: str = ""
     execution_time_s: float | None = None
 
-    #: How each metadata factor was typed and discretized — factor type, level,
-    #: bin populations and their observed ranges, category mappings, and what
-    #: was excluded or dropped.  ``None`` for workflows that build no metadata.
-    #: Recorded because binning decides what every evaluator reads, and it is
-    #: otherwise reported only in logs that no envelope references.
+    #: How each metadata factor was encoded, and how well that encoding fits.
+    #: Per factor: its type and level, the ``encoding`` applied (edges or
+    #: vocabulary, who chose them, and how they were placed), the name each code
+    #: reads as, and the ``fit`` this run's rows made against it — counts,
+    #: occupied spans, and declared bins nothing reached.  ``None`` for workflows
+    #: that build no metadata.  Recorded because the encoding decides what every
+    #: evaluator reads, and it is otherwise reported only in logs no envelope
+    #: references.
     metadata_binning: dict[str, Any] | None = None
+
+    #: Fingerprint of the encoding every factor was read under, or ``None`` where
+    #: the workflow built no metadata or its splits did not share one.  Comparing
+    #: two runs is only sound if each can say which cuts produced it: without this,
+    #: a bias score that moved is unattributable between *the override worked* and
+    #: *the data changed*, which are the two readings a reader is trying to tell
+    #: apart.  Same digest and same data means the numbers are comparable.
+    encoding_digest: str | None = None
 
     #: Library diagnostics raised while the workflow ran — the decisions
     #: DataEval made on the caller's behalf and the ranges it could not resolve.

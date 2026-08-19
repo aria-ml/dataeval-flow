@@ -15,10 +15,9 @@ from dataeval_flow.config.schemas._metadata import ResultMetadata
 from dataeval_flow.workflow.base import MetadataConfigMixin
 
 
-def _metadata(**kwargs: Any) -> Metadata:
+def _metadata(n: int = 60, **kwargs: Any) -> Metadata:
     """A small Metadata with one continuous, one categorical, one discrete factor."""
     rng = np.random.default_rng(0)
-    n = 60
     return Metadata.from_factors(
         {
             "elevation": rng.normal(100.0, 25.0, n),
@@ -187,6 +186,66 @@ class TestAttachBinning:
             attach_binning(meta, broken, _Params())  # type: ignore[arg-type]
         assert meta.metadata_binning is None
         assert "Binning record unavailable" in caplog.text
+
+
+class TestEncodingDigest:
+    """A result that cannot say which cuts produced it cannot be compared with another."""
+
+    def test_single_metadata_stamps_its_digest(self):
+        meta = ResultMetadata()
+        attach_binning(meta, _metadata(), MetadataConfigMixin())
+        assert meta.metadata_binning is not None
+        assert meta.encoding_digest
+        assert meta.encoding_digest == meta.metadata_binning["encoding_digest"]
+
+    def test_same_encoding_over_different_rows_keeps_one_digest(self):
+        """The digest covers the policy, so it does not move when only the data does."""
+        declared = {"elevation": [-np.inf, 90.0, 110.0, np.inf]}
+        first, second = ResultMetadata(), ResultMetadata()
+        attach_binning(first, _metadata(continuous_factor_bins=declared), MetadataConfigMixin())
+        attach_binning(second, _metadata(n=120, continuous_factor_bins=declared), MetadataConfigMixin())
+
+        assert first.encoding_digest == second.encoding_digest
+
+    def test_a_declared_cut_changes_the_digest(self):
+        plain, declared = ResultMetadata(), ResultMetadata()
+        attach_binning(plain, _metadata(), MetadataConfigMixin())
+        attach_binning(
+            declared,
+            _metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}),
+            MetadataConfigMixin(),
+        )
+        assert plain.encoding_digest != declared.encoding_digest
+
+    def test_splits_sharing_an_encoding_stamp_it_once(self):
+        declared = {"elevation": [-np.inf, 90.0, 110.0, np.inf]}
+        meta = ResultMetadata()
+        attach_binning(
+            meta,
+            {
+                "train": _metadata(continuous_factor_bins=declared),
+                "test": _metadata(n=120, continuous_factor_bins=declared),
+            },
+            MetadataConfigMixin(),
+        )
+        assert meta.encoding_digest
+
+    def test_splits_encoded_differently_stamp_nothing(self):
+        """There is no single encoding to name, and saying one would be a lie."""
+        meta = ResultMetadata()
+        attach_binning(
+            meta,
+            {
+                "train": _metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}),
+                "test": _metadata(continuous_factor_bins={"elevation": [-np.inf, 50.0, np.inf]}),
+            },
+            MetadataConfigMixin(),
+        )
+        assert meta.encoding_digest is None
+        # The per-split records still say what each one ran under.
+        assert meta.metadata_binning is not None
+        per_split = meta.metadata_binning["per_split"]
+        assert per_split["train"]["encoding_digest"] != per_split["test"]["encoding_digest"]
 
 
 class TestCaptureDiagnostics:

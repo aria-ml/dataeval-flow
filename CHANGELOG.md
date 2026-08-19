@@ -63,6 +63,12 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- `metadata.encoding_digest` on every result envelope — a fingerprint of the encoding every factor was read under.
+  Comparing two runs is only sound if each can say which cuts produced it; without it a bias score that moved is
+  unattributable between *the override worked* and *the data changed*. It covers the policy rather than the rows, so
+  it holds still when only the data changes. For a multi-split workflow it is set only where every split shares one
+  encoding and is `None` otherwise, and the text report says which case it is — splits binned automatically routinely
+  land on different edges, and their per-factor statistics are not comparable when they do
 - `metadata_factor_source` (`coded` / `values` / `auto`) on every workflow that reads metadata, and recorded in the
   result envelope. It selects which representation the bias statistics read, so it moves every number they report —
   two workflows meant to be compared want the same one

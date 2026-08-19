@@ -30,7 +30,7 @@ mistaken for the policy.
 import json
 import logging
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -257,8 +257,9 @@ def describe_binning(
     Returns
     -------
     dict
-        JSON-serializable record with ``auto_bin_method``, ``factor_source``,
-        ``requested_bins``, ``excluded``, per-factor ``factors``, and ``dropped``.
+        JSON-serializable record with ``auto_bin_method``, ``encoding_digest``,
+        ``factor_source``, ``requested_bins``, ``excluded``, per-factor ``factors``,
+        and ``dropped``.
         Each factor carries its ``encoding`` (the policy) and its ``fit`` (what
         this run's rows did against it) — see the module docstring.
 
@@ -277,6 +278,7 @@ def describe_binning(
 
     record: dict[str, Any] = {
         "auto_bin_method": getattr(metadata, "auto_bin_method", None),
+        "encoding_digest": getattr(metadata, "encoding_digest", None),
         "factor_source": factor_source or _default_factor_source(),
         "requested_bins": dict(requested_bins),
         "excluded": list(excluded or ()),
@@ -319,6 +321,12 @@ def attach_binning(
     independently, and two splits of the same dataset can land on different
     edges.
 
+    Also stamps :attr:`ResultMetadata.encoding_digest`, which is what makes two
+    archived results comparable: a bias score that moved between runs is otherwise
+    unattributable between *my override worked* and *the data changed*.  For a
+    multi-split workflow it is set only where every split agrees, because there is
+    no single encoding to name when they do not — and the per-split digests say so.
+
     Never raises.  A companion column renamed upstream costs the record, not the
     run, and the diagnostics captured alongside it still name the decision.
     """
@@ -328,15 +336,30 @@ def attach_binning(
         source = params.metadata_factor_source
 
         if isinstance(metadata, Mapping):
-            result_metadata.metadata_binning = {
-                "per_split": {
-                    name: describe_binning(md, excluded=excluded, requested_bins=requested, factor_source=source)
-                    for name, md in metadata.items()
-                }
+            per_split = {
+                name: describe_binning(md, excluded=excluded, requested_bins=requested, factor_source=source)
+                for name, md in metadata.items()
             }
+            result_metadata.metadata_binning = {"per_split": per_split}
+            result_metadata.encoding_digest = _common_digest(per_split.values())
         else:
-            result_metadata.metadata_binning = describe_binning(
-                metadata, excluded=excluded, requested_bins=requested, factor_source=source
-            )
+            record = describe_binning(metadata, excluded=excluded, requested_bins=requested, factor_source=source)
+            result_metadata.metadata_binning = record
+            result_metadata.encoding_digest = record.get("encoding_digest")
     except Exception:
         _logger.warning("Binning record unavailable", exc_info=True)
+
+
+def _common_digest(records: "Iterable[Mapping[str, Any]]") -> str | None:
+    """The one encoding every split ran under, or None where they did not share one.
+
+    Splits are binned independently, so two splits of one dataset can land on different
+    edges — which is exactly the case a single top-level digest must not paper over.
+    Answering None says *these are not comparable on factors*, and the per-split digests
+    say which differed.
+    """
+    digests = {record.get("encoding_digest") for record in records}
+    if len(digests) != 1:
+        return None
+    only = digests.pop()
+    return str(only) if only is not None else None

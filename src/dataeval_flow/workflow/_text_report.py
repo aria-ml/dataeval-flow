@@ -646,6 +646,8 @@ def _render_binning_record(record: dict[str, Any], split_name: str | None = None
     if split_name is not None:
         lines.append(f"  [{split_name}]")
 
+    if record.get("encoding_digest"):
+        lines.append(f"  Encoding:        {record['encoding_digest']}")
     if record.get("auto_bin_method"):
         lines.append(f"  Auto-bin method: {record['auto_bin_method']}")
     if record.get("excluded"):
@@ -658,6 +660,26 @@ def _render_binning_record(record: dict[str, Any], split_name: str | None = None
 
     lines.extend(f"    {name} — dropped: {', '.join(reasons)}" for name, reasons in record.get("dropped", {}).items())
     return lines
+
+
+def _render_split_comparability(per_split: dict[str, Any]) -> list[str]:
+    """Say whether the splits were read under one encoding, where there is more than one.
+
+    Splits are binned independently, so two splits of one dataset can land on different
+    edges for the same factor.  Their per-factor statistics then sit side by side in one
+    report under different alphabets, which a reader has every reason to compare and no
+    way to know they should not.  The digests are what settle it.
+    """
+    digests = {name: record.get("encoding_digest") for name, record in per_split.items()}
+    if len(digests) < 2 or any(digest is None for digest in digests.values()):
+        return []
+    if len(set(digests.values())) == 1:
+        return ["", "  Splits share one encoding — factor statistics are comparable across them."]
+    return [
+        "",
+        "  Splits were encoded differently — factor statistics are NOT comparable across them.",
+        "  Declare cutoffs, or apply one committed encoding to every split.",
+    ]
 
 
 def _render_binning_section(binning: dict[str, Any] | None, diagnostics: Sequence[str] = ()) -> list[str]:
@@ -674,8 +696,10 @@ def _render_binning_section(binning: dict[str, Any] | None, diagnostics: Sequenc
 
     if binning and "per_split" in binning:
         # A multi-split workflow bins each split independently.
-        for split_name, record in binning["per_split"].items():
+        per_split = binning["per_split"]
+        for split_name, record in per_split.items():
             lines.extend(_render_binning_record(record, split_name))
+        lines.extend(_render_split_comparability(per_split))
     elif binning:
         lines.extend(_render_binning_record(binning))
 

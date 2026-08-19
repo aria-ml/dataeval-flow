@@ -168,6 +168,33 @@ count; where its nine interior cuts landed is in `encoding["edges"]`.
 For `data-analysis`, splits are binned independently — two splits of one dataset can land on different edges — so the
 record is nested one level deeper, under `binning["per_split"][split_name]`.
 
+### Tell whether two results are comparable
+
+Every result carries `metadata.encoding_digest`, a fingerprint of the encoding every factor was read under. It is what
+makes comparing two runs sound: a `Balance` score that moved between them is otherwise unattributable between *my
+override worked* and *the data changed*, which are the two readings you are trying to tell apart.
+
+```python
+before.metadata.encoding_digest == after.metadata.encoding_digest
+# True  -> same cuts; a difference in the numbers is a difference in the data
+# False -> different cuts; the numbers are not measuring the same thing
+```
+
+The digest covers the policy, not the rows, so it stays put when only the data changes and moves when a cutoff is
+declared or a vocabulary grows.
+
+For a multi-split workflow it is set only where **every split shares one encoding**, and is `None` otherwise — there
+is no single encoding to name when the splits did not share one, and the per-split digests under
+`binning["per_split"]` say which differed. The text report states it either way:
+
+```text
+  Splits were encoded differently — factor statistics are NOT comparable across them.
+  Declare cutoffs, or apply one committed encoding to every split.
+```
+
+That is the common case with automatic binning, because the bin count is derived from each split's own draw. Pinning
+the cuts with `metadata_continuous_factor_bins` makes the splits share one encoding and the message change.
+
 ### Diagnostics
 
 `metadata.diagnostics` carries the warnings DataEval raised during the run: the ranges it could not resolve, bin
