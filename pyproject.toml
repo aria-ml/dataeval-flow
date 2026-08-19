@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    "dataeval==1.1.0-rc4",
+    "dataeval==1.1.0-rc5",
     "datamaite[ic,od]==0.4.1",
     "numpy>=1.24.2",
     "pydantic>=2.0",
@@ -44,7 +44,7 @@ onnx-gpu = [
 ]
 opencv = ["opencv-python-headless>=4.8.0"]
 app = ["textual>=3.0"]
-ontology = ["dataeval[ontology]==1.1.0-rc4"]
+ontology = ["dataeval[ontology]==1.1.0-rc5"]
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"
@@ -202,7 +202,7 @@ torchvision = { version = ">=0.17.0", source = "pytorch-cpu", optional = true }
 
 [tool.pyproject2conda.dependencies]
 # Conda follows PEP versioning which deviates from PyPI semver
-dataeval = { skip = true, packages = "dataeval==1.1.0rc4" }
+dataeval = { skip = true, packages = "dataeval==1.1.0rc5" }
 datamaite = { pip = true }
 
 # --- Build System ---
