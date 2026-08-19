@@ -6,7 +6,7 @@ import contextlib
 import logging
 import time as _time
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from dataeval.core import factor_deviation, factor_predictors
@@ -23,6 +23,7 @@ from dataeval_flow.cache import (
     get_or_compute_stats,
     selection_repr,
 )
+from dataeval_flow.policy import policy_for, resolve_policy
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflows.ood.outputs import (
     DetectorOODResultDict,
@@ -40,6 +41,10 @@ from dataeval_flow.workflows.ood.params import (
     OODDetectorKNeighbors,
 )
 from dataeval_flow.workflows.ood.report import build_findings
+
+if TYPE_CHECKING:
+    from dataeval_flow.policy import ResolvedPolicy
+
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -234,6 +239,7 @@ def _extract_metadata_factors(
     dataset: AnnotatedDataset[Any],
     params: OODDetectionParameters,
     binning_sink: dict[str, Any] | None = None,
+    policy: ResolvedPolicy | None = None,
 ) -> dict[str, NDArray[Any]] | None:
     """Extract metadata factor arrays from a dataset, returning None on failure.
 
@@ -250,12 +256,7 @@ def _extract_metadata_factors(
             if dc.cache is not None:
                 sel_key = selection_repr(dataset)
                 stack.enter_context(active_cache(dc.cache, sel_key))
-            metadata = get_or_compute_metadata(
-                dataset,
-                auto_bin_method=params.metadata_auto_bin_method,
-                exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
-                continuous_factor_bins=params.metadata_continuous_factor_bins,
-            )
+            metadata = get_or_compute_metadata(dataset, policy if policy is not None else resolve_policy(params))
         if binning_sink is not None:
             try:
                 binning_sink.update(
@@ -420,6 +421,7 @@ def _collect_numeric_factors(
     test_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
     params: OODDetectionParameters,
     binning_sink: dict[str, Any] | None = None,
+    policy: ResolvedPolicy | None = None,
 ) -> tuple[dict[str, NDArray[Any]], dict[str, NDArray[Any]]] | None:
     """Collect and intersect numeric metadata + stats factors from reference and test datasets.
 
@@ -440,11 +442,11 @@ def _collect_numeric_factors(
             test_stats_parts.append(t_stats)
 
     # --- Metadata factors (may be absent on test data) ---
-    ref_meta = _extract_metadata_factors(ref_dc, ref_dataset, params, binning_sink)
+    ref_meta = _extract_metadata_factors(ref_dc, ref_dataset, params, binning_sink, policy)
 
     test_meta_parts: list[dict[str, NDArray[Any]]] = []
     for _, t_dc, t_ds in test_datasets:
-        t_meta = _extract_metadata_factors(t_dc, t_ds, params)
+        t_meta = _extract_metadata_factors(t_dc, t_ds, params, policy=policy)
         if t_meta is not None:
             test_meta_parts.append(t_meta)
 
@@ -476,6 +478,7 @@ def _compute_metadata_insights(
     ood_indices: list[int],
     max_insights: int,
     params: OODDetectionParameters,
+    policy: ResolvedPolicy | None = None,
 ) -> tuple[list[FactorDeviationDict] | None, dict[str, float] | None, dict[str, Any] | None]:
     """Compute factor_deviation, factor_predictors, and the binning record."""
     if not ood_indices:
@@ -485,7 +488,7 @@ def _compute_metadata_insights(
     t0 = _time.monotonic()
 
     binning: dict[str, Any] = {}
-    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params, binning)
+    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params, binning, policy)
     if collected is None:
         return None, None, binning or None
     ref_factors_common, test_factors_common = collected
@@ -634,7 +637,13 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
         metadata_binning: dict[str, Any] | None = None
         if params.metadata_insights and ood_indices:
             factor_devs, factor_preds, metadata_binning = _compute_metadata_insights(
-                ref_dc, ref_dataset, test_datasets, ood_indices, params.max_ood_insights, params
+                ref_dc,
+                ref_dataset,
+                test_datasets,
+                ood_indices,
+                params.max_ood_insights,
+                params,
+                policy_for(context, params),
             )
 
         # --- 7. Build outputs ---

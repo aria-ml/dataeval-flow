@@ -63,6 +63,22 @@
 - `dropped_factors` in metadata summaries — vector statistics (`histogram`, `percentiles`, `center`) with no column form
 - `invalid_box` carried through as a factor, previously dropped alongside the hash columns
 - DataEval binning and `value_range` diagnostics pinned at `WARNING` so raising `lib_level` no longer suppresses them
+- Top-level `metadata:` key defining named metadata policies, referenced by workflows the way `datasets`, `views`,
+  `sources` and `extractors` already are. A policy carries `encoding`, `factor_levels`, `strict`, `auto_bin_method`,
+  `exclude`, `continuous_factor_bins`, `factor_source` and `reference_split`. Defined once and shared, because the
+  encoding is a decision rather than a per-workflow setting: two workflows over one dataset that cut it differently
+  produce numbers that land in one result file and cannot be compared. The per-workflow `metadata_*` fields still
+  work and mean the same things; naming a policy and setting one of them on the same workflow is an error rather than
+  a merge
+- `encoding` on a metadata policy — a path, under the data root, to a committed descriptor. Applies the recorded cuts
+  and vocabularies instead of deriving them from this run's draw, which is what lets two runs over different data be
+  compared. A vocabulary it names grows by appending, so codes already assigned keep meaning what they meant
+- `factor_levels` and `strict` on a metadata policy, for declaring a vocabulary ahead of the data and for closing it.
+  `strict` is refused over a descriptor whose vocabularies still read `provenance: "derived"` — the state a
+  descriptor exported from an exploratory run is in — because `strict` does not consult provenance and would
+  otherwise enforce a taxonomy nobody decided on, failing the run on the first new category
+- Metadata policies are resolved and checked before the dataset is read, so a missing descriptor, a factor declared
+  through two channels, or a reference naming no policy costs a config error rather than a run
 - `metadata.encoding_digest` on every result envelope — a fingerprint of the encoding every factor was read under.
   Comparing two runs is only sound if each can say which cuts produced it; without it a bias score that moved is
   unattributable between *the override worked* and *the data changed*. It covers the policy rather than the rows, so

@@ -25,6 +25,7 @@ from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_embeddings, get_or_compute_metadata
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.config.schemas import FactorSource
+from dataeval_flow.policy import policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import normalize_unit_interval
@@ -619,6 +620,8 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
         """Core execution logic after parameter validation."""
         from dataeval_flow.view import build_view
 
+        policy = policy_for(context, params)
+
         # ── Phase 1: Setup ──────────────────────────────────────────
         if not context.dataset_contexts:
             return WorkflowResult(
@@ -655,12 +658,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
                 stack.enter_context(active_cache(dc.cache, sel_key))
 
             _logger.info("[data-coverage] Computing metadata ...")
-            metadata = get_or_compute_metadata(
-                dataset,
-                auto_bin_method=params.metadata_auto_bin_method,
-                exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
-                continuous_factor_bins=params.metadata_continuous_factor_bins,
-            )
+            metadata = get_or_compute_metadata(dataset, policy)
 
             index2label = dataset.metadata.get("index2label")
             _logger.info("[data-coverage] Computing label statistics ...")

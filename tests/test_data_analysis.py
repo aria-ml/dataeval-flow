@@ -1068,10 +1068,12 @@ class TestComputeSplitData:
         )
         _compute_split_data(dataset, params=params, split_name="train")
 
-        _, kwargs = mock_get_meta.call_args
-        assert kwargs["auto_bin_method"] == "uniform_count"
-        assert kwargs["exclude"] == ["id"]
-        assert kwargs["continuous_factor_bins"] == {"temp_c": [-1.0, 0.0, 1.0]}
+        # Resolved from the parameters when no context supplied a policy, so calling a
+        # workflow directly still honours its configured cuts.
+        (_, policy), _ = mock_get_meta.call_args
+        assert policy.auto_bin_method == "uniform_count"
+        assert policy.exclude == ("id",)
+        assert policy.continuous_factor_bins == {"temp_c": [-1.0, 0.0, 1.0]}
 
     @patch(f"{_WF}.label_stats")
     @patch(f"{_WF}.get_or_compute_stats")

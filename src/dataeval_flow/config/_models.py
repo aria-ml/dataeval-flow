@@ -15,6 +15,7 @@ from dataeval_flow.config.schemas import (
     DatasetConfig,
     DatasetProtocolConfig,
     ExtractorConfig,
+    MetadataPolicyConfig,
     PreprocessorConfig,
     TaskConfig,
     ViewConfig,
@@ -109,6 +110,15 @@ class PipelineConfig(BaseModel):
         default=None,
         validation_alias=AliasChoices("views", "selections"),
         description="Named view pipeline definitions (dataset operations), referenced by sources",
+    )
+
+    metadata: Sequence[MetadataPolicyConfig] | None = Field(
+        default=None,
+        description=(
+            "Named metadata policy definitions (encoding, vocabularies, exclusions), "
+            "referenced by workflows. Defined once and shared so that workflows meant to "
+            "be compared read their factors under one encoding."
+        ),
     )
 
     # Composition layers

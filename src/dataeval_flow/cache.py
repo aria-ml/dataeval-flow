@@ -81,7 +81,7 @@ import logging
 import os
 import tempfile
 import threading
-from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -95,6 +95,8 @@ from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from dataeval import Metadata
+
+    from dataeval_flow.policy import ResolvedPolicy
 
 _logger = logging.getLogger(__name__)
 
@@ -218,42 +220,25 @@ def _file_content_hash(path: str | Path) -> str:
         return "missing"
 
 
-def _metadata_config_key(
-    auto_bin_method: Any = None,
-    exclude: Iterable[str] | None = None,
-    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
-) -> str:
-    """Build the in-memory cache key for one binning configuration.
+def _metadata_config_key(policy: "ResolvedPolicy | None" = None) -> str:
+    """Build the cache key for one metadata policy.
 
-    The archive on disk holds no binning at all — it is re-applied on every read,
-    so one file serves every configuration and needs no key beyond the selection.
-    A memoized ``Metadata`` is the opposite: it carries the configuration it was
-    built with baked in, so serving one to a caller that asked for different bins
-    answers with the wrong binning and says nothing about it.  Keying the memory
-    entry by configuration is what keeps the two consistent.
+    Keys both the memoized object and the archive on disk, because both carry the policy
+    they were built under.  A memoized ``Metadata`` has its configuration baked in, so
+    serving one to a caller that asked for different cuts answers with the wrong ones; and
+    since DataEval v1.1 the archive carries its encoding *record*, restored underneath
+    whatever a reader declares, so a shared archive hands its writer's cuts to everyone
+    else.  One key covers both.
 
-    Normalised rather than hashed as given, so that the value read back off a
-    ``Metadata`` (a ``set``, a ``Mapping``) keys identically to the value a caller
-    passed in (a ``list``, a ``dict``, or ``None`` for "use the default").
+    Normalised rather than hashed as given, so that a policy spelled one way in config and
+    read back another way off a ``Metadata`` produce one entry rather than two.
     """
-    bins = {
-        name: int(value) if isinstance(value, (int, np.integer)) else [float(edge) for edge in value]
-        for name, value in (continuous_factor_bins or {}).items()
-    }
-    # ``default=str`` so building a key never raises: this runs on the path to
-    # every metadata read, and a key that cannot be built would take the workflow
-    # down over a caching detail.  Config supplies plain strings and numbers here,
-    # so the fallback only catches values the schema does not produce.
-    config = json.dumps(
-        {
-            "auto_bin_method": auto_bin_method or "uniform_width",
-            "exclude": sorted(exclude or (), key=str),
-            "continuous_factor_bins": bins,
-        },
-        sort_keys=True,
-        default=str,
-    )
-    return f"metadata_{_config_hash(config)}"
+    from dataeval_flow.policy import ResolvedPolicy, policy_key
+
+    # ``default=str`` inside ``policy_key`` so building a key never raises: this runs on
+    # the path to every metadata read, and a key that cannot be built would take the
+    # workflow down over a caching detail.
+    return f"metadata_{_config_hash(policy_key(policy or ResolvedPolicy()))}"
 
 
 def _write_policy_sidecar(metadata: "Metadata", path: Path) -> None:
@@ -528,18 +513,11 @@ def _do_compute_stats(
     )
 
 
-def _do_compute_metadata(
-    dataset: AnnotatedDataset[Any],
-    auto_bin_method: Any = None,
-    exclude: Sequence[str] | None = None,
-    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
-) -> "Metadata":
-    """Build metadata from a dataset."""
+def _do_compute_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | None" = None) -> "Metadata":
+    """Build metadata from a dataset under a resolved policy."""
     from dataeval_flow.metadata import build_metadata
 
-    return build_metadata(
-        dataset, auto_bin_method=auto_bin_method, exclude=exclude, continuous_factor_bins=continuous_factor_bins
-    )
+    return build_metadata(dataset, policy)
 
 
 def _do_compute_embeddings(
@@ -604,9 +582,7 @@ def get_or_compute_stats(
 
 def get_or_compute_metadata(
     dataset: AnnotatedDataset[Any],
-    auto_bin_method: Any = None,
-    exclude: Sequence[str] | None = None,
-    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
+    policy: "ResolvedPolicy | None" = None,
 ) -> "Metadata":
     """Build metadata with context-aware caching.
 
@@ -616,15 +592,9 @@ def get_or_compute_metadata(
     ctx = _active_cache.get()
     if ctx is not None:
         cache, sel_key = ctx
-        return cache.load_or_compute_metadata(
-            sel_key,
-            dataset,
-            auto_bin_method=auto_bin_method,
-            exclude=exclude,
-            continuous_factor_bins=continuous_factor_bins,
-        )
+        return cache.load_or_compute_metadata(sel_key, dataset, policy)
     _logger.info("Building metadata (no cache)")
-    return _do_compute_metadata(dataset, auto_bin_method, exclude, continuous_factor_bins)
+    return _do_compute_metadata(dataset, policy)
 
 
 def get_or_compute_embeddings(
@@ -1086,9 +1056,7 @@ class DatasetCache:
         self,
         selection_repr: str,
         dataset: AnnotatedDataset[Any],
-        auto_bin_method: Any = None,
-        exclude: Sequence[str] | None = None,
-        continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
+        policy: "ResolvedPolicy | None" = None,
     ) -> "Metadata | None":
         """Load cached Metadata, or ``None`` on miss.
 
@@ -1099,7 +1067,10 @@ class DatasetCache:
         underneath whatever the reader declares — so the archive is keyed by the
         configuration that wrote it rather than shared across all of them.
         """
-        obj_key = _metadata_config_key(auto_bin_method, exclude, continuous_factor_bins)
+        from dataeval_flow.policy import ResolvedPolicy
+
+        policy = policy or ResolvedPolicy()
+        obj_key = _metadata_config_key(policy)
         cached = self._mem_get(selection_repr, obj_key)
         if cached is not None:
             _logger.debug("Memory hit: metadata for %s/%s", self._dataset_name, selection_repr)
@@ -1113,13 +1084,7 @@ class DatasetCache:
             return None
 
         try:
-            meta = MetadataClass.load(
-                path,
-                dataset,
-                auto_bin_method=auto_bin_method or "uniform_width",
-                exclude=exclude,
-                continuous_factor_bins=continuous_factor_bins,
-            )
+            meta = MetadataClass.load(path, dataset, **policy.metadata_kwargs())
         except MetadataFormatError as exc:
             # A stale archive is the designed outcome of a dataeval upgrade rather
             # than a fault — upstream refuses instead of guessing, and expects the
@@ -1152,6 +1117,7 @@ class DatasetCache:
         self,
         selection_repr: str,
         metadata: "Metadata",
+        policy: "ResolvedPolicy | None" = None,
     ) -> None:
         """Persist Metadata to cache (no-op on disk when not disk-backed).
 
@@ -1168,12 +1134,12 @@ class DatasetCache:
         so a concurrent reader sees either the previous archive or the new one, never
         a half-written one.
         """
-        # Keyed by the configuration this instance carries, not by the one a later
+        # Keyed by the policy this instance was built under, not by the one a later
         # reader wants: see :func:`_metadata_config_key`.
-        policy_key = _metadata_config_key(metadata.auto_bin_method, metadata.exclude, metadata.continuous_factor_bins)
-        self._mem_set(selection_repr, policy_key, metadata)
+        key = _metadata_config_key(policy)
+        self._mem_set(selection_repr, key, metadata)
 
-        path, sidecar = self._metadata_paths(selection_repr, policy_key)
+        path, sidecar = self._metadata_paths(selection_repr, key)
         if path is None or sidecar is None:
             return
 
@@ -1198,9 +1164,7 @@ class DatasetCache:
         self,
         selection_repr: str,
         dataset: AnnotatedDataset[Any],
-        auto_bin_method: Any = None,
-        exclude: Sequence[str] | None = None,
-        continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
+        policy: "ResolvedPolicy | None" = None,
     ) -> "Metadata":
         """Load cached metadata or build, cache, and return it.
 
@@ -1215,32 +1179,21 @@ class DatasetCache:
             Selection key (from :func:`selection_repr`).
         dataset
             The dataset to build metadata from on cache miss.
-        auto_bin_method
-            Method for automatic binning of continuous values.
-        exclude : list[str] | None
-            Metadata columns to exclude.
-        continuous_factor_bins : dict[str, int | list[float]] | None
-            Number of uniform bins (int) or explicit bin edges (list[float])
-            for specific continuous factors.
+        policy : ResolvedPolicy | None
+            How factors become codes.  Keys the entry as well as configuring the build.
 
         Returns
         -------
         Metadata
             DataEval Metadata instance.
         """
-        cached = self.load_metadata(
-            selection_repr,
-            dataset,
-            auto_bin_method=auto_bin_method,
-            exclude=exclude,
-            continuous_factor_bins=continuous_factor_bins,
-        )
+        cached = self.load_metadata(selection_repr, dataset, policy)
         if cached is not None:
             return cached
 
         _logger.info("Building metadata for %s/%s", self._dataset_name, selection_repr)
-        metadata = _do_compute_metadata(dataset, auto_bin_method, exclude, continuous_factor_bins)
-        self.save_metadata(selection_repr, metadata)
+        metadata = _do_compute_metadata(dataset, policy)
+        self.save_metadata(selection_repr, metadata, policy)
         return metadata
 
     # =====================================================================

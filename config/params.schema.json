@@ -313,6 +313,19 @@
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
+          "title": "Metadata"
+        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -578,6 +591,19 @@
           "default": null,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
+          "title": "Metadata"
         },
         "metadata_auto_bin_method": {
           "anyOf": [
@@ -937,6 +963,19 @@
           "default": null,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
+          "title": "Metadata"
         },
         "metadata_auto_bin_method": {
           "anyOf": [
@@ -2034,6 +2073,140 @@
       "title": "LoggingConfig",
       "type": "object"
     },
+    "MetadataPolicyConfig": {
+      "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        metadata: standard",
+      "properties": {
+        "name": {
+          "description": "Identifier for this policy",
+          "title": "Name",
+          "type": "string"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path, under the data root, to a committed encoding descriptor \u2014 the artifact `dataeval-flow encoding` writes. Applies the recorded cuts and vocabularies to this run instead of deriving them from its own draw, which is what makes two runs over different data comparable. Factors it does not name are encoded normally.",
+          "title": "Encoding"
+        },
+        "factor_levels": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {},
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vocabularies declared ahead of the data, one per factor: code i means levels[i], so two datasets declared against the same list share an alphabet without either having been structured first. The categorical counterpart to `continuous_factor_bins`.",
+          "title": "Factor Levels"
+        },
+        "strict": {
+          "default": false,
+          "description": "Whether a value no declared vocabulary holds is an error. The default admits it, which is what extension wants; true is for a closed taxonomy that should report the data leaving it rather than be widened to fit. Bin edges are unaffected \u2014 an unseen magnitude lands in an end bin either way.",
+          "title": "Strict",
+          "type": "boolean"
+        },
+        "reference_split": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which split's encoding the whole run uses, for a workflow that reads several. Defaults to the first split the task names. Splits encoded independently land on different cuts for the same factor, so their per-factor statistics are not comparable; one reference makes them so.",
+          "title": "Reference Split"
+        },
+        "auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How a continuous factor no declaration reaches is cut. Governs only those: a factor named by `encoding` or `continuous_factor_bins` is cut as declared.",
+          "title": "Auto Bin Method"
+        },
+        "exclude": {
+          "description": "Factor names removed before any evaluator sees them.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude",
+          "type": "array"
+        },
+        "continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Bin count (int) or explicit edges (list) per factor. Edges carry meaning and travel with the configuration; a count only says how many, and where the cuts land is still read off this sample. Mutually exclusive with `encoding` per factor.",
+          "title": "Continuous Factor Bins"
+        },
+        "factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor the bias statistics read \u2014 `coded`, `values`, or `auto`. It moves every number they report, so workflows meant to be compared want one answer.",
+          "title": "Factor Source"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "MetadataPolicyConfig",
+      "type": "object"
+    },
     "OODDetectionWorkflowConfig": {
       "description": "Typed workflow configuration for ``ood-detection``.\n\nInherits all fields from :class:`OODDetectionParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
@@ -2059,6 +2232,19 @@
           "default": null,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
+          "title": "Metadata"
         },
         "metadata_auto_bin_method": {
           "anyOf": [
@@ -3125,6 +3311,22 @@
       "default": null,
       "description": "Named view pipeline definitions (dataset operations), referenced by sources",
       "title": "Views"
+    },
+    "metadata": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/MetadataPolicyConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named metadata policy definitions (encoding, vocabularies, exclusions), referenced by workflows. Defined once and shared so that workflows meant to be compared read their factors under one encoding.",
+      "title": "Metadata"
     },
     "sources": {
       "anyOf": [

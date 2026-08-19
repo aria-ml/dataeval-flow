@@ -18,8 +18,9 @@ from pydantic import BaseModel
 from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
+from dataeval_flow.policy import policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflow.base import MetadataConfigMixin, Reportable
 from dataeval_flow.workflows.cleaning._internal import (
     _compute_embeddings,
     _merge_duplicate_results,
@@ -483,6 +484,8 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
         """Run data cleaning workflow on dataset."""
         from dataeval_flow.view import build_view
 
+        policy = policy_for(context, params) if isinstance(params, MetadataConfigMixin) else None
+
         if not isinstance(context, WorkflowContext):
             return WorkflowResult(
                 name=self.name,
@@ -557,12 +560,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                 # 3. Build metadata for label stats (cache-aware via active_cache)
                 _logger.info("[3/4] Loading metadata…")
                 _t0 = _time.monotonic()
-                metadata = get_or_compute_metadata(
-                    dataset,
-                    auto_bin_method=params.metadata_auto_bin_method,
-                    exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
-                    continuous_factor_bins=params.metadata_continuous_factor_bins,
-                )
+                metadata = get_or_compute_metadata(dataset, policy)
                 _logger.info("[3/4] Metadata ready in %.1fs", _time.monotonic() - _t0)
 
                 # 4. Run cleaning evaluators (cache-aware via active_cache)

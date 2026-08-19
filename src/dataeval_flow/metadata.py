@@ -2,47 +2,31 @@
 
 __all__ = ["build_metadata"]
 
-from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from dataeval import Metadata
 from dataeval.protocols import AnnotatedDataset
 
 if TYPE_CHECKING:
-    from dataeval_flow.config.schemas import AutoBinMethod
+    from dataeval_flow.policy import ResolvedPolicy
 
 
-def build_metadata(
-    dataset: AnnotatedDataset[Any],
-    auto_bin_method: "AutoBinMethod | None" = None,
-    exclude: Sequence[str] | None = None,
-    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None,
-) -> Metadata:
-    """Build Metadata from dataset and config.
+def build_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | None" = None) -> Metadata:
+    """Build Metadata from a dataset under a resolved metadata policy.
 
     Parameters
     ----------
     dataset : AnnotatedDataset
         Input dataset.
-    auto_bin_method : AutoBinMethod | None
-        Method for automatic binning of continuous values.
-    exclude : list[str] | None
-        Metadata columns to exclude.
-    continuous_factor_bins : dict[str, int | list[float]] | None
-        Number of uniform bins (int) or explicit bin edges (list[float])
-        for specific continuous factors.
+    policy : ResolvedPolicy | None
+        How factors become codes — the cuts, the vocabularies, and which of them somebody
+        chose.  None takes DataEval's defaults, which derive everything from this draw.
 
     Returns
     -------
     Metadata
         DataEval Metadata instance.
     """
-    kwargs = {}
-    if auto_bin_method is not None:
-        kwargs["auto_bin_method"] = auto_bin_method
-    if exclude is not None:
-        kwargs["exclude"] = exclude
-    if continuous_factor_bins is not None:
-        kwargs["continuous_factor_bins"] = continuous_factor_bins
+    from dataeval_flow.policy import ResolvedPolicy
 
-    return Metadata(dataset, **kwargs)
+    return Metadata(dataset, **(policy or ResolvedPolicy()).metadata_kwargs())

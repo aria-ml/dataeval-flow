@@ -462,10 +462,12 @@ class TestDataCleaningWorkflowExecute:
         result = wf.execute(ctx, params)
 
         assert result.success
-        _, kwargs = mock_get_meta.call_args
-        assert kwargs["auto_bin_method"] == "uniform_count"
-        assert kwargs["exclude"] == ["id"]
-        assert kwargs["continuous_factor_bins"] == {"temp_c": [-1.0, 0.0, 1.0]}
+        # Resolved from the parameters when no context supplied a policy, so calling a
+        # workflow directly still honours its configured cuts.
+        (_, policy), _ = mock_get_meta.call_args
+        assert policy.auto_bin_method == "uniform_count"
+        assert policy.exclude == ("id",)
+        assert policy.continuous_factor_bins == {"temp_c": [-1.0, 0.0, 1.0]}
 
     @patch("dataeval_flow.workflows.cleaning.workflow.get_or_compute_metadata")
     @patch("dataeval_flow.workflows.cleaning.workflow.active_cache")

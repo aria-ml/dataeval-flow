@@ -15,7 +15,7 @@ import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import combinations
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import polars as pl
@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow.cache import selection_repr as _sel_repr
+from dataeval_flow.policy import policy_for, resolve_policy
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
@@ -63,6 +64,11 @@ __all__ = ["DataAnalysisWorkflow"]
 # Note: Dataset analysis runs outlier detection at image level only
 # (per_target=False). Target-level outlier analysis (individual bounding
 # boxes) is intentionally excluded to focus on image-quality issues.
+
+
+if TYPE_CHECKING:
+    from dataeval_flow.policy import ResolvedPolicy
+
 
 _logger = logging.getLogger(__name__)
 
@@ -160,6 +166,7 @@ def _compute_split_data(
     params: DataAnalysisParameters,
     extractor: Embeddings | None = None,
     split_name: str = "default",
+    policy: "ResolvedPolicy | None" = None,
 ) -> SplitData:
     """Compute shared data for a single split.
 
@@ -169,12 +176,7 @@ def _compute_split_data(
     assessment functions.
     """
     _logger.info("  Processing metadata for '%s' ...", split_name)
-    metadata = get_or_compute_metadata(
-        dataset,
-        auto_bin_method=params.metadata_auto_bin_method,
-        exclude=list(params.metadata_exclude) if params.metadata_exclude else None,
-        continuous_factor_bins=params.metadata_continuous_factor_bins,
-    )
+    metadata = get_or_compute_metadata(dataset, policy if policy is not None else resolve_policy(params))
 
     # Single compute_stats() call — combines image-stat, outlier-stat,
     # and hash flags into one pass over the dataset.
@@ -1120,6 +1122,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                     params=params,
                     extractor=embeddings,
                     split_name=split_name,
+                    policy=policy_for(context, params),
                 )
 
         # ── Phase 2: Run per-split assessments ──────────────────────

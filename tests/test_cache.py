@@ -30,6 +30,7 @@ from dataeval_flow.cache import (
     scope_key,
     selection_repr,
 )
+from dataeval_flow.policy import ResolvedPolicy
 
 pytestmark = pytest.mark.required
 
@@ -1020,6 +1021,13 @@ def _make_metadata(dataset: Any = None, **kwargs: Any) -> Metadata:
     return metadata
 
 
+def _policy(**kwargs: Any) -> ResolvedPolicy:
+    """A resolved policy in the shape the cache keys and builds from."""
+    if "exclude" in kwargs:
+        kwargs["exclude"] = tuple(kwargs["exclude"])
+    return ResolvedPolicy(**kwargs)
+
+
 def _selection_dir(cache_dir: Path, selection: str = "sel:all", dataset_name: str = "ds") -> Path:
     """Where ``DatasetCache`` writes one selection's artifacts."""
     return cache_dir / f"v{CACHE_VERSION}" / dataset_name / f"sel_{_config_hash(selection)}"
@@ -1247,9 +1255,9 @@ class TestMetadataCache:
             "continuous_factor_bins": {"y": [0.0, 1.0]},
         }
 
-        cache.save_metadata("sel:all", _make_metadata(**config))
+        cache.save_metadata("sel:all", _make_metadata(**config), _policy(**config))
         cache._memory.clear()  # Force disk round-trip
-        loaded = cache.load_metadata("sel:all", _FakeICDataset(), **config)  # type: ignore
+        loaded = cache.load_metadata("sel:all", _FakeICDataset(), _policy(**config))  # type: ignore
 
         assert loaded is not None
         assert loaded.auto_bin_method == "clusters"
@@ -1294,11 +1302,13 @@ class TestMetadataCache:
         """
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
 
-        cache.save_metadata("sel:all", _make_metadata(auto_bin_method="uniform_width"))
+        cache.save_metadata(
+            "sel:all", _make_metadata(auto_bin_method="uniform_width"), _policy(auto_bin_method="uniform_width")
+        )
         cache._memory.clear()  # Force disk round-trip
 
-        same = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="uniform_width")  # type: ignore
-        other = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="clusters")  # type: ignore
+        same = cache.load_metadata("sel:all", _FakeICDataset(), _policy(auto_bin_method="uniform_width"))  # type: ignore
+        other = cache.load_metadata("sel:all", _FakeICDataset(), _policy(auto_bin_method="clusters"))  # type: ignore
 
         assert same is not None, "the configuration that wrote the archive must hit"
         assert same.auto_bin_method == "uniform_width"
@@ -1347,7 +1357,7 @@ class TestMetadataMemoryCache:
 
         default = cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
         custom = cache.load_or_compute_metadata(  # type: ignore
-            "sel:all", dataset, continuous_factor_bins={"brightness": 2}
+            "sel:all", dataset, _policy(continuous_factor_bins={"brightness": 2})
         )
 
         assert custom is not default
@@ -1358,8 +1368,8 @@ class TestMetadataMemoryCache:
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dataset = _FakeICDataset()
 
-        cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="uniform_width")  # type: ignore
-        clustered = cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="clusters")  # type: ignore
+        cache.load_or_compute_metadata("sel:all", dataset, _policy(auto_bin_method="uniform_width"))  # type: ignore
+        clustered = cache.load_or_compute_metadata("sel:all", dataset, _policy(auto_bin_method="clusters"))  # type: ignore
 
         assert clustered.auto_bin_method == "clusters"
 
@@ -1368,7 +1378,7 @@ class TestMetadataMemoryCache:
         dataset = _FakeICDataset()
 
         cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
-        excluded = cache.load_or_compute_metadata("sel:all", dataset, exclude=["brightness"])  # type: ignore
+        excluded = cache.load_or_compute_metadata("sel:all", dataset, _policy(exclude=["brightness"]))  # type: ignore
 
         assert excluded.exclude == {"brightness"}
         assert "brightness" not in excluded.factor_names
@@ -1387,11 +1397,11 @@ class TestMetadataMemoryCache:
 
         with patch(
             "dataeval_flow.metadata.build_metadata",
-            side_effect=lambda ds, **kw: _make_metadata(ds, **self._build(**kw)),
+            side_effect=lambda ds, policy=None: _make_metadata(ds, **(policy or _policy()).metadata_kwargs()),
         ) as mock_build:
             cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
             cache.load_or_compute_metadata(  # type: ignore
-                "sel:all", dataset, continuous_factor_bins={"brightness": 2}
+                "sel:all", dataset, _policy(continuous_factor_bins={"brightness": 2})
             )
 
         assert mock_build.call_count == 2
@@ -1434,22 +1444,15 @@ class TestLoadOrComputeMetadata:
         assert result is not None
         assert result.item_count == 5
 
-    def test_passes_config_kwargs_to_build(self, tmp_path: Path):
+    def test_passes_the_policy_to_build(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_metadata()
         dataset = MagicMock()
+        policy = _policy(auto_bin_method="uniform_width", exclude=["x"], continuous_factor_bins={"y": [0.0, 1.0]})
 
         with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
-            cache.load_or_compute_metadata(
-                "sel:all",
-                dataset,
-                auto_bin_method="uniform_width",
-                exclude=["x"],
-                continuous_factor_bins={"y": [0.0, 1.0]},
-            )
-            mock_build.assert_called_once_with(
-                dataset, auto_bin_method="uniform_width", exclude=["x"], continuous_factor_bins={"y": [0.0, 1.0]}
-            )
+            cache.load_or_compute_metadata("sel:all", dataset, policy)
+            mock_build.assert_called_once_with(dataset, policy)
 
     def test_different_configs_get_separate_cache_entries(self, tmp_path: Path):
         """Different binning configs are different entries, on disk as well as in memory.
@@ -1461,12 +1464,14 @@ class TestLoadOrComputeMetadata:
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dataset = _FakeICDataset()
 
-        with patch(self._BUILD_METADATA_PATH, side_effect=lambda ds, **kw: _make_metadata(ds, **kw)) as mock_build:
-            cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="uniform_width")  # type: ignore
+        build = lambda ds, policy=None: _make_metadata(ds, **(policy or _policy()).metadata_kwargs())  # noqa: E731
+
+        with patch(self._BUILD_METADATA_PATH, side_effect=build) as mock_build:
+            cache.load_or_compute_metadata("sel:all", dataset, _policy(auto_bin_method="uniform_width"))  # type: ignore
             mock_build.assert_called_once()
 
-        with patch(self._BUILD_METADATA_PATH, side_effect=lambda ds, **kw: _make_metadata(ds, **kw)) as mock_build:
-            result = cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="clusters")  # type: ignore
+        with patch(self._BUILD_METADATA_PATH, side_effect=build) as mock_build:
+            result = cache.load_or_compute_metadata("sel:all", dataset, _policy(auto_bin_method="clusters"))  # type: ignore
             mock_build.assert_called_once()
 
         assert result is not None
@@ -1531,21 +1536,15 @@ class TestGetOrComputeMetadata:
 
         assert result is meta
 
-    def test_config_kwargs_forwarded(self, tmp_path: Path):
+    def test_the_policy_is_forwarded(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         meta = _make_metadata()
         dataset = MagicMock()
+        policy = _policy(auto_bin_method="uniform_width", exclude=["a"], continuous_factor_bins={"b": [0.0, 0.5, 1.0]})
 
         with active_cache(cache, "sel:all"), patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
-            get_or_compute_metadata(
-                dataset=dataset,
-                auto_bin_method="uniform_width",
-                exclude=["a"],
-                continuous_factor_bins={"b": [0.0, 0.5, 1.0]},
-            )
-            mock_build.assert_called_once_with(
-                dataset, auto_bin_method="uniform_width", exclude=["a"], continuous_factor_bins={"b": [0.0, 0.5, 1.0]}
-            )
+            get_or_compute_metadata(dataset, policy)
+            mock_build.assert_called_once_with(dataset, policy)
 
 
 # ---------------------------------------------------------------------------

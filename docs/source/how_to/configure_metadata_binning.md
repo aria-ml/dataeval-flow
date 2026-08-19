@@ -21,6 +21,78 @@ The three `metadata_*` settings are accepted by every workflow that builds metad
 | `data-coverage` | class balance, factor gap analysis, factor-to-class mutual information |
 | `ood-detection` | factor deviation and predictors for flagged samples |
 
+## Define the policy once and share it
+
+The encoding is a decision, not a per-workflow setting: two workflows over one dataset that cut it differently
+produce numbers that land in the same result file and cannot be compared. Define it once under `metadata:` and
+reference it by name, the same way `datasets`, `views`, `sources` and `extractors` work:
+
+```yaml
+metadata:
+  - name: standard
+    encoding: policy/factor_bins.json     # a committed descriptor
+    exclude: [id, filename]
+    continuous_factor_bins:
+      elevation: 8
+
+workflows:
+  - name: coverage_check
+    type: data-coverage
+    metadata: standard
+  - name: quality_check
+    type: data-cleaning
+    metadata: standard        # same policy — and the digests prove it
+```
+
+A policy carries everything that decides how a factor becomes a code: `encoding`, `factor_levels`, `strict`,
+`auto_bin_method`, `exclude`, `continuous_factor_bins`, `factor_source`, and `reference_split`.
+
+The older per-workflow `metadata_*` fields still work and mean the same things. Naming a policy *and* setting one of
+them on the same workflow is an error rather than a merge — two sources disagreeing about one factor has no good
+resolution.
+
+Everything a policy says is checked before the dataset is read, so a mistake costs a message rather than a run:
+
+| The config says | What happens |
+| --- | --- |
+| `metadata:` names no policy in the pool | Error, listing the policies that do exist |
+| `encoding` points at a file that is not there | Error — a descriptor matching nothing silently reverts every factor it meant to pin |
+| One factor named by both `encoding` and `continuous_factor_bins` | Error |
+| `strict: true` over a descriptor with unreviewed vocabularies | Error, naming them (see below) |
+
+### Apply a committed encoding
+
+`encoding` points at a descriptor — the artifact `dataeval-flow encoding` writes — held under the data root and
+committed alongside the config. It applies the recorded cuts and vocabularies rather than deriving them from this
+run's own draw, which is what makes two runs over different data comparable:
+
+```yaml
+metadata:
+  - name: locked
+    encoding: policy/factor_bins.json
+```
+
+Factors the descriptor does not name are encoded normally. A vocabulary it does name grows by **appending**: a
+category the descriptor never saw takes the next free code, so codes already assigned keep meaning what they meant.
+
+### Close a vocabulary you have reviewed
+
+`strict: true` makes a value outside a declared vocabulary an error instead of an append — for a fixed taxonomy that
+should report the data leaving it rather than be widened to fit.
+
+It is refused over a descriptor whose vocabularies still read `provenance: "derived"`, which is what a descriptor
+exported from an exploratory run contains. `strict` does not consult provenance, so allowing it there would enforce a
+taxonomy **nobody decided on** and fail the run on the first new category:
+
+```text
+Metadata policy 'locked' sets strict, which closes every vocabulary in its descriptor, but
+['weather'] still read provenance="derived" — nobody reviewed them. Ratify them in the
+descriptor (set provenance to "accepted" or "declared"), or drop strict.
+```
+
+Ratify the entries you have actually looked at by editing `provenance` to `accepted` in the committed descriptor —
+which is a pull request, and the point.
+
 ## Let the method choose the cuts
 
 `metadata_auto_bin_method` picks how a continuous factor is discretized when you have not said otherwise.

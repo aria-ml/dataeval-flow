@@ -28,6 +28,16 @@ class MetadataConfigMixin(BaseModel):
     (e.g. data cleaning).
     """
 
+    metadata: str | None = Field(
+        default=None,
+        description=(
+            "Name of a policy defined under the top-level `metadata:` key. Preferred over "
+            "the `metadata_*` fields below, which are kept for compatibility: a policy is "
+            "defined once and shared, so workflows meant to be compared read their factors "
+            "under one encoding rather than each spelling out its own."
+        ),
+    )
+
     metadata_auto_bin_method: AutoBinMethod | None = None
     metadata_exclude: Sequence[str] = Field(default_factory=list)
     metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = None

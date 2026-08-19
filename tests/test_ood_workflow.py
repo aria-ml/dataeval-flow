@@ -367,9 +367,12 @@ class TestExtractMetadataFactors:
         )
         _extract_metadata_factors(dc, dc.dataset, params)
 
-        _, kwargs = mock_metadata.call_args
-        assert kwargs["auto_bin_method"] == "clusters"
-        assert kwargs["continuous_factor_bins"] == {"temp_c": [-1.0, 0.0, 1.0]}
+        # Resolved from the parameters when no context supplied one, so calling a workflow
+        # directly still honours its configured cuts.
+        (_, policy), _ = mock_metadata.call_args
+        assert policy.auto_bin_method == "clusters"
+        assert policy.continuous_factor_bins == {"temp_c": [-1.0, 0.0, 1.0]}
+        assert policy.metadata_kwargs()["auto_bin_method"] == "clusters"
 
     @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
     def test_returns_none_on_exception(self, mock_metadata: MagicMock):

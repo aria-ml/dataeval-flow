@@ -24,7 +24,7 @@ from dataeval_flow.config.schemas._extractor import (
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
 )
-from dataeval_flow.config.schemas._metadata import ResultMetadata
+from dataeval_flow.config.schemas._metadata import MetadataPolicyConfig, ResultMetadata
 from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
 from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
@@ -111,6 +111,7 @@ __all__ = [
     "WorkflowConfig",
     # Task
     "AutoBinMethod",
+    "MetadataPolicyConfig",
     "FactorSource",
     "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",

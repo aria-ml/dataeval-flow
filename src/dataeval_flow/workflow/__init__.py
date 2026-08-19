@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
     from dataeval_flow.cache import DatasetCache
     from dataeval_flow.config.schemas import ExtractorConfig, ResultMetadata, ViewOperation
+    from dataeval_flow.policy import ResolvedPolicy
 
 
 @dataclass
@@ -70,6 +71,14 @@ class WorkflowContext:
 
     dataset_contexts: "Mapping[str, DatasetContext]" = field(default_factory=dict)
     batch_size: int | None = None
+    metadata_policy: "ResolvedPolicy | None" = None
+    """How factors become codes, resolved and checked before the dataset was read.
+
+    Carried on the context rather than read off the parameters, because resolving it
+    needs the pipeline the policy pool lives on and the data root its descriptor is
+    relative to — neither of which a workflow has.  None where the caller built a context
+    directly, which takes DataEval's defaults.
+    """
 
 
 TMetadata = TypeVar("TMetadata", bound="ResultMetadata")

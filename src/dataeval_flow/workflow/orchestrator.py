@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         OODDetectionTaskConfig,
         ParameterSweepTaskConfig,
     )
+    from dataeval_flow.policy import ResolvedPolicy
     from dataeval_flow.workflow import DatasetContext, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
@@ -81,6 +82,25 @@ def _resolve_workflow(
 ) -> "WorkflowConfig":
     """Resolve a workflow by name from ``config.workflows``."""
     return _resolve_by_name(config.workflows, workflow_name, "workflow")
+
+
+def _resolve_metadata_policy(
+    instance: "WorkflowConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None,
+) -> "ResolvedPolicy | None":
+    """Resolve the metadata policy for one workflow, or None where it reads no metadata.
+
+    Kept here rather than inside the workflows because resolving it needs the pipeline the
+    policy pool lives on and the data root a descriptor path is relative to, and because
+    every check it runs is worth running before the dataset is walked.
+    """
+    from dataeval_flow.policy import resolve_policy
+    from dataeval_flow.workflow.base import MetadataConfigMixin
+
+    if not isinstance(instance, MetadataConfigMixin):
+        return None
+    return resolve_policy(instance, config, data_dir)
 
 
 E = TypeVar("E", bound=BaseModel)
@@ -208,19 +228,25 @@ def _run_single_task(
     if cache_dir:
         _logger.info("Cache enabled: %s", cache_dir)
 
-    # 4. Build WorkflowContext
-    context = WorkflowContext(
-        dataset_contexts=dataset_contexts,
-        batch_size=batch_size,
-    )
-
     _logger.debug("Task '%s': resolved %d source(s): %s", task.name, len(source_names), source_names)
 
-    # 5. Resolve workflow → type + params
+    # 4. Resolve workflow → type + params
     instance = _resolve_workflow(task.workflow, config)
     workflow = get_workflow(instance.type)
 
-    # 6. Run workflow with timing
+    # 5. Resolve the metadata policy before anything reads the dataset, so a misspelled
+    #    factor or a descriptor that does not exist costs a config error rather than an
+    #    hour of walking images.  Workflows that read no metadata simply carry None.
+    policy = _resolve_metadata_policy(instance, config, data_dir)
+
+    # 6. Build WorkflowContext
+    context = WorkflowContext(
+        dataset_contexts=dataset_contexts,
+        batch_size=batch_size,
+        metadata_policy=policy,
+    )
+
+    # 7. Run workflow with timing
     _logger.debug("Task '%s': executing workflow", task.name)
     start = time.monotonic()
     # Library diagnostics are captured here rather than left to the log file:
@@ -233,11 +259,11 @@ def _run_single_task(
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
-    # 7. Backfill the resolved dataset(s) when the workflow left them unset —
+    # 8. Backfill the resolved dataset(s) when the workflow left them unset —
     # notably on failure paths, where callers still need the inputs to debug.
     _ensure_result_datasets(result, dataset_contexts)
 
-    # 8. Populate metadata envelope
+    # 9. Populate metadata envelope
     _populate_result_metadata(
         result,
         dataset_names,

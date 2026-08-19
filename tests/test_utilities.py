@@ -131,30 +131,35 @@ class TestBuildMetadata:
         assert result is mock_metadata
 
     @patch("dataeval_flow.metadata.Metadata")
-    def test_with_all_kwargs(self, mock_meta_cls: MagicMock):
+    def test_passes_every_policy_setting(self, mock_meta_cls: MagicMock):
         from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
 
         build_metadata(
             MagicMock(),
-            auto_bin_method="uniform_width",
-            exclude=["col_a"],
-            continuous_factor_bins={"col_b": [0.0, 0.5, 1.0]},
+            ResolvedPolicy(
+                auto_bin_method="uniform_width",
+                exclude=("col_a",),
+                continuous_factor_bins={"col_b": [0.0, 0.5, 1.0]},
+                strict=True,
+            ),
         )
 
         call_kwargs = mock_meta_cls.call_args[1]
         assert call_kwargs["auto_bin_method"] == "uniform_width"
         assert call_kwargs["exclude"] == ["col_a"]
         assert call_kwargs["continuous_factor_bins"] == {"col_b": [0.0, 0.5, 1.0]}
+        assert call_kwargs["strict"] is True
 
     @patch("dataeval_flow.metadata.Metadata")
-    def test_skips_none_kwargs(self, mock_meta_cls: MagicMock):
+    def test_omits_what_the_policy_leaves_unset(self, mock_meta_cls: MagicMock):
+        """Omitted rather than passed as None, so DataEval's own defaults apply."""
         from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
 
-        build_metadata(MagicMock(), auto_bin_method=None, exclude=None)
+        build_metadata(MagicMock(), ResolvedPolicy())
 
-        call_kwargs = mock_meta_cls.call_args[1]
-        assert "auto_bin_method" not in call_kwargs
-        assert "exclude" not in call_kwargs
+        assert mock_meta_cls.call_args[1] == {}
 
 
 # ---------------------------------------------------------------------------

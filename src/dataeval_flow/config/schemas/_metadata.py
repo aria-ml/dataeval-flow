@@ -1,10 +1,13 @@
-"""Result metadata schema for JATIC compliance [IR-3-H-12]."""
+"""Metadata schemas: the policy a run is given, and the record it hands back."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from dataeval_flow.config._paths import validate_config_path
+from dataeval_flow.config.schemas._task import AutoBinMethod, FactorSource
 
 
 class ResultMetadata(BaseModel):
@@ -49,3 +52,105 @@ class ResultMetadata(BaseModel):
     #: DataEval made on the caller's behalf and the ranges it could not resolve.
     #: Empty when the run raised none.
     diagnostics: Sequence[str] = ()
+
+
+class MetadataPolicyConfig(BaseModel):
+    """A named metadata policy, referenced by the workflows that share it.
+
+    A bin edge is a claim about the world — *below 0 °C is freezing* — so where the cuts
+    fell, and who chose them, is part of what a result means.  That makes the encoding a
+    decision worth writing down once and pointing several workflows at, rather than a
+    setting each of them spells out again: two workflows over one dataset that cut it
+    differently produce numbers that merge into one result file and cannot be compared.
+
+    Defined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,
+    ``sources`` and ``extractors``.
+
+    YAML example::
+
+        metadata:
+          - name: standard
+            encoding: policy/factor_bins.json
+            strict: true
+            exclude: [id, filename]
+
+        workflows:
+          - name: coverage_check
+            type: data-coverage
+            metadata: standard
+    """
+
+    name: str = Field(description="Identifier for this policy")
+
+    encoding: str | None = Field(
+        default=None,
+        description=(
+            "Path, under the data root, to a committed encoding descriptor — the artifact "
+            "`dataeval-flow encoding` writes. Applies the recorded cuts and vocabularies to "
+            "this run instead of deriving them from its own draw, which is what makes two "
+            "runs over different data comparable. Factors it does not name are encoded "
+            "normally."
+        ),
+    )
+    factor_levels: Mapping[str, Sequence[Any]] | None = Field(
+        default=None,
+        description=(
+            "Vocabularies declared ahead of the data, one per factor: code i means "
+            "levels[i], so two datasets declared against the same list share an alphabet "
+            "without either having been structured first. The categorical counterpart to "
+            "`continuous_factor_bins`."
+        ),
+    )
+    strict: bool = Field(
+        default=False,
+        description=(
+            "Whether a value no declared vocabulary holds is an error. The default admits "
+            "it, which is what extension wants; true is for a closed taxonomy that should "
+            "report the data leaving it rather than be widened to fit. Bin edges are "
+            "unaffected — an unseen magnitude lands in an end bin either way."
+        ),
+    )
+    reference_split: str | None = Field(
+        default=None,
+        description=(
+            "Which split's encoding the whole run uses, for a workflow that reads several. "
+            "Defaults to the first split the task names. Splits encoded independently land "
+            "on different cuts for the same factor, so their per-factor statistics are not "
+            "comparable; one reference makes them so."
+        ),
+    )
+
+    auto_bin_method: AutoBinMethod | None = Field(
+        default=None,
+        description=(
+            "How a continuous factor no declaration reaches is cut. Governs only those: a "
+            "factor named by `encoding` or `continuous_factor_bins` is cut as declared."
+        ),
+    )
+    exclude: Sequence[str] = Field(
+        default_factory=list,
+        description="Factor names removed before any evaluator sees them.",
+    )
+    continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = Field(
+        default=None,
+        description=(
+            "Bin count (int) or explicit edges (list) per factor. Edges carry meaning and "
+            "travel with the configuration; a count only says how many, and where the cuts "
+            "land is still read off this sample. Mutually exclusive with `encoding` per "
+            "factor."
+        ),
+    )
+    factor_source: FactorSource | None = Field(
+        default=None,
+        description=(
+            "Which representation of each factor the bias statistics read — `coded`, "
+            "`values`, or `auto`. It moves every number they report, so workflows meant to "
+            "be compared want one answer."
+        ),
+    )
+
+    @field_validator("encoding")
+    @classmethod
+    def _check_encoding_path(cls, value: str | None) -> str | None:
+        """Keep the descriptor path portable, like every other config path."""
+        return None if value is None else validate_config_path(value)
