@@ -24,10 +24,15 @@ Provides load/save methods for four component types:
 
 - **Embeddings** — Dense numpy arrays stored as ``.npy``
 - **Cluster results** — Clustering output stored as ``.npz``
-- **Metadata** — One ``.dem`` archive written by ``dataeval.Metadata.save``,
-  holding every level's rows and the links between them.  Binning is
-  deliberately *not* stored, so a single archive serves every
-  ``continuous_factor_bins`` / ``auto_bin_method`` a workflow reads it with.
+- **Metadata** — One ``.dem`` archive per binning configuration, written by
+  ``dataeval.Metadata.save``, holding every level's rows and the links between
+  them, plus a ``.json`` sidecar naming the encoding it was built under.
+  Binned *columns* are still not stored — they are re-derived lazily on read —
+  but as of DataEval v1.1 the *record* of the cut is, and it is restored
+  underneath whatever the reader declares.  So an archive no longer serves every
+  configuration: one written under ``uniform_width`` hands those edges to a
+  reader asking for ``clusters``, for every factor the reader did not name.
+  Keying each archive by its configuration is what keeps the two consistent.
 - **Stats** — Unified ``StatsResult`` stored as ``.parquet`` + ``.json``.
   Metrics accumulate incrementally: different workflows requesting different
   ``ImageStats`` flags share the same cache entry and only compute the
@@ -41,7 +46,8 @@ Cache layout (disk-backed mode)::
           sel_{selection_hash}/
             embeddings_{config_hash}.npy
             clusters_{config_hash}.npz
-            metadata.dem
+            metadata_{policy_hash}.dem
+            metadata_{policy_hash}.json
             stats_{scope_hash}.parquet
             stats_{scope_hash}.json
 
@@ -107,7 +113,7 @@ _logger = logging.getLogger(__name__)
 #      (``normalize_pixel_values=False``, dataeval 1.1's default).  A v2 entry
 #      holds the same metric under the old ``[0, 1]`` normalization, so the two
 #      are numerically incompatible and must not be served interchangeably.
-CACHE_VERSION = "3"
+CACHE_VERSION = "4"
 
 # Default for the ``persist_memory`` constructor parameter.  When ``True``
 # (the default), ``DatasetCache`` instances hold computed artifacts in an
@@ -248,6 +254,25 @@ def _metadata_config_key(
         default=str,
     )
     return f"metadata_{_config_hash(config)}"
+
+
+def _write_policy_sidecar(metadata: "Metadata", path: Path) -> None:
+    """Write the encoding the archive was built under, as a person can read it.
+
+    The archive carries the same record in its manifest, so nothing here is *stored*
+    that was not already — what this adds is that it can be read without loading an
+    archive.  A cache directory whose entries name their own policy is the antidote to
+    the failure this keying exists to prevent: a hit that silently applied somebody
+    else's cuts, where the only evidence was a hash.
+
+    Written through ``export_encoding`` rather than rendered here, so the sidecar, the
+    result envelope and a committed descriptor are the same bytes for the same policy.
+    Best effort: a release without the method costs the sidecar, not the cache entry.
+    """
+    export = getattr(metadata, "export_encoding", None)
+    if export is None:
+        return
+    export(path)
 
 
 def _extractor_config_key(extractor_config: Any) -> str:
@@ -1044,11 +1069,18 @@ class DatasetCache:
     # Metadata (.dem archive)
     # =====================================================================
 
-    def _metadata_path(self, selection_repr: str) -> Path | None:
+    def _metadata_paths(self, selection_repr: str, policy_key: str) -> tuple[Path, Path] | tuple[None, None]:
+        """Archive and policy sidecar for one binning configuration.
+
+        Two files for the same reason ``_stats_paths`` returns two: the binary is what
+        the library reads back, and the JSON is what a person reads.  Named by the
+        policy rather than fixed, because an archive no longer serves every
+        configuration — see the module docstring.
+        """
         sel_dir = self._selection_dir(selection_repr)
         if sel_dir is None:
-            return None
-        return sel_dir / "metadata.dem"
+            return None, None
+        return sel_dir / f"{policy_key}.dem", sel_dir / f"{policy_key}.json"
 
     def load_metadata(
         self,
@@ -1061,9 +1093,11 @@ class DatasetCache:
         """Load cached Metadata, or ``None`` on miss.
 
         Reads the archive written by :meth:`save_metadata` through
-        ``dataeval.Metadata.load``.  Binning is not stored in it, so the caller's
+        ``dataeval.Metadata.load``.  Binned columns are not stored, so the caller's
         configuration is applied here and runs lazily when factor data is first
-        accessed — which is what lets one archive serve every configuration.
+        accessed.  The *record* of the cut is stored, and upstream restores it
+        underneath whatever the reader declares — so the archive is keyed by the
+        configuration that wrote it rather than shared across all of them.
         """
         obj_key = _metadata_config_key(auto_bin_method, exclude, continuous_factor_bins)
         cached = self._mem_get(selection_repr, obj_key)
@@ -1074,7 +1108,7 @@ class DatasetCache:
         from dataeval import Metadata as MetadataClass
         from dataeval.exceptions import MetadataFormatError
 
-        path = self._metadata_path(selection_repr)
+        path, _ = self._metadata_paths(selection_repr, obj_key)
         if path is None or not path.exists():
             return None
 
@@ -1123,27 +1157,29 @@ class DatasetCache:
 
         ``dataeval.Metadata.save`` writes one archive holding every level's rows
         and the positional links between them.  Binned/digitized columns (``↕`` /
-        ``#`` suffixes) are stripped on the way out, so a single entry is reusable
-        across every binning configuration a later reader might ask for.
+        ``#`` suffixes) are stripped on the way out and re-derived on read, but the
+        encoding *record* travels with the archive — which is why the entry is named
+        for the configuration that produced it rather than shared across all of them.
 
-        The write is atomic upstream — a temporary file renamed into place — so a
-        concurrent reader sees either the previous archive or the new one, never a
-        half-written one.
+        A ``.json`` sidecar is written alongside, naming that encoding in the form a
+        person reads and a descriptor is committed in.
+
+        The archive write is atomic upstream — a temporary file renamed into place —
+        so a concurrent reader sees either the previous archive or the new one, never
+        a half-written one.
         """
         # Keyed by the configuration this instance carries, not by the one a later
         # reader wants: see :func:`_metadata_config_key`.
-        self._mem_set(
-            selection_repr,
-            _metadata_config_key(metadata.auto_bin_method, metadata.exclude, metadata.continuous_factor_bins),
-            metadata,
-        )
+        policy_key = _metadata_config_key(metadata.auto_bin_method, metadata.exclude, metadata.continuous_factor_bins)
+        self._mem_set(selection_repr, policy_key, metadata)
 
-        path = self._metadata_path(selection_repr)
-        if path is None:
+        path, sidecar = self._metadata_paths(selection_repr, policy_key)
+        if path is None or sidecar is None:
             return
 
         try:
             metadata.save(path)
+            _write_policy_sidecar(metadata, sidecar)
         except Exception:
             # A failed cache write must not take the workflow down with it.  The
             # value is memoized either way, so this run is unaffected and the next
@@ -1168,10 +1204,10 @@ class DatasetCache:
     ) -> "Metadata":
         """Load cached metadata or build, cache, and return it.
 
-        The archive on disk holds no binning and is keyed by dataset selection
-        alone.  On hit, the caller's binning configuration is applied so that
-        binning runs lazily.  On miss, the metadata is built, saved, and
-        returned.
+        The archive is keyed by dataset selection *and* binning configuration, since
+        it carries the encoding record it was written under.  On hit, the caller's
+        configuration is applied so that binning runs lazily.  On miss, the metadata
+        is built, saved, and returned.
 
         Parameters
         ----------

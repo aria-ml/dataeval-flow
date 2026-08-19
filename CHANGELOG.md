@@ -18,6 +18,12 @@
   factor whether the codes or the measured values are read, consulting the encoding record's provenance, and a
   per-column boolean cannot express a per-column choice between two estimators. Gap findings could otherwise differ
   depending on whether `balance` was enabled, since both paths feed the same `gap_mi_threshold`
+- Workflow cache bumped to `v4`; reclaim old entries with `rm -rf <cache_dir>/v3`. Metadata archives are now named
+  `metadata_{policy_hash}.dem` and serve only the binning configuration that wrote them. DataEval v1.1 persists the
+  encoding record inside the archive and restores it *underneath* whatever the reader declares, so a shared archive
+  handed a run configured for one auto-bin method the edges another run had derived — silently, and for every factor
+  the reader did not name. Reading at a configuration the cache has not seen now costs a rebuild rather than a
+  wrong answer
 - Container mounts follow SDP IR conventions
 - Text report **METADATA FACTORS** lists per-bin and per-category detail only for factors with 12 or fewer buckets.
   Above that it reports the count and how the buckets were populated, and labels a factor holding one category per
@@ -43,6 +49,8 @@
 - `metadata_factor_source` (`coded` / `values` / `auto`) on every workflow that reads metadata, and recorded in the
   result envelope. It selects which representation the bias statistics read, so it moves every number they report —
   two workflows meant to be compared want the same one
+- Metadata cache entries write a `metadata_{policy_hash}.json` sidecar naming the encoding the archive was built
+  under, so a cache directory can be read without loading an archive
 - Data coverage workflow (`data-coverage`) — class balance, metadata factor gaps, ontology findings, and per-class
   embedding variety, with an `ontology` extra for loading a label space from an RDF artifact
 - `metadata_auto_bin_method`, `metadata_exclude`, and `metadata_continuous_factor_bins` on the data analysis, data

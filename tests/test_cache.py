@@ -19,6 +19,7 @@ from dataeval_flow.cache import (
     _atomic_write_pair,
     _config_hash,
     _make_dataset_id,
+    _metadata_config_key,
     active_cache,
     dataset_fingerprint,
     get_or_compute_cluster_result,
@@ -337,7 +338,7 @@ class TestCorruptedCacheResilience:
     def test_load_metadata_not_an_archive(self, tmp_path: Path):
         """A file that is not a zip at all is a miss, not an exception."""
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
-        path = _metadata_path(tmp_path)
+        path = _default_metadata_path(tmp_path)
         path.parent.mkdir(parents=True)
         path.write_bytes(b"not a zip archive")
 
@@ -1019,9 +1020,29 @@ def _make_metadata(dataset: Any = None, **kwargs: Any) -> Metadata:
     return metadata
 
 
+def _selection_dir(cache_dir: Path, selection: str = "sel:all", dataset_name: str = "ds") -> Path:
+    """Where ``DatasetCache`` writes one selection's artifacts."""
+    return cache_dir / f"v{CACHE_VERSION}" / dataset_name / f"sel_{_config_hash(selection)}"
+
+
+def _default_metadata_path(cache_dir: Path, selection: str = "sel:all", dataset_name: str = "ds") -> Path:
+    """Where the *default* binning configuration's archive would go, written or not.
+
+    Named rather than globbed, for the tests that plant a corrupt file before any save.
+    """
+    return _selection_dir(cache_dir, selection, dataset_name) / f"{_metadata_config_key()}.dem"
+
+
 def _metadata_path(cache_dir: Path, selection: str = "sel:all", dataset_name: str = "ds") -> Path:
-    """Where ``DatasetCache`` writes the metadata archive for a selection."""
-    return cache_dir / f"v{CACHE_VERSION}" / dataset_name / f"sel_{_config_hash(selection)}" / "metadata.dem"
+    """The metadata archive for a selection.
+
+    Globbed rather than named: an archive is keyed by the binning configuration that
+    wrote it, and a test that pinned the hash would be asserting the hash rather than
+    the behaviour.  Every caller here writes exactly one.
+    """
+    archives = sorted(_selection_dir(cache_dir, selection, dataset_name).glob("metadata_*.dem"))
+    assert len(archives) == 1, f"expected one archive, found {[p.name for p in archives]}"
+    return archives[0]
 
 
 def _rewrite_manifest(path: Path, **changes: Any) -> None:
@@ -1213,18 +1234,22 @@ class TestMetadataCache:
             loaded.raw  # noqa: B018
 
     def test_load_applies_caller_config(self, tmp_path: Path):
-        """Loaded metadata has the caller's binning config applied."""
-        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        """Loaded metadata has the caller's binning config applied.
 
-        cache.save_metadata("sel:all", _make_metadata())
+        Saved under the same configuration it is read back with, since an archive
+        serves the configuration that wrote it — see
+        ``test_archive_is_not_reused_across_binning_configs``.
+        """
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        config: dict[str, Any] = {
+            "auto_bin_method": "clusters",
+            "exclude": ["x"],
+            "continuous_factor_bins": {"y": [0.0, 1.0]},
+        }
+
+        cache.save_metadata("sel:all", _make_metadata(**config))
         cache._memory.clear()  # Force disk round-trip
-        loaded = cache.load_metadata(
-            "sel:all",
-            _FakeICDataset(),  # type: ignore
-            auto_bin_method="clusters",
-            exclude=["x"],
-            continuous_factor_bins={"y": [0.0, 1.0]},
-        )
+        loaded = cache.load_metadata("sel:all", _FakeICDataset(), **config)  # type: ignore
 
         assert loaded is not None
         assert loaded.auto_bin_method == "clusters"
@@ -1259,31 +1284,48 @@ class TestMetadataCache:
         assert "brightness" in loaded.dataframe.columns
         assert len(loaded.dataframe) == len(meta.dataframe)
 
-    def test_one_archive_serves_every_binning_config(self, tmp_path: Path):
-        """Binning is not written, so one archive is re-readable at any config."""
+    def test_archive_is_not_reused_across_binning_configs(self, tmp_path: Path):
+        """An archive carries the encoding it was written under, so it serves only that.
+
+        DataEval v1.1 persists the encoding record and restores it *underneath* whatever
+        the reader declares, for every factor the reader did not name.  A shared archive
+        therefore handed a run configured for one auto-bin method the edges another run
+        derived, with no notice — the archive won, and only the digest showed it.
+        """
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
 
-        cache.save_metadata("sel:all", _make_metadata())
+        cache.save_metadata("sel:all", _make_metadata(auto_bin_method="uniform_width"))
         cache._memory.clear()  # Force disk round-trip
 
-        loaded_a = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="uniform_width")  # type: ignore
-        loaded_b = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="clusters")  # type: ignore
+        same = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="uniform_width")  # type: ignore
+        other = cache.load_metadata("sel:all", _FakeICDataset(), auto_bin_method="clusters")  # type: ignore
 
-        assert loaded_a is not None
-        assert loaded_b is not None
-        assert loaded_a.auto_bin_method == "uniform_width"
-        assert loaded_b.auto_bin_method == "clusters"
-        # Both came from the one archive on disk.
-        assert loaded_a.item_count == loaded_b.item_count
+        assert same is not None, "the configuration that wrote the archive must hit"
+        assert same.auto_bin_method == "uniform_width"
+        assert other is None, "a different configuration must miss rather than inherit the archive's cuts"
+
+    def test_save_writes_a_readable_policy_sidecar(self, tmp_path: Path):
+        """The hash in the filename gets a human-readable expansion beside it."""
+        import json
+
+        cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
+        cache.save_metadata("sel:all", _make_metadata())
+
+        sidecar = _metadata_path(tmp_path).with_suffix(".json")
+        assert sidecar.exists(), "an archive should name its own policy"
+        document = json.loads(sidecar.read_text(encoding="utf-8"))
+        assert "factors" in document
+        assert all("provenance" in entry for entry in document["factors"].values())
 
 
 class TestMetadataMemoryCache:
-    """The in-process cache is keyed by binning config, the archive is not.
+    """Both the in-process cache and the archive are keyed by binning config.
 
-    A memoized ``Metadata`` carries the configuration it was built with, so serving
-    one to a caller that asked for different bins hands back the wrong binning
-    silently. The archive has no such problem — binning is re-applied on every read
-    — which is why only the memory key carries the config.
+    A memoized ``Metadata`` carries the configuration it was built with, so serving one
+    to a caller that asked for different bins hands back the wrong binning silently.
+    The archive has the same problem for a different reason — it carries the encoding
+    record it was written under, restored underneath whatever the reader declares — so
+    both are keyed rather than only the memory entry.
     """
 
     def _build(self, **kwargs: Any) -> Any:
@@ -1331,8 +1373,15 @@ class TestMetadataMemoryCache:
         assert excluded.exclude == {"brightness"}
         assert "brightness" not in excluded.factor_names
 
-    def test_second_config_reads_disk_without_rebuilding(self, tmp_path: Path):
-        """A different binning config must cost a disk read, never a re-walk."""
+    def test_second_config_rebuilds_rather_than_inheriting(self, tmp_path: Path):
+        """A different binning config costs a re-walk, which is the price of not lying.
+
+        It used to cost only a disk read, because one archive served every
+        configuration.  That stopped being true when the encoding record began
+        travelling with the archive: the cheap read returned the *writer's* cuts.
+        Rebuilding is the conservative half of that trade, and each configuration keeps
+        its own warm entry afterwards.
+        """
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dataset = _FakeICDataset()
 
@@ -1345,7 +1394,7 @@ class TestMetadataMemoryCache:
                 "sel:all", dataset, continuous_factor_bins={"brightness": 2}
             )
 
-        assert mock_build.call_count == 1
+        assert mock_build.call_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -1402,28 +1451,29 @@ class TestLoadOrComputeMetadata:
                 dataset, auto_bin_method="uniform_width", exclude=["x"], continuous_factor_bins={"y": [0.0, 1.0]}
             )
 
-    def test_different_configs_share_same_cache_entry(self, tmp_path: Path):
-        """Different binning configs reuse the same archive on disk.
+    def test_different_configs_get_separate_cache_entries(self, tmp_path: Path):
+        """Different binning configs are different entries, on disk as well as in memory.
 
-        No memory clearing between the calls: the binning-aware memory key is what
-        keeps the second caller from being handed the first caller's binning.
+        No memory clearing between the calls: the binning-aware key is what keeps the
+        second caller from being handed the first caller's binning, and it now applies
+        to the archive too because the archive carries its own encoding record.
         """
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dataset = _FakeICDataset()
-        meta = _make_metadata(dataset)
 
-        # First call — cache miss, computes and saves
-        with patch(self._BUILD_METADATA_PATH, return_value=meta) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, side_effect=lambda ds, **kw: _make_metadata(ds, **kw)) as mock_build:
             cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="uniform_width")  # type: ignore
             mock_build.assert_called_once()
 
-        # Second call with different config — disk hit, skips compute
-        with patch(self._BUILD_METADATA_PATH) as mock_build:
+        with patch(self._BUILD_METADATA_PATH, side_effect=lambda ds, **kw: _make_metadata(ds, **kw)) as mock_build:
             result = cache.load_or_compute_metadata("sel:all", dataset, auto_bin_method="clusters")  # type: ignore
-            mock_build.assert_not_called()
+            mock_build.assert_called_once()
 
         assert result is not None
         assert result.auto_bin_method == "clusters"
+
+        archives = sorted(p.name for p in _selection_dir(tmp_path).glob("metadata_*.dem"))
+        assert len(archives) == 2, f"each configuration wants its own archive, found {archives}"
 
 
 # ---------------------------------------------------------------------------
