@@ -67,7 +67,7 @@ While not strictly enforced, the following patterns are recommended for clarity:
 
 6. The tag triggers:
    - **GitLab CI** ([.gitlab-ci.yml](.gitlab-ci.yml)) — builds and signs the
-     four Docker variants (cpu / cu118 / cu124 / cu128), pushes them to
+     three Docker variants (cpu / cu126 / cu130), pushes them to
      Harbor, and creates per-variant release tags.
    - **GitHub Actions** ([.github/workflows/publish.yml](.github/workflows/publish.yml))
      — builds the Python package with `uv build`, extracts the matching

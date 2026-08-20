@@ -66,8 +66,8 @@ The guidance below applies to both the container and the Python-library forms.
 
 DataEval Flow is developed and tested on Linux (Ubuntu 22.04 and 24.04, including
 WSL2). The Python package supports **Python 3.10–3.14**; the CI test matrix runs
-all five. The container images are built on Ubuntu 22.04 (cu118) and
-Ubuntu 24.04 (cpu, cu128). macOS and Windows are supported only through Docker or
+all five. The container images are all built on Ubuntu 24.04 (cpu, cu126, cu130).
+macOS and Windows are supported only through Docker or
 WSL2 and are not part of the CI test matrix — if you hit an issue on those hosts,
 the OS/hardware may be the root cause.
 
@@ -106,17 +106,17 @@ at least the minimum CPU/memory above; size memory to your largest dataset.
 ## Quick Start
 
 ```bash
-# 1. Build CUDA 11.8 container
-docker build -f docker/Dockerfile.cu118 -t dataeval:cu118 .
+# 1. Build CUDA 12.6 container
+docker build -f docker/Dockerfile.cu126 -t dataeval:cu126 .
 
 # 2. Show help
-docker run dataeval:cu118
+docker run dataeval:cu126
 
 # 3. Run with data and output
 docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu118
+  dataeval:cu126
 ```
 
 ## Pulling pre-built images
@@ -128,13 +128,13 @@ if you don't need to modify the code.
 **Rolling channel** — tracks the latest commit on `main`. The tag is overwritten on every merge.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:cu118   # cpu / cu118 / cu128
+docker pull harbor.jatic.net/aria/dataeval:cu126   # cpu / cu126 / cu130
 ```
 
 **Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:0.1.0-cu118
+docker pull harbor.jatic.net/aria/dataeval:0.1.0-cu126
 ```
 
 **Verifying the signature** — every published image is signed with
@@ -142,11 +142,11 @@ docker pull harbor.jatic.net/aria/dataeval:0.1.0-cu118
 [docker/cosign.pub](docker/cosign.pub).
 
 ```bash
-cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval:cu118
+cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval:cu126
 ```
 
-Then drop the `dataeval:cu118` reference in the Quick Start `docker run`
-commands above with the fully-qualified `harbor.jatic.net/aria/dataeval:cu118`
+Then drop the `dataeval:cu126` reference in the Quick Start `docker run`
+commands above with the fully-qualified `harbor.jatic.net/aria/dataeval:cu126`
 (or pinned version) and skip step 1.
 
 > **Note on feature branches.** Containers are only built and published from
@@ -193,7 +193,7 @@ docker run --gpus all \
   --user "$(id -u):$(id -g)" \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu118
+  dataeval:cu126
 ```
 
 #### Option 2: Open directory permissions
@@ -215,7 +215,7 @@ docker run --gpus all \
   -e DATAEVAL_DATA=/data \
   --mount type=bind,source=/path/to/data,target=/data,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu118
+  dataeval:cu126
 ```
 
 ## Environment Variables
@@ -253,7 +253,7 @@ options, precedence, and examples — via its help command, which is also the
 default when the container runs with no pipeline arguments:
 
 ```bash
-docker run dataeval:cu118 --help
+docker run dataeval:cu126 --help
 ```
 
 The library form exposes the same options via `python -m dataeval_flow --help`.
@@ -273,13 +273,13 @@ To specify a config path explicitly:
 docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu118 --config config/
+  dataeval:cu126 --config config/
 
 # Single config file
 docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu118 --config params.yaml
+  dataeval:cu126 --config params.yaml
 ```
 
 Dataset and model paths in config files are resolved relative to the data root (`/dataeval` by default).
@@ -392,8 +392,8 @@ DataEval Flow — it accepts the build already present (omit step 1 and you'll g
 CUDA-bundled manylinux build of torch from PyPI, which is much larger):
 
 ```bash
-# 1. Pick your PyTorch build (cpu / cu118 / cu128)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# 1. Pick your PyTorch build (cpu / cu126 / cu130)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 
 # 2. Install DataEval Flow
 pip install dataeval-flow
@@ -411,14 +411,14 @@ pip install dataeval-flow
 `torchvision` is not installed by default — it is imported lazily and is only needed
 for preprocessing pipelines, the torchvision dataset adapter, and the TUI's transform
 discovery. Install it together with `torch` in step 1 so both come from the same index.
-Feature extras (`onnx`, `onnx-gpu`, `opencv`, `app`, `ontology`) work normally under
+Feature extras (`onnx`, `onnx-cu126`, `onnx-cu130`, `opencv`, `app`, `ontology`) work normally under
 pip and are independent of the PyTorch variant:
 
 ```bash
 pip install "dataeval-flow[onnx,opencv,app]"
 ```
 
-> **The `cpu` / `cu118` / `cu128` extras do not select a PyTorch variant under pip.**
+> **The `cpu` / `cu126` / `cu130` extras do not select a PyTorch variant under pip.**
 > All three declare the same requirements (`torch`, `torchvision`); what distinguishes
 > them is `[tool.uv.sources]`, which routes those packages to the right wheel index.
 > That is project metadata applied by uv when resolving **from source** — it is not
@@ -429,7 +429,7 @@ pip install "dataeval-flow[onnx,opencv,app]"
 `uv` from PyPI:
 
 ```bash
-uv pip install dataeval-flow --torch-backend cpu     # or cu118 / cu128 / auto
+uv pip install dataeval-flow --torch-backend cpu     # or cu126 / cu130 / auto
 ```
 
 `uv` from source (default toolchain; uses committed `uv.lock`) — extras apply here:
@@ -437,7 +437,7 @@ uv pip install dataeval-flow --torch-backend cpu     # or cu118 / cu128 / auto
 ```bash
 git clone https://github.com/aria-ml/dataeval-flow.git
 cd dataeval-flow
-uv sync --extra cpu      # or cu118 / cu128; add --extra onnx --extra opencv --extra app as needed
+uv sync --extra cpu      # or cu126 / cu130; add --extra onnx --extra opencv --extra app as needed
 ```
 
 `poetry` (source checkout; uses committed `poetry.lock`):
@@ -462,7 +462,7 @@ Notes:
 
 - PyTorch is installed from PyPI/`download.pytorch.org` in every path
   (it is no longer maintained on conda-forge).
-- GPU variants (`cu118`, `cu128`) are only wired through `uv` and
+- GPU variants (`cu126`, `cu130`) are only wired through `uv` and
   `pip` today; the Poetry/conda paths install the CPU build of PyTorch.
 
 **CLI Usage:**

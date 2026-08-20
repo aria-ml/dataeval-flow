@@ -33,7 +33,7 @@ docker run \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
   --mount type=bind,source=/path/to/cache,target=/cache \
-  harbor.jatic.net/aria/dataeval:cu128
+  harbor.jatic.net/aria/dataeval:cu130
 ```
 
 From Python:

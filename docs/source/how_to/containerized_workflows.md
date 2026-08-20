@@ -33,8 +33,8 @@ Pre-built images are published to the JATIC Harbor registry:
 # CPU-only
 docker pull harbor.jatic.net/aria/dataeval:cpu
 
-# GPU (CUDA 12.8 — recommended for modern GPUs)
-docker pull harbor.jatic.net/aria/dataeval:cu128
+# GPU (CUDA 13.0 — recommended for modern GPUs)
+docker pull harbor.jatic.net/aria/dataeval:cu130
 ```
 
 Available variants:
@@ -42,8 +42,8 @@ Available variants:
 | Tag | Base | Use case |
 | --- | --- | --- |
 | `cpu` | Ubuntu 24.04 | Machines without NVIDIA GPU |
-| `cu118` | Ubuntu 22.04 | Older GPUs / CUDA 11.8 drivers |
-| `cu128` | Ubuntu 24.04 | Modern GPUs (RTX 40/50 series) / CUDA 12.8 drivers |
+| `cu126` | Ubuntu 24.04 | Older GPUs / CUDA 12.6 drivers |
+| `cu130` | Ubuntu 24.04 | Modern GPUs (RTX 50 series) / CUDA 13.0 drivers |
 
 All GPU variants bundle their own CUDA runtime libraries via PyTorch — the
 host only needs the NVIDIA driver and Container Toolkit.
@@ -401,7 +401,7 @@ docker run --rm --gpus all \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     --mount type=bind,source="$(pwd)/workspace/cache",target=/cache \
-    harbor.jatic.net/aria/dataeval:cu128
+    harbor.jatic.net/aria/dataeval:cu130
 ```
 
 ### Specifying a config file

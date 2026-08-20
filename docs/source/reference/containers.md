@@ -17,7 +17,7 @@ the help command — which is also the default action when the container is run
 with no pipeline arguments:
 
 ```bash
-docker run harbor.jatic.net/aria/dataeval:cu128 --help
+docker run harbor.jatic.net/aria/dataeval:cu130 --help
 ```
 
 The library form prints the same options with `python -m dataeval_flow --help`.
@@ -39,7 +39,7 @@ docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
   --mount type=bind,source=/path/to/cache,target=/cache \
-  harbor.jatic.net/aria/dataeval:cu128
+  harbor.jatic.net/aria/dataeval:cu130
 ```
 
 The data root can be relocated with `DATAEVAL_DATA` / `--data` (see below).
@@ -149,7 +149,7 @@ with others:
 - **Preprocessor references must resolve.** An extractor's `preprocessor` field,
   if set, must name a preprocessor defined in the same configuration.
 - **GPU execution requires a CUDA image and runtime.** Setting an extractor
-  `device: cuda:0` requires running a CUDA image variant (`cu118` / `cu128`)
+  `device: cuda:0` requires running a CUDA image variant (`cu126` / `cu130`)
   with `--gpus all`; on the `cpu` image, models run on CPU regardless.
 - **Metadata-dependent analyses.** Bias, parity, and metadata-insight outputs
   require per-sample metadata factors to be present in the dataset; without them

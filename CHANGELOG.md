@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- CUDA variants bumped from `cu118` / `cu128` to `cu126` / `cu130`, tracking the CUDA builds PyTorch publishes
+- `onnx-gpu` extra split into `onnx-cu126` and `onnx-cu130` so the `onnxruntime-gpu` build matches the
+  selected CUDA runtime
+
 ## v0.2.0
 
 ### Changed

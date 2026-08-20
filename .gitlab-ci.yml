@@ -42,7 +42,7 @@ variables:
 
 # Shared variant list — edit once, used by all matrix jobs
 .variants: &variants
-  - VARIANT: [cpu, cu118, cu128]
+  - VARIANT: [cpu, cu126, cu130]
 
 # -----------------------------------------------------------------------------
 # Shared Templates
@@ -623,7 +623,7 @@ verify:docker:
 # CVE, justification, and re-evaluation date per SECURITY.md / DSOR-1-H-3).
 #
 # Overrides on the template:
-#   - parallel:matrix per variant so we scan cpu/cu118/cu128 in one stage.
+#   - parallel:matrix per variant so we scan cpu/cu126/cu130 in one stage.
 #   - CS_REGISTRY_USER / CS_REGISTRY_PASSWORD point the analyzer at Harbor.
 #   - allow_failure: false promotes the scan to a gate (template default is
 #     true). HIGH/CRITICAL findings block promote:floating so dirty images

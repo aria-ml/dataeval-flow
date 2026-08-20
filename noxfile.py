@@ -16,7 +16,7 @@ nox.options.sessions = ["lint", "type", "test", "schema", "check"]  # Default se
 IS_CI = bool(os.environ.get("CI"))
 PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 PYTHON_DEFAULT = "3.11"
-DEVICE_VARIANTS = ["cpu", "cu118", "cu128"]
+DEVICE_VARIANTS = ["cpu", "cu126", "cu130"]
 DEVICE_DEFAULT = "cpu"
 VENV_DEFAULT = ".venv"
 CUDA_VERSION_FILE = ".cuda-version"
@@ -30,8 +30,13 @@ if not UV_EXTRAS_OVERRIDE:
 
 
 def onnx_extra(device: str) -> str:
-    """Name the onnx extra matching a device variant: CPU wheels for cpu, GPU wheels for CUDA."""
-    return "onnx" if device == "cpu" else "onnx-gpu"
+    """Name the onnx extra matching a device variant.
+
+    CPU wheels for cpu, and for CUDA the GPU extra built against that same CUDA major --
+    an onnxruntime-gpu wheel links against one specific CUDA runtime, so `cu130` has to
+    pull `onnx-cu130` rather than a shared `onnx-gpu`.
+    """
+    return "onnx" if device == "cpu" else f"onnx-{device}"
 
 
 UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
@@ -68,7 +73,7 @@ def resolve_option(session: nox.Session, label: str, provided: "str | None", all
     """Validate an option value, prompting for it when it was not supplied on the command line.
 
     A value typed at the prompt falls back to `default` when unrecognized, but a value passed
-    as a flag is an error, so that a typo such as `-d cu126` cannot silently install cpu.
+    as a flag is an error, so that a typo such as `-d cu124` cannot silently install cpu.
     """
     value = provided
     interactive = value is None
@@ -384,7 +389,7 @@ def docker_smoke(session: nox.Session) -> None:
     Skips repo-state checks (lint, schema, lockfile validation) and the 90%
     coverage gate — those are already enforced by the MR pipeline before any
     Docker build runs. What's left is the slice that only the *built image*
-    can validate: that the frozen, variant-specific venv (cpu / cu118 / cu128)
+    can validate: that the frozen, variant-specific venv (cpu / cu126 / cu130)
     actually produces a runnable package end-to-end.
 
     Coverage:

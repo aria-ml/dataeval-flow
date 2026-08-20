@@ -1,17 +1,17 @@
 # AUTO-GENERATED from docker/Dockerfile.j2 — do not edit directly.
 # Regenerate with: nox -s docker-gen
-# Variant: cu118
+# Variant: cu126
 
 # Dynamic version (must match hatch-vcs source of truth — git tags).
 # CI passes the resolved version via --build-arg DATAEVAL_FLOW_VERSION=...
 # Local `docker build` uses the default below, set to the last published tag
 # by docker/generate.py so the committed value is stable across regenerations.
-ARG DATAEVAL_FLOW_VERSION="0.1.2"
+ARG DATAEVAL_FLOW_VERSION="0.2.0"
 
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS build
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04 AS build
 
 # Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
@@ -34,7 +34,7 @@ RUN touch README.md
 
 # Install ONLY production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra cu118 --extra onnx-gpu --extra opencv --extra app --no-install-project
+    uv sync --frozen --no-dev --extra cu126 --extra onnx-cu126 --extra opencv --extra app --no-install-project
 
 # =============================================================================
 # Stage 2: Test — extend build with dev deps, run nox, validate code
@@ -49,7 +49,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 
 # Add dev dependencies on top of prod venv
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --group dev --extra cu118 --extra onnx-gpu --extra opencv --extra app --no-install-project
+    uv sync --frozen --group dev --extra cu126 --extra onnx-cu126 --extra opencv --extra app --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -65,20 +65,20 @@ USER dataeval
 
 # -------------------------------------------------------
 # CI GATE: container-focused smoke test
-# Validates that the variant-specific venv (cpu/cu118/cu128) actually produces
+# Validates that the variant-specific venv (cpu/cu126/cu130) actually produces
 # a runnable package: import smoke, CLI smoke, and a fast wiring-test subset.
 # Repo-state checks (lint, schema, lockfile) and the full coverage gate run in
 # the MR pipeline before the Docker build is ever invoked — re-running them
 # here was duplicate work. If this fails, the Docker build fails — nothing is
 # published. See `docker_smoke` in noxfile.py for what's covered.
 # -------------------------------------------------------
-ENV DATAEVAL_NOX_UV_EXTRAS_OVERRIDE=cu118
+ENV DATAEVAL_NOX_UV_EXTRAS_OVERRIDE=cu126
 RUN nox -s docker_smoke
 
 # =============================================================================
 # Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
-FROM ubuntu:22.04 AS prod
+FROM ubuntu:24.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update \
@@ -111,14 +111,14 @@ RUN echo "__version__ = '${DATAEVAL_FLOW_VERSION}'" > /app/src/dataeval_flow/_ve
     && chown dataeval:dataeval /app/src/dataeval_flow/_version.py
 
 # Container labels
-LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 11.8)" \
-      org.opencontainers.image.description="DataEval Workflows container - CUDA 11.8 variant" \
+LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 12.6)" \
+      org.opencontainers.image.description="DataEval Workflows container - CUDA 12.6 variant" \
       org.opencontainers.image.version="${DATAEVAL_FLOW_VERSION}" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 
 USER dataeval
 
-ENV UV_EXTRAS_OVERRIDE=cu118
+ENV UV_EXTRAS_OVERRIDE=cu126
 ENV CONTAINER_MODE=gpu
 ENV DATAEVAL_DATA=/dataeval
 ENV DATAEVAL_OUTPUT=/output

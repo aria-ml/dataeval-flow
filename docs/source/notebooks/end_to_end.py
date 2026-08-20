@@ -383,7 +383,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # Pull a pre-built image, or build one from a source checkout.
 #
 # ```bash
-# # Pre-built (cpu / cu118 / cu128)
+# # Pre-built (cpu / cu126 / cu130)
 # docker pull harbor.jatic.net/aria/dataeval:cpu
 #
 # # Optional: verify the signature
@@ -419,7 +419,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #     --mount type=bind,source="$PWD",target=/dataeval,readonly \
 #     --mount type=bind,source="$PWD/output",target=/output \
 #     --mount type=bind,source="$PWD/cache",target=/cache \
-#     harbor.jatic.net/aria/dataeval:cu128 \
+#     harbor.jatic.net/aria/dataeval:cu130 \
 #     python -m dataeval_flow --config end_to_end.yaml -v
 # ```
 #

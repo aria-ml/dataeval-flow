@@ -17,8 +17,8 @@ To choose a specific PyTorch variant, install `torch` from that variant's wheel 
 environment:
 
 ```bash
-# 1. Pick your PyTorch build (cpu / cu118 / cu128)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# 1. Pick your PyTorch build (cpu / cu126 / cu130)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 
 # 2. Install DataEval Flow
 pip install dataeval-flow
@@ -55,7 +55,7 @@ pip install dataeval-flow
 ```
 
 :::{important}
-The `cpu`, `cu118`, and `cu128` extras are **not** a way to select a PyTorch variant
+The `cpu`, `cu126`, and `cu130` extras are **not** a way to select a PyTorch variant
 with pip. All three declare exactly the same requirements (`torch` and `torchvision`);
 what distinguishes them is `[tool.uv.sources]` in the project's `pyproject.toml`, which
 routes those two packages to the right wheel index. That routing is project metadata —
@@ -74,7 +74,8 @@ These extras behave normally under every installer, including pip:
 | Extra | Adds | Needed for |
 | --- | --- | --- |
 | `onnx` | `onnx`, `onnxruntime` | ONNX feature extractors (CPU inference) |
-| `onnx-gpu` | `onnx`, `onnxruntime-gpu` | ONNX feature extractors (GPU inference) |
+| `onnx-cu126` | `onnx`, `onnxruntime-gpu` (CUDA 12.x build) | ONNX feature extractors on a `cu126` install |
+| `onnx-cu130` | `onnx`, `onnxruntime-gpu` (CUDA 13.x build) | ONNX feature extractors on a `cu130` install |
 | `opencv` | `opencv-python-headless` | Bag-of-Visual-Words (SIFT) extraction |
 | `app` | `textual` | The interactive TUI (`dataeval-flow app`) |
 | `ontology` | `dataeval[ontology]` | Loading an ontology from an RDF file |
@@ -88,7 +89,7 @@ pip install "dataeval-flow[onnx,opencv,app]"
 Installing from PyPI, let uv select the PyTorch index with `--torch-backend`:
 
 ```bash
-uv pip install dataeval-flow --torch-backend cpu   # or cu118 / cu128 / auto
+uv pip install dataeval-flow --torch-backend cpu   # or cu126 / cu130 / auto
 ```
 
 ## From source
@@ -109,9 +110,10 @@ uv sync --extra cpu                                        # torch + torchvision
 uv sync --extra cpu --extra onnx --extra opencv --extra app  # plus the feature extras
 ```
 
-Substitute `cu118` / `cu128` for the CUDA variants, and `onnx-gpu` for `onnx` alongside
-them. The PyTorch variant extras are mutually exclusive, as are `onnx` and `onnx-gpu`;
-uv enforces both.
+Substitute `cu126` / `cu130` for the CUDA variants, and the matching `onnx-cu126` /
+`onnx-cu130` for `onnx` alongside them — an `onnxruntime-gpu` wheel links against one
+specific CUDA major, so the ONNX extra has to track the PyTorch one. The PyTorch variant
+extras are mutually exclusive, as are the three `onnx` extras; uv enforces both.
 
 ### With Poetry
 
@@ -151,13 +153,13 @@ docker run --rm harbor.jatic.net/aria/dataeval:cpu
 ### GPU (CUDA)
 
 ```bash
-# CUDA 12.8 — recommended for modern GPUs
-docker pull harbor.jatic.net/aria/dataeval:cu128
-docker run --rm --gpus all harbor.jatic.net/aria/dataeval:cu128
+# CUDA 13.0 — recommended for modern GPUs
+docker pull harbor.jatic.net/aria/dataeval:cu130
+docker run --rm --gpus all harbor.jatic.net/aria/dataeval:cu130
 ```
 
 | Tag | Base | Use case |
 | --- | --- | --- |
 | `cpu` | Ubuntu 24.04 | Machines without NVIDIA GPU |
-| `cu118` | Ubuntu 22.04 | Older GPUs / CUDA 11.8 drivers |
-| `cu128` | Ubuntu 24.04 | Modern GPUs (RTX 40/50 series) / CUDA 12.8 drivers |
+| `cu126` | Ubuntu 24.04 | Older GPUs / CUDA 12.6 drivers |
+| `cu130` | Ubuntu 24.04 | Modern GPUs (RTX 50 series) / CUDA 13.0 drivers |

@@ -7,7 +7,7 @@ set -e
 # Resolve data root (matches Python-side DATAEVAL_DATA env var)
 DATA_DIR="${DATAEVAL_DATA:-/dataeval}"
 
-# Image tag for help text (e.g. dataeval:cpu, dataeval:cu128)
+# Image tag for help text (e.g. dataeval:cpu, dataeval:cu130)
 IMAGE_TAG="dataeval:${UV_EXTRAS_OVERRIDE:-cpu}"
 
 # GPU flag for docker run examples

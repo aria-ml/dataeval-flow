@@ -14,11 +14,11 @@ DOCKER_DIR = REPO_ROOT / "docker"
 
 @pytest.mark.test_case("17-1")
 class TestDockerfiles:
-    @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu118"])
+    @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu126"])
     def test_dockerfile_exists(self, name: str) -> None:
         assert (DOCKER_DIR / name).is_file(), f"missing docker/{name}"
 
-    @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu118"])
+    @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu126"])
     def test_dockerfile_starts_with_from(self, name: str) -> None:
         directive_lines = [
             line
@@ -27,7 +27,7 @@ class TestDockerfiles:
         ]
         assert directive_lines[0].upper().startswith("FROM"), f"docker/{name} does not start with FROM"
 
-    @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu118"])
+    @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu126"])
     def test_dockerfile_has_nonroot_user(self, name: str) -> None:
         body = (DOCKER_DIR / name).read_text()
         user_directives = [

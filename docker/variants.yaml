@@ -3,7 +3,8 @@
 #
 # To add a new CUDA variant:
 #   1. Add the variant key below with build_base_image and prod_base_image
-#   2. Ensure pyproject.toml has the matching extra and pytorch index
+#   2. Ensure pyproject.toml has the matching torch extra, the matching
+#      onnx-<variant> extra, and the pytorch index
 #   3. Run `nox -s docker-gen` to generate the Dockerfile
 #
 # For CUDA variants, builder uses devel (has compiler/headers for wheel builds)
@@ -23,18 +24,18 @@ variants:
     label_title: "DataEval Workflows (CPU)"
     label_description: "DataEval Workflows container - CPU variant"
 
-  cu118:
-    build_base_image: "nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04"
-    prod_base_image: "ubuntu:22.04"
-
-    extras: ["cu118", "onnx-gpu", "opencv", "app"]
-    label_title: "DataEval Workflows (CUDA 11.8)"
-    label_description: "DataEval Workflows container - CUDA 11.8 variant"
-
-  cu128:
-    build_base_image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04"
+  cu126:
+    build_base_image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04"
     prod_base_image: "ubuntu:24.04"
 
-    extras: ["cu128", "onnx-gpu", "opencv", "app"]
-    label_title: "DataEval Workflows (CUDA 12.8)"
-    label_description: "DataEval Workflows container - CUDA 12.8 variant"
+    extras: ["cu126", "onnx-cu126", "opencv", "app"]
+    label_title: "DataEval Workflows (CUDA 12.6)"
+    label_description: "DataEval Workflows container - CUDA 12.6 variant"
+
+  cu130:
+    build_base_image: "nvidia/cuda:13.0.3-cudnn-devel-ubuntu24.04"
+    prod_base_image: "ubuntu:24.04"
+
+    extras: ["cu130", "onnx-cu130", "opencv", "app"]
+    label_title: "DataEval Workflows (CUDA 13.0)"
+    label_description: "DataEval Workflows container - CUDA 13.0 variant"

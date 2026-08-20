@@ -28,19 +28,28 @@ dependencies = [
 
 [project.optional-dependencies]
 cpu = ["torch>=2.2.0", "torchvision>=0.17.0"]
-cu118 = ["torch>=2.2.0", "torchvision>=0.17.0"]
-cu128 = ["torch>=2.2.0", "torchvision>=0.17.0"]
+cu126 = ["torch>=2.2.0", "torchvision>=0.17.0"]
+cu130 = ["torch>=2.2.0", "torchvision>=0.17.0"]
 onnx = [
   "onnx>=1.15",
   "onnxruntime>=1.20,<1.24; python_version == '3.10'",  # 1.24+ drops cp310 wheels
   "onnxruntime>=1.20; python_version >= '3.11'",
 ]
-onnx-gpu = [
+# One onnx extra per CUDA variant: an onnxruntime-gpu wheel links against a specific
+# CUDA major, so the runtime has to match the torch build (see docker/variants.yaml).
+# The `extra != ...` guards drop the requirement entirely if both are requested, which
+# keeps the published metadata resolvable under pip; uv enforces the exclusion outright
+# via [tool.uv].conflicts.
+onnx-cu126 = [
   "onnx>=1.15",
-  # 1.23.2 is the floor for the CUDA 12.8 images (see docker/variants.yaml).
-  "onnxruntime-gpu>=1.23.2,<1.24; python_version == '3.10'",  # 1.24+ drops cp310 wheels
-  "onnxruntime-gpu>=1.23.2,<1.27; python_version >= '3.11'",  # 1.27+ requires CUDA 13.0
-  "onnxruntime-gpu>=1.24,<1.27; python_version >= '3.14'",  # 1.24+ for cp314 wheels
+  "onnxruntime-gpu>=1.20,<1.24; python_version == '3.10' and extra != 'onnx-cu130'",  # 1.24+ drops cp310 wheels
+  "onnxruntime-gpu>=1.20,<1.27; python_version >= '3.11' and extra != 'onnx-cu130'",  # 1.27+ requires CUDA 13.0
+  "onnxruntime-gpu>=1.24,<1.27; python_version >= '3.14' and extra != 'onnx-cu130'",  # 1.24+ for cp314 wheels
+]
+onnx-cu130 = [
+  "onnx>=1.15",
+  "onnxruntime>=1.20; python_version == '3.10' and extra != 'onnx-cu126'",  # CUDA 13.0 is not supported on Python 3.10
+  "onnxruntime-gpu>=1.27; python_version >= '3.11' and extra != 'onnx-cu126'",
 ]
 opencv = ["opencv-python-headless>=4.8.0"]
 app = ["textual>=3.0"]
@@ -150,12 +159,13 @@ constraint-dependencies = [
 conflicts = [
   [
     { extra = "cpu" },
-    { extra = "cu118" },
-    { extra = "cu128" },
+    { extra = "cu126" },
+    { extra = "cu130" },
   ],
   [
     { extra = "onnx" },
-    { extra = "onnx-gpu" },
+    { extra = "onnx-cu126" },
+    { extra = "onnx-cu130" },
   ]
 ]
 
@@ -165,25 +175,25 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-cu118"
-url = "https://download.pytorch.org/whl/cu118"
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
-  { index = "pytorch-cu118", extra = "cu118" },
-  { index = "pytorch-cu128", extra = "cu128" },
+  { index = "pytorch-cu126", extra = "cu126" },
+  { index = "pytorch-cu130", extra = "cu130" },
 ]
 torchvision = [
   { index = "pytorch-cpu", extra = "cpu" },
-  { index = "pytorch-cu118", extra = "cu118" },
-  { index = "pytorch-cu128", extra = "cu128" },
+  { index = "pytorch-cu126", extra = "cu126" },
+  { index = "pytorch-cu130", extra = "cu130" },
 ]
 
 [tool.poetry]

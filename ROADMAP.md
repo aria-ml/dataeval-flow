@@ -1,6 +1,6 @@
 # DataEval Flow Roadmap
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-20
 
 This roadmap reflects shipped capabilities and a six-month forward outlook (through
 January 2027). Future-work entries marked **TBD** are placeholders for the team to
@@ -95,6 +95,8 @@ the project in line with Maturity I expectations.
 - [x] Container scan promoted to a gate — container scanning runs `allow_failure: false` at
       `CS_SEVERITY_THRESHOLD: HIGH`, blocking floating-tag promotion (CS-2-H-2 / DSOR-3-H-2)
 - [x] SBOM published with releases — per-image CycloneDX cosign attestation (CS-2-H-4)
+- [x] CUDA variants bumped to `cu126` / `cu130` to match the CUDA builds PyTorch publishes, with per-variant
+      `onnx-cu126` / `onnx-cu130` extras so `onnxruntime-gpu` matches the selected runtime
 - [ ] Link checking promoted from `allow_failure: true` to gating once the external-link
       flake rate is understood (DR-3.3-H-4)
 
@@ -170,7 +172,7 @@ to be refined by the team and reflected here.**
 - **Models / extractors:** ONNX, PyTorch, BoVW (SIFT), Flatten, Uncertainty
 - **MAITE protocols:** consumes MAITE-compatible image classification and object detection datasets
 - **MAITE entry-points:** declared in `pyproject.toml` for dataset protocols and `maite.tasks` (IR-1-H-3)
-- **Distribution:** PyPI (`dataeval-flow`), Harbor container images (cpu / cu118 / cu128), ReadtheDocs
+- **Distribution:** PyPI (`dataeval-flow`), Harbor container images (cpu / cu126 / cu130), ReadtheDocs
 
 ### Planned / under consideration — TBD
 

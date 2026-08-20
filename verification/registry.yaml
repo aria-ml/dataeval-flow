@@ -469,7 +469,7 @@ test_cases:
       - Repo checkout with docker/ directory
     expected_results:
       - docker/Dockerfile.cpu exists and starts with FROM
-      - docker/Dockerfile.cu118 exists and starts with FROM
+      - docker/Dockerfile.cu126 exists and starts with FROM
       - Both Dockerfiles declare a non-root USER
 
   "18-1":

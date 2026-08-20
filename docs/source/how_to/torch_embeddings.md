@@ -57,7 +57,7 @@ grab the input to a classifier head when the head itself is what you want to byp
     device: cuda:0     # or cpu; omit to let DataEval Flow choose
 ```
 
-Setting `device: cuda:0` requires a CUDA image variant (`cu118` / `cu128`) run with `--gpus all`. On the `cpu` image
+Setting `device: cuda:0` requires a CUDA image variant (`cu126` / `cu130`) run with `--gpus all`. On the `cpu` image
 the model runs on CPU regardless of this field. A GPU is never required — it only speeds up extraction, and matters
 most on embedding-heavy workflows over large datasets.
 

@@ -22,17 +22,17 @@ no arguments it prompts for the Python version and the device variant; pass them
 arguments to skip the prompts:
 
 ```bash
-uvx --with nox-uv nox -s dev -- --python 3.12 --device cu128
+uvx --with nox-uv nox -s dev -- --python 3.12 --device cu130
 ```
 
 | Flag | Values | Default |
 | ---- | ------ | ------- |
 | `-p`, `--python` | `3.10` – `3.14` | `3.11` |
-| `-d`, `--device` | `cpu`, `cu118`, `cu128` | `cpu` |
+| `-d`, `--device` | `cpu`, `cu126`, `cu130` | `cpu` |
 | `-n`, `--name` | any directory | `.venv` |
 
 Alongside the device variant it installs the matching `onnx` extra (`onnx` for
-`cpu`, `onnx-gpu` for CUDA) and the `app` extra — the same set the `test` and
+`cpu`, `onnx-cu126` / `onnx-cu130` for CUDA) and the `app` extra — the same set the `test` and
 `type` sessions build against. The chosen device is written to `.cuda-version`,
 which the other sessions read so they build against the same PyTorch variant.
 
@@ -96,7 +96,7 @@ Frequency of Behavior:
 Environment:
  - dataeval-flow version:
  - Python version:
- - OS / container variant (cpu / cu118 / cu124 / cu128):
+ - OS / container variant (cpu / cu126 / cu130):
  - GPU + driver (if applicable):
 ```
 
