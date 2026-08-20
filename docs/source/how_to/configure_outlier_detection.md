@@ -65,10 +65,9 @@ Because the right value depends on the dataset, this is the parameter most worth
 side.
 
 :::{note}
-The DataEval v1.1 pixel rescale did **not** move any outlier flag, and a threshold tuned before the upgrade is still
+The pixel rescale that arrived in v0.2 did **not** move any outlier flag, and a threshold tuned under v0.1 is still
 correct. Every method offered here is location-scale equivariant: each measures distance in units of the
-distribution's own spread, so scaling every value by a constant moves the statistic and the cutoff together. See
-{doc}`../migration/v1.1`.
+distribution's own spread, so scaling every value by a constant moves the statistic and the cutoff together.
 :::
 
 ## Add cluster-based detection

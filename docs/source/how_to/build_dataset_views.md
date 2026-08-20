@@ -58,7 +58,7 @@ Operations are pass-throughs to `dataeval.data`, so the type names and parameter
 The `type` is resolved by name against `dataeval.data` rather than checked against a fixed list, so **anything that
 module exports is usable** — including operations added by a DataEval release newer than this table. `ClassBalance`
 in particular had a counting bug fixed in DataEval v1.1, so a view using it can select differently than it did
-before; see {doc}`../migration/v1.1`.
+under v0.1.
 
 See the [DataEval `dataeval.data` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html)
 for the full parameter list of each.

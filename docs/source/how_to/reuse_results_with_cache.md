@@ -96,11 +96,14 @@ Artifacts live under a version directory so that formats can coexist. When the c
 version is bumped and older data is simply ignored — it is not deleted, so it is worth removing stale versions
 yourself.
 
-The current version is `v3`. It moved there in DataEval v1.1, when pixel statistics changed to stored units and
-every cached statistic became incomparable with a fresh one — see {doc}`../migration/v1.1`.
+The version tracks releases rather than individual format changes, so it advances at most once per release and
+the numbering matches what you can actually have on disk. The v0.1 line shipped `v0`; the current version is
+`v1`, which v0.2 moved to because pixel statistics are now cached in the units the data is stored in — making
+every `v0` statistic incomparable with a fresh one — and because metadata archives now serve only the binning
+configuration that wrote them.
 
 ```bash
-rm -rf ./cache/v2        # drop the superseded v2 cache
+rm -rf ./cache/v0        # drop the superseded v0.1 cache
 rm -rf ./cache           # start completely clean
 ```
 

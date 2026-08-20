@@ -104,18 +104,38 @@ _logger = logging.getLogger(__name__)
 # way.  Cached artifacts are stored under ``v{CACHE_VERSION}/`` so different
 # versions coexist and users can ``rm -rf`` old directories to reclaim space.
 #
-# v1 — metadata sidecar rewritten for the levelled ``dataeval.Metadata``
-#      (dataeval 1.1.0rc2): ``task`` / ``factors_by_level`` / ``blocks``
-#      replace the flat ``image_factors`` / ``target_factors`` / ``has_targets``.
-# v2 — metadata delegated to ``dataeval.Metadata.save`` / ``.load`` (dataeval
-#      1.1.0rc4): one ``metadata.dem`` archive replaces the hand-rolled
-#      ``metadata.parquet`` + ``metadata.json`` pair, which reconstructed the
-#      instance by assigning its private attributes.
-# v3 — pixel statistics are cached in the units the data is stored in
-#      (``normalize_pixel_values=False``, dataeval 1.1's default).  A v2 entry
-#      holds the same metric under the old ``[0, 1]`` normalization, so the two
-#      are numerically incompatible and must not be served interchangeably.
-CACHE_VERSION = "4"
+# Versioned per *release*, not per change: bumps made between releases are
+# collapsed into the one the release ships, so the numbering matches what a
+# user can actually have on disk.
+#
+# v0 — the v0.1 line.
+# v1 — v0.2.  Four incompatible format changes over the cycle, none separately
+#      released:
+#        * metadata sidecar rewritten for the levelled ``dataeval.Metadata``
+#          (dataeval 1.1.0rc2): ``task`` / ``factors_by_level`` / ``blocks``
+#          replace the flat ``image_factors`` / ``target_factors`` /
+#          ``has_targets``.
+#        * metadata delegated to ``dataeval.Metadata.save`` / ``.load`` (dataeval
+#          1.1.0rc4): one ``metadata.dem`` archive replaces the hand-rolled
+#          ``metadata.parquet`` + ``metadata.json`` pair, which reconstructed the
+#          instance by assigning its private attributes.
+#        * pixel statistics cached in the units the data is stored in
+#          (``normalize_pixel_values=False``, dataeval 1.1's default).  A v0 entry
+#          holds the same metric under the old ``[0, 1]`` normalization, so the
+#          two are numerically incompatible and must not be served
+#          interchangeably.
+#        * metadata archives keyed by the binning configuration that wrote them
+#          (``metadata_{policy_hash}.dem``).  ``Metadata.load`` restores the
+#          archive's own encoding record *underneath* whatever the reader
+#          declares, so a shared archive answered with the edges some other run
+#          had derived, silently and for every factor the reader did not name.
+#
+# NOTE: a checkout that tracked ``main`` during the v0.2 cycle may hold ``v1``
+# through ``v4`` directories written under the superseded per-change numbering.
+# The ``v1`` there is an *older* format than this one, so ``rm -rf`` the whole
+# cache directory when moving from such a checkout rather than trusting the
+# version guard.
+CACHE_VERSION = "1"
 
 # Default for the ``persist_memory`` constructor parameter.  When ``True``
 # (the default), ``DatasetCache`` instances hold computed artifacts in an
