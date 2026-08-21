@@ -1,7 +1,7 @@
 # =============================================================================
 # Pipeline Configuration
 # =============================================================================
-# Schema: PipelineConfig (see src/dataeval_flow/config/models.py)
+# Schema: PipelineConfig (see src/dataeval_flow/config/_models.py)
 # Place in your data directory (or use --config CLI option)
 #
 # yaml-language-server: $schema=params.schema.json

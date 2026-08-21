@@ -82,6 +82,9 @@ COMMAND-LINE OPTIONS
   COMMANDS (optional; default runs the headless pipeline):
     app               Launch the interactive TUI (requires the 'app' extra).
     config            Create or edit pipeline config files.
+    encoding          Write the metadata encoding descriptor a result was
+                      computed under, ready to review and commit. Takes a
+                      result.json path, with -o PATH and --task NAME.
 
 --------------------------------------------------------------------------------
 MOUNT SYNTAX

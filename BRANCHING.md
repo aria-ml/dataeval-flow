@@ -50,13 +50,14 @@ While not strictly enforced, the following patterns are recommended for clarity:
 
 1. Ensure `main` is green and includes the work to be released.
 2. Update [CHANGELOG.md](CHANGELOG.md) with a new section describing the
-   release. Follow the existing `## vX.Y.Z` heading pattern with `### Features`
-   and `### Infrastructure` subsections (and others as needed).
-3. Bump `version` in [pyproject.toml](pyproject.toml) to match the planned tag
-   (without the leading `v`).
-   - Note: switching to `hatch-vcs` dynamic versioning is planned for v0.2.0
-     (see [ROADMAP.md](ROADMAP.md)) — once that lands, this manual step goes
-     away.
+   release. Follow the existing `## vX.Y.Z` heading pattern with `### Added`,
+   `### Changed`, `### Fixed`, and `### Removed` subsections (and others, such
+   as `### Infrastructure`, as needed).
+3. **Do not edit any version field.** The package version is derived from the
+   git tag by `hatch-vcs`, which writes `src/dataeval_flow/_version.py` at
+   build time. `pyproject.toml` declares `dynamic = ["version"]` and carries no
+   version to bump; the `[tool.poetry] version = "0.0.0"` entry is a required
+   placeholder and must be left alone.
 4. Open a release MR titled `Release vX.Y.Z`. Get review and merge to `main`.
 5. From `main`, create an annotated tag and push it:
 
@@ -105,8 +106,8 @@ which runs:
 - **Lint** — `ruff` + `codespell` (`nox -s lint`)
 - **Type check** — `pyright` over `src/` and `tests/` (`nox -s type`)
 - **Schema validation** — config schema consistency (`nox -s schema`)
-- **Tests** — pytest matrix across Python 3.10, 3.11, 3.12 with 90% coverage
-  enforcement (`nox -s test`)
+- **Tests** — pytest matrix across Python 3.10, 3.11, 3.12, 3.13, and 3.14 with
+  90% coverage enforcement (`nox -s test`)
 - **Security scans** — Semgrep SAST, Gemnasium dependency scanning, secret
   detection, SBOM generation (Syft / CycloneDX)
 - **Documentation build** — Sphinx with `--fail-on-warning`
@@ -127,19 +128,19 @@ green pipeline and approval before merging.
 ### For Maintainers
 
 1. **Verify CHANGELOG accuracy** before tagging
-2. **Confirm `pyproject.toml` version matches the planned tag** before pushing the tag
+2. **Confirm the tag is the intended version** — it is the sole source of truth
+   for the released version; nothing in the tree needs to match it
 3. **Watch the release pipeline** through PyPI publish and image push completion
 4. **Validate signatures** of published container images (cosign verify with
    the public key at [docker/cosign.pub](docker/cosign.pub))
 
 ## Planned Improvements
 
-The following enhancements are planned (see [ROADMAP.md](ROADMAP.md) for
-targets):
+`hatch-vcs` dynamic versioning — which removed the manual `pyproject.toml`
+version bump and the risk of skew between the file and the git tag — shipped in
+v0.1.1. The following enhancements are still planned (see
+[ROADMAP.md](ROADMAP.md) for targets):
 
-- **`hatch-vcs` dynamic versioning** — eliminates the manual `pyproject.toml`
-  version bump and the risk of skew between the file and the git tag.
-  *(planned: v0.2.0)*
 - **Label-driven semver releases** — `release::major | feature | improvement
   | deprecation | fix | misc` MR labels drive automatic version bumps,
   changelog generation, and tag creation. Mirrors the `dataeval` library's

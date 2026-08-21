@@ -75,6 +75,12 @@ The following are **build-time only** and are not read at run time:
 `DATAEVAL_FLOW_VERSION` (stamps the wheel/image version) and
 `DATAEVAL_NOX_UV_EXTRAS_OVERRIDE` (selects extras during the image build).
 
+Two more are set by the build and *are* read at run time, but only by the
+entrypoint and not by the application: `UV_EXTRAS_OVERRIDE` (names the variant in
+the help text) and `CONTAINER_MODE` (decides whether the GPU check runs).
+Overriding either changes only what the container prints and whether it insists on
+a GPU; neither is intended as a caller-facing knob.
+
 ## Command-line options
 
 | Option                | Purpose                           | Default                                            |
@@ -92,10 +98,15 @@ regardless of verbosity.
 
 Optional sub-commands (default is the headless pipeline):
 
-| Command  | Purpose                                              |
-| -------- | ---------------------------------------------------- |
-| `app`    | Interactive TUI dashboard (requires the `app` extra) |
-| `config` | Simple CLI config builder                            |
+| Command    | Purpose                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| `app`      | Interactive TUI dashboard (requires the `app` extra)                 |
+| `config`   | Simple CLI config builder                                            |
+| `encoding` | Write the metadata encoding descriptor a result was computed under   |
+
+`encoding` takes the path to a `result.json` written by a run, plus an optional
+`-o`/`--output` for where to write the descriptor (default: print it) and
+`--task` to pick one task's encoding when a result holds several that differ.
 
 ## Input precedence
 

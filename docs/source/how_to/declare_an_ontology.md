@@ -66,10 +66,10 @@ workflows:
 Supported serializations are inferred from the suffix: `.ttl` (Turtle), `.rdf` / `.owl` / `.xml` (RDF/XML), `.nt`
 (N-Triples), and `.jsonld` / `.json` (JSON-LD). Relative paths resolve against the data root.
 
-This path needs `rdflib`, which ships in DataEval's ontology extra:
+This path needs `rdflib`, which arrives with the `ontology` extra:
 
 ```bash
-pip install "dataeval[ontology]"
+pip install "dataeval-flow[ontology]"
 ```
 
 An RDF artifact also carries what an inline mapping cannot: synonyms, definitions, and stable concept identifiers that

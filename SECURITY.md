@@ -33,7 +33,7 @@ windows will widen per JATIC SDP `RS-5-S-1`.
 
 | Version                 | Status      | Security backports |
 | ----------------------- | ----------- | ------------------ |
-| `0.1.x` (current alpha) | active      | yes                |
+| `0.2.x` (current alpha) | active      | yes                |
 | anything older          | unsupported | no                 |
 
 ## Automated scanner coverage
