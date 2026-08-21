@@ -92,13 +92,19 @@ reference-by-name** pattern with these sections:
 | Section | Required | Purpose |
 | --- | --- | --- |
 | `datasets` | Yes | Named dataset definitions |
-| `selections` | No | Named selection/filtering pipelines |
-| `sources` | Yes | Bundles a dataset with an optional selection |
+| `views` | No | Named view pipelines (dataset operations) |
+| `sources` | Yes | Bundles a dataset with an optional view |
 | `preprocessors` | No | Named preprocessing pipelines (torchvision transforms) |
 | `extractors` | No | Model + optional preprocessor + batch size |
+| `metadata` | No | Named metadata policies (encoding, vocabularies, exclusions), referenced by workflows |
 | `workflows` | Yes | Named workflow instances (type + parameters) |
 | `tasks` | Yes | Lightweight composition — references a workflow, sources, and optional extractor |
+| `seed` | No | Seed for every stochastic component of the run |
+| `deterministic` | No | Force PyTorch deterministic algorithms (only meaningful alongside `seed`) |
 | `logging` | No | App and library log levels |
+
+The legacy `selections` / `selection` / `steps` keys are still accepted as deprecated
+aliases for `views` / `view` / `operations`; new configs should use the current names.
 
 (dataset-formats)=
 
@@ -471,7 +477,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/workspace/config",target=/config,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     harbor.jatic.net/aria/dataeval:cpu \
-    python src/container_run.py --config /config/params.yaml
+    python -m dataeval_flow --config /config/params.yaml
 ```
 
 ### Verbosity
@@ -502,11 +508,16 @@ find workspace/output -type f
 # workspace/output/result.log
 # workspace/output/results/result.json
 # workspace/output/results/result.txt
+# workspace/output/results/encoding.json
 ```
 
 `result.json` is keyed by task name — each entry holds that task's `metadata`, `raw`,
 and `report` sections, the same data you'd get from `result.to_dict()` in the Python
 API. `result.txt` holds the detailed text reports, the same as `result.report()`.
+`encoding.json` is the metadata encoding descriptor the run was computed under, ready
+to review and commit — see
+{doc}`Configure metadata binning <configure_metadata_binning>`. It is omitted when a
+run's tasks encoded their factors differently, since no single descriptor describes it.
 
 ```bash
 jq -r 'keys[]' workspace/output/results/result.json

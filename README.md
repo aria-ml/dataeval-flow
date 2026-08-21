@@ -134,7 +134,7 @@ docker pull harbor.jatic.net/aria/dataeval:cu126   # cpu / cu126 / cu130
 **Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:0.1.0-cu126
+docker pull harbor.jatic.net/aria/dataeval:0.2.1-cu126
 ```
 
 **Verifying the signature** — every published image is signed with
@@ -157,17 +157,23 @@ commands above with the fully-qualified `harbor.jatic.net/aria/dataeval:cu126`
 
 ## Requirements
 
-| Requirement   | Version               |
-| ------------- | --------------------- |
-| Docker        | >= 20.10              |
-| NVIDIA GPU    | Any (for GPU mode)    |
-| NVIDIA Driver | >= 520 (for GPU mode) |
-| CUDA          | 11.8.0 (for GPU mode) |
+| Requirement   | Version                                                        |
+| ------------- | -------------------------------------------------------------- |
+| Docker        | >= 20.10                                                       |
+| NVIDIA GPU    | Any (for GPU mode)                                             |
+| NVIDIA Driver | >= 525 for the `cu126` image; >= 580 for `cu130` (GPU mode)    |
+| CUDA          | 12.6 (`cu126`) or 13.0 (`cu130`) — bundled in the image        |
+
+The CUDA runtime libraries ship inside the image via PyTorch and `onnxruntime-gpu`, so
+the host needs only the NVIDIA driver and the NVIDIA Container Toolkit — no host CUDA
+install. The driver floors above are the CUDA major versions' minimums: any driver from
+the 525 series up runs a CUDA 12.x image under minor-version compatibility, and CUDA 13.0
+requires a 580-series or newer driver.
 
 ### Verify GPU Access
 
 ```bash
-docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
 ```
 
 ## Volume Mounts
@@ -231,7 +237,10 @@ precedence over them (see [Input Precedence](#input-precedence) below).
 
 No secret mounts or credentials are required — DataEval Flow uses no API keys,
 tokens, or passwords. (`DATAEVAL_FLOW_VERSION` and `DATAEVAL_NOX_UV_EXTRAS_OVERRIDE`
-are build-time only and are not read at run time.)
+are build-time only and are not read at run time. `UV_EXTRAS_OVERRIDE` and
+`CONTAINER_MODE` are baked into the image by the build and read at run time by the
+entrypoint, purely to label the help text and decide whether to run the GPU check —
+neither is meant to be set by the caller.)
 
 ## Input Precedence
 
@@ -286,12 +295,20 @@ Dataset and model paths in config files are resolved relative to the data root (
 
 ## Dataset Formats
 
-Currently supported dataset structures:
+A `datasets` entry selects its loader with `format`:
 
-| Format          | Structure                                          | Example         |
-| --------------- | -------------------------------------------------- | --------------- |
-| **Dataset**     | Single split, used directly                        | `cifar10_test/` |
-| **DatasetDict** | Multiple splits (dict), configured via config YAML | `cifar10_full/` |
+| `format`       | Structure                                                     | Split selection                    |
+| -------------- | ------------------------------------------------------------- | ---------------------------------- |
+| `huggingface`  | HuggingFace arrow dataset or dataset dict                     | `split:` (omit for a single split) |
+| `image_folder` | Directory of images, optionally one subdirectory per class    | n/a                                |
+| `coco`         | COCO images plus a JSON annotation file                       | `annotations_file:` + `images_dir:` |
+| `yolo`         | Ultralytics root — `data.yaml` plus image/label trees         | `split:` (omit to load every split) |
+
+Both single-split datasets and multi-split dataset dicts are supported. In-memory MAITE
+and TorchVision datasets are also accepted programmatically via `DatasetProtocolConfig`,
+which is not serializable and so cannot be named in a config file. See the
+[Run workflows in containers](https://dataeval-flow.readthedocs.io/en/latest/how_to/containerized_workflows.html)
+guide for the full field list of each format.
 
 ## CPU Fallback
 
@@ -308,13 +325,14 @@ docker run \
 
 ## CLI Modes
 
-DataEval Flow has three modes:
+DataEval Flow has four modes:
 
-| Command                | Purpose                                                          |
-| ---------------------- | ---------------------------------------------------------------- |
-| `dataeval-flow [opts]` | Headless execution — for automation and CI/CD pipelines          |
-| `dataeval-flow app`    | Interactive TUI dashboard — configure, execute, and view results |
-| `dataeval-flow config` | Simple CLI config builder — create/edit configs without the TUI  |
+| Command                  | Purpose                                                            |
+| ------------------------ | ------------------------------------------------------------------ |
+| `dataeval-flow [opts]`   | Headless execution — for automation and CI/CD pipelines            |
+| `dataeval-flow app`      | Interactive TUI dashboard — configure, execute, and view results   |
+| `dataeval-flow config`   | Simple CLI config builder — create/edit configs without the TUI    |
+| `dataeval-flow encoding` | Write the metadata encoding descriptor a result was computed under |
 
 ### Interactive TUI (`app`)
 
@@ -350,12 +368,35 @@ python -m dataeval_flow config --config /path/to/params.yaml
 
 Configs can be saved as YAML or JSON.
 
+### Encoding Descriptor (`encoding`)
+
+Extract the metadata encoding descriptor from an archived `result.json` and write it
+where it can be reviewed and committed, so a later dataset is cut the same way:
+
+```bash
+python -m dataeval_flow encoding output/results/result.json -o policy/factor_bins.json
+python -m dataeval_flow encoding output/results/result.json --task clean_my_data
+```
+
+Reference the committed descriptor from a metadata policy's `encoding` field. A run with
+`-o` already writes `results/encoding.json` beside its results; this command recovers one
+from a result archived earlier. See
+[Configure metadata binning](https://dataeval-flow.readthedocs.io/en/latest/how_to/configure_metadata_binning.html).
+
 ## Dependencies
 
+Declared runtime dependencies:
+
 - `dataeval` - Core evaluation library
-- `datamaite` - MAITE protocol dataset loaders
-- `maite` - MAITE protocol library
+- `datamaite` - MAITE protocol dataset loaders (which brings in `maite` itself)
 - `pydantic` - Structural typing and schema validation
+- `click` - Interactive prompts for the simple CLI config builder
+- `pyyaml` - YAML config parsing
+- `numpy` - Array handling
+
+PyTorch arrives transitively through `dataeval`. Optional extras (`onnx`, `opencv`,
+`app`, `ontology`, and the CUDA variants) are listed under
+[Running Without Container](#running-without-container).
 
 ## Troubleshooting
 

@@ -25,7 +25,7 @@ Caching
     results) keyed on the configuration and inputs that produced them, so that
     re-running an unchanged pipeline does not recompute it. DataEval Flow
     supports in-memory caching and a disk-backed cache at the `/cache` mount.
-    Artifacts live under a version directory (currently `v3`) so incompatible
+    Artifacts live under a version directory (currently `v1`) so incompatible
     formats can coexist.
 
 Classwise Drift
