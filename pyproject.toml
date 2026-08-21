@@ -51,7 +51,7 @@ onnx-cu130 = [
   "onnxruntime>=1.20; python_version == '3.10' and extra != 'onnx-cu126'",  # CUDA 13.0 is not supported on Python 3.10
   "onnxruntime-gpu>=1.27; python_version >= '3.11' and extra != 'onnx-cu126'",
 ]
-opencv = ["opencv-python-headless>=4.8.0"]
+opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
 ontology = ["dataeval[ontology]==1.1.0-rc6"]
 

@@ -76,7 +76,7 @@ These extras behave normally under every installer, including pip:
 | `onnx` | `onnx`, `onnxruntime` | ONNX feature extractors (CPU inference) |
 | `onnx-cu126` | `onnx`, `onnxruntime-gpu` (CUDA 12.x build) | ONNX feature extractors on a `cu126` install |
 | `onnx-cu130` | `onnx`, `onnxruntime-gpu` (CUDA 13.x build) | ONNX feature extractors on a `cu130` install |
-| `opencv` | `opencv-python-headless` | Bag-of-Visual-Words (SIFT) extraction |
+| `opencv` | `opencv-python-headless` (capped below 4.13) | Bag-of-Visual-Words (SIFT) extraction |
 | `app` | `textual` | The interactive TUI (`dataeval-flow app`) |
 | `ontology` | `dataeval[ontology]` | Loading an ontology from an RDF file |
 
