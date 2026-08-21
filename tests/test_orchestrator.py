@@ -316,7 +316,7 @@ class TestRunTask:
     def test_run_task_passes_yolo_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes YOLO-specific config fields to load_dataset."""
 
-        ds_config = YoloDatasetConfig(name="yolo_ds", path="data/yolo")
+        ds_config = YoloDatasetConfig(name="yolo_ds", path="data/yolo", split="val", ann_dir="annotations")
         source = SourceConfig(name="src_yolo", dataset="yolo_ds")
         task = TaskConfig(name="t", workflow="clean", sources="src_yolo")
 
@@ -337,6 +337,9 @@ class TestRunTask:
         mock_load_ds.assert_called_once_with(
             Path("data/yolo"),
             dataset_format="yolo",
+            split="val",
+            yaml_file=None,
+            ann_dir="annotations",
         )
 
     @patch("dataeval_flow.dataset.load_dataset")

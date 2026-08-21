@@ -3180,7 +3180,7 @@
     },
     "YoloDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for YOLO format.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo",
+      "description": "Dataset config for YOLO format.\n\n``path`` is the dataset root \u2014 the directory holding ``data.yaml`` and the\nimage/label trees \u2014 for either Ultralytics arrangement (``images/train/`` +\n``labels/train/`` or ``train/images/`` + ``train/labels/``).  Select a split\nwith ``split`` rather than by pointing ``path`` at a split subdirectory,\nwhich puts ``data.yaml`` out of scope and falls back to numeric class names.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo\n        split: train",
       "properties": {
         "format": {
           "const": "yolo",
@@ -3195,6 +3195,42 @@
         "path": {
           "title": "Path",
           "type": "string"
+        },
+        "split": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Split"
+        },
+        "yaml_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Yaml File"
+        },
+        "ann_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ann Dir"
         }
       },
       "required": [

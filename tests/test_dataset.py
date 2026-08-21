@@ -113,7 +113,35 @@ class TestDatasetModule:
             from dataeval_flow.dataset import load_dataset
 
             load_dataset(Path("/some/path"), dataset_format="yolo")
-            mock_yolo.assert_called_once_with(Path("/some/path"))
+            mock_yolo.assert_called_once_with(Path("/some/path"), split=None, yaml_file=None, ann_dir=None)
+
+    def test_load_dataset_yolo_dispatch_forwards_options(self) -> None:
+        """YOLO split/yaml_file/ann_dir reach the loader."""
+        with patch("dataeval_flow.dataset.load_dataset_yolo") as mock_yolo:
+            mock_yolo.return_value = _stub_dataset()
+
+            from dataeval_flow.dataset import load_dataset
+
+            load_dataset(
+                Path("/some/path"),
+                split="val",
+                dataset_format="yolo",
+                yaml_file="cfg/data.yaml",
+                ann_dir="annotations",
+            )
+            mock_yolo.assert_called_once_with(
+                Path("/some/path"), split="val", yaml_file="cfg/data.yaml", ann_dir="annotations"
+            )
+
+    def test_load_dataset_yolo_split_is_not_a_subdirectory(self) -> None:
+        """A YOLO split selects inside the root; it must not be appended to the path."""
+        with patch("dataeval_flow.dataset.load_dataset_yolo") as mock_yolo:
+            mock_yolo.return_value = _stub_dataset()
+
+            from dataeval_flow.dataset import load_dataset
+
+            load_dataset(Path("/some/path"), split="train", dataset_format="yolo")
+            assert mock_yolo.call_args.args == (Path("/some/path"),)
 
 
 # ---------------------------------------------------------------------------
@@ -348,7 +376,7 @@ class TestDatasetConfigImageFolder:
 
 @pytest.mark.required
 class TestDatasetConfigNewFields:
-    """Tests for COCO config fields (YOLO carries no format-specific fields)."""
+    """Tests for the format-specific COCO and YOLO config fields."""
 
     def test_coco_fields_parse(self) -> None:
         from dataeval_flow.config import CocoDatasetConfig
@@ -357,18 +385,28 @@ class TestDatasetConfigNewFields:
         assert cfg.annotations_file == "ann.json"
         assert cfg.images_dir == "imgs"
 
-    def test_yolo_has_no_format_specific_fields(self) -> None:
+    def test_yolo_fields_parse(self) -> None:
         from dataeval_flow.config import YoloDatasetConfig
 
-        cfg = YoloDatasetConfig(name="yolo-ds", path="data/yolo")
+        cfg = YoloDatasetConfig(
+            name="yolo-ds", path="data/yolo", split="val", yaml_file="cfg/data.yaml", ann_dir="annotations"
+        )
         assert cfg.format == "yolo"
+        assert cfg.split == "val"
+        assert cfg.yaml_file == "cfg/data.yaml"
+        assert cfg.ann_dir == "annotations"
 
     def test_new_fields_default_to_none(self) -> None:
-        from dataeval_flow.config import CocoDatasetConfig
+        from dataeval_flow.config import CocoDatasetConfig, YoloDatasetConfig
 
         cfg = CocoDatasetConfig(name="test", path="data")
         assert cfg.annotations_file is None
         assert cfg.images_dir is None
+
+        yolo = YoloDatasetConfig(name="test", path="data")
+        assert yolo.split is None
+        assert yolo.yaml_file is None
+        assert yolo.ann_dir is None
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +471,95 @@ class TestYoloDatasetFixture:
         assert img.shape[0] == 3  # RGB channels
         assert hasattr(target, "boxes")  # OD target has bounding boxes
         assert isinstance(meta, dict)
+
+    @staticmethod
+    def _create_split_dataset(root: Path, layout: str) -> None:
+        """Build a two-class YOLO tree with 3 train and 2 val images.
+
+        *layout* is ``"images-first"`` (``images/train/``) or ``"split-first"``
+        (``train/images/``) — the two Ultralytics arrangements.
+        """
+        for split, count in (("train", 3), ("val", 2)):
+            for i in range(count):
+                if layout == "images-first":
+                    image_path = root / "images" / split / f"img_{i}.png"
+                    label_path = root / "labels" / split / f"img_{i}.txt"
+                else:
+                    image_path = root / split / "images" / f"img_{i}.png"
+                    label_path = root / split / "labels" / f"img_{i}.txt"
+                _create_image(image_path)
+                label_path.parent.mkdir(parents=True, exist_ok=True)
+                label_path.write_text(f"{i % 2} 0.5 0.5 0.4 0.4\n")
+
+        prefix = "images/" if layout == "images-first" else ""
+        suffix = "" if layout == "images-first" else "/images"
+        (root / "data.yaml").write_text(
+            f"path: .\ntrain: {prefix}train{suffix}\nval: {prefix}val{suffix}\nnames:\n  0: cat\n  1: dog\n"
+        )
+
+    @pytest.mark.parametrize("layout", ["images-first", "split-first"])
+    def test_load_dataset_yolo_selects_split(self, tmp_path: Path, layout: str) -> None:
+        """``split`` picks one split out of the root, in either Ultralytics layout."""
+        from dataeval_flow.dataset import load_dataset_yolo
+
+        self._create_split_dataset(tmp_path, layout)
+
+        assert len(load_dataset_yolo(tmp_path)) == 5  # every split
+        assert len(load_dataset_yolo(tmp_path, split="train")) == 3
+        assert len(load_dataset_yolo(tmp_path, split="val")) == 2
+        assert len(load_dataset_yolo(tmp_path, split="validation")) == 2  # alias normalizes
+
+    def test_load_dataset_yolo_split_keeps_class_names(self, tmp_path: Path) -> None:
+        """Selecting a split keeps ``data.yaml`` in scope, so class names survive.
+
+        Pointing ``path`` at the split subdirectory instead is what loses them.
+        """
+        from dataeval_flow.dataset import load_dataset_yolo
+
+        self._create_split_dataset(tmp_path, "split-first")
+
+        ds = load_dataset_yolo(tmp_path, split="train")
+        assert ds.index2label() == {0: "cat", 1: "dog"}
+
+    def test_load_dataset_yolo_ann_dir_override(self, tmp_path: Path) -> None:
+        """``ann_dir`` reads labels from a tree outside the conventional ``labels/``."""
+        from dataeval_flow.dataset import load_dataset_yolo
+
+        _create_image(tmp_path / "images" / "img_0.png")
+        annotations = tmp_path / "annotations"
+        annotations.mkdir()
+        (annotations / "img_0.txt").write_text("0 0.5 0.5 1.0 1.0\n")
+
+        ds = load_dataset_yolo(tmp_path, ann_dir="annotations")
+        assert len(ds) == 1
+        _, target, _ = ds[0]
+        assert len(target.boxes) == 1
+
+    def test_load_dataset_yolo_yaml_file_override(self, tmp_path: Path) -> None:
+        """``yaml_file`` names a config that is not at the root."""
+        from dataeval_flow.dataset import load_dataset_yolo
+
+        self._create_split_dataset(tmp_path, "split-first")
+        (tmp_path / "data.yaml").unlink()
+        (tmp_path / "cfg").mkdir()
+        # Sources inside the YAML resolve against its ``path:`` entry, which is
+        # itself relative to the YAML's own directory.
+        (tmp_path / "cfg" / "custom.yaml").write_text(
+            "path: ..\ntrain: train/images\nval: val/images\nnames:\n  0: cat\n  1: dog\n"
+        )
+
+        ds = load_dataset_yolo(tmp_path, yaml_file="cfg/custom.yaml", split="val")
+        assert len(ds) == 2
+        assert ds.index2label() == {0: "cat", 1: "dog"}
+
+    def test_load_dataset_yolo_unmatched_split_raises(self, tmp_path: Path) -> None:
+        """An empty split selection fails at load time with the layout hint."""
+        from dataeval_flow.dataset import load_dataset
+
+        self._create_split_dataset(tmp_path, "images-first")
+
+        with pytest.raises(ValueError, match="split='test'"):
+            load_dataset(tmp_path, split="test", dataset_format="yolo")
 
 
 # ---------------------------------------------------------------------------
@@ -1078,6 +1205,14 @@ class TestLoadDatasetYolo:
             load_dataset_yolo(Path("/data/yolo"))
         m_od.assert_called_once_with(Path("/data/yolo"), dataset_format="yolo")
 
+    def test_calls_load_od_yolo_with_options(self):
+        """Unset options stay out of the call so datamaite's defaults apply."""
+        with patch("datamaite.load_od", return_value=MagicMock()) as m_od:
+            from dataeval_flow.dataset import load_dataset_yolo
+
+            load_dataset_yolo(Path("/data/yolo"), split="train", ann_dir="annotations")
+        m_od.assert_called_once_with(Path("/data/yolo"), dataset_format="yolo", split="train", ann_dir="annotations")
+
 
 @pytest.mark.required
 class TestLoadDatasetRejectsEmpty:
@@ -1136,6 +1271,41 @@ class TestLoadDatasetRejectsEmpty:
             from dataeval_flow.dataset import load_dataset
 
             assert load_dataset(Path("/data/yolo"), dataset_format="yolo") is stub
+
+
+@pytest.mark.required
+class TestResolveDatasetFormatOptions:
+    """resolve_dataset forwards each format's own config fields to load_dataset."""
+
+    @staticmethod
+    def _load_dataset_kwargs(config: Any, tmp_path: Path) -> dict[str, Any]:
+        from dataeval_flow.dataset import resolve_dataset
+
+        with patch("dataeval_flow.dataset.load_dataset", return_value=_stub_dataset()) as m_load:
+            resolve_dataset(config, data_dir=tmp_path)
+        return dict(m_load.call_args.kwargs)
+
+    def test_yolo_forwards_split_and_overrides(self, tmp_path: Path) -> None:
+        from dataeval_flow.config import YoloDatasetConfig
+
+        cfg = YoloDatasetConfig(
+            name="yolo-ds", path="yolo", split="val", yaml_file="cfg/data.yaml", ann_dir="annotations"
+        )
+        kwargs = self._load_dataset_kwargs(cfg, tmp_path)
+        assert kwargs["dataset_format"] == "yolo"
+        assert kwargs["split"] == "val"
+        assert kwargs["yaml_file"] == "cfg/data.yaml"
+        assert kwargs["ann_dir"] == "annotations"
+
+    def test_coco_forwards_annotation_fields(self, tmp_path: Path) -> None:
+        from dataeval_flow.config import CocoDatasetConfig
+
+        cfg = CocoDatasetConfig(name="coco-ds", path="coco", annotations_file="instances_val.json", images_dir="val")
+        kwargs = self._load_dataset_kwargs(cfg, tmp_path)
+        assert kwargs["dataset_format"] == "coco"
+        assert kwargs["annotations_file"] == "instances_val.json"
+        assert kwargs["images_dir"] == "val"
+        assert "split" not in kwargs  # COCO selects a split via annotations_file
 
 
 @pytest.mark.required

@@ -62,17 +62,16 @@
 #
 #   - name: coco-train
 #     format: coco
-#     path: coco-train            # relative to data root
-#     annotations_file: annotations.json
-#     images_dir: images
-#     classes_file: classes.txt
+#     path: coco                  # relative to data root
+#     annotations_file: annotations/instances_train.json   # also selects the split
+#     images_dir: train2017
 #
 #   - name: yolo-train
 #     format: yolo
-#     path: yolo-train            # relative to data root
-#     images_dir: images
-#     labels_dir: labels
-#     classes_file: classes.txt
+#     path: yolo                  # dataset root: data.yaml + image/label trees
+#     split: train                # train | val | test; omit to load every split
+#     yaml_file: data.yaml        # optional: config outside the root's default name
+#     ann_dir: labels             # optional: labels kept outside labels/
 
 # -----------------------------------------------------------------------------
 # PREPROCESSING (optional)
