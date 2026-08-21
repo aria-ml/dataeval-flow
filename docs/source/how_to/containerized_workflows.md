@@ -132,8 +132,52 @@ datasets:
   # YOLO format
   - name: yolo_train
     format: yolo
-    path: yolo-data
+    path: yolo-data        # dataset root: data.yaml + image/label trees
+    split: train           # train | val | test; omit to load every split
 ```
+
+Each object-detection format selects a split its own way. COCO has one
+annotation file per split, so `annotations_file` (with `images_dir`, when the
+file names are not relative to the dataset root) picks one:
+
+```yaml
+datasets:
+  - name: coco_train
+    format: coco
+    path: coco
+    annotations_file: annotations/instances_train2017.json
+    images_dir: train2017
+
+  - name: coco_val
+    format: coco
+    path: coco
+    annotations_file: annotations/instances_val2017.json
+    images_dir: val2017
+```
+
+YOLO keeps every split under one root, so `split` picks one — in either
+Ultralytics arrangement (`images/train/` + `labels/train/`, or `train/images/` +
+`train/labels/`):
+
+```yaml
+datasets:
+  - name: yolo_train
+    format: yolo
+    path: yolo-data
+    split: train
+
+  - name: yolo_val
+    format: yolo
+    path: yolo-data
+    split: val          # "validation" is accepted and normalizes to "val"
+```
+
+Keep `path` on the dataset root rather than pointing it at a split
+subdirectory: the root is where `data.yaml` lives, and without it class names
+fall back to the numeric ids from the label files. Two more optional YOLO
+fields cover non-standard layouts — `yaml_file` for a config that is not at the
+root under a conventional name, and `ann_dir` for labels kept outside the
+`labels/` sibling of `images/`. Both are relative to `path`.
 
 ### Sources, extractors, and views
 

@@ -2,11 +2,24 @@
 
 ## Unreleased
 
+### Added
+
+- `split` on YOLO dataset configs, selecting one split (`train` / `val` / `test`) from the dataset root —
+  restoring the per-split loading lost when the loaders moved from `maite-datasets` to `datamaite`
+- `yaml_file` and `ann_dir` on YOLO dataset configs, for a `data.yaml` outside the root's conventional names
+  and for label trees kept outside `labels/`
+
 ### Changed
 
 - CUDA variants bumped from `cu118` / `cu128` to `cu126` / `cu130`, tracking the CUDA builds PyTorch publishes
 - `onnx-gpu` extra split into `onnx-cu126` and `onnx-cu130` so the `onnxruntime-gpu` build matches the
   selected CUDA runtime
+- Empty-load errors name the requested split, and point at the split's expected layout for YOLO
+
+### Fixed
+
+- Example config advertised `images_dir`, `labels_dir`, and `classes_file` on YOLO datasets and
+  `classes_file` on COCO datasets; those fields were removed in v0.2.0 and are rejected by the schema
 
 ## v0.2.0
 

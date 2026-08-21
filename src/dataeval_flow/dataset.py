@@ -408,15 +408,54 @@ def load_dataset_coco(path: Path, *, annotations_file: str | None = None, images
     return dataset
 
 
-def load_dataset_yolo(path: Path) -> Any:
+def load_dataset_yolo(
+    path: Path,
+    *,
+    split: str | None = None,
+    yaml_file: str | None = None,
+    ann_dir: str | None = None,
+) -> Any:
     """Load a YOLO-format object detection dataset via datamaite.
 
-    datamaite expects the standard ``images/`` + ``labels/`` + ``data.yaml`` layout.
+    datamaite expects the standard ``images/`` + ``labels/`` + ``data.yaml``
+    layout, in either Ultralytics arrangement (``images/train/`` +
+    ``labels/train/`` or ``train/images/`` + ``train/labels/``), as well as the
+    split-less ``images/`` + ``labels/`` variant.
+
+    Parameters
+    ----------
+    path : Path
+        Dataset root — the directory holding ``data.yaml`` and the image/label
+        trees.  Always point at the root rather than a split subdirectory: the
+        root is where the class names are found.
+    split : str | None
+        Load only this split (``"train"``/``"val"``/``"test"``; aliases such as
+        ``"validation"`` normalize).  Defaults to every split under *path*.
+    yaml_file : str | None
+        ``data.yaml`` path relative to *path*, for a config that is not at the
+        root under a conventional name.  It is authoritative — a missing file
+        or one whose image sources yield nothing gives an empty dataset rather
+        than falling back to a scan of *path*.
+    ann_dir : str | None
+        Label directory relative to *path*, for label trees kept outside the
+        conventional ``labels/`` sibling of ``images/``.
     """
     from datamaite import load_od
 
-    dataset = load_od(path, dataset_format="yolo")
-    _logger.info("YOLO dataset: loaded %d images from %s", len(dataset), path)
+    kwargs: dict[str, str] = {}
+    if split is not None:
+        kwargs["split"] = split
+    if yaml_file is not None:
+        kwargs["yaml_file"] = yaml_file
+    if ann_dir is not None:
+        kwargs["ann_dir"] = ann_dir
+    dataset = load_od(path, dataset_format="yolo", **kwargs)
+    _logger.info(
+        "YOLO dataset: loaded %d images from %s%s",
+        len(dataset),
+        path,
+        f" (split={split!r})" if split is not None else "",
+    )
     return dataset
 
 
@@ -430,6 +469,8 @@ def load_dataset(
     task: Literal["image_classification", "object_detection"] = "image_classification",
     annotations_file: str | None = None,
     images_dir: str | None = None,
+    yaml_file: str | None = None,
+    ann_dir: str | None = None,
 ) -> Any:
     """Load a dataset and convert to MAITE format.
 
@@ -441,7 +482,10 @@ def load_dataset(
     path : Path
         Path to the dataset directory.
     split : str | None
-        Optional split name to load (e.g. "train", "test").
+        Optional split name to load (e.g. "train", "val").  HuggingFace treats
+        it as a subdirectory of *path*; YOLO selects among the splits found
+        under the dataset root.  Unused by the other formats — COCO selects a
+        split through ``annotations_file``.
     dataset_format : Literal["huggingface", "coco", "yolo", "image_folder"]
         Dataset format identifier (default ``"huggingface"``).
     recursive : bool
@@ -454,6 +498,10 @@ def load_dataset(
         Annotations file name (COCO only).
     images_dir : str | None
         Images subdirectory name (COCO only).
+    yaml_file : str | None
+        ``data.yaml`` path relative to *path* (YOLO only).
+    ann_dir : str | None
+        Label directory relative to *path* (YOLO only).
 
     Returns
     -------
@@ -478,16 +526,19 @@ def load_dataset(
     elif dataset_format == "coco":
         dataset = load_dataset_coco(path, annotations_file=annotations_file, images_dir=images_dir)
     elif dataset_format == "yolo":
-        dataset = load_dataset_yolo(path)
+        dataset = load_dataset_yolo(path, split=split, yaml_file=yaml_file, ann_dir=ann_dir)
     else:
         msg = f"Unsupported dataset format: {dataset_format!r}"
         raise ValueError(msg)
 
-    _reject_empty_dataset(dataset, path / split if split else path, dataset_format)
+    # Only HuggingFace resolves a split to a subdirectory; for YOLO the split is
+    # selected inside the root, so the root is what an error should name.
+    root = path / split if dataset_format == "huggingface" and split else path
+    _reject_empty_dataset(dataset, root, dataset_format, split=split)
     return dataset
 
 
-def _reject_empty_dataset(dataset: Any, root: Path, dataset_format: str) -> None:
+def _reject_empty_dataset(dataset: Any, root: Path, dataset_format: str, split: str | None = None) -> None:
     """Raise when a loader yielded zero items.
 
     datamaite's loaders log a warning and return an empty dataset when the
@@ -503,8 +554,16 @@ def _reject_empty_dataset(dataset: Any, root: Path, dataset_format: str) -> None
     if len(dataset) > 0:
         return
 
-    msg = f"Loaded 0 items from {root} (format={dataset_format!r})."
-    if dataset_format == "huggingface" and _is_arrow_dump(root):
+    detail = f"format={dataset_format!r}" + (f", split={split!r}" if split else "")
+    msg = f"Loaded 0 items from {root} ({detail})."
+    if dataset_format == "yolo" and split:
+        msg += (
+            f" No images matched split {split!r} — a YOLO split selection that matches"
+            " nothing selects nothing rather than widening back to every split. Check"
+            f" that the root holds an images/{split}/ or {split}/images/ tree, or a"
+            " data.yaml declaring that split."
+        )
+    elif dataset_format == "huggingface" and _is_arrow_dump(root):
         msg += (
             " The directory is a `datasets.save_to_disk()` Arrow dump, which the"
             " huggingface loader does not read — it expects the local ImageFolder"
@@ -569,9 +628,11 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
     """
     from dataeval_flow.cache import dataset_fingerprint
     from dataeval_flow.config.schemas._dataset import (
+        CocoDatasetConfig,
         DatasetProtocolConfig,
         HuggingFaceDatasetConfig,
         ImageFolderDatasetConfig,
+        YoloDatasetConfig,
         _DatasetConfigBase,
     )
 
@@ -588,11 +649,13 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
         elif isinstance(config, ImageFolderDatasetConfig):
             kwargs["recursive"] = config.recursive
             kwargs["infer_labels"] = config.infer_labels
-        else:
-            # Coco forwards annotations_file/images_dir; Yolo forwards nothing.
-            for field_name in ("annotations_file", "images_dir"):
-                if hasattr(config, field_name):
-                    kwargs[field_name] = getattr(config, field_name)
+        elif isinstance(config, CocoDatasetConfig):
+            kwargs["annotations_file"] = config.annotations_file
+            kwargs["images_dir"] = config.images_dir
+        elif isinstance(config, YoloDatasetConfig):
+            kwargs["split"] = config.split
+            kwargs["yaml_file"] = config.yaml_file
+            kwargs["ann_dir"] = config.ann_dir
 
         from dataeval_flow.config._loader import resolve_path
 

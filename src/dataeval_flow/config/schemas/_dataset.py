@@ -79,15 +79,25 @@ class CocoDatasetConfig(_DatasetConfigBase):
 class YoloDatasetConfig(_DatasetConfigBase):
     """Dataset config for YOLO format.
 
+    ``path`` is the dataset root — the directory holding ``data.yaml`` and the
+    image/label trees — for either Ultralytics arrangement (``images/train/`` +
+    ``labels/train/`` or ``train/images/`` + ``train/labels/``).  Select a split
+    with ``split`` rather than by pointing ``path`` at a split subdirectory,
+    which puts ``data.yaml`` out of scope and falls back to numeric class names.
+
     YAML example::
 
         datasets:
           - name: yolo_train
             format: yolo
             path: yolo
+            split: train
     """
 
     format: Literal["yolo"] = "yolo"
+    split: str | None = None
+    yaml_file: str | None = None
+    ann_dir: str | None = None
 
 
 class DatasetProtocolConfig(BaseModel):
