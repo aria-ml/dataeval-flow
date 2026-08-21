@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.1
 
 ### Added
 
@@ -14,6 +14,7 @@
 - CUDA variants bumped from `cu118` / `cu128` to `cu126` / `cu130`, tracking the CUDA builds PyTorch publishes
 - `onnx-gpu` extra split into `onnx-cu126` and `onnx-cu130` so the `onnxruntime-gpu` build matches the
   selected CUDA runtime
+- Capped the `opencv` extra at `4.12.0.88` for compatibility with FIPS enabled systems
 - Empty-load errors name the requested split, and point at the split's expected layout for YOLO
 
 ### Fixed
