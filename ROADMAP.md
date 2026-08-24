@@ -69,7 +69,7 @@ Focus was on closing the identified JATIC SDP compliance gaps, bringing
 the project in line with Maturity I expectations. It also brought the
 DataEval v1.1 upgrade, the data coverage workflow, and committed metadata
 encoding policies — see [CHANGELOG.md](CHANGELOG.md) and the
-[What's New](docs/source/home/whats_new.md) guide.
+[What's New](docs/source/home/whats_new/index.md) guide.
 
 - [x] Governance docs: CONTRIBUTING, BRANCHING, ROADMAP, README acknowledgement
 - [x] Markdown CI gates: `markdownlint-cli2` and `markdown-link-check`

@@ -1177,14 +1177,14 @@ tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
 name = "dataeval"
-version = "1.1.0rc6"
+version = "1.1.0"
 description = "DataEval provides a simple interface to characterize image data and its impact on model performance across classification and object-detection tasks"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dataeval-1.1.0rc6-py3-none-any.whl", hash = "sha256:aed09db76438de5f83fde727b25841de5d5ada4584a40116df3256016e2654f9"},
-    {file = "dataeval-1.1.0rc6.tar.gz", hash = "sha256:21a1517c898ab39bdf21ee780734e1b58cf80d1018aab8e42d09e4171abf25cf"},
+    {file = "dataeval-1.1.0-py3-none-any.whl", hash = "sha256:e0d0e39fc0f2f46e86032926564f8962d45cc8925867bb11e65244819840feb0"},
+    {file = "dataeval-1.1.0.tar.gz", hash = "sha256:5b1ae1cdf5223ea7d3ea79c1beb9e0e20407839f2773b3c5bba5df3ca06b3c7a"},
 ]
 
 [package.dependencies]
@@ -1204,11 +1204,12 @@ xxhash = ">=3.4"
 
 [package.extras]
 cpu = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
-cu118 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
-cu128 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
+cu126 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
+cu130 = ["torch (>=2.2.0)", "torchvision (>=0.17.0)"]
 litert = ["ai-edge-litert (>=2.0) ; python_version <= \"3.14\""]
-onnx = ["onnx (>=1.14.0)", "onnxruntime (>=1.15.0) ; python_version >= \"3.11\"", "onnxruntime (>=1.15.0,<1.24) ; python_version == \"3.10\""]
-onnx-gpu = ["onnx (>=1.14.0)", "onnxruntime-gpu (>=1.15.0,<1.24) ; python_version == \"3.10\"", "onnxruntime-gpu (>=1.15.0,<1.27) ; python_version >= \"3.11\"", "onnxruntime-gpu (>=1.24,<1.27) ; python_version >= \"3.14\""]
+onnx = ["onnx (>=1.14.0)", "onnxruntime (>=1.17)"]
+onnx-cu126 = ["onnx (>=1.14.0)", "onnxruntime-gpu (>=1.17,<1.24) ; python_version == \"3.10\"", "onnxruntime-gpu (>=1.17,<1.27) ; python_version >= \"3.11\"", "onnxruntime-gpu (>=1.24,<1.27) ; python_version >= \"3.14\""]
+onnx-cu130 = ["onnx (>=1.14.0)", "onnxruntime (>=1.17) ; python_version == \"3.10\"", "onnxruntime-gpu (>=1.27) ; python_version >= \"3.11\""]
 ontology = ["rdflib (>=7.0)"]
 opencv = ["opencv-python-headless (>=4.8.0)"]
 
@@ -8003,4 +8004,4 @@ opencv-fips = ["opencv-python-headless"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "2c47bdde76a7e3a5f0ce36fc0c0c4e2d6db859b2a80ff3bfc90e5400f8ec5f1d"
+content-hash = "1249101835f62a8ab0586baccf6b00d6c262a46046e6fabe2a38d95f356aae25"

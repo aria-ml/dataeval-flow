@@ -82,7 +82,7 @@ hardware, architecture, and network requirements.
 Welcome <self>
 home/installation.md
 home/quickstart.md
-What's New in v0.2 <home/whats_new.md>
+What's New <home/whats_new/index.md>
 Change Log <home/changelog.md>
 :::
 
