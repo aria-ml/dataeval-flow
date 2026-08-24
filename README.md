@@ -327,12 +327,51 @@ docker run \
 
 DataEval Flow has four modes:
 
-| Command                  | Purpose                                                            |
-| ------------------------ | ------------------------------------------------------------------ |
-| `dataeval-flow [opts]`   | Headless execution — for automation and CI/CD pipelines            |
-| `dataeval-flow app`      | Interactive TUI dashboard — configure, execute, and view results   |
-| `dataeval-flow config`   | Simple CLI config builder — create/edit configs without the TUI    |
-| `dataeval-flow encoding` | Write the metadata encoding descriptor a result was computed under |
+| Command                   | Purpose                                                             |
+| ------------------------- | ------------------------------------------------------------------- |
+| `dataeval-flow [opts]`    | Headless execution — for automation and CI/CD pipelines             |
+| `dataeval-flow app`       | Interactive TUI dashboard — configure, execute, and view results    |
+| `dataeval-flow config`    | Simple CLI config builder — create/edit configs without the TUI     |
+| `dataeval-flow encoding`  | Write the metadata encoding descriptor a result was computed under  |
+| `dataeval-flow workflows` | List the available workflow types, or print one's parameter schema  |
+
+`dataeval-flow --version` reports the installed build — useful for pinning down
+which image produced a result.
+
+### Headless execution
+
+```bash
+# Every enabled task in the config
+dataeval-flow --config params.yaml --data . --output ./results
+
+# One task by name, whether or not the config marks it enabled
+dataeval-flow --config params.yaml --task clean_my_data
+
+# Several, in the order given
+dataeval-flow --config params.yaml --task clean_my_data --task analyze_my_data
+
+# Stop the pipeline when a finding breaches its health threshold
+dataeval-flow --config params.yaml --output ./results --fail-on-warning
+```
+
+**Exit codes:** `0` when every task succeeded, `1` when any task failed. Health
+warnings are reported but are not fatal unless you pass `--fail-on-warning`, which
+turns them into an exit code of `1` as well. Every run's `result.json` carries a
+`health` block per task (`status`, `warnings`, `findings`) so a pipeline can gate
+on findings without parsing the text report.
+
+### Workflow Discovery (`workflows`)
+
+For images that ship without the TUI extra:
+
+```bash
+# What can this build run?
+dataeval-flow workflows
+dataeval-flow workflows --json
+
+# What does a given workflow type accept?
+dataeval-flow workflows data-cleaning
+```
 
 ### Interactive TUI (`app`)
 

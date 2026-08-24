@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `--task NAME` on the headless CLI, selecting tasks by name; repeat it to run several, in the order given.
+  A named task runs whether or not the config marks it `enabled`
+- `--fail-on-warning` on the headless CLI, exiting non-zero when a task succeeds but reports findings that
+  breached their health thresholds — so a pipeline can gate on data quality without parsing the text report
+- `--version`, reporting the installed build
+- `dataeval-flow workflows` lists the available workflow types; naming one prints the JSON Schema for its
+  parameters. Discovery for images that ship without the `app` extra
+- Result envelopes carry a `health` block (`status`, `warnings`, `findings`) beside `metadata`
+- `WorkflowResult.health`, `.warning_count`, and `.findings` expose the report's health line programmatically
+- `select_tasks` resolves the task selection a run executes, so callers can pair results back to their tasks
+
+### Fixed
+
+- A task marked `enabled: false` crashed the headless and container runner after every workflow had already
+  run, losing the results — the runner paired results against every configured task rather than the executed ones
+
 ## v0.2.1
 
 ### Added

@@ -4,6 +4,7 @@ import json
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from pydantic import BaseModel
@@ -44,6 +45,54 @@ def _make_result(
         data=data or _DummyOutputWithReport(),
         metadata=metadata or ResultMetadata(),
     )
+
+
+# ---------------------------------------------------------------------------
+# WorkflowResult health — the roll-up an automated gate reads
+# ---------------------------------------------------------------------------
+
+
+class TestResultHealth:
+    def _result(self, *severities: Literal["ok", "info", "warning"]) -> WorkflowResult:
+        findings = [
+            Reportable(report_type="text", severity=sev, title=f"f{i}", data="detail")
+            for i, sev in enumerate(severities)
+        ]
+        return _make_result(data=_DummyOutputWithReport(report=_DummyReport(findings=findings)))
+
+    def test_warning_count_counts_only_warnings(self):
+        assert self._result("warning", "info", "warning", "ok").warning_count == 2
+
+    def test_warning_count_is_zero_without_findings(self):
+        assert _make_result().warning_count == 0
+
+    def test_warning_count_is_zero_without_a_report(self):
+        """A workflow that produced no report has nothing to gate on."""
+        assert _make_result(data=_DummyOutputNoReport()).warning_count == 0
+
+    def test_findings_property_is_empty_without_a_report(self):
+        assert _make_result(data=_DummyOutputNoReport()).findings == []
+
+    def test_health_status_is_warning_when_any_finding_warns(self):
+        assert self._result("info", "warning").health == {"status": "warning", "warnings": 1, "findings": 2}
+
+    def test_health_status_is_ok_when_none_do(self):
+        assert self._result("info", "ok").health == {"status": "ok", "warnings": 0, "findings": 2}
+
+    def test_health_matches_the_rendered_health_line(self):
+        """The roll-up and the text report must not be able to disagree."""
+        result = self._result("warning", "warning", "info")
+        assert f"{result.warning_count} warning(s)" in result.report()
+
+    def test_envelope_carries_health(self):
+        payload = self._result("warning", "info").to_dict()
+        assert payload["health"] == {"status": "warning", "warnings": 1, "findings": 2}
+
+    def test_envelope_still_carries_metadata_and_data(self):
+        """health is additive — it must not displace what the envelope already held."""
+        payload = _make_result().to_dict()
+        assert "metadata" in payload
+        assert payload["value"] == 42
 
 
 # ---------------------------------------------------------------------------

@@ -45,6 +45,23 @@ Each finding carries a severity of `ok`, `info`, or `warning`. A finding becomes
 A warning is a prompt to look, not a failure. The thresholds encode *your* risk tolerance — see
 {doc}`configure_outlier_detection` for how to set them.
 
+The same roll-up is available without parsing the report text:
+
+```python
+result.warning_count  # 2
+result.health         # {"status": "warning", "warnings": 2, "findings": 7}
+```
+
+From the CLI, `--fail-on-warning` turns that roll-up into an exit code, so a pipeline can stop on a
+run whose findings breached their thresholds:
+
+```bash
+dataeval-flow --config params.yaml --output ./results --fail-on-warning
+```
+
+Without the flag the warnings are still logged, and the run exits `0` — only a task that *failed* is
+fatal by default.
+
 ## The result envelope
 
 `export()` writes the structured result — findings plus provenance — to disk:
@@ -72,13 +89,18 @@ The serialized envelope has three top-level keys:
 ```json
 {
   "metadata": { "timestamp": "...", "tool": "dataeval-flow", "resolved_config": {} },
+  "health":   { "status": "ok", "warnings": 0, "findings": 7 },
   "raw":      { },
   "report":   { "summary": "...", "findings": [] }
 }
 ```
 
-`metadata` is the provenance envelope, `raw` the typed numeric outputs, and `report` the same findings the text
-report renders — summary string plus a list of findings, each with a `title`, `severity`, and `data`.
+`metadata` is the provenance envelope, `health` the roll-up of the findings' severities, `raw` the typed numeric
+outputs, and `report` the same findings the text report renders — summary string plus a list of findings, each
+with a `title`, `severity`, and `data`.
+
+`health.status` is `"warning"` where any finding breached its threshold and `"ok"` otherwise. It answers a
+different question from whether the workflow *ran*: a task that failed produces errors, not warnings.
 
 ### Provenance fields
 

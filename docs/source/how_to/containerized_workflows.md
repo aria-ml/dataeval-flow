@@ -499,6 +499,61 @@ docker run --rm \
 | `-vv` | Report + INFO logging |
 | `-vvv` | Report + DEBUG logging |
 
+### Running a subset of the tasks
+
+`--task` runs one task by name; repeat it to run several, in the order given. A named
+task runs whether or not its config entry sets `enabled: false`, so you can keep a task
+defined but dormant and still reach for it when you need it:
+
+```bash
+docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
+    --mount type=bind,source="$(pwd)/workspace/output",target=/output \
+    harbor.jatic.net/aria/dataeval:cpu \
+    python -m dataeval_flow --task clean_my_data
+```
+
+With no `--task`, every task the config marks `enabled` runs.
+
+### Failing the pipeline on health warnings
+
+By default the run exits `0` whenever every task *ran*, whatever its findings say — a
+warning is a prompt to look, not a failure. `--fail-on-warning` makes findings that
+breached their health thresholds fatal instead, so a CI job can gate on data quality:
+
+```bash
+docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
+    --mount type=bind,source="$(pwd)/workspace/output",target=/output \
+    harbor.jatic.net/aria/dataeval:cpu \
+    python -m dataeval_flow --output /output --fail-on-warning
+```
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Every task succeeded; no warnings, or warnings without `--fail-on-warning` |
+| `1` | A task failed, or `--fail-on-warning` was set and a task raised warnings |
+
+Results are written either way — the gate decides the exit code, not whether the run's
+artifacts survive.
+
+### Discovering the available workflows
+
+The image ships without the TUI extra, so `workflows` is how you ask it what it can run
+and what a given workflow type accepts:
+
+```bash
+docker run --rm harbor.jatic.net/aria/dataeval:cpu \
+    python -m dataeval_flow workflows
+
+docker run --rm harbor.jatic.net/aria/dataeval:cpu \
+    python -m dataeval_flow workflows data-cleaning
+```
+
+`python -m dataeval_flow --version` reports the build inside the image.
+
 ## 5. View results
 
 Results are written to the output mount as one merged file per format, plus a run log:
@@ -511,9 +566,17 @@ find workspace/output -type f
 # workspace/output/results/encoding.json
 ```
 
-`result.json` is keyed by task name — each entry holds that task's `metadata`, `raw`,
-and `report` sections, the same data you'd get from `result.to_dict()` in the Python
-API. `result.txt` holds the detailed text reports, the same as `result.report()`.
+`result.json` is keyed by task name — each entry holds that task's `metadata`, `health`,
+`raw`, and `report` sections, the same data you'd get from `result.to_dict()` in the Python
+API. `health` is the roll-up `--fail-on-warning` gates on, so a pipeline can read it
+directly rather than parsing the text report:
+
+```bash
+jq -r 'to_entries[] | "\(.key)\t\(.value.health.status)\t\(.value.health.warnings)"' \
+    workspace/output/results/result.json
+```
+
+`result.txt` holds the detailed text reports, the same as `result.report()`.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is omitted when a

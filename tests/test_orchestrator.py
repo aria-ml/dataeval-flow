@@ -23,6 +23,7 @@ from dataeval_flow.workflow.orchestrator import (
     _run_single_task,
     run_task,
     run_tasks,
+    select_tasks,
 )
 
 pytestmark = pytest.mark.required
@@ -719,6 +720,66 @@ class TestRunTasks:
 
         with pytest.raises(ValueError, match="Unknown task: 'nonexistent'"):
             run_tasks(config, "nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# select_tasks — the selection run_tasks executes, exposed for result pairing
+# ---------------------------------------------------------------------------
+
+
+class TestSelectTasks:
+    """Tests for select_tasks(), which callers use to pair results back to tasks."""
+
+    def _config(self) -> MagicMock:
+        config = MagicMock()
+        config.tasks = [
+            TaskConfig(name="task_a", workflow="clean", sources="src"),
+            TaskConfig(name="task_b", workflow="clean", sources="src", enabled=False),
+            TaskConfig(name="task_c", workflow="clean", sources="src"),
+        ]
+        return config
+
+    def test_default_selects_enabled_in_config_order(self):
+        assert [t.name for t in select_tasks(self._config())] == ["task_a", "task_c"]
+
+    def test_naming_a_task_overrides_disabled(self):
+        """An explicit request outranks the config's enabled default."""
+        assert [t.name for t in select_tasks(self._config(), "task_b")] == ["task_b"]
+
+    def test_named_list_keeps_the_given_order(self):
+        selected = select_tasks(self._config(), ["task_c", "task_a"])
+        assert [t.name for t in selected] == ["task_c", "task_a"]
+
+    def test_matches_what_run_tasks_executes(self, monkeypatch: pytest.MonkeyPatch):
+        """The pairing contract: one selected task per result, in the same order."""
+        config = self._config()
+        executed: list[str] = []
+
+        def _fake(task, cfg, data_dir=None, cache_dir=None):  # noqa: ARG001
+            executed.append(task.name)
+            return MagicMock(success=True)
+
+        monkeypatch.setattr("dataeval_flow.workflow.orchestrator._run_single_task", _fake)
+        results = run_tasks(config)
+
+        assert executed == [t.name for t in select_tasks(config)]
+        assert len(results) == len(select_tasks(config))
+
+    def test_all_disabled_raises(self):
+        config = MagicMock()
+        config.tasks = [TaskConfig(name="t1", workflow="clean", sources="src", enabled=False)]
+        with pytest.raises(ValueError, match="All tasks are disabled"):
+            select_tasks(config)
+
+    def test_no_tasks_raises(self):
+        config = MagicMock()
+        config.tasks = []
+        with pytest.raises(ValueError, match="No tasks defined"):
+            select_tasks(config)
+
+    def test_unknown_name_raises(self):
+        with pytest.raises(ValueError, match="Unknown task: 'nope'"):
+            select_tasks(self._config(), "nope")
 
 
 # ---------------------------------------------------------------------------

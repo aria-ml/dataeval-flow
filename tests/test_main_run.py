@@ -348,13 +348,23 @@ class TestMain:
         args.data = None
         args.verbose = 0
         args.cache = None
+        args.task = None
+        args.fail_on_warning = False
         mock_parse.return_value = args
         mock_run_tasks.return_value = 0
 
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 0
-        mock_run_tasks.assert_called_once_with(Path("/cfg"), Path("/out"), data_dir=None, verbosity=0, cache_dir=None)
+        mock_run_tasks.assert_called_once_with(
+            Path("/cfg"),
+            Path("/out"),
+            data_dir=None,
+            verbosity=0,
+            cache_dir=None,
+            tasks=None,
+            fail_on_warning=False,
+        )
 
     @patch("dataeval_flow.runner.run")
     @patch("dataeval_flow.__main__.parse_args")
@@ -377,3 +387,140 @@ class TestMain:
         assert exc_info.value.code == 1
         out = capsys.readouterr().out
         assert "ERROR" in out
+
+
+# ---------------------------------------------------------------------------
+# CLI surface — --version, --task, --fail-on-warning, and `workflows`
+# ---------------------------------------------------------------------------
+
+
+class TestVersionFlag:
+    def test_version_prints_and_exits_zero(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow import __version__
+        from dataeval_flow.__main__ import _build_parser
+
+        with pytest.raises(SystemExit) as exc_info:
+            _build_parser().parse_args(["--version"])
+
+        assert exc_info.value.code == 0
+        assert __version__ in capsys.readouterr().out
+
+    def test_short_v_is_still_verbose(self):
+        """-v stays --verbose: which build am I running is a different question."""
+        from dataeval_flow.__main__ import _build_parser
+
+        assert _build_parser().parse_args(["-vv"]).verbose == 2
+
+
+class TestTaskFlag:
+    def test_defaults_to_none(self):
+        from dataeval_flow.__main__ import _build_parser
+
+        assert _build_parser().parse_args([]).task is None
+
+    def test_single_task(self):
+        from dataeval_flow.__main__ import _build_parser
+
+        assert _build_parser().parse_args(["-t", "clean"]).task == ["clean"]
+
+    def test_repeats_accumulate_in_order(self):
+        from dataeval_flow.__main__ import _build_parser
+
+        args = _build_parser().parse_args(["--task", "b", "--task", "a"])
+        assert args.task == ["b", "a"]
+
+
+class TestFailOnWarningFlag:
+    def test_defaults_off(self):
+        from dataeval_flow.__main__ import _build_parser
+
+        assert _build_parser().parse_args([]).fail_on_warning is False
+
+    def test_flag_sets_it(self):
+        from dataeval_flow.__main__ import _build_parser
+
+        assert _build_parser().parse_args(["--fail-on-warning"]).fail_on_warning is True
+
+    @patch("dataeval_flow.runner.run")
+    @patch("dataeval_flow.__main__.parse_args")
+    def test_flags_reach_the_runner(self, mock_parse: MagicMock, mock_run: MagicMock):
+        from dataeval_flow.__main__ import main
+
+        args = MagicMock()
+        args.command = None
+        args.config = None
+        args.output = None
+        args.data = None
+        args.verbose = 0
+        args.cache = None
+        args.task = ["task_b"]
+        args.fail_on_warning = True
+        mock_parse.return_value = args
+        mock_run.return_value = 1
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
+        assert mock_run.call_args.kwargs["tasks"] == ["task_b"]
+        assert mock_run.call_args.kwargs["fail_on_warning"] is True
+
+
+class TestWorkflowsCommand:
+    def test_lists_every_registered_workflow(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_workflows
+        from dataeval_flow.workflow import list_workflows
+
+        assert _list_workflows(None, as_json=False) == 0
+        out = capsys.readouterr().out
+        for entry in list_workflows():
+            assert entry["name"] in out
+
+    def test_json_listing_is_machine_readable(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_workflows
+
+        assert _list_workflows(None, as_json=True) == 0
+        entries = json.loads(capsys.readouterr().out)
+        assert {"name", "description"} <= set(entries[0])
+        assert [e["name"] for e in entries] == sorted(e["name"] for e in entries)
+
+    def test_named_workflow_prints_its_params_schema(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_workflows
+
+        assert _list_workflows("data-cleaning", as_json=False) == 0
+        schema = json.loads(capsys.readouterr().out)
+        assert "outlier_method" in schema["properties"]
+
+    def test_unknown_workflow_reports_and_exits_one(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_workflows
+
+        assert _list_workflows("nope", as_json=False) == 1
+        assert "Unknown workflow" in capsys.readouterr().err
+
+    def test_workflow_without_params_says_so(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_workflows
+
+        stub = MagicMock()
+        stub.name = "paramless"
+        stub.params_schema = None
+        with patch("dataeval_flow.workflow.get_workflow", return_value=stub):
+            assert _list_workflows("paramless", as_json=False) == 0
+
+        assert "takes no parameters" in capsys.readouterr().out
+
+    @patch("dataeval_flow.__main__._list_workflows", return_value=0)
+    @patch("dataeval_flow.__main__.parse_args")
+    def test_main_dispatches_to_it(self, mock_parse: MagicMock, mock_list: MagicMock):
+        from dataeval_flow.__main__ import main
+
+        args = MagicMock()
+        args.command = "workflows"
+        args.name = "data-cleaning"
+        args.json = False
+        mock_parse.return_value = args
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 0
+        mock_list.assert_called_once_with("data-cleaning", as_json=False)

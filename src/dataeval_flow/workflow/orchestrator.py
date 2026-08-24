@@ -1,6 +1,6 @@
 """Task orchestration — config → execution bridge."""
 
-__all__ = ["run_task", "run_tasks"]
+__all__ = ["run_task", "run_tasks", "select_tasks"]
 
 import logging
 import time
@@ -440,6 +440,59 @@ def _relativize_paths(obj: Any, root: Path | None = None) -> Any:
     return obj
 
 
+def select_tasks(
+    config: "PipelineConfig",
+    tasks: str | Sequence[str] | None = None,
+) -> "list[TaskConfig]":
+    """Resolve which of a config's tasks a run executes, in execution order.
+
+    Callers that pair results back to the tasks that produced them go through this
+    rather than re-deriving the selection.  ``run_tasks`` returns one result per
+    *executed* task, and a result carries its workflow type rather than its task
+    name, so anything zipping results against ``config.tasks`` misaligns the moment
+    a task is disabled.
+
+    Parameters
+    ----------
+    config : PipelineConfig
+        Pipeline configuration holding the task list.
+    tasks : str | Sequence[str] | None
+        Which tasks to select:
+
+        - ``None`` (default) — every enabled task, in config order
+        - ``str`` — a single task by name
+        - ``Sequence[str]`` — specific tasks by name, in the given order
+
+        Naming a task selects it whether or not it is enabled: an explicit
+        request outranks the config's default.
+
+    Returns
+    -------
+    list[TaskConfig]
+        The tasks to run, in execution order.
+
+    Raises
+    ------
+    ValueError
+        If no tasks are defined, all are disabled, or a named task is not found.
+    """
+    if not config.tasks:
+        raise ValueError("No tasks defined in pipeline config")
+
+    if tasks is None:
+        to_run = [t for t in config.tasks if t.enabled]
+        skipped = len(config.tasks) - len(to_run)
+        if skipped:
+            _logger.info("Skipping %d disabled task(s)", skipped)
+        if not to_run:
+            raise ValueError("All tasks are disabled — nothing to run")
+        return to_run
+
+    if isinstance(tasks, str):
+        return [_resolve_by_name(config.tasks, tasks, "task")]
+    return [_resolve_by_name(config.tasks, name, "task") for name in tasks]
+
+
 def run_tasks(
     config: "PipelineConfig",
     tasks: str | Sequence[str] | None = None,
@@ -475,21 +528,7 @@ def run_tasks(
         If no tasks are defined, all are disabled, or a named task is
         not found.
     """
-    if not config.tasks:
-        raise ValueError("No tasks defined in pipeline config")
-
-    if tasks is None:
-        # Run all enabled tasks
-        to_run = [t for t in config.tasks if t.enabled]
-        skipped = len(config.tasks) - len(to_run)
-        if skipped:
-            _logger.info("Skipping %d disabled task(s)", skipped)
-        if not to_run:
-            raise ValueError("All tasks are disabled — nothing to run")
-    elif isinstance(tasks, str):
-        to_run = [_resolve_by_name(config.tasks, tasks, "task")]
-    else:
-        to_run = [_resolve_by_name(config.tasks, name, "task") for name in tasks]
+    to_run = select_tasks(config, tasks)
 
     _logger.info("Running %d task(s)", len(to_run))
     results: list[WorkflowResult[Any, Any]] = []

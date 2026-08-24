@@ -9,6 +9,7 @@ __all__ = [
     "list_workflows",
     "run_task",
     "run_tasks",
+    "select_tasks",
 ]
 
 import warnings
@@ -26,7 +27,7 @@ from dataeval_flow.workflow._text_report import (
     _render_detail_section,
     _summary_line,
 )
-from dataeval_flow.workflow.orchestrator import run_task, run_tasks
+from dataeval_flow.workflow.orchestrator import run_task, run_tasks, select_tasks
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -137,6 +138,36 @@ class WorkflowResult(Generic[TMetadata, TData]):
     dataset: "AnnotatedDataset[Any] | None" = None
     sources: "dict[str, AnnotatedDataset[Any]] | None" = None
 
+    @property
+    def findings(self) -> list[Any]:
+        """The report's findings, or an empty list where the workflow produced none."""
+        report_obj = getattr(self.data, "report", None)
+        return list(getattr(report_obj, "findings", []) or []) if report_obj is not None else []
+
+    @property
+    def warning_count(self) -> int:
+        """How many findings breached their health threshold.
+
+        The same count the report's health line renders, reached without parsing text —
+        this is what an automated gate reads to decide whether a run is worth stopping on.
+        """
+        return sum(1 for f in self.findings if getattr(f, "severity", "info") == "warning")
+
+    @property
+    def health(self) -> dict[str, Any]:
+        """Machine-readable roll-up of the run's findings.
+
+        ``status`` is ``"warning"`` where any finding breached its threshold and ``"ok"``
+        otherwise.  A warning is a prompt to look rather than a failure — ``success``
+        stays the authority on whether the workflow ran.
+        """
+        warnings = self.warning_count
+        return {
+            "status": "warning" if warnings else "ok",
+            "warnings": warnings,
+            "findings": len(self.findings),
+        }
+
     def report(self, *, detailed: bool = True) -> str:
         """Return a human-readable text report.
 
@@ -197,7 +228,7 @@ class WorkflowResult(Generic[TMetadata, TData]):
         if not findings:
             return ["  No findings to report."]
 
-        warnings = sum(1 for f in findings if getattr(f, "severity", "info") == "warning")
+        warnings = self.warning_count
         lines = ["", "  SUMMARY", "  -------"]
         lines.extend(_summary_line(f) for f in findings)
         lines.append("")
@@ -269,9 +300,10 @@ class WorkflowResult(Generic[TMetadata, TData]):
         return dest
 
     def to_dict(self) -> dict[str, object]:
-        """Return the result as a plain dictionary (metadata + data fields)."""
+        """Return the result as a plain dictionary (metadata + health + data fields)."""
         return {
             "metadata": self.metadata.model_dump(mode="json"),
+            "health": self.health,
             **self.data.model_dump(mode="json"),
         }
 
