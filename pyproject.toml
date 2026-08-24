@@ -83,7 +83,6 @@ base = [
 lock = [
     { include-group = "base" },
     "pyproject2conda>=0.22",
-    "poetry>=2.2.0; python_version<'3.14'",
 ]
 lint = [
     { include-group = "base" },
@@ -195,20 +194,6 @@ torchvision = [
   { index = "pytorch-cu126", extra = "cu126" },
   { index = "pytorch-cu130", extra = "cu130" },
 ]
-
-[tool.poetry]
-version = "0.0.0"
-
-[[tool.poetry.source]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-# `supplemental` (not `explicit`) is required so the `torch`/`torchvision`
-# source override below applies to transitive requests too.
-priority = "supplemental"
-
-[tool.poetry.dependencies]
-torch = { version = ">=2.2.0", source = "pytorch-cpu", optional = true }
-torchvision = { version = ">=0.17.0", source = "pytorch-cpu", optional = true }
 
 [tool.pyproject2conda.dependencies]
 datamaite = { pip = true }

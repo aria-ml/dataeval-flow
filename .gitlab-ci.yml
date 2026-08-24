@@ -52,7 +52,7 @@ variables:
 .nox:
   image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
   variables:
-    GIT_DEPTH: "0"  # full history so hatch-vcs / poetry-dynamic-versioning can resolve tags
+    GIT_DEPTH: "0"  # full history so hatch-vcs can resolve tags
   cache:
     key:
       files:
@@ -112,7 +112,6 @@ variables:
         paths:
           - pyproject.toml
           - uv.lock
-          - poetry.lock
           - environment.yml
           - requirements.txt
 
@@ -255,7 +254,7 @@ deps:
 # Runs only when dependency-defining files change.
 # -----------------------------------------------------------------------------
 
-# Validate uv.lock + poetry.lock are both up-to-date with pyproject.toml
+# Validate uv.lock is up-to-date with pyproject.toml
 install:lock:
   extends: [.nox, .rules_main_mr_deps]
   stage: test
@@ -281,21 +280,6 @@ install:pip:
     - /tmp/venv-pip/bin/pip install ".[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
     - /tmp/venv-pip/bin/python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
     - /tmp/venv-pip/bin/dataeval-flow --help
-
-# Validate `poetry install` from a source checkout (uses committed poetry.lock).
-install:poetry:
-  extends: [.rules_main_mr_deps]
-  stage: test
-  image: python:${PYTHON_VERSION}-slim
-  variables:
-    PYTHON_VERSION: "3.11"
-    POETRY_VIRTUALENVS_IN_PROJECT: "true"
-    POETRY_NO_INTERACTION: "1"
-  script:
-    - pip install --quiet "poetry>=2.2.0"
-    - poetry install --extras cpu
-    - poetry run python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
-    - poetry run dataeval-flow --help
 
 # Validate `conda env create -f environment.yml` (uses committed environment.yml).
 # `git` is required so hatch-vcs can derive __version__ during `pip install -e`.

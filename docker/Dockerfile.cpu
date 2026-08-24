@@ -6,7 +6,7 @@
 # CI passes the resolved version via --build-arg DATAEVAL_FLOW_VERSION=...
 # Local `docker build` uses the default below, set to the last published tag
 # by docker/generate.py so the committed value is stable across regenerations.
-ARG DATAEVAL_FLOW_VERSION="0.2.0"
+ARG DATAEVAL_FLOW_VERSION="0.2.2"
 
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv

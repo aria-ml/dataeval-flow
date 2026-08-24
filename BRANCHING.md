@@ -56,8 +56,7 @@ While not strictly enforced, the following patterns are recommended for clarity:
 3. **Do not edit any version field.** The package version is derived from the
    git tag by `hatch-vcs`, which writes `src/dataeval_flow/_version.py` at
    build time. `pyproject.toml` declares `dynamic = ["version"]` and carries no
-   version to bump; the `[tool.poetry] version = "0.0.0"` entry is a required
-   placeholder and must be left alone.
+   version to bump.
 4. Open a release MR titled `Release vX.Y.Z`. Get review and merge to `main`.
 5. From `main`, create an annotated tag and push it:
 

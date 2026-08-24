@@ -59,7 +59,7 @@ uv run nox -s test      # unit tests, 90% coverage gate
 uv run nox -s lint      # ruff and codespell
 uv run nox -s type      # pyright and type-completeness
 uv run nox -s schema    # regenerate and verify config/params.schema.json
-uv run nox -s check     # validate uv.lock and poetry.lock
+uv run nox -s check     # validate uv.lock and dependencies
 uv run nox -s docs      # build the documentation
 uv run nox -s verify    # FR/NFR requirements verification suite
 ```

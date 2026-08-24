@@ -520,14 +520,6 @@ cd dataeval-flow
 uv sync --extra cpu      # or cu126 / cu130; add --extra onnx --extra opencv --extra app as needed
 ```
 
-`poetry` (source checkout; uses committed `poetry.lock`):
-
-```bash
-git clone https://github.com/aria-ml/dataeval-flow.git
-cd dataeval-flow
-poetry install
-```
-
 `conda` / `mamba` (source checkout; uses committed `environment.yml`):
 
 ```bash
@@ -543,7 +535,7 @@ Notes:
 - PyTorch is installed from PyPI/`download.pytorch.org` in every path
   (it is no longer maintained on conda-forge).
 - GPU variants (`cu126`, `cu130`) are only wired through `uv` and
-  `pip` today; the Poetry/conda paths install the CPU build of PyTorch.
+  `pip` today; the conda path installs the CPU build of PyTorch.
 
 **CLI Usage:**
 

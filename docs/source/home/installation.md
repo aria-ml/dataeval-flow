@@ -94,9 +94,8 @@ uv pip install dataeval-flow --torch-backend cpu   # or cu126 / cu130 / auto
 
 ## From source
 
-Clone once, then use whichever toolchain you prefer — uv and Poetry both read
-`pyproject.toml` as the source of truth and resolve against their respective committed
-lockfiles (`uv.lock` / `poetry.lock`). This is where the PyTorch variant extras apply.
+Clone once, then use whichever toolchain you prefer — `pyproject.toml` is the source of
+truth and requirements are resolved against their respective committed requirement files.
 
 ```bash
 git clone https://github.com/aria-ml/dataeval-flow.git
@@ -114,15 +113,6 @@ Substitute `cu126` / `cu130` for the CUDA variants, and the matching `onnx-cu126
 `onnx-cu130` for `onnx` alongside them — an `onnxruntime-gpu` wheel links against one
 specific CUDA major, so the ONNX extra has to track the PyTorch one. The PyTorch variant
 extras are mutually exclusive, as are the three `onnx` extras; uv enforces both.
-
-### With Poetry
-
-```bash
-poetry install --extras "cpu onnx opencv app"
-```
-
-Poetry resolves `torch` and `torchvision` from the CPU wheel index, so the Poetry path
-installs the CPU build regardless of which extra you name.
 
 ### With conda / mamba
 

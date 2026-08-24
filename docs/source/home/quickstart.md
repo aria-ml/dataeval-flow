@@ -27,7 +27,7 @@ larger CUDA-bundled build from PyPI.
 
 For a **CUDA** build, install `torch` from its index first and then DataEval Flow; `--extra-index-url` is not reliable
 for the CUDA variants. And note that the `cpu` / `cu126` / `cu130` extras do *not* select a PyTorch variant under pip —
-they exist for uv source installs. See {doc}`installation` for both points in full, plus the uv, Poetry, conda, source,
+they exist for uv source installs. See {doc}`installation` for both points in full, plus the uv, conda, source,
 and Docker paths.
 
 ## Step 3: Describe a pipeline

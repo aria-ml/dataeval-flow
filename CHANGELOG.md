@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- Poetry packaging support. `poetry.lock`, the `[tool.poetry]` configuration, and the `poetry install`
+  CI lane are gone; v0.2.2 is the last release that supports it. Install with uv, pip, or conda instead
+
 ## v0.2.2
 
 ### Added

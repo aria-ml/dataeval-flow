@@ -104,6 +104,8 @@ per-split loading for the object-detection formats.
 
 **Target:** October 2026
 
+- [x] Poetry support dropped — `poetry.lock` and the `poetry install` lane removed; v0.2.2 is the
+      last release to support it. uv, pip, and conda remain (supersedes SR-3-H-2..4)
 - [ ] Label-driven semver release automation (`release::*` MR labels)
 - [ ] CI scripts for `create_release.py`, `create_patch_release.py`, `validate_release_label.py`
 - [ ] Release branch lifecycle (`release/vX.Y` long-lived branches)
