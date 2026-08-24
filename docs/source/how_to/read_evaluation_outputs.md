@@ -49,7 +49,7 @@ The same roll-up is available without parsing the report text:
 
 ```python
 result.warning_count  # 2
-result.health         # {"status": "warning", "warnings": 2, "findings": 7}
+result.health  # {"status": "warning", "warnings": 2, "findings": 7}
 ```
 
 From the CLI, `--fail-on-warning` turns that roll-up into an exit code, so a pipeline can stop on a

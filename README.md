@@ -297,10 +297,10 @@ Dataset and model paths in config files are resolved relative to the data root (
 
 A `datasets` entry selects its loader with `format`:
 
-| `format`       | Structure                                                     | Split selection                    |
-| -------------- | ------------------------------------------------------------- | ---------------------------------- |
-| `huggingface`  | HuggingFace arrow dataset or dataset dict                     | `split:` (omit for a single split) |
-| `image_folder` | Directory of images, optionally one subdirectory per class    | n/a                                |
+| `format`       | Structure                                                     | Split selection                     |
+| -------------- | ------------------------------------------------------------- | ----------------------------------- |
+| `huggingface`  | HuggingFace arrow dataset or dataset dict                     | `split:` (omit for a single split)  |
+| `image_folder` | Directory of images, optionally one subdirectory per class    | n/a                                 |
 | `coco`         | COCO images plus a JSON annotation file                       | `annotations_file:` + `images_dir:` |
 | `yolo`         | Ultralytics root — `data.yaml` plus image/label trees         | `split:` (omit to load every split) |
 
