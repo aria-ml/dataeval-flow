@@ -249,6 +249,8 @@ def describe_binning(
     excluded: Sequence[str] | None = None,
     requested_bins: Mapping[str, int | Sequence[float]] | None = None,
     factor_source: str | None = None,
+    declared_bins: Mapping[str, int | Sequence[float]] | None = None,
+    injected: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Describe how every factor was encoded, and how well that encoding fits this run.
 
@@ -270,6 +272,15 @@ def describe_binning(
         Recorded because it decides whether each bias statistic read a factor's
         codes or its measured values, which moves every number those statistics
         report — and it leaves no other trace in the result.
+    declared_bins : Mapping[str, int | Sequence[float]] | None
+        The bins as the policy spelled them, before expansion onto level-split names.
+        Recorded as ``bin_expansion`` so a reader can see that a bin written on
+        ``brightness`` became ``unit_brightness`` and ``instance_brightness`` — a cut that
+        lands somewhere other than where it was written is not something to leave implicit.
+    injected : Sequence[str] | None
+        Factor names this run synthesised from intrinsic statistics rather than read off the
+        dataset.  Most factors in a run with injection on are synthesised, and their cuts are
+        derived from this draw; the envelope has to be able to say which.
 
     Returns
     -------
@@ -327,6 +338,16 @@ def describe_binning(
         if (entry.get("encoding") or {}).get("provenance") == "derived"
     )
 
+    # What each declared name became.  Only names that actually moved are recorded — an
+    # entry mapping a name to itself would be noise on every classification run.
+    expansion: dict[str, list[str]] = {}
+    for name in declared_bins or {}:
+        landed = sorted(target for target in requested_bins if target == name or target.endswith(f"_{name}"))
+        if landed != [name]:
+            expansion[name] = landed
+    record["bin_expansion"] = expansion
+    record["injected_factors"] = sorted(set(injected or ()) & set(factor_info))
+
     # A request naming a factor the dataset does not carry is silently ignored
     # by DataEval (it warns and moves on), so it is called out here rather than
     # leaving the reader to diff two lists.
@@ -364,19 +385,39 @@ def attach_binning(
     run, and the diagnostics captured alongside it still name the decision.
     """
     try:
+        from dataeval_flow.metadata import expand_declared_bins, resolve_families, stat_names_for
+
         excluded = list(policy.exclude) or None
-        requested = dict(policy.continuous_factor_bins) or None
+        declared = dict(policy.continuous_factor_bins) or None
         source = policy.factor_source
 
+        # The statistics a policy's families produce, level prefixes included.  Derived
+        # from the flags rather than from the Metadata, so a cache hit — which never ran
+        # the injector — marks the same factors as a cache miss.
+        injected: set[str] = set()
+        if policy.intrinsic_factors:
+            bare = stat_names_for(resolve_families("image", policy.intrinsic_factors))
+            injected = set(bare) | {f"{level}_{name}" for level in ("unit", "instance") for name in bare}
+
+        def _describe(md: "Metadata") -> dict[str, Any]:
+            # The bins as applied, not as spelled: `unmatched_bin_requests` is a set
+            # difference against the factor names, and the declared bare name is not one.
+            requested = expand_declared_bins(declared, md.factor_names, md.levels) if declared else None
+            return describe_binning(
+                md,
+                excluded=excluded,
+                requested_bins=requested,
+                factor_source=source,
+                declared_bins=declared,
+                injected=sorted(injected),
+            )
+
         if isinstance(metadata, Mapping):
-            per_split = {
-                name: describe_binning(md, excluded=excluded, requested_bins=requested, factor_source=source)
-                for name, md in metadata.items()
-            }
+            per_split = {name: _describe(md) for name, md in metadata.items()}
             result_metadata.metadata_binning = {"per_split": per_split}
             result_metadata.encoding_digest = _common_digest(per_split.values())
         else:
-            record = describe_binning(metadata, excluded=excluded, requested_bins=requested, factor_source=source)
+            record = _describe(metadata)
             result_metadata.metadata_binning = record
             result_metadata.encoding_digest = record.get("encoding_digest")
     except Exception:

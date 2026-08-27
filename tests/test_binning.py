@@ -503,3 +503,62 @@ class TestRecordsFactorSource:
         attach_binning(result_metadata, _metadata(), _policy(factor_source="values"))
         assert result_metadata.metadata_binning is not None
         assert result_metadata.metadata_binning["factor_source"] == "values"
+
+
+class TestEnvelopeRecordsInjection:
+    """A reader must be able to tell a carried factor from a synthesised one."""
+
+    def _record(self):
+        from dataeval_flow.binning import attach_binning
+        from dataeval_flow.config.schemas._metadata import ResultMetadata
+        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
+        from tests.test_metadata_injection import _ODDataset
+
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightness": 4},
+        )
+        metadata = build_metadata(_ODDataset(), policy)
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, metadata, policy)
+        return result_metadata.metadata_binning
+
+    def test_the_declared_bin_is_not_reported_unmatched(self):
+        record = self._record()
+        assert not record.get("unmatched_bin_requests")
+
+    def test_both_levels_report_four_bins(self):
+        record = self._record()
+        for name in ("unit_brightness", "instance_brightness"):
+            encoding = record["factors"][name]["encoding"]
+            assert len(encoding["edges"]) - 1 == 4
+
+    def test_the_expansion_names_both_sides(self):
+        record = self._record()
+        assert record["bin_expansion"] == {
+            "brightness": ["instance_brightness", "unit_brightness"],
+        }
+
+    def test_injected_factors_are_marked(self):
+        record = self._record()
+        injected = set(record["injected_factors"])
+        assert "unit_brightness" in injected
+        assert "weather" not in injected  # carried by the dataset
+
+    def test_a_run_without_injection_records_neither_key(self):
+        from dataeval_flow.binning import attach_binning
+        from dataeval_flow.config.schemas._metadata import ResultMetadata
+        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
+        from tests.test_metadata_injection import _ODDataset
+
+        policy = ResolvedPolicy(continuous_factor_bins={"brightness": 4})
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, build_metadata(_ODDataset(), policy), policy)
+        record = result_metadata.metadata_binning
+        assert record["bin_expansion"] == {}
+        assert record["injected_factors"] == []
+        # And the declared bin is still correctly reported as matching nothing.
+        assert record["unmatched_bin_requests"] == ["brightness"]
