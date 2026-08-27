@@ -148,6 +148,19 @@ class MetadataPolicyConfig(BaseModel):
             "be compared want one answer."
         ),
     )
+    intrinsic_factors: Sequence[str] = Field(
+        default_factory=list,
+        description=(
+            "Statistic families computed from the imagery and injected as metadata "
+            "factors, so bias analysis can read them: `visual`, `pixel`, `dimension`. "
+            "Named as families rather than individual statistics because that is the "
+            "granularity worth deciding — `visual` and `pixel` are the bias workhorses, "
+            "`dimension` is meaningful only for variable-size imagery. Hashes are never "
+            "injected: they are near-unique per item, so a factor made from one "
+            "correlates with everything and describes nothing. Empty means inject "
+            "nothing, which costs exactly what a run costs today."
+        ),
+    )
 
     @field_validator("encoding")
     @classmethod

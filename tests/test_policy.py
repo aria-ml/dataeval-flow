@@ -373,3 +373,32 @@ class TestDerivedPolicyDoesNotCloseUnreviewedVocabularies:
         )
         derived = derive_from(ResolvedPolicy(strict=True), reference, None)
         assert derived.strict is True
+
+
+class TestIntrinsicFactors:
+    """Which intrinsic statistics become factors is a policy decision, not a workflow param."""
+
+    def test_defaults_to_nothing(self):
+        assert resolve_policy(MetadataConfigMixin()).intrinsic_factors == ()
+
+    def test_reads_the_policy_field(self):
+        config = _config(intrinsic_factors=["visual", "pixel"])
+        resolved = resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+        assert resolved.intrinsic_factors == ("visual", "pixel")
+
+    def test_keys_the_policy(self):
+        without = ResolvedPolicy()
+        with_stats = ResolvedPolicy(intrinsic_factors=("visual",))
+        assert policy_key(without) != policy_key(with_stats)
+
+    def test_key_is_order_independent(self):
+        # A set and a list of the same families describe one policy and must not
+        # produce two cache entries.
+        first = ResolvedPolicy(intrinsic_factors=("visual", "pixel"))
+        second = ResolvedPolicy(intrinsic_factors=("pixel", "visual"))
+        assert policy_key(first) == policy_key(second)
+
+    def test_unknown_family_fails_at_config_time(self):
+        config = _config(intrinsic_factors=["nonsense"])
+        with pytest.raises(ValueError, match="nonsense"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config)
