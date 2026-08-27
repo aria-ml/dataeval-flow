@@ -340,18 +340,21 @@ def schema(session: nox.Session) -> None:
     session.run(*args)
 
 
-@nox_uv.session(uv_only_groups=["lock"], uv_sync_locked=False)
-def lock(session: nox.Session) -> None:
-    """Lock dependencies for uv, pip, and conda.
+# Files derived from pyproject.toml + uv.lock and committed alongside them. They
+# are what the pip and conda install lanes validate against, so a stale copy means
+# those lanes certify an environment nobody ships.
+EXPORTED_DEPENDENCY_FILES = ["requirements.txt", "environment.yml"]
 
-    Regenerates `uv.lock`, `requirements.txt`, and `environment.yml`. Pass `upgrade`
-    to bump dependencies to the latest versions satisfying constraints.
 
-      nox -s lock                # refresh lockfiles preserving pins
-      nox -s lock -- upgrade     # bump to latest compatible versions
+def _export_dependency_files(session: nox.Session) -> None:
+    """Regenerate `EXPORTED_DEPENDENCY_FILES` from pyproject.toml and uv.lock.
+
+    Shared by ``lock`` and ``check`` so the two cannot disagree about what
+    "up to date" means. The commands must match byte for byte, arguments
+    included: both `uv export` and `p2c` record the invoking command line in the
+    file header, so regenerating with a different `-o` would differ on the header
+    alone.
     """
-    upgrade_args = ["--upgrade"] if "upgrade" in session.posargs else []
-    session.run("uv", "lock", *upgrade_args)
     session.run("uv", "export", "--no-emit-project", "-o", "requirements.txt")
     session.run(
         "p2c",
@@ -367,10 +370,37 @@ def lock(session: nox.Session) -> None:
     )
 
 
+@nox_uv.session(uv_only_groups=["lock"], uv_sync_locked=False)
+def lock(session: nox.Session) -> None:
+    """Lock dependencies for uv, pip, and conda.
+
+    Regenerates `uv.lock`, `requirements.txt`, and `environment.yml`. Pass `upgrade`
+    to bump dependencies to the latest versions satisfying constraints.
+
+      nox -s lock                # refresh lockfiles preserving pins
+      nox -s lock -- upgrade     # bump to latest compatible versions
+    """
+    upgrade_args = ["--upgrade"] if "upgrade" in session.posargs else []
+    session.run("uv", "lock", *upgrade_args)
+    _export_dependency_files(session)
+
+
 @nox_uv.session(uv_only_groups=["lock"])
 def check(session: nox.Session) -> None:
-    """Validate lock file is up to date."""
+    """Validate uv.lock and the files exported from it are up to date.
+
+    `uv lock --check` covers uv.lock. requirements.txt and environment.yml are
+    generated from it and committed, and nothing was verifying them: editing a
+    dependency without re-running `nox -s lock` left both stale, and the conda
+    lane then validated an environment.yml that no longer matched pyproject.toml.
+
+    Regenerating in place rather than into a scratch directory mirrors the `lint`
+    session -- a local run repairs the tree, and CI still fails because the diff
+    is non-empty and the container is discarded either way.
+    """
     session.run("uv", "lock", "--check")
+    _export_dependency_files(session)
+    session.run("git", "diff", "--exit-code", "--", *EXPORTED_DEPENDENCY_FILES, external=True)
 
 
 @nox_uv.session(uv_only_groups=["docker"], uv_no_install_project=True)
