@@ -74,6 +74,9 @@ class ResolvedPolicy:
     strict: bool = False
     factor_source: "FactorSource | None" = None
     reference_split: str | None = None
+    intrinsic_factors: tuple[str, ...] = ()
+    """Statistic families injected as factors.  Keys the metadata cache: it changes the
+    factor set, so a run with injection on must not be served an entry built without it."""
 
     def metadata_kwargs(self, *, for_load: bool = False) -> dict[str, Any]:
         """What to hand :class:`dataeval.Metadata`, omitting anything left unset.
@@ -133,6 +136,7 @@ def policy_key(policy: ResolvedPolicy) -> str:
             "encoding": policy.encoding,
             "factor_levels": {name: list(levels) for name, levels in (policy.factor_levels or {}).items()},
             "strict": policy.strict,
+            "intrinsic_factors": sorted(policy.intrinsic_factors),
         },
         sort_keys=True,
         default=str,
@@ -292,6 +296,7 @@ def resolve_policy(
         bins = dict(named.continuous_factor_bins or {})
         factor_levels, strict = named.factor_levels, named.strict
         factor_source, reference_split = named.factor_source, named.reference_split
+        intrinsic_factors = tuple(named.intrinsic_factors or ())
         descriptor_path = named.encoding
     else:
         source = "This workflow"
@@ -300,6 +305,7 @@ def resolve_policy(
         bins = dict(params.metadata_continuous_factor_bins or {})
         factor_levels, strict = None, False
         factor_source, reference_split = params.metadata_factor_source, None
+        intrinsic_factors = ()
         descriptor_path = None
 
     factors: Mapping[str, Any] | None = None
@@ -315,6 +321,16 @@ def resolve_policy(
     _check_no_double_declaration(factors or {}, bins, factor_levels or {}, source)
     _check_strict_is_earned(factors or {}, strict, source, declares_levels=bool(factor_levels))
 
+    if intrinsic_factors:
+        from dataeval_flow.metadata import resolve_families
+
+        # Modality is fixed at "image" until a second stat enum exists; validating here
+        # rather than at injection is what makes a misspelled family a config error.
+        try:
+            resolve_families("image", intrinsic_factors)
+        except ValueError as exc:
+            raise ValueError(f"{source} {exc}") from exc
+
     return ResolvedPolicy(
         auto_bin_method=auto_bin_method,
         exclude=exclude,
@@ -325,6 +341,7 @@ def resolve_policy(
         strict=strict,
         factor_source=factor_source,
         reference_split=reference_split,
+        intrinsic_factors=intrinsic_factors,
     )
 
 
