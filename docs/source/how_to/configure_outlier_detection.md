@@ -45,7 +45,8 @@ workflows:
   0–255 display range regardless of encoding, so one image answers the same whatever it is stored as.
 
 Float imagery needs `value_range` before the `visual` group — and pixel histogram and entropy — can be computed at
-all; without it they answer `NaN`. See {doc}`configure_metadata_binning`.
+all; without it they answer `NaN`. Declare it on the dataset, not on this workflow — see
+{doc}`configure_metadata_binning`.
 
 Narrow the list when you already know what kind of defect you are hunting. A dimension-only run over a freshly
 converted dataset is fast and answers one question cleanly.
@@ -138,8 +139,8 @@ inspection.
 
 ## Related material
 
-- {doc}`configure_metadata_binning` — the `metadata_*` settings this workflow also accepts, and `value_range` for
-  float imagery
+- {doc}`configure_metadata_binning` — the `metadata_*` settings this workflow also accepts, `intrinsic_factors` for
+  measuring statistics into the metadata, and `value_range` for float imagery
 - [Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) — the concepts behind outlier and duplicate
   detection
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
