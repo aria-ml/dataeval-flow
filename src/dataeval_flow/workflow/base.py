@@ -14,6 +14,7 @@ __all__ = [
     "WorkflowOutputsBase",
     "WorkflowParametersBase",
     "WorkflowReportBase",
+    "effective_value_range",
 ]
 
 
@@ -70,6 +71,35 @@ class StatsConfigMixin(BaseModel):
             "entropy, and dimension depth. Leave unset for integer imagery."
         ),
     )
+
+
+def effective_value_range(
+    dataset_context: Any,
+    params: Any,
+) -> tuple[float, float] | None:
+    """The range to measure statistics against: the dataset's, else the deprecated param.
+
+    The dataset's declaration wins because it is the one every consumer sees — the
+    injection pass inside ``build_metadata`` reads it off the policy the orchestrator
+    stamped, and a workflow reading its own param instead would land in a different stats
+    cache scope and buy a second full pass over the data.
+
+    Raises
+    ------
+    ValueError
+        When both are set and disagree.  There is no sound precedence between two people
+        stating different facts about the same imagery.
+    """
+    from_dataset = getattr(dataset_context, "value_range", None)
+    from_params = getattr(params, "value_range", None)
+    if from_dataset is not None and from_params is not None and tuple(from_dataset) != tuple(from_params):
+        raise ValueError(
+            f"The dataset declares value_range={tuple(from_dataset)} and this workflow's "
+            f"params declare {tuple(from_params)}. The workflow param is deprecated — "
+            "remove it and keep the dataset's, which every workflow reading that dataset "
+            "shares.",
+        )
+    return from_dataset if from_dataset is not None else from_params
 
 
 # --- Parameter base ---

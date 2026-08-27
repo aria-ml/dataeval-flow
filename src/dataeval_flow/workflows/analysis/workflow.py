@@ -39,7 +39,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_co
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.policy import derive_from, policy_for, resolve_policy
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows.analysis.outputs import (
@@ -159,6 +159,7 @@ def _compute_split_data(
     extractor: Embeddings | None = None,
     split_name: str = "default",
     policy: "ResolvedPolicy | None" = None,
+    value_range: tuple[float, float] | None = None,
 ) -> SplitData:
     """Compute shared data for a single split.
 
@@ -181,7 +182,7 @@ def _compute_split_data(
         dataset=dataset,
         per_image=True,
         per_target=is_od,
-        value_range=params.value_range,
+        value_range=value_range,
     )
     source_index = calc_result["source_index"]
     img_mask = np.array([si.target is None for si in source_index])
@@ -1156,6 +1157,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                     extractor=embeddings,
                     split_name=split_name,
                     policy=split_policy,
+                    value_range=effective_value_range(dc, params),
                 )
 
             if split_name == reference_split:

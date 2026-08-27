@@ -1283,3 +1283,35 @@ class TestRunCleaningClusterBranches:
         mock_compute_emb.assert_called_once()
         mock_merge_outlier.assert_called_once()
         assert raw.dataset_size == 10
+
+
+class TestValueRangeComesFromTheDataset:
+    """One range per dataset, so the injection pass and the workflow's own share a scope."""
+
+    def test_the_dataset_range_reaches_compute_stats(self, monkeypatch):
+        from dataeval_flow import cache as cache_module
+
+        seen: list[tuple[float, float] | None] = []
+        original = cache_module._do_compute_stats
+
+        def _spy(dataset, desired_flags, per_image=True, per_target=True, value_range=None):
+            seen.append(value_range)
+            return original(dataset, desired_flags, per_image, per_target, value_range)
+
+        monkeypatch.setattr(cache_module, "_do_compute_stats", _spy)
+
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow import DatasetContext, WorkflowContext
+        from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
+        from tests.test_metadata_injection import _ICDataset
+
+        context = WorkflowContext(
+            dataset_contexts={
+                "default": DatasetContext(name="default", dataset=_ICDataset(), value_range=(0.0, 1.0)),
+            },
+            metadata_policy=ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 1.0)),
+        )
+        DataCleaningWorkflow().execute(context, _make_params())
+
+        assert seen, "no stats pass ran"
+        assert all(entry == (0.0, 1.0) for entry in seen), seen
