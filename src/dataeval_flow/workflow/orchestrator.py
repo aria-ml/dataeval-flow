@@ -103,6 +103,40 @@ def _resolve_metadata_policy(
     return resolve_policy(instance, config, data_dir)
 
 
+def _apply_dataset_value_range(
+    policy: "ResolvedPolicy | None",
+    ranges: "Sequence[tuple[float, float] | None]",
+    workflow_name: str,
+) -> "ResolvedPolicy | None":
+    """Stamp the datasets' declared value range onto the resolved policy.
+
+    Authored on the dataset because it describes the imagery, carried on the policy because
+    it changes the injected values and therefore the codes.  This is also what puts it in
+    ``policy_key``, without which two runs over different ranges would share one metadata
+    archive holding different numbers.
+
+    Raises
+    ------
+    ValueError
+        When two datasets in one workflow declare different ranges.  Statistics compared
+        across incompatible pixel scales are not comparable, and refusing here costs a
+        config error rather than an hour of walking images.
+    """
+    from dataclasses import replace
+
+    declared = sorted({value for value in ranges if value is not None})
+    if len(declared) > 1:
+        raise ValueError(
+            f"Workflow {workflow_name!r} reads datasets declaring different `value_range`s "
+            f"({declared[0]} and {declared[1]}). Statistics measured on different pixel "
+            "scales are not comparable, so there is no right answer to pick — give the "
+            "datasets one range, or run them as separate workflows.",
+        )
+    if not declared or policy is None:
+        return policy
+    return replace(policy, value_range=declared[0])
+
+
 E = TypeVar("E", bound=BaseModel)
 
 
@@ -222,6 +256,7 @@ def _run_single_task(
             view_operations=view_operations,
             batch_size=batch_size,
             label_source=resolved.label_source,
+            value_range=getattr(ds_config, "value_range", None),
             cache=ds_cache,
         )
 
@@ -238,6 +273,14 @@ def _run_single_task(
     #    factor or a descriptor that does not exist costs a config error rather than an
     #    hour of walking images.  Workflows that read no metadata simply carry None.
     policy = _resolve_metadata_policy(instance, config, data_dir)
+
+    # Before anything reads the dataset: the range is what the injected statistics are
+    # measured against, and a disagreement between datasets has no sound resolution.
+    policy = _apply_dataset_value_range(
+        policy,
+        [ctx.value_range for ctx in dataset_contexts.values()],
+        instance.name,
+    )
 
     # 6. Build WorkflowContext
     context = WorkflowContext(

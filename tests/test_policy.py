@@ -402,3 +402,23 @@ class TestIntrinsicFactors:
         config = _config(intrinsic_factors=["nonsense"])
         with pytest.raises(ValueError, match="nonsense"):
             resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+
+    def test_key_is_case_insensitive(self):
+        lower = ResolvedPolicy(intrinsic_factors=("visual",))
+        upper = ResolvedPolicy(intrinsic_factors=("VISUAL",))
+        assert policy_key(lower) == policy_key(upper)
+
+
+class TestValueRangeOnThePolicy:
+    """Authored on the dataset, carried on the policy, because it changes the codes."""
+
+    def test_defaults_to_none(self):
+        assert ResolvedPolicy().value_range is None
+
+    def test_keys_the_policy(self):
+        assert policy_key(ResolvedPolicy()) != policy_key(ResolvedPolicy(value_range=(0.0, 1.0)))
+
+    def test_different_ranges_key_differently(self):
+        first = ResolvedPolicy(value_range=(0.0, 1.0))
+        second = ResolvedPolicy(value_range=(0.0, 255.0))
+        assert policy_key(first) != policy_key(second)

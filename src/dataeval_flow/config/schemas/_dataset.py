@@ -2,7 +2,7 @@
 
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dataeval_flow.config._paths import validate_config_path
 
@@ -15,6 +15,18 @@ class _DatasetConfigBase(BaseModel):
     format: Any
     name: str
     path: str
+    value_range: tuple[float, float] | None = Field(
+        default=None,
+        description=(
+            "Interval this dataset's imagery occupies, as (low, high). Integer encodings "
+            "state their own range; float data does not, and the statistics that need one "
+            "answer NaN without it — the whole visual family, pixel histogram and entropy, "
+            "and dimension depth. A description of the data rather than a decision about "
+            "it, which is why it lives here and not under `metadata:`, and why every "
+            "workflow reading this dataset gets the same one. Leave unset for integer "
+            "imagery."
+        ),
+    )
 
     @field_validator("path")
     @classmethod

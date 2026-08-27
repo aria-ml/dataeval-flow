@@ -77,6 +77,13 @@ class ResolvedPolicy:
     intrinsic_factors: tuple[str, ...] = ()
     """Statistic families injected as factors.  Keys the metadata cache: it changes the
     factor set, so a run with injection on must not be served an entry built without it."""
+    value_range: tuple[float, float] | None = None
+    """The interval the imagery occupies, taken from the dataset config by the orchestrator.
+
+    Authored on the dataset rather than here — it describes the data instead of deciding
+    anything about it — but carried on the policy because it changes the injected values
+    and therefore the codes, which is what ``policy_key`` is a rendering of.
+    """
 
     def metadata_kwargs(self, *, for_load: bool = False) -> dict[str, Any]:
         """What to hand :class:`dataeval.Metadata`, omitting anything left unset.
@@ -136,7 +143,8 @@ def policy_key(policy: ResolvedPolicy) -> str:
             "encoding": policy.encoding,
             "factor_levels": {name: list(levels) for name, levels in (policy.factor_levels or {}).items()},
             "strict": policy.strict,
-            "intrinsic_factors": sorted(policy.intrinsic_factors),
+            "intrinsic_factors": sorted(family.lower() for family in policy.intrinsic_factors),
+            "value_range": list(policy.value_range) if policy.value_range else None,
         },
         sort_keys=True,
         default=str,
