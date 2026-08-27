@@ -11,6 +11,7 @@ from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import ValidationError
 
 from dataeval_flow.config.schemas import ViewOperation
+from dataeval_flow.metadata import inject_intrinsic_factors
 from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.analysis.outputs import (
     BiasResult,
@@ -51,7 +52,6 @@ from dataeval_flow.workflows.analysis.workflow import (
     _finding_label_parity,
     _finding_leakage,
     _finding_redundancy,
-    _inject_image_stats,
     _labels_from_counts,
     _to_serializable,
 )
@@ -733,7 +733,7 @@ class TestHealthThresholds:
 
 
 # ===========================================================================
-# _inject_image_stats
+# inject_intrinsic_factors
 # ===========================================================================
 
 
@@ -749,7 +749,7 @@ class TestInjectImageStats:
         calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0])})
         calc_result["source_index"] = ["si0", "si1", "si2"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result)
+        inject_intrinsic_factors(metadata, calc_result)
 
         metadata.add_factors.assert_called_once()
         _, kwargs = metadata.add_factors.call_args
@@ -772,7 +772,7 @@ class TestInjectImageStats:
         )
         calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result)
+        inject_intrinsic_factors(metadata, calc_result)
 
         factors, _ = metadata.add_factors.call_args
         assert set(factors[0]) == {"brightness"}
@@ -787,7 +787,7 @@ class TestInjectImageStats:
         calc_result = _make_cr(stats={"histogram": np.array([[1, 2], [3, 4]])})
         calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result)
+        inject_intrinsic_factors(metadata, calc_result)
 
         factors, _ = metadata.add_factors.call_args
         assert "histogram" in factors[0]
@@ -798,7 +798,7 @@ class TestInjectImageStats:
         calc_result = _make_cr(stats={"invalid_box": np.array([True, False])})
         calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result)
+        inject_intrinsic_factors(metadata, calc_result)
 
         factors, _ = metadata.add_factors.call_args
         assert "invalid_box" in factors[0]
@@ -808,8 +808,11 @@ class TestInjectImageStats:
         calc_result = _make_cr(stats={"xxhash": np.array(["a", "b"])})
         calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
 
-        _inject_image_stats(metadata, calc_result)
+        produced = inject_intrinsic_factors(metadata, calc_result)
         metadata.add_factors.assert_not_called()
+        # The early return is unconditional here — no mock configuration needed
+        # to make this assertion meaningful.
+        assert produced == set()
 
 
 class TestInjectImageStatsRoundTrip:
@@ -830,11 +833,12 @@ class TestInjectImageStatsRoundTrip:
             normalize_pixel_values=False,
         )
 
-        _inject_image_stats(metadata, calc_result)
+        produced = inject_intrinsic_factors(metadata, calc_result)
 
         # One factor per level, each named for the level it was measured at.
         assert "unit_brightness" in metadata.factor_names
         assert "instance_brightness" in metadata.factor_names
+        assert produced == {"unit_brightness", "instance_brightness"}
 
         info = metadata.factor_info
         assert info["unit_brightness"].level == "unit"
@@ -859,7 +863,7 @@ class TestInjectImageStatsRoundTrip:
             per_target=True,
             normalize_pixel_values=False,
         )
-        _inject_image_stats(metadata, calc_result)
+        inject_intrinsic_factors(metadata, calc_result)
 
         unit_rows = metadata.rows_at("unit")
         instance_rows = metadata.rows_at("instance")
@@ -886,9 +890,12 @@ class TestInjectImageStatsRoundTrip:
             normalize_pixel_values=False,
         )
 
-        _inject_image_stats(metadata, calc_result)
+        produced = inject_intrinsic_factors(metadata, calc_result)
 
         assert not [n for n in metadata.factor_names if "hash" in n]
+        # The returned set is what the caller trusts to find the new columns —
+        # confirm no hash name is hiding in it either.
+        assert produced == {"unit_brightness", "instance_brightness"}
 
     def test_vector_stats_reach_the_summary_as_dropped(self):
         """End to end: a vector stat is recorded and surfaces in the summary."""
@@ -906,11 +913,14 @@ class TestInjectImageStatsRoundTrip:
             normalize_pixel_values=False,
         )
 
-        _inject_image_stats(metadata, calc_result)
+        produced = inject_intrinsic_factors(metadata, calc_result)
 
         assert "center" in metadata.dropped_factors
         summary = _compute_metadata_summary(metadata)
         assert summary["center"]["type"] == "dropped"
+        # Dropped, not added: nothing reached factor_names, so the returned
+        # set — which diffs factor_names before/after — is empty.
+        assert produced == set()
 
 
 # ===========================================================================
@@ -1121,33 +1131,6 @@ class TestComputeSplitData:
         params = _make_params()
         result = _compute_split_data(dataset, params=params, extractor=extractor, split_name="train")
         assert result.embeddings is not None
-
-    @patch(f"{_WF}._inject_image_stats")
-    @patch(f"{_WF}.label_stats")
-    @patch(f"{_WF}.get_or_compute_stats")
-    @patch(f"{_WF}.get_or_compute_metadata")
-    def test_include_image_stats_calls_inject(
-        self,
-        mock_get_meta,
-        mock_get_stats,
-        mock_ls,
-        mock_inject,
-    ):
-        dataset = MagicMock()
-        dataset.__len__ = MagicMock(return_value=5)
-        dataset.metadata = {"index2label": {}}
-
-        mock_meta = MagicMock()
-        mock_meta.multi_target = False
-        mock_meta.class_labels = np.array([0])
-        mock_meta.item_indices = np.array([0])
-        mock_get_meta.return_value = mock_meta
-        mock_get_stats.return_value = _mock_calc_result(5)
-        mock_ls.return_value = _mock_label_stats()
-
-        params = _make_params(include_image_stats=True)
-        _compute_split_data(dataset, params=params, split_name="train")
-        mock_inject.assert_called_once()
 
 
 # ===========================================================================
