@@ -96,7 +96,12 @@ class DataAnalysisParameters(WorkflowParametersBase, MetadataConfigMixin, StatsC
     )
     include_image_stats: bool = Field(
         default=False,
-        description="Compute ImageStats and inject as metadata factors for bias analysis",
+        deprecated=(
+            "Superseded by the metadata policy's `intrinsic_factors`, which every workflow "
+            "sharing that policy reads. `true` is equivalent to "
+            "`intrinsic_factors: [visual, pixel]`. Removed in the next minor version."
+        ),
+        description="Deprecated. Use the metadata policy's `intrinsic_factors` instead.",
     )
 
     # --- Cross-split divergence ---

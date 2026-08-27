@@ -7,6 +7,7 @@ asked.  Catching them at config time costs a message instead of an hour.
 """
 
 import json
+import warnings
 from pathlib import Path
 
 import pytest
@@ -505,3 +506,44 @@ class TestValueRangeOnThePolicy:
         first = ResolvedPolicy(value_range=(0.0, 1.0))
         second = ResolvedPolicy(value_range=(0.0, 255.0))
         assert policy_key(first) != policy_key(second)
+
+
+class TestDeprecatedIncludeImageStats:
+    """The old spelling keeps working for one minor version, and says so."""
+
+    @staticmethod
+    def _params(**overrides):
+        """The analysis params, which are where `include_image_stats` actually lives.
+
+        `MetadataConfigMixin` cannot carry it — pydantic refuses an undeclared attribute —
+        and `DataAnalysisParameters` is a `MetadataConfigMixin`, so `resolve_policy` takes
+        it unchanged.
+        """
+        from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
+
+        base = {"outlier_method": "adaptive", "outlier_flags": ["pixel"]}
+        base.update(overrides)
+        return DataAnalysisParameters(**base)
+
+    def test_true_contributes_visual_and_pixel(self):
+        with pytest.warns(DeprecationWarning, match="intrinsic_factors"):
+            resolved = resolve_policy(self._params(include_image_stats=True))
+        assert resolved.intrinsic_factors == ("visual", "pixel")
+
+    def test_false_contributes_nothing_and_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert resolve_policy(self._params(include_image_stats=False)).intrinsic_factors == ()
+
+    def test_set_alongside_a_disagreeing_policy_is_an_error(self):
+        config = _config(intrinsic_factors=["dimension"])
+        params = self._params(metadata="standard", include_image_stats=True)
+        with pytest.raises(ValueError, match="include_image_stats"):
+            resolve_policy(params, config)
+
+    def test_the_field_is_marked_deprecated_for_config_authors(self):
+        """The schema marker is what reaches docs and editors; it must not be dropped."""
+        from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
+
+        schema = DataAnalysisParameters.model_json_schema()
+        assert schema["properties"]["include_image_stats"].get("deprecated") is True

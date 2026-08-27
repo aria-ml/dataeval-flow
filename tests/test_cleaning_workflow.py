@@ -1315,3 +1315,33 @@ class TestValueRangeComesFromTheDataset:
 
         assert seen, "no stats pass ran"
         assert all(entry == (0.0, 1.0) for entry in seen), seen
+
+
+class TestTheDeprecatedRangeIsQuietWhenUnused:
+    """Deprecation belongs to what the user wrote, not to what the framework reads.
+
+    `Field(deprecated=...)` warns on every attribute read, so a plain `getattr` inside
+    `effective_value_range` would scold a user who did exactly the right thing — declared
+    the range on the dataset and never touched the param.
+    """
+
+    def test_reading_it_does_not_warn_when_the_user_never_set_it(self):
+        import warnings
+
+        from dataeval_flow.workflow.base import effective_value_range
+
+        dc = DatasetContext(name="default", dataset=MagicMock(), value_range=(0.0, 1.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert effective_value_range(dc, _make_params()) == (0.0, 1.0)
+
+    def test_the_param_still_wins_when_the_dataset_declares_nothing(self):
+        from dataeval_flow.workflow.base import effective_value_range
+
+        dc = DatasetContext(name="default", dataset=MagicMock())
+        assert effective_value_range(dc, _make_params(value_range=(0.0, 255.0))) == (0.0, 255.0)
+
+    def test_the_field_is_marked_deprecated_for_config_authors(self):
+        """The schema marker is what reaches docs and editors; it must not be dropped."""
+        schema = DataCleaningParameters.model_json_schema()
+        assert schema["properties"]["value_range"].get("deprecated") is True
