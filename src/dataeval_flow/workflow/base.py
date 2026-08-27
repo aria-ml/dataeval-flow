@@ -15,6 +15,7 @@ __all__ = [
     "WorkflowParametersBase",
     "WorkflowReportBase",
     "effective_value_range",
+    "raw_field",
 ]
 
 
@@ -64,6 +65,10 @@ class StatsConfigMixin(BaseModel):
 
     value_range: tuple[float, float] | None = Field(
         default=None,
+        deprecated=(
+            "Superseded by `value_range` on the dataset, which every workflow reading that "
+            "dataset shares. Removed in the next minor version."
+        ),
         description=(
             "Interval the image data occupies, as (low, high). Integer encodings state "
             "their own range; float data does not, and the statistics that need one "
@@ -71,6 +76,21 @@ class StatsConfigMixin(BaseModel):
             "entropy, and dimension depth. Leave unset for integer imagery."
         ),
     )
+
+
+def raw_field(params: Any, name: str, default: Any = None) -> Any:
+    """A params field's stored value, without tripping pydantic's deprecation descriptor.
+
+    ``Field(deprecated=...)`` warns on every attribute read, the framework's own included,
+    so a plain ``getattr`` here would scold a user who did exactly the right thing —
+    declared the value on the dataset or the policy and never touched the deprecated
+    param. Deprecation belongs to what the user wrote; the instance dict is what they
+    wrote, and the warning is raised where the value is actually honoured.
+    """
+    stored = getattr(params, "__dict__", None)
+    if stored is not None and name in stored:
+        return stored[name]
+    return getattr(params, name, default)
 
 
 def effective_value_range(
@@ -91,7 +111,7 @@ def effective_value_range(
         stating different facts about the same imagery.
     """
     from_dataset = getattr(dataset_context, "value_range", None)
-    from_params = getattr(params, "value_range", None)
+    from_params = raw_field(params, "value_range")
     if from_dataset is not None and from_params is not None and tuple(from_dataset) != tuple(from_params):
         raise ValueError(
             f"The dataset declares value_range={tuple(from_dataset)} and this workflow's "

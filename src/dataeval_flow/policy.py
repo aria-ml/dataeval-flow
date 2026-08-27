@@ -17,11 +17,14 @@ __all__ = ["ResolvedPolicy", "policy_for", "policy_key", "resolve_policy"]
 
 import json
 import logging
+import warnings
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from dataeval_flow.workflow.base import raw_field
 
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
@@ -294,6 +297,17 @@ def _named_policy(params: "MetadataConfigMixin", name: str, config: "PipelineCon
     return _resolve_by_name(config.metadata, name, "metadata policy")
 
 
+def _warn_deprecated_include_image_stats() -> None:
+    """Name the field that replaces the flag, not just the fact that it is going away."""
+    warnings.warn(
+        "`include_image_stats` is deprecated and will be removed in the next minor "
+        "version. Declare `intrinsic_factors: [visual, pixel]` on the metadata policy "
+        "instead, where every workflow sharing that policy can see it.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 def _is_set(params: "MetadataConfigMixin", name: str) -> bool:
     """Whether a legacy field carries something, treating an empty list as unset."""
     value = getattr(params, name, None)
@@ -360,6 +374,22 @@ def resolve_policy(
         resolved_path = resolve_path(descriptor_path, data_dir)
         factors = _read_descriptor(resolved_path, source)
         _logger.info("Applying encoding descriptor %s (%d factors)", descriptor_path, len(factors))
+
+    # The legacy flag, folded in before the families are validated so that both spellings
+    # meet the same check. Read out of the instance dict rather than off the attribute:
+    # the field is marked deprecated, and pydantic warns on every read including this one,
+    # which would scold every caller rather than the ones that set it.
+    if raw_field(params, "include_image_stats", False):
+        legacy = ("visual", "pixel")
+        if intrinsic_factors and tuple(intrinsic_factors) != legacy:
+            raise ValueError(
+                f"{source} declares intrinsic_factors={list(intrinsic_factors)} and this "
+                "workflow also sets `include_image_stats: true`, which means "
+                f"{list(legacy)}. They are two spellings of one decision and they disagree "
+                "— drop `include_image_stats` and keep the policy field.",
+            )
+        _warn_deprecated_include_image_stats()
+        intrinsic_factors = legacy
 
     # Resolved before the double-declaration check, not after: that check needs to know
     # which bare names injection could actually turn into a level-prefixed descriptor
