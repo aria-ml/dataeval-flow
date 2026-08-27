@@ -1,5 +1,7 @@
 """Family resolution and bin expansion — the pure half of intrinsic factor injection."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 from dataeval.flags import ImageStats
@@ -177,6 +179,35 @@ class _ODDataset:
         return image, target, {"id": index, "weather": ["sun", "rain"][index % 2]}
 
 
+class _WideRangeDataset:
+    """Classification with float values outside any range dataeval can infer.
+
+    Spans ``[0, 4000]`` rather than ``[0, 1]`` or ``[0, 255]``, so a ``VISUAL`` statistic
+    needs the policy's declared ``value_range`` to mean anything — without it, dataeval
+    cannot decode a bit depth and reports NaN. ``_ICDataset``'s values sit inside the
+    ``[0, 1]`` convention dataeval infers on its own, so it cannot tell whether
+    ``value_range`` was actually threaded through to ``compute_stats`` or silently dropped:
+    both give the same answer. This fixture makes the wire observable.
+    """
+
+    def __init__(self, n: int = 40) -> None:
+        self._n = n
+        self._rng = np.random.default_rng(2)
+
+    @property
+    def metadata(self) -> dict:
+        return {"id": "inject-wide", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, index: int):
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        image = (self._rng.random((3, 16, 16)) * 4000.0).astype(np.float32)
+        return image, one_hot, {"id": index, "weather": ["sun", "rain"][index % 2]}
+
+
 class TestBuildMetadataInjects:
     """The capability reaches every caller of build_metadata, or it reaches none."""
 
@@ -233,3 +264,29 @@ class TestBuildMetadataInjects:
         )
         metadata = build_metadata(_ODDataset(), policy)
         assert metadata.continuous_factor_bins == {"brightnes": 4}
+
+    def test_declared_value_range_reaches_compute_stats(self):
+        """``value_range`` must actually reach ``compute_stats``, not just sit on the policy.
+
+        ``_WideRangeDataset``'s values fall outside any range dataeval can infer on its own,
+        so a ``VISUAL`` statistic comes back NaN unless the declared ``value_range`` is the
+        one ``compute_stats`` actually receives.
+        """
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 4000.0))
+        metadata = build_metadata(_WideRangeDataset(), policy)
+        brightness = metadata.dataframe["brightness"].to_numpy()
+        assert not np.isnan(brightness).any()
+
+    def test_per_target_is_false_on_classification_data(self):
+        """``per_target`` must come from ``metadata.multi_target``, not be hardcoded.
+
+        Classification data has no boxes, so ``compute_stats``' own output cannot tell
+        ``per_target=True`` from ``per_target=False`` apart on it — spying on the call is
+        what actually pins the wire.
+        """
+        from dataeval_flow.cache import get_or_compute_stats as real_get_or_compute_stats
+
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 1.0))
+        with patch("dataeval_flow.cache.get_or_compute_stats", wraps=real_get_or_compute_stats) as mock_stats:
+            build_metadata(_ICDataset(), policy)
+        assert mock_stats.call_args.kwargs["per_target"] is False

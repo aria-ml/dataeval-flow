@@ -40,6 +40,13 @@ _LEGACY_FIELDS: tuple[str, ...] = (
     "metadata_factor_source",
 )
 
+# dataeval's row levels: the prefixes a level-split statistic's name can carry (see
+# metadata.expand_declared_bins, which is what actually produces a name like
+# `unit_brightness` from a bare `brightness` declaration). Static rather than read off the
+# dataset, because this check runs before the dataset is walked and must not need to know
+# whether the data is IC or OD to catch the collision.
+_ROW_LEVELS: tuple[str, ...] = ("sequence", "unit", "track", "instance")
+
 
 @dataclass(frozen=True)
 class ResolvedPolicy:
@@ -185,6 +192,16 @@ def _check_no_double_declaration(
     dataset has been walked, which is the cost this check exists to convert into a config
     error.  ``encoding`` × ``continuous_factor_bins`` is a cut declared twice;
     ``factor_levels`` against either is a vocabulary declared twice.
+
+    ``encoding`` × ``continuous_factor_bins`` is also checked one spelling down: a
+    descriptor factor named ``<level>_<name>`` — what a statistic measured at more than one
+    row level is recorded as — collides with a bare ``continuous_factor_bins`` declaration
+    of ``<name>``, because injection's ``expand_declared_bins`` carries that bare
+    declaration onto the level-prefixed name before it reaches ``Metadata``.  Left
+    unchecked, the bare declaration would silently overwrite the descriptor's committed
+    record with a draw-derived cut — this module's whole premise is that two sources
+    disagreeing about one factor has no good resolution, so this is refused exactly like
+    the exact-name collision above rather than picking a side.
     """
     channels = (
         ("encoding", factors),
@@ -198,6 +215,20 @@ def _check_no_double_declaration(
                 "Two sources disagreeing about one factor has no good resolution — drop it "
                 "from one of them.",
             )
+
+    prefixed = sorted(
+        (name, f"{level}_{name}") for name in bins for level in _ROW_LEVELS if f"{level}_{name}" in factors
+    )
+    if prefixed:
+        both = sorted({spelling for pair in prefixed for spelling in pair})
+        raise ValueError(
+            f"{source} declares {both} through both `encoding` and `continuous_factor_bins`. "
+            "`continuous_factor_bins` expands a bare declaration onto every row level it "
+            "could apply to, so a level-prefixed name in `encoding` and its bare form in "
+            "`continuous_factor_bins` are the same factor declared twice. Two sources "
+            "disagreeing about one factor has no good resolution — drop it from one of "
+            "them.",
+        )
 
 
 def _check_strict_is_earned(
