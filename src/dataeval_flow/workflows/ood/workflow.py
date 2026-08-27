@@ -25,6 +25,7 @@ from dataeval_flow.cache import (
 )
 from dataeval_flow.policy import policy_for, resolve_policy
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
+from dataeval_flow.workflow.base import effective_value_range
 from dataeval_flow.workflows.ood.outputs import (
     DetectorOODResultDict,
     FactorDeviationDict,
@@ -427,6 +428,7 @@ def _collect_numeric_factors(
     params: OODDetectionParameters,
     binning_sink: dict[str, Any] | None = None,
     policy: ResolvedPolicy | None = None,
+    value_range: tuple[float, float] | None = None,
 ) -> tuple[dict[str, NDArray[Any]], dict[str, NDArray[Any]]] | None:
     """Collect and intersect numeric metadata + stats factors from reference and test datasets.
 
@@ -438,11 +440,11 @@ def _collect_numeric_factors(
     *None* when no usable numeric factors are available.
     """
     # --- Stats factors (always available) ---
-    ref_stats = _extract_stats_factors(ref_dc, ref_dataset, params.value_range)
+    ref_stats = _extract_stats_factors(ref_dc, ref_dataset, value_range)
 
     test_stats_parts: list[dict[str, NDArray[Any]]] = []
     for _, t_dc, t_ds in test_datasets:
-        t_stats = _extract_stats_factors(t_dc, t_ds, params.value_range)
+        t_stats = _extract_stats_factors(t_dc, t_ds, value_range)
         if t_stats is not None:
             test_stats_parts.append(t_stats)
 
@@ -484,6 +486,7 @@ def _compute_metadata_insights(
     max_insights: int,
     params: OODDetectionParameters,
     policy: ResolvedPolicy | None = None,
+    value_range: tuple[float, float] | None = None,
 ) -> tuple[list[FactorDeviationDict] | None, dict[str, float] | None, dict[str, Any] | None]:
     """Compute factor_deviation, factor_predictors, and the binning record."""
     if not ood_indices:
@@ -493,7 +496,7 @@ def _compute_metadata_insights(
     t0 = _time.monotonic()
 
     binning: dict[str, Any] = {}
-    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params, binning, policy)
+    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params, binning, policy, value_range)
     if collected is None:
         return None, None, binning or None
     ref_factors_common, test_factors_common = collected
@@ -619,6 +622,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
 
         # --- 2. Prepare datasets ---
         ref_dc, ref_dataset, test_datasets = self._prepare_datasets(dc_items)
+        value_range = effective_value_range(ref_dc, params)
 
         # --- 3. Extract embeddings ---
         ref_embeddings, test_embeddings = self._extract_all_embeddings(ref_dc, ref_dataset, test_datasets)
@@ -649,6 +653,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
                 params.max_ood_insights,
                 params,
                 policy_for(context, params),
+                value_range,
             )
 
         # --- 7. Build outputs ---

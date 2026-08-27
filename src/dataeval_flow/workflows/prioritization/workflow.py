@@ -24,6 +24,7 @@ from dataeval_flow.cache import (
 )
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
+from dataeval_flow.workflow.base import effective_value_range
 from dataeval_flow.workflows.prioritization.outputs import (
     CleaningSummaryDict,
     DataPrioritizationMetadata,
@@ -377,7 +378,7 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
 
         if params.cleaning is not None:
             per_source_flagged, cleaning_summary = _run_cleaning(
-                params.cleaning, ref_dc, ref_dataset, add_datasets, params.value_range
+                params.cleaning, ref_dc, ref_dataset, add_datasets, effective_value_range(ref_dc, params)
             )
             total_removed = cleaning_summary["total_removed"]
 
