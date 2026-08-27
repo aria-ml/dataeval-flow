@@ -191,6 +191,31 @@ class TestDoubleDeclaration:
         with pytest.raises(ValueError, match="both `continuous_factor_bins` and `factor_levels`"):
             resolve_policy(MetadataConfigMixin(metadata="standard"), config)
 
+    def test_encoding_and_bins_conflict_through_a_level_prefix(self, tmp_path: Path):
+        """The same collision, spelled the way injection actually produces it.
+
+        A committed `unit_brightness` record and a bare `continuous_factor_bins:
+        {"brightness": ...}` look unrelated by name, but `expand_declared_bins` carries the
+        bare declaration onto the level-prefixed name before `Metadata` sees it — so this is
+        the same factor declared twice, not two different ones, and must be refused exactly
+        like the exact-name collision above rather than letting the bare declaration
+        silently overwrite the committed record.
+        """
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(encoding="policy.json", continuous_factor_bins={"brightness": 4})
+        with pytest.raises(ValueError, match="both `encoding` and `continuous_factor_bins`") as exc:
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        message = str(exc.value)
+        assert "brightness" in message
+        assert "unit_brightness" in message
+
+    def test_a_level_prefixed_descriptor_factor_with_no_bare_match_is_not_a_conflict(self, tmp_path: Path):
+        """The prefix check is scoped to an actual collision, not any level-prefixed name."""
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(encoding="policy.json", continuous_factor_bins={"contrast": 4})
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"contrast": 4}
+
 
 class TestPolicyKey:
     """The key decides which cache entry a run gets, so equal policies must key equally."""
