@@ -2030,3 +2030,31 @@ class TestOnePolicyPerRun:
 
         assert follower.encoding("elevation").edges == train.encoding("elevation").edges
         assert independent.encoding("elevation").edges != train.encoding("elevation").edges
+
+
+class TestValueRangeComesFromTheDataset:
+    """Each split measures against its own dataset's range; the param is deprecated."""
+
+    @patch(f"{_WF}._assess_bias")
+    @patch(f"{_WF}._assess_label_health")
+    @patch(f"{_WF}._assess_redundancy")
+    @patch(f"{_WF}._assess_image_quality")
+    @patch(f"{_WF}._compute_split_data")
+    def test_the_dataset_range_reaches_compute_split_data(self, mock_compute, mock_iq, mock_rd, mock_lh, mock_bias):
+        mock_compute.return_value = MagicMock(dataset_len=50)
+        mock_iq.return_value = _make_image_quality()
+        mock_rd.return_value = _make_redundancy()
+        mock_lh.return_value = _make_label_health()
+        mock_bias.return_value = _make_bias()
+
+        ds = MagicMock()
+        ds.__len__ = MagicMock(return_value=50)
+        ctx = WorkflowContext(
+            dataset_contexts={"train": DatasetContext(name="train", dataset=ds, value_range=(0.0, 1.0))}
+        )
+
+        # `_make_params()` declares no range, so a revert to `params.value_range` reads None.
+        result = DataAnalysisWorkflow().execute(ctx, _make_params())
+
+        assert result.success is True
+        assert mock_compute.call_args.kwargs["value_range"] == (0.0, 1.0)

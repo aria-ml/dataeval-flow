@@ -1187,3 +1187,46 @@ class TestOODRecordsItsEncoding:
             params, embeddings, embeddings, {}, {}, [], [], None, None, None
         )
         assert result.metadata.encoding_digest is None
+
+
+class TestValueRangeComesFromTheDataset:
+    """The reference dataset's declared range, not the deprecated workflow param.
+
+    ``_run`` resolves the range once and threads it down; nothing below that seam knows
+    where it came from, so this is the only place a revert to ``params.value_range``
+    would show up.
+    """
+
+    def test_the_dataset_range_reaches_metadata_insights(self):
+        wf = OODDetectionWorkflow()
+        ref_ds = MagicMock(__len__=MagicMock(return_value=50))
+        test_ds = MagicMock(__len__=MagicMock(return_value=50))
+        ref_dc = DatasetContext(name="ref", dataset=ref_ds, value_range=(0.0, 1.0))
+        test_dc = DatasetContext(name="test", dataset=test_ds, value_range=(0.0, 1.0))
+        ctx = WorkflowContext(dataset_contexts={"ref": ref_dc, "test": test_dc})
+
+        # One OOD sample, so the insights branch runs at all.
+        is_ood = np.zeros(50, dtype=bool)
+        is_ood[3] = True
+
+        with (
+            patch.object(
+                wf,
+                "_extract_all_embeddings",
+                return_value=(_make_embeddings(50), _make_embeddings(50, seed=1)),
+            ),
+            patch(
+                "dataeval_flow.workflows.ood.workflow._run_all_ood_detectors",
+                return_value=({}, {}, [], [is_ood]),
+            ),
+            patch(
+                "dataeval_flow.workflows.ood.workflow._compute_metadata_insights",
+                return_value=(None, None, None),
+            ) as mock_insights,
+        ):
+            result = wf.execute(ctx, _make_params())
+
+        assert result.success
+        mock_insights.assert_called_once()
+        *_, passed_value_range = mock_insights.call_args.args
+        assert passed_value_range == (0.0, 1.0)
