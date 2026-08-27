@@ -1129,6 +1129,17 @@ class DatasetCache:
             )
             return None
 
+        if policy.intrinsic_factors and policy.continuous_factor_bins:
+            # The archive persists its injected factors, but `load` is handed the policy's
+            # *declared* bins and merges them with the archive's own — leaving the bare
+            # `brightness` beside `unit_brightness`, which reads as an unmatched request on
+            # every run after the first.  Re-deriving is what makes hit and miss agree.
+            from dataeval_flow.metadata import expand_declared_bins
+
+            meta.continuous_factor_bins = expand_declared_bins(
+                policy.continuous_factor_bins, meta.factor_names, meta.levels
+            )
+
         _logger.info("Cache hit: metadata for %s/%s", self._dataset_name, selection_repr)
         self._mem_set(selection_repr, obj_key, meta)
         return meta
