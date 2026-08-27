@@ -1,14 +1,10 @@
 # JATIC Compliant GitLab CI/CD Pipeline
 # Reference: docs/design/JATIC project software requirements.md
-
-# Auto-cancel stale pipelines when new commits are pushed to MRs
-# https://gitlab.jatic.net/help/ci/yaml/index.md#workflowauto_cancelon_new_commit
-workflow:
-  auto_cancel:
-    on_new_commit: interruptible
-
-default:
-  interruptible: true
+#
+# The uv/nox gates, the interpreter matrix, coverage aggregation and the security
+# scans come from jatic/aria/ci. What stays here is what is specific to this
+# project: the docs and Pages pipeline, the container build/sign/scan/promote
+# chain, the install-validation matrix, and the meta repo publish.
 
 stages:
   - lint
@@ -17,12 +13,124 @@ stages:
   - publish
   - release
 
-# GitLab Security Templates [DSOR-1 to DSOR-5]
+# Shared components [jatic/aria/ci] and GitLab Security Templates [DSOR-1 to DSOR-5]
 include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - component: gitlab.jatic.net/jatic/aria/ci/workflow-rules@0.8.0
+
+  # git_depth 0 on every job that installs the project: `uv sync` runs hatch-vcs,
+  # which derives __version__ via `git describe` and needs the tagged commit in
+  # history. The runner fetches tags at any depth, so depth alone is enough.
+  - component: gitlab.jatic.net/jatic/aria/ci/uv-nox@0.8.0
+    inputs:
+      job_name: lint
+      session: lint
+      stage: lint
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+
+  # Type check is an explicit, visible job in the pipeline, not hidden in lint
+  # [TR-7-H-1, TR-7-H-2].
+  - component: gitlab.jatic.net/jatic/aria/ci/uv-nox@0.8.0
+    inputs:
+      job_name: type-check
+      session: type
+      stage: lint
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+
+  # Ensures config/params.schema.json is up to date.
+  - component: gitlab.jatic.net/jatic/aria/ci/uv-nox@0.8.0
+    inputs:
+      job_name: schema
+      session: schema
+      stage: lint
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+
+  # [TR-1-H-4] Python 3.10 - 3.14.
+  - component: gitlab.jatic.net/jatic/aria/ci/python-matrix@0.8.0
+    inputs:
+      job_name: test
+      session: test
+      stage: test
+      python_versions: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+      # The noxfile asks its own interpreter for the version rather than reading
+      # it off the session name, so -P would add nothing.
+      pin_interpreter: false
+      # Directory form (not `output/*`) so the dotted coverage data files
+      # (output/.coverage.3.11) survive into the `coverage` job.
+      artifact_paths: ["output/"]
+      junit_report: output/junit.*.xml
+
+  # Requirements verification suite (FR/NFR compliance) — runs separately from
+  # unit tests, with its own JUnit report and no coverage gate.
+  - component: gitlab.jatic.net/jatic/aria/ci/python-matrix@0.8.0
+    inputs:
+      job_name: verify
+      session: verify
+      stage: test
+      python_versions: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+      pin_interpreter: false
+      # Rendered test cases + VCRM. Not pushed anywhere from here — downloadable
+      # on the MR so meta repo changes are reviewable before a release publishes.
+      artifact_paths: ["output/verification_report.json", "output/metarepo/"]
+      junit_report: output/verify.xml
+
+  # Minimum-dependencies + no-optional-extras smoke test
+  # [TR-1-H-4, TR-2-H-3, TR-2-H-5, TR-8-H-1]. The session pins Python to the
+  # minimum supported version itself; the image matches so uv has nothing to
+  # download.
+  - component: gitlab.jatic.net/jatic/aria/ci/uv-nox@0.8.0
+    inputs:
+      job_name: deps
+      session: deps
+      stage: test
+      image: ghcr.io/astral-sh/uv:python3.10-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+
+  # Validates uv.lock is up to date with pyproject.toml [SR-3-H-2..5].
+  # Rules are overridden at the bottom of this file onto .rules_main_mr_deps.
+  - component: gitlab.jatic.net/jatic/aria/ci/uv-nox@0.8.0
+    inputs:
+      job_name: install:lock
+      session: check
+      stage: test
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+      apt_packages: git
+      git_depth: "0"
+
+  # Merges the per-interpreter coverage data files from the test matrix into one
+  # report and gates the union at the 90% group guideline. htmlcov/ is what the
+  # `pages coverage` job publishes.
+  - component: gitlab.jatic.net/jatic/aria/ci/coverage@0.8.0
+    inputs:
+      stage: publish
+      needs_job: test
+      python_image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+
+  # SAST, dependency scanning, secret detection and the syft SBOM export
+  # [DSOR-1 to DSOR-5]. eslint is excluded here — the component leaves it on by
+  # default for projects with a JavaScript frontend, which this is not.
+  - component: gitlab.jatic.net/jatic/aria/ci/python-security@0.8.0
+    inputs:
+      stage: security
+      sast_excluded_paths: "config, docker, docs, output, tests"
+      sast_excluded_analyzers: "eslint,gosec,kubesec,nodejs-scan,phpcs-security-audit,pmd-apex,security-code-scan,sobelow,spotbugs"
+      emit_sbom: true
+
+  # Container scanning is not part of python-security — it belongs with the
+  # container build, which has not been extracted yet [DSOR-3-H-1, CS-2-H-2].
   - template: Security/Container-Scanning.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
 
 variables:
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
@@ -48,7 +156,9 @@ variables:
 # Shared Templates
 # -----------------------------------------------------------------------------
 
-# Base template for all uv/nox jobs
+# uv/nox base for the jobs that are still defined here: the docs builds and the
+# meta repo publish. The lint, type, schema, test, verify, deps and lockfile
+# jobs get the same shape from the uv-nox / python-matrix components instead.
 .nox:
   image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
   variables:
@@ -79,18 +189,6 @@ variables:
   if: $NIGHTLY_DOCS == "true" || $DOCS_CLEAN == "true"
   when: never
 
-# Shared rule sets
-.rules_main_mr:
-  rules:
-    - *skip_publish_verification
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-.rules_mr_only:
-  rules:
-    - *skip_publish_verification
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
 .rules_main_only:
   rules:
     - *skip_publish_verification
@@ -115,34 +213,9 @@ variables:
           - environment.yml
           - requirements.txt
 
-# -----------------------------------------------------------------------------
-# Lint Stage
-# -----------------------------------------------------------------------------
-
-lint:
-  extends: [.nox, .rules_main_mr]
-  stage: lint
-  script:
-    - uvx --with nox-uv nox -s lint
-
-# Type Check [TR-7-H-1, TR-7-H-2]
-# Type check should be an explicit, visible job in the pipeline, not hidden in lint
-type-check:
-  extends: [.nox, .rules_main_mr]
-  stage: lint
-  script:
-    - uvx --with nox-uv nox -s type
-
-# Schema Validation - Ensure params.schema.json is up to date
-schema:
-  extends: [.nox, .rules_main_mr]
-  stage: lint
-  script:
-    - uvx --with nox-uv nox -s schema
-
 # Markdown lint [DR-3.3-H-3]
 markdownlint:
-  extends: [.rules_main_mr]
+  extends: [.aria_rules_main_mr]
   stage: lint
   needs: []
   image:
@@ -169,7 +242,7 @@ markdownlint:
 # allow_failure). Enumerate the files with `find` so docs/source is really
 # covered, and accumulate the exit status so one bad file does not mask the rest.
 linkchecker:
-  extends: [.rules_main_mr]
+  extends: [.aria_rules_main_mr]
   stage: lint
   needs: []
   image:
@@ -187,79 +260,17 @@ linkchecker:
   allow_failure: true
 
 # -----------------------------------------------------------------------------
-# Test Stage [TR-1-H-4: Python 3.10 - 3.14]
-# -----------------------------------------------------------------------------
-
-test:
-  extends: [.nox, .rules_main_mr]
-  stage: test
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-  script:
-    - uvx --with nox-uv nox -s test
-  artifacts:
-    # Directory form (not `output/*`) so the dotted coverage data files
-    # (output/.coverage.3.11) survive into the `coverage` job.
-    # The per-job cobertura report and the coverage: regex live on that job
-    # instead, so the MR widget shows one combined number, not a matrix average.
-    paths:
-      - output/
-    reports:
-      junit: output/junit.*.xml
-    expire_in: 1 week
-
-# Requirements verification suite (FR/NFR compliance) — runs separately from
-# unit tests, with its own JUnit report and no coverage gate.
-verify:
-  extends: [.nox, .rules_main_mr]
-  stage: test
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-  script:
-    - uvx --with nox-uv nox -s verify
-  artifacts:
-    paths:
-      - output/verification_report.json
-      # Rendered test cases + VCRM. Not pushed anywhere from here — downloadable
-      # on the MR so meta repo changes are reviewable before a release publishes them.
-      - output/metarepo/
-    reports:
-      junit: output/verify.xml
-    expire_in: 1 week
-
-# Minimum-dependencies + no-optional-extras smoke test
-# [TR-1-H-4] verify supported Python versions & dep min/max
-# [TR-2-H-3] test without optional deps
-# [TR-2-H-5] test against documented dep versions
-# [TR-8-H-1] features usable independently
-#
-# Pins Python to the minimum supported version (3.10) and resolves every
-# direct dependency to its lowest declared version (--resolution=lowest-direct).
-# Only the `cpu` extra is installed so torch/torchvision are available; `onnx`,
-# `opencv`, and `app` are deliberately omitted, and tests/app is skipped because
-# its conftest imports textual unconditionally.
-deps:
-  extends: [.nox, .rules_main_mr]
-  stage: test
-  variables:
-    PYTHON_VERSION: "3.10"
-  script:
-    - uvx --with nox-uv nox -s deps
-
-# -----------------------------------------------------------------------------
 # Install Validation [SR-3-H-2..5, SR-5-H-1, SR-5-H-2]
 # Verifies the project installs cleanly via every documented toolchain.
 # Runs only when dependency-defining files change.
 # -----------------------------------------------------------------------------
 
-# Validate uv.lock is up-to-date with pyproject.toml
+# `install:lock` (uv.lock vs pyproject.toml) comes from a component, which
+# hardcodes the shared main+MR rules. Install validation runs only when a
+# dependency-defining file changes, so its rules are replaced here -- a job-level
+# `rules:` replaces rather than merges, which is what is wanted.
 install:lock:
-  extends: [.nox, .rules_main_mr_deps]
-  stage: test
-  script:
-    - uvx --with nox-uv nox -s check
+  rules: !reference [.rules_main_mr_deps, rules]
 
 # Validate `pip install .[cpu]` from a source checkout.
 # `git` + full history are required so hatch-vcs can derive __version__ from
@@ -311,56 +322,12 @@ install:conda:
     - dataeval-flow --help
 
 # -----------------------------------------------------------------------------
-# Coverage aggregation
-# Merges the per-interpreter coverage data files produced by the test matrix
-# (output/.coverage.3.10 … .3.14) into one report. The 90% gate is enforced
-# twice: per matrix job by --cov-fail-under, and here on the union via
-# [tool.coverage.report] fail_under.
-#
-# htmlcov/ is what the Pages jobs publish (MR preview + main /coverage site).
-# -----------------------------------------------------------------------------
-
-coverage:
-  extends: [.rules_main_mr]
-  stage: publish
-  image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
-  needs:
-    - job: test
-      artifacts: true
-  before_script:
-    - uv pip install coverage --system
-  script:
-    - coverage combine ./output
-    # Reports before the gate. Every coverage subcommand honours
-    # [tool.coverage.report] fail_under and exits 2 when it isn't met, so
-    # gating first would skip report generation exactly when it's most useful.
-    # --fail-under=0 keeps these steps purely about writing files.
-    # Explicit -o/-d: pyproject points both at output/, which is already
-    # occupied by the per-matrix reports downloaded above.
-    - coverage xml --skip-empty --fail-under=0 -o coverage.xml
-    - coverage html --skip-empty --fail-under=0 -d htmlcov
-    # The 90% gate on the union of all matrix runs.
-    - coverage report -m --skip-empty --precision=2
-  coverage: '/(?i)total.*? (100(?:\.0+)?%|[1-9]?\d(?:\.\d+)?%)$/'
-  artifacts:
-    # always: a failed gate still publishes the report showing what's uncovered.
-    when: always
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-    paths:
-      - coverage.xml
-      - htmlcov/
-    expire_in: 1 week
-
-# -----------------------------------------------------------------------------
 # Documentation — runs in parallel with container jobs
 # -----------------------------------------------------------------------------
 
 # Docs preview - Build docs on MRs for review
 docs:preview:
-  extends: [.nox, .rules_mr_only]
+  extends: [.nox, .aria_rules_mr_only]
   stage: publish
   cache:
     - key:
@@ -415,7 +382,7 @@ pages:
 # the docs and coverage builds actually ran — both needs are optional, so a
 # skipped or filtered-out upstream job degrades the site instead of failing it.
 pages preview:
-  extends: [.rules_mr_only]
+  extends: [.aria_rules_mr_only]
   stage: release
   image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
   needs:
@@ -651,56 +618,6 @@ container_scanning:
     - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
-
-# -----------------------------------------------------------------------------
-# Security Stage [DSOR-1 to DSOR-5]
-# -----------------------------------------------------------------------------
-
-# NOTE: Security template jobs use `extends:` internally — do not override with
-# `extends:` here or the template's analyzer inheritance chain will break.
-
-# SAST - Static Application Security Testing [DSOR-1-H-1, DSOR-1-H-2]
-semgrep-sast:
-  stage: security
-  variables:
-    SAST_EXCLUDED_ANALYZERS: "eslint,gosec,kubesec,nodejs-scan,phpcs-security-audit,pmd-apex,security-code-scan,sobelow,spotbugs"
-    SAST_EXCLUDED_PATHS: "config, docker, docs, output, tests"
-  rules:
-    - *skip_publish_verification
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# Dependency Scanning [DSOR-2-H-1, DSOR-2-H-2]
-gemnasium-python-dependency_scanning:
-  stage: security
-  rules:
-    - *skip_publish_verification
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# Secret Detection [DSOR-4-H-1, DSOR-4-H-2]
-secret_detection:
-  stage: security
-  rules:
-    - *skip_publish_verification
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# SBOM Export [DSOR-5-H-1]
-sbom:
-  extends: .rules_main_mr
-  stage: security
-  # Override entrypoint so GitLab can use shell instead of running syft immediately
-  image: alpine:latest
-  script:
-    - apk add --no-cache curl
-    - curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-    - unset DOCKER_AUTH_CONFIG
-    - /usr/local/bin/syft dir:. -o cyclonedx-json=sbom.json
-  artifacts:
-    paths:
-      - sbom.json
-    expire_in: 1 week
 
 # -----------------------------------------------------------------------------
 # Release Stage — promote the immutable, scan-cleared image to a floating tag.
