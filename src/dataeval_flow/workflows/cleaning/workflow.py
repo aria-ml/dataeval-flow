@@ -20,7 +20,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.policy import policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows.cleaning._internal import (
     _compute_embeddings,
     _merge_duplicate_results,
@@ -384,6 +384,7 @@ def _run_cleaning(
     extractor: Callable | None = None,
     metadata: Metadata | None = None,
     run_ctx: CleaningRunContext | None = None,
+    value_range: tuple[float, float] | None = None,
 ) -> DataCleaningRawOutputs:
     """Run outlier + duplicate detection on dataset."""
     import time as _time
@@ -399,7 +400,7 @@ def _run_cleaning(
     calc_result = get_or_compute_stats(
         desired_flags=outlier_flags | hash_flags,
         dataset=dataset,
-        value_range=params.value_range,
+        value_range=value_range,
     )
     _logger.info("  [4a] Image stats ready in %.1fs", _time.monotonic() - _t0)
 
@@ -574,6 +575,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                     extractor,
                     metadata,  # type: ignore[arg-type]
                     run_ctx,
+                    effective_value_range(dc, params),
                 )
             _logger.info(
                 "[4/4] Detection complete in %.1fs: %d outliers, %d exact dup groups, %d near dup groups",

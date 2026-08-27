@@ -17,11 +17,14 @@ __all__ = ["ResolvedPolicy", "policy_for", "policy_key", "resolve_policy"]
 
 import json
 import logging
-from collections.abc import Mapping, Sequence
+import warnings
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from dataeval_flow.workflow.base import raw_field
 
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
@@ -39,6 +42,13 @@ _LEGACY_FIELDS: tuple[str, ...] = (
     "metadata_continuous_factor_bins",
     "metadata_factor_source",
 )
+
+# dataeval's row levels: the prefixes a level-split statistic's name can carry (see
+# metadata.expand_declared_bins, which is what actually produces a name like
+# `unit_brightness` from a bare `brightness` declaration). Static rather than read off the
+# dataset, because this check runs before the dataset is walked and must not need to know
+# whether the data is IC or OD to catch the collision.
+_ROW_LEVELS: tuple[str, ...] = ("sequence", "unit", "track", "instance")
 
 
 @dataclass(frozen=True)
@@ -74,6 +84,16 @@ class ResolvedPolicy:
     strict: bool = False
     factor_source: "FactorSource | None" = None
     reference_split: str | None = None
+    intrinsic_factors: tuple[str, ...] = ()
+    """Statistic families injected as factors.  Keys the metadata cache: it changes the
+    factor set, so a run with injection on must not be served an entry built without it."""
+    value_range: tuple[float, float] | None = None
+    """The interval the imagery occupies, taken from the dataset config by the orchestrator.
+
+    Authored on the dataset rather than here — it describes the data instead of deciding
+    anything about it — but carried on the policy because it changes the injected values
+    and therefore the codes, which is what ``policy_key`` is a rendering of.
+    """
 
     def metadata_kwargs(self, *, for_load: bool = False) -> dict[str, Any]:
         """What to hand :class:`dataeval.Metadata`, omitting anything left unset.
@@ -133,6 +153,8 @@ def policy_key(policy: ResolvedPolicy) -> str:
             "encoding": policy.encoding,
             "factor_levels": {name: list(levels) for name, levels in (policy.factor_levels or {}).items()},
             "strict": policy.strict,
+            "intrinsic_factors": sorted(family.lower() for family in policy.intrinsic_factors),
+            "value_range": list(policy.value_range) if policy.value_range else None,
         },
         sort_keys=True,
         default=str,
@@ -166,6 +188,7 @@ def _check_no_double_declaration(
     bins: Mapping[str, Any],
     levels: Mapping[str, Any],
     source: str,
+    injectable_names: Collection[str] = (),
 ) -> None:
     """Refuse a factor declared through two channels rather than picking one.
 
@@ -173,6 +196,18 @@ def _check_no_double_declaration(
     dataset has been walked, which is the cost this check exists to convert into a config
     error.  ``encoding`` × ``continuous_factor_bins`` is a cut declared twice;
     ``factor_levels`` against either is a vocabulary declared twice.
+
+    ``encoding`` × ``continuous_factor_bins`` is also checked one spelling down, but only
+    for a name injection could actually have split: a descriptor factor named
+    ``<level>_<name>`` collides with a bare ``continuous_factor_bins`` declaration of
+    ``<name>`` when ``<name>`` is one of the statistics ``injectable_names`` lists, because
+    injection's ``expand_declared_bins`` is what carries that bare declaration onto the
+    level-prefixed name before it reaches ``Metadata``. Without that gate a dataset-native
+    column that merely *looks* level-prefixed — ``unit_price``, ``instance_id`` — would
+    collide with an unrelated bare declaration (``price``, ``id``) that injection was never
+    going to touch, a false positive nothing produced. Gated on the actual injectable set,
+    a real collision is refused exactly like the exact-name case above rather than letting
+    the bare declaration silently overwrite the descriptor's committed record.
     """
     channels = (
         ("encoding", factors),
@@ -186,6 +221,24 @@ def _check_no_double_declaration(
                 "Two sources disagreeing about one factor has no good resolution — drop it "
                 "from one of them.",
             )
+
+    prefixed = sorted(
+        (name, f"{level}_{name}")
+        for name in bins
+        if name in injectable_names
+        for level in _ROW_LEVELS
+        if f"{level}_{name}" in factors
+    )
+    if prefixed:
+        both = sorted({spelling for pair in prefixed for spelling in pair})
+        raise ValueError(
+            f"{source} declares {both} through both `encoding` and `continuous_factor_bins`. "
+            "`continuous_factor_bins` expands a bare declaration onto every row level it "
+            "could apply to, so a level-prefixed name in `encoding` and its bare form in "
+            "`continuous_factor_bins` are the same factor declared twice. Two sources "
+            "disagreeing about one factor has no good resolution — drop it from one of "
+            "them.",
+        )
 
 
 def _check_strict_is_earned(
@@ -244,6 +297,17 @@ def _named_policy(params: "MetadataConfigMixin", name: str, config: "PipelineCon
     return _resolve_by_name(config.metadata, name, "metadata policy")
 
 
+def _warn_deprecated_include_image_stats() -> None:
+    """Name the field that replaces the flag, not just the fact that it is going away."""
+    warnings.warn(
+        "`include_image_stats` is deprecated and will be removed in the next minor "
+        "version. Declare `intrinsic_factors: [visual, pixel]` on the metadata policy "
+        "instead, where every workflow sharing that policy can see it.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 def _is_set(params: "MetadataConfigMixin", name: str) -> bool:
     """Whether a legacy field carries something, treating an empty list as unset."""
     value = getattr(params, name, None)
@@ -292,6 +356,7 @@ def resolve_policy(
         bins = dict(named.continuous_factor_bins or {})
         factor_levels, strict = named.factor_levels, named.strict
         factor_source, reference_split = named.factor_source, named.reference_split
+        intrinsic_factors = tuple(named.intrinsic_factors or ())
         descriptor_path = named.encoding
     else:
         source = "This workflow"
@@ -300,6 +365,7 @@ def resolve_policy(
         bins = dict(params.metadata_continuous_factor_bins or {})
         factor_levels, strict = None, False
         factor_source, reference_split = params.metadata_factor_source, None
+        intrinsic_factors = ()
         descriptor_path = None
 
     factors: Mapping[str, Any] | None = None
@@ -309,10 +375,41 @@ def resolve_policy(
         factors = _read_descriptor(resolved_path, source)
         _logger.info("Applying encoding descriptor %s (%d factors)", descriptor_path, len(factors))
 
+    # The legacy flag, folded in before the families are validated so that both spellings
+    # meet the same check. Read out of the instance dict rather than off the attribute:
+    # the field is marked deprecated, and pydantic warns on every read including this one,
+    # which would scold every caller rather than the ones that set it.
+    if raw_field(params, "include_image_stats", False):
+        legacy = ("visual", "pixel")
+        if intrinsic_factors and tuple(intrinsic_factors) != legacy:
+            raise ValueError(
+                f"{source} declares intrinsic_factors={list(intrinsic_factors)} and this "
+                "workflow also sets `include_image_stats: true`, which means "
+                f"{list(legacy)}. They are two spellings of one decision and they disagree "
+                "— drop `include_image_stats` and keep the policy field.",
+            )
+        _warn_deprecated_include_image_stats()
+        intrinsic_factors = legacy
+
+    # Resolved before the double-declaration check, not after: that check needs to know
+    # which bare names injection could actually turn into a level-prefixed descriptor
+    # entry, and `stat_names_for` is only meaningful once the families are known to be
+    # real ones. Modality is fixed at "image" until a second stat enum exists; validating
+    # here rather than at injection is what makes a misspelled family a config error.
+    injectable_names: frozenset[str] = frozenset()
+    if intrinsic_factors:
+        from dataeval_flow.metadata import resolve_families, stat_names_for
+
+        try:
+            flags = resolve_families("image", intrinsic_factors)
+        except ValueError as exc:
+            raise ValueError(f"{source} {exc}") from exc
+        injectable_names = frozenset(stat_names_for(flags))
+
     # Outside the descriptor branch: `factor_levels` conflicts with `continuous_factor_bins`
     # whether or not a descriptor is named, and strict with nothing declared is the one
     # spelling that would otherwise reach DataEval unchecked.
-    _check_no_double_declaration(factors or {}, bins, factor_levels or {}, source)
+    _check_no_double_declaration(factors or {}, bins, factor_levels or {}, source, injectable_names)
     _check_strict_is_earned(factors or {}, strict, source, declares_levels=bool(factor_levels))
 
     return ResolvedPolicy(
@@ -325,6 +422,7 @@ def resolve_policy(
         strict=strict,
         factor_source=factor_source,
         reference_split=reference_split,
+        intrinsic_factors=intrinsic_factors,
     )
 
 

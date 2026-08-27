@@ -39,7 +39,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_co
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.policy import derive_from, policy_for, resolve_policy
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows.analysis.outputs import (
@@ -106,42 +106,6 @@ class SplitData:
 # ---------------------------------------------------------------------------
 
 
-def _inject_image_stats(metadata: Metadata, calc_result: "StatsResult") -> None:
-    """Inject computed image/target statistics into *metadata* as factors.
-
-    The stats result labels every value with the entity it describes, so
-    ``source_index`` places each one at its own level: a whole-image
-    measurement lands on the unit rows and a per-box measurement on the
-    instance rows.  Unit-level values propagate down to instance rows, so
-    both halves stay visible to the bias evaluators without being
-    broadcast by hand.
-
-    Where a statistic is measured at both levels the factor is split in
-    two, named for the level it was measured at — ``unit_brightness`` for
-    the image and ``instance_brightness`` for the box.  Each is then binned
-    over its own population rather than over the replicated copy.
-
-    The only arrays withheld are the hashes.  They travel in the same result
-    — one ``compute_stats`` pass serves both outlier and duplicate detection —
-    and are near-unique per image, so digitizing them would yield a category
-    per item: a factor that correlates with everything and describes nothing.
-
-    Everything else is handed over as it comes, including the vector-valued
-    statistics (``histogram``, ``percentiles``, ``center``).  Those have no
-    single-column form and cannot become factors either, but dropping them
-    *here* would drop them silently; ``add_factors`` records them in
-    :attr:`~dataeval.Metadata.dropped_factors`, which is what lets the
-    metadata summary report them as measured-but-not-representable rather
-    than leaving them missing without explanation.
-    """
-    # Object, unicode, bytes and void dtypes are the hash columns.  Numeric and
-    # boolean arrays are both usable — bool digitizes to a two-value category.
-    usable = {name: arr for name, arr in calc_result["stats"].items() if arr.dtype.kind not in "OUSV"}
-    if not usable:
-        return
-    metadata.add_factors(usable, source_index=calc_result["source_index"])
-
-
 def _labels_from_counts(label_counts: Mapping[int, int]) -> np.ndarray:
     """Reconstruct a flat label array from per-class counts."""
     if not label_counts:
@@ -195,6 +159,7 @@ def _compute_split_data(
     extractor: Embeddings | None = None,
     split_name: str = "default",
     policy: "ResolvedPolicy | None" = None,
+    value_range: tuple[float, float] | None = None,
 ) -> SplitData:
     """Compute shared data for a single split.
 
@@ -217,14 +182,10 @@ def _compute_split_data(
         dataset=dataset,
         per_image=True,
         per_target=is_od,
-        value_range=params.value_range,
+        value_range=value_range,
     )
     source_index = calc_result["source_index"]
     img_mask = np.array([si.target is None for si in source_index])
-
-    # Inject image stats as metadata factors for bias analysis
-    if params.include_image_stats:
-        _inject_image_stats(metadata, calc_result)
 
     # Label statistics
     _logger.info("  Computing label statistics for '%s' ...", split_name)
@@ -1196,6 +1157,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                     extractor=embeddings,
                     split_name=split_name,
                     policy=split_policy,
+                    value_range=effective_value_range(dc, params),
                 )
 
             if split_name == reference_split:

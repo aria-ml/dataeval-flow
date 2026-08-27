@@ -7,6 +7,7 @@ asked.  Catching them at config time costs a message instead of an hour.
 """
 
 import json
+import warnings
 from pathlib import Path
 
 import pytest
@@ -191,6 +192,89 @@ class TestDoubleDeclaration:
         with pytest.raises(ValueError, match="both `continuous_factor_bins` and `factor_levels`"):
             resolve_policy(MetadataConfigMixin(metadata="standard"), config)
 
+    def test_encoding_and_bins_conflict_through_a_level_prefix(self, tmp_path: Path):
+        """The same collision, spelled the way injection actually produces it.
+
+        A committed `unit_brightness` record and a bare `continuous_factor_bins:
+        {"brightness": ...}` look unrelated by name, but `expand_declared_bins` carries the
+        bare declaration onto the level-prefixed name before `Metadata` sees it — so this is
+        the same factor declared twice, not two different ones, and must be refused exactly
+        like the exact-name collision above rather than letting the bare declaration
+        silently overwrite the committed record. `intrinsic_factors` must be declared for
+        the collision to exist at all: `brightness` is a VISUAL statistic, so injection can
+        only produce `unit_brightness` from it when `visual` is one of the families asked
+        for — see `test_prefix_collision_does_not_fire_without_injection_declared` for the
+        other half of that gate.
+        """
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"brightness": 4},
+            intrinsic_factors=["visual"],
+        )
+        with pytest.raises(ValueError, match="both `encoding` and `continuous_factor_bins`") as exc:
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        message = str(exc.value)
+        assert "brightness" in message
+        assert "unit_brightness" in message
+
+    def test_a_level_prefixed_descriptor_factor_with_no_bare_match_is_not_a_conflict(self, tmp_path: Path):
+        """The prefix check is scoped to an actual collision, not any level-prefixed name."""
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"contrast": 4},
+            intrinsic_factors=["visual"],
+        )
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"contrast": 4}
+
+    def test_prefix_collision_does_not_fire_without_injection_declared(self, tmp_path: Path):
+        """The collision depends on injection actually being on, not just on the spelling.
+
+        With no `intrinsic_factors` declared, nothing can produce `unit_brightness` from a
+        bare `brightness` declaration — so the two are just two differently-spelled,
+        unrelated names, and the same setup that raises in
+        `test_encoding_and_bins_conflict_through_a_level_prefix` must not raise here.
+        """
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(encoding="policy.json", continuous_factor_bins={"brightness": 4})
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"brightness": 4}
+
+    def test_unrelated_level_prefixed_column_is_not_a_conflict(self, tmp_path: Path):
+        """A dataset-native column that merely looks level-prefixed is not a collision.
+
+        `unit_price` is an ordinary column name, not something `add_factors` ever produces
+        by splitting a statistic — no family injects a `price` statistic, `visual` included
+        — so a bare `continuous_factor_bins: {"price": ...}` declaration is unrelated to it
+        even though the two spellings share the `unit_` prefix.
+        """
+        _descriptor(tmp_path, {"unit_price": _DECLARED_BINS["temp_c"]})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"price": 4},
+            intrinsic_factors=["visual"],
+        )
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"price": 4}
+
+    def test_prefix_collision_is_scoped_to_the_declared_family(self, tmp_path: Path):
+        """A name only collides if the *declared* families could actually produce it.
+
+        `brightness` is a VISUAL statistic, not a DIMENSION one, so declaring only
+        `dimension` cannot make injection produce `unit_brightness` — the collision must not
+        fire just because *some* family somewhere injects `brightness`.
+        """
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"brightness": 4},
+            intrinsic_factors=["dimension"],
+        )
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"brightness": 4}
+
 
 class TestPolicyKey:
     """The key decides which cache entry a run gets, so equal policies must key equally."""
@@ -373,3 +457,93 @@ class TestDerivedPolicyDoesNotCloseUnreviewedVocabularies:
         )
         derived = derive_from(ResolvedPolicy(strict=True), reference, None)
         assert derived.strict is True
+
+
+class TestIntrinsicFactors:
+    """Which intrinsic statistics become factors is a policy decision, not a workflow param."""
+
+    def test_defaults_to_nothing(self):
+        assert resolve_policy(MetadataConfigMixin()).intrinsic_factors == ()
+
+    def test_reads_the_policy_field(self):
+        config = _config(intrinsic_factors=["visual", "pixel"])
+        resolved = resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+        assert resolved.intrinsic_factors == ("visual", "pixel")
+
+    def test_keys_the_policy(self):
+        without = ResolvedPolicy()
+        with_stats = ResolvedPolicy(intrinsic_factors=("visual",))
+        assert policy_key(without) != policy_key(with_stats)
+
+    def test_key_is_order_independent(self):
+        # A set and a list of the same families describe one policy and must not
+        # produce two cache entries.
+        first = ResolvedPolicy(intrinsic_factors=("visual", "pixel"))
+        second = ResolvedPolicy(intrinsic_factors=("pixel", "visual"))
+        assert policy_key(first) == policy_key(second)
+
+    def test_unknown_family_fails_at_config_time(self):
+        config = _config(intrinsic_factors=["nonsense"])
+        with pytest.raises(ValueError, match="nonsense"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+
+    def test_key_is_case_insensitive(self):
+        lower = ResolvedPolicy(intrinsic_factors=("visual",))
+        upper = ResolvedPolicy(intrinsic_factors=("VISUAL",))
+        assert policy_key(lower) == policy_key(upper)
+
+
+class TestValueRangeOnThePolicy:
+    """Authored on the dataset, carried on the policy, because it changes the codes."""
+
+    def test_defaults_to_none(self):
+        assert ResolvedPolicy().value_range is None
+
+    def test_keys_the_policy(self):
+        assert policy_key(ResolvedPolicy()) != policy_key(ResolvedPolicy(value_range=(0.0, 1.0)))
+
+    def test_different_ranges_key_differently(self):
+        first = ResolvedPolicy(value_range=(0.0, 1.0))
+        second = ResolvedPolicy(value_range=(0.0, 255.0))
+        assert policy_key(first) != policy_key(second)
+
+
+class TestDeprecatedIncludeImageStats:
+    """The old spelling keeps working for one minor version, and says so."""
+
+    @staticmethod
+    def _params(**overrides):
+        """The analysis params, which are where `include_image_stats` actually lives.
+
+        `MetadataConfigMixin` cannot carry it — pydantic refuses an undeclared attribute —
+        and `DataAnalysisParameters` is a `MetadataConfigMixin`, so `resolve_policy` takes
+        it unchanged.
+        """
+        from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
+
+        base = {"outlier_method": "adaptive", "outlier_flags": ["pixel"]}
+        base.update(overrides)
+        return DataAnalysisParameters(**base)
+
+    def test_true_contributes_visual_and_pixel(self):
+        with pytest.warns(DeprecationWarning, match="intrinsic_factors"):
+            resolved = resolve_policy(self._params(include_image_stats=True))
+        assert resolved.intrinsic_factors == ("visual", "pixel")
+
+    def test_false_contributes_nothing_and_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert resolve_policy(self._params(include_image_stats=False)).intrinsic_factors == ()
+
+    def test_set_alongside_a_disagreeing_policy_is_an_error(self):
+        config = _config(intrinsic_factors=["dimension"])
+        params = self._params(metadata="standard", include_image_stats=True)
+        with pytest.raises(ValueError, match="include_image_stats"):
+            resolve_policy(params, config)
+
+    def test_the_field_is_marked_deprecated_for_config_authors(self):
+        """The schema marker is what reaches docs and editors; it must not be dropped."""
+        from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
+
+        schema = DataAnalysisParameters.model_json_schema()
+        assert schema["properties"]["include_image_stats"].get("deprecated") is True

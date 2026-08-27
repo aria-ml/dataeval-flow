@@ -503,3 +503,108 @@ class TestRecordsFactorSource:
         attach_binning(result_metadata, _metadata(), _policy(factor_source="values"))
         assert result_metadata.metadata_binning is not None
         assert result_metadata.metadata_binning["factor_source"] == "values"
+
+
+class TestEnvelopeRecordsInjection:
+    """A reader must be able to tell a carried factor from a synthesised one."""
+
+    def _record(self):
+        from dataeval_flow.binning import attach_binning
+        from dataeval_flow.config.schemas._metadata import ResultMetadata
+        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
+        from tests.test_metadata_injection import _ODDataset
+
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightness": 4},
+        )
+        metadata = build_metadata(_ODDataset(), policy)
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, metadata, policy)
+        return result_metadata.metadata_binning
+
+    def test_the_declared_bin_is_not_reported_unmatched(self):
+        record = self._record()
+        assert not record.get("unmatched_bin_requests")
+
+    def test_both_levels_report_four_bins(self):
+        record = self._record()
+        for name in ("unit_brightness", "instance_brightness"):
+            encoding = record["factors"][name]["encoding"]
+            assert len(encoding["edges"]) - 1 == 4
+
+    def test_the_expansion_names_both_sides(self):
+        record = self._record()
+        assert record["bin_expansion"] == {
+            "brightness": ["instance_brightness", "unit_brightness"],
+        }
+
+    def test_injected_factors_are_marked(self):
+        record = self._record()
+        injected = set(record["injected_factors"])
+        assert "unit_brightness" in injected
+        assert "weather" not in injected  # carried by the dataset
+
+    def test_a_run_without_injection_records_neither_key(self):
+        from dataeval_flow.binning import attach_binning
+        from dataeval_flow.config.schemas._metadata import ResultMetadata
+        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
+        from tests.test_metadata_injection import _ODDataset
+
+        policy = ResolvedPolicy(continuous_factor_bins={"brightness": 4})
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, build_metadata(_ODDataset(), policy), policy)
+        record = result_metadata.metadata_binning
+        assert record["bin_expansion"] == {}
+        assert record["injected_factors"] == []
+        # And the declared bin is still correctly reported as matching nothing.
+        assert record["unmatched_bin_requests"] == ["brightness"]
+
+    def test_a_suffix_lookalike_is_not_claimed_as_an_expansion(self):
+        """`camera_brightness` reads as a `_brightness` suffix match but is an unrelated factor.
+
+        Two independently declared, independently bound factors — neither is derived from
+        the other, so `bin_expansion` must not link them just because one name ends with
+        the other's suffix.
+        """
+        rng = np.random.default_rng(3)
+        declared = {"brightness": 4, "camera_brightness": 5}
+        md = Metadata.from_factors(
+            {
+                "brightness": rng.normal(50.0, 10.0, 60),
+                "camera_brightness": rng.normal(50.0, 10.0, 60),
+            },
+            continuous_factor_bins=declared,
+        )
+        record = describe_binning(md, declared_bins=declared)
+        assert record["bin_expansion"] == {}
+
+    def test_multi_split_records_expansion_and_injection_per_split(self):
+        """`data-analysis` binds per split; each split's record must be its own, not shared."""
+        from dataeval_flow.metadata import build_metadata
+        from tests.test_metadata_injection import _ODDataset
+
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightness": 4},
+        )
+        metadata = {"train": build_metadata(_ODDataset(), policy), "test": build_metadata(_ODDataset(), policy)}
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, metadata, policy)
+
+        per_split = result_metadata.metadata_binning["per_split"]
+        for split in ("train", "test"):
+            record = per_split[split]
+            assert record["bin_expansion"] == {
+                "brightness": ["instance_brightness", "unit_brightness"],
+            }
+            assert "unit_brightness" in record["injected_factors"]
+
+        # Both splits ran under the same encoding, so a single top-level digest applies.
+        assert result_metadata.encoding_digest is not None
+        assert result_metadata.encoding_digest == per_split["train"]["encoding_digest"]
+        assert result_metadata.encoding_digest == per_split["test"]["encoding_digest"]

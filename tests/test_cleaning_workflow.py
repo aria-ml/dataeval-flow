@@ -1283,3 +1283,65 @@ class TestRunCleaningClusterBranches:
         mock_compute_emb.assert_called_once()
         mock_merge_outlier.assert_called_once()
         assert raw.dataset_size == 10
+
+
+class TestValueRangeComesFromTheDataset:
+    """One range per dataset, so the injection pass and the workflow's own share a scope."""
+
+    def test_the_dataset_range_reaches_compute_stats(self, monkeypatch):
+        from dataeval_flow import cache as cache_module
+
+        seen: list[tuple[float, float] | None] = []
+        original = cache_module._do_compute_stats
+
+        def _spy(dataset, desired_flags, per_image=True, per_target=True, value_range=None):
+            seen.append(value_range)
+            return original(dataset, desired_flags, per_image, per_target, value_range)
+
+        monkeypatch.setattr(cache_module, "_do_compute_stats", _spy)
+
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow import DatasetContext, WorkflowContext
+        from dataeval_flow.workflows.cleaning.workflow import DataCleaningWorkflow
+        from tests.test_metadata_injection import _ICDataset
+
+        context = WorkflowContext(
+            dataset_contexts={
+                "default": DatasetContext(name="default", dataset=_ICDataset(), value_range=(0.0, 1.0)),
+            },
+            metadata_policy=ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 1.0)),
+        )
+        DataCleaningWorkflow().execute(context, _make_params())
+
+        assert seen, "no stats pass ran"
+        assert all(entry == (0.0, 1.0) for entry in seen), seen
+
+
+class TestTheDeprecatedRangeIsQuietWhenUnused:
+    """Deprecation belongs to what the user wrote, not to what the framework reads.
+
+    `Field(deprecated=...)` warns on every attribute read, so a plain `getattr` inside
+    `effective_value_range` would scold a user who did exactly the right thing — declared
+    the range on the dataset and never touched the param.
+    """
+
+    def test_reading_it_does_not_warn_when_the_user_never_set_it(self):
+        import warnings
+
+        from dataeval_flow.workflow.base import effective_value_range
+
+        dc = DatasetContext(name="default", dataset=MagicMock(), value_range=(0.0, 1.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert effective_value_range(dc, _make_params()) == (0.0, 1.0)
+
+    def test_the_param_still_wins_when_the_dataset_declares_nothing(self):
+        from dataeval_flow.workflow.base import effective_value_range
+
+        dc = DatasetContext(name="default", dataset=MagicMock())
+        assert effective_value_range(dc, _make_params(value_range=(0.0, 255.0))) == (0.0, 255.0)
+
+    def test_the_field_is_marked_deprecated_for_config_authors(self):
+        """The schema marker is what reaches docs and editors; it must not be dropped."""
+        schema = DataCleaningParameters.model_json_schema()
+        assert schema["properties"]["value_range"].get("deprecated") is True

@@ -254,14 +254,18 @@ Statistical analysis including outliers, duplicates, diversity, and bias.
 See the {doc}`Data Analysis tutorial <../notebooks/data_analysis>` for a full walkthrough.
 
 ```yaml
+metadata:
+  - name: standard
+    intrinsic_factors: [visual, pixel]   # measured off the imagery, then binned like any factor
+
 workflows:
   - name: full_analysis
     type: data-analysis
+    metadata: standard
     outlier_method: adaptive
     outlier_flags: [dimension, pixel, visual]
     balance: true
     diversity_method: simpson       # simpson | shannon
-    include_image_stats: true
     divergence_method: mst          # mst | fnn (cross-split)
 ```
 ````

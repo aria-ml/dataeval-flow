@@ -2157,3 +2157,29 @@ class TestLoadStatsFromDisk:
         assert len(loaded["source_index"]) == 3
         for si in loaded["source_index"]:
             assert isinstance(si, SourceIndex)
+
+
+class TestCachedMetadataKeepsTheExpansion:
+    """A cache hit has to answer with the same bins the build path produced."""
+
+    def test_reloaded_metadata_carries_the_expanded_bins(self, tmp_path):
+        from dataeval_flow.cache import DatasetCache
+        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
+        from tests.test_metadata_injection import _ODDataset
+
+        dataset = _ODDataset()
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightness": 4},
+        )
+        cache = DatasetCache.get_or_create(cache_dir=tmp_path, name="od", cache_key="k")
+        built = build_metadata(dataset, policy)
+        cache.save_metadata("sel", built, policy)
+        cache._memory.clear()  # force the archive read rather than the memo
+
+        loaded = cache.load_metadata("sel", dataset, policy)
+        assert loaded is not None
+        assert loaded.continuous_factor_bins == {"unit_brightness": 4, "instance_brightness": 4}
+        assert "brightness" not in loaded.continuous_factor_bins

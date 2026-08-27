@@ -14,6 +14,8 @@ __all__ = [
     "WorkflowOutputsBase",
     "WorkflowParametersBase",
     "WorkflowReportBase",
+    "effective_value_range",
+    "raw_field",
 ]
 
 
@@ -63,6 +65,10 @@ class StatsConfigMixin(BaseModel):
 
     value_range: tuple[float, float] | None = Field(
         default=None,
+        deprecated=(
+            "Superseded by `value_range` on the dataset, which every workflow reading that "
+            "dataset shares. Removed in the next minor version."
+        ),
         description=(
             "Interval the image data occupies, as (low, high). Integer encodings state "
             "their own range; float data does not, and the statistics that need one "
@@ -70,6 +76,50 @@ class StatsConfigMixin(BaseModel):
             "entropy, and dimension depth. Leave unset for integer imagery."
         ),
     )
+
+
+def raw_field(params: Any, name: str, default: Any = None) -> Any:
+    """A params field's stored value, without tripping pydantic's deprecation descriptor.
+
+    ``Field(deprecated=...)`` warns on every attribute read, the framework's own included,
+    so a plain ``getattr`` here would scold a user who did exactly the right thing —
+    declared the value on the dataset or the policy and never touched the deprecated
+    param. Deprecation belongs to what the user wrote; the instance dict is what they
+    wrote, and the warning is raised where the value is actually honoured.
+    """
+    stored = getattr(params, "__dict__", None)
+    if stored is not None and name in stored:
+        return stored[name]
+    return getattr(params, name, default)
+
+
+def effective_value_range(
+    dataset_context: Any,
+    params: Any,
+) -> tuple[float, float] | None:
+    """The range to measure statistics against: the dataset's, else the deprecated param.
+
+    The dataset's declaration wins because it is the one every consumer sees — the
+    injection pass inside ``build_metadata`` reads it off the policy the orchestrator
+    stamped, and a workflow reading its own param instead would land in a different stats
+    cache scope and buy a second full pass over the data.
+
+    Raises
+    ------
+    ValueError
+        When both are set and disagree.  There is no sound precedence between two people
+        stating different facts about the same imagery.
+    """
+    from_dataset = getattr(dataset_context, "value_range", None)
+    from_params = raw_field(params, "value_range")
+    if from_dataset is not None and from_params is not None and tuple(from_dataset) != tuple(from_params):
+        raise ValueError(
+            f"The dataset declares value_range={tuple(from_dataset)} and this workflow's "
+            f"params declare {tuple(from_params)}. The workflow param is deprecated — "
+            "remove it and keep the dataset's, which every workflow reading that dataset "
+            "shares.",
+        )
+    return from_dataset if from_dataset is not None else from_params
 
 
 # --- Parameter base ---
