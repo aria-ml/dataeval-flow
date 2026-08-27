@@ -1448,3 +1448,31 @@ class TestValueRangeReachesTheRun:
 
         stamped = _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), None], "clean")
         assert stamped.value_range == (0.0, 1.0)
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_declared_on_the_dataset_reaches_the_stamped_policy(self, mock_load_ds: MagicMock):
+        """The real seam: ds_config.value_range -> DatasetContext -> the run's metadata_policy."""
+        ds = ImageFolderDatasetConfig(name="images", path="data/images", value_range=(0.0, 1.0))
+        source = SourceConfig(name="src", dataset="images")
+        task = TaskConfig(name="t", workflow="clean", sources="src")
+
+        config = MagicMock()
+        config.datasets = [ds]
+        config.sources = [source]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            _run_single_task(task, config)
+
+        context = mock_wf.execute.call_args[0][0]
+        dc = context.dataset_contexts["src"]
+        assert dc.value_range == (0.0, 1.0)
+        assert context.metadata_policy.value_range == (0.0, 1.0)
