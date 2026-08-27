@@ -199,10 +199,18 @@ class TestDoubleDeclaration:
         bare declaration onto the level-prefixed name before `Metadata` sees it — so this is
         the same factor declared twice, not two different ones, and must be refused exactly
         like the exact-name collision above rather than letting the bare declaration
-        silently overwrite the committed record.
+        silently overwrite the committed record. `intrinsic_factors` must be declared for
+        the collision to exist at all: `brightness` is a VISUAL statistic, so injection can
+        only produce `unit_brightness` from it when `visual` is one of the families asked
+        for — see `test_prefix_collision_does_not_fire_without_injection_declared` for the
+        other half of that gate.
         """
         _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
-        config = _config(encoding="policy.json", continuous_factor_bins={"brightness": 4})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"brightness": 4},
+            intrinsic_factors=["visual"],
+        )
         with pytest.raises(ValueError, match="both `encoding` and `continuous_factor_bins`") as exc:
             resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
         message = str(exc.value)
@@ -212,9 +220,59 @@ class TestDoubleDeclaration:
     def test_a_level_prefixed_descriptor_factor_with_no_bare_match_is_not_a_conflict(self, tmp_path: Path):
         """The prefix check is scoped to an actual collision, not any level-prefixed name."""
         _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
-        config = _config(encoding="policy.json", continuous_factor_bins={"contrast": 4})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"contrast": 4},
+            intrinsic_factors=["visual"],
+        )
         policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
         assert policy.continuous_factor_bins == {"contrast": 4}
+
+    def test_prefix_collision_does_not_fire_without_injection_declared(self, tmp_path: Path):
+        """The collision depends on injection actually being on, not just on the spelling.
+
+        With no `intrinsic_factors` declared, nothing can produce `unit_brightness` from a
+        bare `brightness` declaration — so the two are just two differently-spelled,
+        unrelated names, and the same setup that raises in
+        `test_encoding_and_bins_conflict_through_a_level_prefix` must not raise here.
+        """
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(encoding="policy.json", continuous_factor_bins={"brightness": 4})
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"brightness": 4}
+
+    def test_unrelated_level_prefixed_column_is_not_a_conflict(self, tmp_path: Path):
+        """A dataset-native column that merely looks level-prefixed is not a collision.
+
+        `unit_price` is an ordinary column name, not something `add_factors` ever produces
+        by splitting a statistic — no family injects a `price` statistic, `visual` included
+        — so a bare `continuous_factor_bins: {"price": ...}` declaration is unrelated to it
+        even though the two spellings share the `unit_` prefix.
+        """
+        _descriptor(tmp_path, {"unit_price": _DECLARED_BINS["temp_c"]})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"price": 4},
+            intrinsic_factors=["visual"],
+        )
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"price": 4}
+
+    def test_prefix_collision_is_scoped_to_the_declared_family(self, tmp_path: Path):
+        """A name only collides if the *declared* families could actually produce it.
+
+        `brightness` is a VISUAL statistic, not a DIMENSION one, so declaring only
+        `dimension` cannot make injection produce `unit_brightness` — the collision must not
+        fire just because *some* family somewhere injects `brightness`.
+        """
+        _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
+        config = _config(
+            encoding="policy.json",
+            continuous_factor_bins={"brightness": 4},
+            intrinsic_factors=["dimension"],
+        )
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert policy.continuous_factor_bins == {"brightness": 4}
 
 
 class TestPolicyKey:
