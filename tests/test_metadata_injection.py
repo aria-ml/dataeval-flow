@@ -25,7 +25,8 @@ class TestResolvingFamilies:
         with pytest.raises(ValueError, match="nonsense") as exc:
             resolve_families("image", ["nonsense"])
         message = str(exc.value)
-        assert "visual" in message and "pixel" in message
+        assert "visual" in message
+        assert "pixel" in message
 
     def test_individual_statistics_are_not_families(self):
         # getattr(ImageStats, "PIXEL_MEAN") resolves; the allowlist is what refuses it.
