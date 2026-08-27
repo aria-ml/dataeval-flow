@@ -1,9 +1,11 @@
 """Family resolution and bin expansion — the pure half of intrinsic factor injection."""
 
+import numpy as np
 import pytest
 from dataeval.flags import ImageStats
 
-from dataeval_flow.metadata import expand_declared_bins, resolve_families, stat_names_for
+from dataeval_flow.metadata import build_metadata, expand_declared_bins, resolve_families, stat_names_for
+from dataeval_flow.policy import ResolvedPolicy
 
 
 class TestResolvingFamilies:
@@ -124,3 +126,110 @@ class TestExpandingDeclaredBins:
 
     def test_empty_declaration_stays_empty(self):
         assert expand_declared_bins({}, ["unit_brightness"], self.LEVELS) == {}
+
+
+class _Target:
+    def __init__(self, labels, boxes, scores):
+        self.labels, self.boxes, self.scores = labels, boxes, scores
+
+
+class _ICDataset:
+    """Classification: one level, so factor names stay bare."""
+
+    def __init__(self, n: int = 40) -> None:
+        self._n = n
+        self._rng = np.random.default_rng(0)
+
+    @property
+    def metadata(self) -> dict:
+        return {"id": "inject-ic", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, index: int):
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        image = (self._rng.random((3, 16, 16)) * (0.2 + 0.01 * index)).astype(np.float32)
+        return image, one_hot, {"id": index, "weather": ["sun", "rain"][index % 2]}
+
+
+class _ODDataset:
+    """Detection: two levels, so `add_factors` splits every statistic in two."""
+
+    def __init__(self, n: int = 40) -> None:
+        self._n = n
+        self._rng = np.random.default_rng(1)
+
+    @property
+    def metadata(self) -> dict:
+        return {"id": "inject-od", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, index: int):
+        count = 1 + (index % 3)
+        boxes = np.tile(np.array([0.0, 0.0, 8.0, 8.0], dtype=np.float32), (count, 1))
+        boxes[:, 2] += np.arange(count)
+        target = _Target(np.arange(count, dtype=np.intp) % 2, boxes, np.ones(count, dtype=np.float32))
+        image = (self._rng.random((3, 32, 32)) * (0.2 + 0.01 * index)).astype(np.float32)
+        return image, target, {"id": index, "weather": ["sun", "rain"][index % 2]}
+
+
+class TestBuildMetadataInjects:
+    """The capability reaches every caller of build_metadata, or it reaches none."""
+
+    def test_no_policy_injects_nothing(self):
+        metadata = build_metadata(_ICDataset())
+        assert "brightness" not in metadata.factor_names
+
+    def test_empty_intrinsic_factors_injects_nothing(self):
+        metadata = build_metadata(_ICDataset(), ResolvedPolicy())
+        assert "brightness" not in metadata.factor_names
+
+    def test_injects_the_named_families(self):
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 1.0))
+        metadata = build_metadata(_ICDataset(), policy)
+        assert {"brightness", "contrast", "darkness", "sharpness"} <= set(metadata.factor_names)
+
+    def test_does_not_inject_families_it_was_not_given(self):
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 1.0))
+        metadata = build_metadata(_ICDataset(), policy)
+        assert "mean" not in metadata.factor_names  # a PIXEL statistic
+
+    def test_hashes_never_arrive(self):
+        policy = ResolvedPolicy(intrinsic_factors=("hash",), value_range=(0.0, 1.0))
+        metadata = build_metadata(_ICDataset(), policy)
+        assert not {"xxhash", "phash", "dhash"} & set(metadata.factor_names)
+
+    def test_declared_bin_binds_on_classification(self):
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightness": 4},
+        )
+        metadata = build_metadata(_ICDataset(), policy)
+        assert metadata.continuous_factor_bins == {"brightness": 4}
+        assert metadata.factor_info["brightness"].factor_type == "continuous"
+
+    def test_declared_bin_reaches_both_levels_on_detection(self):
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightness": 4},
+        )
+        metadata = build_metadata(_ODDataset(), policy)
+        assert metadata.continuous_factor_bins == {
+            "unit_brightness": 4,
+            "instance_brightness": 4,
+        }
+
+    def test_a_typo_is_left_unmatched(self):
+        policy = ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 1.0),
+            continuous_factor_bins={"brightnes": 4},
+        )
+        metadata = build_metadata(_ODDataset(), policy)
+        assert metadata.continuous_factor_bins == {"brightnes": 4}
