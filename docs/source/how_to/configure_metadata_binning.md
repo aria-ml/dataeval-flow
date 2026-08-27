@@ -32,8 +32,10 @@ metadata:
   - name: standard
     encoding: policy/factor_bins.json     # a committed descriptor
     exclude: [id, filename]
+    intrinsic_factors: [visual, pixel]    # measure these off the imagery and bin them too
     continuous_factor_bins:
       elevation: 8
+      brightness: 4
 
 workflows:
   - name: coverage_check
@@ -45,7 +47,8 @@ workflows:
 ```
 
 A policy carries everything that decides how a factor becomes a code: `encoding`, `factor_levels`, `strict`,
-`auto_bin_method`, `exclude`, `continuous_factor_bins`, `factor_source`, and `reference_split`.
+`auto_bin_method`, `exclude`, `continuous_factor_bins`, `intrinsic_factors`, `factor_source`, and
+`reference_split`.
 
 The older per-workflow `metadata_*` fields still work and mean the same things. Naming a policy *and* setting one of
 them on the same workflow is an error rather than a merge — two sources disagreeing about one factor has no good
@@ -59,6 +62,9 @@ Everything a policy says is checked before the dataset is read, so a mistake cos
 | `encoding` points at a file that is not there | Error — a descriptor matching nothing silently reverts every factor it meant to pin |
 | One factor named by both `encoding` and `continuous_factor_bins` | Error |
 | `strict: true` over a descriptor with unreviewed vocabularies | Error, naming them (see below) |
+| `intrinsic_factors` names something that is not a family | Error, listing the families that exist |
+| A statistic pinned by both a level-prefixed `encoding` entry and a bare `continuous_factor_bins` name | Error |
+| `include_image_stats: true` alongside an `intrinsic_factors` that says something else | Error |
 
 ### Get a descriptor out of a run
 
@@ -184,28 +190,86 @@ excluding when it is a property of your pipeline rather than of the scene.
 Exclusion is recorded in the result, because an excluded factor otherwise leaves no trace — it is simply absent, and
 absent-because-excluded looks identical to absent-because-never-collected.
 
-## Declare the range of float image data
+## Measure factors off the imagery itself
 
-`value_range` is a separate setting that governs **image statistics**, not metadata factors — but it fails the same
-quiet way, so it belongs here.
-
-Integer encodings state the interval their values occupy. Float data does not. As of DataEval v1.1 the statistics
-that need one answer `NaN` rather than inferring it:
+Most factors arrive with the dataset. Some are properties of the images and have to be measured — brightness,
+contrast, sharpness, entropy. `intrinsic_factors` names the **families** to measure and add to the metadata, so
+they bin, encode and report like any factor the dataset shipped with:
 
 ```yaml
+metadata:
+  - name: standard
+    intrinsic_factors: [visual, pixel]
+    continuous_factor_bins:
+      brightness: 4
+```
+
+Families are lowercase: `visual`, `pixel`, `dimension`, `hash`. Naming anything else is an error before the dataset
+is read, listing the ones that exist. `hash` is accepted and measured but never injected — a digest is not a
+quantity, and binning one would produce a factor whose codes mean nothing.
+
+Because it lives on the policy, every workflow sharing that policy measures the same set. That is the point: a
+statistic injected for one workflow and not another produces two results that look comparable and are not.
+
+### A bare name reaches both levels on detection data
+
+On object detection data a statistic exists twice — once per image and once per detected object — and dataeval names
+them `unit_brightness` and `instance_brightness`. Declare the bin on the **bare** statistic and it binds both:
+
+```yaml
+    intrinsic_factors: [visual]
+    continuous_factor_bins:
+      brightness: 4          # binds unit_brightness and instance_brightness alike
+```
+
+Declaring `unit_brightness` directly also works, and binds only that one. What is not allowed is pinning the same
+statistic from both channels — a level-prefixed entry in a committed `encoding` alongside a bare
+`continuous_factor_bins` declaration is an error, because the two disagree and neither is the obvious winner.
+
+A declared bin that matches nothing is not silently dropped. The result envelope records it under
+`unmatched_bin_requests`, which is how a typo — `brightnes` — shows up as a fact in the output rather than as a
+factor that quietly went unbinned.
+
+## Declare the range of float image data
+
+`value_range` governs **image statistics**, not metadata factors — but it fails the same quiet way, so it belongs
+here.
+
+Integer encodings state the interval their values occupy. Float data does not. As of DataEval v1.1 the statistics
+that need one answer `NaN` rather than inferring it. Declare it on the **dataset**, because it is a fact about the
+imagery rather than a setting of any one workflow:
+
+```yaml
+datasets:
+  - name: bathymetry
+    format: huggingface
+    path: data/bathymetry
+    task: image_classification
+    value_range: [-50.0, 50.0]      # metres above and below sea level
+
 workflows:
   - name: quality_check
     type: data-cleaning
     outlier_method: modzscore
     outlier_flags: [dimension, pixel, visual]
-    value_range: [-50.0, 50.0]      # metres above and below sea level
 ```
+
+Every workflow reading that dataset then measures against the same interval — including the `intrinsic_factors`
+pass above, which is what keeps a declared range from meaning one thing to the injection and another to the
+workflow's own statistics.
 
 Affected without a declared range: the whole `visual` group, pixel histogram and entropy, and dimension depth.
 `PIXEL_MISSING` always answers, because it measures the presence of data rather than the data. Leave `value_range`
 unset for ordinary integer imagery — the `[0, 1]` and `0–255` float conventions are still detected automatically.
 
 `value_range` participates in the cache key, so two runs declaring different ranges never share a cached entry.
+
+```{warning}
+**Deprecated.** `value_range` on a workflow, and `include_image_stats` on `data-analysis`, are the older spellings
+of the two settings above. Both still work and both are removed in the next minor version.
+`include_image_stats: true` means `intrinsic_factors: [visual, pixel]`. Setting a workflow's `value_range` alongside
+a disagreeing one on the dataset is an error rather than a merge.
+```
 
 ## Read back what the run did
 
