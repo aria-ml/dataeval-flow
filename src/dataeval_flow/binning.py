@@ -338,11 +338,15 @@ def describe_binning(
         if (entry.get("encoding") or {}).get("provenance") == "derived"
     )
 
-    # What each declared name became.  Only names that actually moved are recorded — an
-    # entry mapping a name to itself would be noise on every classification run.
+    # What each declared name became.  Matched against real level prefixes, exactly as
+    # expand_declared_bins matches — not by bare `endswith` suffix, which would also claim
+    # an unrelated declared factor like `camera_brightness` as an expansion of `brightness`,
+    # fabricating a provenance link that was never there. Only names that actually moved are
+    # recorded — an entry mapping a name to itself would be noise on every classification run.
     expansion: dict[str, list[str]] = {}
     for name in declared_bins or {}:
-        landed = sorted(target for target in requested_bins if target == name or target.endswith(f"_{name}"))
+        candidates = {name, *(f"{level}_{name}" for level in metadata.levels)}
+        landed = sorted(candidates & set(requested_bins))
         if landed != [name]:
             expansion[name] = landed
     record["bin_expansion"] = expansion
