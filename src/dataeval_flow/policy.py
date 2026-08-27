@@ -17,7 +17,7 @@ __all__ = ["ResolvedPolicy", "policy_for", "policy_key", "resolve_policy"]
 
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from itertools import combinations
 from pathlib import Path
@@ -185,6 +185,7 @@ def _check_no_double_declaration(
     bins: Mapping[str, Any],
     levels: Mapping[str, Any],
     source: str,
+    injectable_names: Collection[str] = (),
 ) -> None:
     """Refuse a factor declared through two channels rather than picking one.
 
@@ -193,15 +194,17 @@ def _check_no_double_declaration(
     error.  ``encoding`` × ``continuous_factor_bins`` is a cut declared twice;
     ``factor_levels`` against either is a vocabulary declared twice.
 
-    ``encoding`` × ``continuous_factor_bins`` is also checked one spelling down: a
-    descriptor factor named ``<level>_<name>`` — what a statistic measured at more than one
-    row level is recorded as — collides with a bare ``continuous_factor_bins`` declaration
-    of ``<name>``, because injection's ``expand_declared_bins`` carries that bare
-    declaration onto the level-prefixed name before it reaches ``Metadata``.  Left
-    unchecked, the bare declaration would silently overwrite the descriptor's committed
-    record with a draw-derived cut — this module's whole premise is that two sources
-    disagreeing about one factor has no good resolution, so this is refused exactly like
-    the exact-name collision above rather than picking a side.
+    ``encoding`` × ``continuous_factor_bins`` is also checked one spelling down, but only
+    for a name injection could actually have split: a descriptor factor named
+    ``<level>_<name>`` collides with a bare ``continuous_factor_bins`` declaration of
+    ``<name>`` when ``<name>`` is one of the statistics ``injectable_names`` lists, because
+    injection's ``expand_declared_bins`` is what carries that bare declaration onto the
+    level-prefixed name before it reaches ``Metadata``. Without that gate a dataset-native
+    column that merely *looks* level-prefixed — ``unit_price``, ``instance_id`` — would
+    collide with an unrelated bare declaration (``price``, ``id``) that injection was never
+    going to touch, a false positive nothing produced. Gated on the actual injectable set,
+    a real collision is refused exactly like the exact-name case above rather than letting
+    the bare declaration silently overwrite the descriptor's committed record.
     """
     channels = (
         ("encoding", factors),
@@ -217,7 +220,11 @@ def _check_no_double_declaration(
             )
 
     prefixed = sorted(
-        (name, f"{level}_{name}") for name in bins for level in _ROW_LEVELS if f"{level}_{name}" in factors
+        (name, f"{level}_{name}")
+        for name in bins
+        if name in injectable_names
+        for level in _ROW_LEVELS
+        if f"{level}_{name}" in factors
     )
     if prefixed:
         both = sorted({spelling for pair in prefixed for spelling in pair})
@@ -354,21 +361,26 @@ def resolve_policy(
         factors = _read_descriptor(resolved_path, source)
         _logger.info("Applying encoding descriptor %s (%d factors)", descriptor_path, len(factors))
 
+    # Resolved before the double-declaration check, not after: that check needs to know
+    # which bare names injection could actually turn into a level-prefixed descriptor
+    # entry, and `stat_names_for` is only meaningful once the families are known to be
+    # real ones. Modality is fixed at "image" until a second stat enum exists; validating
+    # here rather than at injection is what makes a misspelled family a config error.
+    injectable_names: frozenset[str] = frozenset()
+    if intrinsic_factors:
+        from dataeval_flow.metadata import resolve_families, stat_names_for
+
+        try:
+            flags = resolve_families("image", intrinsic_factors)
+        except ValueError as exc:
+            raise ValueError(f"{source} {exc}") from exc
+        injectable_names = frozenset(stat_names_for(flags))
+
     # Outside the descriptor branch: `factor_levels` conflicts with `continuous_factor_bins`
     # whether or not a descriptor is named, and strict with nothing declared is the one
     # spelling that would otherwise reach DataEval unchecked.
-    _check_no_double_declaration(factors or {}, bins, factor_levels or {}, source)
+    _check_no_double_declaration(factors or {}, bins, factor_levels or {}, source, injectable_names)
     _check_strict_is_earned(factors or {}, strict, source, declares_levels=bool(factor_levels))
-
-    if intrinsic_factors:
-        from dataeval_flow.metadata import resolve_families
-
-        # Modality is fixed at "image" until a second stat enum exists; validating here
-        # rather than at injection is what makes a misspelled family a config error.
-        try:
-            resolve_families("image", intrinsic_factors)
-        except ValueError as exc:
-            raise ValueError(f"{source} {exc}") from exc
 
     return ResolvedPolicy(
         auto_bin_method=auto_bin_method,
