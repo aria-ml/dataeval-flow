@@ -1,6 +1,6 @@
 """Metadata convenience builder wrapping DataEval."""
 
-__all__ = ["build_metadata", "expand_declared_bins", "resolve_families", "stat_names_for"]
+__all__ = ["build_metadata", "expand_declared_bins", "inject_intrinsic_factors", "resolve_families", "stat_names_for"]
 
 from collections.abc import Iterable, Mapping, Sequence
 from enum import Flag
@@ -109,6 +109,42 @@ def expand_declared_bins(
     return expanded
 
 
+def inject_intrinsic_factors(metadata: Metadata, calc_result: Mapping[str, Any]) -> set[str]:
+    """Inject computed statistics into *metadata* as factors, returning the names added.
+
+    The stats result labels every value with the entity it describes, so ``source_index``
+    places each one at its own level: a whole-image measurement lands on the unit rows and a
+    per-box measurement on the instance rows.  Unit-level values propagate down to instance
+    rows, so both halves stay visible to the bias evaluators without being broadcast by hand.
+
+    Where a statistic is measured at both levels the factor is split in two, named for the
+    level it was measured at — ``unit_brightness`` for the image and ``instance_brightness``
+    for the box.  Each is then binned over its own population rather than over the
+    replicated copy.  The names are returned because a policy declares bins on the bare
+    statistic, and :func:`expand_declared_bins` needs to know what those became.
+
+    The only arrays withheld are the hashes.  They travel in the same result — one
+    ``compute_stats`` pass serves both outlier and duplicate detection — and are near-unique
+    per image, so digitizing them would yield a category per item: a factor that correlates
+    with everything and describes nothing.
+
+    Everything else is handed over as it comes, including the vector-valued statistics
+    (``histogram``, ``percentiles``, ``center``).  Those have no single-column form and
+    cannot become factors either, but dropping them *here* would drop them silently;
+    ``add_factors`` records them in :attr:`~dataeval.Metadata.dropped_factors`, which is what
+    lets the metadata summary report them as measured-but-not-representable rather than
+    leaving them missing without explanation.
+    """
+    # Object, unicode, bytes and void dtypes are the hash columns.  Numeric and boolean
+    # arrays are both usable — bool digitizes to a two-value category.
+    usable = {name: arr for name, arr in calc_result["stats"].items() if arr.dtype.kind not in "OUSV"}
+    if not usable:
+        return set()
+    before = set(metadata.factor_names)
+    metadata.add_factors(usable, source_index=calc_result["source_index"])
+    return set(metadata.factor_names) - before
+
+
 def build_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | None" = None) -> Metadata:
     """Build Metadata from a dataset under a resolved metadata policy.
 
@@ -123,8 +159,57 @@ def build_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | Non
     Returns
     -------
     Metadata
-        DataEval Metadata instance.
+        DataEval Metadata instance, with the policy's ``intrinsic_factors`` injected.
+
+    Notes
+    -----
+    Injection lives here rather than in each workflow because this is the one function every
+    cached ``Metadata`` comes through, and it already receives the policy.  It happens
+    *after* construction, which is sound because binning is lazy: a bin declared before its
+    factor exists still binds when the factor arrives.
     """
     from dataeval_flow.policy import ResolvedPolicy
 
-    return Metadata(dataset, **(policy or ResolvedPolicy()).metadata_kwargs())
+    resolved = policy or ResolvedPolicy()
+    metadata = Metadata(dataset, **resolved.metadata_kwargs())
+    if not resolved.intrinsic_factors:
+        return metadata
+    return _inject_and_rebin(metadata, dataset, resolved)
+
+
+def _inject_and_rebin(
+    metadata: Metadata,
+    dataset: AnnotatedDataset[Any],
+    policy: "ResolvedPolicy",
+) -> Metadata:
+    """Compute the policy's statistics, inject them, and carry its bins onto the result."""
+    # Imported here, not at module scope: cache.py imports build_metadata from this module,
+    # so a module-level import back would be circular.
+    from dataeval_flow.cache import get_or_compute_stats
+
+    flags = resolve_families(_modality_of(dataset), policy.intrinsic_factors)
+    calc_result = get_or_compute_stats(
+        desired_flags=flags,
+        dataset=dataset,
+        per_image=True,
+        # Detection data measures at both levels; asking for target statistics on
+        # classification data would be a different cache scope for no extra factors.
+        per_target=metadata.multi_target,
+        value_range=policy.value_range,
+    )
+    produced = inject_intrinsic_factors(metadata, calc_result)
+    if produced and policy.continuous_factor_bins:
+        metadata.continuous_factor_bins = expand_declared_bins(
+            policy.continuous_factor_bins, metadata.factor_names, metadata.levels
+        )
+    return metadata
+
+
+def _modality_of(dataset: AnnotatedDataset[Any]) -> str:
+    """The modality whose statistics enum applies to *dataset*.
+
+    Constant until a second enum exists.  A function rather than a literal so that adding
+    ``VideoStats`` is a change here and in ``_STAT_FAMILIES``, and nowhere else.
+    """
+    del dataset
+    return "image"
