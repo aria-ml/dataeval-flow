@@ -48,6 +48,7 @@ class DatasetContext:
     view_operations: "Sequence[ViewOperation] | None" = None
     batch_size: int | None = None
     label_source: str | None = None
+    value_range: "tuple[float, float] | None" = None
     cache: "DatasetCache | None" = None
     selection_steps: "InitVar[Sequence[ViewOperation] | None]" = None  # deprecated
 

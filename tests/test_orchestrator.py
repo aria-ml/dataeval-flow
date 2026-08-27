@@ -1409,3 +1409,42 @@ class TestResolvedDatasetBackfill:
         assert result.sources is not None
         assert list(result.sources) == ["src_ds_a", "src_ds_b"]
         assert result.sources["src_ds_a"] is datasets[0]
+
+
+class TestValueRangeReachesTheRun:
+    """One value per dataset, so the injection pass and a workflow's own cannot disagree."""
+
+    def test_stamped_onto_the_resolved_policy(self):
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+
+        policy = ResolvedPolicy()
+        stamped = _apply_dataset_value_range(policy, [(0.0, 1.0), (0.0, 1.0)], "clean")
+        assert stamped.value_range == (0.0, 1.0)
+
+    def test_absent_leaves_the_policy_alone(self):
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+
+        policy = ResolvedPolicy()
+        assert _apply_dataset_value_range(policy, [None, None], "clean").value_range is None
+
+    def test_disagreeing_datasets_are_refused_before_the_data_is_read(self):
+        import pytest
+
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+
+        with pytest.raises(ValueError, match="value_range") as exc:
+            _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), (0.0, 255.0)], "clean")
+        message = str(exc.value)
+        assert "0.0" in message
+        assert "255.0" in message
+        assert "clean" in message
+
+    def test_a_declared_range_beside_undeclared_datasets_still_applies(self):
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+
+        stamped = _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), None], "clean")
+        assert stamped.value_range == (0.0, 1.0)
