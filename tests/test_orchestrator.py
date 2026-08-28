@@ -1420,6 +1420,7 @@ class TestValueRangeReachesTheRun:
 
         policy = ResolvedPolicy()
         stamped = _apply_dataset_value_range(policy, [(0.0, 1.0), (0.0, 1.0)], "clean")
+        assert stamped
         assert stamped.value_range == (0.0, 1.0)
 
     def test_absent_leaves_the_policy_alone(self):
@@ -1427,7 +1428,9 @@ class TestValueRangeReachesTheRun:
         from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
 
         policy = ResolvedPolicy()
-        assert _apply_dataset_value_range(policy, [None, None], "clean").value_range is None
+        stamped = _apply_dataset_value_range(policy, [None, None], "clean")
+        assert stamped
+        assert stamped.value_range is None
 
     def test_disagreeing_datasets_are_refused_before_the_data_is_read(self):
         import pytest
@@ -1447,6 +1450,7 @@ class TestValueRangeReachesTheRun:
         from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
 
         stamped = _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), None], "clean")
+        assert stamped
         assert stamped.value_range == (0.0, 1.0)
 
     @patch("dataeval_flow.dataset.load_dataset")

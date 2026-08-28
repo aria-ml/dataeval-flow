@@ -35,6 +35,7 @@ def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
 
     workflow = get_workflow(workflow_type)
+    assert workflow.params_schema
     params = workflow.params_schema(**_PARAMS[workflow_type])
 
     context = WorkflowContext(

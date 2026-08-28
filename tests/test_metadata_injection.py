@@ -5,6 +5,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 from dataeval.flags import ImageStats
+from dataeval.protocols import DatasetMetadata
 
 from dataeval_flow.metadata import build_metadata, expand_declared_bins, resolve_families, stat_names_for
 from dataeval_flow.policy import ResolvedPolicy
@@ -73,6 +74,15 @@ class TestStatNames:
 
     def test_none_produces_nothing(self):
         assert stat_names_for(ImageStats.NONE) == set()
+
+    def test_convenience_groups_name_no_column(self):
+        """``PIXEL_BASIC`` and ``NO_HASH`` are groups, so they contribute no name.
+
+        Only Python 3.10 can fail this: 3.11 dropped composite members from
+        ``iter(FlagClass)``, which hides them whether or not ``stat_names_for`` excludes
+        them. The 3.10 leg of the matrix is what holds the guard in place.
+        """
+        assert stat_names_for(ImageStats.ALL) & {"basic", "distribution", "duplicates_basic", "hash"} == set()
 
 
 class TestExpandingDeclaredBins:
@@ -143,7 +153,7 @@ class _ICDataset:
         self._rng = np.random.default_rng(0)
 
     @property
-    def metadata(self) -> dict:
+    def metadata(self) -> DatasetMetadata:
         return {"id": "inject-ic", "index2label": {0: "cat", 1: "dog"}}
 
     def __len__(self) -> int:
@@ -164,7 +174,7 @@ class _ODDataset:
         self._rng = np.random.default_rng(1)
 
     @property
-    def metadata(self) -> dict:
+    def metadata(self) -> DatasetMetadata:
         return {"id": "inject-od", "index2label": {0: "cat", 1: "dog"}}
 
     def __len__(self) -> int:
@@ -195,7 +205,7 @@ class _WideRangeDataset:
         self._rng = np.random.default_rng(2)
 
     @property
-    def metadata(self) -> dict:
+    def metadata(self) -> DatasetMetadata:
         return {"id": "inject-wide", "index2label": {0: "cat", 1: "dog"}}
 
     def __len__(self) -> int:

@@ -210,6 +210,29 @@
           "title": "Path",
           "type": "string"
         },
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "annotations_file": {
           "anyOf": [
             {
@@ -310,6 +333,7 @@
             }
           ],
           "default": null,
+          "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
@@ -467,7 +491,8 @@
         },
         "include_image_stats": {
           "default": false,
-          "description": "Compute ImageStats and inject as metadata factors for bias analysis",
+          "deprecated": true,
+          "description": "Deprecated. Use the metadata policy's `intrinsic_factors` instead.",
           "title": "Include Image Stats",
           "type": "boolean"
         },
@@ -589,6 +614,7 @@
             }
           ],
           "default": null,
+          "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
@@ -961,6 +987,7 @@
             }
           ],
           "default": null,
+          "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
@@ -1264,6 +1291,7 @@
             }
           ],
           "default": null,
+          "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
@@ -1979,6 +2007,29 @@
           "title": "Path",
           "type": "string"
         },
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
         "split": {
           "anyOf": [
             {
@@ -2025,6 +2076,29 @@
         "path": {
           "title": "Path",
           "type": "string"
+        },
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
+          "title": "Value Range"
         },
         "recursive": {
           "default": false,
@@ -2199,6 +2273,14 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read \u2014 `coded`, `values`, or `auto`. It moves every number they report, so workflows meant to be compared want one answer.",
           "title": "Factor Source"
+        },
+        "intrinsic_factors": {
+          "description": "Statistic families computed from the imagery and injected as metadata factors, so bias analysis can read them: `visual`, `pixel`, `dimension`. Named as families rather than individual statistics because that is the granularity worth deciding \u2014 `visual` and `pixel` are the bias workhorses, `dimension` is meaningful only for variable-size imagery. Hashes are never injected: they are near-unique per item, so a factor made from one correlates with everything and describes nothing. Empty means inject nothing, which costs exactly what a run costs today.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Intrinsic Factors",
+          "type": "array"
         }
       },
       "required": [
@@ -2230,6 +2312,7 @@
             }
           ],
           "default": null,
+          "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
@@ -3195,6 +3278,29 @@
         "path": {
           "title": "Path",
           "type": "string"
+        },
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
+          "title": "Value Range"
         },
         "split": {
           "anyOf": [

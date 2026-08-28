@@ -527,22 +527,26 @@ class TestEnvelopeRecordsInjection:
 
     def test_the_declared_bin_is_not_reported_unmatched(self):
         record = self._record()
+        assert record
         assert not record.get("unmatched_bin_requests")
 
     def test_both_levels_report_four_bins(self):
         record = self._record()
+        assert record
         for name in ("unit_brightness", "instance_brightness"):
             encoding = record["factors"][name]["encoding"]
             assert len(encoding["edges"]) - 1 == 4
 
     def test_the_expansion_names_both_sides(self):
         record = self._record()
+        assert record
         assert record["bin_expansion"] == {
             "brightness": ["instance_brightness", "unit_brightness"],
         }
 
     def test_injected_factors_are_marked(self):
         record = self._record()
+        assert record
         injected = set(record["injected_factors"])
         assert "unit_brightness" in injected
         assert "weather" not in injected  # carried by the dataset
@@ -558,6 +562,7 @@ class TestEnvelopeRecordsInjection:
         result_metadata = ResultMetadata()
         attach_binning(result_metadata, build_metadata(_ODDataset(), policy), policy)
         record = result_metadata.metadata_binning
+        assert record
         assert record["bin_expansion"] == {}
         assert record["injected_factors"] == []
         # And the declared bin is still correctly reported as matching nothing.
@@ -596,6 +601,7 @@ class TestEnvelopeRecordsInjection:
         result_metadata = ResultMetadata()
         attach_binning(result_metadata, metadata, policy)
 
+        assert result_metadata.metadata_binning
         per_split = result_metadata.metadata_binning["per_split"]
         for split in ("train", "test"):
             record = per_split[split]
