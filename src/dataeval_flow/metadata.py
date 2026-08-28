@@ -4,7 +4,7 @@ __all__ = ["build_metadata", "expand_declared_bins", "inject_intrinsic_factors",
 
 from collections.abc import Iterable, Mapping, Sequence
 from enum import Flag
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from dataeval import Metadata
 from dataeval.flags import ImageStats
@@ -24,7 +24,7 @@ _STAT_FAMILIES: dict[str, tuple[type[Flag], frozenset[str]]] = {
 }
 
 
-def resolve_families(modality: str, families: Sequence[str]) -> Any:
+def resolve_families(modality: str, families: Sequence[str]) -> Flag:
     """Resolve config-named statistic families to a flag set for *modality*.
 
     Parameters
@@ -61,21 +61,27 @@ def resolve_families(modality: str, families: Sequence[str]) -> Any:
                 f"Valid families: {valid}. Families are groups, not individual statistics — "
                 "declare `pixel` rather than `pixel_mean`."
             )
-        flags |= getattr(enum, key)
+        flags |= cast(Flag, getattr(enum, key))
     return flags
 
 
-def stat_names_for(flags: Any) -> set[str]:
+def stat_names_for(flags: Flag) -> set[str]:
     """The statistic column names *flags* produces.
 
     Derived from the enum rather than listed here, so a statistic added upstream is picked
     up without an edit: every member is named ``<FAMILY>_<STATISTIC>`` and produces the
     lowercased second half.
+
+    Only single-bit members are statistics; the multi-bit ones are the convenience groups
+    (``PIXEL_BASIC``, ``HASH_DUPLICATES_D4``, ``NO_HASH``), which name no column. The
+    ``bit_count`` test states that rather than relying on iteration to hide them: Python
+    3.11 excludes composite members from ``iter(FlagClass)``, but 3.10 yields them, so
+    without it the groups leak column names such as ``basic`` and ``hash`` on 3.10 alone.
     """
     return {
         member.name.split("_", 1)[1].lower()
         for member in type(flags)
-        if member.name and "_" in member.name and member & flags
+        if member.name and "_" in member.name and member.value.bit_count() == 1 and member & flags
     }
 
 
@@ -188,6 +194,8 @@ def _inject_and_rebin(
     from dataeval_flow.cache import get_or_compute_stats
 
     flags = resolve_families(_modality_of(dataset), policy.intrinsic_factors)
+    if not isinstance(flags, ImageStats):
+        raise ValueError(f"Intrinsic factors are only supported for image datasets, not {flags}.")
     calc_result = get_or_compute_stats(
         desired_flags=flags,
         dataset=dataset,
