@@ -248,3 +248,37 @@ class TestWriteEncodingCommand:
         (tmp_path / "broken.json").write_text("{not json", encoding="utf-8")
         assert write_encoding(tmp_path / "broken.json") == 1
         assert "Cannot read" in caplog.text
+
+
+class TestACacheHitReadsTheValuesTheSameWay:
+    """A repair changes what the values *are*, so hit and miss disagreeing here would not
+    look like a cache bug — it would look like the numbers.
+
+    What makes them agree is that the corrections are in `policy_key`: an archive built
+    under one descriptor is never served to a run declaring another. Without that key
+    entry, `Metadata.load` restores the archive's corrections over the ones the reader
+    declared, and the run silently gets the wrong reading.
+    """
+
+    def test_a_reload_reads_the_repaired_values(self, tmp_path: Path):
+        seed = _decorated()
+        seed.repair([ParseValue("count", drop=[","])])
+        seed.export_encoding(tmp_path / "enc.json")
+
+        miss = _decorated(encoding=tmp_path / "enc.json")
+        archive = tmp_path / "md.dem"
+        miss.save(archive)
+        hit = Metadata.load(archive, encoding=tmp_path / "enc.json")
+
+        assert miss.dataframe["count"].to_list() == [1000, 2000, 3000, 4000, 5000]
+        assert hit.dataframe["count"].to_list() == miss.dataframe["count"].to_list()
+        assert hit.repairs == miss.repairs
+
+    def test_two_readings_of_one_column_key_differently(self, tmp_path: Path):
+        """The guard itself: were these to key alike, the archive above would be served to
+        a run that asked for the other reading."""
+        from dataeval_flow.policy import ResolvedPolicy, policy_key
+
+        comma = ({"kind": "parse_value", "factor": "count", "drop": [","]},)
+        space = ({"kind": "parse_value", "factor": "count", "drop": [" "]},)
+        assert policy_key(ResolvedPolicy(corrections=comma)) != policy_key(ResolvedPolicy(corrections=space))

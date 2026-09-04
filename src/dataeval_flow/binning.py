@@ -95,6 +95,41 @@ class _Descriptor(NamedTuple):
     version: int | None
 
 
+def _unusable(metadata: "Metadata") -> dict[str, dict[str, Any]]:
+    """What it would take to read each factor the walk could not, keyed by factor name.
+
+    The companion to ``dropped``, which says only *that* a factor was dropped and why.  On
+    its own that is a dead end: a reader sees ``mixed_types`` and has no next step, because
+    writing the repair needs the counts and the distinct values as the dataset spelled them
+    — and those are precisely what was held back and never reached the envelope.
+
+    ``repairable`` is the part worth reading first.  It separates a column a
+    :class:`~dataeval.types.Remap` or :class:`~dataeval.types.ParseValue` can recover from
+    one that is simply gone, which is the difference between a task and a fact.
+
+    Best effort, like :func:`_descriptor`: a release without the accessor costs this
+    section and nothing else.
+    """
+    unusable = getattr(metadata, "unusable", None)
+    if not unusable:
+        return {}
+    return {
+        name: to_serializable(
+            {
+                "reasons": list(entry.reasons),
+                "level": entry.level,
+                "repairable": bool(entry.repairable),
+                "counts": dict(entry.counts),
+                # The spelling the dataset used, not a normalized one: a repair is written
+                # against what is literally in the column.
+                "distinct": {kind: list(values) for kind, values in entry.distinct.items()},
+                "sampled": bool(entry.sampled),
+            }
+        )
+        for name, entry in unusable.items()
+    }
+
+
 def _descriptor(metadata: "Metadata") -> _Descriptor:
     """Every factor's encoding and every correction, as the committed descriptor spells them.
 
@@ -309,7 +344,7 @@ def describe_binning(
     dict
         JSON-serializable record with ``auto_bin_method``, ``encoding_digest``,
         ``descriptor_version``, ``factor_source``, ``requested_bins``, ``excluded``,
-        per-factor ``factors``, ``unreviewed``, and ``dropped``.
+        per-factor ``factors``, ``unreviewed``, ``dropped``, and ``unusable``.
         Each factor carries its ``encoding`` (the policy) and its ``fit`` (what
         this run's rows did against it) — see the module docstring.
 
@@ -334,6 +369,9 @@ def describe_binning(
         "excluded": list(excluded or ()),
         "factors": {},
         "dropped": {name: list(reasons) for name, reasons in metadata.dropped_factors.items()},
+        # Beside `dropped` rather than inside it: that mapping is the reason, and this is
+        # what to do about it.
+        "unusable": _unusable(metadata),
     }
 
     # One frame per level, fetched once — rows_at() materializes a frame per call.

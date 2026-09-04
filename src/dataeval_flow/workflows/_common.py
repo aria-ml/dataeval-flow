@@ -113,8 +113,16 @@ def compute_metadata_summary(metadata: "Metadata") -> dict[str, dict[str, Any]]:
     # single-column form and never became factors.  Without this they are
     # simply absent, which reads as "not measured" rather than "measured and
     # not representable".
+    # `repairable` beside the reasons, because a reason on its own is a dead end: it says
+    # a factor could not be read and leaves whether anything can be done about it unstated.
+    # A mixed column a `ParseValue` recovers and a vector-valued statistic that has no
+    # single-column form however it is read both read as "dropped" without it.
+    unusable = getattr(metadata, "unusable", None) or {}
     for name, reasons in metadata.dropped_factors.items():
-        summary.setdefault(name, {"type": "dropped", "dropped_reasons": list(reasons)})
+        entry: dict[str, Any] = {"type": "dropped", "dropped_reasons": list(reasons)}
+        if name in unusable:
+            entry["repairable"] = bool(unusable[name].repairable)
+        summary.setdefault(name, entry)
 
     return to_serializable(summary)
 

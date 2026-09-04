@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 from dataeval import Metadata
+from dataeval.protocols import DatasetMetadata
 
 from dataeval_flow._logging import capture_diagnostics
 from dataeval_flow.binning import attach_binning, describe_binning
@@ -614,3 +615,99 @@ class TestEnvelopeRecordsInjection:
         assert result_metadata.encoding_digest is not None
         assert result_metadata.encoding_digest == per_split["train"]["encoding_digest"]
         assert result_metadata.encoding_digest == per_split["test"]["encoding_digest"]
+
+
+class _MixedDataset:
+    """One classification item per index, with a column recorded two different ways.
+
+    A walk, not ``from_factors``: that constructor *refuses* a mixed column outright
+    (``reject_mixed_values``), so the held-back path only exists for metadata read off a
+    dataset — which is every real run.
+    """
+
+    def __init__(self, n: int = 20) -> None:
+        self._n = n
+        self._rng = np.random.default_rng(0)
+
+    @property
+    def metadata(self) -> DatasetMetadata:
+        return {"id": "mixed", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        image = self._rng.random((3, 8, 8)).astype(np.float32)
+        # Every fifth reading is a sentinel written into the cell rather than a weight.
+        weight = "absent" if index % 5 == 0 else float(10 + index)
+        datum: dict[str, Any] = {"id": index, "weight": weight}
+        return image, one_hot, datum
+
+
+class TestUnusableIsReportedBesideDropped:
+    """`dropped` says a factor could not be read. `unusable` says what it would take.
+
+    Without it a reader sees `mixed_types` and has no next step: writing the repair needs
+    the counts and the distinct values as the dataset spelled them, which is exactly what
+    is held back.
+    """
+
+    @staticmethod
+    def _mixed():
+        return Metadata(_MixedDataset())
+
+    def test_the_column_is_held_back_rather_than_promoted(self):
+        """The premise. Were it promoted to text it would be an ordinary categorical and
+        there would be nothing to report."""
+        md = self._mixed()
+        assert "weight" not in md.factor_names
+        assert "mixed_types" in md.dropped_factors["weight"]
+
+    def test_a_held_back_column_is_described(self):
+        assert "weight" in describe_binning(self._mixed())["unusable"]
+
+    def test_it_says_whether_a_repair_can_reach_it(self):
+        assert describe_binning(self._mixed())["unusable"]["weight"]["repairable"] is True
+
+    def test_it_carries_the_counts_a_repair_is_written_against(self):
+        counts = describe_binning(self._mixed())["unusable"]["weight"]["counts"]
+        assert counts["numeric"] == 16
+        assert counts["text"] == 4
+
+    def test_it_carries_the_distinct_values_as_the_dataset_spelled_them(self):
+        distinct = describe_binning(self._mixed())["unusable"]["weight"]["distinct"]
+        assert "absent" in distinct["text"]
+
+    def test_it_names_the_same_reasons_dropped_does(self):
+        record = describe_binning(self._mixed())
+        assert record["unusable"]["weight"]["reasons"] == record["dropped"]["weight"]
+
+    def test_a_run_with_nothing_held_back_reports_an_empty_mapping(self):
+        clean = Metadata.from_factors({"w": ["a", "b"] * 10}, class_labels=np.zeros(20, dtype=int))
+        assert describe_binning(clean)["unusable"] == {}
+
+    def test_the_record_is_json_serializable(self):
+        """It travels in the result envelope, so a tuple or a NumPy scalar would break it."""
+        json.dumps(describe_binning(self._mixed())["unusable"])
+
+    def test_the_factor_summary_says_a_drop_can_be_repaired(self):
+        """The workflow-facing surface, not just the binning envelope: a reader looking at
+        a dropped factor there needs the same next step."""
+        from dataeval_flow.workflows._common import compute_metadata_summary
+
+        entry = compute_metadata_summary(self._mixed())["weight"]
+        assert entry["type"] == "dropped"
+        assert entry["repairable"] is True
+
+    def test_an_unrepairable_drop_says_so(self):
+        """A vector-valued statistic has no single-column form however it is read, so
+        reporting it as repairable would send someone after a rule that cannot exist."""
+        from dataeval_flow.workflows._common import compute_metadata_summary
+
+        md = self._mixed()
+        summary = compute_metadata_summary(md)
+        unrepairable = [name for name in md.dropped_factors if name in md.unusable and not md.unusable[name].repairable]
+        for name in unrepairable:
+            assert summary[name]["repairable"] is False
