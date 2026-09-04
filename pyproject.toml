@@ -19,7 +19,10 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    "dataeval>=1.1.0",
+    # TEMPORARY: tracking dataeval `main` (github.com/aria-ml/dataeval mirrors
+    # gitlab.jatic.net/jatic/aria/dataeval) while the metadata aggregation and
+    # corrections work lands. Restore a released `dataeval>=X.Y.Z` pin before shipping.
+    "dataeval @ git+https://github.com/aria-ml/dataeval.git@main",
     "datamaite[ic,od]==0.4.1",
     "maite>=0.9.4,<0.10.0",
     "numpy>=1.24.2",
@@ -54,7 +57,7 @@ onnx-cu130 = [
 ]
 opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
-ontology = ["dataeval[ontology]==1.1.0"]
+ontology = ["dataeval[ontology] @ git+https://github.com/aria-ml/dataeval.git@main"]  # TEMPORARY: see [project].dependencies
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"
@@ -198,6 +201,7 @@ torchvision = [
 
 [tool.pyproject2conda.dependencies]
 datamaite = { pip = true }
+dataeval = { pip = true }  # TEMPORARY: git reference has no conda-forge equivalent
 
 # --- Build System ---
 
@@ -206,7 +210,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
-# Required because `datamaite` is pinned to a direct git reference (see
+# Required because `dataeval` is pinned to a direct git reference (see
 # [project].dependencies) rather than a PyPI version.
 allow-direct-references = true
 
