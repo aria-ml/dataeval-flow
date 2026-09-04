@@ -71,6 +71,19 @@ class ResolvedPolicy:
     contents are what decide whether a cached result is still the right one. A descriptor
     edited in place under an unchanged path is a different policy.
     """
+    corrections: tuple[Mapping[str, Any], ...] = ()
+    """The descriptor's ``corrections`` member, in the order they apply.
+
+    Kept beside :attr:`encoding` and keyed with it, for a stronger reason than the cut is.
+    A roll-up or a cut decides how values are *grouped*; a repair decides what they **are**,
+    so two descriptors differing only here describe runs whose numbers came from
+    differently-read columns.  Unkeyed they hash identically, and a stale hit serves one
+    run's numbers to the other under the same digest.
+
+    A tuple of plain mappings rather than DataEval's correction objects: the entries are
+    hashed into :func:`policy_key`, and they are also what DataEval reads back off the path
+    beside them, so they stay in the JSON-able form the descriptor wrote.
+    """
     encoding_specs: Mapping[str, Any] | None = None
     """Records taken from an already-built ``Metadata``, applied to the next dataset.
 
@@ -151,6 +164,9 @@ def policy_key(policy: ResolvedPolicy) -> str:
             "exclude": sorted(policy.exclude, key=str),
             "continuous_factor_bins": bins,
             "encoding": policy.encoding,
+            # As written, not sorted: corrections apply in sequence and one factor may take
+            # several, so a reordering is a different reading of the same column.
+            "corrections": [dict(entry) for entry in policy.corrections],
             "factor_levels": {name: list(levels) for name, levels in (policy.factor_levels or {}).items()},
             "strict": policy.strict,
             "intrinsic_factors": sorted(family.lower() for family in policy.intrinsic_factors),
@@ -161,8 +177,20 @@ def policy_key(policy: ResolvedPolicy) -> str:
     )
 
 
-def _read_descriptor(path: Path, source: str) -> Mapping[str, Any]:
-    """Read a committed descriptor, saying which config entry sent us here when it fails."""
+def _read_descriptor(path: Path, source: str) -> tuple[Mapping[str, Any], tuple[Mapping[str, Any], ...]]:
+    """Read a committed descriptor's two halves, saying which config entry sent us here when it fails.
+
+    Both halves, because a descriptor answers two questions about a factor and applying one
+    without the other is what made the artifact lossy in the first place: the codes come
+    back and the reading that produced them does not.
+
+    The corrections are checked for shape only.  Which ``kind`` values exist is DataEval's
+    vocabulary, not this module's, and DataEval reads the same file off the path beside
+    these contents — so naming the kinds here would be a second copy of a list that has
+    already grown once.  What is checked is what a reader of this file can see is wrong
+    without knowing that vocabulary, and checking it here converts a failure that would
+    otherwise land after the dataset walk into a config error.
+    """
     if not path.exists():
         raise ValueError(
             f"{source} names encoding {str(path)!r}, which does not exist. A descriptor that "
@@ -180,7 +208,30 @@ def _read_descriptor(path: Path, source: str) -> Mapping[str, Any]:
             f"{source} names encoding {str(path)!r}, which has no 'factors' member. Write one "
             "with `dataeval-flow encoding <result.json>`.",
         )
-    return factors
+
+    # Absent is not malformed: version 1 predates corrections, and a descriptor written
+    # from a run that declared none carries an empty array.  Both mean the same thing.
+    written = document.get("corrections", [])
+    if not isinstance(written, list):
+        raise ValueError(
+            f"{source} names encoding {str(path)!r}, whose 'corrections' member is "
+            f"{type(written).__name__}, not an array. Corrections apply in order, so the "
+            "descriptor records them as a list.",
+        )
+    for position, entry in enumerate(written):
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"{source} names encoding {str(path)!r}, whose correction at position "
+                f"{position} is {type(entry).__name__}, not an object.",
+            )
+        for member in ("kind", "factor"):
+            if not isinstance(entry.get(member), str) or not entry[member]:
+                raise ValueError(
+                    f"{source} names encoding {str(path)!r}, whose correction at position "
+                    f"{position} names no {member!r}. Rewrite it with "
+                    "`dataeval-flow encoding <result.json>` rather than by hand.",
+                )
+    return factors, tuple(written)
 
 
 def _check_no_double_declaration(
@@ -369,11 +420,17 @@ def resolve_policy(
         descriptor_path = None
 
     factors: Mapping[str, Any] | None = None
+    corrections: tuple[Mapping[str, Any], ...] = ()
     resolved_path: Path | None = None
     if descriptor_path:
         resolved_path = resolve_path(descriptor_path, data_dir)
-        factors = _read_descriptor(resolved_path, source)
-        _logger.info("Applying encoding descriptor %s (%d factors)", descriptor_path, len(factors))
+        factors, corrections = _read_descriptor(resolved_path, source)
+        _logger.info(
+            "Applying encoding descriptor %s (%d factors, %d corrections)",
+            descriptor_path,
+            len(factors),
+            len(corrections),
+        )
 
     # The legacy flag, folded in before the families are validated so that both spellings
     # meet the same check. Read out of the instance dict rather than off the attribute:
@@ -418,6 +475,7 @@ def resolve_policy(
         continuous_factor_bins=bins,
         encoding_path=resolved_path,
         encoding=factors,
+        corrections=corrections,
         factor_levels=factor_levels,
         strict=strict,
         factor_source=factor_source,

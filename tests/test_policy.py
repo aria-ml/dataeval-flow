@@ -9,6 +9,7 @@ asked.  Catching them at config time costs a message instead of an hour.
 import json
 import warnings
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -17,10 +18,18 @@ from dataeval_flow.policy import ResolvedPolicy, policy_for, policy_key, resolve
 from dataeval_flow.workflow.base import MetadataConfigMixin
 
 
-def _descriptor(tmp_path: Path, factors: dict, name: str = "policy.json") -> Path:
+def _descriptor(tmp_path: Path, factors: dict, name: str = "policy.json", corrections: Any = None) -> Path:
+    """`corrections` is deliberately untyped: some tests write a malformed member on purpose."""
     path = tmp_path / name
-    path.write_text(json.dumps({"version": 1, "factors": factors}), encoding="utf-8")
+    document: dict = {"version": 1, "factors": factors}
+    if corrections is not None:
+        document["corrections"] = corrections
+    path.write_text(json.dumps(document), encoding="utf-8")
     return path
+
+
+_PARSE_COMMA = [{"kind": "parse_value", "factor": "count", "drop": [","], "decimal": ".", "provenance": "declared"}]
+_PARSE_SPACE = [{"kind": "parse_value", "factor": "count", "drop": [" "], "decimal": ".", "provenance": "declared"}]
 
 
 _DECLARED_BINS = {"temp_c": {"kind": "bins", "edges": ["-inf", 0.0, "inf"], "provenance": "edges", "method": None}}
@@ -96,6 +105,36 @@ class TestApplyingADescriptor:
         assert set(policy.encoding) == {"temp_c"}
         # The path is what DataEval is handed: it owns the format and reads it itself.
         assert policy.metadata_kwargs()["encoding"] == path
+
+    def test_reads_the_corrections_beside_the_factors(self, tmp_path: Path):
+        """They decide what the values are, so a policy that ignored them would apply a
+        descriptor without the half that says how to read it."""
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections=_PARSE_COMMA)
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
+
+        assert policy.corrections == tuple(_PARSE_COMMA)
+
+    def test_a_descriptor_with_no_corrections_reads_as_none_declared(self, tmp_path: Path):
+        path = _descriptor(tmp_path, _DECLARED_BINS)
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
+
+        assert policy.corrections == ()
+
+    def test_a_corrections_member_that_is_not_an_array_is_refused(self, tmp_path: Path):
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections={"kind": "remap"})
+        with pytest.raises(ValueError, match="'corrections' member"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
+
+    def test_a_correction_missing_its_kind_is_refused(self, tmp_path: Path):
+        """Caught here rather than after the walk, which is what the other checks buy."""
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections=[{"factor": "count"}])
+        with pytest.raises(ValueError, match="names no 'kind'"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
+
+    def test_a_correction_missing_its_factor_is_refused(self, tmp_path: Path):
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections=[{"kind": "remap"}])
+        with pytest.raises(ValueError, match="names no 'factor'"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
 
     def test_a_missing_descriptor_is_refused(self, tmp_path: Path):
         """A descriptor that matches nothing is not a no-op — it is silent drift."""
@@ -297,6 +336,23 @@ class TestPolicyKey:
 
     def test_strict_is_in_the_key(self):
         assert policy_key(ResolvedPolicy(strict=True)) != policy_key(ResolvedPolicy(strict=False))
+
+    def test_the_corrections_are_in_the_key(self):
+        """Higher stakes than a cut: a repair changes what the values *are*, so a stale hit
+        would serve numbers computed from differently-read data under the same digest."""
+        a = ResolvedPolicy(corrections=tuple(_PARSE_COMMA))
+        b = ResolvedPolicy(corrections=tuple(_PARSE_SPACE))
+        assert policy_key(a) != policy_key(b)
+
+    def test_declaring_a_repair_keys_differently_from_declaring_none(self):
+        assert policy_key(ResolvedPolicy(corrections=tuple(_PARSE_COMMA))) != policy_key(ResolvedPolicy())
+
+    def test_the_order_corrections_apply_in_is_in_the_key(self):
+        """They apply in sequence and one factor may take several, so a reordering is a
+        different reading of the same column."""
+        a = ResolvedPolicy(corrections=(*_PARSE_COMMA, *_PARSE_SPACE))
+        b = ResolvedPolicy(corrections=(*_PARSE_SPACE, *_PARSE_COMMA))
+        assert policy_key(a) != policy_key(b)
 
 
 class TestPolicyFor:
