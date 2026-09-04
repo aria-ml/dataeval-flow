@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from dataeval import Metadata
+from dataeval.types import ParseValue
 
 from dataeval_flow._encoding_cli import write_encoding
 from dataeval_flow.binning import describe_binning, descriptor_from_record, write_descriptor
@@ -17,6 +18,15 @@ def _metadata(**kwargs) -> Metadata:
     rng = np.random.default_rng(0)
     return Metadata.from_factors(
         {"temp_c": rng.normal(20.0, 3.0, 200), "weather": rng.choice(["sun", "rain"], 200)}, **kwargs
+    )
+
+
+def _decorated(**kwargs) -> Metadata:
+    """A factor wearing a thousands separator, so only a repair reads it as a number."""
+    return Metadata.from_factors(
+        {"count": ["1,000", "2,000", "3,000", "4,000", "5,000"]},
+        class_labels=np.zeros(5, dtype=int),
+        **kwargs,
     )
 
 
@@ -79,6 +89,62 @@ class TestDescriptorFromRecord:
         """Both callers guard on ValueError, so a StopIteration escapes as a traceback."""
         with pytest.raises(ValueError, match="no splits"):
             descriptor_from_record({"per_split": {}})
+
+    def test_a_repaired_metadata_carries_its_corrections(self, tmp_path: Path):
+        """The half that says what the values *are*. Dropping it hands back a descriptor
+        claiming a version whose corrections array it does not have — indistinguishable
+        from a run that declared no repairs."""
+        md = _decorated()
+        md.repair([ParseValue("count", drop=[","])])
+        record = describe_binning(md)
+
+        assert descriptor_from_record(record)["corrections"] == [
+            {
+                "kind": "parse_value",
+                "factor": "count",
+                "drop": [","],
+                "decimal": ".",
+                "provenance": "declared",
+            }
+        ]
+
+    def test_a_repaired_descriptor_matches_what_dataeval_writes(self, tmp_path: Path):
+        """Byte-identity has to hold with corrections present, not only without them."""
+        md = _decorated()
+        md.repair([ParseValue("count", drop=[","])])
+        md.export_encoding(tmp_path / "upstream.json")
+        write_descriptor(describe_binning(md), tmp_path / "flow.json")
+
+        assert (tmp_path / "flow.json").read_bytes() == (tmp_path / "upstream.json").read_bytes()
+
+    def test_the_descriptor_is_read_back_as_the_repair_it_records(self, tmp_path: Path):
+        """The loop the artifact exists for: what flow writes, DataEval reads."""
+        md = _decorated()
+        md.repair([ParseValue("count", drop=[","])])
+        write_descriptor(describe_binning(md), tmp_path / "flow.json")
+
+        back = _decorated(encoding=tmp_path / "flow.json")
+        assert back.repairs == md.repairs
+        assert back.dataframe["count"].to_list() == md.dataframe["count"].to_list()
+
+    def test_a_record_with_no_repairs_still_writes_the_array(self):
+        """An empty array and an absent key are the same run to a reader; DataEval writes
+        the array, so the envelope carries it."""
+        assert descriptor_from_record(describe_binning(_metadata()))["corrections"] == []
+
+    def test_splits_repaired_differently_are_refused(self):
+        """Same reason a divergent encoding is: writing one silently picks a policy
+        nobody chose, and a repair changes what the values are rather than how they
+        are cut."""
+        train = describe_binning(_decorated().repair([ParseValue("count", drop=[","])]))
+        test = describe_binning(_decorated().repair([ParseValue("count", drop=[",", " "])]))
+        with pytest.raises(ValueError, match="repair"):
+            descriptor_from_record({"per_split": {"train": train, "test": test}})
+
+    def test_splits_repaired_alike_write_one_descriptor(self):
+        train = describe_binning(_decorated().repair([ParseValue("count", drop=[","])]))
+        test = describe_binning(_decorated().repair([ParseValue("count", drop=[","])]))
+        assert len(descriptor_from_record({"per_split": {"train": train, "test": test}})["corrections"]) == 1
 
     def test_splits_encoded_differently_are_refused(self):
         """Picking one would hand somebody a policy nobody chose."""

@@ -2024,7 +2024,7 @@ class TestOnePolicyPerRun:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             train = build(0, 400)
-            factors, _ = _descriptor(train)
+            factors = _descriptor(train).factors
             follower = build(7, 60, **derive_from(ResolvedPolicy(), train, factors).metadata_kwargs())
             independent = build(7, 60)
 

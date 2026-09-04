@@ -334,7 +334,7 @@ class TestDeriveFrom:
         from dataeval_flow.binning import _descriptor
         from dataeval_flow.policy import derive_from
 
-        factors, _ = _descriptor(reference)
+        factors = _descriptor(reference).factors
         return derive_from(ResolvedPolicy(), reference, factors)
 
     def test_the_next_dataset_gets_the_reference_cuts(self):
@@ -381,7 +381,7 @@ class TestDeriveFrom:
         from dataeval_flow.binning import _descriptor
         from dataeval_flow.policy import derive_from
 
-        factors, _ = _descriptor(reference)
+        factors = _descriptor(reference).factors
         derived = derive_from(ResolvedPolicy(continuous_factor_bins={"elevation": 4}), reference, factors)
         assert derived.continuous_factor_bins == {}
         assert "continuous_factor_bins" not in derived.metadata_kwargs()

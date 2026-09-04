@@ -32,7 +32,7 @@ import logging
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import polars as pl
 
@@ -83,8 +83,20 @@ def _default_factor_source() -> str | None:
         return None
 
 
-def _descriptor(metadata: "Metadata") -> tuple[dict[str, dict[str, Any]], int | None]:
-    """Every factor's encoding, as the committed descriptor spells it.
+class _Descriptor(NamedTuple):
+    """The three sections of what ``export_encoding`` wrote, named rather than positional.
+
+    A bare tuple made every caller unpack every section to reach the one it wanted, so
+    adding the corrections array broke four call sites that only ever read ``factors``.
+    """
+
+    factors: dict[str, dict[str, Any]]
+    corrections: list[dict[str, Any]]
+    version: int | None
+
+
+def _descriptor(metadata: "Metadata") -> _Descriptor:
+    """Every factor's encoding and every correction, as the committed descriptor spells them.
 
     Round-tripped through ``Metadata.export_encoding`` rather than rendered here.  That
     writer is the only public one, and it owns decisions this module should not be making
@@ -99,12 +111,17 @@ def _descriptor(metadata: "Metadata") -> tuple[dict[str, dict[str, Any]], int | 
     whole point of the field — and the number belongs to DataEval, so reading it off what
     DataEval just wrote is the only spelling that stays true when it changes.
 
+    Corrections travel the same way and for a stronger reason.  They are what the values
+    *are*, decided before anything asks what code each one takes, so a descriptor that
+    kept only the factors would name a version whose corrections array it does not have —
+    reading, to anyone who opened it, as a run that declared no repairs.
+
     Best effort: a release that cannot write one costs the policy half of the record, and
     the caller still gets ``fit``.
     """
     export = getattr(metadata, "export_encoding", None)
     if export is None:
-        return {}, None
+        return _Descriptor({}, [], None)
     try:
         with tempfile.TemporaryDirectory() as scratch:
             path = Path(scratch) / "encoding.json"
@@ -112,10 +129,15 @@ def _descriptor(metadata: "Metadata") -> tuple[dict[str, dict[str, Any]], int | 
             document = json.loads(path.read_text(encoding="utf-8"))
     except Exception:  # the record is worth less than the run it would otherwise take down
         _logger.debug("Encoding record unavailable", exc_info=True)
-        return {}, None
+        return _Descriptor({}, [], None)
     factors = document.get("factors")
+    corrections = document.get("corrections")
     version = document.get("version")
-    return (factors if isinstance(factors, dict) else {}), (version if isinstance(version, int) else None)
+    return _Descriptor(
+        factors if isinstance(factors, dict) else {},
+        corrections if isinstance(corrections, list) else [],
+        version if isinstance(version, int) else None,
+    )
 
 
 def _code_names(metadata: "Metadata") -> dict[str, dict[str, str]]:
@@ -317,8 +339,13 @@ def describe_binning(
     # One frame per level, fetched once — rows_at() materializes a frame per call.
     rows_by_level: dict[str, pl.DataFrame] = {}
 
-    encodings, descriptor_version = _descriptor(metadata)
-    record["descriptor_version"] = descriptor_version
+    described = _descriptor(metadata)
+    encodings = described.factors
+    record["descriptor_version"] = described.version
+    # Top-level rather than per-factor: they apply in order, and one factor may take
+    # several, so the array is the record.  Carried through the envelope untouched, exactly
+    # as each factor's encoding entry is.
+    record["corrections"] = described.corrections
     names = _code_names(metadata)
 
     for name, info in factor_info.items():
@@ -486,7 +513,14 @@ def descriptor_from_record(record: Mapping[str, Any]) -> dict[str, Any]:
             "workflow that builds metadata produces one.",
         )
     version = record.get("descriptor_version")
-    return {"version": version if isinstance(version, int) else 1, "factors": factors}
+    corrections = record.get("corrections")
+    return {
+        "version": version if isinstance(version, int) else 1,
+        # Always written, empty included: DataEval writes the array unconditionally, and an
+        # absent key would read to anything comparing the two as a different document.
+        "corrections": corrections if isinstance(corrections, list) else [],
+        "factors": factors,
+    }
 
 
 def encodings_agree(a: Mapping[str, Any], b: Mapping[str, Any]) -> bool:
@@ -566,6 +600,19 @@ def _one_split(per_split: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any]:
             f"These splits encode {divergent} differently ({digests}), so no one descriptor "
             "describes the run. Give every split the same encoding — set a policy's "
             "`reference_split`, or apply a committed `encoding` — and re-run.",
+        )
+    # Refused outright rather than reconciled the way a grown vocabulary is.  There is no
+    # append rule here to fall back on: a repair decides what the values *are*, so two
+    # splits repaired differently were measured on different data, and the widest of them
+    # means nothing.  Order counts as difference for the same reason — corrections apply in
+    # sequence, and one factor may take several.
+    repairs = {name: split.get("corrections") or [] for name, split in per_split.items()}
+    if len({json.dumps(entry, sort_keys=True) for entry in repairs.values()}) > 1:
+        raise ValueError(
+            f"These splits repair their factors differently ({repairs}), so no one descriptor "
+            "describes the run. A correction changes what the values are, not how they are "
+            "cut, so there is no widest reading to fall back on. Declare the same "
+            "corrections for every split and re-run.",
         )
 
     widest = {name: _widest(seen) for name, seen in _encodings_by_factor(per_split.values()).items()}

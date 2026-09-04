@@ -149,8 +149,7 @@ def _descriptor_of(metadata: Any) -> dict[str, Any] | None:
     """The reference's encoding as the descriptor spells it, for the derived cache key."""
     from dataeval_flow.binning import _descriptor
 
-    factors, _ = _descriptor(metadata)
-    return factors or None
+    return _descriptor(metadata).factors or None
 
 
 def _compute_split_data(
