@@ -642,3 +642,166 @@ class TestDeprecatedIncludeImageStats:
 
         schema = DataAnalysisParameters.model_json_schema()
         assert schema["properties"]["include_image_stats"].get("deprecated") is True
+
+
+class TestDeclaringCorrectionsInYaml:
+    """The authoring surface: what `unusable` reports, written down.
+
+    DataEval's own types validate themselves on construction, so `resolve_policy` builds
+    them and a mistake carries DataEval's wording rather than a second, drifting copy of it.
+    """
+
+    @staticmethod
+    def _policy(*corrections, **extra):
+        config = _config(corrections=list(corrections), **extra)
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+
+    def test_a_parse_value_becomes_a_dataeval_record(self):
+        from dataeval.types import ParseValue
+
+        policy = self._policy({"kind": "parse_value", "factor": "count", "drop": [","]})
+        assert policy.correction_specs == (ParseValue("count", drop=[","]),)
+
+    def test_a_rescale_becomes_a_dataeval_record(self):
+        from dataeval.types import Rescale
+
+        policy = self._policy({"kind": "rescale", "factor": "alt", "over": [0, 1000], "multiply": 0.3048})
+        assert policy.correction_specs == (Rescale("alt", over=(0.0, 1000.0), multiply=0.3048),)
+
+    def test_a_parse_datetime_becomes_a_dataeval_record(self):
+        from dataeval.types import ParseDateTime
+
+        policy = self._policy({"kind": "parse_datetime", "factor": "t", "every": "month_of_year"})
+        assert policy.correction_specs == (ParseDateTime("t", every="month_of_year"),)
+
+    def test_remap_rules_become_typed_keys(self):
+        """The whole reason rules are a list: a range has to arrive as a tuple, and an
+        exact key has to keep the type it was written with."""
+        from dataeval.types import Remap
+
+        policy = self._policy(
+            {
+                "kind": "remap",
+                "factor": "d",
+                "rules": [
+                    {"match": "N", "to": 0},
+                    {"range": [-1000, 0], "to": -99},
+                    {"range": [900, None], "to": 99},
+                    {"otherwise": -1},
+                ],
+            }
+        )
+        (remap,) = policy.correction_specs
+        assert isinstance(remap, Remap)
+        assert dict(remap.mapping) == {"N": 0, (-1000.0, 0.0): -99, (900.0, None): 99, None: -1}
+        assert [type(key).__name__ for key in remap.mapping] == ["str", "tuple", "tuple", "NoneType"]
+
+    def test_the_order_they_apply_in_is_kept(self):
+        policy = self._policy(
+            {"kind": "parse_value", "factor": "c", "drop": [","]},
+            {"kind": "rescale", "factor": "c", "multiply": 2.0},
+        )
+        assert [type(c).__name__ for c in policy.correction_specs] == ["ParseValue", "Rescale"]
+
+    def test_no_corrections_resolves_to_none_declared(self):
+        assert resolve_policy(MetadataConfigMixin(metadata="standard"), _config()).correction_specs == ()
+
+
+class TestCorrectionMistakesAreConfigErrors:
+    """Caught at resolve, not after the dataset walk — which is what a policy is for."""
+
+    @staticmethod
+    def _resolve(*corrections):
+        config = _config(corrections=list(corrections))
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+
+    def test_a_backwards_range_carries_dataevals_wording(self):
+        with pytest.raises(ValueError, match="runs backwards"):
+            self._resolve({"kind": "remap", "factor": "d", "rules": [{"range": [10, 1], "to": 0}]})
+
+    def test_a_rescale_that_discards_the_readings(self):
+        with pytest.raises(ValueError, match="same answer"):
+            self._resolve({"kind": "rescale", "factor": "d", "multiply": 0})
+
+    def test_a_parse_value_that_would_change_nothing(self):
+        with pytest.raises(ValueError, match="drops nothing"):
+            self._resolve({"kind": "parse_value", "factor": "d"})
+
+    def test_a_decimal_the_rule_also_drops(self):
+        with pytest.raises(ValueError, match="decimal separator"):
+            self._resolve({"kind": "parse_value", "factor": "d", "drop": ["."], "decimal": "."})
+
+    def test_the_error_names_the_config_entry(self):
+        """Otherwise a user reads DataEval's message with no idea which policy sent it."""
+        with pytest.raises(ValueError, match="Metadata policy 'standard'"):
+            self._resolve({"kind": "rescale", "factor": "d", "multiply": 0})
+
+    def test_a_rule_naming_two_match_kinds_is_refused(self):
+        with pytest.raises(ValueError, match="exactly one of"):
+            self._resolve({"kind": "remap", "factor": "d", "rules": [{"match": 1, "range": [0, 2], "to": 0}]})
+
+    def test_a_rule_naming_no_match_kind_is_refused(self):
+        with pytest.raises(ValueError, match="exactly one of"):
+            self._resolve({"kind": "remap", "factor": "d", "rules": [{"to": 0}]})
+
+    def test_a_second_catch_all_is_refused(self):
+        with pytest.raises(ValueError, match="one catch-all"):
+            self._resolve(
+                {"kind": "remap", "factor": "d", "rules": [{"otherwise": 1}, {"otherwise": 2}]},
+            )
+
+    def test_an_unknown_period_is_refused_at_config_load(self):
+        with pytest.raises(ValueError, match="every"):
+            self._resolve({"kind": "parse_datetime", "factor": "t", "every": "fortnight"})
+
+
+class TestCorrectionsFromTwoSources:
+    """A descriptor can carry corrections too, and one factor described twice has no
+    good resolution — the rule `encoding` x `continuous_factor_bins` already follows."""
+
+    def test_the_same_factor_from_both_is_refused(self, tmp_path: Path):
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections=_PARSE_COMMA)
+        config = _config(
+            encoding=path.name,
+            corrections=[{"kind": "rescale", "factor": "count", "multiply": 2.0}],
+        )
+        with pytest.raises(ValueError, match="corrected by both"):
+            resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+
+    def test_different_factors_from_each_is_a_longhand_for_one_policy(self, tmp_path: Path):
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections=_PARSE_COMMA)
+        config = _config(
+            encoding=path.name,
+            corrections=[{"kind": "rescale", "factor": "altitude", "multiply": 0.3048}],
+        )
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+        assert {entry["factor"] for entry in policy.corrections} == {"count", "altitude"}
+
+
+class TestYamlAndADescriptorKeyAlike:
+    """A run declaring a repair in YAML and a later run referencing the descriptor exported
+    from it describe one reading of the data, so they have to key identically or the second
+    rebuilds for nothing."""
+
+    def test_the_rendering_matches_what_dataeval_writes(self, tmp_path: Path):
+        import json as _json
+
+        import numpy as np
+        from dataeval import Metadata
+
+        declared = [
+            {"kind": "parse_value", "factor": "count", "drop": [","]},
+            {
+                "kind": "remap",
+                "factor": "count",
+                "rules": [{"match": 1000, "to": 1}, {"range": [2000, None], "to": 2}, {"otherwise": 0}],
+            },
+        ]
+        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(corrections=declared))
+
+        md = Metadata.from_factors({"count": ["1,000"] * 5}, class_labels=np.zeros(5, dtype=int))
+        md.repair(list(policy.correction_specs))
+        md.export_encoding(tmp_path / "upstream.json")
+        upstream = _json.loads((tmp_path / "upstream.json").read_text())["corrections"]
+
+        assert [dict(entry) for entry in policy.corrections] == upstream

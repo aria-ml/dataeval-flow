@@ -84,6 +84,17 @@ class ResolvedPolicy:
     hashed into :func:`policy_key`, and they are also what DataEval reads back off the path
     beside them, so they stay in the JSON-able form the descriptor wrote.
     """
+    correction_specs: tuple[Any, ...] = ()
+    """The same corrections as DataEval's own records, ready to hand to ``repair``.
+
+    Built at resolve time so that a malformed rule is a config error rather than a failure
+    after the dataset walk, and held beside the JSON-able :attr:`corrections` for the reason
+    :attr:`encoding_specs` is held beside :attr:`encoding`: one of the pair is what gets
+    applied and the other is what gets hashed, and only one of them can be hashed.
+
+    Empty where the corrections came from a descriptor: there DataEval reads the file off
+    the path itself and applies them, and nothing here has to.
+    """
     encoding_specs: Mapping[str, Any] | None = None
     """Records taken from an already-built ``Metadata``, applied to the next dataset.
 
@@ -192,6 +203,116 @@ def policy_key(policy: ResolvedPolicy) -> str:
         sort_keys=True,
         default=str,
     )
+
+
+# Each DataEval correction type, keyed by the `kind` its config model declares. The models
+# are a discriminated union, so a kind that is not here cannot be constructed -- the mapping
+# is the translation, not a second validation.
+def _build_correction(entry: Any) -> Any:
+    """Turn one config model into the DataEval record it describes.
+
+    The record validates itself on construction -- a backwards range, a `multiply` of zero,
+    a `decimal` the rule also drops -- so this deliberately checks nothing. Anything wrong
+    raises here, carrying DataEval's own wording, and `resolve_policy` names the config
+    entry that sent it.
+    """
+    from dataeval.types import ParseDateTime, ParseValue, Remap, Rescale
+
+    if entry.kind == "remap":
+        return Remap(entry.factor, dict(_remap_mapping(entry.rules)))
+    if entry.kind == "rescale":
+        return Rescale(entry.factor, over=tuple(entry.over), multiply=entry.multiply, add=entry.add)
+    if entry.kind == "parse_value":
+        return ParseValue(entry.factor, drop=list(entry.drop), decimal=entry.decimal)
+    return ParseDateTime(entry.factor, format=entry.format, every=entry.every, epoch=entry.epoch)
+
+
+def _remap_mapping(rules: "Sequence[Any]") -> list[tuple[Any, Any]]:
+    """Rules to mapping entries, each key carrying the type its match kind implies.
+
+    This is the step the rules list exists for. A range becomes a real tuple, which is what
+    `_within` fires on; the catch-all becomes `None`; an exact value is passed through as
+    written, because DataEval matches it with `type(key) is type(value)` and coercing it
+    here would be the silent mismatch the list was chosen to avoid.
+    """
+    entries: list[tuple[Any, Any]] = []
+    for rule in rules:
+        given = rule.model_fields_set
+        if "range" in given:
+            entries.append((tuple(rule.range), rule.to))
+        elif "otherwise" in given:
+            entries.append((None, rule.otherwise))
+        else:
+            entries.append((rule.match, rule.to))
+    return entries
+
+
+def _correction_to_json(correction: Any) -> dict[str, Any]:
+    """Render one record as the committed descriptor spells it.
+
+    Byte-identical to what ``Metadata.export_encoding`` writes, and pinned by a test that
+    compares the two -- because a run declaring a repair here and a later run referencing
+    the descriptor exported from it describe one reading of the data, and keying them
+    differently would rebuild the second for nothing.
+
+    Rendered here rather than through DataEval's writer, which is private. The shapes agree
+    because the remap pair-array is the rules list one for one; the test is what keeps them
+    agreeing.
+    """
+    kind = type(correction).__name__
+    if kind == "Remap":
+        return {
+            "factor": correction.factor,
+            "kind": "remap",
+            "map": [[list(key) if isinstance(key, tuple) else key, value] for key, value in correction.mapping.items()],
+            "provenance": correction.provenance,
+        }
+    if kind == "Rescale":
+        return {
+            "add": correction.add,
+            "factor": correction.factor,
+            "kind": "rescale",
+            "multiply": correction.multiply,
+            "over": list(correction.over),
+            "provenance": correction.provenance,
+        }
+    if kind == "ParseValue":
+        return {
+            "decimal": correction.decimal,
+            "drop": list(correction.drop),
+            "factor": correction.factor,
+            "kind": "parse_value",
+            "provenance": correction.provenance,
+        }
+    return {
+        "epoch": correction.epoch,
+        "every": correction.every,
+        "factor": correction.factor,
+        "format": correction.format,
+        "kind": "parse_datetime",
+        "provenance": correction.provenance,
+    }
+
+
+def _check_one_source_per_factor(
+    declared: "Sequence[Any]",
+    from_descriptor: "Sequence[Mapping[str, Any]]",
+    source: str,
+) -> None:
+    """Refuse a factor whose values are read two ways, naming both places.
+
+    Per factor rather than outright, exactly as `_check_no_double_declaration` treats a cut:
+    a descriptor pinning one factor's vocabulary and a config repairing another are a
+    longhand for one policy, not a conflict.
+    """
+    overlapping = sorted({c.factor for c in declared} & {str(entry.get("factor")) for entry in from_descriptor})
+    if overlapping:
+        raise ValueError(
+            f"{source} has factors {overlapping} corrected by both `corrections` and the "
+            "`encoding` descriptor, and two readings of one column have no good resolution. "
+            "A descriptor's corrections are the record of a decision already made; drop the "
+            "declaration here, or point at a descriptor that does not carry it.",
+        )
 
 
 def _read_descriptor(path: Path, source: str) -> tuple[Mapping[str, Any], tuple[Mapping[str, Any], ...]]:
@@ -424,6 +545,7 @@ def resolve_policy(
         bins = dict(named.continuous_factor_bins or {})
         factor_levels, strict = named.factor_levels, named.strict
         partial_factors = named.partial_factors
+        declared_corrections = tuple(named.corrections or ())
         factor_source, reference_split = named.factor_source, named.reference_split
         intrinsic_factors = tuple(named.intrinsic_factors or ())
         descriptor_path = named.encoding
@@ -434,6 +556,7 @@ def resolve_policy(
         bins = dict(params.metadata_continuous_factor_bins or {})
         factor_levels, strict = None, False
         partial_factors = False
+        declared_corrections = ()
         factor_source, reference_split = params.metadata_factor_source, None
         intrinsic_factors = ()
         descriptor_path = None
@@ -450,6 +573,20 @@ def resolve_policy(
             len(factors),
             len(corrections),
         )
+
+    # Built here rather than at first use so a malformed rule is a config error: every one
+    # of these types validates itself on construction, and this is the only place that can
+    # say which config entry the message belongs to.
+    correction_specs: tuple[Any, ...] = ()
+    if declared_corrections:
+        _check_one_source_per_factor(declared_corrections, corrections, source)
+        try:
+            correction_specs = tuple(_build_correction(entry) for entry in declared_corrections)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{source} declares a correction DataEval refuses: {exc}") from exc
+        # Rendered into the same member the descriptor's fill, so `policy_key` needs no
+        # second entry and a run keys alike however the repair was spelled.
+        corrections = (*corrections, *(_correction_to_json(spec) for spec in correction_specs))
 
     # The legacy flag, folded in before the families are validated so that both spellings
     # meet the same check. Read out of the instance dict rather than off the attribute:
@@ -495,6 +632,7 @@ def resolve_policy(
         encoding_path=resolved_path,
         encoding=factors,
         corrections=corrections,
+        correction_specs=correction_specs,
         factor_levels=factor_levels,
         strict=strict,
         partial_factors=partial_factors,

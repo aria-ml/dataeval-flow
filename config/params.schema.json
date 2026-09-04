@@ -2197,6 +2197,44 @@
           "title": "Partial Factors",
           "type": "boolean"
         },
+        "corrections": {
+          "anyOf": [
+            {
+              "items": {
+                "discriminator": {
+                  "mapping": {
+                    "parse_datetime": "#/$defs/ParseDateTimeCorrectionConfig",
+                    "parse_value": "#/$defs/ParseValueCorrectionConfig",
+                    "remap": "#/$defs/RemapCorrectionConfig",
+                    "rescale": "#/$defs/RescaleCorrectionConfig"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/RemapCorrectionConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/RescaleCorrectionConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/ParseValueCorrectionConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/ParseDateTimeCorrectionConfig"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How factors' values are read, applied in the order given and before anything asks what code each one takes. The repair for a factor `unusable` reports \u2014 a compass recorded sometimes in degrees and sometimes as a bearing, a sentinel standing for a bad reading \u2014 and equally the way to convert a factor that is readable but in the wrong units. Keys the metadata cache: a repair changes what the values are, so two runs differing only here computed their numbers from differently-read columns. Mutually exclusive per factor with the corrections a committed `encoding` descriptor carries.",
+          "title": "Corrections"
+        },
         "reference_split": {
           "anyOf": [
             {
@@ -2868,6 +2906,114 @@
       "title": "ParameterSweepWorkflowConfig",
       "type": "object"
     },
+    "ParseDateTimeCorrectionConfig": {
+      "additionalProperties": false,
+      "description": "Read text as a timestamp, and optionally bucket it into a period.\n\nA timestamp holds a different value on nearly every row, so it names its rows rather\nthan grouping them and is dropped for cardinality. Reading it as the month or the hour\nit falls in is what gives it a vocabulary.\n\nYAML example::\n\n    corrections:\n      - kind: parse_datetime\n        factor: captured_at\n        every: month_of_year",
+      "properties": {
+        "factor": {
+          "description": "Factor the rule applies to.",
+          "title": "Factor",
+          "type": "string"
+        },
+        "kind": {
+          "const": "parse_datetime",
+          "default": "parse_datetime",
+          "title": "Kind",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Format the timestamps are written in. None reads them as ISO 8601 or as an epoch offset.",
+          "title": "Format"
+        },
+        "every": {
+          "anyOf": [
+            {
+              "enum": [
+                "year",
+                "quarter",
+                "month",
+                "week",
+                "day",
+                "hour",
+                "month_of_year",
+                "day_of_week",
+                "hour_of_day"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Period to bucket each timestamp into. None keeps the timestamp itself.",
+          "title": "Every"
+        },
+        "epoch": {
+          "default": "s",
+          "description": "Unit a bare number is read as an offset in.",
+          "enum": [
+            "s",
+            "ms",
+            "us",
+            "ns"
+          ],
+          "title": "Epoch",
+          "type": "string"
+        }
+      },
+      "required": [
+        "factor"
+      ],
+      "title": "ParseDateTimeCorrectionConfig",
+      "type": "object"
+    },
+    "ParseValueCorrectionConfig": {
+      "additionalProperties": false,
+      "description": "Read text as a value by removing what is not part of it.\n\nYAML example::\n\n    corrections:\n      - kind: parse_value\n        factor: weight\n        drop: [\" \", \"kg\"]",
+      "properties": {
+        "factor": {
+          "description": "Factor the rule applies to.",
+          "title": "Factor",
+          "type": "string"
+        },
+        "kind": {
+          "const": "parse_value",
+          "default": "parse_value",
+          "title": "Kind",
+          "type": "string"
+        },
+        "drop": {
+          "default": [],
+          "description": "Substrings removed from every value, in the order given. Substrings rather than characters, so a rule removing 'kg' cannot also eat the 'k' of a value it was never meant to touch.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Drop",
+          "type": "array"
+        },
+        "decimal": {
+          "default": ".",
+          "description": "The character this column separates a fraction with, swapped for '.' after the drops.",
+          "title": "Decimal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "factor"
+      ],
+      "title": "ParseValueCorrectionConfig",
+      "type": "object"
+    },
     "PreprocessingStep": {
       "description": "Single preprocessing step.\n\nPass-through to torchvision.transforms.v2 - any transform name is allowed.\nSee: https://pytorch.org/vision/stable/transforms.html\n\nExample\n-------\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
       "properties": {
@@ -2908,6 +3054,165 @@
         "steps"
       ],
       "title": "PreprocessorConfig",
+      "type": "object"
+    },
+    "RemapCorrectionConfig": {
+      "additionalProperties": false,
+      "description": "Replace named values outright, where the vocabulary is small and closed.\n\nYAML example::\n\n    corrections:\n      - kind: remap\n        factor: direction\n        rules:\n          - match: \"N\"\n            to: 0\n          - range: [-1000, 0]\n            to: -99\n          - otherwise: -1",
+      "properties": {
+        "factor": {
+          "description": "Factor the rule applies to.",
+          "title": "Factor",
+          "type": "string"
+        },
+        "kind": {
+          "const": "remap",
+          "default": "remap",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rules": {
+          "description": "Replacements, applied in order. Exactly one may be a catch-all.",
+          "items": {
+            "$ref": "#/$defs/RemapRuleConfig"
+          },
+          "minItems": 1,
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "factor",
+        "rules"
+      ],
+      "title": "RemapCorrectionConfig",
+      "type": "object"
+    },
+    "RemapRuleConfig": {
+      "additionalProperties": false,
+      "description": "One replacement: what is matched, and what it becomes.\n\nA rule rather than a mapping entry because DataEval matches a key with\n``type(key) is type(value)`` and fires a range only on a real tuple \u2014 and YAML has no\ntuple literal and no way to keep ``1``, ``\"1\"`` and ``true`` apart once they are mapping\nkeys. A key written ``[0, 100]`` would arrive as a list, match nothing, and leave the\nremap silently doing nothing. Naming the match kind removes the question rather than\nencoding around it, and lands on the same pair-array shape DataEval already writes to\nJSON.",
+      "properties": {
+        "match": {
+          "default": null,
+          "description": "A value matched exactly as the dataset wrote it.",
+          "title": "Match"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A half-open [low, high) range matching any number in it \u2014 how a sentinel band is retired to one value. null at either end is unbounded.",
+          "title": "Range"
+        },
+        "otherwise": {
+          "default": null,
+          "description": "The catch-all, applied to every value no other rule matched. What lets a recorded mapping survive a second dataset, which will bring values the first never held. A row that recorded nothing is never matched, this included.",
+          "title": "Otherwise"
+        },
+        "to": {
+          "default": null,
+          "description": "What the matched values become. Not used with `otherwise`.",
+          "title": "To"
+        }
+      },
+      "title": "RemapRuleConfig",
+      "type": "object"
+    },
+    "RescaleCorrectionConfig": {
+      "additionalProperties": false,
+      "description": "Convert values over a range by an affine rule \u2014 the units case.\n\nYAML example::\n\n    corrections:\n      - kind: rescale\n        factor: altitude\n        over: [0, 1000]\n        multiply: 0.3048",
+      "properties": {
+        "factor": {
+          "description": "Factor the rule applies to.",
+          "title": "Factor",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rescale",
+          "default": "rescale",
+          "title": "Kind",
+          "type": "string"
+        },
+        "over": {
+          "default": [
+            null,
+            null
+          ],
+          "description": "Half-open [low, high) range the rule applies over. null at either end is unbounded.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          ],
+          "title": "Over",
+          "type": "array"
+        },
+        "multiply": {
+          "default": 1.0,
+          "description": "Factor every value in range is multiplied by.",
+          "title": "Multiply",
+          "type": "number"
+        },
+        "add": {
+          "default": 0.0,
+          "description": "Offset added after multiplying.",
+          "title": "Add",
+          "type": "number"
+        }
+      },
+      "required": [
+        "factor"
+      ],
+      "title": "RescaleCorrectionConfig",
       "type": "object"
     },
     "SourceConfig": {

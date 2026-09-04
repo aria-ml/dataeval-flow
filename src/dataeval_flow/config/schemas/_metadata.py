@@ -2,9 +2,9 @@
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from dataeval_flow.config._paths import validate_config_path
 from dataeval_flow.config.schemas._task import AutoBinMethod, FactorSource
@@ -52,6 +52,210 @@ class ResultMetadata(BaseModel):
     #: DataEval made on the caller's behalf and the ranges it could not resolve.
     #: Empty when the run raised none.
     diagnostics: Sequence[str] = ()
+
+
+# --- Corrections -------------------------------------------------------------
+#
+# How a factor's values are *read*, decided before anything asks what code each one takes.
+# The authoring counterpart to the `unusable` section of a binning record: that says a
+# column mixes 16 numeric rows with 4 text ones and that a repair can reach it; these are
+# how the repair gets written down.
+#
+# One model per DataEval correction type, discriminated on `kind` — the idiom `datasets`
+# (`format`), `extractors` (`model`) and `workflows` (`type`) already use.
+#
+# Almost nothing is validated here. Every one of these types validates itself on
+# construction with a message naming the factor — a backwards range, a bare-string `drop`,
+# a `multiply` of zero, a `decimal` the rule also drops — and `resolve_policy` builds them,
+# so a mistake is a config error carrying DataEval's own wording. What pydantic does is the
+# part that is about YAML rather than about corrections: pick the model, and give a remap
+# rule a shape that survives the trip.
+
+DateTimeGranularity = Literal[
+    "year", "quarter", "month", "week", "day", "hour", "month_of_year", "day_of_week", "hour_of_day"
+]
+"""Periods :class:`dataeval.types.ParseDateTime` buckets a timestamp into.
+
+Pinned rather than left open so a misspelling is a config error instead of a failure after
+the dataset walk. `DATETIME_GRANULARITIES` is not exported from `dataeval.types`, so a
+registry-sync test holds this in step with it.
+"""
+
+EpochUnit = Literal["s", "ms", "us", "ns"]
+"""Units a bare number is read as an offset in. Pinned for the reason above."""
+
+
+class _CorrectionBase(BaseModel):
+    """Fields every correction carries."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    factor: str = Field(description="Factor the rule applies to.")
+
+
+class RemapRuleConfig(BaseModel):
+    """One replacement: what is matched, and what it becomes.
+
+    A rule rather than a mapping entry because DataEval matches a key with
+    ``type(key) is type(value)`` and fires a range only on a real tuple — and YAML has no
+    tuple literal and no way to keep ``1``, ``"1"`` and ``true`` apart once they are mapping
+    keys. A key written ``[0, 100]`` would arrive as a list, match nothing, and leave the
+    remap silently doing nothing. Naming the match kind removes the question rather than
+    encoding around it, and lands on the same pair-array shape DataEval already writes to
+    JSON.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    match: Any = Field(default=None, description="A value matched exactly as the dataset wrote it.")
+    range: tuple[float | None, float | None] | None = Field(
+        default=None,
+        description=(
+            "A half-open [low, high) range matching any number in it — how a sentinel band "
+            "is retired to one value. null at either end is unbounded."
+        ),
+    )
+    otherwise: Any = Field(
+        default=None,
+        description=(
+            "The catch-all, applied to every value no other rule matched. What lets a "
+            "recorded mapping survive a second dataset, which will bring values the first "
+            "never held. A row that recorded nothing is never matched, this included."
+        ),
+    )
+    to: Any = Field(default=None, description="What the matched values become. Not used with `otherwise`.")
+
+    @model_validator(mode="after")
+    def _exactly_one_match_kind(self) -> "RemapRuleConfig":
+        """Refuse a rule that names two ways to match, or none.
+
+        Checked on the fields that were *set* rather than on their values: `match: null` is
+        a rule about the missing value and `to: null` is a legitimate replacement, so a
+        None-based test would silently reclassify both.
+        """
+        given = {name for name in ("match", "range", "otherwise") if name in self.model_fields_set}
+        if len(given) != 1:
+            named = ", ".join(sorted(given)) if given else "none of them"
+            raise ValueError(
+                f"A remap rule names exactly one of `match`, `range` or `otherwise`; this one names {named}.",
+            )
+        if "otherwise" in given and "to" in self.model_fields_set:
+            raise ValueError("A remap rule with `otherwise` carries its replacement there; drop the `to`.")
+        if "otherwise" not in given and "to" not in self.model_fields_set:
+            raise ValueError("A remap rule needs a `to` saying what the matched values become.")
+        return self
+
+
+class RemapCorrectionConfig(_CorrectionBase):
+    """Replace named values outright, where the vocabulary is small and closed.
+
+    YAML example::
+
+        corrections:
+          - kind: remap
+            factor: direction
+            rules:
+              - match: "N"
+                to: 0
+              - range: [-1000, 0]
+                to: -99
+              - otherwise: -1
+    """
+
+    kind: Literal["remap"] = "remap"
+    rules: Sequence[RemapRuleConfig] = Field(
+        min_length=1,
+        description="Replacements, applied in order. Exactly one may be a catch-all.",
+    )
+
+    @field_validator("rules")
+    @classmethod
+    def _at_most_one_catch_all(cls, rules: Sequence[RemapRuleConfig]) -> Sequence[RemapRuleConfig]:
+        """A second catch-all is a mapping that silently loses one of them."""
+        catch_alls = sum("otherwise" in rule.model_fields_set for rule in rules)
+        if catch_alls > 1:
+            raise ValueError(f"A remap has one catch-all at most; this one has {catch_alls}.")
+        return rules
+
+
+class RescaleCorrectionConfig(_CorrectionBase):
+    """Convert values over a range by an affine rule — the units case.
+
+    YAML example::
+
+        corrections:
+          - kind: rescale
+            factor: altitude
+            over: [0, 1000]
+            multiply: 0.3048
+    """
+
+    kind: Literal["rescale"] = "rescale"
+    over: tuple[float | None, float | None] = Field(
+        default=(None, None),
+        description="Half-open [low, high) range the rule applies over. null at either end is unbounded.",
+    )
+    multiply: float = Field(default=1.0, description="Factor every value in range is multiplied by.")
+    add: float = Field(default=0.0, description="Offset added after multiplying.")
+
+
+class ParseValueCorrectionConfig(_CorrectionBase):
+    """Read text as a value by removing what is not part of it.
+
+    YAML example::
+
+        corrections:
+          - kind: parse_value
+            factor: weight
+            drop: [" ", "kg"]
+    """
+
+    kind: Literal["parse_value"] = "parse_value"
+    drop: Sequence[str] = Field(
+        default=(),
+        description=(
+            "Substrings removed from every value, in the order given. Substrings rather "
+            "than characters, so a rule removing 'kg' cannot also eat the 'k' of a value "
+            "it was never meant to touch."
+        ),
+    )
+    decimal: str = Field(
+        default=".",
+        description="The character this column separates a fraction with, swapped for '.' after the drops.",
+    )
+
+
+class ParseDateTimeCorrectionConfig(_CorrectionBase):
+    """Read text as a timestamp, and optionally bucket it into a period.
+
+    A timestamp holds a different value on nearly every row, so it names its rows rather
+    than grouping them and is dropped for cardinality. Reading it as the month or the hour
+    it falls in is what gives it a vocabulary.
+
+    YAML example::
+
+        corrections:
+          - kind: parse_datetime
+            factor: captured_at
+            every: month_of_year
+    """
+
+    kind: Literal["parse_datetime"] = "parse_datetime"
+    format: str | None = Field(
+        default=None,
+        description="Format the timestamps are written in. None reads them as ISO 8601 or as an epoch offset.",
+    )
+    every: DateTimeGranularity | None = Field(
+        default=None,
+        description="Period to bucket each timestamp into. None keeps the timestamp itself.",
+    )
+    epoch: EpochUnit = Field(default="s", description="Unit a bare number is read as an offset in.")
+
+
+CorrectionConfig = Annotated[
+    RemapCorrectionConfig | RescaleCorrectionConfig | ParseValueCorrectionConfig | ParseDateTimeCorrectionConfig,
+    Field(discriminator="kind"),
+]
 
 
 class MetadataPolicyConfig(BaseModel):
@@ -119,6 +323,19 @@ class MetadataPolicyConfig(BaseModel):
             "not know it is part absent. Set it when the values that were recorded are the "
             "point. Keys the metadata cache: it changes the factor set, and an archive "
             "restores it with `or`, so an entry built with it on can never be read back off."
+        ),
+    )
+    corrections: Sequence[CorrectionConfig] | None = Field(
+        default=None,
+        description=(
+            "How factors' values are read, applied in the order given and before anything "
+            "asks what code each one takes. The repair for a factor `unusable` reports — a "
+            "compass recorded sometimes in degrees and sometimes as a bearing, a sentinel "
+            "standing for a bad reading — and equally the way to convert a factor that is "
+            "readable but in the wrong units. Keys the metadata cache: a repair changes "
+            "what the values are, so two runs differing only here computed their numbers "
+            "from differently-read columns. Mutually exclusive per factor with the "
+            "corrections a committed `encoding` descriptor carries."
         ),
     )
     reference_split: str | None = Field(
