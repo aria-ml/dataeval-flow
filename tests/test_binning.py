@@ -711,3 +711,80 @@ class TestUnusableIsReportedBesideDropped:
         unrepairable = [name for name in md.dropped_factors if name in md.unusable and not md.unusable[name].repairable]
         for name in unrepairable:
             assert summary[name]["repairable"] is False
+
+
+class TestADeclaredRepairReachesTheRun:
+    """The step that closes the loop: a correction declared in YAML is applied to the
+    metadata a workflow reads, and survives the cache."""
+
+    @staticmethod
+    def _policy(*corrections):
+        from dataeval_flow.config._models import PipelineConfig
+        from dataeval_flow.policy import resolve_policy
+        from dataeval_flow.workflow.base import MetadataConfigMixin
+
+        config = PipelineConfig.model_validate({"metadata": [{"name": "standard", "corrections": list(corrections)}]})
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+
+    def test_the_held_back_column_becomes_a_factor(self):
+        """`_MixedDataset` writes "absent" where no weight was taken, which is exactly the
+        sentinel `unusable` reports and a remap retires."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
+        md = build_metadata(_MixedDataset(), policy)
+
+        assert "weight" in md.factor_names
+        assert "weight" not in md.dropped_factors
+
+    def test_without_the_repair_it_stays_held_back(self):
+        """The premise: the factor is absent until something says how to read it."""
+        from dataeval_flow.metadata import build_metadata
+
+        assert "weight" not in build_metadata(_MixedDataset()).factor_names
+
+    def test_the_repair_is_reported_as_declared(self):
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
+        assert len(build_metadata(_MixedDataset(), policy).repairs) == 1
+
+    def test_they_apply_in_the_order_declared(self):
+        """A rescale reading a column a remap has just made numeric only works one way
+        round, which is why the list is ordered rather than a mapping."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy(
+            {"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": 0.0}]},
+            {"kind": "rescale", "factor": "weight", "multiply": 2.0},
+        )
+        md = build_metadata(_MixedDataset(), policy)
+        values = md.dataframe["weight"].to_list()
+
+        assert 0.0 in values
+        assert max(values) == 2 * (10 + 19)
+
+    def test_a_cache_hit_reads_the_values_the_same_way(self, tmp_path):
+        """Hit and miss have to agree, or the numbers change on the second run."""
+        from dataeval import Metadata
+
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
+        miss = build_metadata(_MixedDataset(), policy)
+        archive = tmp_path / "md.dem"
+        miss.save(archive)
+        hit = Metadata.load(archive, **policy.metadata_kwargs(for_load=True))
+
+        assert hit.dataframe["weight"].to_list() == miss.dataframe["weight"].to_list()
+        assert hit.repairs == miss.repairs
+
+    def test_the_binning_record_stops_calling_it_unusable(self):
+        """What the reader sees close: the factor moves out of `unusable` into `factors`."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
+        record = describe_binning(build_metadata(_MixedDataset(), policy))
+
+        assert "weight" not in record["unusable"]
+        assert "weight" in record["factors"]

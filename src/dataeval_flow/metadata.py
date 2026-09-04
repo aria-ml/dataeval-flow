@@ -173,22 +173,59 @@ def build_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | Non
     cached ``Metadata`` comes through, and it already receives the policy.  It happens
     *after* construction, which is sound because binning is lazy: a bin declared before its
     factor exists still binds when the factor arrives.
+
+    The order is ``construct -> inject -> repair -> re-expand bins``, and each step is where
+    it is for a reason.  Repairs come after injection because an intrinsic factor is a
+    computed statistic and is never held back, so nothing is gained by reading it first.
+    Bin re-expansion comes last because both of the steps before it change the factor set —
+    injection adds measured factors, and repairing a held-back column turns it *into* a
+    factor — and ``expand_declared_bins`` matches declarations against the names that
+    actually exist.
+
+    Corrections declared through a committed ``encoding`` descriptor are not applied here:
+    DataEval reads that file off the path it was handed and applies them itself, which is
+    why ``correction_specs`` is empty on that path.
     """
     from dataeval_flow.policy import ResolvedPolicy
 
     resolved = policy or ResolvedPolicy()
     metadata = Metadata(dataset, **resolved.metadata_kwargs())
-    if not resolved.intrinsic_factors:
-        return metadata
-    return _inject_and_rebin(metadata, dataset, resolved)
+    injected = bool(resolved.intrinsic_factors) and _inject(metadata, dataset, resolved)
+    repaired = _repair(metadata, resolved)
+    if (injected or repaired) and resolved.continuous_factor_bins:
+        metadata.continuous_factor_bins = expand_declared_bins(
+            resolved.continuous_factor_bins, metadata.factor_names, metadata.levels
+        )
+    return metadata
 
 
-def _inject_and_rebin(
+def _repair(metadata: Metadata, policy: "ResolvedPolicy") -> bool:
+    """Read the policy's corrected factors the way it says to.  True if anything changed.
+
+    ``repair`` mutates in place, unlike ``aggregate`` which copies.  That is safe only
+    because this runs on the instance just constructed here — repairing one handed back from
+    the in-process memo would mutate the object other workflows are holding.
+
+    It also forces the dataset walk, which a freshly constructed instance has not done.
+    That is not new work — anything reading factors walks anyway — but it moves when a
+    lazily-built metadata pays for itself, so it happens only when a repair was declared.
+    """
+    if not policy.correction_specs:
+        return False
+    metadata.repair(list(policy.correction_specs))
+    return True
+
+
+def _inject(
     metadata: Metadata,
     dataset: AnnotatedDataset[Any],
     policy: "ResolvedPolicy",
-) -> Metadata:
-    """Compute the policy's statistics, inject them, and carry its bins onto the result."""
+) -> bool:
+    """Compute the policy's statistics and inject them.  True if any factor was produced.
+
+    Bin re-expansion is the caller's, because a repair changes the factor set too and the
+    declarations have to be matched against the names left once every step has run.
+    """
     # Imported here, not at module scope: cache.py imports build_metadata from this module,
     # so a module-level import back would be circular.
     from dataeval_flow.cache import get_or_compute_stats
@@ -205,12 +242,7 @@ def _inject_and_rebin(
         per_target=metadata.multi_target,
         value_range=policy.value_range,
     )
-    produced = inject_intrinsic_factors(metadata, calc_result)
-    if produced and policy.continuous_factor_bins:
-        metadata.continuous_factor_bins = expand_declared_bins(
-            policy.continuous_factor_bins, metadata.factor_names, metadata.levels
-        )
-    return metadata
+    return bool(inject_intrinsic_factors(metadata, calc_result))
 
 
 def _modality_of(dataset: AnnotatedDataset[Any]) -> str:
