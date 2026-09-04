@@ -620,7 +620,7 @@ def _make_calc_result(n: int = 5, include_2d: bool = False, include_hashes: bool
         stats["center"] = rng.random((n, 2)).astype(np.float32)
 
     return {
-        "source_index": [SourceIndex(item=i, target=None, channel=None) for i in range(n)],
+        "source_index": [SourceIndex(item=i, key=None, level=None) for i in range(n)],
         "object_count": list(range(n)),
         "invalid_box_count": [0] * n,
         "image_count": n,
@@ -710,26 +710,26 @@ class TestStatsCache:
         for orig, loaded_si in zip(stats["source_index"], loaded["source_index"], strict=True):
             assert isinstance(loaded_si, SourceIndex)
             assert loaded_si.item == orig.item
-            assert loaded_si.target == orig.target
-            assert loaded_si.channel == orig.channel
+            assert loaded_si.key == orig.key
+            assert loaded_si.level == orig.level
 
     def test_source_index_with_targets(self, tmp_path: Path):
         from dataeval.types import SourceIndex
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(2)
-        # Override source_index with target/channel data
+        # Override source_index with keyed, level-stated addresses
         stats["source_index"] = [
-            SourceIndex(item=0, target=None, channel=None),
-            SourceIndex(item=0, target=1, channel=2),
+            SourceIndex(item=0, key=None, level=None),
+            SourceIndex(item=0, key=1, level="instance"),
         ]
         cache.save_stats("sel:all", "img+tgt", stats)
         loaded = cache.load_stats("sel:all", "img+tgt")
 
         assert loaded is not None
-        assert loaded["source_index"][0].target is None
-        assert loaded["source_index"][1].target == 1
-        assert loaded["source_index"][1].channel == 2
+        assert loaded["source_index"][0].key is None
+        assert loaded["source_index"][1].key == 1
+        assert loaded["source_index"][1].level == "instance"
 
     def test_different_scopes_different_files(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")

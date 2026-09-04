@@ -185,7 +185,7 @@ def _compute_split_data(
         value_range=value_range,
     )
     source_index = calc_result["source_index"]
-    img_mask = np.array([si.target is None for si in source_index])
+    img_mask = np.array([si.key is None for si in source_index])
 
     # Label statistics
     _logger.info("  Computing label statistics for '%s' ...", split_name)

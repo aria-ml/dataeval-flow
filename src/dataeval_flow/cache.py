@@ -418,7 +418,7 @@ def dataset_fingerprint(dataset: Any) -> str:
         Hex digest fingerprint of the sampled data.
     """
     import xxhash as xxh
-    from dataeval.utils._internal import as_numpy
+    from dataeval.utils._array import as_numpy
 
     n = len(dataset)
     hasher = xxh.xxh3_64()
@@ -1279,7 +1279,12 @@ class DatasetCache:
                 else:
                     stats[col] = series.to_numpy(writable=False)
 
-            source_index = [SourceIndex(item=s[0], target=s[1], channel=s[2]) for s in aux["source_index"]]
+            # The third slot was a channel index before dataeval v1.2 and is the
+            # level name now.  Entries this cache wrote under the old spelling always
+            # held ``None`` there — flow never asks compute_stats for per-channel rows
+            # — so they still read back correctly.  One that somehow holds an int
+            # makes SourceIndex raise, which the handler below turns into a recompute.
+            source_index = [SourceIndex(item=s[0], key=s[1], level=s[2]) for s in aux["source_index"]]
 
             result = StatsResult(
                 source_index=source_index,
@@ -1332,7 +1337,7 @@ class DatasetCache:
         df = pl.DataFrame(series_dict)
 
         aux = {
-            "source_index": [[int(si.item), si.target, si.channel] for si in stats["source_index"]],
+            "source_index": [[int(si.item), si.key, si.level] for si in stats["source_index"]],
             "object_count": [int(v) for v in stats["object_count"]],
             "invalid_box_count": [int(v) for v in stats["invalid_box_count"]],
             "image_count": int(stats["image_count"]),

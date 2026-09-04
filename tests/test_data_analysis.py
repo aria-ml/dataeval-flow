@@ -1028,7 +1028,7 @@ class TestComputeMetadataSummary:
 def _mock_calc_result(n: int = 10) -> StatsResult:
     """Build a mock StatsResult dict."""
     si = MagicMock()
-    si.target = None
+    si.key = None
     return StatsResult(
         source_index=[si] * n,
         object_count=np.array([1] * n).tolist(),
@@ -1142,7 +1142,7 @@ class TestAssessImageQuality:
     def _make_split_data(self, n: int = 3) -> MagicMock:
         data = MagicMock(spec=SplitData)
         si = MagicMock()
-        si.target = None
+        si.key = None
         data.calc_result = {
             "source_index": [si] * n,
             "object_count": np.array([1] * n),
