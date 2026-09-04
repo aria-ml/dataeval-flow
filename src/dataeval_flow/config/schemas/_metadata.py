@@ -110,6 +110,17 @@ class MetadataPolicyConfig(BaseModel):
             "unaffected — an unseen magnitude lands in an end bin either way."
         ),
     )
+    partial_factors: bool = Field(
+        default=False,
+        description=(
+            "Whether to keep a factor only some rows declare, giving the rest a missing "
+            "value. The default drops such a factor for every row, which is what a factor "
+            "present for only part of a dataset can otherwise do to an analysis that does "
+            "not know it is part absent. Set it when the values that were recorded are the "
+            "point. Keys the metadata cache: it changes the factor set, and an archive "
+            "restores it with `or`, so an entry built with it on can never be read back off."
+        ),
+    )
     reference_split: str | None = Field(
         default=None,
         description=(

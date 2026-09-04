@@ -95,6 +95,14 @@ class ResolvedPolicy:
     """
     factor_levels: Mapping[str, Sequence[Any]] | None = None
     strict: bool = False
+    partial_factors: bool = False
+    """Whether a factor only some rows declare is kept with a missing value.
+
+    Keys the metadata cache for two reasons.  It changes the factor set, so an entry built
+    without it answers a different question; and the archive restores it with ``or``, so a
+    load can turn it **on** but never off — an entry built with it on would otherwise be
+    served to a run that asked for the default and silently keep the partial factors.
+    """
     factor_source: "FactorSource | None" = None
     reference_split: str | None = None
     intrinsic_factors: tuple[str, ...] = ()
@@ -124,6 +132,12 @@ class ResolvedPolicy:
             vocabulary is already in the file, and the policy hash naming that file is
             what guarantees it is the one this policy asked for.  Passing it to ``load``
             is a ``TypeError``, which the cache would swallow as a permanent miss.
+
+            ``partial_factors`` is withheld for the same reason and not the same cause:
+            DataEval simply does not accept it on ``load`` — the constructor and
+            ``from_factors`` both do — and the archive restores what it was structured
+            under.  The asymmetry is upstream's; the guard here is what stops it becoming
+            a cache that never hits.
         """
         kwargs: dict[str, Any] = {}
         if self.auto_bin_method is not None:
@@ -144,6 +158,8 @@ class ResolvedPolicy:
             kwargs["factor_levels"] = {name: list(levels) for name, levels in self.factor_levels.items()}
         if self.strict:
             kwargs["strict"] = True
+        if self.partial_factors and not for_load:
+            kwargs["partial_factors"] = True
         return kwargs
 
 
@@ -169,6 +185,7 @@ def policy_key(policy: ResolvedPolicy) -> str:
             "corrections": [dict(entry) for entry in policy.corrections],
             "factor_levels": {name: list(levels) for name, levels in (policy.factor_levels or {}).items()},
             "strict": policy.strict,
+            "partial_factors": policy.partial_factors,
             "intrinsic_factors": sorted(family.lower() for family in policy.intrinsic_factors),
             "value_range": list(policy.value_range) if policy.value_range else None,
         },
@@ -406,6 +423,7 @@ def resolve_policy(
         auto_bin_method, exclude = named.auto_bin_method, tuple(named.exclude or ())
         bins = dict(named.continuous_factor_bins or {})
         factor_levels, strict = named.factor_levels, named.strict
+        partial_factors = named.partial_factors
         factor_source, reference_split = named.factor_source, named.reference_split
         intrinsic_factors = tuple(named.intrinsic_factors or ())
         descriptor_path = named.encoding
@@ -415,6 +433,7 @@ def resolve_policy(
         exclude = tuple(params.metadata_exclude or ())
         bins = dict(params.metadata_continuous_factor_bins or {})
         factor_levels, strict = None, False
+        partial_factors = False
         factor_source, reference_split = params.metadata_factor_source, None
         intrinsic_factors = ()
         descriptor_path = None
@@ -478,6 +497,7 @@ def resolve_policy(
         corrections=corrections,
         factor_levels=factor_levels,
         strict=strict,
+        partial_factors=partial_factors,
         factor_source=factor_source,
         reference_split=reference_split,
         intrinsic_factors=intrinsic_factors,

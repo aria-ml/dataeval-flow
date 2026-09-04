@@ -315,6 +315,38 @@ class TestDoubleDeclaration:
         assert policy.continuous_factor_bins == {"brightness": 4}
 
 
+class TestPartialFactors:
+    """A factor only some rows declare: kept with a missing value, or dropped for everyone."""
+
+    def test_it_defaults_to_dropping_them(self):
+        assert resolve_policy(MetadataConfigMixin(metadata="standard"), _config()).partial_factors is False
+
+    def test_the_policy_reads_it(self):
+        config = _config(partial_factors=True)
+        assert resolve_policy(MetadataConfigMixin(metadata="standard"), config).partial_factors is True
+
+    def test_it_reaches_the_constructor(self):
+        assert ResolvedPolicy(partial_factors=True).metadata_kwargs()["partial_factors"] is True
+
+    def test_it_is_withheld_from_load(self):
+        """`Metadata.load` has no such parameter, and the TypeError would be swallowed by
+        the cache as a permanent miss rather than surfacing."""
+        assert "partial_factors" not in ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)
+
+    def test_the_default_is_omitted_rather_than_passed(self):
+        assert "partial_factors" not in ResolvedPolicy().metadata_kwargs()
+
+    def test_load_accepts_what_metadata_kwargs_produces(self):
+        """The guard is only worth having if it matches DataEval's real signature."""
+        import inspect
+
+        from dataeval import Metadata
+
+        accepted = set(inspect.signature(Metadata.load).parameters)
+        assert set(ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)) <= accepted
+        assert "partial_factors" not in accepted
+
+
 class TestPolicyKey:
     """The key decides which cache entry a run gets, so equal policies must key equally."""
 
@@ -336,6 +368,13 @@ class TestPolicyKey:
 
     def test_strict_is_in_the_key(self):
         assert policy_key(ResolvedPolicy(strict=True)) != policy_key(ResolvedPolicy(strict=False))
+
+    def test_partial_factors_is_in_the_key(self):
+        """The archive restores it with `or`, so a load can turn it on but never off: a run
+        declaring False must not be served an entry built with True."""
+        a = ResolvedPolicy(partial_factors=True)
+        b = ResolvedPolicy(partial_factors=False)
+        assert policy_key(a) != policy_key(b)
 
     def test_the_corrections_are_in_the_key(self):
         """Higher stakes than a cut: a repair changes what the values *are*, so a stale hit
