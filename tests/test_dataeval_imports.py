@@ -13,6 +13,7 @@ rename surfaces as one legible failure naming the symbol.
 import ast
 import importlib
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
@@ -82,3 +83,48 @@ def test_private_coupling_is_the_recorded_set():
         "the set of private dataeval modules flow imports changed. Update PRIVATE_MODULES "
         "only after checking there is no public API for what the new one provides."
     )
+
+
+class TestPinnedVocabulariesStayInStep:
+    """Config Literals hardcode value sets that live in private dataeval modules.
+
+    Pinning them is what makes a misspelled period a config error rather than a failure
+    after the dataset walk. The cost is that an upstream addition would otherwise appear as
+    a value flow silently refuses, with nothing to say why — so it fails here instead,
+    naming what moved.
+
+    These imports are the reason `dataeval.types` exporting the three vocabularies is asked
+    for in the API proposal; when it lands, the private import here is what drops.
+    """
+
+    def test_the_datetime_periods_match_the_registry(self):
+        from dataeval.types._factors import DATETIME_GRANULARITIES
+
+        from dataeval_flow.config.schemas._metadata import DateTimeGranularity
+
+        assert set(get_args(DateTimeGranularity)) == set(DATETIME_GRANULARITIES)
+
+    def test_the_epoch_units_match_the_registry(self):
+        from dataeval.types._factors import EPOCH_UNITS
+
+        from dataeval_flow.config.schemas._metadata import EpochUnit
+
+        assert set(get_args(EpochUnit)) == set(EPOCH_UNITS)
+
+    def test_every_pinned_period_is_one_parse_datetime_accepts(self):
+        """Set equality would still pass if both sides drifted together onto a value the
+        type itself refuses, which is the failure a user would actually hit."""
+        from dataeval.types import ParseDateTime
+
+        from dataeval_flow.config.schemas._metadata import DateTimeGranularity
+
+        for period in get_args(DateTimeGranularity):
+            ParseDateTime("f", every=period)
+
+    def test_every_pinned_epoch_unit_is_one_parse_datetime_accepts(self):
+        from dataeval.types import ParseDateTime
+
+        from dataeval_flow.config.schemas._metadata import EpochUnit
+
+        for unit in get_args(EpochUnit):
+            ParseDateTime("f", epoch=unit)
