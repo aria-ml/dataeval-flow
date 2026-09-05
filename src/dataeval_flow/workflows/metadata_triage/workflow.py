@@ -258,12 +258,15 @@ def _factor_recovered(after: "dict[str, Any]", name: str, *, pinned: bool) -> bo
     present and already readable — what it lacks is a pinned cut, not existence, per
     ``triage._encodings`` — so that same check would be true before the suggestion runs
     and after it regardless of what the suggested count did, and could never say no.
-    Recovered there instead means the cut no longer reads ``provenance="derived"`` in the
-    re-described record, which is the one thing this suggestion can still fail to do.
+    Recovered there instead means the factor is still present *and* its cut no longer reads
+    ``provenance="derived"`` in the re-described record — presence alone is not enough, or a
+    factor that vanished from the re-described record entirely (absent from ``factors``, and
+    so absent from ``unreviewed`` too) would satisfy this by having disappeared rather than
+    by having been pinned.
     """
-    if pinned:
-        return name not in (after.get("unreviewed") or ())
     factors = after.get("factors") or {}
+    if pinned:
+        return name in factors and name not in (after.get("unreviewed") or ())
     unusable = after.get("unusable") or {}
     return name in factors and name not in unusable
 

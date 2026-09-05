@@ -247,6 +247,20 @@ def test_a_bin_suggestion_that_stays_derived_is_not_recovered():
     assert _factor_recovered(pinned_now, "altitude", pinned=True) is True
 
 
+def test_a_vanished_factor_is_not_recovered_even_when_absent_from_unreviewed():
+    """Absence must not read as success.
+
+    A factor missing from the re-described record's `factors` at all is absent from
+    `unreviewed` too -- trivially, since `unreviewed` only ever names factors that exist.
+    The pinned check must not mistake that disappearance for having been pinned: recovery
+    requires the factor to still be *present*, not merely un-listed as unreviewed.
+    """
+    from dataeval_flow.workflows.metadata_triage.workflow import _factor_recovered
+
+    vanished = {"unreviewed": [], "factors": {}, "unusable": {}}
+    assert _factor_recovered(vanished, "altitude", pinned=True) is False
+
+
 def test_the_workflow_is_discoverable():
     from dataeval_flow.workflow import get_workflow, list_workflows
 
