@@ -124,6 +124,7 @@ docs = [
     "jupytext>=1.19.1",
     "ipykernel>=7.0",
     "pip>=24.0",
+    "pyarrow>=25.0",
     "dataeval-plots>=0.0.7",
     "datasets>=4.0.0",
 ]
