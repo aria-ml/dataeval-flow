@@ -920,6 +920,16 @@ class TestWorkflowConfig:
                 outlier_flags=["dimension"],
             )
 
+    def test_metadata_triage_workflow_config_basic(self):
+        """MetadataTriageWorkflowConfig stores name, type, and flat params."""
+        from dataeval_flow.config import MetadataTriageWorkflowConfig
+
+        wc = MetadataTriageWorkflowConfig(name="triage", metadata="standard", max_examples=5)
+        assert wc.name == "triage"
+        assert wc.type == "metadata-triage"
+        assert wc.verify is True
+        assert wc.max_examples == 5
+
 
 class TestResolveWorkflow:
     """Test orchestrator _resolve_workflow function."""

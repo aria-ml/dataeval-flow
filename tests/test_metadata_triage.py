@@ -245,3 +245,53 @@ def test_a_bin_suggestion_that_stays_derived_is_not_recovered():
 
     pinned_now = {"unreviewed": [], "factors": {"altitude": {}}, "unusable": {}}
     assert _factor_recovered(pinned_now, "altitude", pinned=True) is True
+
+
+def test_the_workflow_is_discoverable():
+    from dataeval_flow.workflow import get_workflow, list_workflows
+
+    assert get_workflow("metadata-triage").name == "metadata-triage"
+    assert any(w["name"] == "metadata-triage" for w in list_workflows())
+
+
+def test_the_workflow_config_parses():
+    from dataeval_flow.config.schemas import MetadataTriageWorkflowConfig
+
+    cfg = MetadataTriageWorkflowConfig(name="triage", metadata="standard")
+    assert cfg.type == "metadata-triage"
+    assert cfg.verify is True
+
+
+def test_a_pipeline_config_accepts_a_triage_workflow():
+    from dataeval_flow.config._models import PipelineConfig
+
+    PipelineConfig.model_validate(
+        {
+            "workflows": [{"name": "triage", "type": "metadata-triage", "metadata": "standard"}],
+        }
+    )
+
+
+def test_findings_render_a_stanza_and_a_report():
+    """What `render_stanza` and `build_findings` add beyond the executed run.
+
+    ``test_execute_runs_end_to_end_on_a_real_dataset`` already drives a real
+    ``WorkflowContext`` through ``execute`` and checks that the rendered YAML contains
+    "parse_value" and that verification recovers ``weight``. What it does not pin down is
+    the exact stanza shape ``to_policy_stanza`` produces, or that ``build_findings`` groups
+    an unreadable factor under a title naming it — both checked directly here instead of a
+    second full ``execute`` run.
+    """
+    from dataeval_flow.triage import find_issues, incomplete_factors, render_stanza, to_policy_stanza
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    metadata = _mixed_metadata()
+    findings = find_issues(_describe(metadata))
+    stanza = to_policy_stanza(findings)
+
+    assert stanza["corrections"][0] == {"kind": "parse_value", "factor": "weight", "drop": [","]}
+    assert "kind: parse_value" in render_stanza(stanza, incomplete=incomplete_factors(findings))
+
+    raw = MetadataTriageRawOutputs(dataset_size=60, findings=findings)
+    reportables = build_findings(raw, max_examples=20)
+    assert any("Unreadable" in r.title for r in reportables)
