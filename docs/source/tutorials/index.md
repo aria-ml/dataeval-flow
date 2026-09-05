@@ -36,6 +36,7 @@ Assessing and conditioning a dataset before it is used to train or evaluate.
 ```{toctree}
 :hidden:
 
+../notebooks/metadata_triage
 ../notebooks/data_cleaning
 ../notebooks/data_analysis
 ../notebooks/data_coverage
@@ -46,6 +47,8 @@ Assessing and conditioning a dataset before it is used to train or evaluate.
 :widths: 35 65
 :header-rows: 0
 
+- - {doc}`Triage a dataset's metadata <../notebooks/metadata_triage>`
+  - Find the metadata columns a run silently failed to read, and get a config change for each.
 - - {doc}`Clean a dataset <../notebooks/data_cleaning>`
   - Flag outliers, duplicates, and label problems before the data is used downstream.
 - - {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
