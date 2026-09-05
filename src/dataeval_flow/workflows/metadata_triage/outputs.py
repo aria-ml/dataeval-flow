@@ -39,6 +39,14 @@ class MetadataTriageRawOutputs(WorkflowOutputsBase):
     suggested_policy: dict[str, Any] = Field(default_factory=dict)
     suggested_policy_yaml: str = ""
     verification: list[VerificationEntry] = Field(default_factory=list)
+    verification_error: str | None = Field(
+        default=None,
+        description=(
+            "Set when verification was attempted and raised, rather than left empty the way "
+            "`verify: false` or nothing to verify both leave it. A reader cannot otherwise "
+            "tell those three states apart."
+        ),
+    )
     counts: dict[str, int] = Field(default_factory=dict)
     factor_count: int = 0
 

@@ -105,8 +105,9 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
             if params.verify:
                 try:
                     raw.verification = self._verify(metadata, policy, findings)
-                except Exception:  # the findings are worth having without it
+                except Exception as e:  # the findings are worth having without it
                     _logger.warning("Verification unavailable", exc_info=True)
+                    raw.verification_error = str(e) or type(e).__name__
 
             result_metadata = MetadataTriageMetadata(
                 blocking=sum(1 for f in findings if f.severity == "blocking"),

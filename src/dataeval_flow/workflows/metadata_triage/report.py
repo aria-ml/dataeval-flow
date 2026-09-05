@@ -69,6 +69,18 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
                 },
             )
         )
+    elif raw.verification_error:
+        # Distinct from the section above being absent for `verify: false` or nothing to
+        # verify: a reader must be able to tell "verification blew up" from those two, and
+        # an omitted section says nothing at all.
+        findings.append(
+            Reportable(
+                report_type="key_value",
+                severity="warning",
+                title="Verification failed",
+                data={"brief": "not verified", "detail_lines": [raw.verification_error]},
+            )
+        )
     return findings
 
 

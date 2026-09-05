@@ -309,3 +309,48 @@ def test_findings_render_a_stanza_and_a_report():
     raw = MetadataTriageRawOutputs(dataset_size=60, findings=findings)
     reportables = build_findings(raw, max_examples=20)
     assert any("Unreadable" in r.title for r in reportables)
+
+
+# ---------------------------------------------------------------------------
+# Verification failure, surfaced rather than silent
+# ---------------------------------------------------------------------------
+
+
+def test_a_verification_error_becomes_a_reportable_when_the_list_is_empty():
+    # Distinct from `verify: false` and "nothing to verify", both of which also leave
+    # `verification` empty but set no error -- and so add no Reportable at all.
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    raw = MetadataTriageRawOutputs(dataset_size=10, verification_error="boom")
+    (reportable,) = build_findings(raw, max_examples=20)
+    assert reportable.title == "Verification failed"
+    assert reportable.severity == "warning"
+    assert reportable.data["detail_lines"] == ["boom"]  # type: ignore[index]
+
+
+def test_no_verification_and_no_error_adds_no_reportable():
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    raw = MetadataTriageRawOutputs(dataset_size=10)
+    assert build_findings(raw, max_examples=20) == []
+
+
+def test_verification_failure_is_surfaced_not_silent():
+    """A verification exception is reported as unverified, not swallowed.
+
+    Upstream: 'reported as unverified, not as a failed run' -- reporting *nothing* is not
+    reporting unverified, so a reader must be able to see that verification was attempted
+    and blew up, distinct from `verify: false` or having nothing to verify.
+    """
+    from unittest.mock import patch
+
+    context = WorkflowContext(
+        dataset_contexts={"default": DatasetContext(name="default", dataset=_MixedWeightDataset())},
+    )
+    with patch.object(MetadataTriageWorkflow, "_verify", side_effect=RuntimeError("boom")):
+        result = MetadataTriageWorkflow().execute(context, MetadataTriageParameters())
+
+    assert result.success is True  # the findings are worth having without verification
+    assert result.data.raw.verification == []
+    assert result.data.raw.verification_error == "boom"
+    assert any(f.title == "Verification failed" for f in result.data.report.findings)
