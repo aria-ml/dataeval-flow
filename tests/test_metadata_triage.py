@@ -6,6 +6,8 @@ import numpy as np
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
+from dataeval_flow.config.schemas._metadata import ParseValueCorrectionConfig
+from dataeval_flow.policy import build_correction
 from dataeval_flow.workflow import WorkflowContext
 from dataeval_flow.workflows.metadata_triage import (
     MetadataTriageOutputs,
@@ -102,3 +104,8 @@ def test_execute_refuses_a_context_of_the_wrong_type():
 def test_execute_refuses_missing_parameters():
     result = MetadataTriageWorkflow().execute(WorkflowContext(), None)
     assert result.success is False
+
+
+def test_build_correction_is_public():
+    correction = build_correction(ParseValueCorrectionConfig(factor="weight", drop=[","]))
+    assert correction.factor == "weight"

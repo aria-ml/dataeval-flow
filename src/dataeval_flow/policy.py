@@ -13,7 +13,7 @@ walked, so a misspelled factor or a descriptor that does not exist costs a confi
 rather than an hour.
 """
 
-__all__ = ["ResolvedPolicy", "policy_for", "policy_key", "resolve_policy"]
+__all__ = ["ResolvedPolicy", "build_correction", "policy_for", "policy_key", "resolve_policy"]
 
 import json
 import logging
@@ -239,7 +239,7 @@ def policy_key(policy: ResolvedPolicy) -> str:
 # Each DataEval correction type, keyed by the `kind` its config model declares. The models
 # are a discriminated union, so a kind that is not here cannot be constructed -- the mapping
 # is the translation, not a second validation.
-def _build_correction(entry: Any) -> Any:
+def build_correction(entry: Any) -> Any:
     """Turn one config model into the DataEval record it describes.
 
     The record validates itself on construction -- a backwards range, a `multiply` of zero,
@@ -651,7 +651,7 @@ def _resolve_corrections(
         return from_descriptor, ()
     _check_one_source_per_factor(declared, from_descriptor, source)
     try:
-        specs = tuple(_build_correction(entry) for entry in declared)
+        specs = tuple(build_correction(entry) for entry in declared)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{source} declares a correction DataEval refuses: {exc}") from exc
     # Rendered into the same member the descriptor's fill, so `policy_key` needs no second
