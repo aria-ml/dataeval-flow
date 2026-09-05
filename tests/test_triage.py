@@ -256,6 +256,8 @@ def test_a_timestamp_becomes_a_parse_datetime():
     # Coarsest absolute period still telling the values apart.
     assert finding.suggestion.corrections[0]["every"] == "year"
     assert finding.suggestion.complete is True
+    # "year" has no recurring counterpart in DataEval's registry, so nothing to name.
+    assert "recurring" not in finding.remedy
 
 
 def test_granularity_goes_finer_only_when_it_has_to():
@@ -270,6 +272,31 @@ def test_granularity_goes_finer_only_when_it_has_to():
     assert finding.suggestion is not None
     # One year and one month, so neither separates; week is the first that does.
     assert finding.suggestion.corrections[0]["every"] == "week"
+    # "week" has no recurring counterpart either.
+    assert "recurring" not in finding.remedy
+
+
+def test_a_monthly_granularity_names_the_recurring_alternative():
+    # The suggestion always emits the absolute reading; the remedy is where a reader learns
+    # a recurring `month_of_year` period is also available and answers a different question.
+    record = _record(
+        unusable=_unusable(
+            reasons=["cardinality_over_budget"],
+            sampled=True,
+            distinct={"text": ["2021-01-15", "2021-02-20", "2021-03-25"]},
+        )
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.corrections[0]["every"] == "month"
+    assert "month_of_year" in finding.remedy
+    # The suggestion itself is untouched -- only the remedy names the alternative.
+    assert finding.suggestion.corrections[0] == {
+        "kind": "parse_datetime",
+        "factor": "weight",
+        "every": "month",
+        "format": "%Y-%m-%d",
+    }
 
 
 def test_sentinels_alone_make_a_complete_remap():

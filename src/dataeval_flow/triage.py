@@ -166,7 +166,40 @@ def find_issues(
             values = finding.detail.get("distinct", {}).get("text", [])
             if values and _datetime_format(values) is False and _looks_like_dates(values):
                 finding.remedy = "reads as a date two different ways; the format is ambiguous"
+        _name_recurring_alternative(finding)
     return sorted(findings, key=lambda f: (_SEVERITY_RANK[f.severity], f.category, f.factor))
+
+
+#: The recurring counterpart to an absolute period this module chooses automatically, named
+#: in the remedy so a user learns it exists without reading the source.  Only the three
+#: periods DataEval gives one — ``year``, ``quarter`` and ``week`` have no recurring form.
+_RECURRING_ALTERNATIVE: Mapping[str, str] = {
+    "month": "month_of_year",
+    "day": "day_of_week",
+    "hour": "hour_of_day",
+}
+
+
+def _name_recurring_alternative(finding: Finding) -> None:
+    """Append a sentence naming the recurring reading, where the suggestion chose an absolute one.
+
+    The suggestion itself always emits the absolute period — a recurring one is never chosen
+    automatically, because it answers a different question (see the module docstring on
+    :data:`_ABSOLUTE_PERIODS`).  The remedy is where a reader learns the alternative exists at
+    all; the YAML the suggestion renders is unchanged.
+    """
+    suggestion = finding.suggestion
+    if suggestion is None or len(suggestion.corrections) != 1:
+        return
+    correction = suggestion.corrections[0]
+    if correction.get("kind") != "parse_datetime":
+        return
+    every = correction.get("every")
+    alternative = _RECURRING_ALTERNATIVE.get(every) if isinstance(every, str) else None
+    if alternative:
+        finding.remedy = (
+            f"{finding.remedy}; a recurring `{alternative}` reading is also available and answers a different question"
+        )
 
 
 def _factors(record: Mapping[str, Any]) -> Mapping[str, Mapping[str, Any]]:
