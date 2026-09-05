@@ -74,7 +74,7 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
 
 def _finding_lines(finding: Finding, max_examples: int) -> list[str]:
     """One finding as report lines: what it is, its shape, and what to do."""
-    head = f"{finding.factor} [{', '.join(finding.reasons) or finding.category}"
+    head = f"[{finding.severity}] {finding.factor} [{', '.join(finding.reasons) or finding.category}"
     head += f" @ {finding.level}]" if finding.level else "]"
     lines = [head]
     counts = finding.detail.get("counts")
