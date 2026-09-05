@@ -8,6 +8,7 @@ from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
 from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
 from dataeval_flow.workflows.coverage.params import DataCoverageParameters
 from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
+from dataeval_flow.workflows.metadata_triage.params import MetadataTriageParameters
 from dataeval_flow.workflows.ood.params import OODDetectionParameters
 from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
 from dataeval_flow.workflows.prioritization.params import DataPrioritizationParameters
@@ -175,3 +176,22 @@ class ParameterSweepWorkflowConfig(ParameterSweepParameters):
 
     name: str = Field(description="Identifier for this workflow")
     type: Literal["parameter-sweep"] = "parameter-sweep"
+
+
+class MetadataTriageWorkflowConfig(MetadataTriageParameters):
+    """Typed workflow configuration for ``metadata-triage``.
+
+    Inherits all fields from :class:`MetadataTriageParameters` — no ``params``
+    nesting required.
+
+    Example YAML::
+
+        workflows:
+          - name: triage
+            type: metadata-triage
+            metadata: standard
+            max_examples: 20
+    """
+
+    name: str = Field(description="Identifier for this workflow")
+    type: Literal["metadata-triage"] = "metadata-triage"

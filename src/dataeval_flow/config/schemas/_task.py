@@ -96,3 +96,7 @@ class DataPrioritizationTaskConfig(MultiSourceTaskConfig):
 
 class ParameterSweepTaskConfig(TaskConfig):
     """Task config for ``parameter-sweep`` workflows."""
+
+
+class MetadataTriageTaskConfig(TaskConfig):
+    """Task config for ``metadata-triage`` workflows."""
