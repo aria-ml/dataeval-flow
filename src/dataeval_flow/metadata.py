@@ -193,7 +193,7 @@ def build_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | Non
     resolved = policy or ResolvedPolicy()
     metadata = Metadata(dataset, **resolved.metadata_kwargs())
     injected = bool(resolved.intrinsic_factors) and _inject(metadata, dataset, resolved)
-    repaired = _repair(metadata, resolved)
+    metadata, repaired = _repair(metadata, resolved)
     metadata, rolled = _aggregate(metadata, resolved)
     if (injected or repaired or rolled) and resolved.continuous_factor_bins:
         metadata.continuous_factor_bins = expand_declared_bins(
@@ -214,21 +214,20 @@ def _aggregate(metadata: Metadata, policy: "ResolvedPolicy") -> tuple[Metadata, 
     return metadata.aggregate(*policy.aggregation_specs), True
 
 
-def _repair(metadata: Metadata, policy: "ResolvedPolicy") -> bool:
-    """Read the policy's corrected factors the way it says to.  True if anything changed.
+def _repair(metadata: Metadata, policy: "ResolvedPolicy") -> tuple[Metadata, bool]:
+    """Read the policy's corrected factors the way it says to.
 
-    ``repair`` mutates in place, unlike ``aggregate`` which copies.  That is safe only
-    because this runs on the instance just constructed here — repairing one handed back from
-    the in-process memo would mutate the object other workflows are holding.
+    Returns the instance to go on with, and whether anything changed.  ``repair`` answers
+    with a copy, as ``aggregate`` does, so the result has to be carried forward — the two
+    are the operations a policy reaches, and they now alias alike.
 
-    It also forces the dataset walk, which a freshly constructed instance has not done.
-    That is not new work — anything reading factors walks anyway — but it moves when a
-    lazily-built metadata pays for itself, so it happens only when a repair was declared.
+    It forces the dataset walk, which a freshly constructed instance has not done.  That is
+    not new work — anything reading factors walks anyway — but it moves when a lazily-built
+    metadata pays for itself, so it happens only when a repair was declared.
     """
     if not policy.correction_specs:
-        return False
-    metadata.repair(list(policy.correction_specs))
-    return True
+        return metadata, False
+    return metadata.repair(list(policy.correction_specs)), True
 
 
 def _inject(

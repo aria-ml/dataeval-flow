@@ -95,7 +95,7 @@ class TestDescriptorFromRecord:
         claiming a version whose corrections array it does not have — indistinguishable
         from a run that declared no repairs."""
         md = _decorated()
-        md.repair([ParseValue("count", drop=[","])])
+        md = md.repair([ParseValue("count", drop=[","])])
         record = describe_binning(md)
 
         assert descriptor_from_record(record)["corrections"] == [
@@ -111,7 +111,7 @@ class TestDescriptorFromRecord:
     def test_a_repaired_descriptor_matches_what_dataeval_writes(self, tmp_path: Path):
         """Byte-identity has to hold with corrections present, not only without them."""
         md = _decorated()
-        md.repair([ParseValue("count", drop=[","])])
+        md = md.repair([ParseValue("count", drop=[","])])
         md.export_encoding(tmp_path / "upstream.json")
         write_descriptor(describe_binning(md), tmp_path / "flow.json")
 
@@ -120,7 +120,7 @@ class TestDescriptorFromRecord:
     def test_the_descriptor_is_read_back_as_the_repair_it_records(self, tmp_path: Path):
         """The loop the artifact exists for: what flow writes, DataEval reads."""
         md = _decorated()
-        md.repair([ParseValue("count", drop=[","])])
+        md = md.repair([ParseValue("count", drop=[","])])
         write_descriptor(describe_binning(md), tmp_path / "flow.json")
 
         back = _decorated(encoding=tmp_path / "flow.json")
@@ -262,13 +262,22 @@ class TestACacheHitReadsTheValuesTheSameWay:
 
     def test_a_reload_reads_the_repaired_values(self, tmp_path: Path):
         seed = _decorated()
-        seed.repair([ParseValue("count", drop=[","])])
+        seed = seed.repair([ParseValue("count", drop=[","])])
         seed.export_encoding(tmp_path / "enc.json")
 
-        miss = _decorated(encoding=tmp_path / "enc.json")
+        # Through the policy, which is what a run actually hands to each path — the load
+        # kwargs are not the construction ones, and that difference is the point here.
+        from dataeval_flow.config._models import PipelineConfig
+        from dataeval_flow.policy import resolve_policy
+        from dataeval_flow.workflow.base import MetadataConfigMixin
+
+        config = PipelineConfig.model_validate({"metadata": [{"name": "std", "encoding": "enc.json"}]})
+        policy = resolve_policy(MetadataConfigMixin(metadata="std"), config, tmp_path)
+
+        miss = _decorated(**policy.metadata_kwargs())
         archive = tmp_path / "md.dem"
         miss.save(archive)
-        hit = Metadata.load(archive, encoding=tmp_path / "enc.json")
+        hit = Metadata.load(archive, **policy.metadata_kwargs(for_load=True))
 
         assert miss.dataframe["count"].to_list() == [1000, 2000, 3000, 4000, 5000]
         assert hit.dataframe["count"].to_list() == miss.dataframe["count"].to_list()
@@ -282,3 +291,32 @@ class TestACacheHitReadsTheValuesTheSameWay:
         comma = ({"kind": "parse_value", "factor": "count", "drop": [","]},)
         space = ({"kind": "parse_value", "factor": "count", "drop": [" "]},)
         assert policy_key(ResolvedPolicy(corrections=comma)) != policy_key(ResolvedPolicy(corrections=space))
+
+    def test_the_descriptor_is_withheld_from_load_when_it_carries_a_repair(self, tmp_path: Path):
+        """DataEval refuses a corrections-carrying descriptor on `load`, because the archive
+        already holds that reading. The archive's own record is the one to use."""
+        from dataeval_flow.config._models import PipelineConfig
+        from dataeval_flow.policy import resolve_policy
+        from dataeval_flow.workflow.base import MetadataConfigMixin
+
+        seed = _decorated()
+        seed = seed.repair([ParseValue("count", drop=[","])])
+        seed.export_encoding(tmp_path / "enc.json")
+
+        config = PipelineConfig.model_validate({"metadata": [{"name": "std", "encoding": "enc.json"}]})
+        policy = resolve_policy(MetadataConfigMixin(metadata="std"), config, tmp_path)
+
+        assert "encoding" in policy.metadata_kwargs()
+        assert "encoding" not in policy.metadata_kwargs(for_load=True)
+
+    def test_a_descriptor_with_no_repair_still_reaches_load(self, tmp_path: Path):
+        """Only the ambiguous case is withheld; pinning a cut on the way back in is unaffected."""
+        from dataeval_flow.config._models import PipelineConfig
+        from dataeval_flow.policy import resolve_policy
+        from dataeval_flow.workflow.base import MetadataConfigMixin
+
+        _decorated().export_encoding(tmp_path / "plain.json")
+        config = PipelineConfig.model_validate({"metadata": [{"name": "std", "encoding": "plain.json"}]})
+        policy = resolve_policy(MetadataConfigMixin(metadata="std"), config, tmp_path)
+
+        assert "encoding" in policy.metadata_kwargs(for_load=True)

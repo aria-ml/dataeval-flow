@@ -158,11 +158,10 @@ class ResolvedPolicy:
             what guarantees it is the one this policy asked for.  Passing it to ``load``
             is a ``TypeError``, which the cache would swallow as a permanent miss.
 
-            ``partial_factors`` is withheld for the same reason and not the same cause:
-            DataEval simply does not accept it on ``load`` — the constructor and
-            ``from_factors`` both do — and the archive restores what it was structured
-            under.  The asymmetry is upstream's; the guard here is what stops it becoming
-            a cache that never hits.
+            ``partial_factors`` used to be withheld here too, because ``load`` was the one
+            constructor of the three that did not take it — a ``TypeError`` the cache read
+            as a permanent miss.  DataEval accepts it on all three now, so it is passed on
+            both paths and the archive applies it underneath, as it does ``strict``.
         """
         kwargs: dict[str, Any] = {}
         if self.auto_bin_method is not None:
@@ -174,16 +173,23 @@ class ResolvedPolicy:
         if self.encoding_specs is not None:
             # Records in hand beat a file to re-read, and are what a derived split gets.
             kwargs["encoding"] = dict(self.encoding_specs)
-        elif self.encoding_path is not None:
+        elif self.encoding_path is not None and not (for_load and self.corrections):
             # The path, not the parsed contents: DataEval owns the descriptor format and
             # reads it itself, so a file written by one release is understood exactly as
             # that release meant it rather than reinterpreted here.
+            #
+            # Withheld from `load` when the descriptor carries corrections, which DataEval
+            # refuses there: an archive already holds its values read the way it was built,
+            # and restoring brings that reading back, so a second one has nothing to apply
+            # to. Omitting it costs nothing — the archive's own record is the one this
+            # descriptor produced, and `policy_key` hashes the corrections, so an archive
+            # built under a different reading is never the one being read here.
             kwargs["encoding"] = self.encoding_path
         if self.factor_levels and not for_load:
             kwargs["factor_levels"] = {name: list(levels) for name, levels in self.factor_levels.items()}
         if self.strict:
             kwargs["strict"] = True
-        if self.partial_factors and not for_load:
+        if self.partial_factors:
             kwargs["partial_factors"] = True
         return kwargs
 

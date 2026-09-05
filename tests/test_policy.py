@@ -328,10 +328,11 @@ class TestPartialFactors:
     def test_it_reaches_the_constructor(self):
         assert ResolvedPolicy(partial_factors=True).metadata_kwargs()["partial_factors"] is True
 
-    def test_it_is_withheld_from_load(self):
-        """`Metadata.load` has no such parameter, and the TypeError would be swallowed by
-        the cache as a permanent miss rather than surfacing."""
-        assert "partial_factors" not in ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)
+    def test_it_reaches_load_too(self):
+        """It was withheld while `load` was the one constructor of the three that did not
+        take it — a TypeError the cache read as a permanent miss. DataEval accepts it on
+        all three now, so both paths pass it and the archive applies it underneath."""
+        assert ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)["partial_factors"] is True
 
     def test_the_default_is_omitted_rather_than_passed(self):
         assert "partial_factors" not in ResolvedPolicy().metadata_kwargs()
@@ -344,7 +345,9 @@ class TestPartialFactors:
 
         accepted = set(inspect.signature(Metadata.load).parameters)
         assert set(ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)) <= accepted
-        assert "partial_factors" not in accepted
+        # What the gate above used to exist for. Left as an assertion rather than deleted:
+        # it is what would say so if the parameter were ever withdrawn again.
+        assert "partial_factors" in accepted
 
 
 class TestPolicyKey:
@@ -800,7 +803,7 @@ class TestYamlAndADescriptorKeyAlike:
         policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(corrections=declared))
 
         md = Metadata.from_factors({"count": ["1,000"] * 5}, class_labels=np.zeros(5, dtype=int))
-        md.repair(list(policy.correction_specs))
+        md = md.repair(list(policy.correction_specs))
         md.export_encoding(tmp_path / "upstream.json")
         upstream = _json.loads((tmp_path / "upstream.json").read_text())["corrections"]
 

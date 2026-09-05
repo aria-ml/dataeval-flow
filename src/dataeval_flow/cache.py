@@ -418,7 +418,7 @@ def dataset_fingerprint(dataset: Any) -> str:
         Hex digest fingerprint of the sampled data.
     """
     import xxhash as xxh
-    from dataeval.utils._array import as_numpy
+    from dataeval.utils import as_numpy
 
     n = len(dataset)
     hasher = xxh.xxh3_64()

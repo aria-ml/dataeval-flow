@@ -904,11 +904,11 @@ class TestComputeEmbeddings:
         import types
 
         # Stub the lazy-imported module
-        original = sys.modules.get("dataeval.utils._array")
-        arrays_mod = types.ModuleType("dataeval.utils._array")
+        original = sys.modules.get("dataeval.utils")
+        arrays_mod = types.ModuleType("dataeval.utils")
         arrays_mod.flatten_samples = lambda x: x  # type: ignore[attr-defined]
         arrays_mod.to_numpy = lambda x: x  # type: ignore[attr-defined]
-        sys.modules["dataeval.utils._array"] = arrays_mod
+        sys.modules["dataeval.utils"] = arrays_mod
         try:
             dataset = [(np.zeros((3, 32, 32))), (np.zeros((3, 32, 32)))]
             extractor = MagicMock(return_value=np.zeros((2, 64)))
@@ -918,9 +918,9 @@ class TestComputeEmbeddings:
             extractor.assert_called_once()
         finally:
             if original is not None:
-                sys.modules["dataeval.utils._array"] = original
+                sys.modules["dataeval.utils"] = original
             else:
-                sys.modules.pop("dataeval.utils._array", None)
+                sys.modules.pop("dataeval.utils", None)
 
 
 # ---------------------------------------------------------------------------

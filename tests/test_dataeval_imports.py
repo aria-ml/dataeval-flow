@@ -26,7 +26,6 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "dataeval_flow"
 # under "Cross-cutting: private coupling".
 PRIVATE_MODULES = {
     "dataeval.core._clusterer",
-    "dataeval.utils._array",
 }
 
 
@@ -93,42 +92,31 @@ class TestPinnedVocabulariesStayInStep:
     a value flow silently refuses, with nothing to say why — so it fails here instead,
     naming what moved.
 
-    These imports are the reason `dataeval.types` exporting the three vocabularies is asked
-    for in the API proposal; when it lands, the private import here is what drops.
+    They read the public vocabularies rather than the registries behind them. DataEval
+    proves those two agree at import — a mismatch raises there rather than waiting for a
+    test — so what is left to check here is only that flow's own Literals have kept up.
     """
 
-    def test_the_datetime_periods_match_the_registry(self):
-        from dataeval.types._factors import DATETIME_GRANULARITIES
+    def test_the_datetime_periods_match_the_vocabulary(self):
+        from dataeval.types import DATETIME_GRANULARITIES
 
         from dataeval_flow.config.schemas._metadata import DateTimeGranularity
 
         assert set(get_args(DateTimeGranularity)) == set(DATETIME_GRANULARITIES)
 
-    def test_the_epoch_units_match_the_registry(self):
-        from dataeval.types._factors import EPOCH_UNITS
+    def test_the_epoch_units_match_the_vocabulary(self):
+        from dataeval.types import EPOCH_UNITS
 
         from dataeval_flow.config.schemas._metadata import EpochUnit
 
         assert set(get_args(EpochUnit)) == set(EPOCH_UNITS)
 
-    def test_the_reductions_match_the_registry(self):
-        from dataeval._metadata._reductions import REDUCTIONS
+    def test_the_reductions_match_the_vocabulary(self):
+        from dataeval.types import REDUCTION_NAMES
 
         from dataeval_flow.config.schemas._metadata import Reduction
 
-        assert set(get_args(Reduction)) == set(REDUCTIONS)
-
-    def test_every_pinned_reduction_is_one_an_aggregator_accepts(self):
-        """`how` is the one field `Aggregator.validate` cannot check — the registry lives in
-        the metadata layer, which imports the types module rather than the other way round.
-        So the name is only ever checked where a roll-up is resolved, and this is what says
-        the pinned list is still the right one."""
-        from dataeval._metadata._reductions import lookup
-
-        from dataeval_flow.config.schemas._metadata import Reduction
-
-        for how in get_args(Reduction):
-            lookup(how)
+        assert set(get_args(Reduction)) == set(REDUCTION_NAMES)
 
     def test_every_pinned_period_is_one_parse_datetime_accepts(self):
         """Set equality would still pass if both sides drifted together onto a value the
