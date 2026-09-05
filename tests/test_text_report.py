@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from dataeval_flow.workflow._text_report import (
+    _BAR_MAX,
     _MAX_ENUMERATED,
     _WIDTH,
     _brief_value,
@@ -16,9 +17,11 @@ from dataeval_flow.workflow._text_report import (
     _render_classwise_table,
     _render_config_section,
     _render_detail_section,
+    _render_distribution,
     _render_factor_line,
     _render_key_value,
     _render_pivot_table,
+    _render_ratio,
     _render_review_state,
     _render_split_comparability,
     _render_table,
@@ -1119,3 +1122,91 @@ class TestReviewState:
         record = self._record([], ["a"])
         del record["unreviewed"]
         assert _render_review_state(record) == []
+
+
+# ---------------------------------------------------------------------------
+# _render_distribution / _render_ratio
+# ---------------------------------------------------------------------------
+
+
+def _binned_counts(counts: list[int], empty: list[int] | None = None) -> dict:
+    """A factor entry whose fit holds the given per-bin counts.
+
+    Named distinctly from the module-level ``_binned`` fixture above (which builds a
+    factor from explicit edges and per-bucket spans): both live at module scope, and
+    reusing a name would silently rebind it out from under the earlier tests.
+    """
+    bins = [{"code": i + 1, "count": c, "min": i * 10, "max": i * 10 + 9} for i, c in enumerate(counts) if c]
+    edges = [i * 10 for i in range(len(counts) + 1)]
+    return {
+        "type": "continuous",
+        "level": "unit",
+        "encoding": {"kind": "bins", "provenance": "derived", "edges": edges},
+        "fit": {"bins": bins, "empty": empty or []},
+    }
+
+
+def test_a_nonzero_bucket_is_never_blank():
+    """ "Empty" against "one sample landed here" is exactly what a bin count is argued from.
+
+    A bar that rounds the second down to the first argues for the wrong answer. This
+    isolates the bar cell itself rather than asserting on the whole row — the row's label
+    alone would read non-blank regardless of what the bar drew.
+    """
+    lines = _render_distribution(_binned_counts([1000, 1]))
+    # Row layout is `{label:>w}  {bar:<_BAR_MAX}  {count:>5}{note}`. The bucket with
+    # count=1 carries no "empty" note, so its row's fixed-width tail (bar + gutter +
+    # count) can be sliced from the end regardless of the label column's width.
+    row = lines[-1]
+    bar_cell = row[-(5 + 2 + _BAR_MAX) : -(5 + 2)]
+    assert bar_cell.strip()
+
+
+def test_an_empty_bin_is_marked_and_drawn_blank():
+    lines = "\n".join(_render_distribution(_binned_counts([50, 0, 50], empty=[2])))
+    assert "empty" in lines
+
+
+def test_the_count_is_always_printed():
+    lines = "\n".join(_render_distribution(_binned_counts([412, 7])))
+    assert "412" in lines
+    assert "7" in lines
+
+
+def test_a_wide_factor_falls_back_to_a_sparkline():
+    lines = _render_distribution(_binned_counts([10] * 30))
+    # One sparkline line, no per-bucket enumeration above the cap.
+    assert len(lines) == 1
+
+
+def test_a_narrow_factor_gets_both():
+    lines = _render_distribution(_binned_counts([10, 20, 30]))
+    assert len(lines) > 1
+
+
+def test_levels_are_charted_too():
+    info = {
+        "type": "categorical",
+        "level": "unit",
+        "encoding": {"kind": "levels", "provenance": "derived", "levels": ["a", "b"]},
+        "fit": {
+            "levels": [
+                {"code": 0, "value": "a", "count": 30},
+                {"code": 1, "value": "b", "count": 10},
+            ],
+            "empty": [],
+        },
+    }
+    lines = "\n".join(_render_distribution(info))
+    assert "a" in lines
+    assert "30" in lines
+
+
+def test_a_missing_fit_renders_nothing():
+    assert _render_distribution({"type": "continuous", "level": "unit"}) == []
+
+
+def test_the_ratio_bar_shows_both_kinds():
+    line = _render_ratio({"numeric": 1842, "text": 58})
+    assert "1,842 numeric" in line
+    assert "58 text" in line

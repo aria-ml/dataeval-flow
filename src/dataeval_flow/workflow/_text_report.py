@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from dataeval_flow.binning import divergent_factors
@@ -15,6 +15,8 @@ __all__ = [
     "_render_binning_section",
     "_render_config_section",
     "_render_detail_section",
+    "_render_distribution",
+    "_render_ratio",
     "_summary_line",
 ]
 
@@ -775,3 +777,99 @@ def _fmt_num(value: Any) -> str:
     if abs(value) >= 1e6:
         return f"{value:.0f}" if value == int(value) else f"{value:.2f}"
     return f"{value:.4g}"
+
+
+# ---------------------------------------------------------------------------
+# Distribution charts — what makes a bin count arguable rather than arbitrary
+# ---------------------------------------------------------------------------
+
+#: Vertical eighths, for the one-line sparkline.  Index 0 is a space: blank means exactly
+#: zero, and every nonzero bucket floors at index 1.
+_SPARK_BLOCKS = " \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"
+
+
+def _bucket_counts(info: dict[str, Any]) -> list[tuple[str, int]]:
+    """Every bucket this factor's fit describes, as (label, count), in code order.
+
+    Empty bins are reinstated from ``fit["empty"]``: ``fit["bins"]`` carries only the
+    populated ones, and a chart that omitted the gaps would hide the very thing a bin count
+    is chosen from.
+    """
+    fit = info.get("fit") or {}
+    if fit.get("levels") is not None:
+        return [(str(e["value"]), int(e.get("count") or 0)) for e in fit["levels"]]
+    encoding = info.get("encoding") or {}
+    declared = max(len(encoding.get("edges") or ()) - 1, 0)
+    names = _bin_names(info, declared)
+    populated = {b["code"]: int(b.get("count") or 0) for b in fit.get("bins") or []}
+    rows = [(names.get(code, str(code)), populated.get(code, 0)) for code in sorted(names)]
+    for label, key in (("below range", "below_range"), ("above range", "above_range"), ("missing", "missing")):
+        if fit.get(key):
+            rows.append((label, int(fit[key])))
+    return rows
+
+
+def _sparkline(counts: Sequence[int]) -> str:
+    """One line of eighths.  Blank is exactly zero; every nonzero count shows."""
+    peak = max(counts, default=0)
+    if not peak:
+        return ""
+    out = []
+    for count in counts:
+        if not count:
+            out.append(_SPARK_BLOCKS[0])
+            continue
+        out.append(_SPARK_BLOCKS[max(1, round(count / peak * 8))])
+    return "".join(out)
+
+
+def _hbar(count: int, peak: int) -> str:
+    """A horizontal bar, floored at the narrowest visible block for any nonzero count."""
+    if not count or not peak:
+        return ""
+    eighths = round(count / peak * _BAR_MAX * 8)
+    full, rem = divmod(eighths, 8)
+    bar = "\u2588" * full + (_FRAC_BLOCKS[rem] if rem else "")
+    return bar or _FRAC_BLOCKS[1]
+
+
+def _render_distribution(info: dict[str, Any]) -> list[str]:
+    """How this factor's rows fell across its buckets, as a chart.
+
+    A sparkline always, because the shape is the argument for a bin count and it costs one
+    line whatever the width.  Per-bucket bars as well up to ``_MAX_ENUMERATED``, above which
+    the sparkline carries the shape on its own — the case that cap exists for.
+    """
+    rows = _bucket_counts(info)
+    if not rows:
+        return []
+    counts = [c for _, c in rows]
+    peak = max(counts, default=0)
+    if not peak:
+        return []
+    low = min(c for c in counts if c) if any(counts) else 0
+    lines = [f"{_sparkline(counts):<12}n={_fmt_num(low)}–{_fmt_num(peak)}"]
+    if len(rows) > _MAX_ENUMERATED:
+        return lines
+    width = max(len(label) for label, _ in rows)
+    for label, count in rows:
+        note = "  empty" if not count else ""
+        lines.append(f"{label:>{width}}  {_hbar(count, peak):<{_BAR_MAX}}  {count:>5}{note}")
+    return lines
+
+
+def _render_ratio(counts: Mapping[str, int]) -> str:
+    """One line showing how a held-back column's rows split between kinds.
+
+    ``_fmt_num`` does not group an int's thousands (only a float's magnitude drives its
+    formatting), so counts are grouped locally here rather than by changing a helper other
+    renderers depend on.
+    """
+    total = sum(counts.values())
+    if not total:
+        return ""
+    numeric = counts.get("numeric", 0)
+    filled = round(numeric / total * 20)
+    bar = "\u2588" * filled + "\u2591" * (20 - filled)
+    parts = ", ".join(f"{v:,} {k}" for k, v in sorted(counts.items()))
+    return f"{bar}  {parts}"
