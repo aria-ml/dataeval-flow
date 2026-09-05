@@ -290,12 +290,12 @@ def test_a_monthly_granularity_names_the_recurring_alternative():
     assert finding.suggestion is not None
     assert finding.suggestion.corrections[0]["every"] == "month"
     assert "month_of_year" in finding.remedy
-    # The suggestion itself is untouched -- only the remedy names the alternative.
+    # The suggestion itself is untouched -- only the remedy names the alternative. No
+    # `format`: these read as ISO-8601, which `ParseDateTime` infers without being told.
     assert finding.suggestion.corrections[0] == {
         "kind": "parse_datetime",
         "factor": "weight",
         "every": "month",
-        "format": "%Y-%m-%d",
     }
 
 
@@ -687,3 +687,53 @@ def test_a_digitized_factor_still_wants_a_descriptor():
     (finding,) = find_issues(record)
     assert finding.category == "unreviewed"
     assert finding.suggestion is None
+
+
+def test_a_sentinel_does_not_veto_a_timestamp_reading():
+    """SeaDrone's `date_time` is timestamps plus one empty string, and got no suggestion.
+
+    A sentinel means "no reading", so it cannot be evidence against how the real values
+    read. `ParseDateTime` tolerates it, giving the unrecorded rows a level of their own.
+    """
+    stamps = [f"2020-08-{d:02d}T10:00:00" for d in range(1, 9)]
+    record = _record(
+        unusable=_unusable(reasons=["cardinality_over_budget"], sampled=True, distinct={"text": ["", *stamps]})
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.corrections[0]["kind"] == "parse_datetime"
+
+
+def test_a_sentinel_does_not_veto_a_numeric_reading():
+    record = _record(unusable=_unusable(distinct={"text": ["N/A", "6,000", "12,400"]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.corrections[0]["kind"] == "parse_value"
+
+
+def test_values_that_are_only_sentinels_still_remap():
+    record = _record(unusable=_unusable(distinct={"text": ["N/A", "unknown"]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.corrections[0]["kind"] == "remap"
+    assert finding.suggestion.complete is True
+
+
+def test_an_iso_timestamp_with_microseconds_is_read_without_pinning_a_format():
+    """SeaDrone's `date_time` is `2020-08-25T14:19:24.650133`, which no `%H:%M:%S` matches.
+
+    `ParseDateTime` infers ISO-8601 on its own, so the correction leaves `format` unset
+    rather than pinning a pattern that would have to enumerate every ISO spelling.
+    """
+    stamps = [f"2020-08-{d:02d}T14:19:24.650133" for d in range(1, 9)]
+    record = _record(
+        unusable=_unusable(reasons=["cardinality_over_budget"], sampled=True, distinct={"text": ["", *stamps]})
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    entry = finding.suggestion.corrections[0]
+    assert entry["kind"] == "parse_datetime"
+    assert "format" not in entry
+    # August 1st-8th straddles two ISO weeks, and `week` is the coarsest period that tells
+    # these apart -- the granularity is chosen from the values, format or no format.
+    assert entry["every"] == "week"

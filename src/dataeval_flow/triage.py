@@ -477,6 +477,11 @@ def _datetime_format(values: Sequence[str]) -> str | None | Literal[False]:
     texts = [str(v).strip() for v in values]
     if not texts:
         return False
+    # ISO first, and reported as "no format": `ParseDateTime` infers ISO-8601 itself, and
+    # pinning a pattern would mean enumerating every ISO spelling — SeaDrone writes
+    # microseconds, which no `%H:%M:%S` matches — to say what the reader already knows.
+    if all(_parses_iso(t) for t in texts):
+        return None
     matched = [fmt for fmt in _DATE_FORMATS if all(_parses(t, fmt) for t in texts)]
     if not matched:
         return False
@@ -484,6 +489,15 @@ def _datetime_format(values: Sequence[str]) -> str | None | Literal[False]:
     # agree on every value's reading are not.
     readings = {tuple(datetime.strptime(t, fmt) for t in texts) for fmt in matched}
     return matched[0] if len(readings) == 1 else False
+
+
+def _parses_iso(text: str) -> bool:
+    """Whether one value reads as ISO-8601, which needs no declared format."""
+    try:
+        datetime.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def _parses(text: str, fmt: str) -> bool:
@@ -496,13 +510,20 @@ def _parses(text: str, fmt: str) -> bool:
 
 
 def _looks_like_dates(values: Sequence[str]) -> bool:
-    """Whether any single format reads every value, ambiguously or not."""
-    return any(all(_parses(str(v).strip(), fmt) for v in values) for fmt in _DATE_FORMATS)
+    """Whether any single reading takes every value, ambiguously or not."""
+    texts = [str(v).strip() for v in values]
+    return all(_parses_iso(t) for t in texts) or any(all(_parses(t, fmt) for t in texts) for fmt in _DATE_FORMATS)
 
 
-def _granularity(values: Sequence[str], fmt: str) -> str:
-    """The coarsest absolute period still telling these values apart."""
-    stamps = [datetime.strptime(str(v).strip(), fmt) for v in values]
+def _granularity(values: Sequence[str], fmt: str | None) -> str:
+    """The coarsest absolute period still telling these values apart.
+
+    ``fmt`` is None for an ISO reading, which is parsed the way `ParseDateTime` will parse it.
+    """
+    stamps = [
+        datetime.fromisoformat(str(v).strip()) if fmt is None else datetime.strptime(str(v).strip(), fmt)
+        for v in values
+    ]
     for period in _ABSOLUTE_PERIODS:
         if len({_period_key(s, period) for s in stamps}) > 1:
             return period
@@ -567,20 +588,32 @@ def _bin_suggestion(finding: Finding, default_bins: int) -> Suggestion | None:
 
 
 def _correction_for(finding: Finding) -> Suggestion | None:
-    """Read the held-back values and propose how to read them."""
+    """Read the held-back values and propose how to read them.
+
+    The recognizers are asked about the values that claim to *be* something, which is every
+    value that is not a sentinel.  A sentinel says a reading was not recorded, so it is not
+    evidence against how the recorded ones read — and letting one veto the reading is how
+    SeaDrone's ``date_time``, 199 timestamps and one empty string, came back with no
+    suggestion at all.  The correction is still emitted against the whole column: an
+    unparsable value survives ``ParseDateTime`` as a level of its own rather than raising,
+    so the unrecorded rows stay visible as the group they are.
+    """
     text = list(finding.detail.get("distinct", {}).get("text", []))
     if not text:
         return None
+    # Sentinels are dropped only for the recognizers' verdict, never from the enumeration
+    # below, where every value still needs a rule of its own.
+    readable = [value for value in text if not _is_sentinel(value)]
 
-    datetime_correction = _datetime_correction(finding.factor, text)
+    datetime_correction = _datetime_correction(finding.factor, readable) if readable else None
     if datetime_correction is not None:
         return datetime_correction
     # An ambiguous date must refuse outright rather than fall through to a numeric reading:
     # `/` is punctuation, so `_numeric_drop` could otherwise turn "03/04/2021" into "03042021".
-    if _looks_like_dates(text):
+    if readable and _looks_like_dates(readable):
         return None
 
-    drop = _numeric_drop(text)
+    drop = _numeric_drop(readable) if readable else None
     if drop is not None:
         return Suggestion(
             corrections=[{"kind": "parse_value", "factor": finding.factor, "drop": drop}],
@@ -599,12 +632,20 @@ def _correction_for(finding: Finding) -> Suggestion | None:
 
 
 def _datetime_correction(factor: str, text: Sequence[str]) -> Suggestion | None:
-    """A ``parse_datetime`` correction where one format reads every value, else None."""
+    """A ``parse_datetime`` correction where one reading takes every value, else None.
+
+    ``format`` is omitted for an ISO reading, which is what ``fmt is None`` means — not an
+    absent granularity.  The period is chosen from the values either way: reading them is
+    what says which period tells them apart, and a format's absence says nothing about that.
+    """
     fmt = _datetime_format(text)
     if fmt is False:
         return None
-    every = _granularity(text, fmt) if fmt else "day"
-    entry: dict[str, Any] = {"kind": "parse_datetime", "factor": factor, "every": every}
+    entry: dict[str, Any] = {
+        "kind": "parse_datetime",
+        "factor": factor,
+        "every": _granularity(text, fmt),
+    }
     if fmt:
         entry["format"] = fmt
     return Suggestion(corrections=[entry], complete=True)
