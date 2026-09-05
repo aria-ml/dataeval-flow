@@ -190,3 +190,158 @@ def test_a_malformed_record_yields_no_finding_rather_than_raising():
     # one was unavailable is worse than one reporting the rest.
     assert find_issues({}) == []
     assert find_issues({"factors": None, "unusable": None}) == []
+
+
+def _unusable(**over: Any) -> dict[str, Any]:
+    """An unusable entry for a mixed column, with text values the caller names."""
+    entry = {
+        "reasons": ["mixed_types"],
+        "level": "unit",
+        "repairable": True,
+        "counts": {"numeric": 10, "text": 3},
+        "distinct": {"text": []},
+        "sampled": False,
+    }
+    entry.update(over)
+    return {"weight": entry}
+
+
+def test_unit_cruft_becomes_a_parse_value():
+    record = _record(unusable=_unusable(distinct={"text": ["6,000", "12,400", "1,203"]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.complete is True
+    assert finding.suggestion.corrections == [{"kind": "parse_value", "factor": "weight", "drop": [","]}]
+
+
+def test_a_timestamp_becomes_a_parse_datetime():
+    record = _record(
+        unusable=_unusable(
+            reasons=["cardinality_over_budget"],
+            sampled=True,
+            distinct={"text": ["2021-03-04", "2021-07-19", "2022-01-02"]},
+        )
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.corrections[0]["kind"] == "parse_datetime"
+    # Coarsest absolute period still telling the values apart.
+    assert finding.suggestion.corrections[0]["every"] == "year"
+    assert finding.suggestion.complete is True
+
+
+def test_granularity_goes_finer_only_when_it_has_to():
+    record = _record(
+        unusable=_unusable(
+            reasons=["cardinality_over_budget"],
+            sampled=True,
+            distinct={"text": ["2021-03-04", "2021-03-19", "2021-03-28"]},
+        )
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    # One year and one month, so neither separates; week is the first that does.
+    assert finding.suggestion.corrections[0]["every"] == "week"
+
+
+def test_sentinels_alone_make_a_complete_remap():
+    record = _record(unusable=_unusable(distinct={"text": ["N/A", "unknown", ""]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    rules = finding.suggestion.corrections[0]["rules"]
+    assert finding.suggestion.corrections[0]["kind"] == "remap"
+    assert all(rule["to"] is None for rule in rules)
+    assert finding.suggestion.complete is True
+
+
+def test_a_semantic_value_is_enumerated_and_left_incomplete():
+    record = _record(unusable=_unusable(distinct={"text": ["N", "NE", "unknown"]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    rules = finding.suggestion.corrections[0]["rules"]
+    assert [r["match"] for r in rules] == ["N", "NE", "unknown"]
+    assert all(r["to"] is None for r in rules)
+    # "N" is 0 degrees only if the column is a bearing, which flow cannot know.
+    assert finding.suggestion.complete is False
+
+
+def test_a_sampled_column_never_gets_a_remap():
+    # Its values are near-unique by definition; no mapping could cover the column.
+    record = _record(
+        unusable=_unusable(reasons=["cardinality_over_budget"], sampled=True, distinct={"text": ["a7f", "b12", "c93"]})
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is None
+
+
+def test_an_ambiguous_date_format_is_not_guessed():
+    # 03/04/2021 is two different days depending on the reading.
+    record = _record(
+        unusable=_unusable(
+            reasons=["cardinality_over_budget"],
+            sampled=True,
+            distinct={"text": ["03/04/2021", "05/06/2021", "07/08/2021"]},
+        )
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is None
+    assert "ambiguous" in finding.remedy
+
+
+def test_a_non_repairable_finding_gets_no_suggestion():
+    record = _record(
+        unusable={
+            "histogram": {
+                "reasons": ["multi_dimensional"],
+                "level": None,
+                "repairable": False,
+                "counts": {},
+                "distinct": {},
+                "sampled": False,
+            }
+        }
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is None
+
+
+def test_unreviewed_contributes_no_policy_fragment():
+    # Its remedy is to export a descriptor; there is no path to emit, and inventing one
+    # would put an invalid value in the stanza.
+    record = _record(
+        factors={
+            "scene": {
+                "type": "categorical",
+                "level": "unit",
+                "encoding": {"kind": "levels", "provenance": "derived", "levels": ["a", "b"]},
+                "fit": {
+                    "levels": [{"code": 0, "value": "a", "count": 30}, {"code": 1, "value": "b", "count": 30}],
+                    "empty": [],
+                },
+            }
+        }
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is None
+
+
+def test_unbinned_suggests_the_populated_bin_count():
+    record = _record()
+    record["factors"]["altitude"]["encoding"]["provenance"] = "derived"
+    record["factors"]["altitude"]["fit"]["bins"] = [
+        {"code": i, "count": 10, "min": i, "max": i + 1} for i in range(1, 8)
+    ]
+    record["factors"]["altitude"]["fit"]["empty"] = [8, 9, 10]
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    assert finding.suggestion.policy == {"continuous_factor_bins": {"altitude": 7}}
+    assert finding.suggestion.complete is True
+
+
+def test_a_no_encoding_categorical_factor_needs_a_vocabulary_not_bins():
+    record = _record(factors={"scene": {"type": "categorical", "level": "unit"}})
+    (finding,) = find_issues(record)
+    assert finding.category == "unbinned"
+    assert finding.severity == "blocking"
+    assert "vocabulary" in finding.remedy or "levels" in finding.remedy
+    assert "bin count" not in finding.remedy

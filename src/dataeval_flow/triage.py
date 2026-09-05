@@ -11,10 +11,12 @@ no finding for that category rather than an exception. A triage that dies becaus
 section was unavailable is worse than one that reports the other four.
 """
 
-__all__ = ["Category", "Finding", "Severity", "Suggestion", "find_issues"]
+__all__ = ["Category", "Finding", "Severity", "Suggestion", "find_issues", "suggest"]
 
 import difflib
+import math
 from collections.abc import Iterator, Mapping, Sequence
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -28,6 +30,55 @@ _SEVERITY_RANK: Mapping[str, int] = {"blocking": 0, "warning": 1, "note": 2}
 
 #: Fewest bins a suggestion will propose.  One bin is not a cut.
 _MIN_BINS = 2
+
+#: Values standing for "no reading", whatever the column otherwise holds.  A closed literal
+#: list rather than a pattern, so what it claims is auditable.
+_SENTINELS = frozenset(
+    {
+        "",
+        "-",
+        "--",
+        "n/a",
+        "na",
+        "n\\a",
+        "none",
+        "null",
+        "nil",
+        "nan",
+        "unknown",
+        "unspecified",
+        "missing",
+        "-999",
+        "-9999",
+    }
+)
+
+#: Absolute periods, coarsest first.  The recurring half of DATETIME_GRANULARITIES
+#: (`month_of_year`, `day_of_week`, `hour_of_day`) is deliberately absent: an absolute period
+#: runs once, so a dataset split by time separates perfectly on any of them, while a
+#: recurring position stays comparable across the split.  Which a user wants depends on the
+#: question they are asking, so the suggestion emits the absolute reading and names the
+#: alternative rather than choosing it.
+_ABSOLUTE_PERIODS: tuple[str, ...] = ("year", "quarter", "month", "week", "day", "hour")
+
+#: Formats tried for a timestamp, most specific first.  Where more than one reads every
+#: value the column is genuinely ambiguous and nothing is suggested.
+_DATE_FORMATS: tuple[str, ...] = (
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d",
+    "%Y/%m/%d",
+    "%d/%m/%Y",
+    "%m/%d/%Y",
+    "%d-%m-%Y",
+    "%m-%d-%Y",
+)
+
+#: Characters the loose fallback in :func:`_numeric_drop` is allowed to strip: punctuation,
+#: whitespace and currency symbols.  Letters are deliberately excluded — stripping them would
+#: turn an identifier into a number (``"a7f"`` -> ``"7"``), which is corruption, not a repair.
+#: A unit suffix like "kg" stays reachable through the `_common_suffix` candidate instead.
+_LOOSE_DROPPABLE = frozenset(" \t,.;:_'\"()[]{}!?/\\|~^$€£¥¢")
 
 
 class Suggestion(BaseModel):
@@ -90,6 +141,12 @@ def find_issues(
         *_encodings(record, default_bins),
         *_degenerate(record, min_missing_fraction),
     ]
+    for finding in findings:
+        finding.suggestion = suggest(finding)
+        if finding.category == "unreadable" and finding.repairable and finding.suggestion is None:
+            values = finding.detail.get("distinct", {}).get("text", [])
+            if values and _datetime_format(values) is False and _looks_like_dates(values):
+                finding.remedy = "reads as a date two different ways; the format is ambiguous"
     return sorted(findings, key=lambda f: (_SEVERITY_RANK[f.severity], f.category, f.factor))
 
 
@@ -160,6 +217,17 @@ def _unbound(record: Mapping[str, Any]) -> Iterator[Finding]:
         )
 
 
+def _no_encoding_remedy(factor_type: Any) -> str:
+    """What a factor needs once it is known to have no encoding at all.
+
+    A continuous factor is fixed by declaring a bin count; anything else takes a vocabulary
+    instead, so guiding it toward "declare a bin count" would send it to the wrong stanza.
+    """
+    if factor_type == "continuous":
+        return "reached the evaluators as raw values; declare a bin count"
+    return "reached the evaluators as raw values; commit a descriptor or declare its levels"
+
+
 def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding]:
     """Factors whose cut or vocabulary nobody pinned.
 
@@ -176,7 +244,7 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
                 severity="blocking",
                 level=info.get("level"),
                 detail={"type": info.get("type")},
-                remedy="reached the evaluators as raw values; declare a bin count",
+                remedy=_no_encoding_remedy(info.get("type")),
             )
             continue
         if encoding.get("provenance") != "derived":
@@ -264,3 +332,170 @@ def _degenerate(record: Mapping[str, Any], min_missing_fraction: float) -> Itera
                     "in every contingency table"
                 ),
             )
+
+
+def _is_sentinel(value: Any) -> bool:
+    """Whether this value stands for an unrecorded reading."""
+    return str(value).strip().lower() in _SENTINELS
+
+
+def _is_number(text: str) -> bool:
+    """Whether this reads as a finite number.  Non-finite spellings are sentinels, not values."""
+    try:
+        return math.isfinite(float(text))
+    except (TypeError, ValueError):
+        return False
+
+
+def _numeric_drop(values: Sequence[str]) -> list[str] | None:
+    """Substrings whose removal makes every value a number, or None where none does.
+
+    Candidates are tried narrowest first, because the narrowest reading that works is the one
+    least likely to corrupt a value it was not aimed at: dropping ``","`` cannot change
+    ``"1k2"`` the way dropping every non-numeric character can.
+    """
+    texts = [str(v).strip() for v in values]
+    if not texts:
+        return None
+    suffix = _common_suffix(texts)
+    candidates: list[list[str]] = [[","], [",", " "], [" "]]
+    if suffix:
+        candidates += [[suffix], [suffix, ","], [suffix, ",", " "]]
+    # Punctuation, whitespace and currency symbols only — never letters, which would turn an
+    # identifier into a number (see the module-level note on `_LOOSE_DROPPABLE`).
+    loose = sorted({c for t in texts for c in t if not (c.isdigit() or c in ".-+") and c in _LOOSE_DROPPABLE})
+    if loose:
+        candidates.append(loose)
+    for drop in candidates:
+        if all(_is_number(_apply_drop(t, drop)) for t in texts):
+            return drop
+    return None
+
+
+def _apply_drop(text: str, drop: Sequence[str]) -> str:
+    """Remove each substring in order, exactly as ``ParseValue`` does."""
+    for token in drop:
+        text = text.replace(token, "")
+    return text.strip()
+
+
+def _common_suffix(texts: Sequence[str]) -> str:
+    """The longest non-numeric tail every value shares, or an empty string."""
+    tails = [t[len(t.rstrip("0123456789. ")) :] if t.rstrip("0123456789. ") else "" for t in texts]
+    shared = tails[0]
+    for tail in tails[1:]:
+        while shared and not tail.endswith(shared):
+            shared = shared[1:]
+    return shared
+
+
+def _datetime_format(values: Sequence[str]) -> str | None | Literal[False]:
+    """The one format reading every value, None for ISO, or False where several do.
+
+    False rather than a guess: ``03/04/2021`` is two different days depending on the reading,
+    and picking one would move every downstream statistic without saying it had.
+    """
+    texts = [str(v).strip() for v in values]
+    if not texts:
+        return False
+    matched = [fmt for fmt in _DATE_FORMATS if all(_parses(t, fmt) for t in texts)]
+    if not matched:
+        return False
+    # Formats differing only in field order over the same separator are ambiguous; ones that
+    # agree on every value's reading are not.
+    readings = {tuple(datetime.strptime(t, fmt) for t in texts) for fmt in matched}
+    return matched[0] if len(readings) == 1 else False
+
+
+def _parses(text: str, fmt: str) -> bool:
+    """Whether one value reads under one format."""
+    try:
+        datetime.strptime(text, fmt)
+    except ValueError:
+        return False
+    return True
+
+
+def _looks_like_dates(values: Sequence[str]) -> bool:
+    """Whether any single format reads every value, ambiguously or not."""
+    return any(all(_parses(str(v).strip(), fmt) for v in values) for fmt in _DATE_FORMATS)
+
+
+def _granularity(values: Sequence[str], fmt: str) -> str:
+    """The coarsest absolute period still telling these values apart."""
+    stamps = [datetime.strptime(str(v).strip(), fmt) for v in values]
+    for period in _ABSOLUTE_PERIODS:
+        if len({_period_key(s, period) for s in stamps}) > 1:
+            return period
+    return _ABSOLUTE_PERIODS[-1]
+
+
+def _period_key(stamp: datetime, period: str) -> tuple[int, ...]:
+    """The bucket a moment falls in, for one absolute period."""
+    iso = stamp.isocalendar()
+    return {
+        "year": (stamp.year,),
+        "quarter": (stamp.year, (stamp.month - 1) // 3),
+        "month": (stamp.year, stamp.month),
+        "week": (iso[0], iso[1]),
+        "day": (stamp.year, stamp.month, stamp.day),
+        "hour": (stamp.year, stamp.month, stamp.day, stamp.hour),
+    }[period]
+
+
+def suggest(finding: Finding) -> Suggestion | None:
+    """The config change that would address one finding, or None where flow cannot say.
+
+    Only two categories produce one.  ``unreviewed`` needs a descriptor path nobody can
+    invent, and ``degenerate`` needs a judgment about whether the factor is wanted at all —
+    emitting either would put a value in the stanza that the user did not choose.
+    """
+    if finding.category == "unbinned":
+        return finding.suggestion
+    if finding.category != "unreadable" or not finding.repairable:
+        return None
+    return _correction_for(finding)
+
+
+def _correction_for(finding: Finding) -> Suggestion | None:
+    """Read the held-back values and propose how to read them."""
+    text = list(finding.detail.get("distinct", {}).get("text", []))
+    if not text:
+        return None
+
+    datetime_correction = _datetime_correction(finding.factor, text)
+    if datetime_correction is not None:
+        return datetime_correction
+    # An ambiguous date must refuse outright rather than fall through to a numeric reading:
+    # `/` is punctuation, so `_numeric_drop` could otherwise turn "03/04/2021" into "03042021".
+    if _looks_like_dates(text):
+        return None
+
+    drop = _numeric_drop(text)
+    if drop is not None:
+        return Suggestion(
+            corrections=[{"kind": "parse_value", "factor": finding.factor, "drop": drop}],
+            complete=True,
+        )
+
+    # A sampled column's values are near-unique by definition, so no mapping could cover it.
+    if finding.detail.get("sampled"):
+        return None
+
+    rules = [{"match": value, "to": None} for value in text]
+    return Suggestion(
+        corrections=[{"kind": "remap", "factor": finding.factor, "rules": rules}],
+        complete=all(_is_sentinel(value) for value in text),
+    )
+
+
+def _datetime_correction(factor: str, text: Sequence[str]) -> Suggestion | None:
+    """A ``parse_datetime`` correction where one format reads every value, else None."""
+    fmt = _datetime_format(text)
+    if fmt is False:
+        return None
+    every = _granularity(text, fmt) if fmt else "day"
+    entry: dict[str, Any] = {"kind": "parse_datetime", "factor": factor, "every": every}
+    if fmt:
+        entry["format"] = fmt
+    return Suggestion(corrections=[entry], complete=True)
