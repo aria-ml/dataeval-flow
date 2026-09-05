@@ -36,6 +36,7 @@
 # - Load SeaDrone, an aerial object-detection dataset whose drone telemetry is genuinely messy
 # - Run the `metadata-triage` workflow and read its report
 # - See which columns were lost, why, and what each one would take to read
+# - Meet two problems that read cleanly and still mean nothing: an identifier, and a marker value
 # - Read the **suggested policy** — a YAML block you paste into your config
 # - Fill in the one decision the tool refuses to make for you, apply the policy, and re-run
 # - Compare the two runs to see what the corrections actually recovered
@@ -48,6 +49,7 @@
 # - How to read a factor's distribution chart, and what it tells you about a bin count
 # - **Where the tool stops guessing** — and why that boundary is the point
 # - How verification distinguishes "this correction ran" from "this correction worked"
+# - Why a suggestion the tool *withholds* is itself a finding worth reading
 # - What triage cannot see, so you know what it does not cover
 
 # %% [markdown]
@@ -145,8 +147,9 @@ print(result.report())
 # %% [markdown]
 # ### Reading the report
 #
-# The header says it: **15 factors, 18 findings, 3 blocking**. Fifteen columns became factors, and
-# eighteen things happened that nobody asked for.
+# The header says it: **15 factors, 24 findings, 3 blocking**. Fifteen columns became factors, and
+# twenty-four things happened that nobody asked for. Read the blocking three first; the rest are
+# reported once each and collapse into two short lists.
 #
 # *Blocking* means the run did less than the configuration asked for, without saying so. Three columns
 # were dropped outright:
@@ -228,24 +231,37 @@ print("runnable :", latitude.suggestion.complete)
 print(result.data.raw.suggested_policy_yaml)
 
 # %% [markdown]
-# Three kinds of remedy land in one place:
+# Four kinds of remedy land in one place:
 #
 # - **`parse_datetime` for `date_time`** — reading each timestamp as the day it falls in gives the
 #   column the vocabulary it was missing. No `format` is pinned, because these are ISO-8601 and
 #   DataEval reads that without being told.
 # - **`remap` for `latitude` and `longitude`** — the skeletons, with a trailing marker on each
 #   line you must complete.
-# - **`continuous_factor_bins`** — the cuts to pin, carried forward from what the automatic cut
-#   actually found rather than replaced with a round number.
+# - **`remap` for the five telemetry columns that floor at `-1.0`** — also skeletons. Confirming a
+#   marker is a marker is your call, not the tool's.
+# - **`exclude` for `object_id`**, and **`continuous_factor_bins`** for the four factors whose cuts
+#   are worth pinning.
 #
-# The marker appears only where a decision is outstanding. Where triage recognized a sentinel it
-# answered the rule itself, with `.nan`, and left the line unmarked.
+# Notice which factors are *absent* from `continuous_factor_bins`. Ten factors were cut from this
+# draw, but a cut derived from values that include a not-recorded marker would pin an accident, and
+# an identifier should not be cut at all — so six of the ten get no bin count and the report says why
+# for each. The tool declining to suggest something is itself a finding.
+#
+# The marker appears only where a decision is outstanding. Where triage recognized a sentinel by its
+# spelling — `""`, `"N/A"` — it answered the rule itself, with `.nan`, and left the line unmarked.
 
 # %% [markdown]
 # ## Step 4: Apply the policy and re-run
 #
-# Now make the one decision the tool refused to make. `'N'` in a latitude column is a hemisphere letter
-# where a coordinate belongs — it records no position, so it reads as missing.
+# Now make the decisions the tool refused to make. There are two kinds, and both are judgements only
+# someone who knows the data can supply:
+#
+# - `'N'` in a latitude column is a hemisphere letter where a coordinate belongs. It records no
+#   position, so it reads as missing.
+# - `-1.0` floors five telemetry columns at once. Altitude, heading and speed all have real readings
+#   at or below zero in other datasets, so the tool will not decide this for you — but for SeaDrone
+#   it is the drone's "telemetry unavailable" value, and it reads as missing too.
 #
 # ```{important}
 # "Missing" is spelled `.nan`, not `null`. A `remap` target of `null` is simply a non-numeric value:
@@ -271,7 +287,14 @@ policy = MetadataPolicyConfig.model_validate(
             # so they read as missing -- `float("nan")`, which is `.nan` in YAML.
             {"kind": "remap", "factor": "latitude", "rules": [{"match": "N", "to": float("nan")}]},
             {"kind": "remap", "factor": "longitude", "rules": [{"match": "E", "to": float("nan")}]},
+            # SeaDrone's telemetry writes -1 where the drone recorded nothing.
+            *(
+                {"kind": "remap", "factor": name, "rules": [{"match": -1.0, "to": float("nan")}]}
+                for name in ("altitude", "compass_heading", "gimbal_heading", "gimbal_pitch", "speed")
+            ),
         ],
+        # An identifier groups nothing -- one value per detection -- so it is not a factor.
+        "exclude": ["object_id"],
         "continuous_factor_bins": result.data.raw.suggested_policy["continuous_factor_bins"],
     }
 )
@@ -293,15 +316,33 @@ print(f"findings: {len(before.findings)} -> {len(after.findings)}")
 print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 
 # %% [markdown]
-# Every blocking finding is gone, and three columns that were not factors now are. The eight findings
-# left are all `warning`: cuts and vocabularies still derived from this sample. Pinning those is a
-# second pass — export a descriptor once you are happy with the reading, and reference it from
-# `encoding:` — and the health line drops to `ok` because nothing is being silently lost any more.
+# Every blocking finding is gone, three columns that were not factors now are, and the health line
+# reads `ok` because nothing is being silently lost any more. The factor count goes to 17 rather than
+# 18 because you deliberately dropped one: `object_id` was never a factor worth having.
 #
-# Note what `latitude` became *after* it could be read: an `unbinned` finding with a suggested cut. A
-# column has to be readable before anyone can ask how it should be grouped.
+# Now look at what the remaining findings changed *into*. The five sentinel findings are resolved —
+# and five `degenerate` findings have appeared in their place:
+#
+# ```text
+#   altitude         29% missing
+#   compass_heading  32% missing
+#   gimbal_heading   32% missing
+#   gimbal_pitch     32% missing
+#   speed            32% missing
+# ```
+#
+# This is the most useful thing the run tells you, and it was invisible before. Roughly a third of
+# SeaDrone's telemetry was never recorded. Until you coded `-1` as missing it sat inside the lowest
+# bin, counted as a real altitude of −1 metres and averaged in with the rest; now it is on the missing
+# code, where it is reported rather than silently included. Nothing about the dataset changed — only
+# what you can see about it.
+#
+# That is worth sitting with before running any bias analysis over these factors. A third of the rows
+# scoring as their own group is not a defect to fix, it is a fact to know.
+#
+# Note also what `latitude` became *after* it could be read: an `unbinned` finding with a suggested
+# cut. A column has to be readable before anyone can ask how it should be grouped.
 
-# %% [markdown]
 # ### What verification told you
 #
 # Look at the `VERIFIED` section of the first report again. It is not a restatement of the suggestions —
@@ -323,20 +364,25 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 # %% [markdown]
 # ## What triage does not see
 #
-# Triage reports what *failed to read*. That is narrower than "everything wrong with your metadata",
-# and the difference is worth knowing.
+# Triage reports what *failed to read*, plus a small number of shapes that read cleanly and mean
+# nothing. That is narrower than "everything wrong with your metadata", and the boundary is worth
+# knowing before you trust a clean report.
 #
-# Look again at `latitude`'s numeric values: `-1, 47.671928, 47.671942, ...`. SeaDrone writes `-1` where
-# the drone's telemetry was unavailable. That is a sentinel, exactly like the empty `date_time` — but
-# it is already a *number*, so the column read cleanly and triage has nothing to report. It will sit in
-# its own bin, thousands of kilometres from the real coordinates, and quietly distort every statistic
-# computed over that factor.
+# **Evidence is structural, never semantic.** Every rule here is a statement about shape: values that
+# disagree about their type, a value that never repeats, a number that floors several columns at once.
+# None of them know what a column *means*. `latitude` was flagged because `'N'` is text among numbers
+# — not because a hemisphere letter in a coordinate is absurd, which is the reason you would give.
 #
-# A sentinel that shares the column's type is invisible here. Reading the distribution chart for a
-# factor with a lonely bucket at one end is how you catch it, and a `remap` with a `range` rule is how
-# you fix it.
+# **A marker used by one column alone stays invisible.** The `-1.0` above was caught because it floors
+# five columns, and one column's lowest value is just its lowest value. Had only `altitude` used it,
+# nothing would have said so. The distribution chart is where you would see it: a lonely bucket at one
+# end, far from the rest.
+#
+# **Nothing here is ranked by consequence.** All three blocking findings are printed alike, and losing
+# `latitude` is not the same as losing `object_id` — which you would rather lose. Triage tells you what
+# happened to your metadata; whether it mattered is a question about your analysis, and you still
+# answer that one.
 
-# %% [markdown]
 # ## Results Exploration: Export results
 #
 # The findings, the suggested policy and the verification all travel in the result envelope, so a
