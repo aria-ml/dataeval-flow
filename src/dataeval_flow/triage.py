@@ -153,8 +153,15 @@ def find_issues(
         *_encodings(record, default_bins),
         *_degenerate(record, min_missing_fraction),
     ]
+    # A factor can be both `unbinned` and `degenerate` at once — a skewed continuous cut
+    # where every value lands in one bin. Both findings are true and both stay, but the
+    # stanza must not pin a cut the `degenerate` finding calls useless.
+    degenerate_factors = {f.factor for f in findings if f.category == "degenerate"}
     for finding in findings:
-        finding.suggestion = suggest(finding)
+        if finding.category == "unbinned" and finding.factor in degenerate_factors:
+            finding.suggestion = None
+        else:
+            finding.suggestion = suggest(finding)
         if finding.category == "unreadable" and finding.repairable and finding.suggestion is None:
             values = finding.detail.get("distinct", {}).get("text", [])
             if values and _datetime_format(values) is False and _looks_like_dates(values):

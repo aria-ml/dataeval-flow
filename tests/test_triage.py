@@ -373,6 +373,27 @@ def test_a_no_encoding_categorical_factor_needs_a_vocabulary_not_bins():
     assert "bin count" not in finding.remedy
 
 
+def test_a_degenerate_derived_cut_gets_no_bin_suggestion():
+    # A skewed continuous factor where every value lands in one bin is both `unbinned`
+    # (a derived cut nobody pinned) and `degenerate` (that cut groups nothing). Both
+    # findings are true and both must appear, but the stanza must not pin a cut the
+    # `degenerate` finding calls useless.
+    record = _record()
+    record["factors"]["altitude"]["encoding"]["provenance"] = "derived"
+    record["factors"]["altitude"]["fit"]["bins"] = [{"code": 1, "count": 60, "min": 0, "max": 9}]
+    findings = find_issues(record)
+    by_category = {f.category: f for f in findings}
+    assert set(by_category) == {"unbinned", "degenerate"}
+    assert by_category["unbinned"].factor == "altitude"
+    assert by_category["unbinned"].suggestion is None
+    # The remedy -- what a bin declaration would look like -- is untouched; only the
+    # machine-readable suggestion that would reach the stanza is suppressed.
+    assert "continuous_factor_bins" in by_category["unbinned"].remedy
+    assert by_category["degenerate"].factor == "altitude"
+    stanza = to_policy_stanza(findings)
+    assert "continuous_factor_bins" not in stanza
+
+
 def test_the_stanza_merges_corrections_and_policy_edits():
     record = _record(unusable=_unusable(distinct={"text": ["6,000", "12,400"]}))
     record["factors"]["altitude"]["encoding"]["provenance"] = "derived"
