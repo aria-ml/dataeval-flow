@@ -35,6 +35,7 @@ from dataeval_flow.config.schemas._task import (
     DataSplittingTaskConfig,
     DriftMonitoringTaskConfig,
     FactorSource,
+    MetadataTriageTaskConfig,
     OODDetectionTaskConfig,
     ParameterSweepTaskConfig,
     TaskConfig,
@@ -52,6 +53,7 @@ from dataeval_flow.config.schemas._workflow import (
     DataPrioritizationWorkflowConfig,
     DataSplittingWorkflowConfig,
     DriftMonitoringWorkflowConfig,
+    MetadataTriageWorkflowConfig,
     OODDetectionWorkflowConfig,
     ParameterSweepWorkflowConfig,
 )
@@ -79,6 +81,7 @@ WorkflowConfig = Annotated[
     | DataPrioritizationWorkflowConfig
     | DataSplittingWorkflowConfig
     | DriftMonitoringWorkflowConfig
+    | MetadataTriageWorkflowConfig
     | OODDetectionWorkflowConfig
     | ParameterSweepWorkflowConfig,
     Field(discriminator="type"),
@@ -106,6 +109,7 @@ __all__ = [
     "DataPrioritizationWorkflowConfig",
     "DataSplittingWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
+    "MetadataTriageWorkflowConfig",
     "OODDetectionWorkflowConfig",
     "ParameterSweepWorkflowConfig",
     "WorkflowConfig",
@@ -119,6 +123,7 @@ __all__ = [
     "DataPrioritizationTaskConfig",
     "DataSplittingTaskConfig",
     "DriftMonitoringTaskConfig",
+    "MetadataTriageTaskConfig",
     "OODDetectionTaskConfig",
     "ParameterSweepTaskConfig",
     "TaskConfig",
