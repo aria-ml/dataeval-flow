@@ -606,3 +606,42 @@ def test_values_containing_null_colon_dont_break_marking():
     # The config factor is incomplete, so both rules should be marked
     marked_count = text.count("to: null        # TODO")
     assert marked_count == 2, f"Expected 2 marked nulls but found {marked_count}"
+
+
+def test_a_file_extension_is_not_stripped_to_make_a_number():
+    """Dropping `jpg` from `1001.jpg` leaves `1001.`, which `float` accepts and nobody wrote.
+
+    The recognizer is for a number wearing decoration — `6,000`, `12 kg` — not for an
+    identifier with a numeric stem. Reading a filename as a number is the domain guess the
+    design refuses, and it arrives marked complete, so verification would apply it.
+    """
+    assert _numeric_drop(["1001.jpg", "1002.jpg", "1015.jpg"]) is None
+
+
+def test_a_trailing_separator_is_residue_rather_than_a_number():
+    assert _numeric_drop(["12.abc", "34.abc"]) is None
+
+
+def test_decorated_numbers_still_read():
+    # The cases the recognizer exists for must keep working.
+    assert _numeric_drop(["6,000", "12,400"]) == [","]
+    assert _numeric_drop(["12 kg", "45 kg"]) == [" kg"]
+    assert _numeric_drop(["3.5 kg", "4.25 kg"]) == [" kg"]
+
+
+def test_a_filename_column_gets_no_correction_suggested():
+    """The end-to-end shape of the same defect, as cppe5 produced it."""
+    record = _record(
+        unusable={
+            "file_name": {
+                "reasons": ["cardinality_over_budget"],
+                "level": "unit",
+                "repairable": True,
+                "counts": {"text": 300},
+                "distinct": {"text": ["1001.jpg", "1002.jpg", "1015.jpg"]},
+                "sampled": True,
+            },
+        }
+    )
+    (finding,) = find_issues(record)
+    assert finding.suggestion is None

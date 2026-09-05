@@ -391,7 +391,19 @@ def _is_sentinel(value: Any) -> bool:
 
 
 def _is_number(text: str) -> bool:
-    """Whether this reads as a finite number.  Non-finite spellings are sentinels, not values."""
+    """Whether this reads as a finite number somebody could have written.
+
+    Non-finite spellings are sentinels rather than values, and a trailing decimal point is
+    residue rather than a number.  ``float`` accepts ``"1001."``, which is what a drop leaves
+    behind when it cuts a suffix off an identifier — ``"1001.jpg"`` less ``"jpg"`` — and
+    accepting it let the recognizer read a filename as a number.  That is the domain guess
+    this module refuses everywhere else: the reading is for a number wearing decoration,
+    ``"6,000"`` or ``"12 kg"``, not for an identifier that happens to have a numeric stem.
+    Requiring the reading to be well-formed is what tells the two apart, and it costs nothing
+    real — nobody writes a measurement with a bare point at the end.
+    """
+    if text.endswith("."):
+        return False
     try:
         return math.isfinite(float(text))
     except (TypeError, ValueError):
