@@ -7,8 +7,8 @@ from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
 from dataeval_flow.config.schemas._metadata import ParseValueCorrectionConfig
-from dataeval_flow.policy import build_correction
-from dataeval_flow.workflow import WorkflowContext
+from dataeval_flow.policy import ResolvedPolicy, build_correction
+from dataeval_flow.workflow import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.metadata_triage import (
     MetadataTriageOutputs,
     MetadataTriageParameters,
@@ -106,6 +106,57 @@ def test_execute_refuses_missing_parameters():
     assert result.success is False
 
 
+def test_execute_runs_end_to_end_on_a_real_dataset():
+    context = WorkflowContext(
+        dataset_contexts={"default": DatasetContext(name="default", dataset=_MixedWeightDataset())},
+    )
+    result = MetadataTriageWorkflow().execute(context, MetadataTriageParameters())
+
+    assert result.success is True
+    assert any(f.factor == "weight" for f in result.data.raw.findings)
+    assert result.data.raw.suggested_policy_yaml
+    assert "parse_value" in result.data.raw.suggested_policy_yaml
+    weight = [v for v in result.data.raw.verification if v.factor == "weight"]
+    assert weight
+    assert weight[0].recovered is True
+    assert result.data.report.findings
+    assert result.metadata.blocking >= 1
+
+
 def test_build_correction_is_public():
     correction = build_correction(ParseValueCorrectionConfig(factor="weight", drop=[","]))
     assert correction.factor == "weight"
+
+
+def test_verification_recovers_a_mixed_column():
+    from dataeval_flow.triage import find_issues
+
+    workflow = MetadataTriageWorkflow()
+    metadata = _mixed_metadata()
+    record = _describe(metadata)
+    findings = find_issues(record)
+    entries = workflow._verify(metadata, ResolvedPolicy(), findings)
+    weight = [e for e in entries if e.factor == "weight"]
+    assert weight
+    assert weight[0].applied is True
+    assert weight[0].recovered is True
+
+
+def test_an_incomplete_suggestion_is_never_applied():
+    from dataeval_flow.triage import Finding, Suggestion
+
+    finding = Finding(
+        factor="direction",
+        category="unreadable",
+        severity="blocking",
+        repairable=True,
+        suggestion=Suggestion(
+            corrections=[{"kind": "remap", "factor": "direction", "rules": [{"match": "N", "to": None}]}],
+            complete=False,
+        ),
+    )
+    entries = MetadataTriageWorkflow()._verify(_mixed_metadata(), ResolvedPolicy(), [finding])
+    (entry,) = entries
+    assert entry.applied is False
+    assert entry.recovered is False
+    assert "need codes" in entry.detail

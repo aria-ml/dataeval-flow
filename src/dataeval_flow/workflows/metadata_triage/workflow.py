@@ -7,14 +7,15 @@ from pydantic import BaseModel
 
 from dataeval_flow.binning import attach_binning, describe_binning
 from dataeval_flow.metadata import build_metadata, expand_declared_bins
-from dataeval_flow.policy import policy_for
-from dataeval_flow.triage import find_issues, incomplete_factors, render_stanza, to_policy_stanza
+from dataeval_flow.policy import build_correction, policy_for
+from dataeval_flow.triage import Finding, find_issues, incomplete_factors, render_stanza, to_policy_stanza
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflows.metadata_triage.outputs import (
     MetadataTriageMetadata,
     MetadataTriageOutputs,
     MetadataTriageRawOutputs,
     MetadataTriageReport,
+    VerificationEntry,
 )
 from dataeval_flow.workflows.metadata_triage.params import MetadataTriageParameters
 from dataeval_flow.workflows.metadata_triage.report import build_findings, summarize
@@ -100,8 +101,15 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
             )
             raw.counts = summarize(raw)
 
+            if params.verify:
+                try:
+                    raw.verification = self._verify(metadata, policy, findings)
+                except Exception:  # the findings are worth having without it
+                    _logger.warning("Verification unavailable", exc_info=True)
+
             result_metadata = MetadataTriageMetadata(
                 blocking=sum(1 for f in findings if f.severity == "blocking"),
+                verified=sum(1 for v in raw.verification if v.recovered),
             )
             attach_binning(result_metadata, metadata, policy)
             report = MetadataTriageReport(
@@ -150,3 +158,94 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
             metadata=MetadataTriageMetadata(),
             errors=[message],
         )
+
+    def _verify(
+        self,
+        metadata: Any,
+        policy: Any,
+        findings: "list[Finding]",
+    ) -> "list[VerificationEntry]":
+        """Read the metadata back under the complete suggestions, and say what they recovered.
+
+        Costs no second dataset walk: ``repair`` applies corrections to the values the walk
+        already kept and returns a derived copy sharing the immutable store.  The policy's
+        own corrections are passed through alongside the suggested ones because ``repair``
+        **replaces** rather than accumulates.
+
+        Incomplete suggestions are never applied, so this can never report recovery from a
+        placeholder.  A suggestion can also be well-formed, run cleanly and still not
+        recover the column — a reading that leaves every row holding its own value has not
+        made it a factor — which is the case this exists to catch before a stanza is
+        committed to a config.
+        """
+        from dataeval_flow.config.schemas import MetadataPolicyConfig
+
+        entries: list[VerificationEntry] = []
+        runnable: list[Any] = []
+        bins: dict[str, Any] = {}
+        for finding in findings:
+            suggestion = finding.suggestion
+            if suggestion is None:
+                continue
+            if not suggestion.complete:
+                entries.append(_unapplied(finding))
+                continue
+            bins.update(suggestion.policy.get("continuous_factor_bins") or {})
+            runnable.extend(suggestion.corrections)
+
+        if not runnable and not bins:
+            return entries
+
+        # Validated as a policy first, so a malformed suggestion fails here naming the field
+        # rather than inside DataEval naming a constructor argument.
+        validated = MetadataPolicyConfig.model_validate({"name": "_triage", "corrections": runnable})
+        built = [build_correction(entry) for entry in validated.corrections or ()]
+        repaired = metadata.repair([*policy.correction_specs, *built])
+        if bins:
+            repaired.continuous_factor_bins = {**dict(policy.continuous_factor_bins), **bins}
+        after = self._describe(repaired, policy)
+        still = set(after.get("unusable") or {})
+        factors = after.get("factors") or {}
+
+        for name in sorted({c["factor"] for c in runnable} | set(bins)):
+            recovered = name in factors and name not in still
+            entries.append(
+                VerificationEntry(
+                    factor=name,
+                    applied=True,
+                    recovered=recovered,
+                    detail=_recovery_detail(name, factors.get(name), recovered),
+                )
+            )
+        return entries
+
+
+def _unapplied(finding: "Finding") -> "VerificationEntry":
+    """A verification entry for a suggestion left incomplete, never applied.
+
+    Pulled out of :meth:`MetadataTriageWorkflow._verify` so that method does not trip C901
+    — this is the one branch that does not touch the dataset at all.
+    """
+    suggestion = finding.suggestion
+    corrections = suggestion.corrections if suggestion is not None else ()
+    holes = sum(1 for c in corrections for rule in c.get("rules", ()) if rule.get("to") is None)
+    return VerificationEntry(
+        factor=finding.factor,
+        applied=False,
+        recovered=False,
+        detail=f"not applied; {holes} values still need codes",
+    )
+
+
+def _recovery_detail(
+    name: str,  # noqa: ARG001 - kept for symmetry with the per-factor loop that calls this
+    info: "dict[str, Any] | None",
+    recovered: bool,
+) -> str:
+    """One line saying what the reading actually produced."""
+    if not recovered:
+        return "applied, but still unreadable; try a different reading"
+    fit = (info or {}).get("fit") or {}
+    buckets = fit.get("bins") or fit.get("levels") or []
+    kind = "bins" if fit.get("bins") is not None else "levels"
+    return f"became a factor, {len(buckets)} {kind}"
