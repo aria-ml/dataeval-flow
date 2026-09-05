@@ -395,15 +395,19 @@ print(f"JSON output: {len(json_str)} characters")
 # %% [markdown]
 # ## Conclusion
 #
-# You ran `metadata-triage` against a dataset with genuinely imperfect telemetry and learned that three
-# of its columns never became factors at all. You read why each one failed, saw the values behind the
-# failure, and got a config block that addresses them. You made the one judgement the tool refused to
-# make, applied the result, and confirmed what it recovered.
+# You ran `metadata-triage` against a dataset with genuinely imperfect telemetry. Three of its columns
+# had never become factors at all; one more was an identifier being cut into bins as though it were a
+# measurement; and five carried a marker value that read as a number and skewed every cut derived from
+# them. You read why each one happened, saw the values behind it, and got a config block addressing
+# all four kinds at once.
+#
+# Then you made the judgements the tool refused to make — what `'N'` means, whether `-1` is a reading —
+# applied them, and found that about a third of SeaDrone's telemetry was never recorded. That was true
+# before you started. It just was not visible.
 #
 # The habit worth taking away: run triage first, and treat a blocking finding as a claim that your
 # later numbers are computed over less data than you think.
 
-# %% [markdown]
 # ## What's next
 #
 # - [Analyze dataset quality across splits](data_analysis) — now that the factors are actually there
