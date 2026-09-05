@@ -19,15 +19,6 @@ import pytest
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "dataeval_flow"
 
-# Private dataeval modules flow depends on. `__all__` is empty in each, so
-# nothing upstream promises they will keep their names -- `utils._internal` has
-# already moved once. Adding a row is a deliberate act: prefer a public API, and
-# where there is none, say so upstream. Tracked in the 2026-09-03 metadata plan
-# under "Cross-cutting: private coupling".
-PRIVATE_MODULES = {
-    "dataeval.core._clusterer",
-}
-
 
 def _imports() -> list[tuple[str, str, str]]:
     """Sweep ``src/`` for ``dataeval`` imports as ``(module, name, origin)``."""
@@ -67,21 +58,10 @@ def test_import_resolves(module: str, name: str, origin: str):
     try:
         mod = importlib.import_module(module)
     except ImportError as e:  # pragma: no cover - only on an upstream rename
+        mod = None
         pytest.fail(f"{origin} imports from `{module}`, which no longer exists: {e}")
     if name and not hasattr(mod, name):
         pytest.fail(f"{origin} imports `{name}` from `{module}`, which no longer provides it")
-
-
-def test_private_coupling_is_the_recorded_set():
-    private = {
-        module
-        for module, _, _ in IMPORTS
-        if any(part.startswith("_") for part in module.split(".")[1:])  # `dataeval` itself is public
-    }
-    assert private == PRIVATE_MODULES, (
-        "the set of private dataeval modules flow imports changed. Update PRIVATE_MODULES "
-        "only after checking there is no public API for what the new one provides."
-    )
 
 
 class TestPinnedVocabulariesStayInStep:

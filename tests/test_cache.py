@@ -34,6 +34,8 @@ from dataeval_flow.policy import ResolvedPolicy
 
 pytestmark = pytest.mark.required
 
+_CLUSTER_PATH = "dataeval.core.cluster"
+
 
 @pytest.fixture(autouse=True)
 def _reset_singleton_registry():
@@ -1696,13 +1698,11 @@ class TestAtomicWrite:
 
 
 class TestGetOrComputeClusterResult:
-    _CLUSTER_PATH = "dataeval.core._clusterer.cluster"
-
     def test_without_cache_computes_directly(self):
         embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
         mock_result = _MockClusterResult()
 
-        with patch(self._CLUSTER_PATH, return_value=mock_result) as mock_cluster:
+        with patch(_CLUSTER_PATH, return_value=mock_result) as mock_cluster:
             result = get_or_compute_cluster_result(embeddings=embeddings, algorithm="hdbscan", n_clusters=None)
             mock_cluster.assert_called_once()
 
@@ -1718,7 +1718,7 @@ class TestGetOrComputeClusterResult:
         transforms = MagicMock()
         transforms.__repr__ = MagicMock(return_value="my_transforms")
 
-        with active_cache(cache, "sel:all"), patch(self._CLUSTER_PATH, return_value=mock_result) as mock_cluster:
+        with active_cache(cache, "sel:all"), patch(_CLUSTER_PATH, return_value=mock_result) as mock_cluster:
             result = get_or_compute_cluster_result(
                 embeddings=embeddings, algorithm="kmeans", n_clusters=5, extractor_config=ext_cfg, transforms=transforms
             )
@@ -1876,15 +1876,13 @@ class TestClusterResultCache:
 
 
 class TestLoadOrComputeClusterResult:
-    _CLUSTER_PATH = "dataeval.core._clusterer.cluster"
-
     def test_miss_computes_and_caches(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
 
         mock_cr = _MockClusterResult()
 
-        with patch(self._CLUSTER_PATH, return_value=mock_cr) as mock_cluster:
+        with patch(_CLUSTER_PATH, return_value=mock_cr) as mock_cluster:
             cache.load_or_compute_cluster_result("sel:all", "cfg", "none", embeddings, "hdbscan", None)
             mock_cluster.assert_called_once()
 
@@ -1895,7 +1893,7 @@ class TestLoadOrComputeClusterResult:
 
         embeddings = np.random.default_rng(42).random((20, 8)).astype(np.float32)
 
-        with patch(self._CLUSTER_PATH) as mock_cluster:
+        with patch(_CLUSTER_PATH) as mock_cluster:
             loaded = cache.load_or_compute_cluster_result("sel:all", "cfg", "none", embeddings, "hdbscan", None)
             mock_cluster.assert_not_called()
 

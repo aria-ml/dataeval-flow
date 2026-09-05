@@ -562,7 +562,7 @@ def _do_compute_clusters(
     n_clusters: int | None,
 ) -> ClusterResult:
     """Run clustering on embeddings."""
-    from dataeval.core._clusterer import cluster
+    from dataeval.core import cluster
 
     return cluster(embeddings, algorithm=algorithm, n_clusters=n_clusters)
 
