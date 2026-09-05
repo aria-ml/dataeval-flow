@@ -645,3 +645,45 @@ def test_a_filename_column_gets_no_correction_suggested():
     )
     (finding,) = find_issues(record)
     assert finding.suggestion is None
+
+
+def _derived(kind: str, ftype: str, **fit: Any) -> dict[str, Any]:
+    """A factor entry whose encoding nobody pinned, of the given encoding kind."""
+    enc: dict[str, Any] = {"kind": kind, "provenance": "derived"}
+    enc.update({"edges": [0, 10, 20]} if kind == "bins" else {"levels": ["a", "b"]})
+    default = (
+        {"bins": [{"code": 1, "count": 5, "min": 0, "max": 9}], "empty": []}
+        if kind == "bins"
+        else {"levels": [{"code": 0, "value": "a", "count": 5}, {"code": 1, "value": "b", "count": 5}], "empty": []}
+    )
+    return {"type": ftype, "level": "unit", "encoding": enc, "fit": fit or default}
+
+
+def test_a_binned_discrete_factor_needs_a_cut_not_a_descriptor():
+    """SeaDrone's `altitude` comes back `discrete` yet is binned by `uniform_width`.
+
+    Partitioning on `factor_type` filed every real numeric column under `unreviewed` and told
+    it to export a descriptor, so `continuous_factor_bins` was never suggested for anything.
+    The encoding's kind is what the remedy actually turns on.
+    """
+    record = _record(
+        factors={
+            "altitude": _derived(
+                "bins",
+                "discrete",
+                bins=[{"code": i, "count": 4, "min": i, "max": i + 1} for i in range(1, 4)],
+                empty=[],
+            )
+        }
+    )
+    (finding,) = find_issues(record)
+    assert finding.category == "unbinned"
+    assert finding.suggestion is not None
+    assert finding.suggestion.policy == {"continuous_factor_bins": {"altitude": 3}}
+
+
+def test_a_digitized_factor_still_wants_a_descriptor():
+    record = _record(factors={"drone": _derived("levels", "categorical")})
+    (finding,) = find_issues(record)
+    assert finding.category == "unreviewed"
+    assert finding.suggestion is None

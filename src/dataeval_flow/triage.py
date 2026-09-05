@@ -284,8 +284,16 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
     """Factors whose cut or vocabulary nobody pinned.
 
     The record carries a precomputed ``unreviewed`` list holding both halves.  This
-    partitions by factor type instead of reading it, because the two halves take different
-    remedies — reading the list directly would report every continuous factor twice.
+    partitions it instead of reading it, because the two halves take different remedies —
+    reading the list directly would report every binned factor twice.
+
+    The split is on the **encoding's kind**, not on the factor's type.  The remedy is about
+    the encoding: a cut is pinned by declaring its bin count, and a vocabulary drawn from
+    this sample can only be pinned by committing the descriptor that holds it.  Factor type
+    does not decide which of those a factor got — DataEval reports SeaDrone's ``altitude``
+    as ``discrete`` and bins it by ``uniform_width`` all the same — so keying on the type
+    filed every real numeric column under ``unreviewed`` and told it to export a descriptor,
+    and ``continuous_factor_bins`` was never suggested for anything.
     """
     for name, info in sorted(_factors(record).items()):
         encoding = info.get("encoding")
@@ -303,7 +311,7 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
             continue
         # The whole factor entry, not its parts: the renderer reads `fit` and `encoding`
         # together, and carrying all three would triple the JSON for one chart.
-        if info.get("type") == "continuous":
+        if encoding.get("kind") != "levels":
             count = _suggested_bins(info.get("fit"), default_bins)
             yield Finding(
                 factor=name,
