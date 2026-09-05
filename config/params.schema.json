@@ -2509,6 +2509,145 @@
       "title": "MetadataPolicyConfig",
       "type": "object"
     },
+    "MetadataTriageWorkflowConfig": {
+      "description": "Typed workflow configuration for ``metadata-triage``.\n\nInherits all fields from :class:`MetadataTriageParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
+          "title": "Metadata"
+        },
+        "metadata_auto_bin_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "uniform_width",
+                "uniform_count",
+                "clusters"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Auto Bin Method"
+        },
+        "metadata_exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metadata Exclude",
+          "type": "array"
+        },
+        "metadata_continuous_factor_bins": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "number"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Continuous Factor Bins"
+        },
+        "metadata_factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
+          "title": "Metadata Factor Source"
+        },
+        "mode": {
+          "default": "advisory",
+          "description": "advisory: report only, preparatory: modify dataset",
+          "enum": [
+            "advisory",
+            "preparatory"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in the report. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        },
+        "verify": {
+          "default": true,
+          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
+          "title": "Verify",
+          "type": "boolean"
+        },
+        "default_bins": {
+          "default": 10,
+          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
+          "minimum": 2,
+          "title": "Default Bins",
+          "type": "integer"
+        },
+        "min_missing_fraction": {
+          "default": 0.2,
+          "description": "Share of rows recording no value above which a factor is called degenerate.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Missing Fraction",
+          "type": "number"
+        },
+        "name": {
+          "description": "Identifier for this workflow",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "metadata-triage",
+          "default": "metadata-triage",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "MetadataTriageWorkflowConfig",
+      "type": "object"
+    },
     "OODDetectionWorkflowConfig": {
       "description": "Typed workflow configuration for ``ood-detection``.\n\nInherits all fields from :class:`OODDetectionParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
@@ -4270,6 +4409,7 @@
                 "data-prioritization": "#/$defs/DataPrioritizationWorkflowConfig",
                 "data-splitting": "#/$defs/DataSplittingWorkflowConfig",
                 "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
+                "metadata-triage": "#/$defs/MetadataTriageWorkflowConfig",
                 "ood-detection": "#/$defs/OODDetectionWorkflowConfig",
                 "parameter-sweep": "#/$defs/ParameterSweepWorkflowConfig"
               },
@@ -4293,6 +4433,9 @@
               },
               {
                 "$ref": "#/$defs/DriftMonitoringWorkflowConfig"
+              },
+              {
+                "$ref": "#/$defs/MetadataTriageWorkflowConfig"
               },
               {
                 "$ref": "#/$defs/OODDetectionWorkflowConfig"
