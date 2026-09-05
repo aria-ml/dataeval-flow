@@ -1210,3 +1210,10 @@ def test_the_ratio_bar_shows_both_kinds():
     line = _render_ratio({"numeric": 1842, "text": 58})
     assert "1,842 numeric" in line
     assert "58 text" in line
+
+
+def test_a_long_sparkline_does_not_run_into_its_count():
+    """A factor with more buckets than the pad still needs a gap before `n=`."""
+    lines = _render_distribution(_binned_counts([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9]))
+    assert "n=" in lines[0]
+    assert " n=" in lines[0], f"sparkline runs into the count: {lines[0]!r}"

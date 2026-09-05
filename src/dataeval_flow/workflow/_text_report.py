@@ -848,7 +848,9 @@ def _render_distribution(info: dict[str, Any]) -> list[str]:
     if not peak:
         return []
     low = min(c for c in counts if c) if any(counts) else 0
-    lines = [f"{_sparkline(counts):<12}n={_fmt_num(low)}–{_fmt_num(peak)}"]
+    # Padded to eleven and then spaced, rather than to twelve: a factor with more buckets
+    # than that draws a longer sparkline, and padding alone would run it into the count.
+    lines = [f"{_sparkline(counts):<11} n={_fmt_num(low)}–{_fmt_num(peak)}"]
     if len(rows) > _MAX_ENUMERATED:
         return lines
     width = max(len(label) for label, _ in rows)
