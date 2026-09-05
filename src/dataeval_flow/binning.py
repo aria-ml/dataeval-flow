@@ -284,6 +284,16 @@ def _factor_entry(
     entry: dict[str, Any] = {"type": info.factor_type, "level": info.level}
     if getattr(info, "aggregated_from", None) is not None:
         entry["aggregated_from"] = info.aggregated_from
+    # How many different values the column actually holds, beside how many rows it has.
+    # Neither the encoding nor the fit can say this: a cut reports the intervals values fell
+    # into, and a column holding one value per row falls into intervals as readily as one
+    # holding five.  It is the difference between a factor that groups its rows and one that
+    # names them — and for a *numeric* column, nothing upstream refuses it.  A non-numeric
+    # column this shaped is dropped as `cardinality_over_budget`; a numeric one is binned and
+    # kept, so this is the only place the same shape can be noticed.
+    if name in df.columns:
+        entry["n_distinct"] = int(df[name].n_unique())
+        entry["rows"] = int(df.height)
 
     if record is None:
         # Neither encoding path was reached, or the record could not be read.
