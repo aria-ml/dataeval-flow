@@ -36,7 +36,8 @@
 # - Load SeaDrone, an aerial object-detection dataset whose drone telemetry is genuinely messy
 # - Run the `metadata-triage` workflow and read its report
 # - See which columns were lost, why, and what each one would take to read
-# - Meet two problems that read cleanly and still mean nothing: an identifier, and a marker value
+# - Meet two problems that read cleanly and still distort a cut: an identifier, and a value a
+#   quarter of the column sits on
 # - Read the **suggested policy** — a YAML block you paste into your config
 # - Fill in the one decision the tool refuses to make for you, apply the policy, and re-run
 # - Compare the two runs to see what the corrections actually recovered
@@ -199,29 +200,35 @@ print("runnable :", latitude.suggestion.complete)
 # %% [markdown]
 # ### Distributions, and the argument for a bin count
 #
-# Ten factors were cut into bins that nobody declared, so their edges come from this sample and are not
-# stable across draws. A suggested bin count on its own is a number with no argument attached, so the
-# report draws the shape it came from:
+# Ten factors were cut into bins that nobody declared, so their edges come from this sample and
+# are not stable across draws. A suggested bin count on its own is a number with no argument
+# attached, so the report draws the shape it came from — and deliberately **not** at that bin
+# count:
 #
 # ```text
-#   [warning] frame [unbinned @ unit]
-#     ▃▄█▂   ▂    n=17–86
-#              < 2630.75  ███████████▉                       34
-#      [2630.75, 5083.5)  ██████████████▎                    41
-#      [5083.5, 7536.25)  ██████████████████████████████     86
-#        [7536.25, 9989)  █████▉                             17
-#        [9989, 12441.8)                                      0  empty
-#     [12441.8, 14894.5)                                      0  empty
-#     [14894.5, 17347.2)                                      0  empty
-#             >= 17347.2  ███████▋                           22
+#   frame — declare 5 bins
+#     178 ▂▂▂▁▁▁▃▁▂▁▄█▅▁ ▂▂▁                 ▁▁▁▁▁ 1.98e+04
+#         ├──────████┃█──────────────────────────┤  p25 3465 · p50 5715 · p75 6240
 # ```
 #
-# The gap in the sparkline is three empty bins — the automatic cut spent them on a range this sample
-# has nothing in. That is the argument for declaring five rather than eight, and you can disagree with
-# it, because the evidence is on the page. A bar is never blank unless its bucket is genuinely empty:
-# "no rows here" and "one row here" is precisely the distinction a bin count turns on.
+# The top line is a histogram at a fixed display width, the same for every factor. The bottom is
+# a box plot over the same scale: the quartile box, the median, whiskers to the extremes.
+#
+# ```{note}
+# Drawing a factor at its own bin count would show you the answer you were asked to check. A
+# two-bin cut draws two bars, which says nothing about whether two was right — and a value that
+# is a quarter of the column can sit inside one of those bars, invisible. Order statistics say
+# where the values are regardless of where anyone cut them, which is why the chart is built from
+# quantiles rather than from the encoding.
+# ```
+#
+# Read `frame` from it: mass in the low-middle, a wide empty stretch, then a small group at the
+# top. That gap is real structure in the data, and it is the argument for five bins rather than
+# the eight the automatic cut used. You can disagree, because the evidence is on the page.
+#
+# A box that reaches an end with no whisker is its own signal — it means a quarter of the rows or
+# more sit on that extreme. Compare `frame` above with `altitude`, whose box is flush left.
 
-# %% [markdown]
 # ## Step 3: The suggested policy
 #
 # Every suggestion is merged into one block, shaped exactly like the `metadata:` section of a config
@@ -317,11 +324,30 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 
 # %% [markdown]
 # Every blocking finding is gone, three columns that were not factors now are, and the health line
-# reads `ok` because nothing is being silently lost any more. The factor count goes to 17 rather than
-# 18 because you deliberately dropped one: `object_id` was never a factor worth having.
+# reads `ok` because nothing is being silently lost any more. The factor count goes to 17 rather
+# than 18 because you deliberately dropped one: `object_id` was never a factor worth having.
 #
-# Now look at what the remaining findings changed *into*. The five sentinel findings are resolved —
-# and five `degenerate` findings have appeared in their place:
+# The findings only fall from 24 to 21, and that is the interesting part — **triage is iterative,
+# not one-shot.** Fixing one layer makes the next one visible. Three things surfaced that could
+# not have been seen before:
+#
+# ```text
+#   floor_mass  latitude   a quarter of the rows or more hold -1.0
+#   floor_mass  longitude  a quarter of the rows or more hold -1.0
+#   floor_mass  speed      a quarter of the rows or more hold 0.0
+# ```
+#
+# `latitude` and `longitude` carry the same `-1` marker as the telemetry columns — you can see it
+# in the very first report, in `numeric reads: -1, 47.671928, …`. It could not be reported while
+# the column was unreadable, because a column that never became a factor has no distribution to
+# describe. Repairing the text was what made its numbers describable.
+#
+# `speed` is the opposite case, and the reason the finding is worded as a shape rather than a
+# diagnosis. Its `-1` is gone; the mass that remains is at `0.0`, and a boat at rest genuinely
+# reads zero. That is a true reading, not a marker — but a quarter of the column sitting on it
+# still means any cut describes the mass rather than the spread, which is worth knowing.
+#
+# And five `degenerate` findings appeared where the sentinels were:
 #
 # ```text
 #   altitude         29% missing
@@ -333,12 +359,12 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 #
 # This is the most useful thing the run tells you, and it was invisible before. Roughly a third of
 # SeaDrone's telemetry was never recorded. Until you coded `-1` as missing it sat inside the lowest
-# bin, counted as a real altitude of −1 metres and averaged in with the rest; now it is on the missing
-# code, where it is reported rather than silently included. Nothing about the dataset changed — only
-# what you can see about it.
+# bin, counted as a real altitude of −1 metres and averaged in with the rest; now it is on the
+# missing code, where it is reported rather than silently included. Nothing about the dataset
+# changed — only what you can see about it.
 #
-# That is worth sitting with before running any bias analysis over these factors. A third of the rows
-# scoring as their own group is not a defect to fix, it is a fact to know.
+# That is worth sitting with before running any bias analysis over these factors. A third of the
+# rows scoring as their own group is not a defect to fix, it is a fact to know.
 #
 # Note also what `latitude` became *after* it could be read: an `unbinned` finding with a suggested
 # cut. A column has to be readable before anyone can ask how it should be grouped.
@@ -373,10 +399,10 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 # None of them know what a column *means*. `latitude` was flagged because `'N'` is text among numbers
 # — not because a hemisphere letter in a coordinate is absurd, which is the reason you would give.
 #
-# **A marker used by one column alone stays invisible.** The `-1.0` above was caught because it floors
-# five columns, and one column's lowest value is just its lowest value. Had only `altitude` used it,
-# nothing would have said so. The distribution chart is where you would see it: a lonely bucket at one
-# end, far from the rest.
+# **A mass is reported; its meaning is not.** `min == p25` says a quarter of a column sits on its
+# lowest value, and that is all it says. SeaDrone's `-1` is a marker and `speed`'s `0.0` is a boat
+# at rest, and the report cannot tell you which is which — it tells you the shape and hands the
+# reading to you. A marker held by fewer than a quarter of the rows is not reported at all.
 #
 # **Nothing here is ranked by consequence.** All three blocking findings are printed alike, and losing
 # `latitude` is not the same as losing `object_id` — which you would rather lose. Triage tells you what
