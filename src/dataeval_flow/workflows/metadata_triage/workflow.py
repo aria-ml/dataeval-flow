@@ -1,6 +1,7 @@
 """Metadata triage workflow: what a run failed to read, and what to do about it."""
 
 import logging
+from dataclasses import replace
 from typing import Any, cast
 
 from pydantic import BaseModel
@@ -209,9 +210,16 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
         validated = MetadataPolicyConfig.model_validate({"name": "_triage", "corrections": runnable})
         built = [build_correction(entry) for entry in validated.corrections or ()]
         repaired = metadata.repair([*policy.correction_specs, *built])
+        described_policy = policy
         if bins:
-            repaired.continuous_factor_bins = {**dict(policy.continuous_factor_bins), **bins}
-        after = self._describe(repaired, policy)
+            merged_bins = {**dict(policy.continuous_factor_bins), **bins}
+            repaired.continuous_factor_bins = merged_bins
+            # `_describe` reads `continuous_factor_bins` off the policy, not off `repaired`,
+            # so it has to see the bins actually assigned here — otherwise the re-described
+            # record's `requested_bins`/`bin_expansion` would describe the policy this
+            # verification started from rather than what it just ran.
+            described_policy = replace(policy, continuous_factor_bins=merged_bins)
+        after = self._describe(repaired, described_policy)
         factors = after.get("factors") or {}
 
         for name in sorted(correction_factors | bin_factors):
