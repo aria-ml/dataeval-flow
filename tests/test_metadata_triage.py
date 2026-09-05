@@ -14,6 +14,7 @@ from dataeval_flow.workflows.metadata_triage import (
     MetadataTriageParameters,
     MetadataTriageRawOutputs,
     MetadataTriageReport,
+    VerificationEntry,
 )
 from dataeval_flow.workflows.metadata_triage.workflow import MetadataTriageWorkflow
 
@@ -309,6 +310,85 @@ def test_findings_render_a_stanza_and_a_report():
     raw = MetadataTriageRawOutputs(dataset_size=60, findings=findings)
     reportables = build_findings(raw, max_examples=20)
     assert any("Unreadable" in r.title for r in reportables)
+
+
+# ---------------------------------------------------------------------------
+# report.py — build_findings / summarize
+# ---------------------------------------------------------------------------
+
+
+def _bare_finding(category: str, severity: str, factor: str = "weight") -> Any:
+    from dataeval_flow.triage import Finding
+
+    return Finding(factor=factor, category=category, severity=severity, remedy="do something")  # type: ignore[arg-type]
+
+
+def test_a_category_with_a_blocking_finding_is_a_warning_reportable():
+    """`WorkflowResult.health` counts exactly the categories this marks `"warning"`."""
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    raw = MetadataTriageRawOutputs(
+        dataset_size=10,
+        findings=[
+            _bare_finding("unreadable", "blocking"),
+            _bare_finding("unreadable", "note", factor="other"),
+        ],
+    )
+    (reportable,) = build_findings(raw, max_examples=20)
+    assert reportable.severity == "warning"
+
+
+def test_a_category_with_only_warning_and_note_findings_is_an_info_reportable():
+    # Hard-coding this branch to "info" would still pass this half -- see the blocking test
+    # above for the half that would catch it.
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    raw = MetadataTriageRawOutputs(
+        dataset_size=10,
+        findings=[
+            _bare_finding("unreviewed", "warning"),
+            _bare_finding("unreviewed", "note", factor="other"),
+        ],
+    )
+    (reportable,) = build_findings(raw, max_examples=20)
+    assert reportable.severity == "info"
+
+
+def test_a_suggested_policy_yaml_becomes_a_reportable():
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    raw = MetadataTriageRawOutputs(dataset_size=10, suggested_policy_yaml="metadata:\n  - name: standard\n")
+    (reportable,) = build_findings(raw, max_examples=20)
+    assert reportable.title == "Suggested policy"
+    assert reportable.data["detail_lines"] == ["metadata:", "  - name: standard"]  # type: ignore[index]
+
+
+def test_a_verification_entry_becomes_a_reportable():
+    from dataeval_flow.workflows.metadata_triage.report import build_findings
+
+    raw = MetadataTriageRawOutputs(
+        dataset_size=10,
+        verification=[VerificationEntry(factor="weight", applied=True, recovered=True, detail="8 bins, 0 unread")],
+    )
+    (reportable,) = build_findings(raw, max_examples=20)
+    assert reportable.title == "Verified"
+    assert reportable.data["brief"] == "1 recovered"  # type: ignore[index]
+    assert reportable.data["detail_lines"] == ["weight: 8 bins, 0 unread"]  # type: ignore[index]
+
+
+def test_summarize_counts_by_category_and_by_severity():
+    from dataeval_flow.workflows.metadata_triage.report import summarize
+
+    raw = MetadataTriageRawOutputs(
+        dataset_size=10,
+        findings=[
+            _bare_finding("unreadable", "blocking"),
+            _bare_finding("unreadable", "note", factor="other"),
+            _bare_finding("degenerate", "note", factor="third"),
+        ],
+    )
+    counts = summarize(raw)
+    assert counts == {"unreadable": 2, "blocking": 1, "note": 2, "degenerate": 1}
 
 
 # ---------------------------------------------------------------------------
