@@ -12,12 +12,39 @@ __all__ = ["build_findings", "summarize"]
 _TITLES: dict[str, str] = {
     "unreadable": "Unreadable factors",
     "unbound_request": "Requests that bound nothing",
-    "unbinned": "Factors needing a cut or a vocabulary",
-    "unreviewed": "Encodings nobody pinned",
+    "sentinel": "Values that look like markers, not readings",
     "degenerate": "Factors carrying no signal",
+    "unbinned": "Cuts nobody pinned",
+    "unreviewed": "Vocabularies nobody pinned",
 }
 
-_ORDER = ("unreadable", "unbound_request", "unbinned", "unreviewed", "degenerate")
+_ORDER = ("unreadable", "unbound_request", "sentinel", "degenerate", "unbinned", "unreviewed")
+
+#: Categories rendered as one line per factor rather than a block each.  Their remedy is the
+#: same sentence for every factor that has them, so a block apiece is the same paragraph
+#: repeated ten times — volume that reads as ten problems when it is one, and buries the
+#: findings that differ from each other.  The shared remedy is stated once, above the list.
+_COLLAPSED: dict[str, str] = {
+    "unbinned": (
+        "Each cut below came from this sample, so it is not stable across draws. Declaring the "
+        "counts changes nothing about the numbers above — they are the cuts that already ran — "
+        "it holds the same cuts for the next sample."
+    ),
+    "unreviewed": (
+        "Each vocabulary below was drawn from this sample. Export one with "
+        "`dataeval-flow encoding` and reference the file from `encoding:` to hold it."
+    ),
+}
+
+
+def _withdrawn_reason(factor: str, findings: list[Finding]) -> str:
+    """Why no cut is offered for this factor, named rather than pointed at."""
+    other = {f.category for f in findings if f.factor == factor} - {"unbinned"}
+    if "sentinel" in other:
+        return "no cut — its values include a not-recorded marker (see above)"
+    if "degenerate" in other:
+        return "no cut — it names its rows rather than grouping them (see above)"
+    return "no cut suggested"
 
 
 def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Reportable]:
@@ -35,8 +62,14 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
         blocking = any(f.severity == "blocking" for f in group)
         severity: Literal["ok", "info", "warning"] = "warning" if blocking else "info"
         lines: list[str] = []
-        for finding in group:
-            lines.extend(_finding_lines(finding, max_examples))
+        if category == "sentinel":
+            lines.extend(_sentinel_lines(group))
+        elif shared := _COLLAPSED.get(category):
+            lines.extend([shared, ""])
+            lines.extend(_collapsed_lines(group, list(raw.findings)))
+        else:
+            for finding in group:
+                lines.extend(_finding_lines(finding, max_examples))
         findings.append(
             Reportable(
                 report_type="key_value",
@@ -84,6 +117,63 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
     return findings
 
 
+def _sentinel_lines(group: list[Finding]) -> list[str]:
+    """One block per shared value, not one per factor.
+
+    A shared floor is a single observation about several columns at once. Rendered per factor
+    it becomes the same sentence five times with the other four names permuted through it —
+    which reads as five problems, and buries the one thing worth knowing: that one value sits
+    at the bottom of all of them.
+    """
+    by_value: dict[str, list[Finding]] = {}
+    for finding in group:
+        by_value.setdefault(repr(finding.detail.get("value")), []).append(finding)
+    lines: list[str] = []
+    for value, findings in sorted(by_value.items()):
+        names = sorted(f.factor for f in findings)
+        lines.append(f"{value} is the lowest value of {len(names)} factors: {', '.join(names)}")
+        lines.append("")
+        lines.append("A value that floors several unrelated columns at once is a convention, and")
+        lines.append("the convention is almost always 'not recorded'. Each column reads cleanly, so")
+        lines.append("nothing else here flags it — and every cut above was derived from values that")
+        lines.append("include it, which is why no bin count is suggested for these factors.")
+        lines.append("")
+        lines.append("Confirm it is a marker for each factor, then code it as missing (`.nan`).")
+        lines.append("")
+    return lines
+
+
+def _collapsed_lines(group: list[Finding], everything: list[Finding]) -> list[str]:
+    """One line per factor, for a category whose remedy is the same sentence for all of them.
+
+    The per-factor detail worth keeping is the number the reader would otherwise have to go
+    and find: what the suggestion proposes, or that nothing is proposed because another
+    finding withdrew it.
+    """
+    width = max(len(f.factor) for f in group)
+    lines = []
+    for finding in sorted(group, key=lambda f: f.factor):
+        policy = (finding.suggestion.policy if finding.suggestion else {}) or {}
+        bins = (policy.get("continuous_factor_bins") or {}).get(finding.factor)
+        if bins is not None:
+            detail = f"{bins} bins"
+        elif finding.suggestion is None and finding.category == "unbinned":
+            detail = _withdrawn_reason(finding.factor, everything)
+        else:
+            detail = _bucket_count(finding)
+        lines.append(f"{finding.factor:<{width}}  {detail}")
+    return [*lines, ""]
+
+
+def _bucket_count(finding: Finding) -> str:
+    """How many buckets this factor's encoding holds, as a plain phrase."""
+    fit = (finding.detail.get("info") or {}).get("fit") or {}
+    levels = fit.get("levels")
+    if levels is not None:
+        return f"{len(levels)} levels"
+    return f"{len(fit.get('bins') or ())} bins"
+
+
 def _finding_lines(finding: Finding, max_examples: int) -> list[str]:
     """One finding as report lines: what it is, its shape, and what to do."""
     head = f"[{finding.severity}] {finding.factor} [{', '.join(finding.reasons) or finding.category}"
@@ -92,7 +182,10 @@ def _finding_lines(finding: Finding, max_examples: int) -> list[str]:
     counts = finding.detail.get("counts")
     if counts:
         lines.append(f"  {_render_ratio(counts)}")
-    lines.extend(f"  {line}" for line in _render_distribution(finding.detail.get("info") or {}))
+    # Not for an identifier: the chart would be the arbitrary cut this finding exists to
+    # reject, drawn at full size and lending it the authority of a measurement.
+    if "n_distinct" not in finding.detail:
+        lines.extend(f"  {line}" for line in _render_distribution(finding.detail.get("info") or {}))
     lines.extend(f"  {line}" for line in _example_lines(finding, max_examples))
     lines.append(f"  -> {finding.remedy}")
     lines.append("")
