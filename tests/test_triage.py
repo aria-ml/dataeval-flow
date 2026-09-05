@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from dataeval_flow.triage import find_issues
+from dataeval_flow.triage import _numeric_drop, find_issues
 
 
 def _record(**over: Any) -> dict[str, Any]:
@@ -212,6 +212,25 @@ def test_unit_cruft_becomes_a_parse_value():
     assert finding.suggestion is not None
     assert finding.suggestion.complete is True
     assert finding.suggestion.corrections == [{"kind": "parse_value", "factor": "weight", "drop": [","]}]
+
+
+def test_a_unit_suffix_without_a_separating_space_is_stripped():
+    # "kg" is a trailing non-numeric run every value shares, not punctuation, so it can only
+    # be found through `_common_suffix` — the letter-stripping fallback must not touch it.
+    assert _numeric_drop(["12kg", "45kg", "7kg"]) == ["kg"]
+
+
+def test_a_unit_suffix_with_a_separating_space_is_stripped():
+    # The shared tail includes the space: dropping " kg" (not "kg" alone) is what leaves a
+    # bare number.
+    assert _numeric_drop(["12 kg", "45 kg", "7 kg"]) == [" kg"]
+
+
+def test_an_identifier_that_already_ends_in_a_digit_gets_no_suffix_candidate():
+    # Ruling A regression guard: `_common_suffix` must not invent a suffix out of "a7f" just
+    # because the other values in the column already end in a digit, and the loose fallback
+    # must not strip the letter either.
+    assert _numeric_drop(["a7f", "b12", "c93"]) is None
 
 
 def test_a_timestamp_becomes_a_parse_datetime():

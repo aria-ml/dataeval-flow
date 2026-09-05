@@ -77,7 +77,9 @@ _DATE_FORMATS: tuple[str, ...] = (
 #: Characters the loose fallback in :func:`_numeric_drop` is allowed to strip: punctuation,
 #: whitespace and currency symbols.  Letters are deliberately excluded — stripping them would
 #: turn an identifier into a number (``"a7f"`` -> ``"7"``), which is corruption, not a repair.
-#: A unit suffix like "kg" stays reachable through the `_common_suffix` candidate instead.
+#: A unit suffix like "kg" is still reachable: :func:`_common_suffix` strips each value down
+#: to its trailing non-numeric run (letters included) and offers that whole run as its own
+#: candidate, rather than this fallback stripping the letters character by character.
 _LOOSE_DROPPABLE = frozenset(" \t,.;:_'\"()[]{}!?/\\|~^$€£¥¢")
 
 
@@ -380,13 +382,21 @@ def _apply_drop(text: str, drop: Sequence[str]) -> str:
 
 
 def _common_suffix(texts: Sequence[str]) -> str:
-    """The longest non-numeric tail every value shares, or an empty string."""
-    tails = [t[len(t.rstrip("0123456789. ")) :] if t.rstrip("0123456789. ") else "" for t in texts]
+    """The longest trailing non-numeric run every value shares, or an empty string."""
+    tails = [_numeric_tail(t) for t in texts]
     shared = tails[0]
     for tail in tails[1:]:
         while shared and not tail.endswith(shared):
             shared = shared[1:]
     return shared
+
+
+def _numeric_tail(text: str) -> str:
+    """Whatever trails this value's last digit or ``.`` — a unit, a symbol, nothing at all."""
+    stripped = text
+    while stripped and not (stripped[-1].isdigit() or stripped[-1] == "."):
+        stripped = stripped[:-1]
+    return text[len(stripped) :]
 
 
 def _datetime_format(values: Sequence[str]) -> str | None | Literal[False]:
