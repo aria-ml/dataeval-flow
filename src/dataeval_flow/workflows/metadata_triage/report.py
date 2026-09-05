@@ -12,7 +12,7 @@ __all__ = ["build_findings", "summarize"]
 _TITLES: dict[str, str] = {
     "unreadable": "Unreadable factors",
     "unbound_request": "Requests that bound nothing",
-    "unbinned": "Continuous factors needing a cut",
+    "unbinned": "Factors needing a cut or a vocabulary",
     "unreviewed": "Encodings nobody pinned",
     "degenerate": "Factors carrying no signal",
 }
