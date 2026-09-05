@@ -17,6 +17,7 @@ __all__ = [
     "Severity",
     "Suggestion",
     "find_issues",
+    "incomplete_factors",
     "render_stanza",
     "suggest",
     "to_policy_stanza",
@@ -560,16 +561,64 @@ def to_policy_stanza(findings: Sequence[Finding]) -> dict[str, Any]:
     return stanza
 
 
-def render_stanza(stanza: Mapping[str, Any], *, name: str = "standard") -> str:
+def incomplete_factors(findings: Sequence[Finding]) -> set[str]:
+    """Factor names whose suggestions are incomplete and require user input.
+
+    These are factors whose suggested corrections have placeholders (e.g., ``to: null``)
+    that the user must fill in before the correction can be applied.
+
+    Parameters
+    ----------
+    findings : Sequence[Finding]
+        As returned by :func:`find_issues`.
+
+    Returns
+    -------
+    set[str]
+        Names of factors with incomplete suggestions. Empty where all suggestions are
+        complete or where there are no suggestions.
+    """
+    result = set()
+    for finding in findings:
+        if finding.suggestion is not None and not finding.suggestion.complete:
+            result.add(finding.factor)
+    return result
+
+
+def render_stanza(stanza: Mapping[str, Any], *, name: str = "standard", incomplete: set[str] | None = None) -> str:
     """The stanza as a YAML block, ready to paste under a config's ``metadata:`` key.
 
     Rendered rather than dumped so that ``to: null`` keeps its spelling — a value the user
     has to replace should read as a hole, and most YAML writers emit it as an empty string
     or the bare word, neither of which reads as one.
+
+    Parameters
+    ----------
+    stanza : Mapping[str, Any]
+        The policy body as returned by :func:`to_policy_stanza`.
+    name : str, default "standard"
+        The policy name.
+    incomplete : set[str] | None, default None
+        Factor names whose corrections are incomplete and should be marked with ``# TODO``.
+        When None (the default), no lines are marked — over-marking placeholders is worse
+        than under-marking them.
     """
     if not stanza:
         return ""
     import yaml
 
     body = yaml.safe_dump({"metadata": [{"name": name, **dict(stanza)}]}, sort_keys=False)
-    return body.replace(": null\n", ": null        # TODO\n")
+    if incomplete:
+        lines = body.split("\n")
+        marked_lines = []
+        current_factor = None
+        for line in lines:
+            # Track which factor this line belongs to
+            if "factor:" in line:
+                current_factor = line.split("factor:")[1].strip()
+            # Mark null lines only if the current factor is incomplete
+            if current_factor and current_factor in incomplete and ": null" in line:
+                line = line.replace(": null", ": null        # TODO")
+            marked_lines.append(line)
+        body = "\n".join(marked_lines)
+    return body

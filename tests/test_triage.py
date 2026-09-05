@@ -3,7 +3,13 @@
 from typing import Any
 
 from dataeval_flow.config.schemas import MetadataPolicyConfig
-from dataeval_flow.triage import _numeric_drop, find_issues, render_stanza, to_policy_stanza
+from dataeval_flow.triage import (
+    _numeric_drop,
+    find_issues,
+    incomplete_factors,
+    render_stanza,
+    to_policy_stanza,
+)
 
 
 def _record(**over: Any) -> dict[str, Any]:
@@ -402,3 +408,77 @@ def test_the_rendered_stanza_is_a_metadata_block():
     assert text.startswith("metadata:")
     assert "- name: standard" in text
     assert "kind: parse_value" in text
+
+
+def test_sentinel_remap_renders_with_no_todo_marker():
+    # A sentinels-only remap is complete; the user's job is done.
+    record = _record(unusable=_unusable(distinct={"text": ["N/A", "unknown"]}))
+    findings = find_issues(record)
+    stanza = to_policy_stanza(findings)
+    text = render_stanza(stanza, incomplete=incomplete_factors(findings))
+    # No incomplete factors, so no TODO markers at all
+    assert "# TODO" not in text
+
+
+def test_semantic_remap_renders_with_todo_marker():
+    # A semantic remap is incomplete; the user must supply the mapping.
+    record = _record(unusable=_unusable(distinct={"text": ["N", "NE"]}))
+    findings = find_issues(record)
+    stanza = to_policy_stanza(findings)
+    text = render_stanza(stanza, incomplete=incomplete_factors(findings))
+    # The incomplete semantic remap should have TODO markers
+    assert "to: null        # TODO" in text
+
+
+def test_mixed_complete_and_incomplete_factors_mark_only_incomplete():
+    # Multiple factors: complete ones have bare nulls, incomplete ones have TODOs.
+    record = _record(
+        unusable={
+            "bearing": {  # semantic, incomplete
+                "reasons": ["mixed_types"],
+                "level": "unit",
+                "repairable": True,
+                "counts": {"text": 3},
+                "distinct": {"text": ["N", "NE"]},
+                "sampled": False,
+            },
+            "quality": {  # sentinels, complete
+                "reasons": ["mixed_types"],
+                "level": "unit",
+                "repairable": True,
+                "counts": {"text": 3},
+                "distinct": {"text": ["N/A", "unknown"]},
+                "sampled": False,
+            },
+        }
+    )
+    findings = find_issues(record)
+    stanza = to_policy_stanza(findings)
+    text = render_stanza(stanza, incomplete=incomplete_factors(findings))
+
+    # Verify the structure of marked vs unmarked nulls
+    lines = text.split("\n")
+    bearing_line_idx = None
+    quality_line_idx = None
+
+    for i, line in enumerate(lines):
+        if "factor: bearing" in line:
+            bearing_line_idx = i
+        if "factor: quality" in line:
+            quality_line_idx = i
+
+    assert bearing_line_idx is not None, "bearing factor not found in output"
+    assert quality_line_idx is not None, "quality factor not found in output"
+
+    # Check lines in bearing section (between bearing and next factor or end)
+    end_bearing = quality_line_idx if quality_line_idx > bearing_line_idx else len(lines)
+    bearing_section = lines[bearing_line_idx:end_bearing]
+    has_bearing_todo = any("to: null        # TODO" in line for line in bearing_section)
+    assert has_bearing_todo, "bearing (incomplete) should have at least one TODO marker"
+
+    # Check lines in quality section (between quality and end)
+    quality_section = lines[quality_line_idx:]
+    has_quality_bare_null = any("to: null" in line and "# TODO" not in line for line in quality_section)
+    has_quality_todo = any("# TODO" in line for line in quality_section)
+    assert has_quality_bare_null, "quality (complete) should have bare nulls"
+    assert not has_quality_todo, "quality (complete) should not have TODO markers"
