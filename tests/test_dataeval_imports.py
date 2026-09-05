@@ -111,6 +111,25 @@ class TestPinnedVocabulariesStayInStep:
 
         assert set(get_args(EpochUnit)) == set(EPOCH_UNITS)
 
+    def test_the_reductions_match_the_registry(self):
+        from dataeval._metadata._reductions import REDUCTIONS
+
+        from dataeval_flow.config.schemas._metadata import Reduction
+
+        assert set(get_args(Reduction)) == set(REDUCTIONS)
+
+    def test_every_pinned_reduction_is_one_an_aggregator_accepts(self):
+        """`how` is the one field `Aggregator.validate` cannot check — the registry lives in
+        the metadata layer, which imports the types module rather than the other way round.
+        So the name is only ever checked where a roll-up is resolved, and this is what says
+        the pinned list is still the right one."""
+        from dataeval._metadata._reductions import lookup
+
+        from dataeval_flow.config.schemas._metadata import Reduction
+
+        for how in get_args(Reduction):
+            lookup(how)
+
     def test_every_pinned_period_is_one_parse_datetime_accepts(self):
         """Set equality would still pass if both sides drifted together onto a value the
         type itself refuses, which is the failure a user would actually hit."""
