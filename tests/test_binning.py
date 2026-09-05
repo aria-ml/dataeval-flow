@@ -788,3 +788,91 @@ class TestADeclaredRepairReachesTheRun:
 
         assert "weight" not in record["unusable"]
         assert "weight" in record["factors"]
+
+
+class _Target:
+    def __init__(self, labels, boxes, scores):
+        self.labels, self.boxes, self.scores = labels, boxes, scores
+
+
+class _DetectionDataset:
+    """Two levels, so a roll-up has somewhere to move a factor from and to.
+
+    Each detection carries its own `area`, which is what makes an instance-to-unit mean a
+    different number from the unit-level factor beside it.
+    """
+
+    def __init__(self, n: int = 12) -> None:
+        self._n = n
+        self._rng = np.random.default_rng(1)
+
+    @property
+    def metadata(self) -> DatasetMetadata:
+        return {"id": "rollup-od", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        count = 1 + (index % 3)
+        boxes = np.tile(np.array([0.0, 0.0, 8.0, 8.0], dtype=np.float32), (count, 1))
+        boxes[:, 2] += np.arange(count)
+        target = _Target(np.arange(count, dtype=np.intp) % 2, boxes, np.ones(count, dtype=np.float32))
+        image = self._rng.random((3, 16, 16)).astype(np.float32)
+        datum: dict[str, Any] = {
+            "id": index,
+            "weather": ["sun", "rain"][index % 2],
+            "area": [float(10 + i + index) for i in range(count)],
+        }
+        return image, target, datum
+
+
+class TestADeclaredRollUpReachesTheRun:
+    @staticmethod
+    def _policy(*aggs):
+        from dataeval_flow.config._models import PipelineConfig
+        from dataeval_flow.policy import resolve_policy
+        from dataeval_flow.workflow.base import MetadataConfigMixin
+
+        config = PipelineConfig.model_validate({"metadata": [{"name": "standard", "aggregations": list(aggs)}]})
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
+
+    def test_the_roll_up_produces_the_name_the_config_implies(self):
+        """The point of refusing collisions: the output name is derivable from what was
+        written, so `exclude` and bin declarations can bind to it."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"how": "mean", "source": "instance", "target": "unit", "factors": ["area"]})
+        md = build_metadata(_DetectionDataset(), policy)
+
+        assert "area_mean" in md.factor_names
+        assert policy.aggregation_specs[0].name_for("area") == "area_mean"
+
+    def test_without_the_declaration_no_rolled_factor_appears(self):
+        from dataeval_flow.metadata import build_metadata
+
+        assert "area_mean" not in build_metadata(_DetectionDataset()).factor_names
+
+    def test_a_suffix_names_the_output(self):
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy(
+            {"how": "mean", "source": "instance", "target": "unit", "factors": ["area"], "suffix": "_avg"}
+        )
+        assert "area_avg" in build_metadata(_DetectionDataset(), policy).factor_names
+
+    def test_the_copy_aggregate_returns_is_the_one_carried_forward(self):
+        """`aggregate` copies where `repair` mutates. Discarding the copy would leave the
+        roll-up computed and thrown away, with nothing to say so."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"how": "count", "source": "instance", "target": "unit", "factors": ["area"]})
+        md = build_metadata(_DetectionDataset(), policy)
+        assert "area_count" in md.factor_names
+
+    def test_the_rolled_factor_is_reported_in_the_binning_record(self):
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy({"how": "mean", "source": "instance", "target": "unit", "factors": ["area"]})
+        record = describe_binning(build_metadata(_DetectionDataset(), policy))
+        assert record["factors"]["area_mean"]["aggregated_from"] == "instance"
