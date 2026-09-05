@@ -607,18 +607,42 @@ def render_stanza(stanza: Mapping[str, Any], *, name: str = "standard", incomple
         return ""
     import yaml
 
-    body = yaml.safe_dump({"metadata": [{"name": name, **dict(stanza)}]}, sort_keys=False)
-    if incomplete:
-        lines = body.split("\n")
-        marked_lines = []
-        current_factor = None
-        for line in lines:
-            # Track which factor this line belongs to
-            if "factor:" in line:
-                current_factor = line.split("factor:")[1].strip()
-            # Mark null lines only if the current factor is incomplete
-            if current_factor and current_factor in incomplete and ": null" in line:
-                line = line.replace(": null", ": null        # TODO")
-            marked_lines.append(line)
-        body = "\n".join(marked_lines)
-    return body
+    if not incomplete:
+        # No incomplete factors, so no marking needed
+        return yaml.safe_dump({"metadata": [{"name": name, **dict(stanza)}]}, sort_keys=False)
+
+    # Use a unique marker token that cannot appear in user data (null byte is invalid in strings)
+    marker = "\x00INCOMPLETE_NULL_MARKER\x00"
+
+    # Build a copy with markers instead of nulls for incomplete factors
+    marked_stanza: dict[str, Any] = {}
+    for key, value in stanza.items():
+        if key == "corrections" and isinstance(value, list):
+            marked_corrections = []
+            for correction in value:
+                marked_correction = dict(correction)
+                factor = correction.get("factor")
+
+                # If this correction belongs to an incomplete factor and has rules with nulls, mark them
+                if factor in incomplete and "rules" in correction:
+                    marked_rules = []
+                    for rule in correction["rules"]:
+                        if rule.get("to") is None:
+                            marked_rule = dict(rule)
+                            marked_rule["to"] = marker
+                            marked_rules.append(marked_rule)
+                        else:
+                            marked_rules.append(rule)
+                    marked_correction["rules"] = marked_rules
+
+                marked_corrections.append(marked_correction)
+            marked_stanza[key] = marked_corrections
+        else:
+            marked_stanza[key] = value
+
+    body = yaml.safe_dump({"metadata": [{"name": name, **marked_stanza}]}, sort_keys=False)
+
+    # Replace the marker with the marked null
+    # YAML escapes the null byte as \0, so we replace the escaped form
+    # The marker will be in double-quoted form with YAML escaping: "\0INCOMPLETE_NULL_MARKER\0"
+    return body.replace('"\\0INCOMPLETE_NULL_MARKER\\0"', "null        # TODO")

@@ -482,3 +482,50 @@ def test_mixed_complete_and_incomplete_factors_mark_only_incomplete():
     has_quality_todo = any("# TODO" in line for line in quality_section)
     assert has_quality_bare_null, "quality (complete) should have bare nulls"
     assert not has_quality_todo, "quality (complete) should not have TODO markers"
+
+
+def test_distinct_values_with_factor_substring_dont_break_marking():
+    # Regression: values like "safety factor: 2.0" contain "factor:" which could
+    # confuse text-based factor tracking. All incomplete factor rules must be marked.
+    record = _record(
+        unusable={
+            "bearing": {
+                "reasons": ["mixed_types"],
+                "level": "unit",
+                "repairable": True,
+                "counts": {"text": 3},
+                "distinct": {"text": ["N", "safety factor: 2.0", "NW"]},
+                "sampled": False,
+            },
+        }
+    )
+    findings = find_issues(record)
+    stanza = to_policy_stanza(findings)
+    text = render_stanza(stanza, incomplete=incomplete_factors(findings))
+
+    # All three null values must be marked since bearing is incomplete
+    marked_count = text.count("to: null        # TODO")
+    assert marked_count == 3, f"Expected 3 marked nulls but found {marked_count}"
+
+
+def test_values_containing_null_colon_dont_break_marking():
+    # Values like "value: null" must not cause spurious marking issues
+    record = _record(
+        unusable={
+            "config": {
+                "reasons": ["mixed_types"],
+                "level": "unit",
+                "repairable": True,
+                "counts": {"text": 2},
+                "distinct": {"text": ["active", "value: null"]},
+                "sampled": False,
+            },
+        }
+    )
+    findings = find_issues(record)
+    stanza = to_policy_stanza(findings)
+    text = render_stanza(stanza, incomplete=incomplete_factors(findings))
+
+    # The config factor is incomplete, so both rules should be marked
+    marked_count = text.count("to: null        # TODO")
+    assert marked_count == 2, f"Expected 2 marked nulls but found {marked_count}"
