@@ -20,10 +20,11 @@ _TITLES: dict[str, str] = {
 
 _ORDER = ("unreadable", "unbound_request", "sentinel", "degenerate", "unbinned", "unreviewed")
 
-#: Categories rendered as one line per factor rather than a block each.  Their remedy is the
-#: same sentence for every factor that has them, so a block apiece is the same paragraph
-#: repeated ten times — volume that reads as ten problems when it is one, and buries the
-#: findings that differ from each other.  The shared remedy is stated once, above the list.
+#: Categories whose remedy is the same sentence for every factor that has them, stated once
+#: here rather than repeated under each.  Ten copies of one paragraph read as ten problems and
+#: bury the findings that genuinely differ.  Only the prose is shared: each factor still shows
+#: its own distribution, because that is the evidence for the count being proposed and the
+#: reader is meant to be able to disagree with it.
 _COLLAPSED: dict[str, str] = {
     "unbinned": (
         "Each cut below came from this sample, so it is not stable across draws. Declaring the "
@@ -144,25 +145,27 @@ def _sentinel_lines(group: list[Finding]) -> list[str]:
 
 
 def _collapsed_lines(group: list[Finding], everything: list[Finding]) -> list[str]:
-    """One line per factor, for a category whose remedy is the same sentence for all of them.
+    """Each factor with its own shape, under a remedy stated once for all of them.
 
-    The per-factor detail worth keeping is the number the reader would otherwise have to go
-    and find: what the suggestion proposes, or that nothing is proposed because another
-    finding withdrew it.
+    What repeats across these findings is the *sentence*, and printing it ten times reads as ten
+    problems. What does not repeat is the distribution: it is the evidence for the bin count
+    being proposed, and the reader is meant to disagree with a suggestion by looking at it. So
+    the prose collapses and the charts do not.
     """
-    width = max(len(f.factor) for f in group)
-    lines = []
+    lines: list[str] = []
     for finding in sorted(group, key=lambda f: f.factor):
         policy = (finding.suggestion.policy if finding.suggestion else {}) or {}
         bins = (policy.get("continuous_factor_bins") or {}).get(finding.factor)
         if bins is not None:
-            detail = f"{bins} bins"
+            detail = f"declare {bins} bins"
         elif finding.suggestion is None and finding.category == "unbinned":
             detail = _withdrawn_reason(finding.factor, everything)
         else:
             detail = _bucket_count(finding)
-        lines.append(f"{finding.factor:<{width}}  {detail}")
-    return [*lines, ""]
+        lines.append(f"{finding.factor} — {detail}")
+        lines.extend(f"  {line}" for line in _render_distribution(finding.detail.get("info") or {}))
+        lines.append("")
+    return lines
 
 
 def _bucket_count(finding: Finding) -> str:
