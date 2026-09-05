@@ -876,3 +876,17 @@ class TestADeclaredRollUpReachesTheRun:
         policy = self._policy({"how": "mean", "source": "instance", "target": "unit", "factors": ["area"]})
         record = describe_binning(build_metadata(_DetectionDataset(), policy))
         assert record["factors"]["area_mean"]["aggregated_from"] == "instance"
+
+
+def test_a_distribution_survives_a_column_holding_nan():
+    """`remap`-to-missing writes NaN, which polars does not treat as null.
+
+    Left in the column it poisons the extremes and the histogram arithmetic — so a run
+    corrected the way this record's own findings recommend crashed where the first run passed.
+    """
+    md = Metadata.from_factors({"alt": np.array([1.0, 2.0, np.nan, 4.0] * 15), "x": np.arange(60)})
+    record = describe_binning(md)
+    dist = record["factors"]["alt"]["distribution"]
+    assert dist["quantiles"]["0.0"] == 1.0
+    assert dist["quantiles"]["1.0"] == 4.0
+    assert sum(dist["histogram"]) == 45, "the NaN rows are excluded, not counted"

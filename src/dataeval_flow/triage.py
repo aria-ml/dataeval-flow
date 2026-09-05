@@ -31,7 +31,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Category = Literal["unreadable", "unbound_request", "unbinned", "unreviewed", "degenerate", "sentinel"]
+Category = Literal["unreadable", "unbound_request", "unbinned", "unreviewed", "degenerate", "floor_mass"]
 Severity = Literal["blocking", "warning", "note"]
 
 #: Severity order for report grouping.  Blocking first: it is what the run did less of than
@@ -45,11 +45,9 @@ _MIN_BINS = 2
 #: measurements are all distinct as a matter of course.
 _IDENTIFIER_MIN_ROWS = 50
 
-#: Factors that must share a minimum before it is read as a sentinel rather than a reading.
-#: One column's lowest value is just its lowest value; the same exact number sitting at the
-#: bottom of three unrelated columns is a convention, and the convention is almost always
-#: "this was not recorded".
-_SENTINEL_MIN_FACTORS = 3
+#: Other columns that must share an extreme before it reads as a convention rather than a
+#: coincidence.  Corroboration only: the mass itself is what the finding is about.
+_SHARED_EXTREME_FACTORS = 2
 
 #: Values standing for "no reading", whatever the column otherwise holds.  A closed literal
 #: list rather than a pattern, so what it claims is auditable.
@@ -162,14 +160,14 @@ def find_issues(
         *_unbound(record),
         *_encodings(record, default_bins),
         *_degenerate(record, min_missing_fraction),
-        *_shared_sentinels(record),
+        *_floor_mass(record),
     ]
     # A factor can carry more than one finding at once, and where it does the bin count is the
     # one to withdraw. A `degenerate` cut is one the same report calls useless; a `sentinel`
     # cut was derived from values that include a marker for "not recorded". Pinning either
     # would fix an accident in place. Both findings stay — they are true, and the reader should
     # see them — but neither leaves a cut behind in the stanza.
-    withdrawn = {f.factor for f in findings if f.category in ("degenerate", "sentinel")}
+    withdrawn = {f.factor for f in findings if f.category in ("degenerate", "floor_mass")}
     for finding in findings:
         if finding.category == "unbinned" and finding.factor in withdrawn:
             finding.suggestion = None
@@ -469,48 +467,76 @@ def _identifier_finding(name: str, info: Mapping[str, Any]) -> Finding | None:
     )
 
 
-def _shared_sentinels(record: Mapping[str, Any]) -> Iterator[Finding]:
-    """Values sitting at the bottom of several columns at once, which is what a sentinel does.
+def _floor_mass(record: Mapping[str, Any]) -> Iterator[Finding]:
+    """Columns where a quarter of the rows or more sit on a single extreme value.
 
-    A column that reads cleanly is never held back, so nothing else here looks at it — and a
-    sentinel that shares its column's type is exactly that case.  SeaDrone writes ``-1`` where
-    the drone recorded nothing, and because ``-1`` is a number the column parses, bins and is
-    reported as a factor whose lowest value happens to be impossible.
+    Judged from the order statistics rather than from any cut, which is the point: a chart
+    drawn at a factor's own bin count shows the reader the cut they were asked to evaluate,
+    and a value can be a quarter of a column while landing inside one bin of it, invisible.
+    ``min == p25`` says a quarter of the rows share the lowest value however anyone cut it.
 
-    The evidence is structural rather than semantic, which is why this looks for the same exact
-    number at the foot of several unrelated columns instead of asking whether any one value is
-    plausible.  One column's minimum is just its minimum; SeaDrone's ``xspeed`` reaches −11.5
-    and means it.
+    Reported as what it is rather than as what it probably means.  SeaDrone writes ``-1``
+    where the drone recorded nothing, and that is a marker; a boat at rest genuinely reads a
+    speed of zero, and that is a reading.  Nothing here can tell those apart — but both change
+    what every statistic over the factor says, and both make a cut derived from the column
+    describe the mass rather than the spread.  So the finding states the shape and leaves the
+    reading to somebody who knows the data.
+
+    The same value flooring several columns is carried as corroboration, because a convention
+    shared across unrelated columns is much more likely to be a marker than a reading.
     """
-    minima: dict[Any, list[str]] = {}
-    for name, info in sorted(_factors(record).items()):
-        bins = ((info.get("fit") or {}) if isinstance(info.get("fit"), Mapping) else {}).get("bins")
-        if not bins:
-            continue
-        low = bins[0].get("min")
-        if isinstance(low, (int, float)) and not isinstance(low, bool):
-            minima.setdefault(low, []).append(name)
-    for value, factors in sorted(minima.items(), key=lambda kv: repr(kv[0])):
-        if len(factors) < _SENTINEL_MIN_FACTORS:
-            continue
-        for name in factors:
-            others = [f for f in factors if f != name]
+    factors = _factors(record)
+    extremes: dict[Any, list[str]] = {}
+    for name, info in factors.items():
+        for value in _floor_values(info):
+            extremes.setdefault(value, []).append(name)
+    for name, info in sorted(factors.items()):
+        for value in _floor_values(info):
+            others = sorted(f for f in extremes.get(value, ()) if f != name)
+            shared = len(others) >= _SHARED_EXTREME_FACTORS
             yield Finding(
                 factor=name,
-                category="sentinel",
+                category="floor_mass",
                 severity="warning",
-                level=(_factors(record).get(name) or {}).get("level"),
-                detail={"value": value, "shared_with": others, "info": dict(_factors(record)[name])},
+                level=info.get("level"),
+                detail={"value": value, "shared_with": others, "info": dict(info)},
                 remedy=(
-                    f"lowest value is {value!r}, shared as a floor with {len(others)} other "
-                    f"{'factor' if len(others) == 1 else 'factors'} — usually a not-recorded "
-                    "marker rather than a reading"
+                    f"a quarter of the rows or more hold {value!r}, its most extreme value"
+                    + (
+                        f" — and {len(others)} other factors share that extreme, which usually "
+                        "means a not-recorded marker rather than a reading"
+                        if shared
+                        else "; if that is a marker rather than a reading, code it missing"
+                    )
                 ),
                 suggestion=Suggestion(
                     corrections=[{"kind": "remap", "factor": name, "rules": [{"match": value, "to": None}]}],
                     complete=False,
                 ),
             )
+
+
+def _floor_values(info: Mapping[str, Any]) -> list[Any]:
+    """The extreme values a quarter of this column sits on, at either end.
+
+    A constant column is not one of these — it has no spread for a mass to be a mass *of*, and
+    ``degenerate`` already reports it as grouping nothing.
+    """
+    quantiles = ((info.get("distribution") or {}) or {}).get("quantiles")
+    if not isinstance(quantiles, Mapping):
+        return []
+    try:
+        low, p25, p75, high = (float(quantiles[k]) for k in ("0.0", "0.25", "0.75", "1.0"))
+    except (KeyError, TypeError, ValueError):
+        return []
+    if low == high:
+        return []
+    found = []
+    if low == p25:
+        found.append(quantiles["0.0"])
+    if high == p75:
+        found.append(quantiles["1.0"])
+    return found
 
 
 def _is_sentinel(value: Any) -> bool:

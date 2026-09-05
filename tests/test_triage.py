@@ -771,9 +771,22 @@ def test_a_placeholder_stays_null_beside_a_sentinel():
     assert finding.suggestion.complete is False
 
 
-def _numeric(name: str, lo: Any, hi: Any, rows: int, distinct: int, bins: int = 3) -> dict[str, Any]:
-    """A binned numeric factor entry with a given span, row count and distinct count."""
+def _numeric(
+    name: str,
+    lo: Any,
+    hi: Any,
+    rows: int,
+    distinct: int,
+    bins: int = 3,
+    quantiles: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A binned numeric factor entry with a given span, row count and order statistics.
+
+    ``quantiles`` default to an even spread, which is the shape that trips nothing.
+    """
     per = rows // bins
+    span = hi - lo
+    spread = {str(q): lo + span * q for q in (0.0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1.0)}
     return {
         name: {
             "type": "discrete",
@@ -782,8 +795,13 @@ def _numeric(name: str, lo: Any, hi: Any, rows: int, distinct: int, bins: int = 
             "n_distinct": distinct,
             "encoding": {"kind": "bins", "provenance": "derived", "edges": list(range(bins + 1))},
             "fit": {
-                "bins": [{"code": i + 1, "count": per, "min": lo if i == 0 else lo, "max": hi} for i in range(bins)],
+                "bins": [{"code": i + 1, "count": per, "min": lo, "max": hi} for i in range(bins)],
                 "empty": [],
+            },
+            "distribution": {
+                "quantiles": {**spread, **(quantiles or {})},
+                "histogram": [per] * 40,
+                "cells": 40,
             },
         }
     }
@@ -823,29 +841,75 @@ def test_a_repeating_integer_column_is_not_an_identifier():
     assert [f for f in find_issues(record) if f.category == "degenerate"] == []
 
 
-def test_a_floor_shared_by_several_columns_reads_as_a_sentinel():
-    """SeaDrone writes -1 where the drone recorded nothing, in five telemetry columns."""
+def test_a_quarter_of_the_rows_on_one_extreme_is_reported():
+    """SeaDrone's `-1`: `min == p25`, so a quarter of the column sits on its lowest value.
+
+    Judged from the order statistics, not from the cut — the whole point. `-1` is a quarter of
+    `altitude` while landing inside a single bin of its two-bin cut, where a chart drawn at
+    that cut cannot show it at all.
+    """
     factors: dict[str, Any] = {}
     for name in ("altitude", "compass_heading", "speed"):
-        factors.update(_numeric(name, -1.0, 300.0, rows=200, distinct=78))
-    findings = [f for f in find_issues(_record(factors=factors)) if f.category == "sentinel"]
+        factors.update(_numeric(name, -1.0, 300.0, rows=200, distinct=78, quantiles={"0.0": -1.0, "0.25": -1.0}))
+    findings = [f for f in find_issues(_record(factors=factors)) if f.category == "floor_mass"]
     assert sorted(f.factor for f in findings) == ["altitude", "compass_heading", "speed"]
     assert findings[0].detail["value"] == -1.0
-    # The companions travel in `detail`, not the prose: naming them in every remedy is the
-    # same sentence repeated once per factor with the other names permuted through it.
+    # Sharing the extreme is corroboration, carried in `detail` rather than permuted through
+    # every remedy.
     assert sorted(findings[0].detail["shared_with"]) == ["compass_heading", "speed"]
     assert "2 other factors" in findings[0].remedy
-    # The cut was derived from values including the marker, so it is not offered.
-    assert all(f.suggestion is None for f in find_issues(_record(factors=factors)) if f.category == "unbinned")
 
 
-def test_one_column_low_value_is_just_its_low_value():
-    """`xspeed` reaches -11.5 and means it; only a *shared* floor is evidence."""
+def test_a_mass_at_one_extreme_is_reported_even_in_a_single_column():
+    """The cross-column rule needed three columns to agree; this needs none."""
+    record = _record(
+        factors=_numeric("altitude", -1.0, 300.0, rows=200, distinct=78, quantiles={"0.0": -1.0, "0.25": -1.0})
+    )
+    (finding,) = [f for f in find_issues(record) if f.category == "floor_mass"]
+    assert finding.detail["shared_with"] == []
+    assert "marker" in finding.remedy
+
+
+def test_a_mass_at_the_top_is_reported_too():
+    record = _record(
+        factors=_numeric("score", 0.0, 9999.0, rows=200, distinct=60, quantiles={"0.75": 9999.0, "1.0": 9999.0})
+    )
+    (finding,) = [f for f in find_issues(record) if f.category == "floor_mass"]
+    assert finding.detail["value"] == 9999.0
+
+
+def test_an_ordinary_spread_holds_no_mass():
+    """`xspeed` reaches -11.5 and means it: its lowest value is not a quarter of the column."""
     factors = {
         **_numeric("xspeed", -11.5, 11.1, rows=200, distinct=46),
         **_numeric("yspeed", -7.4, 8.6, rows=200, distinct=49),
     }
-    assert [f for f in find_issues(_record(factors=factors)) if f.category == "sentinel"] == []
+    assert [f for f in find_issues(_record(factors=factors)) if f.category == "floor_mass"] == []
+
+
+def test_a_constant_column_is_degenerate_rather_than_a_floor_mass():
+    """It has no spread for a mass to be a mass *of*, and `degenerate` already says so."""
+    record = _record(
+        factors=_numeric(
+            "flat",
+            5.0,
+            5.0,
+            rows=200,
+            distinct=1,
+            quantiles={str(q): 5.0 for q in (0.0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1.0)},
+        )
+    )
+    categories = {f.category for f in find_issues(record)}
+    assert "floor_mass" not in categories
+
+
+def test_the_cut_is_withdrawn_from_a_column_with_a_floor_mass():
+    record = _record(
+        factors=_numeric("altitude", -1.0, 300.0, rows=200, distinct=78, quantiles={"0.0": -1.0, "0.25": -1.0})
+    )
+    unbinned = [f for f in find_issues(record) if f.category == "unbinned"]
+    assert unbinned
+    assert unbinned[0].suggestion is None
 
 
 def test_two_identifiers_both_reach_the_exclude_list():

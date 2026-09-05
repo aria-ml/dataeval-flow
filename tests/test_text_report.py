@@ -1239,3 +1239,53 @@ def test_a_thin_minority_still_shows_in_the_ratio_bar():
     line = _render_ratio({"numeric": 198, "text": 2})
     assert line.count("░") >= 1, f"the 2 text rows vanished: {line!r}"
     assert line.count("█") == 19
+
+
+def _shaped(quantiles: dict[str, float], hist: list[int], kind: str = "bins") -> dict:
+    """A factor entry carrying a recorded distribution."""
+    return {
+        "type": "discrete",
+        "level": "unit",
+        "encoding": {"kind": kind, "provenance": "derived", "edges": [0, 1], "levels": ["a"]},
+        "distribution": {"quantiles": {str(k): v for k, v in quantiles.items()}, "histogram": hist, "cells": len(hist)},
+    }
+
+
+def test_a_cut_factor_is_drawn_from_its_shape_not_its_bins():
+    """The chart exists to judge the cut, so it must not be drawn at that cut."""
+    q = {"0.0": -1.0, "0.25": -1.0, "0.5": 30.0, "0.75": 42.0, "1.0": 240.0}
+    lines = _render_distribution(_shaped(q, [60, 20, 10, 5, 3, 2, 1, 1]))
+    assert len(lines) == 2
+    assert "p25 -1" in lines[1]
+    assert "┃" in lines[1], "the median mark is drawn"
+
+
+def test_a_skewed_box_never_collapses_to_bare_whiskers():
+    """p25 and p75 within a fraction of a cell still leave a visible box."""
+    q = {"0.0": 110.0, "0.25": 900.0, "0.5": 1806.0, "0.75": 5508.0, "1.0": 680264.0}
+    lines = _render_distribution(_shaped(q, [80, 5, 2, 1, 0, 0, 0, 1]))
+    # Where the box collapses onto the median, the median mark is the box. What must not
+    # happen is a line of bare whiskers, which reads as broken rather than as skewed.
+    assert not lines[1].startswith("├" + "─" * 6 + "┤"), f"the box vanished: {lines[1]!r}"
+    assert "┃" in lines[1]
+
+
+def test_a_digitized_factor_keeps_its_vocabulary():
+    """A vocabulary is the values themselves, not a partition imposed on them."""
+    info = {
+        "type": "categorical",
+        "level": "unit",
+        "encoding": {"kind": "levels", "provenance": "derived", "levels": ["m210", "mavic"]},
+        "fit": {
+            "levels": [{"code": 0, "value": "m210", "count": 56}, {"code": 1, "value": "mavic", "count": 120}],
+            "empty": [],
+        },
+        "distribution": {
+            "quantiles": {"0.0": 0.0, "0.25": 0.0, "0.5": 1.0, "0.75": 1.0, "1.0": 1.0},
+            "histogram": [56, 120],
+            "cells": 2,
+        },
+    }
+    lines = "\n".join(_render_distribution(info))
+    assert "m210" in lines
+    assert "p25" not in lines

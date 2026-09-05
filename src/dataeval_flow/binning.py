@@ -29,6 +29,7 @@ mistaken for the policy.
 
 import json
 import logging
+import math
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -273,6 +274,69 @@ def _level_fit(df: pl.DataFrame, name: str, record: Mapping[str, Any]) -> dict[s
     }
 
 
+#: Cells a recorded histogram is drawn into.  A *display* resolution, fixed for every factor
+#: rather than taken from its bin count — which is the whole point.  Judging a cut by a chart
+#: drawn at that same cut shows the reader the answer they were asked to check, and a factor
+#: cut into two bins and one cut into twelve cannot be compared at all.
+_DISTRIBUTION_CELLS = 40
+
+#: Order statistics recorded per numeric factor.  Bin-free by construction: they describe where
+#: the values are, not where somebody cut them.
+_QUANTILES: tuple[float, ...] = (0.0, 0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99, 1.0)
+
+
+def _as_float(value: Any) -> float | None:
+    """One numeric value as a float, or None where it is not a number.
+
+    Polars hands back a loosely typed literal for a column's extremes and elements; this is
+    where that becomes a number, so the arithmetic below reads as arithmetic.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _distribution(df: pl.DataFrame, name: str) -> dict[str, Any] | None:
+    """A numeric column's shape, described without reference to any cut.
+
+    Two things, both small enough to travel in the envelope: the order statistics, and a
+    histogram at a fixed display resolution.  Neither is derived from the encoding, so a
+    reader can judge a proposed bin count against the values instead of against the cut that
+    count came from.
+
+    ``None`` for a non-numeric column, whose distribution is its vocabulary — already recorded
+    by the level fit, and not something a cut imposed.
+    """
+    if name not in df.columns or not df[name].dtype.is_numeric():
+        return None
+    values = df[name].drop_nulls()
+    # NaN is not null to polars, and NaN is exactly what a `remap` writes for a value coded as
+    # unrecorded — the remedy this record's own findings recommend. Left in, it poisons the
+    # extremes and every arithmetic below it, so a corrected re-run failed outright where the
+    # first run had been fine.
+    if values.dtype.is_float():
+        values = values.drop_nans()
+    if not len(values):
+        return None
+    # Polars types a column's extremes as any Python literal, so they are narrowed once here
+    # rather than at each of the five arithmetic sites below.
+    low, high = _as_float(values.min()), _as_float(values.max())
+    if low is None or high is None:
+        return None
+    quantiles = {str(q): values.quantile(q) for q in _QUANTILES}
+    counts = [0] * _DISTRIBUTION_CELLS
+    span = high - low
+    last = _DISTRIBUTION_CELLS - 1
+    for value in values:
+        scalar = _as_float(value)
+        if scalar is None:
+            continue
+        offset = 0.0 if not span else (scalar - low) / span * _DISTRIBUTION_CELLS
+        counts[min(int(offset), last)] += 1
+    return {"quantiles": quantiles, "histogram": counts, "cells": _DISTRIBUTION_CELLS}
+
+
 def _factor_entry(
     name: str,
     info: Any,
@@ -294,6 +358,11 @@ def _factor_entry(
     if name in df.columns:
         entry["n_distinct"] = int(df[name].n_unique())
         entry["rows"] = int(df.height)
+    distribution = _distribution(df, name)
+    if distribution is not None:
+        # Beside `fit`, not inside it: a fit says how rows fell into the cut somebody made,
+        # and this says what the values are regardless of any cut.
+        entry["distribution"] = distribution
 
     if record is None:
         # Neither encoding path was reached, or the record could not be read.

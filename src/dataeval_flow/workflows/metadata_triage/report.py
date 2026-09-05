@@ -12,13 +12,13 @@ __all__ = ["build_findings", "summarize"]
 _TITLES: dict[str, str] = {
     "unreadable": "Unreadable factors",
     "unbound_request": "Requests that bound nothing",
-    "sentinel": "Values that look like markers, not readings",
+    "floor_mass": "Columns dominated by one extreme value",
     "degenerate": "Factors carrying no signal",
     "unbinned": "Cuts nobody pinned",
     "unreviewed": "Vocabularies nobody pinned",
 }
 
-_ORDER = ("unreadable", "unbound_request", "sentinel", "degenerate", "unbinned", "unreviewed")
+_ORDER = ("unreadable", "unbound_request", "floor_mass", "degenerate", "unbinned", "unreviewed")
 
 #: Categories whose remedy is the same sentence for every factor that has them, stated once
 #: here rather than repeated under each.  Ten copies of one paragraph read as ten problems and
@@ -41,8 +41,8 @@ _COLLAPSED: dict[str, str] = {
 def _withdrawn_reason(factor: str, findings: list[Finding]) -> str:
     """Why no cut is offered for this factor, named rather than pointed at."""
     other = {f.category for f in findings if f.factor == factor} - {"unbinned"}
-    if "sentinel" in other:
-        return "no cut — its values include a not-recorded marker (see above)"
+    if "floor_mass" in other:
+        return "no cut — a quarter of its rows sit on one extreme (see above)"
     if "degenerate" in other:
         return "no cut — it names its rows rather than grouping them (see above)"
     return "no cut suggested"
@@ -63,8 +63,8 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
         blocking = any(f.severity == "blocking" for f in group)
         severity: Literal["ok", "info", "warning"] = "warning" if blocking else "info"
         lines: list[str] = []
-        if category == "sentinel":
-            lines.extend(_sentinel_lines(group))
+        if category == "floor_mass":
+            lines.extend(_floor_mass_lines(group))
         elif shared := _COLLAPSED.get(category):
             lines.extend([shared, ""])
             lines.extend(_collapsed_lines(group, list(raw.findings)))
@@ -118,13 +118,13 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
     return findings
 
 
-def _sentinel_lines(group: list[Finding]) -> list[str]:
+def _floor_mass_lines(group: list[Finding]) -> list[str]:
     """One block per shared value, not one per factor.
 
-    A shared floor is a single observation about several columns at once. Rendered per factor
-    it becomes the same sentence five times with the other four names permuted through it —
-    which reads as five problems, and buries the one thing worth knowing: that one value sits
-    at the bottom of all of them.
+    A shared extreme is a single observation about several columns at once. Rendered per factor
+    it becomes the same sentence once per column with the other names permuted through it —
+    which reads as many problems, and buries the one thing worth knowing: that one value sits
+    at the end of all of them.
     """
     by_value: dict[str, list[Finding]] = {}
     for finding in group:
@@ -132,14 +132,20 @@ def _sentinel_lines(group: list[Finding]) -> list[str]:
     lines: list[str] = []
     for value, findings in sorted(by_value.items()):
         names = sorted(f.factor for f in findings)
-        lines.append(f"{value} is the lowest value of {len(names)} factors: {', '.join(names)}")
+        plural = "factors" if len(names) > 1 else "factor"
+        lines.append(f"{value} is an extreme held by a quarter or more of {len(names)} {plural}:")
+        lines.append(f"  {', '.join(names)}")
         lines.append("")
-        lines.append("A value that floors several unrelated columns at once is a convention, and")
-        lines.append("the convention is almost always 'not recorded'. Each column reads cleanly, so")
-        lines.append("nothing else here flags it — and every cut above was derived from values that")
-        lines.append("include it, which is why no bin count is suggested for these factors.")
+        if len(names) > 1:
+            lines.append("One value at the end of several unrelated columns is usually a convention,")
+            lines.append("and the convention is almost always 'not recorded'.")
+        else:
+            lines.append("It may be a marker or a genuine reading — nothing here can tell which.")
+        lines.append("Either way a cut derived from this column describes the mass rather than the")
+        lines.append("spread, which is why no bin count is suggested for it.")
         lines.append("")
-        lines.append("Confirm it is a marker for each factor, then code it as missing (`.nan`).")
+        lines.append("If it is a marker, code it missing (`.nan`); if it is a reading, know that")
+        lines.append("this factor is mostly that one value.")
         lines.append("")
     return lines
 

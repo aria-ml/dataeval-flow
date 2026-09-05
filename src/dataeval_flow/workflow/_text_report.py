@@ -833,6 +833,68 @@ def _hbar(count: int, peak: int) -> str:
     return bar or _FRAC_BLOCKS[1]
 
 
+#: Vertical eighths for a histogram drawn into a line.  Index 0 is a space: blank means a cell
+#: nothing landed in, and every nonzero cell floors at index 1.
+_SPARK_BLOCKS_V = " \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"
+
+
+def _render_shape(info: dict[str, Any]) -> list[str]:
+    """A numeric factor's distribution, drawn without reference to any cut.
+
+    Two lines. The first is a histogram at the *recorded* display resolution — the same width
+    for every factor, so two factors can be compared and neither is shown through its own bin
+    count. The second is a box plot over the same scale: the quartile box, the median, and the
+    whiskers out to the extremes.
+
+    Drawing a factor at its own bin count is what this replaces, and the reason is that the
+    chart existed to help judge that count. A two-bin cut drew two bars, which says nothing
+    about whether two was right, and a value that is a quarter of the column can sit inside one
+    of those bars invisibly. The order statistics say where the mass is whatever anyone cut.
+    """
+    # Only for a factor that was *cut*. A digitized one's vocabulary is the values themselves
+    # rather than an imposed partition, so showing it directly is not circular and reads far
+    # better than order statistics over category codes.
+    if (info.get("encoding") or {}).get("kind") != "bins":
+        return []
+    dist = info.get("distribution") or {}
+    hist, quantiles = dist.get("histogram"), dist.get("quantiles")
+    if not hist or not isinstance(quantiles, Mapping):
+        return []
+    try:
+        low, q1, med, q3, high = (float(quantiles[k]) for k in ("0.0", "0.25", "0.5", "0.75", "1.0"))
+    except (KeyError, TypeError, ValueError):
+        return []
+    width = len(hist)
+    peak = max(hist)
+    if not peak:
+        return []
+    bars = "".join(_SPARK_BLOCKS_V[0] if c == 0 else _SPARK_BLOCKS_V[max(1, round(c / peak * 8))] for c in hist)
+
+    span = high - low
+
+    def _at(value: float) -> int:
+        return 0 if not span else min(max(int(round((value - low) / span * (width - 1))), 0), width - 1)
+
+    cells = ["\u2500"] * width
+    # Whisker caps first, box over them. A box that reaches an end *is* the finding \u2014 a quarter
+    # of the rows sitting on the extreme leaves no whisker on that side \u2014 so the box has to be
+    # able to cover a cap rather than be overwritten by it. Both extremes are labelled either
+    # side of the line, so nothing is lost when a cap is covered.
+    cells[0], cells[-1] = "\u251c", "\u2524"
+    # The box never rounds away either: on a heavily skewed column the interquartile range can
+    # be a fraction of a cell, and a plot drawn as two bare whiskers reads as broken rather
+    # than as skewed. Same rule as every other bar here \u2014 a nonzero quantity keeps a cell.
+    for i in range(_at(q1), max(_at(q3), _at(q1)) + 1):
+        cells[i] = "\u2588"
+    cells[_at(med)] = "\u2503"
+    lo_label, hi_label = _fmt_num(low), _fmt_num(high)
+    pad = " " * len(lo_label)
+    return [
+        f"{lo_label} {bars} {hi_label}",
+        f"{pad} {''.join(cells)}  p25 {_fmt_num(q1)} \u00b7 p50 {_fmt_num(med)} \u00b7 p75 {_fmt_num(q3)}",
+    ]
+
+
 def _render_distribution(info: dict[str, Any]) -> list[str]:
     """How this factor's rows fell across its buckets, as a chart.
 
@@ -840,6 +902,10 @@ def _render_distribution(info: dict[str, Any]) -> list[str]:
     line whatever the width.  Per-bucket bars as well up to ``_MAX_ENUMERATED``, above which
     the sparkline carries the shape on its own — the case that cap exists for.
     """
+    # A numeric factor is drawn from its recorded shape, never from its own cut.
+    shape = _render_shape(info)
+    if shape:
+        return shape
     rows = _bucket_counts(info)
     if not rows:
         return []
