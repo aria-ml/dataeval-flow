@@ -258,6 +258,158 @@ CorrectionConfig = Annotated[
 ]
 
 
+# --- Aggregations ------------------------------------------------------------
+#
+# Rolling a factor up into a level above it: one value per destination row, by the name of
+# a reduction. Declared here so a run's roll-ups are policy like its cuts are — two
+# workflows over one dataset that roll up differently produce numbers that merge into one
+# result file and cannot be compared.
+
+Reduction = Literal[
+    "all",
+    "any",
+    "changes",
+    "count",
+    "first",
+    "last",
+    "longest_run",
+    "max",
+    "mean",
+    "median",
+    "min",
+    "mode",
+    "n_unique",
+    "std",
+    "sum",
+    "trend",
+    "var",
+    "variability",
+]
+"""Reductions :meth:`dataeval.Metadata.aggregate` knows, by name.
+
+Pinned so a typo is a config error rather than a failure after the walk. `REDUCTIONS` is
+not exported from `dataeval`, so a registry-sync test holds this in step with it.
+
+Four of these are temporal (`variability`, `trend`, `changes`, `longest_run`) and need an
+ordering column the source level carries. A flat list admits all eighteen, so a temporal
+reduction on data with no ordering validates here and is refused at run time — which levels
+carry an ordering is a property of the dataset, not of the name.
+"""
+
+FactorLevel = Literal["sequence", "unit", "track", "instance"]
+"""The canonical levels a row can sit at, coarsest to finest."""
+
+_Bounds = tuple[float | None, float | None]
+
+ToleranceSpec = (
+    str
+    | float
+    | _Bounds
+    | tuple[str, float | _Bounds | None]
+    | tuple[str, float | _Bounds | None, _Bounds]
+    | tuple[float | _Bounds | None, _Bounds]
+)
+"""A threshold spec, in the tuples :func:`dataeval.utils.thresholds.resolve_threshold` reads.
+
+Typed rather than left as a free mapping because that resolver branches on
+``isinstance(value, tuple)`` and YAML has no tuple. Written as it arrives, a spec falls
+through every branch to the adaptive default and then raises about a lower bound the author
+never declared::
+
+    ["iqr", [None, 1.5]]   as written   ->  AdaptiveThreshold   (silently the wrong one)
+    ("iqr", (None, 1.5))   coerced      ->  IQRThreshold
+
+Pydantic does the coercion for free. The `Threshold` member of ``ThresholdLike`` is
+deliberately absent: it is a live object, and a config declares data, not instances.
+"""
+
+
+class ReductionOptionsConfig(BaseModel):
+    """Parameters a particular reduction takes.
+
+    Declared per reduction, and DataEval refuses one a reduction does not take rather than
+    letting it sit there inert — which is why ``tolerance`` is not a field of the aggregator
+    itself. ``longest_run`` is the only reduction declaring options today.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    tolerance: ToleranceSpec | None = Field(
+        default=None,
+        description=(
+            "How far apart two consecutive readings may be and still count as unchanged, "
+            "for `longest_run`. A bare number is that distance; a spec such as "
+            '["iqr", [null, 1.5]] is fitted to the changes the factor actually shows.'
+        ),
+    )
+
+
+class AggregatorConfig(BaseModel):
+    """One roll-up: a reduction, the levels it moves between, and what it moves.
+
+    YAML example::
+
+        aggregations:
+          - how: mean
+            source: unit
+            target: sequence
+            factors: [brightness]
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    how: Reduction = Field(description="Name of the reduction.")
+    target: FactorLevel = Field(description="Level receiving one value per row. Must sit above `source`.")
+    source: FactorLevel | None = Field(
+        default=None,
+        description=("Level whose rows are rolled up. Omitted infers it per factor from where the factor is defined."),
+    )
+    factors: Sequence[str] = Field(
+        default=(),
+        description=(
+            "Factors to roll up. Empty means every factor at `source` the reduction's value "
+            "type admits, resolved against the dataset — which names a rule rather than a set."
+        ),
+    )
+    unique_by: FactorLevel | None = Field(
+        default=None,
+        description=(
+            "Count each entity at this level once within a group. Required by a reduction "
+            "over a column defined above `source`, which repeats across the fan-out."
+        ),
+    )
+    via: FactorLevel | None = Field(
+        default=None,
+        description=(
+            "Roll up along routes through this level rather than every route. Only a diamond "
+            "offers a choice, and a route is a different question, not a different spelling."
+        ),
+    )
+    order_by: str | None = Field(
+        default=None,
+        description=(
+            "Column a temporal reduction reads rows in the order of. Omitted infers it from the source level."
+        ),
+    )
+    options: ReductionOptionsConfig | None = Field(default=None, description="Parameters specific to this reduction.")
+    min_coverage: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Share of the rows beneath a destination that must carry a value for it to get "
+            "an answer rather than a null. The default is all-or-nothing."
+        ),
+    )
+    suffix: str | None = Field(
+        default=None,
+        description=(
+            "Override for the output name's suffix, which otherwise derives from `how` and "
+            "`via`. Required where two declarations would otherwise produce one name."
+        ),
+    )
+
+
 class MetadataPolicyConfig(BaseModel):
     """A named metadata policy, referenced by the workflows that share it.
 
@@ -336,6 +488,15 @@ class MetadataPolicyConfig(BaseModel):
             "what the values are, so two runs differing only here computed their numbers "
             "from differently-read columns. Mutually exclusive per factor with the "
             "corrections a committed `encoding` descriptor carries."
+        ),
+    )
+    aggregations: Sequence[AggregatorConfig] | None = Field(
+        default=None,
+        description=(
+            "Roll factors up into a level above them, applied in the order given and after "
+            "any corrections — a repair can make a column readable that a roll-up then "
+            "needs. Keys the metadata cache: roll-ups add factors, and an archive carries "
+            "the ones it was built with."
         ),
     )
     reference_split: str | None = Field(

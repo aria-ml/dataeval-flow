@@ -805,3 +805,133 @@ class TestYamlAndADescriptorKeyAlike:
         upstream = _json.loads((tmp_path / "upstream.json").read_text())["corrections"]
 
         assert [dict(entry) for entry in policy.corrections] == upstream
+
+
+class TestDeclaringAggregationsInYaml:
+    @staticmethod
+    def _policy(*aggs):
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), _config(aggregations=list(aggs)))
+
+    def test_it_becomes_a_dataeval_aggregator(self):
+        from dataeval.types import Aggregator
+
+        policy = self._policy({"how": "mean", "source": "unit", "target": "sequence", "factors": ["b"]})
+        (agg,) = policy.aggregation_specs
+        assert isinstance(agg, Aggregator)
+        assert (agg.how, agg.source, agg.target, agg.factors) == ("mean", "unit", "sequence", ("b",))
+
+    def test_the_order_they_replay_in_is_kept(self):
+        policy = self._policy(
+            {"how": "mean", "source": "unit", "target": "sequence"},
+            {"how": "count", "source": "instance", "target": "unit"},
+        )
+        assert [a.how for a in policy.aggregation_specs] == ["mean", "count"]
+
+    def test_a_tolerance_arrives_as_the_tuples_the_resolver_reads(self):
+        """A YAML list falls through every branch of `resolve_threshold` to the adaptive
+        default, then raises about a lower bound the author never wrote."""
+        from dataeval.utils.thresholds import resolve_threshold
+
+        policy = self._policy(
+            {
+                "how": "longest_run",
+                "source": "unit",
+                "target": "sequence",
+                "factors": ["w"],
+                "order_by": "time_s",
+                "options": {"tolerance": ["iqr", [None, 1.5]]},
+            }
+        )
+        (agg,) = policy.aggregation_specs
+        assert agg.options["tolerance"] == ("iqr", (None, 1.5))
+        assert type(resolve_threshold(agg.options["tolerance"])).__name__ == "IQRThreshold"
+
+    def test_no_aggregations_resolves_to_none_declared(self):
+        assert resolve_policy(MetadataConfigMixin(metadata="standard"), _config()).aggregation_specs == ()
+
+    def test_they_are_in_the_cache_key(self):
+        """The archive carries its rolled columns, so a run declaring them must not be
+        served one built without."""
+        declared = self._policy({"how": "mean", "source": "unit", "target": "sequence"})
+        assert policy_key(declared) != policy_key(ResolvedPolicy())
+
+    def test_two_reductions_key_differently(self):
+        a = self._policy({"how": "mean", "source": "unit", "target": "sequence"})
+        b = self._policy({"how": "median", "source": "unit", "target": "sequence"})
+        assert policy_key(a) != policy_key(b)
+
+
+class TestAggregationMistakesAreConfigErrors:
+    @staticmethod
+    def _resolve(*aggs):
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), _config(aggregations=list(aggs)))
+
+    def test_an_unknown_reduction_is_refused_at_config_load(self):
+        with pytest.raises(ValueError, match="how"):
+            self._resolve({"how": "meen", "source": "unit", "target": "sequence"})
+
+    def test_a_target_below_the_source_is_refused(self):
+        """Checked against the MOT superset, so anything it rejects is wrong under every task."""
+        with pytest.raises(ValueError, match="Metadata policy 'standard'"):
+            self._resolve({"how": "mean", "source": "sequence", "target": "instance"})
+
+    def test_a_misspelled_level_is_refused_by_the_schema(self):
+        with pytest.raises(ValueError, match="target"):
+            self._resolve({"how": "mean", "source": "unit", "target": "sequince"})
+
+    def test_an_unreachable_route_is_refused(self):
+        with pytest.raises(ValueError, match="Metadata policy 'standard'"):
+            self._resolve({"how": "mean", "source": "unit", "target": "sequence", "via": "instance"})
+
+    def test_an_image_level_roll_up_still_validates(self):
+        """The superset admits `track` and `sequence` on image data; that is the stated
+        limit of a check made without knowing the task."""
+        policy = self._resolve({"how": "mean", "source": "instance", "target": "unit"})
+        assert len(policy.aggregation_specs) == 1
+
+
+class TestOutputNamesAreComputableFromTheConfig:
+    """DataEval renames a colliding output to `x_mean_agg`, then `x_mean_agg_2` — names no
+    config can predict, which `exclude` and bin declarations then cannot bind to."""
+
+    @staticmethod
+    def _resolve(*aggs):
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), _config(aggregations=list(aggs)))
+
+    def test_two_declarations_producing_one_name_are_refused(self):
+        with pytest.raises(ValueError, match="both produce"):
+            self._resolve(
+                {"how": "mean", "source": "unit", "target": "sequence", "factors": ["b"]},
+                {"how": "mean", "source": "track", "target": "sequence", "factors": ["b"]},
+            )
+
+    def test_a_suffix_disambiguates_them(self):
+        policy = self._resolve(
+            {"how": "mean", "source": "unit", "target": "sequence", "factors": ["b"]},
+            {"how": "mean", "source": "track", "target": "sequence", "factors": ["b"], "suffix": "_track_mean"},
+        )
+        assert [a.name_for("b") for a in policy.aggregation_specs] == ["b_mean", "b_track_mean"]
+
+    def test_a_route_already_distinguishes_them(self):
+        """`via` is in the derived name, so two routes need no suffix."""
+        policy = self._resolve(
+            {"how": "mean", "source": "instance", "target": "sequence", "factors": ["b"]},
+            {"how": "mean", "source": "instance", "target": "sequence", "factors": ["b"], "via": "track"},
+        )
+        assert [a.name_for("b") for a in policy.aggregation_specs] == ["b_mean", "b_mean_via_track"]
+
+    def test_two_rules_that_would_collide_are_refused(self):
+        """An empty `factors` names a rule resolved against the dataset, so its outputs are
+        not computable — two rules sharing `how` and `via` collide on anything they share."""
+        with pytest.raises(ValueError, match="both produce"):
+            self._resolve(
+                {"how": "mean", "source": "unit", "target": "sequence"},
+                {"how": "mean", "source": "track", "target": "sequence"},
+            )
+
+    def test_different_factors_under_one_reduction_are_fine(self):
+        policy = self._resolve(
+            {"how": "mean", "source": "unit", "target": "sequence", "factors": ["b"]},
+            {"how": "mean", "source": "unit", "target": "sequence", "factors": ["c"]},
+        )
+        assert len(policy.aggregation_specs) == 2

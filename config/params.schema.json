@@ -1,5 +1,165 @@
 {
   "$defs": {
+    "AggregatorConfig": {
+      "additionalProperties": false,
+      "description": "One roll-up: a reduction, the levels it moves between, and what it moves.\n\nYAML example::\n\n    aggregations:\n      - how: mean\n        source: unit\n        target: sequence\n        factors: [brightness]",
+      "properties": {
+        "how": {
+          "description": "Name of the reduction.",
+          "enum": [
+            "all",
+            "any",
+            "changes",
+            "count",
+            "first",
+            "last",
+            "longest_run",
+            "max",
+            "mean",
+            "median",
+            "min",
+            "mode",
+            "n_unique",
+            "std",
+            "sum",
+            "trend",
+            "var",
+            "variability"
+          ],
+          "title": "How",
+          "type": "string"
+        },
+        "target": {
+          "description": "Level receiving one value per row. Must sit above `source`.",
+          "enum": [
+            "sequence",
+            "unit",
+            "track",
+            "instance"
+          ],
+          "title": "Target",
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "sequence",
+                "unit",
+                "track",
+                "instance"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level whose rows are rolled up. Omitted infers it per factor from where the factor is defined.",
+          "title": "Source"
+        },
+        "factors": {
+          "default": [],
+          "description": "Factors to roll up. Empty means every factor at `source` the reduction's value type admits, resolved against the dataset \u2014 which names a rule rather than a set.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Factors",
+          "type": "array"
+        },
+        "unique_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "sequence",
+                "unit",
+                "track",
+                "instance"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Count each entity at this level once within a group. Required by a reduction over a column defined above `source`, which repeats across the fan-out.",
+          "title": "Unique By"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "enum": [
+                "sequence",
+                "unit",
+                "track",
+                "instance"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Roll up along routes through this level rather than every route. Only a diamond offers a choice, and a route is a different question, not a different spelling.",
+          "title": "Via"
+        },
+        "order_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Column a temporal reduction reads rows in the order of. Omitted infers it from the source level.",
+          "title": "Order By"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReductionOptionsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameters specific to this reduction."
+        },
+        "min_coverage": {
+          "default": 1.0,
+          "description": "Share of the rows beneath a destination that must carry a value for it to get an answer rather than a null. The default is all-or-nothing.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Coverage",
+          "type": "number"
+        },
+        "suffix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override for the output name's suffix, which otherwise derives from `how` and `via`. Required where two declarations would otherwise produce one name.",
+          "title": "Suffix"
+        }
+      },
+      "required": [
+        "how",
+        "target"
+      ],
+      "title": "AggregatorConfig",
+      "type": "object"
+    },
     "BoVWExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for Bag-of-Visual-Words.\n\nYAML example::\n\n    extractors:\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
@@ -2235,6 +2395,22 @@
           "description": "How factors' values are read, applied in the order given and before anything asks what code each one takes. The repair for a factor `unusable` reports \u2014 a compass recorded sometimes in degrees and sometimes as a bearing, a sentinel standing for a bad reading \u2014 and equally the way to convert a factor that is readable but in the wrong units. Keys the metadata cache: a repair changes what the values are, so two runs differing only here computed their numbers from differently-read columns. Mutually exclusive per factor with the corrections a committed `encoding` descriptor carries.",
           "title": "Corrections"
         },
+        "aggregations": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/AggregatorConfig"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Roll factors up into a level above them, applied in the order given and after any corrections \u2014 a repair can make a column readable that a roll-up then needs. Keys the metadata cache: roll-ups add factors, and an archive carries the ones it was built with.",
+          "title": "Aggregations"
+        },
         "reference_split": {
           "anyOf": [
             {
@@ -3054,6 +3230,249 @@
         "steps"
       ],
       "title": "PreprocessorConfig",
+      "type": "object"
+    },
+    "ReductionOptionsConfig": {
+      "additionalProperties": false,
+      "description": "Parameters a particular reduction takes.\n\nDeclared per reduction, and DataEval refuses one a reduction does not take rather than\nletting it sit there inert \u2014 which is why ``tolerance`` is not a field of the aggregator\nitself. ``longest_run`` is the only reduction declaring options today.",
+      "properties": {
+        "tolerance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far apart two consecutive readings may be and still count as unchanged, for `longest_run`. A bare number is that distance; a spec such as [\"iqr\", [null, 1.5]] is fitted to the changes the factor actually shows.",
+          "title": "Tolerance"
+        }
+      },
+      "title": "ReductionOptionsConfig",
       "type": "object"
     },
     "RemapCorrectionConfig": {

@@ -95,6 +95,20 @@ class ResolvedPolicy:
     Empty where the corrections came from a descriptor: there DataEval reads the file off
     the path itself and applies them, and nothing here has to.
     """
+    aggregations: tuple[Mapping[str, Any], ...] = ()
+    """Roll-ups the policy declares, in the order they replay, as plain mappings.
+
+    Keyed because the archive persists rolled columns and ``load`` sets ``_is_structured``
+    without replaying them: a ``.dem`` already carries the factors its roll-ups produced, so
+    unkeyed, a run declaring them would be served one built without and the reverse.
+    """
+    aggregation_specs: tuple[Any, ...] = ()
+    """The same roll-ups as DataEval :class:`~dataeval.types.Aggregator` records.
+
+    Built at resolve time so a bad level pair is a config error, and held beside the
+    JSON-able :attr:`aggregations` for the reason :attr:`correction_specs` is held beside
+    :attr:`corrections`: one is applied, the other is hashed.
+    """
     encoding_specs: Mapping[str, Any] | None = None
     """Records taken from an already-built ``Metadata``, applied to the next dataset.
 
@@ -194,6 +208,9 @@ def policy_key(policy: ResolvedPolicy) -> str:
             # As written, not sorted: corrections apply in sequence and one factor may take
             # several, so a reordering is a different reading of the same column.
             "corrections": [dict(entry) for entry in policy.corrections],
+            # As written, for the same reason corrections are: roll-ups replay in order, and
+            # one may read a column an earlier one wrote there.
+            "aggregations": [dict(entry) for entry in policy.aggregations],
             "factor_levels": {name: list(levels) for name, levels in (policy.factor_levels or {}).items()},
             "strict": policy.strict,
             "partial_factors": policy.partial_factors,
@@ -313,6 +330,108 @@ def _check_one_source_per_factor(
             "A descriptor's corrections are the record of a decision already made; drop the "
             "declaration here, or point at a descriptor that does not carry it.",
         )
+
+
+# The full four-level relation, which every task's schema is a subset of. `resolve_policy`
+# does not know whether the data is IC, OD or MOT -- that is why `_ROW_LEVELS` is a static
+# tuple -- so a level pair is checked against the superset. Anything it rejects is wrong
+# under every task; what it admits still has to survive the dataset, which is why this is a
+# partial check and says so.
+def _superset_schema() -> Any:
+    """The MOT schema: a diamond, since an instance sits under both a unit and a track."""
+    from dataeval.types import FactorLevelSchema
+
+    return FactorLevelSchema(
+        levels=("sequence", "unit", "track", "instance"),
+        parents={"sequence": (), "unit": ("sequence",), "track": ("sequence",), "instance": ("unit", "track")},
+    )
+
+
+def _build_aggregator(entry: Any) -> Any:
+    """Turn one config model into the DataEval record it describes.
+
+    Options are unwrapped to a plain mapping with the unset ones dropped: DataEval refuses
+    an option the reduction does not take, so passing `tolerance=None` to every reduction
+    would turn a default into an error.
+    """
+    from dataeval.types import Aggregator
+
+    options = {}
+    if entry.options is not None:
+        options = {name: value for name, value in entry.options.model_dump().items() if value is not None}
+    return Aggregator(
+        how=entry.how,
+        source=entry.source,
+        target=entry.target,
+        factors=tuple(entry.factors),
+        unique_by=entry.unique_by,
+        via=entry.via,
+        order_by=entry.order_by,
+        options=options,
+        min_coverage=entry.min_coverage,
+        suffix=entry.suffix,
+    )
+
+
+def _aggregator_to_json(aggregator: Any) -> dict[str, Any]:
+    """Render one roll-up as plain data, for the cache key.
+
+    Not a descriptor section -- roll-ups are not part of the committed encoding artifact --
+    so this answers only to `policy_key`, and its shape needs to be stable rather than to
+    match anything upstream writes.
+    """
+    return {
+        "how": aggregator.how,
+        "source": aggregator.source,
+        "target": aggregator.target,
+        "factors": list(aggregator.factors),
+        "unique_by": aggregator.unique_by,
+        "via": aggregator.via,
+        "order_by": aggregator.order_by,
+        # Sorted: a mapping has no order of its own, so two spellings of one set of options
+        # must not key differently.
+        "options": {name: _plain(value) for name, value in sorted(aggregator.options.items())},
+        "min_coverage": aggregator.min_coverage,
+        "suffix": aggregator.suffix,
+    }
+
+
+def _plain(value: Any) -> Any:
+    """A tuple renders as a list, so the key is JSON and a tuple never hashes as its repr."""
+    return [_plain(item) for item in value] if isinstance(value, tuple | list) else value
+
+
+def _check_output_names(aggregators: "Sequence[Any]", source: str) -> None:
+    """Refuse two declarations that would produce one output name.
+
+    DataEval renames the second to `<name>_agg`, then `<name>_agg_2` -- names that are not
+    computable from the config, so `exclude`, `continuous_factor_bins` and a workflow's
+    factor list all bind to something the author cannot predict. Asking for a `suffix`
+    keeps every produced name derivable from what was written.
+
+    A declaration with no `factors` names a *rule*, resolved against the dataset, so its
+    outputs cannot be listed here. Two rules sharing a derived suffix and a destination
+    would collide on any factor they both admit, so that pair is refused on the suffix
+    alone.
+    """
+    seen: dict[tuple[str, str], int] = {}
+    for position, aggregator in enumerate(aggregators):
+        names = (
+            [aggregator.name_for(factor) for factor in aggregator.factors]
+            if aggregator.factors
+            # The rule case: `name_for("")` is the bare suffix the outputs would all carry.
+            else [aggregator.name_for("")]
+        )
+        for name in names:
+            slot = (aggregator.target, name)
+            if slot in seen:
+                raise ValueError(
+                    f"{source} declares aggregations {seen[slot]} and {position} that both produce "
+                    f"{name or 'the same suffix'!r} at {aggregator.target!r}. DataEval would rename the "
+                    "second to something no config can name, so `exclude` and "
+                    "`continuous_factor_bins` could not bind to it. Give one of them a `suffix`.",
+                )
+            seen[slot] = position
 
 
 def _read_descriptor(path: Path, source: str) -> tuple[Mapping[str, Any], tuple[Mapping[str, Any], ...]]:
@@ -503,6 +622,47 @@ def _is_set(params: "MetadataConfigMixin", name: str) -> bool:
     return value is not None and value != [] and value != {}
 
 
+def _resolve_corrections(
+    declared: "Sequence[Any]",
+    from_descriptor: tuple[Mapping[str, Any], ...],
+    source: str,
+) -> tuple[tuple[Mapping[str, Any], ...], tuple[Any, ...]]:
+    """Build a policy's declared corrections, and merge them with a descriptor's.
+
+    Built here rather than at first use so a malformed rule is a config error: every one of
+    these types validates itself on construction, and this is the only place that can say
+    which config entry the message belongs to.
+    """
+    if not declared:
+        return from_descriptor, ()
+    _check_one_source_per_factor(declared, from_descriptor, source)
+    try:
+        specs = tuple(_build_correction(entry) for entry in declared)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source} declares a correction DataEval refuses: {exc}") from exc
+    # Rendered into the same member the descriptor's fill, so `policy_key` needs no second
+    # entry and a run keys alike however the repair was spelled.
+    return (*from_descriptor, *(_correction_to_json(spec) for spec in specs)), specs
+
+
+def _resolve_aggregations(
+    declared: "Sequence[Any]",
+    source: str,
+) -> tuple[tuple[Mapping[str, Any], ...], tuple[Any, ...]]:
+    """Build a policy's roll-ups, check their levels, and refuse an unnameable output."""
+    if not declared:
+        return (), ()
+    try:
+        specs = tuple(_build_aggregator(entry) for entry in declared)
+        schema = _superset_schema()
+        for aggregator in specs:
+            aggregator.validate(schema)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source} declares an aggregation DataEval refuses: {exc}") from exc
+    _check_output_names(specs, source)
+    return tuple(_aggregator_to_json(spec) for spec in specs), specs
+
+
 def resolve_policy(
     params: "MetadataConfigMixin",
     config: "PipelineConfig | None" = None,
@@ -546,6 +706,7 @@ def resolve_policy(
         factor_levels, strict = named.factor_levels, named.strict
         partial_factors = named.partial_factors
         declared_corrections = tuple(named.corrections or ())
+        declared_aggregations = tuple(named.aggregations or ())
         factor_source, reference_split = named.factor_source, named.reference_split
         intrinsic_factors = tuple(named.intrinsic_factors or ())
         descriptor_path = named.encoding
@@ -557,6 +718,7 @@ def resolve_policy(
         factor_levels, strict = None, False
         partial_factors = False
         declared_corrections = ()
+        declared_aggregations = ()
         factor_source, reference_split = params.metadata_factor_source, None
         intrinsic_factors = ()
         descriptor_path = None
@@ -574,19 +736,8 @@ def resolve_policy(
             len(corrections),
         )
 
-    # Built here rather than at first use so a malformed rule is a config error: every one
-    # of these types validates itself on construction, and this is the only place that can
-    # say which config entry the message belongs to.
-    correction_specs: tuple[Any, ...] = ()
-    if declared_corrections:
-        _check_one_source_per_factor(declared_corrections, corrections, source)
-        try:
-            correction_specs = tuple(_build_correction(entry) for entry in declared_corrections)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"{source} declares a correction DataEval refuses: {exc}") from exc
-        # Rendered into the same member the descriptor's fill, so `policy_key` needs no
-        # second entry and a run keys alike however the repair was spelled.
-        corrections = (*corrections, *(_correction_to_json(spec) for spec in correction_specs))
+    corrections, correction_specs = _resolve_corrections(declared_corrections, corrections, source)
+    aggregations, aggregation_specs = _resolve_aggregations(declared_aggregations, source)
 
     # The legacy flag, folded in before the families are validated so that both spellings
     # meet the same check. Read out of the instance dict rather than off the attribute:
@@ -633,6 +784,8 @@ def resolve_policy(
         encoding=factors,
         corrections=corrections,
         correction_specs=correction_specs,
+        aggregations=aggregations,
+        aggregation_specs=aggregation_specs,
         factor_levels=factor_levels,
         strict=strict,
         partial_factors=partial_factors,
