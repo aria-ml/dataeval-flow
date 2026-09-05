@@ -6,6 +6,7 @@ __all__ = [
     "MetadataTriageParameters",
     "MetadataTriageRawOutputs",
     "MetadataTriageReport",
+    "MetadataTriageWorkflow",
     "VerificationEntry",
 ]
 
@@ -17,3 +18,4 @@ from dataeval_flow.workflows.metadata_triage.outputs import (
     VerificationEntry,
 )
 from dataeval_flow.workflows.metadata_triage.params import MetadataTriageParameters
+from dataeval_flow.workflows.metadata_triage.workflow import MetadataTriageWorkflow
