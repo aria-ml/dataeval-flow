@@ -11,7 +11,16 @@ no finding for that category rather than an exception. A triage that dies becaus
 section was unavailable is worse than one that reports the other four.
 """
 
-__all__ = ["Category", "Finding", "Severity", "Suggestion", "find_issues", "suggest"]
+__all__ = [
+    "Category",
+    "Finding",
+    "Severity",
+    "Suggestion",
+    "find_issues",
+    "render_stanza",
+    "suggest",
+    "to_policy_stanza",
+]
 
 import difflib
 import math
@@ -509,3 +518,58 @@ def _datetime_correction(factor: str, text: Sequence[str]) -> Suggestion | None:
     if fmt:
         entry["format"] = fmt
     return Suggestion(corrections=[entry], complete=True)
+
+
+def to_policy_stanza(findings: Sequence[Finding]) -> dict[str, Any]:
+    """Every suggestion merged into one metadata policy body.
+
+    The stanza is the deliverable: three of the five categories are fixed by a policy edit
+    rather than by a correction, and a user pastes one block rather than reconciling two.
+
+    Incomplete suggestions are included.  A skeleton is what the user fills in, and
+    withholding it would leave them to write the value list by hand from the report.
+    Verification is where an incomplete suggestion is refused, not here.
+
+    Parameters
+    ----------
+    findings : Sequence[Finding]
+        As returned by :func:`find_issues`.
+
+    Returns
+    -------
+    dict[str, Any]
+        A body valid against
+        :class:`~dataeval_flow.config.schemas.MetadataPolicyConfig` once ``name`` is added.
+        Empty where nothing was suggested.
+    """
+    corrections: list[dict[str, Any]] = []
+    policy: dict[str, Any] = {}
+    for finding in findings:
+        if finding.suggestion is None:
+            continue
+        corrections.extend(finding.suggestion.corrections)
+        for key, value in finding.suggestion.policy.items():
+            if isinstance(value, Mapping):
+                policy.setdefault(key, {}).update(value)
+            else:
+                policy[key] = value
+    stanza: dict[str, Any] = {}
+    if corrections:
+        stanza["corrections"] = corrections
+    stanza.update(policy)
+    return stanza
+
+
+def render_stanza(stanza: Mapping[str, Any], *, name: str = "standard") -> str:
+    """The stanza as a YAML block, ready to paste under a config's ``metadata:`` key.
+
+    Rendered rather than dumped so that ``to: null`` keeps its spelling — a value the user
+    has to replace should read as a hole, and most YAML writers emit it as an empty string
+    or the bare word, neither of which reads as one.
+    """
+    if not stanza:
+        return ""
+    import yaml
+
+    body = yaml.safe_dump({"metadata": [{"name": name, **dict(stanza)}]}, sort_keys=False)
+    return body.replace(": null\n", ": null        # TODO\n")

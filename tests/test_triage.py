@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from dataeval_flow.triage import _numeric_drop, find_issues
+from dataeval_flow.config.schemas import MetadataPolicyConfig
+from dataeval_flow.triage import _numeric_drop, find_issues, render_stanza, to_policy_stanza
 
 
 def _record(**over: Any) -> dict[str, Any]:
@@ -364,3 +365,40 @@ def test_a_no_encoding_categorical_factor_needs_a_vocabulary_not_bins():
     assert finding.severity == "blocking"
     assert "vocabulary" in finding.remedy or "levels" in finding.remedy
     assert "bin count" not in finding.remedy
+
+
+def test_the_stanza_merges_corrections_and_policy_edits():
+    record = _record(unusable=_unusable(distinct={"text": ["6,000", "12,400"]}))
+    record["factors"]["altitude"]["encoding"]["provenance"] = "derived"
+    stanza = to_policy_stanza(find_issues(record))
+    assert stanza["corrections"] == [{"kind": "parse_value", "factor": "weight", "drop": [","]}]
+    assert stanza["continuous_factor_bins"] == {"altitude": 2}
+
+
+def test_the_stanza_validates_as_a_policy():
+    # A stanza that does not validate is a bug, not a suggestion.
+    record = _record(unusable=_unusable(distinct={"text": ["6,000"]}))
+    stanza = to_policy_stanza(find_issues(record))
+    MetadataPolicyConfig.model_validate({"name": "standard", **stanza})
+
+
+def test_an_incomplete_suggestion_still_reaches_the_stanza():
+    # The user has to see the skeleton to fill it in; verification is what refuses to run it.
+    record = _record(unusable=_unusable(distinct={"text": ["N", "NE"]}))
+    stanza = to_policy_stanza(find_issues(record))
+    assert stanza["corrections"][0]["rules"] == [
+        {"match": "N", "to": None},
+        {"match": "NE", "to": None},
+    ]
+
+
+def test_no_findings_makes_no_stanza():
+    assert to_policy_stanza([]) == {}
+
+
+def test_the_rendered_stanza_is_a_metadata_block():
+    record = _record(unusable=_unusable(distinct={"text": ["6,000"]}))
+    text = render_stanza(to_policy_stanza(find_issues(record)))
+    assert text.startswith("metadata:")
+    assert "- name: standard" in text
+    assert "kind: parse_value" in text
