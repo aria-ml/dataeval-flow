@@ -172,10 +172,13 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
         own corrections are passed through alongside the suggested ones because ``repair``
         **replaces** rather than accumulates.
 
+        A correction and a bin suggestion claim different things, so ``recovered`` is
+        checked differently for each — see :func:`_factor_recovered`, which the shape of
+        each finding's suggestion (corrections vs. a bin count) routes to the right check.
+
         Incomplete suggestions are never applied, so this can never report recovery from a
         placeholder.  A suggestion can also be well-formed, run cleanly and still not
-        recover the column — a reading that leaves every row holding its own value has not
-        made it a factor — which is the case this exists to catch before a stanza is
+        recover what it claims — which is the case this exists to catch before a stanza is
         committed to a config.
         """
         from dataeval_flow.config.schemas import MetadataPolicyConfig
@@ -183,6 +186,8 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
         entries: list[VerificationEntry] = []
         runnable: list[Any] = []
         bins: dict[str, Any] = {}
+        correction_factors: set[str] = set()
+        bin_factors: set[str] = set()
         for finding in findings:
             suggestion = finding.suggestion
             if suggestion is None:
@@ -190,8 +195,11 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
             if not suggestion.complete:
                 entries.append(_unapplied(finding))
                 continue
-            bins.update(suggestion.policy.get("continuous_factor_bins") or {})
+            factor_bins = suggestion.policy.get("continuous_factor_bins") or {}
+            bins.update(factor_bins)
+            bin_factors.update(factor_bins)
             runnable.extend(suggestion.corrections)
+            correction_factors.update(c["factor"] for c in suggestion.corrections)
 
         if not runnable and not bins:
             return entries
@@ -204,17 +212,20 @@ class MetadataTriageWorkflow(WorkflowProtocol[MetadataTriageMetadata, MetadataTr
         if bins:
             repaired.continuous_factor_bins = {**dict(policy.continuous_factor_bins), **bins}
         after = self._describe(repaired, policy)
-        still = set(after.get("unusable") or {})
         factors = after.get("factors") or {}
 
-        for name in sorted({c["factor"] for c in runnable} | set(bins)):
-            recovered = name in factors and name not in still
+        for name in sorted(correction_factors | bin_factors):
+            # A name a correction also names wins the correction check: that is the more
+            # fundamental claim (the column exists at all), and no finding actually
+            # produces both for one factor today.
+            pinned = name in bin_factors and name not in correction_factors
+            recovered = _factor_recovered(after, name, pinned=pinned)
             entries.append(
                 VerificationEntry(
                     factor=name,
                     applied=True,
                     recovered=recovered,
-                    detail=_recovery_detail(name, factors.get(name), recovered),
+                    detail=_recovery_detail(factors.get(name), recovered, pinned=pinned),
                 )
             )
         return entries
@@ -237,15 +248,40 @@ def _unapplied(finding: "Finding") -> "VerificationEntry":
     )
 
 
-def _recovery_detail(
-    name: str,  # noqa: ARG001 - kept for symmetry with the per-factor loop that calls this
-    info: "dict[str, Any] | None",
-    recovered: bool,
-) -> str:
-    """One line saying what the reading actually produced."""
+def _factor_recovered(after: "dict[str, Any]", name: str, *, pinned: bool) -> bool:
+    """Whether one factor's suggestion actually did what it claimed.
+
+    A correction (an ``unreadable`` finding) claims a held-back column becomes a factor:
+    recovered means present in ``factors`` and absent from ``unusable``.
+
+    A bin suggestion (an ``unbinned`` finding) is only ever raised for a factor already
+    present and already readable — what it lacks is a pinned cut, not existence, per
+    ``triage._encodings`` — so that same check would be true before the suggestion runs
+    and after it regardless of what the suggested count did, and could never say no.
+    Recovered there instead means the cut no longer reads ``provenance="derived"`` in the
+    re-described record, which is the one thing this suggestion can still fail to do.
+    """
+    if pinned:
+        return name not in (after.get("unreviewed") or ())
+    factors = after.get("factors") or {}
+    unusable = after.get("unusable") or {}
+    return name in factors and name not in unusable
+
+
+def _recovery_detail(info: "dict[str, Any] | None", recovered: bool, *, pinned: bool) -> str:
+    """One line saying what the reading actually produced.
+
+    Worded for whichever claim :func:`_factor_recovered` checked: a bin suggestion reports
+    the cut it produced, a correction reports whether the column became one at all.
+    """
+    fit = (info or {}).get("fit") or {}
+    bin_buckets = fit.get("bins")
+    buckets = bin_buckets if bin_buckets is not None else fit.get("levels") or []
+    kind = "bins" if bin_buckets is not None else "levels"
+    if pinned:
+        if not recovered:
+            return "applied, but the cut still reads as derived rather than pinned"
+        return f"{len(buckets)} {kind}, {len(fit.get('empty') or ())} empty"
     if not recovered:
         return "applied, but still unreadable; try a different reading"
-    fit = (info or {}).get("fit") or {}
-    buckets = fit.get("bins") or fit.get("levels") or []
-    kind = "bins" if fit.get("bins") is not None else "levels"
     return f"became a factor, {len(buckets)} {kind}"

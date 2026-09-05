@@ -75,6 +75,39 @@ def _mixed_metadata(n: int = 60) -> Metadata:
     return Metadata(_MixedWeightDataset(n))
 
 
+class _AltitudeDataset:
+    """Classification items with a continuous ``altitude`` factor nobody pinned.
+
+    All-numeric, unlike ``_MixedWeightDataset``: the point is a column that reads cleanly
+    and lands as ``unbinned`` (a cut DataEval derived from this draw) rather than
+    ``unreadable``, so its suggestion is a bin count rather than a correction.
+    """
+
+    def __init__(self, n: int = 60) -> None:
+        self._n = n
+        rng = np.random.default_rng(1)
+        self._altitude = rng.uniform(0.0, 1000.0, n)
+
+    @property
+    def metadata(self) -> DatasetMetadata:
+        return {"id": "altitude", "index2label": {0: "cat", 1: "dog"}}
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        image = np.zeros((3, 8, 8), dtype=np.float32)
+        datum: dict[str, Any] = {"id": index, "altitude": float(self._altitude[index])}
+        return image, one_hot, datum
+
+
+def _altitude_metadata(n: int = 60) -> Metadata:
+    """Metadata whose ``altitude`` factor is continuous and cut from this draw."""
+    return Metadata(_AltitudeDataset(n))
+
+
 def _describe(metadata: Metadata) -> dict:
     from dataeval_flow.binning import describe_binning
 
@@ -160,3 +193,55 @@ def test_an_incomplete_suggestion_is_never_applied():
     assert entry.applied is False
     assert entry.recovered is False
     assert "need codes" in entry.detail
+
+
+def test_verification_pins_a_derived_bin_suggestion():
+    """A bin suggestion's claim is different from a correction's: check it separately.
+
+    ``altitude`` is already a factor before the suggestion runs — it is continuous and
+    reads cleanly — so a check reusing the correction test (present in ``factors``, absent
+    from ``unusable``) would say ``recovered`` no matter what the suggested count did. This
+    proves the real check instead: applying the suggested count actually turns the
+    encoding's ``provenance`` from ``"derived"`` into something pinned.
+    """
+    from dataeval_flow.triage import find_issues
+
+    workflow = MetadataTriageWorkflow()
+    metadata = _altitude_metadata()
+    record = _describe(metadata)
+    findings = find_issues(record)
+    altitude = [f for f in findings if f.factor == "altitude"]
+    assert altitude
+    assert altitude[0].category == "unbinned"
+    assert altitude[0].suggestion is not None
+    assert altitude[0].suggestion.policy.get("continuous_factor_bins")
+
+    entries = workflow._verify(metadata, ResolvedPolicy(), findings)
+    (entry,) = [e for e in entries if e.factor == "altitude"]
+    assert entry.applied is True
+    assert entry.recovered is True
+    assert "bins" in entry.detail
+    assert "empty" in entry.detail
+
+
+def test_a_bin_suggestion_that_stays_derived_is_not_recovered():
+    """The bin-recovery check can say no — proven at the predicate, not through a live run.
+
+    Explicitly assigning ``Metadata.continuous_factor_bins`` always routes through
+    DataEval's ``digitize_data`` rather than its auto-cut ``bin_data``, and the two are
+    exactly what set ``provenance`` to something other than ``"derived"`` versus
+    ``"derived"`` (see ``dataeval.core._bin``). So a *complete*, correctly-shaped bin
+    suggestion cannot come back still ``"derived"`` through the real ``Metadata`` API: the
+    one honest attempt at constructing that case (assigning the suggested count and reading
+    the record back) always pins it. What can still fail this check is a suggestion whose
+    factor never bound — a stale name, or a run where the assignment did not stick — which
+    is exactly what a hand-built ``after`` record captures without needing to fight
+    ``Metadata`` into an inconsistent state.
+    """
+    from dataeval_flow.workflows.metadata_triage.workflow import _factor_recovered
+
+    still_derived = {"unreviewed": ["altitude"], "factors": {"altitude": {}}, "unusable": {}}
+    assert _factor_recovered(still_derived, "altitude", pinned=True) is False
+
+    pinned_now = {"unreviewed": [], "factors": {"altitude": {}}, "unusable": {}}
+    assert _factor_recovered(pinned_now, "altitude", pinned=True) is True
