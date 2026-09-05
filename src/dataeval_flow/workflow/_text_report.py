@@ -870,8 +870,16 @@ def _render_ratio(counts: Mapping[str, int]) -> str:
     total = sum(counts.values())
     if not total:
         return ""
-    numeric = counts.get("numeric", 0)
-    filled = round(numeric / total * 20)
+    parts = ", ".join(f"{v:,} {k}" for k, v in sorted(counts.items()) if v)
+    # The bar compares two kinds, so it is drawn only where there are two. A column held back
+    # for naming its rows is all text, and a bar for it renders as an empty track \u2014 twenty
+    # shaded blocks saying nothing, which reads as a measurement that came back zero.
+    if sum(1 for v in counts.values() if v) < 2:
+        return parts
+    # Neither side rounds away: 198 numeric against 2 text is 19.8 blocks, and a bar that
+    # rounded it to a full twenty would render a 99% split exactly like a whole column. The
+    # minority is the reason anyone reads this line, so it always keeps a block \u2014 the same
+    # rule the distribution bars follow for a bucket holding one row.
+    filled = min(max(round(counts.get("numeric", 0) / total * 20), 1), 19)
     bar = "\u2588" * filled + "\u2591" * (20 - filled)
-    parts = ", ".join(f"{v:,} {k}" for k, v in sorted(counts.items()))
     return f"{bar}  {parts}"

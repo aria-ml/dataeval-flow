@@ -1217,3 +1217,25 @@ def test_a_long_sparkline_does_not_run_into_its_count():
     lines = _render_distribution(_binned_counts([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9]))
     assert "n=" in lines[0]
     assert " n=" in lines[0], f"sparkline runs into the count: {lines[0]!r}"
+
+
+def test_a_single_kind_column_gets_counts_without_an_empty_bar():
+    """A bar comparing one kind to nothing renders as an empty track that reads as zero."""
+    line = _render_ratio({"text": 200})
+    assert line == "200 text"
+    assert "░" not in line
+
+
+def test_two_kinds_still_get_a_bar():
+    line = _render_ratio({"numeric": 198, "text": 2})
+    assert "\u2588" in line
+    assert "\u2591" in line
+    assert "198 numeric" in line
+    assert "2 text" in line
+
+
+def test_a_thin_minority_still_shows_in_the_ratio_bar():
+    """198 against 2 is 19.8 blocks; rounding it up hides the reason the line is printed."""
+    line = _render_ratio({"numeric": 198, "text": 2})
+    assert line.count("░") >= 1, f"the 2 text rows vanished: {line!r}"
+    assert line.count("█") == 19
