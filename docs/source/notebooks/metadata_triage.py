@@ -327,7 +327,7 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 #   altitude         29% missing
 #   compass_heading  32% missing
 #   gimbal_heading   32% missing
-#   gimbal_pitch     32% missing
+#   gimbal_pitch     29% missing
 #   speed            32% missing
 # ```
 #
