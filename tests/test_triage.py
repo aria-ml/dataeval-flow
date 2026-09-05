@@ -769,3 +769,91 @@ def test_a_placeholder_stays_null_beside_a_sentinel():
     assert rules["N"] is None
     assert math.isnan(rules["unknown"])
     assert finding.suggestion.complete is False
+
+
+def _numeric(name: str, lo: Any, hi: Any, rows: int, distinct: int, bins: int = 3) -> dict[str, Any]:
+    """A binned numeric factor entry with a given span, row count and distinct count."""
+    per = rows // bins
+    return {
+        name: {
+            "type": "discrete",
+            "level": "unit",
+            "rows": rows,
+            "n_distinct": distinct,
+            "encoding": {"kind": "bins", "provenance": "derived", "edges": list(range(bins + 1))},
+            "fit": {
+                "bins": [{"code": i + 1, "count": per, "min": lo if i == 0 else lo, "max": hi} for i in range(bins)],
+                "empty": [],
+            },
+        }
+    }
+
+
+def test_an_integer_column_that_never_repeats_is_an_identifier():
+    """SeaDrone's `object_id`: 1305 whole numbers over 1305 detections, cut into 12 bins.
+
+    Upstream drops this shape when the values are text; a numeric one is binned and kept, so
+    an arbitrary label reaches the bias evaluators as a factor. Suggesting a bin count for it
+    is the one recommendation that actively makes things worse.
+    """
+    record = _record(factors=_numeric("object_id", 988, 113566, rows=1305, distinct=1305))
+    findings = find_issues(record)
+    (finding,) = [f for f in findings if f.category == "degenerate"]
+    assert finding.severity == "warning"
+    assert finding.suggestion is not None
+    assert finding.suggestion.policy == {"exclude": ["object_id"]}
+
+
+def test_the_bin_count_is_withdrawn_from_an_identifier():
+    record = _record(factors=_numeric("object_id", 988, 113566, rows=1305, distinct=1305))
+    unbinned = [f for f in find_issues(record) if f.category == "unbinned"]
+    assert unbinned, "the factor is still reported as cut from this draw"
+    assert unbinned[0].suggestion is None, "but no cut is suggested for it"
+
+
+def test_an_all_distinct_float_column_is_not_an_identifier():
+    """The false positive this rule has to avoid: a measurement at any real precision never
+    repeats either, and binning one of those is what binning is for."""
+    record = _record(factors=_numeric("altitude", 0.4, 998.7, rows=200, distinct=200))
+    assert [f for f in find_issues(record) if f.category == "degenerate"] == []
+
+
+def test_a_repeating_integer_column_is_not_an_identifier():
+    record = _record(factors=_numeric("frame", 178, 19800, rows=200, distinct=168))
+    assert [f for f in find_issues(record) if f.category == "degenerate"] == []
+
+
+def test_a_floor_shared_by_several_columns_reads_as_a_sentinel():
+    """SeaDrone writes -1 where the drone recorded nothing, in five telemetry columns."""
+    factors: dict[str, Any] = {}
+    for name in ("altitude", "compass_heading", "speed"):
+        factors.update(_numeric(name, -1.0, 300.0, rows=200, distinct=78))
+    findings = [f for f in find_issues(_record(factors=factors)) if f.category == "sentinel"]
+    assert sorted(f.factor for f in findings) == ["altitude", "compass_heading", "speed"]
+    assert findings[0].detail["value"] == -1.0
+    # The companions travel in `detail`, not the prose: naming them in every remedy is the
+    # same sentence repeated once per factor with the other names permuted through it.
+    assert sorted(findings[0].detail["shared_with"]) == ["compass_heading", "speed"]
+    assert "2 other factors" in findings[0].remedy
+    # The cut was derived from values including the marker, so it is not offered.
+    assert all(f.suggestion is None for f in find_issues(_record(factors=factors)) if f.category == "unbinned")
+
+
+def test_one_column_low_value_is_just_its_low_value():
+    """`xspeed` reaches -11.5 and means it; only a *shared* floor is evidence."""
+    factors = {
+        **_numeric("xspeed", -11.5, 11.1, rows=200, distinct=46),
+        **_numeric("yspeed", -7.4, 8.6, rows=200, distinct=49),
+    }
+    assert [f for f in find_issues(_record(factors=factors)) if f.category == "sentinel"] == []
+
+
+def test_two_identifiers_both_reach_the_exclude_list():
+    record = _record(
+        factors={
+            **_numeric("object_id", 1, 9999, rows=1305, distinct=1305),
+            **_numeric("track_id", 2, 8888, rows=1305, distinct=1305),
+        }
+    )
+    stanza = to_policy_stanza(find_issues(record))
+    assert sorted(stanza["exclude"]) == ["object_id", "track_id"]

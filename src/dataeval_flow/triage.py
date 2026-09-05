@@ -31,7 +31,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Category = Literal["unreadable", "unbound_request", "unbinned", "unreviewed", "degenerate"]
+Category = Literal["unreadable", "unbound_request", "unbinned", "unreviewed", "degenerate", "sentinel"]
 Severity = Literal["blocking", "warning", "note"]
 
 #: Severity order for report grouping.  Blocking first: it is what the run did less of than
@@ -40,6 +40,16 @@ _SEVERITY_RANK: Mapping[str, int] = {"blocking": 0, "warning": 1, "note": 2}
 
 #: Fewest bins a suggestion will propose.  One bin is not a cut.
 _MIN_BINS = 2
+
+#: Rows a column needs before never repeating a value says anything about it.  A handful of
+#: measurements are all distinct as a matter of course.
+_IDENTIFIER_MIN_ROWS = 50
+
+#: Factors that must share a minimum before it is read as a sentinel rather than a reading.
+#: One column's lowest value is just its lowest value; the same exact number sitting at the
+#: bottom of three unrelated columns is a convention, and the convention is almost always
+#: "this was not recorded".
+_SENTINEL_MIN_FACTORS = 3
 
 #: Values standing for "no reading", whatever the column otherwise holds.  A closed literal
 #: list rather than a pattern, so what it claims is auditable.
@@ -152,15 +162,20 @@ def find_issues(
         *_unbound(record),
         *_encodings(record, default_bins),
         *_degenerate(record, min_missing_fraction),
+        *_shared_sentinels(record),
     ]
-    # A factor can be both `unbinned` and `degenerate` at once — a skewed continuous cut
-    # where every value lands in one bin. Both findings are true and both stay, but the
-    # stanza must not pin a cut the `degenerate` finding calls useless.
-    degenerate_factors = {f.factor for f in findings if f.category == "degenerate"}
+    # A factor can carry more than one finding at once, and where it does the bin count is the
+    # one to withdraw. A `degenerate` cut is one the same report calls useless; a `sentinel`
+    # cut was derived from values that include a marker for "not recorded". Pinning either
+    # would fix an accident in place. Both findings stay — they are true, and the reader should
+    # see them — but neither leaves a cut behind in the stanza.
+    withdrawn = {f.factor for f in findings if f.category in ("degenerate", "sentinel")}
     for finding in findings:
-        if finding.category == "unbinned" and finding.factor in degenerate_factors:
+        if finding.category == "unbinned" and finding.factor in withdrawn:
             finding.suggestion = None
-        else:
+        elif finding.suggestion is None:
+            # Detectors that build their own suggestion keep it: `suggest` covers the two
+            # categories it can derive one for and answers None everywhere else.
             finding.suggestion = suggest(finding, default_bins=default_bins)
         if finding.category == "unreadable" and finding.repairable and finding.suggestion is None:
             values = finding.detail.get("distinct", {}).get("text", [])
@@ -319,7 +334,11 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
                 severity="warning",
                 level=info.get("level"),
                 detail={"info": dict(info)},
-                remedy=f"cut from this draw; declare `continuous_factor_bins: {{{name}: {count}}}`",
+                remedy=(
+                    f"cut from this draw; declare `continuous_factor_bins: {{{name}: {count}}}` "
+                    f"to pin it. This changes nothing about the numbers you just got — {count} is "
+                    "the cut that already ran — it makes the same cut hold for the next sample"
+                ),
             )
         else:
             yield Finding(
@@ -328,7 +347,10 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
                 severity="warning",
                 level=info.get("level"),
                 detail={"info": dict(info)},
-                remedy="vocabulary from this draw; export a descriptor and reference it from `encoding:`",
+                remedy=(
+                    "vocabulary from this draw; export one with `dataeval-flow encoding` and "
+                    "reference the file from `encoding:` to hold it across samples"
+                ),
             )
 
 
@@ -356,10 +378,14 @@ def _degenerate(record: Mapping[str, Any], min_missing_fraction: float) -> Itera
 
     A *wide* vocabulary is not one of these: thin levels are reported by
     ``ParityOutput.insufficient_data`` rather than removed.  What is reported here is a
-    factor with one populated bucket — which groups nothing — and one losing most of its
-    rows to no recorded value.
+    factor with one populated bucket — which groups nothing — one losing most of its rows to
+    no recorded value, and one holding a different value on nearly every row.
     """
     for name, info in sorted(_factors(record).items()):
+        identifier = _identifier_finding(name, info)
+        if identifier is not None:
+            yield identifier
+            continue
         fit = info.get("fit")
         if not isinstance(fit, Mapping):
             continue
@@ -389,6 +415,100 @@ def _degenerate(record: Mapping[str, Any], min_missing_fraction: float) -> Itera
                 remedy=(
                     f"{share}% of rows are missing a value; they score as a group of their own "
                     "in every contingency table"
+                ),
+            )
+
+
+def _identifier_finding(name: str, info: Mapping[str, Any]) -> Finding | None:
+    """A column holding its own value on nearly every row, or None where it groups them.
+
+    Such a column names its rows rather than grouping them, so it carries nothing for any
+    statistic that works by comparing groups — every group has one member.  Upstream refuses
+    exactly this shape when the values are text, dropping it as ``cardinality_over_budget``.
+    A *numeric* column in the same position is binned and kept instead, which is how
+    SeaDrone's ``object_id`` — 1305 values over 1305 detections — arrives as a factor cut into
+    twelve arbitrary intervals.
+
+    Reported as ``degenerate`` because that is what it is, which also means the suppression in
+    :func:`find_issues` withdraws the bin count that would otherwise be suggested for it.
+    Pinning that cut is the one piece of advice here that would make things worse: it would
+    fix an accident in place and lend it the authority of a declared decision.
+
+    **Never repeating a value is not on its own the evidence**, which is the trap this rule has
+    to avoid: a measurement taken at any real precision is all-distinct too, and binning one of
+    those is exactly what binning is for.  What separates them is that the values are *whole
+    numbers*.  A measured integer quantity repeats — SeaDrone's ``altitude`` holds 78 values
+    over 200 frames, its ``frame`` 168 — so an integer column that reaches a thousand rows
+    without ever landing on the same value twice is a label rather than a magnitude.  A float
+    column is never called one, however distinct it is, because the same shape is what an
+    ordinary reading looks like.
+    """
+    rows = info.get("rows")
+    distinct = info.get("n_distinct")
+    if not isinstance(rows, int) or not isinstance(distinct, int):
+        return None
+    if rows < _IDENTIFIER_MIN_ROWS or distinct != rows:
+        return None
+    bins = ((info.get("fit") or {}) if isinstance(info.get("fit"), Mapping) else {}).get("bins")
+    if not bins:
+        return None
+    edges = (bins[0].get("min"), bins[-1].get("max"))
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in edges):
+        return None
+    return Finding(
+        factor=name,
+        category="degenerate",
+        severity="warning",
+        level=info.get("level"),
+        detail={"info": dict(info), "n_distinct": distinct, "rows": rows},
+        remedy=(
+            f"{distinct} whole numbers over {rows} rows, never repeating — it names its rows "
+            "rather than grouping them, so exclude it rather than cutting it"
+        ),
+        suggestion=Suggestion(policy={"exclude": [name]}, complete=True),
+    )
+
+
+def _shared_sentinels(record: Mapping[str, Any]) -> Iterator[Finding]:
+    """Values sitting at the bottom of several columns at once, which is what a sentinel does.
+
+    A column that reads cleanly is never held back, so nothing else here looks at it — and a
+    sentinel that shares its column's type is exactly that case.  SeaDrone writes ``-1`` where
+    the drone recorded nothing, and because ``-1`` is a number the column parses, bins and is
+    reported as a factor whose lowest value happens to be impossible.
+
+    The evidence is structural rather than semantic, which is why this looks for the same exact
+    number at the foot of several unrelated columns instead of asking whether any one value is
+    plausible.  One column's minimum is just its minimum; SeaDrone's ``xspeed`` reaches −11.5
+    and means it.
+    """
+    minima: dict[Any, list[str]] = {}
+    for name, info in sorted(_factors(record).items()):
+        bins = ((info.get("fit") or {}) if isinstance(info.get("fit"), Mapping) else {}).get("bins")
+        if not bins:
+            continue
+        low = bins[0].get("min")
+        if isinstance(low, (int, float)) and not isinstance(low, bool):
+            minima.setdefault(low, []).append(name)
+    for value, factors in sorted(minima.items(), key=lambda kv: repr(kv[0])):
+        if len(factors) < _SENTINEL_MIN_FACTORS:
+            continue
+        for name in factors:
+            others = [f for f in factors if f != name]
+            yield Finding(
+                factor=name,
+                category="sentinel",
+                severity="warning",
+                level=(_factors(record).get(name) or {}).get("level"),
+                detail={"value": value, "shared_with": others, "info": dict(_factors(record)[name])},
+                remedy=(
+                    f"lowest value is {value!r}, shared as a floor with {len(others)} other "
+                    f"{'factor' if len(others) == 1 else 'factors'} — usually a not-recorded "
+                    "marker rather than a reading"
+                ),
+                suggestion=Suggestion(
+                    corrections=[{"kind": "remap", "factor": name, "rules": [{"match": value, "to": None}]}],
+                    complete=False,
                 ),
             )
 
@@ -686,6 +806,10 @@ def to_policy_stanza(findings: Sequence[Finding]) -> dict[str, Any]:
         for key, value in finding.suggestion.policy.items():
             if isinstance(value, Mapping):
                 policy.setdefault(key, {}).update(value)
+            elif isinstance(value, list):
+                # `exclude` is a list, and a second identifier must extend it rather than
+                # replace the first.
+                policy.setdefault(key, []).extend(v for v in value if v not in policy[key])
             else:
                 policy[key] = value
     stanza: dict[str, Any] = {}
