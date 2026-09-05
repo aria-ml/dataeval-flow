@@ -624,7 +624,11 @@ def _correction_for(finding: Finding) -> Suggestion | None:
     if finding.detail.get("sampled"):
         return None
 
-    rules = [{"match": value, "to": None} for value in text]
+    # A sentinel is answered here rather than left for the user: it means "no reading", and
+    # NaN is the target that says so.  `None` does not — `Remap` uses it as the *key*
+    # catch-all, and as a target it is just a non-numeric value, so a column of numbers and
+    # nulls stays mixed and the correction recovers nothing while claiming to be complete.
+    rules = [{"match": value, "to": float("nan") if _is_sentinel(value) else None} for value in text]
     return Suggestion(
         corrections=[{"kind": "remap", "factor": finding.factor, "rules": rules}],
         complete=all(_is_sentinel(value) for value in text),

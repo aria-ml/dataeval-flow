@@ -1,5 +1,6 @@
 """Tests for the metadata triage engine, over hand-written binning records."""
 
+import math
 from typing import Any
 
 from dataeval_flow.config.schemas import MetadataPolicyConfig
@@ -305,7 +306,8 @@ def test_sentinels_alone_make_a_complete_remap():
     assert finding.suggestion is not None
     rules = finding.suggestion.corrections[0]["rules"]
     assert finding.suggestion.corrections[0]["kind"] == "remap"
-    assert all(rule["to"] is None for rule in rules)
+    # Sentinels are answered with NaN, the marker that reads as "no value taken".
+    assert all(math.isnan(rule["to"]) for rule in rules)
     assert finding.suggestion.complete is True
 
 
@@ -315,7 +317,9 @@ def test_a_semantic_value_is_enumerated_and_left_incomplete():
     assert finding.suggestion is not None
     rules = finding.suggestion.corrections[0]["rules"]
     assert [r["match"] for r in rules] == ["N", "NE", "unknown"]
-    assert all(r["to"] is None for r in rules)
+    # The two bearings are left for the user; only the sentinel is answered.
+    assert [r["to"] for r in rules[:2]] == [None, None]
+    assert math.isnan(rules[2]["to"])
     # "N" is 0 degrees only if the column is a bearing, which flow cannot know.
     assert finding.suggestion.complete is False
 
@@ -554,11 +558,12 @@ def test_mixed_complete_and_incomplete_factors_mark_only_incomplete():
     assert has_bearing_todo, "bearing (incomplete) should have at least one TODO marker"
 
     # Check lines in quality section (between quality and end)
+    # A complete factor's sentinels are answered with NaN, so it carries no null at all --
+    # and therefore nothing a TODO marker could attach to.
     quality_section = lines[quality_line_idx:]
-    has_quality_bare_null = any("to: null" in line and "# TODO" not in line for line in quality_section)
-    has_quality_todo = any("# TODO" in line for line in quality_section)
-    assert has_quality_bare_null, "quality (complete) should have bare nulls"
-    assert not has_quality_todo, "quality (complete) should not have TODO markers"
+    assert any("to: .nan" in line for line in quality_section), "quality should answer its sentinels"
+    assert not any("to: null" in line for line in quality_section), "quality should have no nulls"
+    assert not any("# TODO" in line for line in quality_section), "quality should have no TODO markers"
 
 
 def test_distinct_values_with_factor_substring_dont_break_marking():
@@ -737,3 +742,30 @@ def test_an_iso_timestamp_with_microseconds_is_read_without_pinning_a_format():
     # August 1st-8th straddles two ISO weeks, and `week` is the coarsest period that tells
     # these apart -- the granularity is chosen from the values, format or no format.
     assert entry["every"] == "week"
+
+
+def test_a_sentinel_maps_to_not_a_number_rather_than_to_null():
+    """`None` is not how a reading is marked unrecorded — it leaves the column mixed.
+
+    `Remap`'s `None` is the *key* catch-all; as a target it is simply a non-numeric value, so
+    a column of 198 numbers and two nulls stays unusable and the correction that claimed to
+    be complete recovers nothing. NaN is the marker that takes: it makes the column numeric
+    and lands the row on the reserved missing code.
+    """
+    record = _record(unusable=_unusable(distinct={"text": ["N/A", "unknown"]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    targets = [rule["to"] for rule in finding.suggestion.corrections[0]["rules"]]
+    assert all(isinstance(t, float) and math.isnan(t) for t in targets)
+    assert finding.suggestion.complete is True
+
+
+def test_a_placeholder_stays_null_beside_a_sentinel():
+    """Only the value flow refuses to code is left for the user; the sentinel is answered."""
+    record = _record(unusable=_unusable(distinct={"text": ["N", "unknown"]}))
+    (finding,) = find_issues(record)
+    assert finding.suggestion is not None
+    rules = {r["match"]: r["to"] for r in finding.suggestion.corrections[0]["rules"]}
+    assert rules["N"] is None
+    assert math.isnan(rules["unknown"])
+    assert finding.suggestion.complete is False
