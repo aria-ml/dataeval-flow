@@ -174,60 +174,32 @@ def build_metadata(dataset: AnnotatedDataset[Any], policy: "ResolvedPolicy | Non
     *after* construction, which is sound because binning is lazy: a bin declared before its
     factor exists still binds when the factor arrives.
 
-    The order is ``construct -> inject -> repair -> aggregate -> re-expand bins``, and each
-    step is where it is for a reason.  Repairs come after injection because an intrinsic
-    factor is a computed statistic and is never held back, so nothing is gained by reading
-    it first.  Roll-ups come after repairs, matching DataEval's own ``_adopt``: a repair can
-    make a column readable that a roll-up then needs.  Bin re-expansion comes last because
-    every step before it changes the factor set — injection adds measured factors,
-    repairing a held-back column turns it *into* a factor, and a roll-up adds one per
-    output — and ``expand_declared_bins`` matches declarations against the names that
-    actually exist.
+    Corrections and roll-ups are **declared on the constructor** rather than applied here.
+    DataEval then owns their order — corrections before roll-ups, both before the factors
+    are built — and one caller cannot get it subtly different from another.  Applying them
+    here instead meant repeating that order on every path that builds a metadata, and
+    ``repair`` replaces rather than accumulates, so a policy repairing one factor in YAML
+    and another through its descriptor kept only the first.
 
-    Corrections declared through a committed ``encoding`` descriptor are not applied here:
-    DataEval reads that file off the path it was handed and applies them itself, which is
-    why ``correction_specs`` is empty on that path.
+    What is left here is injection, which is flow's own, and the bin re-expansion that has
+    to follow it.  Re-expansion comes last because everything before it changes the factor
+    set — injection adds measured factors, repairing a held-back column turns it *into* a
+    factor, and a roll-up adds one per output — and ``expand_declared_bins`` matches
+    declarations against the names that actually exist.
     """
     from dataeval_flow.policy import ResolvedPolicy
 
     resolved = policy or ResolvedPolicy()
     metadata = Metadata(dataset, **resolved.metadata_kwargs())
     injected = bool(resolved.intrinsic_factors) and _inject(metadata, dataset, resolved)
-    metadata, repaired = _repair(metadata, resolved)
-    metadata, rolled = _aggregate(metadata, resolved)
-    if (injected or repaired or rolled) and resolved.continuous_factor_bins:
+    # Corrections and roll-ups are declared on the constructor above, so DataEval has
+    # already applied them in its own order by the time anything reads a factor here.
+    declared = bool(resolved.correction_specs or resolved.aggregation_specs)
+    if (injected or declared) and resolved.continuous_factor_bins:
         metadata.continuous_factor_bins = expand_declared_bins(
             resolved.continuous_factor_bins, metadata.factor_names, metadata.levels
         )
     return metadata
-
-
-def _aggregate(metadata: Metadata, policy: "ResolvedPolicy") -> tuple[Metadata, bool]:
-    """Replay the policy's roll-ups.  Returns the instance to go on with, and whether any ran.
-
-    ``aggregate`` **copies** where ``repair`` mutates, so the result has to be carried
-    forward rather than discarded — the opposite aliasing on two operations that sit one
-    line apart, which is why this returns the instance instead of a flag alone.
-    """
-    if not policy.aggregation_specs:
-        return metadata, False
-    return metadata.aggregate(*policy.aggregation_specs), True
-
-
-def _repair(metadata: Metadata, policy: "ResolvedPolicy") -> tuple[Metadata, bool]:
-    """Read the policy's corrected factors the way it says to.
-
-    Returns the instance to go on with, and whether anything changed.  ``repair`` answers
-    with a copy, as ``aggregate`` does, so the result has to be carried forward — the two
-    are the operations a policy reaches, and they now alias alike.
-
-    It forces the dataset walk, which a freshly constructed instance has not done.  That is
-    not new work — anything reading factors walks anyway — but it moves when a lazily-built
-    metadata pays for itself, so it happens only when a repair was declared.
-    """
-    if not policy.correction_specs:
-        return metadata, False
-    return metadata.repair(list(policy.correction_specs)), True
 
 
 def _inject(

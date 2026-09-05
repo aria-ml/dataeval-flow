@@ -938,3 +938,122 @@ class TestOutputNamesAreComputableFromTheConfig:
             {"how": "mean", "source": "unit", "target": "sequence", "factors": ["c"]},
         )
         assert len(policy.aggregation_specs) == 2
+
+
+class TestCorrectionsFromBothSourcesBothApply:
+    """A descriptor may repair one factor and the config another. They are not in conflict
+    — the per-factor check allows it — so both have to reach the metadata."""
+
+    @staticmethod
+    def _both(tmp_path):
+        path = _descriptor(tmp_path, _DECLARED_BINS, corrections=_PARSE_COMMA)
+        config = _config(
+            encoding=path.name,
+            corrections=[{"kind": "rescale", "factor": "altitude", "multiply": 0.3048}],
+        )
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
+
+    def test_each_source_reaches_by_its_own_channel(self, tmp_path: Path):
+        """The descriptor's travel as the path DataEval reads; the config's as records."""
+        kwargs = self._both(tmp_path).metadata_kwargs()
+
+        assert kwargs["encoding"].name == "policy.json"
+        assert [c.factor for c in kwargs["corrections"]] == ["altitude"]
+
+    def test_the_metadata_ends_up_declaring_both(self, tmp_path: Path):
+        """The behaviour that matters. Applying one after the other kept only the second,
+        because `repair` replaces rather than accumulates — so both go to the constructor,
+        which merges them."""
+        import numpy as np
+        from dataeval import Metadata
+
+        kwargs = self._both(tmp_path).metadata_kwargs()
+        kwargs.pop("continuous_factor_bins", None)
+        md = Metadata.from_factors(
+            {"count": ["1,000"] * 4, "altitude": [100.0, 200.0, 300.0, 400.0]},
+            class_labels=np.zeros(4, dtype=int),
+            **kwargs,
+        )
+
+        assert {c.factor for c in md.repairs} == {"count", "altitude"}
+
+    def test_the_key_records_both(self, tmp_path: Path):
+        assert {entry["factor"] for entry in self._both(tmp_path).corrections} == {"count", "altitude"}
+
+
+class TestTheSpecsReachTheConstructor:
+    @staticmethod
+    def _policy(**policy):
+        return resolve_policy(MetadataConfigMixin(metadata="standard"), _config(**policy))
+
+    def test_corrections_are_passed(self):
+        policy = self._policy(corrections=[{"kind": "parse_value", "factor": "c", "drop": [","]}])
+        assert len(self._policy().metadata_kwargs().get("corrections", ())) == 0
+        assert len(policy.metadata_kwargs()["corrections"]) == 1
+
+    def test_aggregations_are_passed(self):
+        policy = self._policy(aggregations=[{"how": "mean", "source": "unit", "target": "sequence"}])
+        assert len(policy.metadata_kwargs()["aggregations"]) == 1
+
+    def test_neither_reaches_load(self):
+        """`Metadata.load` takes neither: the archive carries both, already applied."""
+        import inspect
+
+        from dataeval import Metadata
+
+        policy = self._policy(
+            corrections=[{"kind": "parse_value", "factor": "c", "drop": [","]}],
+            aggregations=[{"how": "mean", "source": "unit", "target": "sequence"}],
+        )
+        accepted = set(inspect.signature(Metadata.load).parameters)
+        assert set(policy.metadata_kwargs(for_load=True)) <= accepted
+
+
+class TestDeriveFromCarriesTheReading:
+    """A derived split is handed records instead of a descriptor path, and a descriptor's
+    corrections travel by that path — so without carrying them the next split read its
+    values differently from the one whose encoding it was given. Which is the cross-split
+    drift `derive_from` exists to prevent, on the half that decides what the values *are*."""
+
+    @staticmethod
+    def _reference():
+        import numpy as np
+        from dataeval import Metadata
+        from dataeval.types import ParseValue
+
+        from dataeval_flow.binning import _descriptor as descriptor_of
+
+        seed = Metadata.from_factors({"count": ["1,000"] * 4}, class_labels=np.zeros(4, dtype=int))
+        seed = seed.repair([ParseValue("count", drop=[","])])
+        return seed, descriptor_of(seed).factors
+
+    def test_the_derived_policy_carries_the_reference_repairs(self, tmp_path: Path):
+        from dataeval_flow.policy import derive_from
+
+        reference, descriptor = self._reference()
+        derived = derive_from(ResolvedPolicy(), reference, descriptor)
+
+        assert derived.correction_specs == reference.repairs
+
+    def test_the_next_split_reads_its_values_the_same_way(self, tmp_path: Path):
+        import numpy as np
+        from dataeval import Metadata
+
+        from dataeval_flow.policy import derive_from
+
+        reference, descriptor = self._reference()
+        derived = derive_from(ResolvedPolicy(), reference, descriptor)
+
+        nxt = Metadata.from_factors(
+            {"count": ["6,000"] * 4}, class_labels=np.zeros(4, dtype=int), **derived.metadata_kwargs()
+        )
+        assert nxt.dataframe["count"].to_list() == [6000, 6000, 6000, 6000]
+
+    def test_a_reference_with_no_repairs_carries_none(self, tmp_path: Path):
+        import numpy as np
+        from dataeval import Metadata
+
+        from dataeval_flow.policy import derive_from
+
+        plain = Metadata.from_factors({"w": ["a", "b"] * 4}, class_labels=np.zeros(8, dtype=int))
+        assert derive_from(ResolvedPolicy(), plain, {}).correction_specs == ()

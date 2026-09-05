@@ -170,10 +170,24 @@ class ResolvedPolicy:
             kwargs["exclude"] = list(self.exclude)
         if self.continuous_factor_bins:
             kwargs["continuous_factor_bins"] = dict(self.continuous_factor_bins)
+        kwargs.update(self._encoding_kwarg(for_load=for_load))
+        if self.factor_levels and not for_load:
+            kwargs["factor_levels"] = {name: list(levels) for name, levels in self.factor_levels.items()}
+        for name, flag in (("strict", self.strict), ("partial_factors", self.partial_factors)):
+            if flag:
+                kwargs[name] = True
+        if not for_load:
+            for name, specs in (("corrections", self.correction_specs), ("aggregations", self.aggregation_specs)):
+                if specs:
+                    kwargs[name] = list(specs)
+        return kwargs
+
+    def _encoding_kwarg(self, *, for_load: bool) -> dict[str, Any]:
+        """Which spelling of the encoding this path gets, if any."""
         if self.encoding_specs is not None:
             # Records in hand beat a file to re-read, and are what a derived split gets.
-            kwargs["encoding"] = dict(self.encoding_specs)
-        elif self.encoding_path is not None and not (for_load and self.corrections):
+            return {"encoding": dict(self.encoding_specs)}
+        if self.encoding_path is not None and not (for_load and self.corrections):
             # The path, not the parsed contents: DataEval owns the descriptor format and
             # reads it itself, so a file written by one release is understood exactly as
             # that release meant it rather than reinterpreted here.
@@ -184,14 +198,8 @@ class ResolvedPolicy:
             # to. Omitting it costs nothing — the archive's own record is the one this
             # descriptor produced, and `policy_key` hashes the corrections, so an archive
             # built under a different reading is never the one being read here.
-            kwargs["encoding"] = self.encoding_path
-        if self.factor_levels and not for_load:
-            kwargs["factor_levels"] = {name: list(levels) for name, levels in self.factor_levels.items()}
-        if self.strict:
-            kwargs["strict"] = True
-        if self.partial_factors:
-            kwargs["partial_factors"] = True
-        return kwargs
+            return {"encoding": self.encoding_path}
+        return {}
 
 
 def policy_key(policy: ResolvedPolicy) -> str:
@@ -881,6 +889,12 @@ def derive_from(policy: ResolvedPolicy, metadata: Any, descriptor: Mapping[str, 
         encoding_specs=specs,
         encoding=dict(descriptor or {}),
         encoding_path=None,
+        # Taken off the reference rather than off the policy: a descriptor's corrections are
+        # read by DataEval from the path, and the derived split is handed records instead of
+        # a path, so without this the next split reads its values differently from the one
+        # whose encoding it is being given. `repairs` is the complete reading the reference
+        # ended up with, whichever source declared it.
+        correction_specs=tuple(getattr(metadata, "repairs", ()) or ()),
         strict=strict,
         # Subsumed by the records above, which already say where every declared cut fell.
         # Passing both is what DataEval refuses per factor, and the records are the
