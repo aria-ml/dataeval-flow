@@ -4,10 +4,12 @@ from typing import Any
 
 from dataeval_flow.config.schemas import MetadataPolicyConfig
 from dataeval_flow.triage import (
+    Finding,
     _numeric_drop,
     find_issues,
     incomplete_factors,
     render_stanza,
+    suggest,
     to_policy_stanza,
 )
 
@@ -371,6 +373,33 @@ def test_a_no_encoding_categorical_factor_needs_a_vocabulary_not_bins():
     assert finding.severity == "blocking"
     assert "vocabulary" in finding.remedy or "levels" in finding.remedy
     assert "bin count" not in finding.remedy
+
+
+def test_a_no_encoding_continuous_factor_gets_a_default_bin_suggestion():
+    # The sharpest `unbinned` case -- reached the evaluators as raw values -- must still
+    # reach the stanza. There is no `fit` to read a populated count from, so this is the one
+    # live path `default_bins` exists for.
+    record = _record(factors={"raw": {"type": "continuous", "level": "unit"}})
+    (finding,) = find_issues(record, default_bins=6)
+    assert finding.category == "unbinned"
+    assert finding.severity == "blocking"
+    assert finding.suggestion is not None
+    assert finding.suggestion.policy == {"continuous_factor_bins": {"raw": 6}}
+    assert finding.suggestion.complete is True
+
+
+def test_suggest_honours_its_contract_for_a_hand_built_unbinned_finding():
+    # `suggest` is documented as "the config change that would address one finding" -- it
+    # must not be an identity function that only echoes a suggestion built elsewhere.
+    finding = Finding(
+        factor="raw",
+        category="unbinned",
+        severity="blocking",
+        detail={"type": "continuous"},
+    )
+    suggestion = suggest(finding, default_bins=4)
+    assert suggestion is not None
+    assert suggestion.policy == {"continuous_factor_bins": {"raw": 4}}
 
 
 def test_a_degenerate_derived_cut_gets_no_bin_suggestion():

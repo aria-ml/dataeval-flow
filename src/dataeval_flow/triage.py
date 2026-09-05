@@ -161,7 +161,7 @@ def find_issues(
         if finding.category == "unbinned" and finding.factor in degenerate_factors:
             finding.suggestion = None
         else:
-            finding.suggestion = suggest(finding)
+            finding.suggestion = suggest(finding, default_bins=default_bins)
         if finding.category == "unreadable" and finding.repairable and finding.suggestion is None:
             values = finding.detail.get("distinct", {}).get("text", [])
             if values and _datetime_format(values) is False and _looks_like_dates(values):
@@ -279,7 +279,6 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
                 level=info.get("level"),
                 detail={"info": dict(info)},
                 remedy=f"cut from this draw; declare `continuous_factor_bins: {{{name}: {count}}}`",
-                suggestion=Suggestion(policy={"continuous_factor_bins": {name: count}}, complete=True),
             )
         else:
             yield Finding(
@@ -470,18 +469,48 @@ def _period_key(stamp: datetime, period: str) -> tuple[int, ...]:
     }[period]
 
 
-def suggest(finding: Finding) -> Suggestion | None:
+def suggest(finding: Finding, *, default_bins: int = 10) -> Suggestion | None:
     """The config change that would address one finding, or None where flow cannot say.
 
     Only two categories produce one.  ``unreviewed`` needs a descriptor path nobody can
     invent, and ``degenerate`` needs a judgment about whether the factor is wanted at all —
     emitting either would put a value in the stanza that the user did not choose.
+
+    Parameters
+    ----------
+    finding : Finding
+        Any finding, hand-built or from :func:`find_issues`.
+    default_bins : int, default 10
+        Bin count to propose for an ``unbinned`` factor that carries no ``fit`` to read a
+        populated count from — see :data:`find_issues`'s parameter of the same name, which
+        this should agree with when both are called on the same record.
     """
     if finding.category == "unbinned":
-        return finding.suggestion
+        return _bin_suggestion(finding, default_bins)
     if finding.category != "unreadable" or not finding.repairable:
         return None
     return _correction_for(finding)
+
+
+def _bin_suggestion(finding: Finding, default_bins: int) -> Suggestion | None:
+    """A bin-count suggestion for an ``unbinned`` factor, or None where a cut is not the fix.
+
+    Two shapes of ``unbinned`` finding reach here. One carries the whole factor entry in
+    ``detail["info"]`` — a derived cut DataEval already produced, whose populated bin count
+    :func:`_suggested_bins` reads. The other, a factor with no ``encoding`` key at all,
+    carries only ``detail["type"]``: there is no fit to read a count from, so this falls
+    back to ``default_bins`` — the one live path that parameter exists for. Either way, only
+    a ``continuous`` factor gets a bin count; anything else needs a vocabulary, which no
+    predicate here can invent.
+    """
+    info = finding.detail.get("info")
+    if info is not None:
+        count = _suggested_bins(info.get("fit"), default_bins)
+    elif finding.detail.get("type") == "continuous":
+        count = default_bins
+    else:
+        return None
+    return Suggestion(policy={"continuous_factor_bins": {finding.factor: count}}, complete=True)
 
 
 def _correction_for(finding: Finding) -> Suggestion | None:
