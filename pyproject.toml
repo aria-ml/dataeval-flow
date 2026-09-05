@@ -127,6 +127,10 @@ docs = [
     "pyarrow>=25.0",
     "dataeval-plots>=0.0.7",
     "datasets>=4.0.0",
+    # SeaDrone, for the metadata triage tutorial: its telemetry is genuinely messy —
+    # `-1` where the drone recorded nothing and an empty `date_time` — which is what a
+    # triage demo needs and a curated dataset does not have.
+    "maite-datasets>=0.0.21",
 ]
 docker = [
     { include-group = "base" },
