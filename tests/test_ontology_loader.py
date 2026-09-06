@@ -198,3 +198,75 @@ class TestDataRoot:
         path.write_text(_TURTLE)
         with pytest.raises(OntologyLoadError):
             load_ontology("config/taxonomy.ttl", data_dir=tmp_path / "elsewhere")
+
+
+@pytest.mark.required
+class TestResolveOntology:
+    @staticmethod
+    def _pool() -> list[Any]:
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        return [
+            OntologyConfig(
+                name="vehicles",
+                concepts=[  # type: ignore[arg-type]
+                    {"id": "vehicle", "label": "vehicle"},
+                    {"id": "car", "label": "car", "parents": ["vehicle"]},
+                ],
+            )
+        ]
+
+    def test_a_name_resolves_from_the_pool(self) -> None:
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        onto, source = resolve_ontology("vehicles", self._pool())
+        assert source == "vehicles"
+        assert set(onto.ids) == {"vehicle", "car"}
+
+    def test_an_unmatched_string_is_still_a_path(self, tmp_path: Path) -> None:
+        # Backward compatibility: a config that named a file before must keep working.
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        with pytest.raises(OntologyLoadError) as exc:
+            resolve_ontology("does/not/exist.ttl", self._pool(), data_dir=tmp_path)
+        assert "could not read" in str(exc.value)
+
+    def test_an_inline_mapping_never_consults_the_pool(self) -> None:
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        onto, source = resolve_ontology({"animal": ["cat"]}, self._pool())
+        assert source == "inline"
+        assert set(onto.ids) == {"animal", "cat"}
+
+    def test_no_pool_leaves_a_string_a_path(self, tmp_path: Path) -> None:
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        with pytest.raises(OntologyLoadError):
+            resolve_ontology("vehicles", None, data_dir=tmp_path)
+
+    def test_a_name_that_is_also_a_file_is_refused(self, tmp_path: Path) -> None:
+        # Two people have said different things about one string. Refusing names both.
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        (tmp_path / "vehicles").write_text("not really an ontology")
+        with pytest.raises(OntologyLoadError) as exc:
+            resolve_ontology("vehicles", self._pool(), data_dir=tmp_path)
+        message = str(exc.value)
+        assert "vehicles" in message
+        assert "ontologies" in message
+
+    def test_a_pool_entry_carries_its_concepts(self) -> None:
+        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        pool = [
+            OntologyConfig(
+                name="extended",
+                concepts=[  # type: ignore[arg-type]
+                    {"id": "vehicle", "label": "vehicle"},
+                    {"id": "freight_car", "label": "Freight Car", "synonyms": ["freight car"]},
+                ],
+            )
+        ]
+        onto, _ = resolve_ontology("extended", pool)
+        assert onto.find("freight car") == ("freight_car",)

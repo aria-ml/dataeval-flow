@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from dataeval import Ontology
     from dataeval.types import OntologyConcept
 
-__all__ = ["OntologyLoadError", "load_ontology", "synthesize_ontology"]
+__all__ = ["OntologyLoadError", "load_ontology", "resolve_ontology", "synthesize_ontology"]
 
 _logger = logging.getLogger(__name__)
 
@@ -169,6 +169,70 @@ def load_ontology(
 
     _logger.debug("Loaded ontology from %s (%d concepts)", path, len(base.ids))
     return _extended(base, declared), str(path)
+
+
+def resolve_ontology(
+    spec: "Mapping[str, Any] | str | None",
+    pool: "Sequence[Any] | None",
+    *,
+    data_dir: "Path | None" = None,
+) -> "tuple[Ontology, str]":
+    """Build the ontology a workflow's ``ontology`` field names.
+
+    A string is a name in *pool* first and a path second, which is what lets a definition
+    move into ``ontologies:`` without breaking a config that named a file. A mapping is
+    always an inline hierarchy and never consults the pool.
+
+    Parameters
+    ----------
+    spec : Mapping or str or None
+        The workflow's ``ontology`` value.
+    pool : Sequence of OntologyConfig or None
+        The pipeline's ``ontologies`` definitions.
+    data_dir : Path or None, optional
+        Data root a relative path resolves against.
+
+    Returns
+    -------
+    tuple[Ontology, str]
+        The ontology and a source label — the pool entry's name, ``"inline"``,
+        ``"concepts"``, or the resolved path.
+
+    Raises
+    ------
+    OntologyLoadError
+        For anything :func:`load_ontology` refuses, and when *spec* names both a pool entry
+        and a readable file.
+    """
+    if not isinstance(spec, str) or not pool:
+        return load_ontology(spec, data_dir=data_dir)
+
+    entry = next((item for item in pool if item.name == spec), None)
+    if entry is None:
+        return load_ontology(spec, data_dir=data_dir)
+
+    _refuse_if_also_a_file(spec, data_dir)
+    ontology, _ = load_ontology(entry.source, concepts=entry.concepts, data_dir=data_dir)
+    return ontology, entry.name
+
+
+def _refuse_if_also_a_file(name: str, data_dir: "Path | None") -> None:
+    """Refuse a string that names a pool entry and a readable file at once.
+
+    Picking one by precedence would resolve a genuine ambiguity silently, and the wrong
+    choice is a whole run measured against a label space nobody asked for.
+    """
+    from dataeval_flow.config._loader import resolve_path
+
+    try:
+        candidate = resolve_path(name, data_dir, default_subdir="config")
+    except Exception:  # noqa: BLE001 - an unresolvable path simply is not a collision
+        return
+    if Path(candidate).is_file():
+        raise OntologyLoadError(
+            f"'{name}' names an entry under `ontologies:` and also the file '{candidate}'. "
+            "Rename one of them — there is no sound way to choose between them.",
+        )
 
 
 def synthesize_ontology(index2label: Mapping[int, str]) -> "tuple[Ontology, str]":
