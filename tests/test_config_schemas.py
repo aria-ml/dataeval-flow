@@ -1204,3 +1204,69 @@ class TestDatamaitePortConfig:
         for field in ("images_dir", "labels_dir", "classes_file"):
             with pytest.raises(ValidationError):
                 YoloDatasetConfig(name="ds", path="./d", **{field: "x"})  # type: ignore[arg-type]
+
+
+@pytest.mark.required
+class TestOntologyConfig:
+    def test_minimal_definition(self) -> None:
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        onto = OntologyConfig(name="vehicles", source="config/label_ontology.jsonld")
+        assert onto.name == "vehicles"
+        assert onto.concepts == []
+
+    def test_a_definition_needs_a_source_or_concepts(self) -> None:
+        # An entry naming neither describes no label space at all.
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        with pytest.raises(ValidationError):
+            OntologyConfig(name="empty")
+
+    def test_concepts_alone_are_enough(self) -> None:
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        onto = OntologyConfig(
+            name="hand_built",
+            concepts=[{"id": "car", "label": "car"}],  # type: ignore[arg-type]
+        )
+        assert onto.source is None
+        assert onto.concepts[0].id == "car"
+
+    def test_concept_carries_the_upstream_fields(self) -> None:
+        from dataeval_flow.config.schemas import OntologyConceptConfig
+
+        concept = OntologyConceptConfig(
+            id="http://ex.org/cv#FreightCar",
+            label="Freight Car",
+            synonyms=["freight_car", "freight car"],
+            parents=["http://ex.org/cv#LandVehicle"],
+            definition="A railway car designed to carry freight.",
+        )
+        assert concept.synonyms == ["freight_car", "freight car"]
+        assert concept.equivalent_to == []
+
+    def test_source_must_be_a_relative_path(self) -> None:
+        # Same portability rule every other config path follows.
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        with pytest.raises(ValidationError):
+            OntologyConfig(name="vehicles", source="/etc/passwd")
+
+    def test_pipeline_holds_a_named_pool(self) -> None:
+        from dataeval_flow.config import PipelineConfig
+
+        config = PipelineConfig(ontologies=[{"name": "vehicles", "source": "config/onto.jsonld"}])  # type: ignore[arg-type]
+        assert config.ontologies is not None
+        assert config.ontologies[0].name == "vehicles"
+
+    def test_duplicate_names_are_refused(self) -> None:
+        # PipelineConfig already enforces unique names across every pool.
+        from dataeval_flow.config import PipelineConfig
+
+        with pytest.raises(ValidationError):
+            PipelineConfig(
+                ontologies=[
+                    {"name": "vehicles", "source": "a.jsonld"},
+                    {"name": "vehicles", "source": "b.jsonld"},
+                ]  # type: ignore[arg-type]
+            )

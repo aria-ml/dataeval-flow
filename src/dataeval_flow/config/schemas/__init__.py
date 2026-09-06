@@ -25,6 +25,7 @@ from dataeval_flow.config.schemas._extractor import (
     UncertaintyExtractorConfig,
 )
 from dataeval_flow.config.schemas._metadata import MetadataPolicyConfig, ResultMetadata
+from dataeval_flow.config.schemas._ontology import OntologyConceptConfig, OntologyConfig
 from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
 from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
@@ -116,6 +117,8 @@ __all__ = [
     # Task
     "AutoBinMethod",
     "MetadataPolicyConfig",
+    "OntologyConfig",
+    "OntologyConceptConfig",
     "FactorSource",
     "DataAnalysisTaskConfig",
     "DataCleaningTaskConfig",

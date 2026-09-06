@@ -471,6 +471,7 @@ class TestConstants:
             "sources",
             "extractors",
             "metadata",
+            "ontologies",
             "workflows",
             "tasks",
         }

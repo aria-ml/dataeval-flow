@@ -16,6 +16,7 @@ from dataeval_flow.config.schemas import (
     DatasetProtocolConfig,
     ExtractorConfig,
     MetadataPolicyConfig,
+    OntologyConfig,
     PreprocessorConfig,
     TaskConfig,
     ViewConfig,
@@ -118,6 +119,14 @@ class PipelineConfig(BaseModel):
             "Named metadata policy definitions (encoding, vocabularies, exclusions), "
             "referenced by workflows. Defined once and shared so that workflows meant to "
             "be compared read their factors under one encoding."
+        ),
+    )
+
+    ontologies: Sequence[OntologyConfig] | None = Field(
+        default=None,
+        description=(
+            "Named label-space definitions, referenced by workflows. Defined once and shared "
+            "so that workflows meant to be compared read the same vocabulary."
         ),
     )
 
