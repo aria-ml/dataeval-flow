@@ -3,6 +3,8 @@
 import json
 from typing import Any, Literal
 
+import yaml
+
 from dataeval_flow.workflow.base import Reportable
 from dataeval_flow.workflows.coverage.outputs import DataCoverageRawOutputs, LabelSpaceCoverage
 from dataeval_flow.workflows.coverage.params import DataCoverageHealthThresholds
@@ -474,20 +476,20 @@ def _finding_conformance(
     )
 
 
-_YAML_UNSAFE = set(",[]{}:#&*!|>'\"%@`")
-
-
 def _yaml_scalar(value: str) -> str:
-    """A YAML scalar for *value*, quoted only where a bare word would not survive.
+    """A YAML scalar for *value*, quoted only where a plain one would not survive.
 
-    A label may hold a comma or a colon — "bathtub, bathing tub" is an ordinary
-    WordNet-style name — and interpolating one bare turns a vocabulary of N into a
-    list of more than N, silently. The list's length and order are the integer label
-    indexing, so that is not a cosmetic defect.
+    Round-tripped rather than pattern-matched. A label may hold a metacharacter, but it
+    may equally be a plain word YAML resolves to something that is not a string — ``0``,
+    ``on``, ``null``, a date — and a config parsed back into an int key never matches the
+    class it names, so ``Relabel`` drops that class without a word. Flow-sequence context
+    is stricter than either mapping context, so one check covers every site this emits.
     """
-    if not value or value[0].isspace() or value[-1].isspace() or any(c in _YAML_UNSAFE for c in value):
-        return json.dumps(value)
-    return value
+    try:
+        safe = yaml.safe_load(f"[{value}]") == [value]
+    except yaml.YAMLError:
+        safe = False
+    return value if safe else json.dumps(value)
 
 
 def _relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) -> str:

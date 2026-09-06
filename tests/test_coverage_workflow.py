@@ -2149,6 +2149,44 @@ class TestAlignmentFinding:
         assert parsed[0]["params"]["target"] == target_vocabulary
         assert parsed[0]["params"]["class_remap"] == class_remap
 
+    def test_labels_that_resolve_to_non_strings_round_trip(self) -> None:
+        # "0", "1", "on", "no", and an ISO date are all lexically plain — no comma, no
+        # colon, nothing a character blacklist would flag — yet PyYAML resolves every one
+        # of them to something other than a string. Worse, "on" resolves to the same
+        # boolean as "1" would if it were unquoted, so an int-vs-bool collision can
+        # silently collapse two class_remap entries into one before any value-level
+        # comparison even runs. A plain `== ` on the parsed dict/list can still pass
+        # despite that: int 0 came from str "0" only if quoting held, but a naive test
+        # that skips the type check would not notice the value round-tripped to the
+        # wrong type. Assert types explicitly, and the full entry count, not just values.
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        vocabulary = ["0", "1", "on", "no", "2026-09-06"]
+        class_remap = {label: label for label in vocabulary}
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossless",
+                class_remap=class_remap,
+                paste_remap=class_remap,
+                target_vocabulary=vocabulary,
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        description = finding.description or ""
+        block = description.split("adding to its view:\n\n")[1].split("\n\nEvery dataset")[0]
+        parsed = yaml.safe_load(block)
+        parsed_target = parsed[0]["params"]["target"]
+        parsed_remap = parsed[0]["params"]["class_remap"]
+
+        assert parsed_target == vocabulary
+        assert parsed_remap == class_remap
+        # Values alone are not enough: a collapsed entry or a bool/int substitution can
+        # still satisfy `==` at the value level. Pin every key and element to `str`.
+        assert all(isinstance(item, str) for item in parsed_target)
+        assert all(isinstance(k, str) and isinstance(v, str) for k, v in parsed_remap.items())
+        assert len(parsed_remap) == len(vocabulary)
+
 
 @pytest.mark.required
 class TestLabelSpaceOnEnvelope:
