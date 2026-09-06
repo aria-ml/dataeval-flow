@@ -1978,3 +1978,143 @@ class TestAlignment:
         assert al.label_space_digest != label_space_digest(
             ontology=onto_digest, class_remap=al.class_remap, target=al.target_vocabulary
         )
+
+
+@pytest.mark.required
+class TestAlignmentFinding:
+    @staticmethod
+    def _raw_with(alignment: Any) -> DataCoverageRawOutputs:
+        raw = DataCoverageRawOutputs(
+            dataset_size=10,
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
+        )
+        raw.ontology = OntologyAssessment(
+            source="inline",
+            synthesized=False,
+            representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
+            alignment=alignment,
+        )
+        return raw
+
+    @staticmethod
+    def _find(findings: list[Any]) -> Any:
+        return next((f for f in findings if f.title == "Label Alignment"), None)
+
+    def test_absent_without_an_alignment(self) -> None:
+        raw = DataCoverageRawOutputs(
+            dataset_size=10,
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
+        )
+        assert self._find(build_findings(raw, DataCoverageHealthThresholds())) is None
+
+    def test_lossless_is_ok(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossless",
+                class_remap={"car": "Car"},
+                paste_remap={"car": "Car"},
+                target_vocabulary=["Car", "Truck"],
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        assert finding.severity == "ok"
+
+    def test_partial_warns_and_names_the_dropped_class(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="partial",
+                class_remap={"car": "Car"},
+                paste_remap={"car": "Car"},
+                target_vocabulary=["Car"],
+                unaligned_source=["lamp"],
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        assert finding.severity == "warning"
+        assert "lamp" in (finding.description or "")
+
+    def test_lossy_is_info(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossy",
+                class_remap={"car": "Vehicle", "truck": "Vehicle"},
+                paste_remap={"car": "Vehicle", "truck": "Vehicle"},
+                target_vocabulary=["Vehicle"],
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        assert finding.severity == "info"
+
+    def test_ambiguous_labels_force_a_warning(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossless",
+                class_remap={"car": "Car"},
+                paste_remap={"car": "Car"},
+                target_vocabulary=["Car", "Car"],
+                ambiguous_labels=["Car"],
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        assert finding.severity == "warning"
+
+    def test_description_carries_a_paste_ready_block(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossless",
+                class_remap={"people": "Person"},
+                paste_remap={"people": "Person"},
+                target_vocabulary=["Person", "Car"],
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        description = finding.description or ""
+        assert "type: Relabel" in description
+        assert "people: Person" in description
+        assert "target: [Person, Car]" in description
+
+    def test_correspondences_become_table_rows(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import AlignmentCorrespondence, LabelAlignment
+
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossless",
+                correspondences=[
+                    AlignmentCorrespondence(
+                        source="car",
+                        relation="equivalent",
+                        target="http://example.org/cv#Car",
+                        target_label="Car",
+                        confidence=1.0,
+                        matcher="exact",
+                    )
+                ],
+                class_remap={"car": "http://example.org/cv#Car"},
+                paste_remap={"car": "Car"},
+                target_vocabulary=["Car"],
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        assert finding.report_type == "table"
+        assert isinstance(finding.data, list)
+        assert finding.data[0]["source"] == "car"
+        # The IRI is resolved for the reader; the raw id stays in the machine-readable output.
+        assert finding.data[0]["target"] == "Car"

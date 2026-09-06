@@ -317,6 +317,14 @@ def _worklist_rows(rep: LabelSpaceCoverage) -> list[dict[str, Any]]:
 
 _WORKLIST_HEADERS = ["Concept", "Action", "Count", "Target", "Deficit"]
 
+#: Mergeability to the severity it reports at.  A collapse is usually deliberate, so `lossy`
+#: informs rather than warns; `partial` warns because Relabel will drop a class.
+_MERGEABILITY_SEVERITY: dict[str, Literal["ok", "info", "warning"]] = {
+    "lossless": "ok",
+    "lossy": "info",
+    "partial": "warning",
+}
+
 
 def _finding_label_space(
     raw: DataCoverageRawOutputs,
@@ -465,6 +473,79 @@ def _finding_conformance(
     )
 
 
+def _relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) -> str:
+    """The alignment as the view operation a user pastes into their config."""
+    lines = [
+        "      - type: Relabel",
+        "        params:",
+        "          class_remap:",
+    ]
+    lines.extend(f"            {source}: {target}" for source, target in sorted(paste_remap.items()))
+    lines.append(f"          target: [{', '.join(target_vocabulary)}]")
+    return "\n".join(lines)
+
+
+def _finding_alignment(
+    raw: DataCoverageRawOutputs,
+    thresholds: DataCoverageHealthThresholds,
+) -> Reportable | None:
+    """What does each class name become in the reference vocabulary, and what is lost?"""
+    del thresholds  # severity comes from mergeability, which is not a tunable
+    onto = raw.ontology
+    if onto is None or onto.alignment is None:
+        return None
+
+    al = onto.alignment
+    severity: Literal["ok", "info", "warning"] = _MERGEABILITY_SEVERITY.get(al.mergeability, "info")
+    if al.ambiguous_labels:
+        severity = "warning"
+
+    described = {
+        "lossless": "Every class carries over one-to-one.",
+        "lossy": "Every class carries over, but two or more collapse into one concept — specificity is lost.",
+        "partial": "At least one class cannot carry over and will be dropped by Relabel.",
+    }
+    description = f"Mergeability: {al.mergeability}. {described.get(al.mergeability, '')}"
+
+    if al.unaligned_source:
+        description += f" Dropped: {', '.join(al.unaligned_source)}."
+    if al.unaligned_target:
+        description += f" Concepts this dataset does not cover: {', '.join(al.unaligned_target)}."
+    if al.ambiguous_labels:
+        description += (
+            f" {len(al.ambiguous_labels)} target label(s) name more than one concept "
+            f"({', '.join(al.ambiguous_labels)}), so the block below cannot be used until the "
+            "ontology is fixed — the integer such a label would take is undetermined."
+        )
+
+    if al.paste_remap:
+        description += (
+            "\n\nConform a dataset to this vocabulary by adding to its view:\n\n"
+            f"{_relabel_stanza(al.paste_remap, al.target_vocabulary)}\n\n"
+            "Every dataset merged together must pass the identical `target`, or their integer "
+            "labels denote different classes."
+        )
+    if al.label_space_digest:
+        description += f"\n\nLabel space: {al.label_space_digest}"
+
+    return Reportable(
+        report_type="table",
+        severity=severity,
+        title="Label Alignment",
+        data=[
+            {
+                "source": c.source,
+                "relation": c.relation,
+                "target": c.target_label,
+                "confidence": round(c.confidence, 3),
+                "matcher": c.matcher,
+            }
+            for c in al.correspondences
+        ],
+        description=description,
+    )
+
+
 def _finding_ontology_skipped(raw: DataCoverageRawOutputs) -> Reportable | None:
     """Say why the ontology sections are absent instead of dropping them silently.
 
@@ -579,7 +660,7 @@ def build_findings(
         findings.append(gap_finding)
 
     # Ontology (conditional — exactly one of the two worklist findings appears)
-    for builder in (_finding_label_space, _finding_class_balance, _finding_conformance):
+    for builder in (_finding_label_space, _finding_class_balance, _finding_conformance, _finding_alignment):
         finding = builder(raw, thresholds)
         if finding is not None:
             findings.append(finding)
