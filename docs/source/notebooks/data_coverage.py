@@ -536,7 +536,7 @@ print(result_ontology.report())
 # %% [markdown]
 # ### What the ontology found that counts could not
 #
-# Three new sections replace the Class Balance Worklist:
+# Four new sections replace the Class Balance Worklist:
 #
 # - **Label Space Coverage** — 8 of 36 sanctioned characters have any
 #   examples. Digits `8` and `9` show up as `acquire` rows: sanctioned,
@@ -544,6 +544,13 @@ print(result_ontology.report())
 #   images declares nothing to count.
 # - **Label Conformance** — every collected class name resolves to a
 #   concept, so the label set conforms.
+# - **Label Alignment** — mergeability is `lossless`: the 8 collected
+#   digits already carry their ontology leaf's own name, so nothing
+#   merges and nothing is dropped. Conformance only asks whether a name
+#   *resolves*; alignment asks what it *becomes*, and pastes a ready
+#   `Relabel` stanza remapping onto the full 43-concept vocabulary —
+#   the fix a dataset with looser names, or missing classes, would
+#   actually need.
 # - **Ontology Structure** — the artifact itself: 36 leaves under two
 #   branches, no collisions.
 
