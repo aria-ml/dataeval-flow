@@ -568,6 +568,34 @@ for row in onto.representation.worklist[:6]:
     print(f"  {row.label:>10}  {row.action:<8} have {row.count:>3}, want {row.target:>3}")
 
 # %% [markdown]
+# ### Sharing one ontology across workflows
+#
+# The example above passes the ontology inline, which is the simplest form. When several
+# workflows read the same label space, define it once under `ontologies:` and reference it
+# by name, so the definitions cannot drift apart:
+#
+# ```yaml
+# ontologies:
+#   - name: postal
+#     source: config/postal.jsonld
+#     concepts:
+#       - id: http://example.org/postal#FreightCar
+#         label: Freight Car
+#         synonyms: [freight_car, freight car]
+#
+# workflows:
+#   - name: coverage-ontology
+#     type: data-coverage
+#     ontology: postal
+# ```
+#
+# `concepts:` adds concepts on top of `source`, which lets you extend an artifact you do not
+# own. `synonyms` matters here: alignment matches on labels and synonyms, so a concept
+# declared without the dataset's spelling for it will not match that class. A workflow's
+# `ontology:` value is read as a name first and as a path second, so configurations that
+# name a file continue to work.
+
+# %% [markdown]
 # The `letter` branch is entirely dark — 26 sanctioned characters, no
 # images. That is one finding, not 26, because `dark_branches` rolls
 # missing leaves up to the highest wholly-empty concept.
