@@ -79,6 +79,15 @@ ex:vehicle a skos:Concept ; skos:prefLabel "véhicule" .
         assert source == str(path)
         assert set(onto.leaves) == {"http://example.org/car", "http://example.org/truck"}
 
+    def test_source_resolves_against_the_given_root(self, tmp_path: Path) -> None:
+        # The negative case in TestDataRoot proves a wrong root misses. This proves the
+        # right one hits, which is what actually makes data_dir load-bearing.
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / "taxonomy.ttl").write_text(_TURTLE)
+        onto, source = load_ontology("config/taxonomy.ttl", data_dir=tmp_path)
+        assert set(onto.leaves) == {"http://example.org/car", "http://example.org/truck"}
+        assert str(tmp_path) in source
+
     def test_rdflib_missing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         path = tmp_path / "taxonomy.ttl"
         path.write_text(_TURTLE)
@@ -109,3 +118,65 @@ class TestSynthesize:
     def test_empty_is_an_error(self) -> None:
         with pytest.raises(OntologyLoadError):
             synthesize_ontology({})
+
+
+@pytest.mark.required
+class TestDeclaredConcepts:
+    def test_concepts_extend_an_inline_hierarchy(self) -> None:
+        onto, source = load_ontology(
+            {"vehicle": ["car"]},
+            concepts=[{"id": "freight_car", "label": "Freight Car", "parents": ["vehicle"]}],
+        )
+        assert source == "inline"
+        assert "freight_car" in set(onto.ids)
+        assert "car" in set(onto.ids)
+
+    def test_a_declared_synonym_is_findable(self) -> None:
+        # Alignment anchors on synonyms, so this is the field that makes a declared concept
+        # actually match the dataset's own spelling.
+        onto, _ = load_ontology(
+            {"vehicle": ["car"]},
+            concepts=[
+                {
+                    "id": "freight_car",
+                    "label": "Freight Car",
+                    "synonyms": ["freight car"],
+                    "parents": ["vehicle"],
+                }
+            ],
+        )
+        assert onto.find("freight car") == ("freight_car",)
+
+    def test_concepts_alone_build_the_space(self) -> None:
+        onto, source = load_ontology(
+            None,
+            concepts=[
+                {"id": "vehicle", "label": "vehicle"},
+                {"id": "car", "label": "car", "parents": ["vehicle"]},
+            ],
+        )
+        assert source == "concepts"
+        assert set(onto.ids) == {"vehicle", "car"}
+
+    def test_nothing_at_all_is_an_error(self) -> None:
+        with pytest.raises(OntologyLoadError):
+            load_ontology(None)
+
+    def test_a_malformed_concept_is_reported(self) -> None:
+        # A concept missing `label` must fail as a config error naming the ontology, not as
+        # an opaque pydantic traceback from inside the loader.
+        with pytest.raises(OntologyLoadError) as exc:
+            load_ontology(None, concepts=[{"id": "car"}])
+        assert "label" in str(exc.value)
+
+
+@pytest.mark.required
+class TestDataRoot:
+    def test_source_resolves_against_the_given_root(self, tmp_path: Path) -> None:
+        # The orchestrator knows the data root; the loader must honour it rather than
+        # falling back to the process-wide default.
+        (tmp_path / "config").mkdir()
+        path = tmp_path / "config" / "taxonomy.ttl"
+        path.write_text(_TURTLE)
+        with pytest.raises(OntologyLoadError):
+            load_ontology("config/taxonomy.ttl", data_dir=tmp_path / "elsewhere")

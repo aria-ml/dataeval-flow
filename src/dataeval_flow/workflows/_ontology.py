@@ -11,12 +11,13 @@ the concerns of whichever workflow happens to consume the ontology first.
 """
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from dataeval import Ontology
+    from dataeval.types import OntologyConcept
 
 __all__ = ["OntologyLoadError", "load_ontology", "synthesize_ontology"]
 
@@ -42,37 +43,91 @@ class OntologyLoadError(Exception):
     """
 
 
-def load_ontology(spec: "Mapping[str, Any] | str") -> "tuple[Ontology, str]":
-    """Build an ontology from an inline hierarchy or a path to an RDF artifact.
+def _declared_concepts(concepts: "Sequence[Mapping[str, Any] | Any]") -> "list[OntologyConcept]":
+    """Config-declared concepts as DataEval's own type.
+
+    Accepts either the pydantic config model or a plain mapping of the same shape, so the
+    loader is usable from a config and from a hand-written call alike.
+    """
+    from dataeval.types import OntologyConcept
+
+    built: list[OntologyConcept] = []
+    for entry in concepts:
+        fields = entry if isinstance(entry, Mapping) else entry.model_dump()
+        try:
+            built.append(OntologyConcept(**dict(fields)))
+        except Exception as exc:
+            name = dict(fields).get("id", "<no id>")
+            raise OntologyLoadError(f"declared concept {name!r} is not valid: {exc}") from exc
+    return built
+
+
+def _extended(base: "Ontology", declared: "list[OntologyConcept]") -> "Ontology":
+    """*base* with *declared* merged in, or *base* itself when nothing was declared.
+
+    A declared concept replaces one the artifact already defines under the same id: the
+    config is the more local statement, and silently keeping both would leave the id
+    ambiguous.
+    """
+    from dataeval import Ontology
+
+    if not declared:
+        return base
+    replaced = {concept.id for concept in declared}
+    return Ontology([*(c for c in base if c.id not in replaced), *declared])
+
+
+def load_ontology(
+    spec: "Mapping[str, Any] | str | None",
+    *,
+    concepts: "Sequence[Mapping[str, Any] | Any]" = (),
+    data_dir: "Path | None" = None,
+) -> "tuple[Ontology, str]":
+    """Build an ontology from an inline hierarchy, an RDF artifact, declared concepts, or a mix.
 
     Parameters
     ----------
-    spec : Mapping or str
-        A nested mapping of concept to children, or a path to a serialized RDF
-        file. Relative paths resolve against the data root.
+    spec : Mapping or str or None
+        A nested mapping of concept to children, or a path to a serialized RDF file.
+        Relative paths resolve against *data_dir*. ``None`` builds the space from
+        *concepts* alone.
+    concepts : Sequence, optional
+        Concepts to add on top of *spec*, each an ``OntologyConceptConfig`` or a mapping of
+        the same shape. A declared concept whose id the artifact already defines replaces it.
+    data_dir : Path or None, optional
+        Data root that a relative *spec* path resolves against. ``None`` falls back to the
+        process-wide root.
 
     Returns
     -------
     tuple[Ontology, str]
-        The ontology and a source label — ``"inline"`` or the resolved path.
+        The ontology and a source label — ``"inline"``, ``"concepts"``, or the resolved path.
 
     Raises
     ------
     OntologyLoadError
-        If the mapping is malformed, the file is unreadable, the RDF does not
-        parse, or ``rdflib`` is not installed.
+        If nothing is given, the mapping is malformed, a declared concept is malformed, the
+        file is unreadable, the RDF does not parse, or ``rdflib`` is not installed.
     """
     from dataeval import Ontology
 
+    declared = _declared_concepts(concepts)
+
+    if spec is None:
+        if not declared:
+            raise OntologyLoadError("no ontology source and no concepts declared")
+        return Ontology(declared), "concepts"
+
     if isinstance(spec, Mapping):
         try:
-            return Ontology.from_hierarchy(dict(spec)), "inline"
+            base = Ontology.from_hierarchy(dict(spec))
         except Exception as exc:
             raise OntologyLoadError(f"inline ontology is not a valid hierarchy: {exc}") from exc
+        return _extended(base, declared), "inline"
 
     from dataeval_flow.config._loader import resolve_path
 
-    path = resolve_path(spec, None, default_subdir="config")
+    path = resolve_path(spec, data_dir, default_subdir="config")
     try:
         content = Path(path).read_text()
     except OSError as exc:
@@ -82,7 +137,7 @@ def load_ontology(spec: "Mapping[str, Any] | str") -> "tuple[Ontology, str]":
 
     fmt = _RDF_FORMATS.get(Path(path).suffix.lower())
     try:
-        ontology = Ontology.from_rdf(content, format=fmt)
+        base = Ontology.from_rdf(content, format=fmt)
     except ImportError as exc:
         raise OntologyLoadError(
             "reading an ontology from a file needs rdflib, which is not installed. "
@@ -93,8 +148,8 @@ def load_ontology(spec: "Mapping[str, Any] | str") -> "tuple[Ontology, str]":
             f"could not parse ontology file '{path}' as {fmt or 'an auto-detected format'}: {exc}"
         ) from exc
 
-    _logger.debug("Loaded ontology from %s (%d concepts)", path, len(ontology.ids))
-    return ontology, str(path)
+    _logger.debug("Loaded ontology from %s (%d concepts)", path, len(base.ids))
+    return _extended(base, declared), str(path)
 
 
 def synthesize_ontology(index2label: Mapping[int, str]) -> "tuple[Ontology, str]":
