@@ -178,7 +178,7 @@ def find_issues(
         if finding.category == "unreadable" and finding.repairable and finding.suggestion is None:
             values = finding.detail.get("distinct", {}).get("text", [])
             if values and _datetime_format(values) is False and _looks_like_dates(values):
-                finding.remedy = "ambiguous date format: reads two ways"
+                finding.remedy = "ambiguous date format: multiple formats match"
         _name_recurring_alternative(finding)
     return sorted(findings, key=lambda f: (_SEVERITY_RANK[f.severity], f.category, f.factor))
 
@@ -210,7 +210,7 @@ def _name_recurring_alternative(finding: Finding) -> None:
     every = correction.get("every")
     alternative = _RECURRING_ALTERNATIVE.get(every) if isinstance(every, str) else None
     if alternative:
-        finding.remedy = f"{finding.remedy}. `{alternative}` is also available, and answers a different question"
+        finding.remedy = f"{finding.remedy}. `{alternative}` is also available for cyclical analysis"
 
 
 def _factors(record: Mapping[str, Any]) -> Mapping[str, Mapping[str, Any]]:
@@ -252,10 +252,10 @@ def _unreadable(record: Mapping[str, Any]) -> Iterator[Finding]:
 def _unreadable_remedy(reasons: Sequence[str], repairable: bool) -> str:
     """One line saying what this factor needs, in the reason's own terms."""
     if not repairable:
-        return "measured, but has no single-column form"
+        return "non-scalar data; cannot be processed as a metadata factor"
     if "cardinality_over_budget" in reasons:
-        return "one value per row; give it a vocabulary"
-    return "declare how the disagreeing values read"
+        return "high cardinality: unique value per row. Bin or group values before use"
+    return "mixed types; remap or cast values to a single type"
 
 
 def _unbound(record: Mapping[str, Any]) -> Iterator[Finding]:
@@ -275,20 +275,16 @@ def _unbound(record: Mapping[str, Any]) -> Iterator[Finding]:
             remedy=(
                 f"no factor named {name!r}. Did you mean {near[0]!r}?"
                 if near
-                else f"no factor named {name!r}. Its cut was replaced by an auto-cut"
+                else f"factor {name!r} not found; falling back to automatic binning"
             ),
         )
 
 
 def _no_encoding_remedy(factor_type: Any) -> str:
-    """What a factor needs once it is known to have no encoding at all.
-
-    A continuous factor is fixed by declaring a bin count; anything else takes a vocabulary
-    instead, so guiding it toward "declare a bin count" would send it to the wrong stanza.
-    """
+    """What a factor needs once it is known to have no encoding at all."""
     if factor_type == "continuous":
-        return "read as raw values, not codes. Declare a bin count"
-    return "read as raw values, not codes. Commit a descriptor or declare its levels"
+        return "unencoded continuous values; declare a bin count"
+    return "unencoded values; declare levels or provide a descriptor"
 
 
 def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding]:
@@ -331,9 +327,8 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
                 level=info.get("level"),
                 detail={"info": dict(info)},
                 remedy=(
-                    f"cut from this draw. Declare `continuous_factor_bins: {{{name}: {count}}}` "
-                    f"to pin it. Your current numbers do not change ({count} is the cut that ran); "
-                    "the next sample gets the same cut"
+                    f"derived from current sample. Declare `continuous_factor_bins: {{{name}: {count}}}` "
+                    "to fix bin edges across runs"
                 ),
             )
         else:
@@ -344,8 +339,8 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[Finding
                 level=info.get("level"),
                 detail={"info": dict(info)},
                 remedy=(
-                    "vocabulary from this draw. Export one with `dataeval-flow encoding`, then "
-                    "reference the file from `encoding:`"
+                    "vocabulary derived from current sample. Export with `dataeval-flow encoding` "
+                    "and reference in `encoding:`"
                 ),
             )
 
@@ -396,7 +391,7 @@ def _degenerate(record: Mapping[str, Any], min_missing_fraction: float) -> Itera
                 severity="note",
                 level=info.get("level"),
                 detail={"info": dict(info), "populated": len(populated)},
-                remedy="one populated bucket, so it groups nothing. Exclude it or cut it differently",
+                remedy="only one populated bucket; exclude factor or adjust binning",
             )
             continue
         missing = int(fit.get("missing") or 0)
@@ -408,7 +403,7 @@ def _degenerate(record: Mapping[str, Any], min_missing_fraction: float) -> Itera
                 severity="note",
                 level=info.get("level"),
                 detail={"info": dict(info), "missing_fraction": missing / total},
-                remedy=(f"{share}% of rows have no value. They form their own group in every contingency table"),
+                remedy=f"{share}% of rows have no value; high missingness may distort downstream analysis",
             )
 
 
@@ -454,10 +449,7 @@ def _identifier_finding(name: str, info: Mapping[str, Any]) -> Finding | None:
         severity="warning",
         level=info.get("level"),
         detail={"info": dict(info), "n_distinct": distinct, "rows": rows},
-        remedy=(
-            f"{distinct} whole numbers over {rows} rows, never repeating. This is an "
-            "identifier, not a factor. Exclude it"
-        ),
+        remedy=f"{distinct} unique integer values across {rows} rows; column appears to be an identifier, exclude it",
         suggestion=Suggestion(policy={"exclude": [name]}, complete=True),
     )
 
@@ -496,12 +488,12 @@ def _floor_mass(record: Mapping[str, Any]) -> Iterator[Finding]:
                 level=info.get("level"),
                 detail={"value": value, "shared_with": others, "info": dict(info)},
                 remedy=(
-                    f"a quarter of the rows or more hold {value!r}, its most extreme value. "
+                    f"value {value!r} appears in >=25% of rows. "
                     + (
-                        f"{len(others)} other factors share that extreme, which usually marks "
-                        "a missing reading. Confirm, then code it missing"
+                        f"{len(others)} other factors share this extreme, which may indicate "
+                        "a missing reading marker. Remap to `.nan` if appropriate"
                         if shared
-                        else "If that is a marker and not a reading, code it missing"
+                        else "If this is a sentinel marker and not a valid reading, remap to `.nan`"
                     )
                 ),
                 suggestion=Suggestion(

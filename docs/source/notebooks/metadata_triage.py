@@ -16,42 +16,39 @@
 # %% [markdown]
 # # Triage a dataset's metadata
 #
-# Find the metadata columns a run failed to read, and get a config change for each, using the
-# `metadata-triage` workflow on SeaDrone drone telemetry.
+# In this tutorial, you will identify metadata columns that failed to load or parse, and generate
+# configuration fixes using the `metadata-triage` workflow on SeaDrone telemetry.
 
 # %% [markdown]
-# **Who this is for** — T&E engineers and data scientists who have pointed DataEval Flow at a dataset
-# and want to know whether its metadata actually arrived, before trusting any bias or coverage number
-# computed from it.
+# **Who this is for** — Engineers and data scientists who need to verify dataset metadata before
+# computing coverage, drift, or bias metrics.
 #
-# **Where this fits** — Triage runs before everything else. [Analysis](data_analysis),
-# [coverage](data_coverage) and [splitting](dataset_splitting) all read whatever factors survived
-# preprocessing. A column mixing numbers with text is set aside. A timestamp holding one value per
-# row is dropped. A factor nobody cut gets cut from this sample. None of that raises an error or
-# shows up in the results. Triage is where you find out.
+# **Where this fits** — You should run triage before downstream evaluation workflows. Downstream workflows
+# like [analysis](data_analysis), [coverage](data_coverage), and [splitting](dataset_splitting) silently drop
+# unparseable metadata columns, mixed-type fields, or high-cardinality values without raising errors.
+# Triage surfaces these dropped columns so you can configure remediations.
 
 # %% [markdown]
 # ## What you'll do
 #
-# - Load SeaDrone, an aerial object-detection dataset whose drone telemetry is genuinely messy
-# - Run the `metadata-triage` workflow and read its report
-# - See which columns were lost, why, and what each one would take to read
-# - Meet two problems that read cleanly and still distort a cut: an identifier, and a value a
-#   quarter of the column sits on
-# - Read the **suggested policy** — a YAML block you paste into your config
-# - Fill in the one decision the tool refuses to make for you, apply the policy, and re-run
-# - Compare the two runs to see what the corrections actually recovered
+# In this tutorial, you will:
+# - Load a sample of the SeaDrone object-detection dataset with telemetry metadata
+# - Run the `metadata-triage` workflow and inspect the report
+# - Identify dropped or unparseable columns and review suggested remedies
+# - Review factors that parse cleanly but need remediation, such as unique identifiers and sentinel values
+# - Review the suggested policy configuration
+# - Complete required placeholder values in the policy, apply it, and re-run triage
+# - Compare results between the initial and corrected runs
 
 # %% [markdown]
 # ## What you'll learn
 #
-# - How to run `metadata-triage` and what its five finding categories mean
-# - Why a factor can be *blocking* (recoverable and lost) or merely a *note* (nothing to be done)
-# - How to read a factor's distribution chart, and what it tells you about a bin count
-# - Where the tool stops guessing, and why
-# - How verification distinguishes "this correction ran" from "this correction worked"
-# - Why a withheld suggestion is itself a finding
-# - What triage cannot see, so you know what it does not cover
+# You will learn:
+# - How to run `metadata-triage` and interpret finding categories and severity levels
+# - How to interpret factor distribution charts and evaluate bin recommendations
+# - How you can configure policies to handle missing values, date parsing, and type conversions
+# - How verification tests proposed policies against your dataset
+# - The scope and limitations of automated metadata triage
 
 # %% [markdown]
 # ## What you'll need
@@ -61,10 +58,9 @@
 # - Internet connection — SeaDrone's validation split downloads on first run (about 1.2 GB)
 #
 # ```{note}
-# Unlike the other tutorials, this one has no `.yaml` twin. SeaDrone arrives as an in-memory MAITE
-# dataset, and an in-memory dataset is configured through `DatasetProtocolConfig`, which is
-# deliberately not serializable — there is no path or format string that would reproduce it. The
-# workflow itself is ordinary and works the same from YAML against a dataset on disk.
+# Unlike other tutorials, this notebook does not have a corresponding `.yaml` file. SeaDrone is
+# loaded in-memory via `DatasetProtocolConfig`, which is not serializable. In standard pipelines,
+# you can run the workflow from YAML configuration against on-disk datasets.
 # ```
 
 # %% [markdown]
@@ -73,9 +69,8 @@
 # %% [markdown]
 # ## Data Preparation: Load SeaDrone
 #
-# SeaDrone is an aerial dataset: a drone flies over water and annotates swimmers, boats and buoys.
-# It ships with per-frame telemetry — altitude, heading, speed, GPS — which is the kind of metadata
-# that arrives imperfect.
+# You will use SeaDrone, an aerial object-detection dataset with per-frame telemetry including altitude,
+# heading, speed, and GPS coordinates.
 
 # %% tags=["remove_output"]
 from maite_datasets.object_detection import SeaDrone
@@ -87,12 +82,10 @@ print(f"{len(seadrone)} images")
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# Triage needs the dataset and nothing else: no model, no embeddings, no image statistics. It reads
-# the metadata walk and the encoding decisions from it, which makes it the cheapest workflow here and
-# a good first task in a pipeline.
+# To run triage, you only need dataset metadata. You do not need model predictions, embeddings,
+# or image statistics.
 #
-# Take a shuffled sample of 200 frames. SeaDrone is ordered by capture, so the first 200 images come
-# from a single flight and miss the variety of the full split.
+# You should use a shuffled sample of 200 frames to represent multiple capture sequences across flights.
 
 # %%
 from dataeval_flow.config import (
@@ -137,6 +130,8 @@ config = PipelineConfig(
 
 # %% [markdown]
 # ## Step 2: Run the triage workflow
+#
+# You can run the task using `run_task()`, then print the execution status and generated report.
 
 # %%
 result = run_task(task, config)
@@ -148,20 +143,17 @@ print(result.report())
 # %% [markdown]
 # ### Reading the report
 #
-# The header says it: **15 factors, 24 findings, 3 blocking**. Fifteen columns became factors, and
-# twenty-four things happened that nobody asked for. Read the blocking three first; the rest are
-# reported once each and collapse into two short lists.
+# When you run triage, the report summarizes the factors, total findings, and blocking issues.
 #
-# *Blocking* means the run did less than the configuration asked for, without saying so. Three columns
-# were dropped outright:
+# You should review **blocking** findings first. These indicate metadata columns that could not be
+# processed and were dropped from the factor set:
 #
-# - **`date_time`** — every row holds a different timestamp, so the column identifies rows instead
-#   of grouping them. Nothing is wrong with the values; they lack a vocabulary.
-# - **`latitude`** and **`longitude`** — 198 rows hold a number and 2 hold text. A column whose values
-#   disagree about what they *are* has no single type, so the walk set it aside rather than guessing.
+# - **`date_time`** — Unique timestamps per row exceed cardinality limits. You must truncate or bucket
+#   the values to a broader granularity (such as day).
+# - **`latitude`** and **`longitude`** — 198 numeric values and 2 string values. Because the column has
+#   mixed types, it is excluded until you harmonize the values.
 #
-# The ratio bar shows that split at a glance, and the report prints the actual values, because a
-# correction has to be written against what is literally in the column:
+# You can inspect the value counts and sample values printed for each mixed type:
 #
 # ```text
 #   [blocking] latitude [mixed_types @ unit]
@@ -171,13 +163,12 @@ print(result.report())
 # ```
 
 # %% [markdown]
-# ### Where the tool stops guessing
+# ### Incomplete suggestions and required inputs
 #
-# `latitude` holds the text `'N'`. You can see that is a hemisphere marker in a numeric column, and
-# that `'N'` alone carries no latitude.
+# `latitude` contains the string `'N'`. Because automated triage cannot determine what `'N'` represents,
+# it generates a remap rule with a `null` target and sets `complete=False`.
 #
-# Flow does not know that and will not pretend to. Its suggestion lists every distinct value and
-# leaves the code `null` for you to fill in.
+# You can inspect individual findings in `result.data.raw.findings`:
 
 # %%
 latitude = next(f for f in result.data.raw.findings if f.factor == "latitude")
@@ -189,20 +180,23 @@ print("suggested:", latitude.suggestion.corrections)
 print("runnable :", latitude.suggestion.complete)
 
 # %% [markdown]
-# `complete=False` is the part to note. The suggestion is a skeleton, not an answer, and nothing
-# downstream applies it until you fill in the codes.
+# When `complete=False`, you must complete the template before you can apply it.
 #
-# Four things are inferred, and only four: a number wearing decoration (`6,000`, `12 kg`), a
-# timestamp, a null-ish sentinel (`""`, `"N/A"`, `"unknown"`), and for anything else an enumeration
-# with blank codes. Mapping `'N'` to a number would move every bias statistic from this column, and
-# nothing in the report would say so.
+# Automated suggestions are generated for:
+# - Common numeric formatting (stripping commas, currency symbols, or units such as `kg`)
+# - Standard ISO-8601 timestamps
+# - Recognized null and sentinel strings (`""`, `"N/A"`, `"unknown"`), mapped to `.nan`
+#
+# For unrecognized non-numeric values in numeric columns, you will receive remap templates with `null`
+# placeholders that you must fill in.
 
 # %% [markdown]
-# ### Distributions, and the argument for a bin count
+# ### Continuous factor distributions and bin suggestions
 #
-# Ten factors were cut into bins that nobody declared, so their edges come from this sample and
-# are not stable across draws. A suggested bin count on its own is a number with no argument
-# attached, so the report draws the shape it came from, and deliberately **not** at that bin count:
+# Ten factors used automatic binning. Because automatically generated bin edges vary across samples,
+# you should declare explicit bin counts in configuration to ensure consistent binning across runs.
+#
+# You can evaluate proposed bin counts using the distribution charts in the report:
 #
 # ```text
 #   frame — declare 5 bins
@@ -210,72 +204,54 @@ print("runnable :", latitude.suggestion.complete)
 #         ├──────████┃█──────────────────────────┤  p25 3465 · p50 5715 · p75 6240
 # ```
 #
-# The top line is a histogram at a fixed display width, the same for every factor. The bottom is a
-# box plot on the same scale: quartile box, median, whiskers to the extremes.
+# The top line shows a fixed-width histogram, and the bottom line shows a box plot with quartiles,
+# median, and extreme values.
 #
 # ```{note}
-# Charts here are built from quantiles, not from the encoding. Drawing a factor at its own bin
-# count would show you the answer you were asked to check: a two-bin cut draws two bars, which says
-# nothing about whether two was right, and a value holding a quarter of the column can hide inside
-# one of them.
+# You can use distribution plots to inspect raw sample quantiles rather than existing bins, ensuring
+# that clusters and skewed extremes remain visible regardless of the current binning strategy.
 # ```
 #
-# Read `frame`: mass in the low-middle, a wide empty stretch, a small group at the top. That gap is
-# real structure, and it argues for five bins rather than the eight the automatic cut used.
-#
-# A box reaching an end with no whisker means a quarter of the rows or more sit on that extreme.
-# Compare `frame` with `altitude`, whose box is flush left.
+# In `frame`, you can see values cluster in the lower-middle range, followed by a gap and a smaller cluster
+# at the high end. When you see a box reach an edge with no whisker (as in `altitude`), at least 25% of
+# values sit directly on that extreme value.
 
-# ## Step 3: The suggested policy
+# ## Step 3: Review the suggested policy
 #
-# Every suggestion is merged into one block, shaped exactly like the `metadata:` section of a config
-# file. This is the workflow's actual deliverable.
+# Triage merges every suggestion into a single configuration block matching the `metadata:` schema.
+# You can inspect this policy directly.
 
 # %%
 print(result.data.raw.suggested_policy_yaml)
 
 # %% [markdown]
-# Four kinds of remedy land in one place:
+# You can review the suggested policy sections:
 #
-# - **`parse_datetime` for `date_time`** reads each timestamp as the day it falls in, giving the
-#   column a vocabulary. No `format` is pinned: these are ISO-8601, which DataEval reads unaided.
-# - **`remap` for `latitude` and `longitude`** are skeletons, with a trailing marker on each line
-#   you must complete.
-# - **`remap` for the five telemetry columns that floor at `-1.0`** are skeletons too. Confirming a
-#   marker is your call.
-# - **`exclude` for `object_id`**, and **`continuous_factor_bins`** for the four factors worth
-#   pinning.
+# - **`parse_datetime` for `date_time`**: Parses ISO-8601 timestamps and groups values by `day`.
+# - **`remap` templates for `latitude` and `longitude`**: Remap rules with placeholder values that you
+#   must complete.
+# - **`remap` templates for telemetry fields**: Remap rules for `-1.0` values across telemetry columns.
+# - **`exclude` for `object_id`**: Excludes the column from factor analysis because it is an item identifier.
+# - **`continuous_factor_bins`**: Explicit bin counts for stable continuous factors.
 #
-# Note which factors are absent from `continuous_factor_bins`. Ten were cut from this sample, but a
-# cut derived from values containing a marker pins an accident, and an identifier should not be cut
-# at all. Six of the ten get no bin count, and the report says why for each. A withheld suggestion
-# is a finding.
-#
-# Markers appear only where a decision is outstanding. Where triage recognized a sentinel by its
-# spelling (`""`, `"N/A"`) it answered the rule itself with `.nan` and left the line unmarked.
+# Factors with severe skew (floor mass) or identifier properties are omitted from `continuous_factor_bins`
+# until cleaned. You can check the report for the rationale behind each omitted factor.
 
 # %% [markdown]
 # ## Step 4: Apply the policy and re-run
 #
-# Now make the decisions the tool refused to make. Both need someone who knows the data:
+# You should now complete the placeholder values in the suggested policy:
 #
-# - `'N'` in a latitude column is a hemisphere letter where a coordinate belongs. It records no
-#   position, so it reads as missing.
-# - `-1.0` floors five telemetry columns. Altitude, heading and speed can legitimately read at or
-#   below zero, so the tool will not decide this for you. In SeaDrone it is the drone's "telemetry
-#   unavailable" value, so it also reads as missing.
+# - Map `'N'` and `'E'` coordinate strings to `float("nan")` (`.nan` in YAML) to treat them as missing readings.
+# - Map `-1.0` in telemetry columns to `float("nan")` to treat unavailable sensor data as missing readings.
 #
 # ```{important}
-# "Missing" is spelled `.nan`, not `null`. A `remap` target of `null` is just a non-numeric value:
-# the column would hold 198 numbers and 2 nulls, still have no single type, and still be dropped.
-# DataEval reads `.nan` as "no reading taken". It makes the column numeric and puts those rows on
-# the reserved missing code, where they are counted rather than invented.
-#
-# Marked lines are the values you must code. Sentinels triage recognized itself are already
-# answered with `.nan` and left unmarked.
+# In DataEval Flow configuration, you must map missing numeric values to `.nan` (or `float("nan")` in Python),
+# not `null`. If you map to `null`, the column remains typed as mixed (numeric and None) and will be dropped.
+# Mapping to `.nan` preserves the numeric data type and records the entries in the missing data category.
 # ```
 #
-# Paste the block, replace the marked nulls, and attach it to the pipeline as a named policy.
+# You can now apply the policy to your pipeline configuration and re-run the task.
 
 # %%
 from dataeval_flow.config.schemas import MetadataPolicyConfig
@@ -285,17 +261,16 @@ policy = MetadataPolicyConfig.model_validate(
         "name": "seadrone",
         "corrections": [
             {"kind": "parse_datetime", "factor": "date_time", "every": "day"},
-            # 'N' and 'E' are hemisphere letters, not coordinates: they record no position,
-            # so they read as missing -- `float("nan")`, which is `.nan` in YAML.
+            # Map hemisphere letters to NaN (missing values)
             {"kind": "remap", "factor": "latitude", "rules": [{"match": "N", "to": float("nan")}]},
             {"kind": "remap", "factor": "longitude", "rules": [{"match": "E", "to": float("nan")}]},
-            # SeaDrone's telemetry writes -1 where the drone recorded nothing.
+            # Map -1.0 sentinel values to NaN
             *(
                 {"kind": "remap", "factor": name, "rules": [{"match": -1.0, "to": float("nan")}]}
                 for name in ("altitude", "compass_heading", "gimbal_heading", "gimbal_pitch", "speed")
             ),
         ],
-        # An identifier groups nothing -- one value per detection -- so it is not a factor.
+        # Exclude object identifier
         "exclude": ["object_id"],
         "continuous_factor_bins": result.data.raw.suggested_policy["continuous_factor_bins"],
     }
@@ -318,12 +293,11 @@ print(f"findings: {len(before.findings)} -> {len(after.findings)}")
 print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 
 # %% [markdown]
-# Every blocking finding is gone, three columns that were not factors now are, and health reads
-# `ok`. The factor count is 17 rather than 18 because you dropped one: `object_id` was never worth
-# having.
+# All blocking findings are resolved, the recovered columns are included as factors, and pipeline
+# health is `ok`. The factor count is 17 because you excluded `object_id`.
 #
-# Findings fall only from 24 to 21, which is the interesting part. **Triage is iterative.** Fixing
-# one layer makes the next visible. Three things surfaced that could not be seen before:
+# Total findings decreased from 24 to 21. By resolving the blocking type issues, you exposed secondary
+# distribution warnings:
 #
 # ```text
 #   floor_mass  latitude   a quarter of the rows or more hold -1.0
@@ -331,17 +305,13 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 #   floor_mass  speed      a quarter of the rows or more hold 0.0
 # ```
 #
-# `latitude` and `longitude` carry the same `-1` marker as the telemetry columns. It is visible in
-# the first report, in `numeric reads: -1, 47.671928, …`, but could not be reported while the column
-# was unreadable: a column that never became a factor has no distribution to describe. Repairing the
-# text made its numbers describable.
+# - **`latitude` and `longitude`**: Once you resolved string values, numeric distribution analysis
+#   detected that `-1.0` is also present as a sentinel value in over 25% of rows.
+# - **`speed`**: Remapping `-1.0` removed the sentinel, leaving a concentration at `0.0`. If you have
+#   stationary targets, `0.0` is a valid measurement, but you should be aware that high concentration
+#   at one value can affect binning.
 #
-# `speed` is the opposite case, and the reason findings are worded as shapes rather than diagnoses.
-# Its `-1` is gone. The remaining mass is at `0.0`, and a boat at rest reads zero. That is a real
-# reading, not a marker, but a quarter of the column sitting on it still means any cut describes
-# the mass rather than the spread.
-#
-# And five `degenerate` findings appeared where the sentinels were:
+# Additionally, you can see five factors reporting high missing rates where you remapped `-1.0`:
 #
 # ```text
 #   altitude         29% missing
@@ -351,21 +321,13 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 #   speed            32% missing
 # ```
 #
-# This is the most useful thing the run tells you, and it was invisible before. Roughly a third of
-# SeaDrone's telemetry was never recorded. Until you coded `-1` as missing it sat in the lowest bin,
-# counted as a real altitude of −1 metres and averaged in. It is now on the missing code, reported
-# rather than silently included. The dataset did not change; what you can see about it did.
-#
-# Check this before running bias analysis over these factors. A third of the rows forming their own
-# group is not a defect to fix, it is a fact to know.
-#
-# Note what `latitude` became once it could be read: an `unbinned` finding with a suggested cut. A
-# column has to be readable before you can ask how to group it.
+# Remapping `-1.0` to `.nan` ensures that downstream workflows track missing values explicitly rather than
+# aggregating them as valid negative numbers.
 
-# ### What verification told you
+# ### Verification results
 #
-# The `VERIFIED` section of the first report is not a restatement of the suggestions. It is what
-# happened when they were applied:
+# You can inspect the `VERIFIED` section of the report to see the results of applying suggested
+# corrections in a trial pass:
 #
 # ```text
 #   latitude: not applied; 1 values still need codes
@@ -374,35 +336,26 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 #   object_size: 9 bins, 3 empty
 # ```
 #
-# Three different outcomes. `latitude` was **not applied** because its suggestion was incomplete;
-# verification does not report recovery from a placeholder. `date_time` became a factor. `frame` was
-# asked for five bins and came back with four, one empty. A correction can be well formed, run
-# cleanly, and still not do what you hoped.
+# - **`latitude`**: Not applied because remap rules contained placeholder values that you must define.
+# - **`date_time`**: Successfully parsed into a categorical factor with 8 daily levels.
+# - **`frame`**: Applied 5 bins, resulting in 4 populated bins and 1 empty bin.
 
 # %% [markdown]
-# ## What triage does not see
+# ## Triage scope and limitations
 #
-# Triage reports what failed to read, plus a few shapes that read cleanly and mean nothing. That is
-# narrower than "everything wrong with your metadata". Know the boundary before you trust a clean
-# report.
+# When using triage, you should keep its scope in mind:
 #
-# **Evidence is structural, never semantic.** Every rule states a shape: values disagreeing about
-# their type, a value that never repeats, a number flooring several columns. None of them know what
-# a column means. `latitude` was flagged because `'N'` is text among numbers, not because a
-# hemisphere letter in a coordinate is absurd.
-#
-# **A mass is reported; its meaning is not.** `min == p25` says a quarter of a column sits on its
-# lowest value, and no more. SeaDrone's `-1` is a marker, `speed`'s `0.0` is a boat at rest, and the
-# report cannot tell them apart. A marker held by fewer than a quarter of the rows is not reported.
-#
-# **Nothing is ranked by consequence.** All three blocking findings print alike, though losing
-# `latitude` differs from losing `object_id`, which you would rather lose. Triage tells you what
-# happened to your metadata. Whether it mattered is a question about your analysis.
+# - **Structural, not semantic**: Triage detects mixed data types, high cardinality, and extreme values.
+#   It does not validate domain semantics (such as whether coordinates fall in expected ranges).
+# - **Threshold-based distributions**: Distribution checks flag concentrations where a single value
+#   comprises 25% or more of the rows. You must verify smaller sentinel clusters or valid skewed
+#   distributions manually.
+# - **Unranked findings**: Findings are categorized by operational severity (`blocking`, `warning`, `note`),
+#   but you should prioritize them based on the factors your analysis requires.
 
-# ## Results Exploration: Export results
+# ## Export results
 #
-# The findings, the suggested policy and the verification all travel in the result envelope, so a
-# triage run archives and re-reads like any other workflow.
+# You can export triage findings, suggested policies, and verification results to JSON or dictionary formats.
 
 # %%
 json_str = result.export(fmt="json")
@@ -411,22 +364,19 @@ print(f"JSON output: {len(json_str)} characters")
 # %% [markdown]
 # ## Conclusion
 #
-# You ran `metadata-triage` against a dataset with imperfect telemetry. Three columns had never
-# become factors. One was an identifier cut into bins as if it were a measurement. Five carried a
-# marker value that read as a number and skewed every cut from them. You saw why each happened, the
-# values behind it, and got one config block covering all four.
+# In this tutorial, you:
+# - Detected unparseable, mixed-type, and high-cardinality metadata columns
+# - Identified and excluded identifier fields
+# - Remapped sentinel and missing values to `.nan`
+# - Applied and verified a standardized `metadata` policy configuration
 #
-# You then made the judgements the tool refused to make: what `'N'` means, and whether `-1` is a
-# reading. That revealed that about a third of SeaDrone's telemetry was never recorded, which was
-# true before you started but not visible.
-#
-# Run triage first, and treat a blocking finding as a claim that your later numbers cover less data
-# than you think.
+# You should run metadata triage before downstream workflows to ensure that metadata factors are
+# correctly typed, binned, and accounted for in subsequent evaluations.
 
 # ## What's next
 #
-# - [Analyze dataset quality across splits](data_analysis) — now that the factors are actually there
-# - [Assess dataset coverage](data_coverage) — metadata gaps, once the metadata is trustworthy
+# - [Analyze dataset quality across splits](data_analysis)
+# - [Assess dataset coverage](data_coverage)
 # - [Run a full evaluation pipeline end to end](end_to_end)
 
 # %% [markdown]

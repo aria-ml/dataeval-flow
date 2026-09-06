@@ -292,8 +292,8 @@ def _recovery_detail(info: "dict[str, Any] | None", recovered: bool, *, pinned: 
     kind = "bins" if bin_buckets is not None else "levels"
     if pinned:
         if not recovered:
-            return "applied, but the cut still reads as derived rather than pinned"
+            return "applied, but bin cut remains derived rather than pinned"
         return f"{len(buckets)} {kind}, {len(fit.get('empty') or ())} empty"
     if not recovered:
-        return "applied, but still unreadable; try a different reading"
+        return "applied, but factor remains unreadable"
     return f"became a factor, {len(buckets)} {kind}"

@@ -11,28 +11,25 @@ __all__ = ["build_findings", "summarize"]
 
 _TITLES: dict[str, str] = {
     "unreadable": "Unreadable factors",
-    "unbound_request": "Requests that bound nothing",
+    "unbound_request": "Unmatched bin requests",
     "floor_mass": "Columns dominated by one value",
-    "degenerate": "Factors carrying no signal",
-    "unbinned": "Cuts nobody pinned",
-    "unreviewed": "Vocabularies nobody pinned",
+    "degenerate": "Degenerate factors",
+    "unbinned": "Unpinned continuous bins",
+    "unreviewed": "Unpinned categorical vocabularies",
 }
 
 _ORDER = ("unreadable", "unbound_request", "floor_mass", "degenerate", "unbinned", "unreviewed")
 
 #: Categories whose remedy is the same sentence for every factor that has them, stated once
-#: here rather than repeated under each.  Ten copies of one paragraph read as ten problems and
-#: bury the findings that genuinely differ.  Only the prose is shared: each factor still shows
-#: its own distribution, because that is the evidence for the count being proposed and the
-#: reader is meant to be able to disagree with it.
+#: here rather than repeated under each.
 _COLLAPSED: dict[str, str] = {
     "unbinned": (
-        "These cuts came from this sample and are not stable across draws. Declaring the counts "
-        "does not change the numbers above; it holds the same cuts for the next sample."
+        "These bin counts were derived from this sample. Declaring them in configuration "
+        "ensures consistent binning across runs."
     ),
     "unreviewed": (
-        "These vocabularies came from this sample. Export one with `dataeval-flow encoding`, "
-        "then reference the file from `encoding:`."
+        "These categorical vocabularies were derived from this sample. Export them with "
+        "`dataeval-flow encoding` and reference the file in `encoding:`."
     ),
 }
 
@@ -41,10 +38,10 @@ def _withdrawn_reason(factor: str, findings: list[Finding]) -> str:
     """Why no cut is offered for this factor, named rather than pointed at."""
     other = {f.category for f in findings if f.factor == factor} - {"unbinned"}
     if "floor_mass" in other:
-        return "no cut: a quarter of its rows hold one value (see above)"
+        return "no bin count suggested: single value appears in >=25% of rows"
     if "degenerate" in other:
-        return "no cut: it is an identifier (see above)"
-    return "no cut suggested"
+        return "no bin count suggested: factor is an identifier"
+    return "no bin count suggested"
 
 
 def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Reportable]:
@@ -85,7 +82,7 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
                 severity="info",
                 title="Suggested policy",
                 data={
-                    "brief": "paste under your config's `metadata:` key",
+                    "brief": "add to configuration under `metadata:`",
                     "detail_lines": raw.suggested_policy_yaml.splitlines(),
                 },
             )
@@ -118,13 +115,7 @@ def build_findings(raw: MetadataTriageRawOutputs, max_examples: int) -> list[Rep
 
 
 def _floor_mass_lines(group: list[Finding]) -> list[str]:
-    """One block per shared value, not one per factor.
-
-    A shared extreme is a single observation about several columns at once. Rendered per factor
-    it becomes the same sentence once per column with the other names permuted through it —
-    which reads as many problems, and buries the one thing worth knowing: that one value sits
-    at the end of all of them.
-    """
+    """One block per shared value, not one per factor."""
     by_value: dict[str, list[Finding]] = {}
     for finding in group:
         by_value.setdefault(repr(finding.detail.get("value")), []).append(finding)
@@ -132,18 +123,17 @@ def _floor_mass_lines(group: list[Finding]) -> list[str]:
     for value, findings in sorted(by_value.items()):
         names = sorted(f.factor for f in findings)
         plural = "factors" if len(names) > 1 else "factor"
-        lines.append(f"{value} is held by a quarter or more of the rows in {len(names)} {plural}:")
+        lines.append(f"{value} appears in >=25% of rows across {len(names)} {plural}:")
         lines.append(f"  {', '.join(names)}")
         lines.append("")
         if len(names) > 1:
-            lines.append("One value ending several unrelated columns usually marks a missing")
-            lines.append("reading, but it may be a real one. Triage cannot tell which.")
+            lines.append("A common extreme value across multiple factors may indicate a missing")
+            lines.append("reading sentinel. Verify and remap to `.nan` if appropriate.")
         else:
-            lines.append("This may be a marker or a real reading. Triage cannot tell which.")
+            lines.append("This may indicate a missing reading sentinel. Remap to `.nan` if appropriate.")
         lines.append("")
-        lines.append("If it is a marker, code it missing (`.nan`). If it is a reading, note that")
-        lines.append("the factor is mostly one value. Either way a cut here describes the mass")
-        lines.append("rather than the spread, so no bin count is suggested.")
+        lines.append("If this is a valid measurement, note the high concentration at this value.")
+        lines.append("No automatic bin count is suggested for skewed distributions.")
         lines.append("")
     return lines
 
