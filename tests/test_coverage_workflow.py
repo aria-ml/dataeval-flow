@@ -2148,3 +2148,58 @@ class TestAlignmentFinding:
         parsed = yaml.safe_load(block)
         assert parsed[0]["params"]["target"] == target_vocabulary
         assert parsed[0]["params"]["class_remap"] == class_remap
+
+
+@pytest.mark.required
+class TestLabelSpaceOnEnvelope:
+    def test_field_exists_and_defaults_to_none(self) -> None:
+        from dataeval_flow.config.schemas import ResultMetadata
+
+        assert ResultMetadata().label_space_digest is None
+
+    def test_coverage_metadata_inherits_it(self) -> None:
+        assert DataCoverageMetadata().label_space_digest is None
+
+    def test_stamped_from_the_alignment(self) -> None:
+        # The stamping rule in isolation: whatever the alignment computed is what the
+        # envelope carries, so a downstream result matching it has found this audit.
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+
+        raw = DataCoverageRawOutputs(
+            dataset_size=10,
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
+        )
+        raw.ontology = OntologyAssessment(
+            source="inline",
+            synthesized=False,
+            representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
+            alignment=LabelAlignment(mergeability="lossless", label_space_digest="abc123abc123"),
+        )
+        assert _label_space_digest_of(raw) == "abc123abc123"
+
+    def test_absent_without_an_ontology(self) -> None:
+        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+
+        raw = DataCoverageRawOutputs(
+            dataset_size=10,
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
+        )
+        assert _label_space_digest_of(raw) is None
+
+    def test_absent_for_a_synthesized_ontology(self) -> None:
+        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+
+        raw = DataCoverageRawOutputs(
+            dataset_size=10,
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
+        )
+        raw.ontology = OntologyAssessment(
+            source="index2label",
+            synthesized=True,
+            representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
+        )
+        assert _label_space_digest_of(raw) is None

@@ -316,6 +316,18 @@ def _run_ontology_analysis(
         return None, str(exc)
 
 
+def _label_space_digest_of(raw: DataCoverageRawOutputs) -> str | None:
+    """The vocabulary identity this run established, if it established one.
+
+    Absent for a run with no ontology and for a synthesized one, which has no alignment: in
+    both cases the labels were read as the dataset declared them, and there is no conforming
+    decision to name.
+    """
+    if raw.ontology is None or raw.ontology.alignment is None:
+        return None
+    return raw.ontology.alignment.label_space_digest or None
+
+
 # ---------------------------------------------------------------------------
 # Metadata gap analysis
 # ---------------------------------------------------------------------------
@@ -732,6 +744,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
         result_metadata = DataCoverageMetadata(
             mode=params.mode,
             has_extractor=has_extractor,
+            label_space_digest=_label_space_digest_of(raw),
         )
         attach_binning(result_metadata, metadata, policy)
 
