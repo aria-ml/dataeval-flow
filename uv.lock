@@ -1191,7 +1191,7 @@ docs = [
     { name = "datasets" },
     { name = "ipykernel" },
     { name = "jupytext" },
-    { name = "maite-datasets" },
+    { name = "maite-datasets", extra = ["datamaite"] },
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu126') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu130') or (extra == 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-cu130') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu126') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu130') or (extra == 'extra-13-dataeval-flow-onnx-cu126' and extra == 'extra-13-dataeval-flow-onnx-cu130')" },
     { name = "matplotlib", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu126') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu130') or (extra == 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-cu130') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu126') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu130') or (extra == 'extra-13-dataeval-flow-onnx-cu126' and extra == 'extra-13-dataeval-flow-onnx-cu130')" },
     { name = "myst-nb" },
@@ -1257,7 +1257,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "dataeval", git = "https://github.com/aria-ml/dataeval.git?rev=main" },
     { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", git = "https://github.com/aria-ml/dataeval.git?rev=main" },
-    { name = "datamaite", extras = ["ic", "od"], specifier = "==0.4.1" },
+    { name = "datamaite", extras = ["ic", "od"], specifier = ">=0.4.1" },
     { name = "maite", specifier = ">=0.9.4,<0.10.0" },
     { name = "numpy", specifier = ">=1.24.2" },
     { name = "onnx", marker = "extra == 'onnx'", specifier = ">=1.15" },
@@ -1315,7 +1315,7 @@ docs = [
     { name = "datasets", specifier = ">=4.0.0" },
     { name = "ipykernel", specifier = ">=7.0" },
     { name = "jupytext", specifier = ">=1.19.1" },
-    { name = "maite-datasets", specifier = ">=0.0.21" },
+    { name = "maite-datasets", extras = ["datamaite"], specifier = ">=0.0.22" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "myst-nb", specifier = ">=1.2" },
     { name = "nox", specifier = ">=2025.5.1" },
@@ -1391,7 +1391,7 @@ wheels = [
 
 [[package]]
 name = "datamaite"
-version = "0.4.1"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fsspec" },
@@ -1400,9 +1400,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "universal-pathlib" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/92/0546e02ca4acfe3aacf84412c643ca43515bf63b33cf672624113be38da5/datamaite-0.4.1.tar.gz", hash = "sha256:9b9706e858dc3c400d46229a96c9f01e813cc43f9b4a4c1a72e6a83e07c0dd45", size = 375363, upload-time = "2026-07-31T16:10:48.462Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/df/cb14a8573a32cc1224f51f9930610ab780412e1b9700de561f2fa4f8556b/datamaite-0.5.0.tar.gz", hash = "sha256:5c3d30034b80d1c6b4ef7f77bb5cfcda8a786e74c4269c4f61012081e5d332af", size = 408546, upload-time = "2026-08-28T18:06:38.574Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/97/72358bd6a4da39a98461653803a5b95d18dfc629c97c09afcd382427ca1f/datamaite-0.4.1-py3-none-any.whl", hash = "sha256:4e4533511c11d54d02cc648be606c73797ea987bce3178fc181f7f67163b8064", size = 263619, upload-time = "2026-07-31T16:10:47.027Z" },
+    { url = "https://files.pythonhosted.org/packages/08/28/f52c47ade2298d1145c7a09c6d9334a6bd31d3e220a4500d571c91cc9b9b/datamaite-0.5.0-py3-none-any.whl", hash = "sha256:3a8d8510dc227e27602f3cdf4294b7777d4bfdf719e8eb970a933958a26db8bd", size = 284546, upload-time = "2026-08-28T18:06:36.952Z" },
 ]
 
 [package.optional-dependencies]
@@ -2458,7 +2458,7 @@ wheels = [
 
 [[package]]
 name = "maite-datasets"
-version = "0.0.21"
+version = "0.0.22"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
@@ -2475,9 +2475,14 @@ dependencies = [
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu126') or (extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu130') or (extra == 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-cu130') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu126') or (extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu130') or (extra == 'extra-13-dataeval-flow-onnx-cu126' and extra == 'extra-13-dataeval-flow-onnx-cu130')" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/eb/7a69d3182f47f2cbc9572fcc5f67223423d14827fc800b4846d050b62706/maite_datasets-0.0.21.tar.gz", hash = "sha256:44dbfe89116b208c69429316eb7dc8fe3a22178ff504da5a997ca2b132aa340c", size = 126684, upload-time = "2026-09-02T17:43:02.987Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/5e/49adf68c4b8c1e65895703c302d459df235fc66429a539c200fa0440d1ed/maite_datasets-0.0.22.tar.gz", hash = "sha256:765ea871d7da61dd717b0d81896cdd1fcef0210d01ca27adde5f763bf549b26e", size = 136176, upload-time = "2026-09-06T04:34:13.378Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/1e/6c664037af7a48471af51f354e3f4d634a0aeadd59b7508de517117a4d2a/maite_datasets-0.0.21-py3-none-any.whl", hash = "sha256:685bd00160fbbdc39b43163d8c87109b560723bbe7dacb0044382b925c29c022", size = 156691, upload-time = "2026-09-02T17:43:01.689Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/24/8e4c0b8ea3a1d16de1bccc262d8aec3c6edef665daba804a56d01005043f/maite_datasets-0.0.22-py3-none-any.whl", hash = "sha256:180cac0d0980e4c7e9df637d39dff9ac89360d2fc880699751561c5a3b0927be", size = 165776, upload-time = "2026-09-06T04:34:11.931Z" },
+]
+
+[package.optional-dependencies]
+datamaite = [
+    { name = "datamaite" },
 ]
 
 [[package]]

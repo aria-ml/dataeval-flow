@@ -18,4 +18,4 @@ dependencies:
   - pip
   - pip:
       - dataeval @ git+https://github.com/aria-ml/dataeval.git@main
-      - datamaite[ic,od]==0.4.1
+      - datamaite[ic,od]>=0.4.1

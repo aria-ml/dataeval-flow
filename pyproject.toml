@@ -23,7 +23,7 @@ dependencies = [
     # gitlab.jatic.net/jatic/aria/dataeval) while the metadata aggregation and
     # corrections work lands. Restore a released `dataeval>=X.Y.Z` pin before shipping.
     "dataeval @ git+https://github.com/aria-ml/dataeval.git@main",
-    "datamaite[ic,od]==0.4.1",
+    "datamaite[ic,od]>=0.4.1",
     "maite>=0.9.4,<0.10.0",
     "numpy>=1.24.2",
     "pydantic>=2.0",
@@ -130,7 +130,7 @@ docs = [
     # SeaDrone, for the metadata triage tutorial: its telemetry is genuinely messy —
     # `-1` where the drone recorded nothing and an empty `date_time` — which is what a
     # triage demo needs and a curated dataset does not have.
-    "maite-datasets>=0.0.21",
+    "maite-datasets[datamaite]>=0.0.22",
 ]
 docker = [
     { include-group = "base" },
