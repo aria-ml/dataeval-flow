@@ -159,7 +159,8 @@ def test_high_missing_is_degenerate():
     record = _record()
     record["factors"]["altitude"]["fit"]["missing"] = 40
     findings = [f for f in find_issues(record) if f.category == "degenerate"]
-    assert findings and "missing" in findings[0].remedy  # noqa: PT018
+    assert findings
+    assert "no value" in findings[0].remedy
 
 
 def test_a_wide_vocabulary_is_not_degenerate():

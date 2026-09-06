@@ -12,7 +12,7 @@ __all__ = ["build_findings", "summarize"]
 _TITLES: dict[str, str] = {
     "unreadable": "Unreadable factors",
     "unbound_request": "Requests that bound nothing",
-    "floor_mass": "Columns dominated by one extreme value",
+    "floor_mass": "Columns dominated by one value",
     "degenerate": "Factors carrying no signal",
     "unbinned": "Cuts nobody pinned",
     "unreviewed": "Vocabularies nobody pinned",
@@ -27,13 +27,12 @@ _ORDER = ("unreadable", "unbound_request", "floor_mass", "degenerate", "unbinned
 #: reader is meant to be able to disagree with it.
 _COLLAPSED: dict[str, str] = {
     "unbinned": (
-        "Each cut below came from this sample, so it is not stable across draws. Declaring the "
-        "counts changes nothing about the numbers above — they are the cuts that already ran — "
-        "it holds the same cuts for the next sample."
+        "These cuts came from this sample and are not stable across draws. Declaring the counts "
+        "does not change the numbers above; it holds the same cuts for the next sample."
     ),
     "unreviewed": (
-        "Each vocabulary below was drawn from this sample. Export one with "
-        "`dataeval-flow encoding` and reference the file from `encoding:` to hold it."
+        "These vocabularies came from this sample. Export one with `dataeval-flow encoding`, "
+        "then reference the file from `encoding:`."
     ),
 }
 
@@ -42,9 +41,9 @@ def _withdrawn_reason(factor: str, findings: list[Finding]) -> str:
     """Why no cut is offered for this factor, named rather than pointed at."""
     other = {f.category for f in findings if f.factor == factor} - {"unbinned"}
     if "floor_mass" in other:
-        return "no cut — a quarter of its rows sit on one extreme (see above)"
+        return "no cut: a quarter of its rows hold one value (see above)"
     if "degenerate" in other:
-        return "no cut — it names its rows rather than grouping them (see above)"
+        return "no cut: it is an identifier (see above)"
     return "no cut suggested"
 
 
@@ -133,19 +132,19 @@ def _floor_mass_lines(group: list[Finding]) -> list[str]:
     for value, findings in sorted(by_value.items()):
         names = sorted(f.factor for f in findings)
         plural = "factors" if len(names) > 1 else "factor"
-        lines.append(f"{value} is an extreme held by a quarter or more of {len(names)} {plural}:")
+        lines.append(f"{value} is held by a quarter or more of the rows in {len(names)} {plural}:")
         lines.append(f"  {', '.join(names)}")
         lines.append("")
         if len(names) > 1:
-            lines.append("One value at the end of several unrelated columns is usually a convention,")
-            lines.append("and the convention is almost always 'not recorded'.")
+            lines.append("One value at the end of several unrelated columns usually marks a")
+            lines.append("missing reading.")
         else:
-            lines.append("It may be a marker or a genuine reading — nothing here can tell which.")
-        lines.append("Either way a cut derived from this column describes the mass rather than the")
-        lines.append("spread, which is why no bin count is suggested for it.")
+            lines.append("This may be a marker or a real reading. Triage cannot tell which.")
+        lines.append("Either way, a cut from this column describes the mass, not the spread, so no")
+        lines.append("bin count is suggested for it.")
         lines.append("")
-        lines.append("If it is a marker, code it missing (`.nan`); if it is a reading, know that")
-        lines.append("this factor is mostly that one value.")
+        lines.append("If it is a marker, code it missing (`.nan`). If it is a reading, note that")
+        lines.append("this factor is mostly one value.")
         lines.append("")
     return lines
 
