@@ -136,15 +136,14 @@ def _floor_mass_lines(group: list[Finding]) -> list[str]:
         lines.append(f"  {', '.join(names)}")
         lines.append("")
         if len(names) > 1:
-            lines.append("One value at the end of several unrelated columns usually marks a")
-            lines.append("missing reading.")
+            lines.append("One value ending several unrelated columns usually marks a missing")
+            lines.append("reading, but it may be a real one. Triage cannot tell which.")
         else:
             lines.append("This may be a marker or a real reading. Triage cannot tell which.")
-        lines.append("Either way, a cut from this column describes the mass, not the spread, so no")
-        lines.append("bin count is suggested for it.")
         lines.append("")
         lines.append("If it is a marker, code it missing (`.nan`). If it is a reading, note that")
-        lines.append("this factor is mostly one value.")
+        lines.append("the factor is mostly one value. Either way a cut here describes the mass")
+        lines.append("rather than the spread, so no bin count is suggested.")
         lines.append("")
     return lines
 
