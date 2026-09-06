@@ -929,7 +929,7 @@ class TestComputeEmbeddings:
 
 
 class TestMergeOutlierOutputs:
-    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
     def test_merges_stats_and_cluster(self, mock_cluster: MagicMock):
         """Stats-based and cluster-based outlier issues are concatenated."""
         # Mock stats output
@@ -1013,7 +1013,7 @@ class TestRunDuplicateDetection:
 
 
 class TestMergeDuplicateResults:
-    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
     @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_merge_hash_and_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Hash and cluster duplicate results are merged with re-numbered group IDs."""
@@ -1052,7 +1052,7 @@ class TestMergeDuplicateResults:
         group_ids = set(merged["group_id"].to_list())
         assert len(group_ids) == 2  # original 0 + re-numbered 1
 
-    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
     @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_empty_cluster_returns_hash(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Empty cluster result returns hash result as-is."""
@@ -1140,7 +1140,7 @@ class TestComputeClasswisePivotException:
 
 
 class TestMergeOutlierOutputsMissingTargetIndex:
-    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
     def test_adds_target_index_when_missing(self, mock_cluster: MagicMock):
         stats_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
         stats_output = MagicMock()
@@ -1190,7 +1190,7 @@ class TestRunDuplicateDetectionCustomFlags:
 
 
 class TestMergeDuplicateResultsColumnAlignment:
-    @patch("dataeval_flow.cache.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
     @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_hash_missing_col_added_from_cluster(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         hash_df = pl.DataFrame({"group_id": [0], "level": ["item"], "dup_type": ["exact"], "item_indices": [[0, 1]]})

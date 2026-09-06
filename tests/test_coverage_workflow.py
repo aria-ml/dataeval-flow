@@ -344,12 +344,12 @@ class TestRunCoverage:
         The real coverage code runs here, so the overflow is genuine.
         """
         rng = np.random.default_rng(42)
-        emb = rng.random((400, 512))
-        meta = _make_metadata(n=400, num_classes=2)
-        meta.class_labels = np.array([i % 2 for i in range(400)], dtype=np.intp)
+        emb = rng.random((30, 512))
+        meta = _make_metadata(n=30, num_classes=2)
+        meta.class_labels = np.array([i % 2 for i in range(30)], dtype=np.intp)
         meta.index2label = {0: "a", 1: "b"}
 
-        result = _run_coverage(meta, emb, _make_params(coverage_method="naive", num_observations=50))
+        result = _run_coverage(meta, emb, _make_params(coverage_method="naive", num_observations=5))
 
         assert result.method == "adaptive (naive overflowed)"
         assert result.uncovered_count >= 0

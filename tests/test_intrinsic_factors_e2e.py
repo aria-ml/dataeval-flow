@@ -67,7 +67,7 @@ def test_declared_bin_binds_on_classification(workflow_type):
     """The assertion whose absence let D4 ship — once per workflow."""
     result = _run(
         workflow_type,
-        _ICDataset(),
+        _ICDataset(16),
         {"intrinsic_factors": ("visual", "pixel"), "continuous_factor_bins": {"brightness": 4}},
     )
     record = _binning(result)
@@ -80,7 +80,7 @@ def test_declared_bin_binds_at_both_levels_on_detection(workflow_type):
     """Classification exercises only the identity case of the expansion."""
     result = _run(
         workflow_type,
-        _ODDataset(),
+        _ODDataset(16),
         {"intrinsic_factors": ("visual", "pixel"), "continuous_factor_bins": {"brightness": 4}},
     )
     record = _binning(result)
@@ -92,7 +92,7 @@ def test_declared_bin_binds_at_both_levels_on_detection(workflow_type):
 @pytest.mark.parametrize("workflow_type", WORKFLOWS)
 def test_without_intrinsic_factors_the_bin_matches_nothing(workflow_type):
     """The negative: proves the tests above are sensitive to the mechanism."""
-    result = _run(workflow_type, _ICDataset(), {"continuous_factor_bins": {"brightness": 4}})
+    result = _run(workflow_type, _ICDataset(16), {"continuous_factor_bins": {"brightness": 4}})
     assert _binning(result)["unmatched_bin_requests"] == ["brightness"]
 
 
@@ -101,7 +101,7 @@ def test_a_misspelled_factor_stays_unmatched(workflow_type):
     """Expansion must not swallow a typo to make the envelope look clean."""
     result = _run(
         workflow_type,
-        _ODDataset(),
+        _ODDataset(16),
         {"intrinsic_factors": ("visual",), "continuous_factor_bins": {"brightnes": 4}},
     )
     assert _binning(result)["unmatched_bin_requests"] == ["brightnes"]
