@@ -2203,3 +2203,23 @@ class TestLabelSpaceOnEnvelope:
             representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
         )
         assert _label_space_digest_of(raw) is None
+
+    def test_empty_digest_reads_as_absent(self) -> None:
+        # LabelAlignment.label_space_digest defaults to "", so an alignment can carry an
+        # empty one. An empty string is not a vocabulary identity — it must read as absent
+        # rather than travel onto the envelope as a falsy digest.
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+
+        raw = DataCoverageRawOutputs(
+            dataset_size=10,
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
+        )
+        raw.ontology = OntologyAssessment(
+            source="inline",
+            synthesized=False,
+            representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
+            alignment=LabelAlignment(mergeability="lossless"),
+        )
+        assert _label_space_digest_of(raw) is None
