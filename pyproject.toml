@@ -329,4 +329,4 @@ indent-style = "space"
 
 [tool.codespell]
 skip = "./*env*,./output,./htmlcov,./.nox,*.lock,./docs/source/notebooks/*,./docker/cosign.pub,./docker/Dockerfile.*,*.onnx"
-ignore-words-list = ["statics"]
+ignore-words-list = ["statics", "MOT"]
