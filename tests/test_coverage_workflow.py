@@ -1851,7 +1851,7 @@ class TestLabelAlignmentModel:
         from dataeval_flow.workflows.coverage.outputs import LabelAlignment
 
         with pytest.raises(ValidationError):
-            LabelAlignment(mergeability="mostly")
+            LabelAlignment(mergeability="mostly")  # type: ignore[arg-type]
 
     def test_assessment_alignment_defaults_to_none(self) -> None:
         assessment = OntologyAssessment(
@@ -1866,5 +1866,10 @@ class TestLabelAlignmentModel:
 
         with pytest.raises(ValidationError):
             AlignmentCorrespondence(
-                source="car", relation="sortof", target="Car", target_label="Car", confidence=1.0, matcher="exact"
+                source="car",
+                relation="sortof",  # type: ignore[arg-type]
+                target="Car",
+                target_label="Car",
+                confidence=1.0,
+                matcher="exact",
             )
