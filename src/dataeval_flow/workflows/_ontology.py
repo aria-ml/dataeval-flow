@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from dataeval import Ontology
     from dataeval.types import OntologyConcept
 
+    from dataeval_flow.config.schemas import OntologyConfig
+
 __all__ = ["OntologyLoadError", "load_ontology", "resolve_ontology", "synthesize_ontology"]
 
 _logger = logging.getLogger(__name__)
@@ -173,7 +175,7 @@ def load_ontology(
 
 def resolve_ontology(
     spec: "Mapping[str, Any] | str | None",
-    pool: "Sequence[Any] | None",
+    pool: "Sequence[OntologyConfig] | None",
     *,
     data_dir: "Path | None" = None,
 ) -> "tuple[Ontology, str]":
@@ -226,7 +228,7 @@ def _refuse_if_also_a_file(name: str, data_dir: "Path | None") -> None:
 
     try:
         candidate = resolve_path(name, data_dir, default_subdir="config")
-    except Exception:  # noqa: BLE001 - an unresolvable path simply is not a collision
+    except OSError:  # an unresolvable path simply is not a collision
         return
     if Path(candidate).is_file():
         raise OntologyLoadError(
