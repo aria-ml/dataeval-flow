@@ -1943,3 +1943,38 @@ class TestAlignment:
             _fixture_ontology(), source="index2label", synthesized=True, class_counts={"car": 1}
         )
         assert result.alignment is None
+
+    def test_digest_uses_labels_not_concept_ids(self) -> None:
+        # Ontology.from_hierarchy gives every concept id == label, so the other tests in
+        # this class cannot tell paste_remap from class_remap. An IRI-keyed ontology can:
+        # a digest built from the id-valued remap differs from the label-valued one, which
+        # is the swap the cross-artifact contract has to survive.
+        from dataeval import Ontology
+        from dataeval.types import OntologyConcept
+
+        from dataeval_flow.label_space import label_space_digest, ontology_digest
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        onto = Ontology(
+            [
+                OntologyConcept(id="http://ex.org/cv#Vehicle", label="vehicle"),
+                OntologyConcept(id="http://ex.org/cv#Car", label="car", parents=("http://ex.org/cv#Vehicle",)),
+                OntologyConcept(id="http://ex.org/cv#Truck", label="truck", parents=("http://ex.org/cv#Vehicle",)),
+            ]
+        )
+        result = run_ontology_analysis(onto, source="inline", synthesized=False, class_counts={"car": 3, "truck": 2})
+        assert result.alignment is not None
+        al = result.alignment
+        # The two remaps really do differ here — otherwise this test proves nothing.
+        assert al.class_remap == {"car": "http://ex.org/cv#Car", "truck": "http://ex.org/cv#Truck"}
+        assert al.paste_remap == {"car": "car", "truck": "truck"}
+        assert al.class_remap != al.paste_remap
+
+        onto_digest = ontology_digest(onto.ids)
+        assert al.label_space_digest == label_space_digest(
+            ontology=onto_digest, class_remap=al.paste_remap, target=al.target_vocabulary
+        )
+        # And is NOT the digest the id-valued remap would produce.
+        assert al.label_space_digest != label_space_digest(
+            ontology=onto_digest, class_remap=al.class_remap, target=al.target_vocabulary
+        )
