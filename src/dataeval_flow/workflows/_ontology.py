@@ -229,11 +229,31 @@ def resolve_ontology(
 
     entry = next((item for item in pool if item.name == spec), None)
     if entry is None:
-        return load_ontology(spec, data_dir=data_dir)
+        return _load_unmatched(spec, pool, data_dir)
 
     _refuse_if_also_a_file(spec, data_dir)
     ontology, _ = load_ontology(entry.source, concepts=entry.concepts, data_dir=data_dir)
     return ontology, entry.name
+
+
+def _load_unmatched(
+    spec: str,
+    pool: "Sequence[OntologyConfig]",
+    data_dir: "Path | None",
+) -> "tuple[Ontology, str]":
+    """Load *spec* as a path, naming the declared ontologies if that fails.
+
+    A name-first lookup sends a typo down the path branch, where it fails as a missing
+    file and never mentions that ``ontologies:`` holds candidates. List them so a reader
+    can spot the typo.
+    """
+    try:
+        return load_ontology(spec, data_dir=data_dir)
+    except OntologyLoadError as exc:
+        names = ", ".join(sorted(item.name for item in pool))
+        raise OntologyLoadError(
+            f"{exc} No ontology named {spec!r} is declared under `ontologies:` either. Declared: {names}.",
+        ) from exc
 
 
 def _refuse_if_also_a_file(name: str, data_dir: "Path | None") -> None:

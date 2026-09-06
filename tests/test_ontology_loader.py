@@ -256,6 +256,28 @@ class TestResolveOntology:
         assert "vehicles" in message
         assert "ontologies" in message
 
+    def test_a_mistyped_name_lists_the_known_ones(self, tmp_path: Path) -> None:
+        # Name-first resolution means a typo falls through to the path branch and fails
+        # with a file error, never mentioning that a pool exists. Name the candidates so a
+        # reader can see the typo.
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        with pytest.raises(OntologyLoadError) as exc:
+            resolve_ontology("vehiclez", self._pool(), data_dir=tmp_path)
+        message = str(exc.value)
+        assert "vehiclez" in message
+        assert "vehicles" in message
+        assert "ontologies" in message
+
+    def test_an_empty_pool_leaves_the_path_error_alone(self, tmp_path: Path) -> None:
+        # With nothing declared there are no candidates to suggest, so do not append an
+        # empty list to the message.
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        with pytest.raises(OntologyLoadError) as exc:
+            resolve_ontology("missing.ttl", [], data_dir=tmp_path)
+        assert "ontologies" not in str(exc.value)
+
     def test_a_pool_entry_carries_its_concepts(self) -> None:
         from dataeval_flow.config.schemas import OntologyConfig
         from dataeval_flow.workflows._ontology import resolve_ontology
