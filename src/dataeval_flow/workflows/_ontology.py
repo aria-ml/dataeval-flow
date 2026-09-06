@@ -1,14 +1,13 @@
 """Turn workflow configuration into a :class:`dataeval.Ontology`.
 
-Private to :mod:`dataeval_flow.workflows`. Four sources are supported: an inline nested
-mapping, a path to a serialized RDF artifact, a set of concepts declared directly in
-config, and — when a workflow is run without an ontology at all — a flat vocabulary
-synthesized from the dataset's ``index2label``. Declared concepts also merge onto an
-inline mapping or an RDF artifact, replacing any concept that shares their id.
+Private to :mod:`dataeval_flow.workflows`. Build an ontology from any of four sources: an
+inline nested mapping, a path to a serialized RDF artifact, concepts declared in config, or
+a flat vocabulary synthesized from the dataset's ``index2label`` when a workflow configures
+no ontology. Declared concepts also merge onto an inline mapping or an RDF artifact,
+replacing any concept with the same id.
 
-Kept out of any single workflow package because its concerns are configuration
-concerns (path resolution, an optional dependency, format inference) rather than
-the concerns of whichever workflow happens to consume the ontology first.
+This module lives here rather than in a workflow package because it handles configuration:
+path resolution, an optional dependency, and format inference.
 """
 
 import logging
@@ -41,13 +40,16 @@ _RDF_FORMATS: dict[str, str] = {
 class OntologyLoadError(Exception):
     """An ontology could not be built from the configuration.
 
-    The message is surfaced verbatim to the user as a skip reason, so it must say
-    what went wrong and — where there is one — what to do about it.
+    The message reaches the user verbatim as a skip reason. Write it to say what went wrong
+    and what to do about it.
     """
 
 
 def _one_declared_concept(entry: "Mapping[str, Any] | Any") -> "OntologyConcept":
-    """Convert one declared-concept entry — a mapping or an ``OntologyConceptConfig`` — to DataEval's type."""
+    """Convert one declared-concept entry to DataEval's type.
+
+    Accept either a mapping or an ``OntologyConceptConfig``.
+    """
     from dataeval.types import OntologyConcept
 
     fields = dict(entry if isinstance(entry, Mapping) else entry.model_dump())
@@ -55,16 +57,16 @@ def _one_declared_concept(entry: "Mapping[str, Any] | Any") -> "OntologyConcept"
 
 
 def _declared_concepts(concepts: "Sequence[Mapping[str, Any] | Any]") -> "list[OntologyConcept]":
-    """Config-declared concepts as DataEval's own type.
+    """Convert config-declared concepts to DataEval's own type.
 
-    Accepts either the pydantic config model or a plain mapping of the same shape, so the
-    loader is usable from a config and from a hand-written call alike.
+    Pass either pydantic config models or plain mappings of the same shape. Both work, so
+    you can call the loader from a config or by hand.
     """
     built: list[OntologyConcept] = []
     for entry in concepts:
         try:
             built.append(_one_declared_concept(entry))
-        except Exception as exc:  # noqa: PERF203 - config-time, over at most a handful of entries
+        except Exception as exc:  # noqa: PERF203 - runs at config time over a handful of entries
             name = entry.get("id", "<no id>") if isinstance(entry, Mapping) else getattr(entry, "id", "<no id>")
             raise OntologyLoadError(f"declared concept {name!r} is not valid: {exc}") from exc
     return built
@@ -73,9 +75,9 @@ def _declared_concepts(concepts: "Sequence[Mapping[str, Any] | Any]") -> "list[O
 def _build(concepts: "list[OntologyConcept]") -> "Ontology":
     """Build an :class:`Ontology` from a flat list of concepts.
 
-    Wraps any failure — most commonly two concepts sharing an id — as an
-    :class:`OntologyLoadError` naming the problem, so a config typo reads as a skip reason
-    rather than an unhandled `dataeval` exception.
+    Raise :class:`OntologyLoadError` on any failure, naming the problem. Two concepts
+    sharing an id is the common case. Without this, a config typo escapes as an unhandled
+    `dataeval` exception instead of a skip reason.
     """
     from dataeval import Ontology
 
@@ -86,11 +88,10 @@ def _build(concepts: "list[OntologyConcept]") -> "Ontology":
 
 
 def _extended(base: "Ontology", declared: "list[OntologyConcept]") -> "Ontology":
-    """*base* with *declared* merged in, or *base* itself when nothing was declared.
+    """Merge *declared* into *base*, or return *base* unchanged when nothing was declared.
 
-    A declared concept replaces one the artifact already defines under the same id: the
-    config is the more local statement, and silently keeping both would leave the id
-    ambiguous.
+    A declared concept replaces one the artifact defines under the same id. Keeping both
+    would leave that id ambiguous.
     """
     if not declared:
         return base
@@ -122,7 +123,7 @@ def load_ontology(
     Returns
     -------
     tuple[Ontology, str]
-        The ontology and a source label — ``"inline"``, ``"concepts"``, or the resolved path.
+        The ontology, and a source label: ``"inline"``, ``"concepts"``, or the resolved path.
 
     Raises
     ------
@@ -181,9 +182,9 @@ def resolve_ontology(
 ) -> "tuple[Ontology, str]":
     """Build the ontology a workflow's ``ontology`` field names.
 
-    A string is a name in *pool* first and a path second, which is what lets a definition
-    move into ``ontologies:`` without breaking a config that named a file. A mapping is
-    always an inline hierarchy and never consults the pool.
+    Read a string as a name in *pool* first and as a path second. Move a definition into
+    ``ontologies:`` and any config that named a file keeps working. Read a mapping as an
+    inline hierarchy and never consult the pool.
 
     Parameters
     ----------
@@ -197,7 +198,7 @@ def resolve_ontology(
     Returns
     -------
     tuple[Ontology, str]
-        The ontology and a source label — the pool entry's name, ``"inline"``,
+        The ontology, and a source label: the pool entry's name, ``"inline"``,
         ``"concepts"``, or the resolved path.
 
     Raises
@@ -219,10 +220,10 @@ def resolve_ontology(
 
 
 def _refuse_if_also_a_file(name: str, data_dir: "Path | None") -> None:
-    """Refuse a string that names a pool entry and a readable file at once.
+    """Refuse a string that names both a pool entry and a readable file.
 
-    Picking one by precedence would resolve a genuine ambiguity silently, and the wrong
-    choice is a whole run measured against a label space nobody asked for.
+    Do not pick one by precedence. That resolves a real ambiguity silently, and the wrong
+    choice measures the whole run against a label space nobody asked for.
     """
     from dataeval_flow.config._loader import resolve_path
 
@@ -232,8 +233,7 @@ def _refuse_if_also_a_file(name: str, data_dir: "Path | None") -> None:
         return
     if Path(candidate).is_file():
         raise OntologyLoadError(
-            f"'{name}' names an entry under `ontologies:` and also the file '{candidate}'. "
-            "Rename one of them — there is no sound way to choose between them.",
+            f"'{name}' names an entry under `ontologies:` and also the file '{candidate}'. Rename one of them.",
         )
 
 

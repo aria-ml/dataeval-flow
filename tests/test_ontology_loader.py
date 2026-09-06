@@ -80,8 +80,8 @@ ex:vehicle a skos:Concept ; skos:prefLabel "véhicule" .
         assert set(onto.leaves) == {"http://example.org/car", "http://example.org/truck"}
 
     def test_source_resolves_against_the_given_root(self, tmp_path: Path) -> None:
-        # The negative case in TestDataRoot proves a wrong root misses. This proves the
-        # right one hits, which is what actually makes data_dir load-bearing.
+        # TestDataRoot proves a wrong root misses. This proves the right root hits, so
+        # data_dir is genuinely honoured rather than accepted and ignored.
         (tmp_path / "config").mkdir()
         (tmp_path / "config" / "taxonomy.ttl").write_text(_TURTLE)
         onto, source = load_ontology("config/taxonomy.ttl", data_dir=tmp_path)

@@ -280,8 +280,12 @@ def _run_ontology_analysis(
 ) -> tuple[OntologyAssessment | None, str | None]:
     """Resolve an ontology and assess the dataset's labels against it.
 
-    Returns ``(assessment, skipped_reason)``. An ontology problem never aborts the
-    run — label, metadata and gap analysis stay useful without it.
+    Return ``(assessment, skipped_reason)``. An ontology problem never aborts the run:
+    label, metadata and gap analysis stay useful without it.
+
+    Prefer *resolved*, which the orchestrator supplies, over ``params.ontology``. Fall back
+    to the parameters when *resolved* is ``None``, and synthesize from ``index2label`` when
+    the task configures no ontology at all.
     """
     from dataeval_flow.workflows._ontology import OntologyLoadError, load_ontology, synthesize_ontology
     from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis

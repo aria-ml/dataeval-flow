@@ -70,9 +70,9 @@ class DatasetContext:
 class ResolvedOntology:
     """The label space a task was configured with, resolved before the dataset was read.
 
-    Carries the failure rather than raising it. An ontology problem degrades a
+    Read :attr:`error` rather than expecting an exception. An ontology problem degrades a
     ``data-coverage`` run to a skip reason and leaves label, metadata and gap analysis
-    intact, and resolving earlier must not turn that into an aborted task.
+    running, so resolving earlier must not abort the task.
     """
 
     ontology: "Ontology | None"
@@ -100,10 +100,10 @@ class WorkflowContext:
     ontology: "ResolvedOntology | None" = None
     """The label space this task names, resolved before the dataset was read.
 
-    Carried on the context for the reason :attr:`metadata_policy` is: resolving a name needs
-    the pipeline the pool lives on, and resolving a path needs the data root, and a workflow
-    has neither. ``None`` where the caller built a context directly or configured no
-    ontology, in which case the workflow reads its own parameters.
+    Set here rather than in the workflow, for the same reason as :attr:`metadata_policy`:
+    resolving a name needs the pipeline holding the pool, resolving a path needs the data
+    root, and a workflow has neither. ``None`` when the caller built a context directly or
+    configured no ontology. The workflow then reads its own parameters.
     """
 
 

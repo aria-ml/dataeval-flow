@@ -3032,7 +3032,7 @@
     },
     "OntologyConceptConfig": {
       "additionalProperties": false,
-      "description": "One concept declared in config rather than read from an artifact.\n\nField names match :class:`dataeval.types.OntologyConcept` exactly, so an entry converts\nto one by name. Declaring a concept is how a dataset's class survives an ontology that\nomits it, without editing an artifact that may belong to someone else.\n\nYAML example::\n\n    concepts:\n      - id: http://example.org/cv#FreightCar\n        label: Freight Car\n        synonyms: [freight_car, freight car]\n        parents: [http://example.org/cv#LandVehicle]\n        definition: A railway car designed to carry freight.",
+      "description": "One concept declared in config rather than read from an artifact.\n\nDeclare a concept to keep a dataset class the ontology omits, without editing an\nartifact you may not own. Field names match :class:`dataeval.types.OntologyConcept`\nexactly, so an entry converts to one by name.\n\nYAML example::\n\n    concepts:\n      - id: http://example.org/cv#FreightCar\n        label: Freight Car\n        synonyms: [freight_car, freight car]\n        parents: [http://example.org/cv#LandVehicle]\n        definition: A railway car designed to carry freight.",
       "properties": {
         "id": {
           "description": "Concept id. An IRI for an RDF artifact; any stable string otherwise.",
@@ -3045,7 +3045,7 @@
           "type": "string"
         },
         "synonyms": {
-          "description": "Alternative spellings this concept answers to. Alignment anchors on label and synonym matches, so a concept declared without the dataset's own spelling for it will not anchor to that class.",
+          "description": "Alternative spellings this concept answers to. Alignment matches on labels and synonyms, so give a declared concept the dataset's own spelling or it will not match that class.",
           "items": {
             "type": "string"
           },
@@ -3053,7 +3053,7 @@
           "type": "array"
         },
         "parents": {
-          "description": "Ids of the concepts this one is a kind of. Empty makes it a root.",
+          "description": "Ids of the concepts this one is a kind of. Leave empty to make it a root.",
           "items": {
             "type": "string"
           },
@@ -3078,7 +3078,7 @@
             }
           ],
           "default": null,
-          "description": "Prose definition, carried through unread.",
+          "description": "Prose definition. Carried through unread.",
           "title": "Definition"
         }
       },
@@ -3091,7 +3091,7 @@
     },
     "OntologyConfig": {
       "additionalProperties": false,
-      "description": "A named label space, referenced by the workflows that share it.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: data-coverage\n        ontology: vehicles",
+      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare, and two `Relabel` views conforming to different vocabularies produce\ndatasets you cannot merge.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: data-coverage\n        ontology: vehicles",
       "properties": {
         "name": {
           "description": "Identifier for this ontology",
@@ -3112,7 +3112,7 @@
           "title": "Source"
         },
         "concepts": {
-          "description": "Concepts added on top of `source`, or the whole label space when `source` is omitted. A declared concept with an id the artifact already defines replaces it.",
+          "description": "Concepts added on top of `source`, or the whole label space when you omit `source`. A declared concept replaces one the artifact defines under the same id.",
           "items": {
             "$ref": "#/$defs/OntologyConceptConfig"
           },

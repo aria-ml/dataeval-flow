@@ -142,11 +142,12 @@ def _resolve_ontology(
     config: "PipelineConfig | None",
     data_dir: Path | None,
 ) -> "ResolvedOntology | None":
-    """Resolve the task's ontology up front, carrying any failure rather than raising it.
+    """Resolve the task's ontology up front. Return any failure rather than raising it.
 
-    Resolved here for the reason the metadata policy is: a name needs the pipeline's pool and
-    a path needs the data root.  Failures are carried because ``data-coverage`` degrades on an
-    ontology problem by contract, and moving the work earlier must not change that.
+    Resolve here for the same reason as the metadata policy: a name needs the pipeline's
+    pool and a path needs the data root. Return the failure instead of raising it, because
+    ``data-coverage`` degrades on an ontology problem by contract and moving the work
+    earlier must not change that.
     """
     from dataeval_flow.workflow import ResolvedOntology
     from dataeval_flow.workflows._ontology import OntologyLoadError, resolve_ontology
@@ -159,7 +160,7 @@ def _resolve_ontology(
     try:
         ontology, source = resolve_ontology(spec, pool, data_dir=data_dir)
     except OntologyLoadError as exc:
-        _logger.warning("Task ontology could not be resolved — %s.", exc)
+        _logger.warning("Task ontology could not be resolved: %s", exc)
         return ResolvedOntology(ontology=None, source=str(spec), error=str(exc))
     return ResolvedOntology(ontology=ontology, source=source)
 

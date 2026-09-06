@@ -594,7 +594,7 @@ print("unmatched:", list(check["unmatched"]))
 #
 # The example above passes the ontology inline, which is the simplest form. When several
 # workflows read the same label space, define it once under `ontologies:` and reference it
-# by name, so the definitions cannot drift apart:
+# by name so the definitions cannot drift apart:
 #
 # ```yaml
 # ontologies:
@@ -611,11 +611,11 @@ print("unmatched:", list(check["unmatched"]))
 #     ontology: postal
 # ```
 #
-# `concepts:` adds concepts on top of `source`, which lets you extend an artifact you do not
-# own. `synonyms` matters here: alignment matches on labels and synonyms, so a concept
-# declared without the dataset's spelling for it will not match that class. A workflow's
-# `ontology:` value is read as a name first and as a path second, so configurations that
-# name a file continue to work.
+# Use `concepts:` to add concepts on top of `source` when you need to extend an artifact you
+# do not own. Give each declared concept the dataset's own spelling under `synonyms`:
+# alignment matches on labels and synonyms, and a concept without the dataset's spelling
+# will not match that class. Flow reads a workflow's `ontology:` value as a name first and
+# as a path second, so configurations that name a file keep working.
 
 # %% [markdown]
 # ## Step 3: Run coverage with an extractor (full analysis)

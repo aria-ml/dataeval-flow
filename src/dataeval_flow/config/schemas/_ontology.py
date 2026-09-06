@@ -1,11 +1,4 @@
-"""Ontology configuration schemas — a named label space, defined once and shared.
-
-A label space is a decision several workflows must agree on. Two coverage tasks reading
-different ontologies produce worklists that cannot be compared, and two `Relabel` views
-conforming to different vocabularies produce datasets that cannot be merged. Defining it once
-under `ontologies:` and referencing it by name removes the class of failure where copies
-drift apart — the same argument `metadata:` policies are built on.
-"""
+"""Ontology configuration schemas: a named label space, defined once and shared."""
 
 from collections.abc import Sequence
 from typing import ClassVar
@@ -20,9 +13,9 @@ __all__ = ["OntologyConceptConfig", "OntologyConfig"]
 class OntologyConceptConfig(BaseModel):
     """One concept declared in config rather than read from an artifact.
 
-    Field names match :class:`dataeval.types.OntologyConcept` exactly, so an entry converts
-    to one by name. Declaring a concept is how a dataset's class survives an ontology that
-    omits it, without editing an artifact that may belong to someone else.
+    Declare a concept to keep a dataset class the ontology omits, without editing an
+    artifact you may not own. Field names match :class:`dataeval.types.OntologyConcept`
+    exactly, so an entry converts to one by name.
 
     YAML example::
 
@@ -41,24 +34,29 @@ class OntologyConceptConfig(BaseModel):
     synonyms: Sequence[str] = Field(
         default_factory=list,
         description=(
-            "Alternative spellings this concept answers to. Alignment anchors on label and "
-            "synonym matches, so a concept declared without the dataset's own spelling for it "
-            "will not anchor to that class."
+            "Alternative spellings this concept answers to. Alignment matches on labels and "
+            "synonyms, so give a declared concept the dataset's own spelling or it will not "
+            "match that class."
         ),
     )
     parents: Sequence[str] = Field(
         default_factory=list,
-        description="Ids of the concepts this one is a kind of. Empty makes it a root.",
+        description="Ids of the concepts this one is a kind of. Leave empty to make it a root.",
     )
     equivalent_to: Sequence[str] = Field(
         default_factory=list,
         description="Ids of concepts this one is the same as, for cross-vocabulary equivalence.",
     )
-    definition: str | None = Field(default=None, description="Prose definition, carried through unread.")
+    definition: str | None = Field(default=None, description="Prose definition. Carried through unread.")
 
 
 class OntologyConfig(BaseModel):
     """A named label space, referenced by the workflows that share it.
+
+    Define an ontology once here and reference it by name so workflows meant to be compared
+    read the same vocabulary. Two tasks reading different ontologies produce worklists you
+    cannot compare, and two `Relabel` views conforming to different vocabularies produce
+    datasets you cannot merge.
 
     YAML example::
 
@@ -91,20 +89,20 @@ class OntologyConfig(BaseModel):
     concepts: Sequence[OntologyConceptConfig] = Field(
         default_factory=list,
         description=(
-            "Concepts added on top of `source`, or the whole label space when `source` is "
-            "omitted. A declared concept with an id the artifact already defines replaces it."
+            "Concepts added on top of `source`, or the whole label space when you omit "
+            "`source`. A declared concept replaces one the artifact defines under the same id."
         ),
     )
 
     @field_validator("source")
     @classmethod
     def _check_source_path(cls, value: str | None) -> str | None:
-        """Keep the artifact path portable, like every other config path."""
+        """Keep the artifact path portable, as every other config path is."""
         return None if value is None else validate_config_path(value)
 
     @model_validator(mode="after")
     def _needs_a_label_space(self) -> "OntologyConfig":
-        """An entry naming neither a source nor a concept describes nothing."""
+        """Refuse an entry that names neither a source nor a concept."""
         if self.source is None and not self.concepts:
             raise ValueError(
                 f"Ontology {self.name!r} declares neither `source` nor `concepts`, so it "

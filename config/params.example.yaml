@@ -161,9 +161,9 @@
 # -----------------------------------------------------------------------------
 # ONTOLOGIES — Named label spaces, referenced by workflows
 # -----------------------------------------------------------------------------
-# Concepts declared here extend the artifact without editing it. `synonyms`
-# matters: alignment anchors on label and synonym matches, so a concept
-# declared without the dataset's own spelling will not anchor to that class.
+# Declare concepts here to extend the artifact without editing it. Give each
+# one the dataset's own spelling under `synonyms`: alignment matches on labels
+# and synonyms, and a concept without that spelling will not match the class.
 #
 # ontologies:
 #   - name: vehicles
