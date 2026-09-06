@@ -5,8 +5,9 @@ Wraps three DataEval calls behind one pydantic result:
 - :class:`dataeval.scope.Representation` — the collection worklist
 - :func:`dataeval.core.label_reconciliation` — do the class names resolve?
 - :func:`dataeval.core.ontology_validation` — is the artifact itself sound?
+- :func:`dataeval.core.label_alignment` — what does each class name become?
 
-The last two are skipped for a synthesized ontology, where both answer questions
+The last three are skipped for a synthesized ontology, where all three answer questions
 about their own construction rather than about the data.
 """
 
@@ -15,7 +16,9 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from dataeval_flow.workflows.coverage.outputs import (
+    AlignmentCorrespondence,
     DarkBranch,
+    LabelAlignment,
     LabelConformance,
     LabelSpaceCoverage,
     OntologyAssessment,
@@ -69,6 +72,62 @@ def _conformance(ontology: "Ontology", class_names: "list[str]") -> LabelConform
         matched=dict(result["matched"]),
         unmatched=unmatched,
         ambiguous=ambiguous,
+    )
+
+
+def _alignment(ontology: "Ontology", class_names: "list[str]") -> LabelAlignment:
+    """Align the dataset's vocabulary against the ontology and render it paste-ready.
+
+    Two forms of the rewrite are returned.  ``class_remap`` is what DataEval produced, whose
+    targets are concept ids — IRIs, for an RDF artifact.  ``paste_remap`` resolves those to
+    labels, because :class:`dataeval.data.Relabel` reads its values as ids only when its
+    ``target`` is an :class:`~dataeval.Ontology` object, and the list-valued ``target`` a YAML
+    config can express takes labels.  For a hand-built ontology the two are identical.
+    """
+    from dataeval.core import label_alignment
+
+    from dataeval_flow.label_space import label_space_digest, ontology_digest
+
+    result = label_alignment(class_names, ontology)
+
+    labels = {cid: ontology.concept(cid).label for cid in ontology.ids}
+    vocabulary = [labels[cid] for cid in ontology.ids]
+
+    # A label naming two concepts has no determined integer in a list-valued target, so the
+    # paste-ready form is unusable while one exists.  Reported rather than silently emitted;
+    # `ontology_validation` reports the same collisions from the artifact's side.
+    counts: dict[str, int] = {}
+    for label in vocabulary:
+        counts[label] = counts.get(label, 0) + 1
+    ambiguous = sorted(name for name, n in counts.items() if n > 1)
+
+    class_remap = dict(result["class_remap"])
+    paste_remap = {source: labels.get(target, target) for source, target in class_remap.items()}
+
+    return LabelAlignment(
+        mergeability=result["mergeability"],
+        correspondences=[
+            AlignmentCorrespondence(
+                source=c.source,
+                relation=c.relation,
+                target=c.target,
+                target_label=labels.get(c.target, c.target),
+                confidence=c.confidence,
+                matcher=c.matcher,
+            )
+            for c in result["correspondences"]
+        ],
+        unaligned_source=list(result["unaligned_source"]),
+        unaligned_target=[labels.get(t, t) for t in result["unaligned_target"]],
+        class_remap=class_remap,
+        paste_remap=paste_remap,
+        target_vocabulary=vocabulary,
+        ambiguous_labels=ambiguous,
+        label_space_digest=label_space_digest(
+            ontology=ontology_digest(ontology.ids),
+            class_remap=paste_remap,
+            target=vocabulary,
+        ),
     )
 
 
@@ -141,5 +200,6 @@ def run_ontology_analysis(
         synthesized=False,
         representation=representation,
         conformance=_conformance(ontology, list(class_counts)),
+        alignment=_alignment(ontology, list(class_counts)),
         structure=_structure(ontology, label_pattern),
     )

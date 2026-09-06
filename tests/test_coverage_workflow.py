@@ -1873,3 +1873,73 @@ class TestLabelAlignmentModel:
                 confidence=1.0,
                 matcher="exact",
             )
+
+
+# ---------------------------------------------------------------------------
+# TestAlignment
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestAlignment:
+    def test_exact_names_align_losslessly(self) -> None:
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        result = run_ontology_analysis(
+            _fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 5, "truck": 5}
+        )
+        assert result.alignment is not None
+        assert result.alignment.mergeability == "lossless"
+        assert result.alignment.class_remap == {"car": "car", "truck": "truck"}
+        assert result.alignment.unaligned_source == []
+
+    def test_an_unknown_class_is_partial(self) -> None:
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        result = run_ontology_analysis(
+            _fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 5, "lamp": 2}
+        )
+        assert result.alignment is not None
+        assert result.alignment.mergeability == "partial"
+        assert "lamp" in result.alignment.unaligned_source
+        assert "lamp" not in result.alignment.class_remap
+
+    def test_target_vocabulary_is_every_concept_in_order(self) -> None:
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 1})
+        assert result.alignment is not None
+        # Every concept, abstract ones included — that is the index space Relabel builds.
+        assert result.alignment.target_vocabulary[0] == "subject"
+        assert "wheeled" in result.alignment.target_vocabulary
+        assert "car" in result.alignment.target_vocabulary
+
+    def test_uncovered_concepts_are_reported_as_labels(self) -> None:
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 1})
+        assert result.alignment is not None
+        assert "frog" in result.alignment.unaligned_target
+
+    def test_digest_is_stamped_and_matches_the_helper(self) -> None:
+        from dataeval_flow.label_space import label_space_digest, ontology_digest
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        onto = _fixture_ontology()
+        result = run_ontology_analysis(onto, source="inline", synthesized=False, class_counts={"car": 1})
+        assert result.alignment is not None
+        # The audit's digest must be reproducible from its own reported fields — that is what
+        # makes it findable from a downstream result computed off the same three inputs.
+        assert result.alignment.label_space_digest == label_space_digest(
+            ontology=ontology_digest(onto.ids),
+            class_remap=result.alignment.paste_remap,
+            target=result.alignment.target_vocabulary,
+        )
+
+    def test_synthesized_ontology_gets_no_alignment(self) -> None:
+        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+
+        result = run_ontology_analysis(
+            _fixture_ontology(), source="index2label", synthesized=True, class_counts={"car": 1}
+        )
+        assert result.alignment is None
