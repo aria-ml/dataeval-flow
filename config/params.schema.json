@@ -3030,6 +3030,102 @@
       "title": "OnnxExtractorConfig",
       "type": "object"
     },
+    "OntologyConceptConfig": {
+      "additionalProperties": false,
+      "description": "One concept declared in config rather than read from an artifact.\n\nField names match :class:`dataeval.types.OntologyConcept` exactly, so an entry converts\nto one by name. Declaring a concept is how a dataset's class survives an ontology that\nomits it, without editing an artifact that may belong to someone else.\n\nYAML example::\n\n    concepts:\n      - id: http://example.org/cv#FreightCar\n        label: Freight Car\n        synonyms: [freight_car, freight car]\n        parents: [http://example.org/cv#LandVehicle]\n        definition: A railway car designed to carry freight.",
+      "properties": {
+        "id": {
+          "description": "Concept id. An IRI for an RDF artifact; any stable string otherwise.",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human-readable name for the concept.",
+          "title": "Label",
+          "type": "string"
+        },
+        "synonyms": {
+          "description": "Alternative spellings this concept answers to. Alignment anchors on label and synonym matches, so a concept declared without the dataset's own spelling for it will not anchor to that class.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Synonyms",
+          "type": "array"
+        },
+        "parents": {
+          "description": "Ids of the concepts this one is a kind of. Empty makes it a root.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "array"
+        },
+        "equivalent_to": {
+          "description": "Ids of concepts this one is the same as, for cross-vocabulary equivalence.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Equivalent To",
+          "type": "array"
+        },
+        "definition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Prose definition, carried through unread.",
+          "title": "Definition"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "OntologyConceptConfig",
+      "type": "object"
+    },
+    "OntologyConfig": {
+      "additionalProperties": false,
+      "description": "A named label space, referenced by the workflows that share it.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: data-coverage\n        ontology: vehicles",
+      "properties": {
+        "name": {
+          "description": "Identifier for this ontology",
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path, under the data root, to a serialized RDF artifact (.ttl/.rdf/.owl/.xml/.nt/.jsonld). Omit to build the label space from `concepts` alone. Reading a file needs rdflib: install it with `pip install \"dataeval[ontology]\"`.",
+          "title": "Source"
+        },
+        "concepts": {
+          "description": "Concepts added on top of `source`, or the whole label space when `source` is omitted. A declared concept with an id the artifact already defines replaces it.",
+          "items": {
+            "$ref": "#/$defs/OntologyConceptConfig"
+          },
+          "title": "Concepts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "OntologyConfig",
+      "type": "object"
+    },
     "ParameterSweepWorkflowConfig": {
       "description": "Typed workflow configuration for ``parameter-sweep``.\n\nInherits all fields from :class:`ParameterSweepParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: sweep_outlier_threshold\n        type: parameter-sweep\n        outlier_method: [adaptive]\n        outlier_threshold: [null, 1.0, 2.0, 3.0]",
       "properties": {
@@ -4338,6 +4434,22 @@
       "default": null,
       "description": "Named metadata policy definitions (encoding, vocabularies, exclusions), referenced by workflows. Defined once and shared so that workflows meant to be compared read their factors under one encoding.",
       "title": "Metadata"
+    },
+    "ontologies": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/OntologyConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named label-space definitions, referenced by workflows. Defined once and shared so that workflows meant to be compared read the same vocabulary.",
+      "title": "Ontologies"
     },
     "sources": {
       "anyOf": [

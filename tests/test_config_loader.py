@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from dataeval_flow.config._merge import _deep_merge, merge_config_folder
 from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
@@ -208,3 +209,36 @@ class TestRelativizeToDataDir:
 
         result = relativize_to_data_dir(str(data_dir), data_dir)
         assert result == "."
+
+
+# ---------------------------------------------------------------------------
+# ontologies block
+# ---------------------------------------------------------------------------
+
+
+class TestOntologiesFromYaml:
+    def test_a_pool_round_trips_through_yaml(self, tmp_path: Path) -> None:
+        # The block has to survive the loader, not just the pydantic model.
+        from dataeval_flow.config import PipelineConfig
+
+        text = """
+ontologies:
+  - name: vehicles
+    concepts:
+      - id: http://example.org/cv#Vehicle
+        label: vehicle
+      - id: http://example.org/cv#FreightCar
+        label: Freight Car
+        synonyms: [freight_car, freight car]
+        parents: [http://example.org/cv#Vehicle]
+        definition: A railway car designed to carry freight.
+"""
+        path = tmp_path / "params.yaml"
+        path.write_text(text)
+        config = PipelineConfig(**yaml.safe_load(path.read_text()))
+
+        assert config.ontologies is not None
+        entry = config.ontologies[0]
+        assert entry.name == "vehicles"
+        assert entry.concepts[1].synonyms == ["freight_car", "freight car"]
+        assert entry.concepts[1].definition == "A railway car designed to carry freight."
