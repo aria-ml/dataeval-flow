@@ -2223,3 +2223,54 @@ class TestLabelSpaceOnEnvelope:
             alignment=LabelAlignment(mergeability="lossless"),
         )
         assert _label_space_digest_of(raw) is None
+
+
+@pytest.mark.required
+class TestAlignmentEndToEnd:
+    """Run the real workflow through its own ontology path.
+
+    Tasks 1-5 each unit-tested one piece in isolation. This is the only test that
+    exercises the actual ``DataCoverageMetadata(..., label_space_digest=...)``
+    construction site, proving the report and the envelope agree on what the
+    alignment computed.
+    """
+
+    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval.bias.Balance")
+    @patch("dataeval.bias.Diversity")
+    def test_report_and_envelope_agree(
+        self,
+        mock_diversity: MagicMock,
+        mock_balance: MagicMock,
+        mock_label_stats: MagicMock,
+        mock_get_metadata: MagicMock,
+    ) -> None:
+        """The alignment's digest and paste-remap match what the report and envelope show."""
+        mock_get_metadata.return_value = _make_metadata(100)
+        mock_label_stats.return_value = _make_label_stats()
+
+        workflow = DataCoverageWorkflow()
+        result = workflow.execute(
+            _make_context(),
+            _make_params(
+                run_gap_analysis=False,
+                ontology={"animal": ["cat", "dog", "bird"]},
+            ),
+        )
+
+        assert result.success is True
+        assert result.data.raw.ontology is not None
+        alignment = result.data.raw.ontology.alignment
+        assert alignment is not None
+        # Every declared class is a concept in this ontology, so nothing is dropped.
+        assert alignment.mergeability == "lossless"
+        assert alignment.paste_remap == {"cat": "cat", "dog": "dog", "bird": "bird"}
+
+        # The envelope carries exactly what the alignment computed — this equality is the
+        # join key a downstream result matches on.
+        assert result.metadata.label_space_digest == alignment.label_space_digest
+
+        finding = next(f for f in result.data.report.findings if f.title == "Label Alignment")
+        assert "type: Relabel" in (finding.description or "")
+        assert finding.severity == "ok"
