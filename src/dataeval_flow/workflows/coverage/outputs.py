@@ -247,9 +247,9 @@ class AlignmentCorrespondence(BaseModel):
     source: str = Field(description="Source class name")
     relation: Literal["equivalent", "narrower", "broader", "related"] = Field(
         description=(
-            "How the source relates to the target. 'equivalent' is a rename and 'narrower' a "
-            "safe coarsening up the hierarchy — both carry over into class_remap. 'broader' "
-            "and 'related' are diagnostics and do not."
+            "How the source relates to the target. 'equivalent' is a rename and 'narrower' is a "
+            "coarsening up the hierarchy; both carry over into class_remap. 'broader' and "
+            "'related' are reported as diagnostics and do not carry over."
         )
     )
     target: str = Field(description="Target concept id")
@@ -257,22 +257,22 @@ class AlignmentCorrespondence(BaseModel):
     confidence: float = Field(
         description="Strength in [0, 1]. Exact and structurally entailed correspondences are 1.0."
     )
-    matcher: str = Field(description="Matcher that produced it — 'exact', 'structural', or a custom name")
+    matcher: str = Field(description="Matcher that produced it: 'exact', 'structural', or a custom name")
 
 
 class LabelAlignment(BaseModel):
     """How a dataset's vocabulary maps onto the reference ontology.
 
-    The general form of :class:`LabelConformance`: conformance asks whether every class name
-    resolves, alignment asks what each one becomes and what is lost on the way.
+    The general form of :class:`LabelConformance`. Conformance reports whether every class
+    name resolves; alignment reports what each name maps to and what is lost in the mapping.
     """
 
     mergeability: Literal["lossless", "lossy", "partial"] = Field(
         description=(
-            "How completely the vocabulary is expressible in the ontology. 'lossless' — every "
-            "class carries over, one to one. 'lossy' — every class carries over but two or "
-            "more collapse into one concept, losing specificity. 'partial' — at least one "
-            "class cannot carry over and Relabel will drop it."
+            "How completely the vocabulary is expressible in the ontology. 'lossless': every class "
+            "carries over one to one. 'lossy': every class carries over, but two or more "
+            "collapse into a single concept. 'partial': at least one class cannot carry over "
+            "and Relabel drops it."
         )
     )
     correspondences: list[AlignmentCorrespondence] = Field(
@@ -281,13 +281,12 @@ class LabelAlignment(BaseModel):
     unaligned_source: list[str] = Field(
         default_factory=list,
         description=(
-            "Class names with no carryable correspondence. Read open-world: out of vocabulary "
-            "with respect to this ontology, not invalid."
+            "Class names with no carryable correspondence. These are out of vocabulary for this ontology, not invalid."
         ),
     )
     unaligned_target: list[str] = Field(
         default_factory=list,
-        description="Concept labels this dataset does not cover — the part of the reference vocabulary it misses",
+        description="Concept labels this dataset does not cover",
     )
     class_remap: dict[str, str] = Field(
         default_factory=dict,
@@ -296,7 +295,7 @@ class LabelAlignment(BaseModel):
     paste_remap: dict[str, str] = Field(
         default_factory=dict,
         description=(
-            "Class name to target *label* — the form Relabel takes beside a list-valued "
+            "Class name to target label. This is the form Relabel takes beside a list-valued "
             "`target`, which is the only form expressible in YAML. Identical to class_remap "
             "for a hand-built ontology, where ids are labels."
         ),
@@ -304,25 +303,25 @@ class LabelAlignment(BaseModel):
     target_vocabulary: list[str] = Field(
         default_factory=list,
         description=(
-            "Target concept labels in ontology index order — the `target` a Relabel view must "
-            "pass. Datasets merged together must pass the identical list, or their integer "
-            "labels denote different classes and merge_datasets refuses them."
+            "Target concept labels in ontology index order, which is the `target` a Relabel view "
+            "must pass. Datasets merged together must pass the identical list, or their "
+            "integer labels denote different classes and merge_datasets rejects them."
         ),
     )
     ambiguous_labels: list[str] = Field(
         default_factory=list,
         description=(
-            "Target labels naming more than one concept. paste_remap and target_vocabulary "
-            "cannot be used unmodified while any exist, because the integer such a label "
-            "would take is undetermined. Fix the ontology."
+            "Target labels naming more than one concept. While any exist, paste_remap and "
+            "target_vocabulary cannot be used as emitted, because the index such a label "
+            "takes is undetermined. Fix the ontology."
         ),
     )
     label_space_digest: str = Field(
         default="",
         description=(
-            "Identity of the vocabulary this alignment defines, over the ontology, the "
+            "Identity of the vocabulary this alignment defines, computed over the ontology, the "
             "paste_remap and the target_vocabulary. A downstream result conformed under this "
-            "alignment carries the same value, which is how a reader finds this audit."
+            "alignment carries the same value, which is how it is matched to this audit."
         ),
     )
 

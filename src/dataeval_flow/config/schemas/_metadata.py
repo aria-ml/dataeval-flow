@@ -48,12 +48,12 @@ class ResultMetadata(BaseModel):
     #: apart.  Same digest and same data means the numbers are comparable.
     encoding_digest: str | None = None
 
-    #: Identity of the vocabulary this run's labels were read under, or ``None`` where no
-    #: conforming happened.  The label-space counterpart of :attr:`encoding_digest`, and for
-    #: the same reason: a bias score over a collapsed vocabulary and one over an uncollapsed
-    #: vocabulary are different measurements, and without this nothing in the envelope tells
-    #: them apart.  It is also the join key to the audit that justified the vocabulary —
-    #: the `data-coverage` run whose alignment produced it carries the same value.
+    #: Identity of the vocabulary this run's labels were read under, or ``None`` when no
+    #: conforming happened. The label-space counterpart of :attr:`encoding_digest`, for the
+    #: same reason: a bias score computed over a collapsed vocabulary differs from one
+    #: computed over an uncollapsed vocabulary, and no other field distinguishes them. It is
+    #: also the join key to the audit that produced the vocabulary, since the `data-coverage`
+    #: run whose alignment produced it carries the same value.
     label_space_digest: str | None = None
 
     #: Library diagnostics raised while the workflow ran — the decisions

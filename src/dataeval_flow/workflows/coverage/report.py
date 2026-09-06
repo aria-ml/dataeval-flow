@@ -477,13 +477,12 @@ def _finding_conformance(
 
 
 def _yaml_scalar(value: str) -> str:
-    """A YAML scalar for *value*, quoted only where a plain one would not survive.
+    """A YAML scalar for *value*, quoted only where a plain scalar would not round-trip.
 
-    Round-tripped rather than pattern-matched. A label may hold a metacharacter, but it
-    may equally be a plain word YAML resolves to something that is not a string — ``0``,
-    ``on``, ``null``, a date — and a config parsed back into an int key never matches the
-    class it names, so ``Relabel`` drops that class without a word. Flow-sequence context
-    is stricter than either mapping context, so one check covers every site this emits.
+    Checked by round-tripping rather than by matching a character set. A label may contain
+    a metacharacter, but it may also be a plain word that YAML resolves to a non-string:
+    ``0``, ``on``, ``null``, or a date. A config that parses back to an int key never
+    matches the class it names, and ``Relabel`` then drops that class silently.
     """
     try:
         safe = yaml.safe_load(f"[{value}]") == [value]
@@ -493,7 +492,7 @@ def _yaml_scalar(value: str) -> str:
 
 
 def _relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) -> str:
-    """The alignment as the view operation a user pastes into their config."""
+    """The alignment as a view operation that can be pasted into a config."""
     lines = [
         "      - type: Relabel",
         "        params:",
@@ -511,8 +510,8 @@ def _finding_alignment(
     raw: DataCoverageRawOutputs,
     thresholds: DataCoverageHealthThresholds,
 ) -> Reportable | None:
-    """What does each class name become in the reference vocabulary, and what is lost?"""
-    del thresholds  # severity comes from mergeability, which is not a tunable
+    """What each class name maps to in the reference vocabulary, and what is lost."""
+    del thresholds  # severity comes from mergeability, which is not configurable
     onto = raw.ontology
     if onto is None or onto.alignment is None:
         return None
@@ -524,8 +523,8 @@ def _finding_alignment(
 
     described = {
         "lossless": "Every class carries over one-to-one.",
-        "lossy": "Every class carries over, but two or more collapse into one concept — specificity is lost.",
-        "partial": "At least one class cannot carry over and will be dropped by Relabel.",
+        "lossy": "Every class carries over, but two or more collapse into a single concept.",
+        "partial": "At least one class cannot carry over and is dropped by Relabel.",
     }
     description = f"Mergeability: {al.mergeability}. {described.get(al.mergeability, '')}"
 
@@ -536,15 +535,15 @@ def _finding_alignment(
     if al.ambiguous_labels:
         description += (
             f" {len(al.ambiguous_labels)} target label(s) name more than one concept "
-            f"({', '.join(al.ambiguous_labels)}), so the block below cannot be used until the "
-            "ontology is fixed — the integer such a label would take is undetermined."
+            f"({', '.join(al.ambiguous_labels)}). The stanza below cannot be used until the "
+            "ontology is fixed, because the index such a label takes is undetermined."
         )
 
     if al.paste_remap:
         description += (
-            "\n\nConform a dataset to this vocabulary by adding to its view:\n\n"
+            "\n\nTo conform a dataset to this vocabulary, add to its view:\n\n"
             f"{_relabel_stanza(al.paste_remap, al.target_vocabulary)}\n\n"
-            "Every dataset merged together must pass the identical `target`, or their integer "
+            "Datasets merged together must pass the identical `target`, or their integer "
             "labels denote different classes."
         )
     if al.label_space_digest:

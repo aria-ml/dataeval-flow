@@ -4,11 +4,11 @@ Wraps four DataEval calls behind one pydantic result:
 
 - :class:`dataeval.scope.Representation` — the collection worklist
 - :func:`dataeval.core.label_reconciliation` — do the class names resolve?
-- :func:`dataeval.core.label_alignment` — what does each class name become?
+- :func:`dataeval.core.label_alignment` — what does each class name map to?
 - :func:`dataeval.core.ontology_validation` — is the artifact itself sound?
 
-The last three are skipped for a synthesized ontology, where all three answer questions
-about their own construction rather than about the data.
+The last three are skipped for a synthesized ontology, where they describe the ontology's
+own construction rather than the data.
 """
 
 import logging
@@ -76,13 +76,14 @@ def _conformance(ontology: "Ontology", class_names: "list[str]") -> LabelConform
 
 
 def _alignment(ontology: "Ontology", class_names: "list[str]") -> LabelAlignment:
-    """Align the dataset's vocabulary against the ontology and render it paste-ready.
+    """Align the dataset's vocabulary against the ontology and render it for a config.
 
-    Two forms of the rewrite are returned.  ``class_remap`` is what DataEval produced, whose
-    targets are concept ids — IRIs, for an RDF artifact.  ``paste_remap`` resolves those to
-    labels, because :class:`dataeval.data.Relabel` reads its values as ids only when its
-    ``target`` is an :class:`~dataeval.Ontology` object, and the list-valued ``target`` a YAML
-    config can express takes labels.  For a hand-built ontology the two are identical.
+    Two forms of the rewrite are returned. ``class_remap`` holds the concept ids DataEval
+    produced, which are IRIs for an RDF artifact. ``paste_remap`` resolves those ids to
+    labels, because :class:`dataeval.data.Relabel` reads its values as ids only when
+    ``target`` is an :class:`~dataeval.Ontology` object, and the list-valued ``target`` a
+    YAML config can express takes labels. The two are identical for a hand-built ontology,
+    where ids are labels.
     """
     from dataeval.core import label_alignment
 
@@ -93,9 +94,9 @@ def _alignment(ontology: "Ontology", class_names: "list[str]") -> LabelAlignment
     labels = {cid: ontology.concept(cid).label for cid in ontology.ids}
     vocabulary = [labels[cid] for cid in ontology.ids]
 
-    # A label naming two concepts has no determined integer in a list-valued target, so the
-    # paste-ready form is unusable while one exists.  Reported rather than silently emitted;
-    # `ontology_validation` reports the same collisions from the artifact's side.
+    # A label naming two concepts has no determined index in a list-valued target, so the
+    # emitted stanza cannot be used until the ontology is fixed. Reported rather than
+    # suppressed; `ontology_validation` reports the same collisions from the artifact side.
     counts: dict[str, int] = {}
     for label in vocabulary:
         counts[label] = counts.get(label, 0) + 1

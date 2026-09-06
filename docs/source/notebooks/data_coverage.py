@@ -545,12 +545,11 @@ print(result_ontology.report())
 # - **Label Conformance** — every collected class name resolves to a
 #   concept, so the label set conforms.
 # - **Label Alignment** — mergeability is `lossless`: the 8 collected
-#   digits already carry their ontology leaf's own name, so nothing
-#   merges and nothing is dropped. Conformance only asks whether a name
-#   *resolves*; alignment asks what it *becomes*, and pastes a ready
-#   `Relabel` stanza remapping onto the full 43-concept vocabulary —
-#   the fix a dataset with looser names, or missing classes, would
-#   actually need.
+#   digits already use their ontology concept names, so no classes are
+#   merged or dropped. Conformance reports whether a name resolves;
+#   alignment reports what it maps to, and provides a `Relabel` stanza
+#   you can paste into a view to conform the dataset to the 43-concept
+#   vocabulary.
 # - **Ontology Structure** — the artifact itself: 36 leaves under two
 #   branches, no collisions.
 
