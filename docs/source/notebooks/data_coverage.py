@@ -568,6 +568,28 @@ for row in onto.representation.worklist[:6]:
     print(f"  {row.label:>10}  {row.action:<8} have {row.count:>3}, want {row.target:>3}")
 
 # %% [markdown]
+# The `letter` branch is entirely dark — 26 sanctioned characters, no
+# images. That is one finding, not 26, because `dark_branches` rolls
+# missing leaves up to the highest wholly-empty concept.
+#
+# ### When a label does not reconcile
+#
+# Conformance catches the opposite problem: a class name the ontology
+# does not sanction. Reconciliation is exact, not fuzzy, so a typo or an
+# unsanctioned class shows up as **unmatched**.
+
+# %%
+from dataeval import Ontology
+from dataeval.core import label_reconciliation
+
+# The workflow builds this for you from the `ontology` field; here we construct
+# the same object directly so we can reconcile an arbitrary label list against it.
+ontology_obj = Ontology.from_hierarchy(postal_ontology)
+check = label_reconciliation(["0", "1", "oh", "seven"], ontology_obj)
+print("matched:  ", dict(check["matched"]))
+print("unmatched:", list(check["unmatched"]))
+
+# %% [markdown]
 # ### Sharing one ontology across workflows
 #
 # The example above passes the ontology inline, which is the simplest form. When several
@@ -594,28 +616,6 @@ for row in onto.representation.worklist[:6]:
 # declared without the dataset's spelling for it will not match that class. A workflow's
 # `ontology:` value is read as a name first and as a path second, so configurations that
 # name a file continue to work.
-
-# %% [markdown]
-# The `letter` branch is entirely dark — 26 sanctioned characters, no
-# images. That is one finding, not 26, because `dark_branches` rolls
-# missing leaves up to the highest wholly-empty concept.
-#
-# ### When a label does not reconcile
-#
-# Conformance catches the opposite problem: a class name the ontology
-# does not sanction. Reconciliation is exact, not fuzzy, so a typo or an
-# unsanctioned class shows up as **unmatched**.
-
-# %%
-from dataeval import Ontology
-from dataeval.core import label_reconciliation
-
-# The workflow builds this for you from the `ontology` field; here we construct
-# the same object directly so we can reconcile an arbitrary label list against it.
-ontology_obj = Ontology.from_hierarchy(postal_ontology)
-check = label_reconciliation(["0", "1", "oh", "seven"], ontology_obj)
-print("matched:  ", dict(check["matched"]))
-print("unmatched:", list(check["unmatched"]))
 
 # %% [markdown]
 # ## Step 3: Run coverage with an extractor (full analysis)
