@@ -169,6 +169,24 @@ class TestDeclaredConcepts:
             load_ontology(None, concepts=[{"id": "car"}])
         assert "label" in str(exc.value)
 
+    def test_a_duplicate_id_among_concepts_alone_is_reported(self) -> None:
+        # Two declared concepts sharing an id is an ordinary config typo, not a reason to
+        # let dataeval's own exception escape the loader.
+        with pytest.raises(OntologyLoadError):
+            load_ontology(
+                None,
+                concepts=[{"id": "car", "label": "Car"}, {"id": "car", "label": "Again"}],
+            )
+
+    def test_a_duplicate_id_across_the_merge_is_reported(self) -> None:
+        # Same failure mode, but when the duplicate arises from merging declared concepts
+        # onto each other rather than from the concepts-only branch.
+        with pytest.raises(OntologyLoadError):
+            load_ontology(
+                {"vehicle": ["car"]},
+                concepts=[{"id": "x", "label": "X"}, {"id": "x", "label": "Y"}],
+            )
+
 
 @pytest.mark.required
 class TestDataRoot:

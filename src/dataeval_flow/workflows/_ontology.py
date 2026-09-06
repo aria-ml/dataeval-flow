@@ -1,9 +1,10 @@
 """Turn workflow configuration into a :class:`dataeval.Ontology`.
 
-Private to :mod:`dataeval_flow.workflows`. Three sources are supported: an inline
-nested mapping, a path to a serialized RDF artifact, and — when a workflow is run
-without an ontology at all — a flat vocabulary synthesized from the dataset's
-``index2label``.
+Private to :mod:`dataeval_flow.workflows`. Four sources are supported: an inline nested
+mapping, a path to a serialized RDF artifact, a set of concepts declared directly in
+config, and — when a workflow is run without an ontology at all — a flat vocabulary
+synthesized from the dataset's ``index2label``. Declared concepts also merge onto an
+inline mapping or an RDF artifact, replacing any concept that shares their id.
 
 Kept out of any single workflow package because its concerns are configuration
 concerns (path resolution, an optional dependency, format inference) rather than
@@ -43,23 +44,43 @@ class OntologyLoadError(Exception):
     """
 
 
+def _one_declared_concept(entry: "Mapping[str, Any] | Any") -> "OntologyConcept":
+    """Convert one declared-concept entry — a mapping or an ``OntologyConceptConfig`` — to DataEval's type."""
+    from dataeval.types import OntologyConcept
+
+    fields = dict(entry if isinstance(entry, Mapping) else entry.model_dump())
+    return OntologyConcept(**fields)
+
+
 def _declared_concepts(concepts: "Sequence[Mapping[str, Any] | Any]") -> "list[OntologyConcept]":
     """Config-declared concepts as DataEval's own type.
 
     Accepts either the pydantic config model or a plain mapping of the same shape, so the
     loader is usable from a config and from a hand-written call alike.
     """
-    from dataeval.types import OntologyConcept
-
     built: list[OntologyConcept] = []
     for entry in concepts:
-        fields = entry if isinstance(entry, Mapping) else entry.model_dump()
         try:
-            built.append(OntologyConcept(**dict(fields)))
-        except Exception as exc:
-            name = dict(fields).get("id", "<no id>")
+            built.append(_one_declared_concept(entry))
+        except Exception as exc:  # noqa: PERF203 - config-time, over at most a handful of entries
+            name = entry.get("id", "<no id>") if isinstance(entry, Mapping) else getattr(entry, "id", "<no id>")
             raise OntologyLoadError(f"declared concept {name!r} is not valid: {exc}") from exc
     return built
+
+
+def _build(concepts: "list[OntologyConcept]") -> "Ontology":
+    """Build an :class:`Ontology` from a flat list of concepts.
+
+    Wraps any failure — most commonly two concepts sharing an id — as an
+    :class:`OntologyLoadError` naming the problem, so a config typo reads as a skip reason
+    rather than an unhandled `dataeval` exception.
+    """
+    from dataeval import Ontology
+
+    try:
+        return Ontology(concepts)
+    except Exception as exc:
+        raise OntologyLoadError(f"declared concepts do not form a valid ontology: {exc}") from exc
 
 
 def _extended(base: "Ontology", declared: "list[OntologyConcept]") -> "Ontology":
@@ -69,12 +90,10 @@ def _extended(base: "Ontology", declared: "list[OntologyConcept]") -> "Ontology"
     config is the more local statement, and silently keeping both would leave the id
     ambiguous.
     """
-    from dataeval import Ontology
-
     if not declared:
         return base
     replaced = {concept.id for concept in declared}
-    return Ontology([*(c for c in base if c.id not in replaced), *declared])
+    return _build([*(c for c in base if c.id not in replaced), *declared])
 
 
 def load_ontology(
@@ -116,7 +135,7 @@ def load_ontology(
     if spec is None:
         if not declared:
             raise OntologyLoadError("no ontology source and no concepts declared")
-        return Ontology(declared), "concepts"
+        return _build(declared), "concepts"
 
     if isinstance(spec, Mapping):
         try:
