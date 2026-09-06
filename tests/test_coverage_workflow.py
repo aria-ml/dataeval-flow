@@ -2340,3 +2340,108 @@ class TestAlignmentEndToEnd:
         finding = next(f for f in result.data.report.findings if f.title == "Label Alignment")
         assert "type: Relabel" in (finding.description or "")
         assert finding.severity == "ok"
+
+
+@pytest.mark.required
+class TestOntologyOnContext:
+    @staticmethod
+    def _pool() -> list[Any]:
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        return [
+            OntologyConfig(
+                name="animals",
+                concepts=[  # type: ignore[arg-type]
+                    {"id": "animal", "label": "animal"},
+                    {"id": "cat", "label": "cat", "parents": ["animal"]},
+                    {"id": "dog", "label": "dog", "parents": ["animal"]},
+                    {"id": "bird", "label": "bird", "parents": ["animal"]},
+                ],
+            )
+        ]
+
+    def test_resolved_ontology_carries_its_source(self) -> None:
+        from dataeval_flow.workflow import ResolvedOntology
+
+        resolved = ResolvedOntology(ontology=None, source="animals", error="boom")
+        assert resolved.error == "boom"
+
+    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval.bias.Balance")
+    @patch("dataeval.bias.Diversity")
+    def test_workflow_reads_the_context_ontology(
+        self,
+        mock_diversity: MagicMock,
+        mock_balance: MagicMock,
+        mock_label_stats: MagicMock,
+        mock_get_metadata: MagicMock,
+    ) -> None:
+        from dataeval_flow.workflow import ResolvedOntology
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        mock_get_metadata.return_value = _make_metadata(100)
+        mock_label_stats.return_value = _make_label_stats()
+
+        ontology, source = resolve_ontology("animals", self._pool())
+        context = _make_context()
+        context.ontology = ResolvedOntology(ontology=ontology, source=source, error=None)
+
+        result = DataCoverageWorkflow().execute(context, _make_params(run_gap_analysis=False))
+
+        assert result.success is True
+        assert result.data.raw.ontology is not None
+        # The pool entry's name is what the envelope records, not "inline".
+        assert result.data.raw.ontology.source == "animals"
+        assert result.data.raw.ontology.synthesized is False
+
+    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval.bias.Balance")
+    @patch("dataeval.bias.Diversity")
+    def test_a_carried_error_degrades_rather_than_aborting(
+        self,
+        mock_diversity: MagicMock,
+        mock_balance: MagicMock,
+        mock_label_stats: MagicMock,
+        mock_get_metadata: MagicMock,
+    ) -> None:
+        # The degradation contract: an ontology problem must never abort the run.
+        from dataeval_flow.workflow import ResolvedOntology
+
+        mock_get_metadata.return_value = _make_metadata(100)
+        mock_label_stats.return_value = _make_label_stats()
+
+        context = _make_context()
+        context.ontology = ResolvedOntology(ontology=None, source="broken", error="could not read it")
+
+        result = DataCoverageWorkflow().execute(context, _make_params(run_gap_analysis=False))
+
+        assert result.success is True
+        assert result.data.raw.ontology is None
+        assert "could not read it" in (result.data.raw.ontology_skipped_reason or "")
+
+    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval.bias.Balance")
+    @patch("dataeval.bias.Diversity")
+    def test_params_still_work_without_a_context_ontology(
+        self,
+        mock_diversity: MagicMock,
+        mock_balance: MagicMock,
+        mock_label_stats: MagicMock,
+        mock_get_metadata: MagicMock,
+    ) -> None:
+        # execute(context, params) is a supported entry point on its own, and a hand-built
+        # context carries no resolved ontology.
+        mock_get_metadata.return_value = _make_metadata(100)
+        mock_label_stats.return_value = _make_label_stats()
+
+        result = DataCoverageWorkflow().execute(
+            _make_context(),
+            _make_params(run_gap_analysis=False, ontology={"animal": ["cat", "dog", "bird"]}),
+        )
+
+        assert result.success is True
+        assert result.data.raw.ontology is not None
+        assert result.data.raw.ontology.source == "inline"

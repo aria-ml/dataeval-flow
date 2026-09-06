@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         ParameterSweepTaskConfig,
     )
     from dataeval_flow.policy import ResolvedPolicy
-    from dataeval_flow.workflow import DatasetContext, WorkflowResult
+    from dataeval_flow.workflow import DatasetContext, ResolvedOntology, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
     from dataeval_flow.workflows.coverage.outputs import DataCoverageMetadata, DataCoverageOutputs
@@ -135,6 +135,33 @@ def _apply_dataset_value_range(
     if not declared or policy is None:
         return policy
     return replace(policy, value_range=declared[0])
+
+
+def _resolve_ontology(
+    instance: Any,
+    config: "PipelineConfig | None",
+    data_dir: Path | None,
+) -> "ResolvedOntology | None":
+    """Resolve the task's ontology up front, carrying any failure rather than raising it.
+
+    Resolved here for the reason the metadata policy is: a name needs the pipeline's pool and
+    a path needs the data root.  Failures are carried because ``data-coverage`` degrades on an
+    ontology problem by contract, and moving the work earlier must not change that.
+    """
+    from dataeval_flow.workflow import ResolvedOntology
+    from dataeval_flow.workflows._ontology import OntologyLoadError, resolve_ontology
+
+    spec = getattr(instance, "ontology", None)
+    if spec is None:
+        return None
+
+    pool = getattr(config, "ontologies", None) if config is not None else None
+    try:
+        ontology, source = resolve_ontology(spec, pool, data_dir=data_dir)
+    except OntologyLoadError as exc:
+        _logger.warning("Task ontology could not be resolved — %s.", exc)
+        return ResolvedOntology(ontology=None, source=str(spec), error=str(exc))
+    return ResolvedOntology(ontology=ontology, source=source)
 
 
 E = TypeVar("E", bound=BaseModel)
@@ -282,11 +309,14 @@ def _run_single_task(
         instance.name,
     )
 
+    ontology = _resolve_ontology(instance, config, data_dir)
+
     # 6. Build WorkflowContext
     context = WorkflowContext(
         dataset_contexts=dataset_contexts,
         batch_size=batch_size,
         metadata_policy=policy,
+        ontology=ontology,
     )
 
     # 7. Run workflow with timing

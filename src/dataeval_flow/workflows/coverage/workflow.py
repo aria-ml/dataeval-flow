@@ -12,7 +12,7 @@ Assessments are organized by the dimension they evaluate:
 import contextlib
 import logging
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
@@ -46,6 +46,9 @@ from dataeval_flow.workflows.coverage.outputs import (
 )
 from dataeval_flow.workflows.coverage.params import DataCoverageParameters
 from dataeval_flow.workflows.coverage.report import build_findings
+
+if TYPE_CHECKING:
+    from dataeval_flow.workflow import ResolvedOntology
 
 __all__ = ["DataCoverageWorkflow"]
 
@@ -273,6 +276,7 @@ def _run_ontology_analysis(
     class_counts: dict[str, int],
     index2label: dict[int, str] | None,
     params: DataCoverageParameters,
+    resolved: "ResolvedOntology | None" = None,
 ) -> tuple[OntologyAssessment | None, str | None]:
     """Resolve an ontology and assess the dataset's labels against it.
 
@@ -286,7 +290,12 @@ def _run_ontology_analysis(
         return None, "no labels to project onto the ontology"
 
     try:
-        if params.ontology is not None:
+        if resolved is not None and resolved.error is not None:
+            return None, resolved.error
+        if resolved is not None and resolved.ontology is not None:
+            ontology, source = resolved.ontology, resolved.source
+            synthesized = False
+        elif params.ontology is not None:
             ontology, source = load_ontology(params.ontology)
             synthesized = False
         else:
@@ -695,6 +704,7 @@ class DataCoverageWorkflow(WorkflowProtocol[DataCoverageMetadata, DataCoverageOu
             {name: count for name, count in label_dist.class_distribution.items()},
             index2label,
             params,
+            context.ontology,
         )
 
         # ── Phase 4: Metadata distribution ──────────────────────────

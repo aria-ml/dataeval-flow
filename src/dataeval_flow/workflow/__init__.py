@@ -2,6 +2,7 @@
 
 __all__ = [
     "DatasetContext",
+    "ResolvedOntology",
     "WorkflowContext",
     "WorkflowProtocol",
     "WorkflowResult",
@@ -30,6 +31,7 @@ from dataeval_flow.workflow._text_report import (
 from dataeval_flow.workflow.orchestrator import run_task, run_tasks, select_tasks
 
 if TYPE_CHECKING:
+    from dataeval import Ontology
     from dataeval.protocols import AnnotatedDataset
 
     from dataeval_flow.cache import DatasetCache
@@ -64,6 +66,20 @@ class DatasetContext:
                 self.view_operations = selection_steps
 
 
+@dataclass(frozen=True)
+class ResolvedOntology:
+    """The label space a task was configured with, resolved before the dataset was read.
+
+    Carries the failure rather than raising it. An ontology problem degrades a
+    ``data-coverage`` run to a skip reason and leaves label, metadata and gap analysis
+    intact, and resolving earlier must not turn that into an aborted task.
+    """
+
+    ontology: "Ontology | None"
+    source: str
+    error: str | None = None
+
+
 @dataclass
 class WorkflowContext:
     """Runtime context for workflow execution.
@@ -80,6 +96,14 @@ class WorkflowContext:
     needs the pipeline the policy pool lives on and the data root its descriptor is
     relative to — neither of which a workflow has.  None where the caller built a context
     directly, which takes DataEval's defaults.
+    """
+    ontology: "ResolvedOntology | None" = None
+    """The label space this task names, resolved before the dataset was read.
+
+    Carried on the context for the reason :attr:`metadata_policy` is: resolving a name needs
+    the pipeline the pool lives on, and resolving a path needs the data root, and a workflow
+    has neither. ``None`` where the caller built a context directly or configured no
+    ontology, in which case the workflow reads its own parameters.
     """
 
 
