@@ -55,8 +55,7 @@ class OntologyConfig(BaseModel):
 
     Define an ontology once here and reference it by name so workflows meant to be compared
     read the same vocabulary. Two tasks reading different ontologies produce worklists you
-    cannot compare, and two `Relabel` views conforming to different vocabularies produce
-    datasets you cannot merge.
+    cannot compare.
 
     YAML example::
 
@@ -82,7 +81,7 @@ class OntologyConfig(BaseModel):
         default=None,
         description=(
             "Path, under the data root, to a serialized RDF artifact "
-            "(.ttl/.rdf/.owl/.xml/.nt/.jsonld). Omit to build the label space from `concepts` "
+            "(.ttl/.rdf/.owl/.xml/.nt/.jsonld/.json). Omit to build the label space from `concepts` "
             'alone. Reading a file needs rdflib: install it with `pip install "dataeval[ontology]"`.'
         ),
     )
@@ -90,7 +89,8 @@ class OntologyConfig(BaseModel):
         default_factory=list,
         description=(
             "Concepts added on top of `source`, or the whole label space when you omit "
-            "`source`. A declared concept replaces one the artifact defines under the same id."
+            "`source`. A declared concept replaces one the artifact defines under the same id. "
+            "Replacement is total: restate `parents` on it too, or it becomes a root."
         ),
     )
 

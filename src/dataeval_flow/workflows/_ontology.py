@@ -6,8 +6,8 @@ a flat vocabulary synthesized from the dataset's ``index2label`` when a workflow
 no ontology. Declared concepts also merge onto an inline mapping or an RDF artifact,
 replacing any concept with the same id.
 
-This module lives here rather than in a workflow package because it handles configuration:
-path resolution, an optional dependency, and format inference.
+Lives here rather than in a workflow package. It handles configuration: path resolution, an
+optional dependency, and format inference.
 """
 
 import logging
@@ -76,8 +76,7 @@ def _build(concepts: "list[OntologyConcept]") -> "Ontology":
     """Build an :class:`Ontology` from a flat list of concepts.
 
     Raise :class:`OntologyLoadError` on any failure, naming the problem. Two concepts
-    sharing an id is the common case. Without this, a config typo escapes as an unhandled
-    `dataeval` exception instead of a skip reason.
+    sharing an id is the common case.
     """
     from dataeval import Ontology
 
@@ -91,12 +90,30 @@ def _extended(base: "Ontology", declared: "list[OntologyConcept]") -> "Ontology"
     """Merge *declared* into *base*, or return *base* unchanged when nothing was declared.
 
     A declared concept replaces one the artifact defines under the same id. Keeping both
-    would leave that id ambiguous.
+    would leave that id ambiguous. Replacement is total, so a replaced concept's `parents`
+    are dropped too. Log the replaced ids at WARNING, since otherwise the hierarchy is
+    re-rooted with nothing to show for it.
     """
     if not declared:
         return base
     replaced = {concept.id for concept in declared}
-    return _build([*(c for c in base if c.id not in replaced), *declared])
+    try:
+        kept: list[OntologyConcept] = []
+        overwritten: list[str] = []
+        for concept in base:
+            if concept.id in replaced:
+                overwritten.append(concept.id)
+            else:
+                kept.append(concept)
+    except Exception as exc:
+        raise OntologyLoadError(f"could not read the base ontology's concepts: {exc}") from exc
+    if overwritten:
+        _logger.warning(
+            "Declared concept(s) %s replace an artifact concept of the same id. Replacement is "
+            "total: restate `parents` on the declared concept, or it becomes a root.",
+            sorted(overwritten),
+        )
+    return _build([*kept, *declared])
 
 
 def load_ontology(
@@ -182,9 +199,9 @@ def resolve_ontology(
 ) -> "tuple[Ontology, str]":
     """Build the ontology a workflow's ``ontology`` field names.
 
-    Read a string as a name in *pool* first and as a path second. Move a definition into
-    ``ontologies:`` and any config that named a file keeps working. Read a mapping as an
-    inline hierarchy and never consult the pool.
+    Read a string as a name in *pool* first and as a path second. Moving a definition into
+    ``ontologies:`` does not break a config that named a file. Read a mapping as an inline
+    hierarchy and never consult the pool.
 
     Parameters
     ----------
@@ -222,16 +239,17 @@ def resolve_ontology(
 def _refuse_if_also_a_file(name: str, data_dir: "Path | None") -> None:
     """Refuse a string that names both a pool entry and a readable file.
 
-    Do not pick one by precedence. That resolves a real ambiguity silently, and the wrong
-    choice measures the whole run against a label space nobody asked for.
+    Do not pick one by precedence. A silent choice would run the analysis against the wrong
+    label space.
     """
     from dataeval_flow.config._loader import resolve_path
 
     try:
         candidate = resolve_path(name, data_dir, default_subdir="config")
-    except OSError:  # an unresolvable path simply is not a collision
+        is_collision = Path(candidate).is_file()
+    except OSError:  # an unresolvable path, or an unsearchable directory, is not a collision
         return
-    if Path(candidate).is_file():
+    if is_collision:
         raise OntologyLoadError(
             f"'{name}' names an entry under `ontologies:` and also the file '{candidate}'. Rename one of them.",
         )
