@@ -1,11 +1,11 @@
 """Project a dataset's labels onto an ontology and lint the ontology itself.
 
-Wraps three DataEval calls behind one pydantic result:
+Wraps four DataEval calls behind one pydantic result:
 
 - :class:`dataeval.scope.Representation` — the collection worklist
 - :func:`dataeval.core.label_reconciliation` — do the class names resolve?
-- :func:`dataeval.core.ontology_validation` — is the artifact itself sound?
 - :func:`dataeval.core.label_alignment` — what does each class name become?
+- :func:`dataeval.core.ontology_validation` — is the artifact itself sound?
 
 The last three are skipped for a synthesized ontology, where all three answer questions
 about their own construction rather than about the data.
@@ -172,8 +172,9 @@ def run_ontology_analysis(
         Where the ontology came from — ``"inline"``, a path, or ``"index2label"``.
     synthesized : bool
         True when the ontology was built from the dataset's own ``index2label``.
-        Conformance and structure are then skipped: the class names came from the
-        ontology, so they always reconcile, and a flat graph has no structure to lint.
+        Conformance, alignment, and structure are then skipped: the class names came
+        from the ontology, so they always reconcile and align trivially, and a flat
+        graph has no structure to lint.
     class_counts : Mapping[str, int]
         Class name to sample count.
     expected : Mapping[str, float] or None
