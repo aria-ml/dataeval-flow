@@ -1832,3 +1832,39 @@ class TestOntologyWiring:
         assert result.success is True
         assert result.data.raw.ontology is None
         assert "index2label" in (result.data.raw.ontology_skipped_reason or "")
+
+
+@pytest.mark.required
+class TestLabelAlignmentModel:
+    def test_defaults_are_empty(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        al = LabelAlignment(mergeability="lossless")
+        assert al.correspondences == []
+        assert al.class_remap == {}
+        assert al.paste_remap == {}
+        assert al.target_vocabulary == []
+        assert al.ambiguous_labels == []
+        assert al.label_space_digest == ""
+
+    def test_rejects_an_unknown_mergeability(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        with pytest.raises(ValidationError):
+            LabelAlignment(mergeability="mostly")
+
+    def test_assessment_alignment_defaults_to_none(self) -> None:
+        assessment = OntologyAssessment(
+            source="inline",
+            synthesized=True,
+            representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
+        )
+        assert assessment.alignment is None
+
+    def test_correspondence_rejects_an_unknown_relation(self) -> None:
+        from dataeval_flow.workflows.coverage.outputs import AlignmentCorrespondence
+
+        with pytest.raises(ValidationError):
+            AlignmentCorrespondence(
+                source="car", relation="sortof", target="Car", target_label="Car", confidence=1.0, matcher="exact"
+            )

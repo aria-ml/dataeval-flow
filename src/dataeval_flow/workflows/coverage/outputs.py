@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from dataeval_flow.workflow import WorkflowResult
 
 __all__ = [
+    "AlignmentCorrespondence",
     "ClassCoverageRow",
     "ClassMetadataGap",
     "CompletenessAssessment",
@@ -22,6 +23,7 @@ __all__ = [
     "DataCoverageRawOutputs",
     "DataCoverageReport",
     "DataCoverageResult",
+    "LabelAlignment",
     "LabelConformance",
     "LabelSpaceCoverage",
     "MetadataDistributionResult",
@@ -239,6 +241,92 @@ class LabelConformance(BaseModel):
     )
 
 
+class AlignmentCorrespondence(BaseModel):
+    """One typed mapping from a source class to a target concept."""
+
+    source: str = Field(description="Source class name")
+    relation: Literal["equivalent", "narrower", "broader", "related"] = Field(
+        description=(
+            "How the source relates to the target. 'equivalent' is a rename and 'narrower' a "
+            "safe coarsening up the hierarchy — both carry over into class_remap. 'broader' "
+            "and 'related' are diagnostics and do not."
+        )
+    )
+    target: str = Field(description="Target concept id")
+    target_label: str = Field(description="Human-readable label of the target concept")
+    confidence: float = Field(
+        description="Strength in [0, 1]. Exact and structurally entailed correspondences are 1.0."
+    )
+    matcher: str = Field(description="Matcher that produced it — 'exact', 'structural', or a custom name")
+
+
+class LabelAlignment(BaseModel):
+    """How a dataset's vocabulary maps onto the reference ontology.
+
+    The general form of :class:`LabelConformance`: conformance asks whether every class name
+    resolves, alignment asks what each one becomes and what is lost on the way.
+    """
+
+    mergeability: Literal["lossless", "lossy", "partial"] = Field(
+        description=(
+            "How completely the vocabulary is expressible in the ontology. 'lossless' — every "
+            "class carries over, one to one. 'lossy' — every class carries over but two or "
+            "more collapse into one concept, losing specificity. 'partial' — at least one "
+            "class cannot carry over and Relabel will drop it."
+        )
+    )
+    correspondences: list[AlignmentCorrespondence] = Field(
+        default_factory=list, description="Every accepted correspondence, carryable or diagnostic"
+    )
+    unaligned_source: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Class names with no carryable correspondence. Read open-world: out of vocabulary "
+            "with respect to this ontology, not invalid."
+        ),
+    )
+    unaligned_target: list[str] = Field(
+        default_factory=list,
+        description="Concept labels this dataset does not cover — the part of the reference vocabulary it misses",
+    )
+    class_remap: dict[str, str] = Field(
+        default_factory=dict,
+        description="Class name to target concept id, verbatim from label_alignment",
+    )
+    paste_remap: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Class name to target *label* — the form Relabel takes beside a list-valued "
+            "`target`, which is the only form expressible in YAML. Identical to class_remap "
+            "for a hand-built ontology, where ids are labels."
+        ),
+    )
+    target_vocabulary: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Target concept labels in ontology index order — the `target` a Relabel view must "
+            "pass. Datasets merged together must pass the identical list, or their integer "
+            "labels denote different classes and merge_datasets refuses them."
+        ),
+    )
+    ambiguous_labels: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Target labels naming more than one concept. paste_remap and target_vocabulary "
+            "cannot be used unmodified while any exist, because the integer such a label "
+            "would take is undetermined. Fix the ontology."
+        ),
+    )
+    label_space_digest: str = Field(
+        default="",
+        description=(
+            "Identity of the vocabulary this alignment defines, over the ontology, the "
+            "paste_remap and the target_vocabulary. A downstream result conformed under this "
+            "alignment carries the same value, which is how a reader finds this audit."
+        ),
+    )
+
+
 class OntologyStructure(BaseModel):
     """Structural facts about the ontology artifact itself."""
 
@@ -285,6 +373,13 @@ class OntologyAssessment(BaseModel):
     )
     structure: OntologyStructure | None = Field(
         default=None, description="Ontology artifact lint (None when the ontology was synthesized)"
+    )
+    alignment: LabelAlignment | None = Field(
+        default=None,
+        description=(
+            "How the vocabulary maps onto the ontology (None when the ontology was "
+            "synthesized, where the classes came from the ontology and align trivially)"
+        ),
     )
 
 
