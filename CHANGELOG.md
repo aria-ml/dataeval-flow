@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- Top-level `ontologies:` key defining named label spaces, referenced by workflows by name
+- `concepts:` on an ontology entry, adding to or replacing an artifact's concepts by id, without editing the
+  artifact itself
+- A workflow's `ontology:` value resolves as a pool name first and a path second, so existing configs that name a
+  file keep working unchanged
+
+### Fixed
+
+- A relative `ontology:` path now resolves against the run's data root rather than the process-wide root
+
 ### Removed
 
 - Poetry packaging support. `poetry.lock`, the `[tool.poetry]` configuration, and the `poetry install`
