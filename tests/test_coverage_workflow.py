@@ -1911,9 +1911,21 @@ class TestAlignment:
         result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 1})
         assert result.alignment is not None
         # Every concept, abstract ones included — that is the index space Relabel builds.
-        assert result.alignment.target_vocabulary[0] == "subject"
-        assert "wheeled" in result.alignment.target_vocabulary
-        assert "car" in result.alignment.target_vocabulary
+        # Order is load-bearing (it IS the digest and the integer indexing), so check the
+        # complete list rather than a couple of containments.
+        assert result.alignment.target_vocabulary == [
+            "subject",
+            "vehicle",
+            "wheeled",
+            "car",
+            "truck",
+            "animal",
+            "mammal",
+            "cat",
+            "dog",
+            "amphibian",
+            "frog",
+        ]
 
     def test_uncovered_concepts_are_reported_as_labels(self) -> None:
         from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
@@ -2085,6 +2097,7 @@ class TestAlignmentFinding:
                 class_remap={"people": "Person"},
                 paste_remap={"people": "Person"},
                 target_vocabulary=["Person", "Car"],
+                label_space_digest="deadbeefcafe",
             )
         )
         finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
@@ -2093,6 +2106,9 @@ class TestAlignmentFinding:
         assert "type: Relabel" in description
         assert "people: Person" in description
         assert "target: [Person, Car]" in description
+        # This line is the entire user-visible surface of the cross-artifact digest
+        # mechanism — nothing else in the report shows it.
+        assert "Label space: deadbeefcafe" in description
 
     def test_correspondences_become_table_rows(self) -> None:
         from dataeval_flow.workflows.coverage.outputs import AlignmentCorrespondence, LabelAlignment
