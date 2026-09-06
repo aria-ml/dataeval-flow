@@ -33,6 +33,9 @@ interpret the findings, including:
 
 - a schema **version** and a **timestamp**,
 - the **dataset identifier(s)** evaluated, and where relevant the label source,
+- the **label space** the run's labels were read under, when a dataset was conformed
+  to a reference vocabulary — recorded as a digest, which is also how a result is
+  matched to the alignment audit that justified its vocabulary,
 - the **model**, **preprocessor**, and **selection** identifiers that defined the
   representation,
 - human-readable **source descriptions**,
