@@ -601,9 +601,9 @@ print("unmatched:", list(check["unmatched"]))
 #   - name: postal
 #     source: config/postal.jsonld
 #     concepts:
-#       - id: http://example.org/postal#FreightCar
-#         label: Freight Car
-#         synonyms: [freight_car, freight car]
+#       - id: http://example.org/postal#hyphen
+#         label: hyphen
+#         synonyms: [dash, "-"]
 #
 # workflows:
 #   - name: coverage-ontology

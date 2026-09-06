@@ -72,8 +72,46 @@ This path needs `rdflib`, which arrives with the `ontology` extra:
 pip install "dataeval-flow[ontology]"
 ```
 
-An RDF artifact also carries what an inline mapping cannot: synonyms, definitions, and stable concept identifiers that
-survive a class being renamed. Prefer it for anything you intend to keep.
+An RDF artifact carries what an inline mapping cannot: synonyms, definitions, and stable concept identifiers that
+survive a class being renamed. A config-declared concept (see Option 3) carries the same three fields without a
+file. Reach for an RDF artifact when the label space is authored or reviewed outside this config.
+
+## Option 3: a shared `ontologies:` block
+
+A label space is a decision, not a per-workflow setting: two workflows reading different ontologies produce
+worklists you cannot compare. Define it once under `ontologies:` and reference it by name, the same way `datasets`,
+`views`, `sources`, `extractors`, and `metadata` work:
+
+```yaml
+ontologies:
+  - name: vehicles
+    source: config/label_ontology.jsonld
+    concepts:
+      - id: http://example.org/cv#FreightCar
+        label: Freight Car
+        synonyms: [freight_car, freight car]
+        parents: [http://example.org/cv#LandVehicle]
+
+workflows:
+  - name: audit
+    type: data-coverage
+    ontology: vehicles
+  - name: audit_holdout
+    type: data-coverage
+    ontology: vehicles        # same pool entry, same vocabulary
+```
+
+Use `concepts:` to add concepts on top of `source`, or omit `source` and declare the whole label space in config.
+Declare a concept to keep a dataset class the artifact omits, without editing an artifact you may not own. Give
+each declared concept the dataset's own spelling under `synonyms`: alignment matches on labels and synonyms, and a
+concept without the dataset's spelling will not match that class.
+
+A declared concept replaces one the artifact defines under the same id. Replacement is total: restate `parents` on
+it too, or the concept becomes a root and detaches from the rest of the hierarchy.
+
+A workflow's `ontology:` value is read as a name in the pool first, and as a path second, so a config that already
+names a file keeps working unchanged. A string that matches both a pool entry and a readable file is refused.
+Rename one of them.
 
 ## Set expected class shares
 
