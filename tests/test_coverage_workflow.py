@@ -121,6 +121,20 @@ def _make_metadata(n: int = 100, num_classes: int = 3) -> MagicMock:
     return meta
 
 
+def _stanza_of(description: str) -> str:
+    """The Relabel stanza embedded in a finding description.
+
+    Located by the stanza's own first line rather than by the prose around it, so that
+    rewording the report does not break the tests that parse its YAML.
+    """
+    lines = description.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.strip() == "- type: Relabel")
+    end = start
+    while end < len(lines) and lines[end].startswith("      "):
+        end += 1
+    return "\n".join(lines[start:end])
+
+
 def _make_label_stats(num_classes: int = 3, n: int = 100) -> dict[str, Any]:
     counts_per_class: dict[int, int] = {}
     for i in range(n):
@@ -2160,8 +2174,7 @@ class TestAlignmentFinding:
         finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
         assert finding is not None
         description = finding.description or ""
-        block = description.split("adding to its view:\n\n")[1].split("\n\nEvery dataset")[0]
-        parsed = yaml.safe_load(block)
+        parsed = yaml.safe_load(_stanza_of(description))
         assert parsed[0]["params"]["target"] == target_vocabulary
         assert parsed[0]["params"]["class_remap"] == class_remap
 
@@ -2190,8 +2203,7 @@ class TestAlignmentFinding:
         finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
         assert finding is not None
         description = finding.description or ""
-        block = description.split("adding to its view:\n\n")[1].split("\n\nEvery dataset")[0]
-        parsed = yaml.safe_load(block)
+        parsed = yaml.safe_load(_stanza_of(description))
         parsed_target = parsed[0]["params"]["target"]
         parsed_remap = parsed[0]["params"]["class_remap"]
 
