@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config._merge import _deep_merge, merge_config_folder
 from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 
@@ -218,9 +219,8 @@ class TestRelativizeToDataDir:
 
 class TestOntologiesFromYaml:
     def test_a_pool_round_trips_through_yaml(self, tmp_path: Path) -> None:
-        # The block has to survive the loader, not just the pydantic model.
-        from dataeval_flow.config import PipelineConfig
-
+        # A nested `concepts:` block parses from YAML into the model with its
+        # synonyms, parents, and definition intact.
         text = """
 ontologies:
   - name: vehicles
