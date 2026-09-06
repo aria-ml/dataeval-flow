@@ -9,6 +9,7 @@ import pytest
 from dataeval_flow.config import (
     CocoDatasetConfig,
     DataCleaningWorkflowConfig,
+    DataCoverageWorkflowConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
     OnnxExtractorConfig,
@@ -1480,3 +1481,47 @@ class TestValueRangeReachesTheRun:
         dc = context.dataset_contexts["src"]
         assert dc.value_range == (0.0, 1.0)
         assert context.metadata_policy.value_range == (0.0, 1.0)
+
+
+class TestOntologyReachesTheContext:
+    """The real seam: config.ontologies -> _resolve_ontology -> WorkflowContext.ontology."""
+
+    @patch("dataeval_flow.dataset.load_dataset")
+    def test_a_named_pool_entry_reaches_the_context(self, mock_load_ds: MagicMock):
+        """A workflow naming a pool entry gets a resolved ontology whose source is that name."""
+        from dataeval_flow.config.schemas import OntologyConfig
+
+        ds = ImageFolderDatasetConfig(name="images", path="data/images")
+        source = SourceConfig(name="src", dataset="images")
+        task = TaskConfig(name="t", workflow="coverage", sources="src")
+        coverage_instance = DataCoverageWorkflowConfig(name="coverage", ontology="animals")
+
+        config = MagicMock()
+        config.datasets = [ds]
+        config.sources = [source]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [coverage_instance]
+        config.ontologies = [
+            OntologyConfig(
+                name="animals",
+                concepts=[  # type: ignore[arg-type]
+                    {"id": "animal", "label": "animal"},
+                    {"id": "cat", "label": "cat", "parents": ["animal"]},
+                ],
+            )
+        ]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = MagicMock(success=True)
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            _run_single_task(task, config)
+
+        context = mock_wf.execute.call_args[0][0]
+        assert context.ontology is not None
+        assert context.ontology.error is None
+        assert context.ontology.source == "animals"

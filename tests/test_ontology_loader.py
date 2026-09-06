@@ -1,6 +1,7 @@
 """Tests for the shared ontology loader."""
 
 import builtins
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -270,3 +271,53 @@ class TestResolveOntology:
         ]
         onto, _ = resolve_ontology("extended", pool)
         assert onto.find("freight car") == ("freight_car",)
+
+    def test_a_permission_error_from_the_collision_check_does_not_abort(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Path.is_file() can raise PermissionError on a non-searchable parent directory,
+        # exactly like resolve_path does — but that call used to sit outside the guard.
+        # Simulated directly, since chmod-based permission tests are not portable across CI.
+        from dataeval_flow.workflows._ontology import resolve_ontology
+
+        def _raise(_self: Path) -> bool:
+            raise PermissionError("permission denied")
+
+        monkeypatch.setattr(Path, "is_file", _raise)
+
+        onto, source = resolve_ontology("vehicles", self._pool(), data_dir=tmp_path)
+        assert source == "vehicles"
+        assert set(onto.ids) == {"vehicle", "car"}
+
+
+@pytest.mark.required
+class TestReplacementReRootsTheHierarchy:
+    """A declared concept replaces the artifact's whole entry, not just its label/synonyms."""
+
+    def test_omitting_parents_detaches_the_replaced_concept(self) -> None:
+        onto, _ = load_ontology(
+            {"vehicle": {"car": ["sedan"]}},
+            concepts=[{"id": "car", "label": "car", "synonyms": ["automobile"]}],
+        )
+        # `car` loses its place under `vehicle` because replacement is total: the
+        # artifact's `car` (with its parent) is gone, and the declared `car` has none.
+        assert set(onto.roots) == {"vehicle", "car"}
+        assert set(onto.leaves) == {"vehicle", "sedan"}
+
+    def test_replacing_a_concept_logs_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING, logger="dataeval_flow.workflows._ontology"):
+            load_ontology(
+                {"vehicle": {"car": ["sedan"]}},
+                concepts=[{"id": "car", "label": "car", "synonyms": ["automobile"]}],
+            )
+        messages = [record.getMessage() for record in caplog.records]
+        assert any("car" in message and "parents" in message for message in messages)
+
+    def test_restating_parents_keeps_the_concept_in_place(self) -> None:
+        # The warning names the fix: restate `parents` to avoid the re-rooting above.
+        onto, _ = load_ontology(
+            {"vehicle": {"car": ["sedan"]}},
+            concepts=[{"id": "car", "label": "car", "synonyms": ["automobile"], "parents": ["vehicle"]}],
+        )
+        assert set(onto.roots) == {"vehicle"}
+        assert set(onto.leaves) == {"sedan"}
