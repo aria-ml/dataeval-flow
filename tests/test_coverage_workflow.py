@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import polars as pl
 import pytest
+import yaml
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import BaseModel, ValidationError
 
@@ -2071,6 +2072,9 @@ class TestAlignmentFinding:
         finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
         assert finding is not None
         assert finding.severity == "warning"
+        # The block is still emitted so the user can see what the mapping would be, even
+        # though it cannot be used until the ontology is fixed.
+        assert "type: Relabel" in (finding.description or "")
 
     def test_description_carries_a_paste_ready_block(self) -> None:
         from dataeval_flow.workflows.coverage.outputs import LabelAlignment
@@ -2118,3 +2122,29 @@ class TestAlignmentFinding:
         assert finding.data[0]["source"] == "car"
         # The IRI is resolved for the reader; the raw id stays in the machine-readable output.
         assert finding.data[0]["target"] == "Car"
+
+    def test_labels_with_yaml_metacharacters_round_trip(self) -> None:
+        # "bathtub, bathing tub" is an ordinary WordNet-style label. A comma or colon
+        # interpolated bare into the YAML would silently change the parsed target list's
+        # length or shape — and that list's length and order ARE the integer label
+        # indexing, so this is not cosmetic. Parse the emitted block back and compare the
+        # list exactly, rather than just checking that quotes appear somewhere.
+        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+
+        class_remap = {"bathtub, bathing tub": "bathtub, bathing tub", "car": "Vehicle: Land"}
+        target_vocabulary = ["Car", "bathtub, bathing tub", "Vehicle: Land"]
+        raw = self._raw_with(
+            LabelAlignment(
+                mergeability="lossless",
+                class_remap=class_remap,
+                paste_remap=class_remap,
+                target_vocabulary=target_vocabulary,
+            )
+        )
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        assert finding is not None
+        description = finding.description or ""
+        block = description.split("adding to its view:\n\n")[1].split("\n\nEvery dataset")[0]
+        parsed = yaml.safe_load(block)
+        assert parsed[0]["params"]["target"] == target_vocabulary
+        assert parsed[0]["params"]["class_remap"] == class_remap

@@ -1,5 +1,6 @@
 """Data coverage workflow report/finding builders."""
 
+import json
 from typing import Any, Literal
 
 from dataeval_flow.workflow.base import Reportable
@@ -473,6 +474,22 @@ def _finding_conformance(
     )
 
 
+_YAML_UNSAFE = set(",[]{}:#&*!|>'\"%@`")
+
+
+def _yaml_scalar(value: str) -> str:
+    """A YAML scalar for *value*, quoted only where a bare word would not survive.
+
+    A label may hold a comma or a colon — "bathtub, bathing tub" is an ordinary
+    WordNet-style name — and interpolating one bare turns a vocabulary of N into a
+    list of more than N, silently. The list's length and order are the integer label
+    indexing, so that is not a cosmetic defect.
+    """
+    if not value or value[0].isspace() or value[-1].isspace() or any(c in _YAML_UNSAFE for c in value):
+        return json.dumps(value)
+    return value
+
+
 def _relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) -> str:
     """The alignment as the view operation a user pastes into their config."""
     lines = [
@@ -480,8 +497,11 @@ def _relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) -
         "        params:",
         "          class_remap:",
     ]
-    lines.extend(f"            {source}: {target}" for source, target in sorted(paste_remap.items()))
-    lines.append(f"          target: [{', '.join(target_vocabulary)}]")
+    lines.extend(
+        f"            {_yaml_scalar(source)}: {_yaml_scalar(target)}" for source, target in sorted(paste_remap.items())
+    )
+    targets = ", ".join(_yaml_scalar(t) for t in target_vocabulary)
+    lines.append(f"          target: [{targets}]")
     return "\n".join(lines)
 
 
