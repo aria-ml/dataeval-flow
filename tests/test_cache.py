@@ -2414,3 +2414,31 @@ class TestPartialHitNarrowsChannelsToMatch:
 
         assert "rgb_mean" in result["stats"]
         assert "brightness" in result["stats"]
+
+
+@pytest.mark.required
+class TestUncachedNarrowsChannelsToMatch:
+    """The uncached branch enforces the same invariant as the cached one.
+
+    `compute_stats` requires the `stats` mapping's keys to be exactly the `channels` names,
+    in both directions. The cached branch always narrows through `policy.narrowed_to(...)`
+    before calling it — even on a full miss — so a policy whose `channels` names a group
+    `measure` does not used to work only when a cache happened to narrow it away first, and
+    raise the moment the same policy was used with no cache at all.
+    """
+
+    def test_a_mismatched_policy_works_with_no_cache_active(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        # `channels` names `rgb`, but `measure` never asks for it — `resolve_stats_policy`
+        # cannot build this shape, but nothing stops a test, or a hand-built context, from
+        # constructing one directly.
+        policy = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=(("rgb", (0, 1, 2)),))
+
+        result = get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)
+
+        assert "brightness" in result["stats"]
+        assert "rgb_mean" not in result["stats"]

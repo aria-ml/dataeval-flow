@@ -620,7 +620,12 @@ def get_or_compute_stats(
             value_range=value_range,
         )
     _logger.info("Computing stats (no cache)")
-    return _do_compute_stats(dataset, policy, per_image, per_target, value_range)
+    # Narrow to the policy's own request, exactly as the cached path does before it ever
+    # calls `_do_compute_stats`. `compute_stats` requires the `stats` mapping's keys to be
+    # exactly the `channels` names, in both directions — a policy whose `channels` names a
+    # group `measure` does not would otherwise raise here alone, working only when a cache
+    # happens to narrow it away first.
+    return _do_compute_stats(dataset, policy.narrowed_to(policy.request), per_image, per_target, value_range)
 
 
 def get_or_compute_metadata(
