@@ -533,18 +533,35 @@ def attach_binning(
     run, and the diagnostics captured alongside it still name the decision.
     """
     try:
+        from dataeval.flags import ImageStats
+
         from dataeval_flow.metadata import expand_declared_bins, resolve_families, stat_names_for
 
         excluded = list(policy.exclude) or None
         declared = dict(policy.continuous_factor_bins) or None
         source = policy.factor_source
 
-        # The statistics a policy's families produce, level prefixes included.  Derived
-        # from the flags rather than from the Metadata, so a cache hit — which never ran
-        # the injector — marks the same factors as a cache miss.
+        # The statistics a policy's families produce, band-group and level prefixes
+        # included.  Derived from the flags rather than from the Metadata, so a cache hit —
+        # which never ran the injector — marks the same factors as a cache miss.
+        #
+        # A stats policy decides which views the injector reads, so the names it produces
+        # carry those views' prefixes: `factors_from: [~, rgb]` injects `rgb_brightness`
+        # beside `brightness`. Deriving from the statistic names alone would leave every
+        # band factor out of this record, and a reader would take them for the dataset's
+        # own columns rather than ones this policy contributed.
         injected: set[str] = set()
         if policy.intrinsic_factors:
-            bare = stat_names_for(resolve_families("image", policy.intrinsic_factors))
+            families = resolve_families("image", policy.intrinsic_factors)
+            # Band views are an image-statistics idea, so a non-image modality keeps the
+            # bare names. This function never raises, so the narrowing degrades rather
+            # than rejecting — `_inject` is where a mismatch is an error.
+            if policy.stats is None or not isinstance(families, ImageStats):
+                bare = set(stat_names_for(families))
+            else:
+                from dataeval_flow.stats import columns_for
+
+                bare = columns_for(policy.stats.factors_from, families)
             injected = set(bare) | {f"{level}_{name}" for level in ("unit", "instance") for name in bare}
 
         def _describe(md: "Metadata") -> dict[str, Any]:

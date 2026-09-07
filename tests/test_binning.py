@@ -617,6 +617,53 @@ class TestEnvelopeRecordsInjection:
         assert result_metadata.encoding_digest == per_split["test"]["encoding_digest"]
 
 
+class TestInjectedFactorsCoverBandViews:
+    """`injected_factors` must name the band views a stats policy reads factors from."""
+
+    @staticmethod
+    def _policy(factors_from):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        stats = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.VISUAL)),
+            channels=(("rgb", (0, 1, 2)),),
+            factors_from=tuple(factors_from),
+        )
+        return ResolvedPolicy(
+            intrinsic_factors=("visual",),
+            value_range=(0.0, 255.0),
+            stats=stats,
+        )
+
+    def test_band_factors_are_marked_as_injected(self, toy_multiband_dataset):
+        """A band view's columns come from the policy, so the record has to name them."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy([None, "rgb"])
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, build_metadata(toy_multiband_dataset, policy), policy)
+
+        assert result_metadata.metadata_binning
+        injected = set(result_metadata.metadata_binning["injected_factors"])
+        assert "unit_rgb_brightness" in injected
+        assert "unit_brightness" in injected
+
+    def test_a_view_the_policy_does_not_read_is_not_marked(self, toy_multiband_dataset):
+        """`factors_from` is the whole statement — a measured view it omits is not injected."""
+        from dataeval_flow.metadata import build_metadata
+
+        policy = self._policy([None])
+        result_metadata = ResultMetadata()
+        attach_binning(result_metadata, build_metadata(toy_multiband_dataset, policy), policy)
+
+        assert result_metadata.metadata_binning
+        injected = set(result_metadata.metadata_binning["injected_factors"])
+        assert "unit_brightness" in injected
+        assert not any(name.endswith("rgb_brightness") for name in injected)
+
+
 class _MixedDataset:
     """One classification item per index, with a column recorded two different ways.
 
