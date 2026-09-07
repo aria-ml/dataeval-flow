@@ -58,6 +58,11 @@
 - `intrinsic_factors` now decides which statistics are injected as metadata factors. The
   injected set previously depended on cache state, and both sets were stored under one
   metadata cache key
+- Cross-split label parity now compares only the classes both splits carry. A conformed
+  label space leaves gaps, so class ids run past how many classes are present, and the
+  chi-square was called with a count that rejected them — the comparison failed outright.
+  A class only one split carries has a zero expectation and leaves the statistic undefined,
+  so it is excluded from the test and reported in `label_overlap` instead
 - Cross-split duplicate detection now restricts both operands to the same columns before
   comparing them. Two splits with divergent stat caches previously reached DataEval's
   `_reject_stat_name_mismatch` and crashed, so cross-split leakage detection failed outright

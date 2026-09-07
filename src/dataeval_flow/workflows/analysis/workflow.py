@@ -490,21 +490,44 @@ def _assess_cross_label_health(
         }
     )
 
-    # Label parity — chi-squared test
-    num_classes = max(ls_a["class_count"], ls_b["class_count"])
+    # Label parity — chi-squared test over the classes both splits have.
+    #
+    # Class ids are positions in a label space, not a dense range: conforming to an
+    # ontology leaves abstract concepts and unused classes with no instances, so the ids
+    # present run past how many there are. Encode both sides against the shared classes
+    # so a code means the same class on each side, and so no cell has a zero expectation —
+    # a class one split lacks makes the chi-square undefined (`inf` or `nan`), which reads
+    # as a significant result while carrying no evidence about proportions. Those classes
+    # are the `_only` lists in `label_overlap` above, and `classes_compared` below records
+    # how many the test actually covered.
     labels_a = _labels_from_counts(ls_a["label_counts_per_class"])
     labels_b = _labels_from_counts(ls_b["label_counts_per_class"])
-    if num_classes > 0 and len(labels_a) > 0 and len(labels_b) > 0:
-        lp_result = label_parity(labels_a, labels_b, num_classes=num_classes)
+    compared = np.array(sorted(shared), dtype=int)
+    in_a = labels_a[np.isin(labels_a, compared)]
+    in_b = labels_b[np.isin(labels_b, compared)]
+    if len(compared) > 0 and len(in_a) > 0 and len(in_b) > 0:
+        lp_result = label_parity(
+            np.searchsorted(compared, in_a),
+            np.searchsorted(compared, in_b),
+            num_classes=len(compared),
+        )
         lp_summary: dict[str, Any] = _to_serializable(
             {
                 "chi_squared": lp_result["chi_squared"],
                 "p_value": lp_result["p_value"],
                 "significant": lp_result["p_value"] < 0.05,
+                "classes_compared": len(compared),
+                "classes_excluded": len(only_a) + len(only_b),
             }
         )
     else:
-        lp_summary = {"chi_squared": 0.0, "p_value": 1.0, "significant": False}
+        lp_summary = {
+            "chi_squared": 0.0,
+            "p_value": 1.0,
+            "significant": False,
+            "classes_compared": len(compared),
+            "classes_excluded": len(only_a) + len(only_b),
+        }
 
     return CrossSplitLabelHealth(
         label_overlap=label_overlap,

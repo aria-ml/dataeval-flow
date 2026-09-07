@@ -1491,6 +1491,94 @@ class TestAssessCrossLabelHealth:
         assert result.label_parity is not None
         assert result.label_parity["significant"] is True
 
+    def test_sparse_class_ids_do_not_raise(self):
+        """Ids run past the class count when a conformed label space leaves gaps.
+
+        `label_parity` builds its distributions over `range(num_classes)`, so passing the
+        count of classes present rejects ids above it. Conforming to an ontology produces
+        exactly that — abstract concepts and unused classes keep their positions.
+        """
+        ls_a = _make_ls(
+            {
+                "label_counts_per_class": {0: 30, 1: 50, 4: 10, 5: 20},
+                "label_count": 110,
+                "class_count": 4,
+                "index2label": {0: "Bus", 1: "Car", 4: "Person", 5: "Truck"},
+            }
+        )
+        ls_b = _make_ls(
+            {
+                "label_counts_per_class": {0: 15, 1: 60, 5: 25, 6: 12, 7: 8},
+                "label_count": 120,
+                "class_count": 5,
+                "index2label": {0: "Bus", 1: "Car", 5: "Truck", 6: "Van", 7: "Freight Car"},
+            }
+        )
+
+        result = _assess_cross_label_health(ls_a, ls_b, "m3fd", "drone")
+
+        assert result.label_parity is not None
+        assert np.isfinite(result.label_parity["chi_squared"])
+        assert 0.0 <= result.label_parity["p_value"] <= 1.0
+
+    def test_parity_covers_only_the_shared_classes(self):
+        """A class one side lacks has a zero expectation, which leaves chi-square undefined.
+
+        Restricting to the shared classes keeps the statistic finite; the excluded classes
+        are reported in `label_overlap` and counted on the summary.
+        """
+        ls_a = _make_ls(
+            {
+                "label_counts_per_class": {0: 40, 1: 60, 2: 25},
+                "label_count": 125,
+                "class_count": 3,
+                "index2label": {0: "Bus", 1: "Car", 2: "Person"},
+            }
+        )
+        ls_b = _make_ls(
+            {
+                "label_counts_per_class": {0: 30, 1: 70, 3: 15},
+                "label_count": 115,
+                "class_count": 3,
+                "index2label": {0: "Bus", 1: "Car", 3: "Van"},
+            }
+        )
+
+        result = _assess_cross_label_health(ls_a, ls_b, "m3fd", "drone")
+
+        assert result.label_parity is not None
+        assert np.isfinite(result.label_parity["chi_squared"])
+        assert result.label_parity["classes_compared"] == 2
+        assert result.label_parity["classes_excluded"] == 2
+        assert result.label_overlap["m3fd_only"] == ["Person"]
+        assert result.label_overlap["drone_only"] == ["Van"]
+
+    def test_no_shared_classes_reports_neutral_parity(self):
+        """Two disjoint vocabularies leave nothing to test, so parity stays neutral."""
+        ls_a = _make_ls(
+            {
+                "label_counts_per_class": {0: 40},
+                "label_count": 40,
+                "class_count": 1,
+                "index2label": {0: "Bus"},
+            }
+        )
+        ls_b = _make_ls(
+            {
+                "label_counts_per_class": {3: 15},
+                "label_count": 15,
+                "class_count": 1,
+                "index2label": {3: "Van"},
+            }
+        )
+
+        result = _assess_cross_label_health(ls_a, ls_b, "m3fd", "drone")
+
+        assert result.label_parity is not None
+        assert result.label_parity["p_value"] == 1.0
+        assert result.label_parity["significant"] is False
+        assert result.label_parity["classes_compared"] == 0
+
     @patch(f"{_WF}.label_parity")
     def test_exclusive_classes(self, mock_lp):
         mock_lp.return_value = {"chi_squared": 1.0, "p_value": 0.5}
