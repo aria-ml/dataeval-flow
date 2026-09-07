@@ -16,6 +16,7 @@ __all__ = [
     "WorkflowReportBase",
     "effective_value_range",
     "raw_field",
+    "render_label_source",
 ]
 
 
@@ -120,6 +121,19 @@ def effective_value_range(
             "shares.",
         )
     return from_dataset if from_dataset is not None else from_params
+
+
+def render_label_source(label_source: "str | Sequence[str] | None") -> str:
+    """Render a label provenance for a report line.
+
+    A merged corpus carries one entry per operand, so join them rather than printing the
+    list: the reader wants the provenances, not their repr.
+    """
+    if label_source is None:
+        return ""
+    if isinstance(label_source, str):
+        return label_source
+    return ", ".join(label_source)
 
 
 # --- Parameter base ---

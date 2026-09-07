@@ -28,6 +28,7 @@ from dataeval_flow.workflow._text_report import (
     _render_detail_section,
     _summary_line,
 )
+from dataeval_flow.workflow.base import render_label_source
 from dataeval_flow.workflow.orchestrator import run_task, run_tasks, select_tasks
 
 if TYPE_CHECKING:
@@ -49,7 +50,9 @@ class DatasetContext:
     transforms: Callable | None = None
     view_operations: "Sequence[ViewOperation] | None" = None
     batch_size: int | None = None
-    label_source: str | None = None
+    #: Where the labels came from: one value, or one per operand where a merged corpus
+    #: reads more than one provenance.
+    label_source: "str | Sequence[str] | None" = None
     value_range: "tuple[float, float] | None" = None
     cache: "DatasetCache | None" = None
     selection_steps: "InitVar[Sequence[ViewOperation] | None]" = None  # deprecated
@@ -124,7 +127,7 @@ def _source_lines(meta: "ResultMetadata") -> list[str]:
         if meta.dataset_id:
             ds_line = f"  Dataset:      {meta.dataset_id}"
             if meta.label_source:
-                ds_line += f"  ({meta.label_source})"
+                ds_line += f"  ({render_label_source(meta.label_source)})"
             lines.append(ds_line)
         if meta.selection_id:
             lines.append(f"  Selection:    {meta.selection_id}")

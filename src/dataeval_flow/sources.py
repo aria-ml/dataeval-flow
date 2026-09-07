@@ -194,7 +194,7 @@ def resolve_source(
         dataset=merged,
         view_config=view_config,
         cache_name=name,
-        cache_key="merge:" + "|".join(operand.cache_key for operand in operands),
+        cache_key="merge:" + "|".join(_operand_key(operand) for operand in operands),
     )
 
 
@@ -220,6 +220,17 @@ def _load_operand(
         label_source=resolved.label_source,
         cache_key=resolved.cache_key,
     )
+
+
+def _operand_key(operand: SourceOperand) -> str:
+    """Return an operand's cache identity, covering the view it is merged under.
+
+    An operand's view is applied before the merge, so it is part of the corpus rather
+    than something the workflow applies later. Fold it into the key, or narrowing one
+    operand's view would serve the previous corpus's cached embeddings.
+    """
+    view = operand.view_config.model_dump_json() if operand.view_config is not None else "none"
+    return f"{operand.cache_key}+view:{view}"
 
 
 def _view_of(source: "SourceConfig", config: "PipelineConfig") -> "ViewConfig | None":

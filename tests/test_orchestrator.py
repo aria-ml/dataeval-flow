@@ -17,6 +17,7 @@ from dataeval_flow.config import (
     TaskConfig,
     YoloDatasetConfig,
 )
+from dataeval_flow.config.schemas import ResultMetadata
 from dataeval_flow.workflow.orchestrator import (
     _relativize_paths,
     _resolve_by_name,
@@ -1181,7 +1182,7 @@ class TestPopulateResultMetadataLabelSource:
 
     def test_no_label_source_skips_annotation(self):
         from dataeval_flow.config import SourceConfig
-        from dataeval_flow.config.schemas._metadata import ResultMetadata
+        from dataeval_flow.sources import ResolvedSource, SourceOperand
         from dataeval_flow.workflow import DatasetContext, WorkflowResult
         from dataeval_flow.workflow.orchestrator import _populate_result_metadata
 
@@ -1196,13 +1197,27 @@ class TestPopulateResultMetadataLabelSource:
             label_source=None,
             cache=None,
         )
-        source = SourceConfig(name="src", dataset="ds")
+        operand = SourceOperand(
+            source=SourceConfig(name="src", dataset="ds"),
+            dataset_config=MagicMock(),
+            view_config=None,
+            raw=MagicMock(),
+            label_source=None,
+            cache_key="k",
+        )
+        resolved = ResolvedSource(
+            name="src",
+            operands=(operand,),
+            dataset=operand.raw,
+            view_config=None,
+            cache_name="ds",
+            cache_key="k",
+        )
 
         _populate_result_metadata(
             result=result,
-            dataset_names=["ds"],
             dataset_contexts={"src": dc},
-            sources=[source],
+            resolved_sources=[resolved],
             extractor_cfg=None,
             elapsed=1.0,
         )
@@ -1525,3 +1540,135 @@ class TestOntologyReachesTheContext:
         assert context.ontology is not None
         assert context.ontology.error is None
         assert context.ontology.source == "animals"
+
+
+# ---------------------------------------------------------------------------
+# _run_single_task — merged sources
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.required
+class TestMergedSourceTask:
+    """A task naming a merged source reads one corpus."""
+
+    def test_workflow_receives_one_merged_context(self):
+        from dataeval_flow.config import TaskConfig
+        from dataeval_flow.workflow.orchestrator import _run_single_task
+        from tests.test_sources import _merge_config
+
+        config = _merge_config()
+        config.workflows = [_CLEAN_INSTANCE]
+        config.tasks = [TaskConfig(name="t", workflow="clean", sources="merged")]
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.metadata = ResultMetadata()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = mock_result
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            _run_single_task(config.tasks[0], config)
+
+        context = mock_wf.execute.call_args[0][0]
+        assert list(context.dataset_contexts) == ["merged"]
+        assert len(context.dataset_contexts["merged"].dataset) == 4
+
+    def test_dataset_id_names_every_operand(self):
+        from dataeval_flow.config import TaskConfig
+        from dataeval_flow.workflow.orchestrator import _run_single_task
+        from tests.test_sources import _merge_config
+
+        config = _merge_config()
+        config.workflows = [_CLEAN_INSTANCE]
+        config.tasks = [TaskConfig(name="t", workflow="clean", sources="merged")]
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.metadata = ResultMetadata()
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = mock_result
+
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            result = _run_single_task(config.tasks[0], config)
+
+        assert result.metadata.dataset_id == "ds_a,ds_b"
+
+
+@pytest.mark.required
+class TestValueRangeOf:
+    """_value_range_of reports a range only where every operand declares the same one."""
+
+    @staticmethod
+    def _resolved(*ranges: tuple[float, float] | None):
+        from dataeval_flow.sources import ResolvedSource, SourceOperand
+
+        operands = []
+        for value_range in ranges:
+            dataset_config = MagicMock()
+            dataset_config.value_range = value_range
+            operands.append(
+                SourceOperand(
+                    source=SourceConfig(name="s", dataset="ds"),
+                    dataset_config=dataset_config,
+                    view_config=None,
+                    raw=MagicMock(),
+                    label_source=None,
+                    cache_key="k",
+                )
+            )
+        return ResolvedSource(
+            name="s",
+            operands=tuple(operands),
+            dataset=MagicMock(),
+            view_config=None,
+            cache_name="s",
+            cache_key="k",
+        )
+
+    def test_one_operand_reports_its_own_range(self):
+        from dataeval_flow.workflow.orchestrator import _value_range_of
+
+        assert _value_range_of(self._resolved((0.0, 1.0))) == (0.0, 1.0)
+
+    def test_agreeing_operands_report_the_shared_range(self):
+        from dataeval_flow.workflow.orchestrator import _value_range_of
+
+        assert _value_range_of(self._resolved((0.0, 1.0), (0.0, 1.0))) == (0.0, 1.0)
+
+    def test_undeclared_operands_report_none(self):
+        from dataeval_flow.workflow.orchestrator import _value_range_of
+
+        assert _value_range_of(self._resolved(None, None)) is None
+
+    def test_disagreeing_operands_are_refused(self):
+        from dataeval_flow.workflow.orchestrator import _value_range_of
+
+        with pytest.raises(ValueError, match=r"merges datasets declaring different"):
+            _value_range_of(self._resolved((0.0, 1.0), (0.0, 255.0)))
+
+
+@pytest.mark.required
+class TestLabelSourceOf:
+    """_label_source_of reports one provenance only where every operand shares it."""
+
+    def test_agreeing_operands_report_the_shared_value(self):
+        from dataeval_flow.workflow.orchestrator import _label_source_of
+
+        assert _label_source_of(["protocol", "protocol"]) == "protocol"
+
+    def test_all_unknown_reports_none(self):
+        from dataeval_flow.workflow.orchestrator import _label_source_of
+
+        assert _label_source_of([None, None]) is None
+
+    def test_differing_operands_report_each(self):
+        from dataeval_flow.workflow.orchestrator import _label_source_of
+
+        assert _label_source_of(["protocol", "filepath"]) == ["protocol", "filepath"]
+
+    def test_one_unknown_operand_is_named_unknown(self):
+        from dataeval_flow.workflow.orchestrator import _label_source_of
+
+        assert _label_source_of(["protocol", None]) == ["protocol", "unknown"]

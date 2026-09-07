@@ -225,3 +225,20 @@ class TestResolveSource:
         assert resolved.cache_name == "merged"
         for operand in resolved.operands:
             assert operand.cache_key in resolved.cache_key
+
+    def test_merged_cache_key_covers_an_operand_view(self):
+        """An operand's view is applied before the merge, so it changes the corpus."""
+        config = _merge_config()
+        before = resolve_source("merged", config).cache_key
+        assert config.sources is not None
+        assert config.views is not None
+        config.views[0] = ViewConfig(  # type: ignore[reportIndexIssue]
+            name="conform_a",
+            operations=[
+                ViewOperation(type="Relabel", params={"class_remap": {"car": "Car"}, "target": _TARGET}),
+                ViewOperation(type="Limit", params={"size": 1}),
+            ],
+        )
+        after = resolve_source("merged", config)
+        assert len(after.dataset) == 3
+        assert after.cache_key != before

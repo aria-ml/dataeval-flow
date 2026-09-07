@@ -27,6 +27,7 @@ if TYPE_CHECKING:
         ParameterSweepTaskConfig,
     )
     from dataeval_flow.policy import ResolvedPolicy
+    from dataeval_flow.sources import ResolvedSource
     from dataeval_flow.workflow import DatasetContext, ResolvedOntology, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
@@ -137,6 +138,45 @@ def _apply_dataset_value_range(
     return replace(policy, value_range=declared[0])
 
 
+def _value_range_of(resolved: "ResolvedSource") -> "tuple[float, float] | None":
+    """Return the value range *resolved* declares, or None where no operand declares one.
+
+    Raises
+    ------
+    ValueError
+        When two operands of one source declare different ranges.  Refuse here rather
+        than dropping to None: the range is what the statistics are measured against and
+        what keys their cache, so an undeclared range would answer NaN and share an
+        archive with the other scale.
+    """
+    ranges = [getattr(operand.dataset_config, "value_range", None) for operand in resolved.operands]
+    declared = sorted({value for value in ranges if value is not None})
+    if len(declared) > 1:
+        raise ValueError(
+            f"Source {resolved.name!r} merges datasets declaring different `value_range`s "
+            f"({declared[0]} and {declared[1]}). Statistics measured on different pixel "
+            "scales are not comparable, so there is no right answer to pick — give the "
+            "datasets one range, or do not merge them.",
+        )
+    return declared[0] if declared else None
+
+
+def _label_source_of(label_sources: "Sequence[str | None]") -> "str | Sequence[str] | None":
+    """Return where a corpus's labels came from, given each operand's provenance.
+
+    Report None where no operand knows its provenance, and the shared value where every
+    operand reports the same one.  Otherwise report one entry per operand in merge order,
+    writing an unknown provenance as "unknown": a corpus read from two provenances has two
+    answers, and reporting one of them hides the other.
+    """
+    distinct = set(label_sources)
+    if not distinct or distinct == {None}:
+        return None
+    if len(distinct) == 1:
+        return next(iter(distinct))
+    return [source or "unknown" for source in label_sources]
+
+
 def _resolve_ontology(
     instance: Any,
     config: "PipelineConfig | None",
@@ -219,10 +259,9 @@ def _run_single_task(
     the workflow.
     """
     from dataeval_flow.cache import DatasetCache
-    from dataeval_flow.config._models import SourceConfig
-    from dataeval_flow.config.schemas import ExtractorConfig, PreprocessorConfig, ViewConfig
-    from dataeval_flow.dataset import resolve_dataset
+    from dataeval_flow.config.schemas import ExtractorConfig, PreprocessorConfig
     from dataeval_flow.preprocessing import build_preprocessing
+    from dataeval_flow.sources import resolve_source
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
 
     _logger.info("Task '%s': starting (workflow_instance=%s)", task.name, task.workflow)
@@ -253,28 +292,15 @@ def _run_single_task(
 
     # 3. Build a DatasetContext per source
     dataset_contexts: dict[str, DatasetContext] = {}
-    dataset_names: list[str] = []
-    resolved_sources: list[SourceConfig] = []
+    resolved_sources: list[ResolvedSource] = []
 
     for src_name in source_names:
-        source: SourceConfig = _resolve_by_name(config.sources, src_name, "source")
-        resolved_sources.append(source)
-        if source.dataset is None:
-            raise ValueError(f"Source '{source.name}' names `merge`. Task execution does not resolve merges yet.")
-        ds_config = _resolve_by_name(config.datasets, source.dataset, "dataset")
-        resolved = resolve_dataset(ds_config, data_dir=data_dir)
-        dataset_names.append(source.dataset)
+        resolved = resolve_source(src_name, config, data_dir=data_dir)
+        resolved_sources.append(resolved)
 
-        # Resolve view from source (optional)
-        view_operations = None
-        if source.view is not None:
-            view_config: ViewConfig = _resolve_by_name(config.views, source.view, "view")
-            view_operations = view_config.operations
-
-        # Build per-dataset cache
         ds_cache = DatasetCache.get_or_create(
             cache_dir=cache_dir,
-            name=resolved.name,
+            name=resolved.cache_name,
             cache_key=resolved.cache_key,
         )
 
@@ -283,10 +309,10 @@ def _run_single_task(
             dataset=resolved.dataset,
             extractor=extractor_cfg,
             transforms=transforms,
-            view_operations=view_operations,
+            view_operations=resolved.view_config.operations if resolved.view_config else None,
             batch_size=batch_size,
-            label_source=resolved.label_source,
-            value_range=getattr(ds_config, "value_range", None),
+            label_source=_label_source_of(resolved.label_sources),
+            value_range=_value_range_of(resolved),
             cache=ds_cache,
         )
 
@@ -342,7 +368,6 @@ def _run_single_task(
     # 9. Populate metadata envelope
     _populate_result_metadata(
         result,
-        dataset_names,
         dataset_contexts,
         resolved_sources,
         extractor_cfg,
@@ -396,9 +421,8 @@ def _ensure_result_datasets(
 
 def _populate_result_metadata(
     result: "WorkflowResult[Any, Any]",
-    dataset_names: Sequence[str],
     dataset_contexts: "Mapping[str, DatasetContext]",
-    sources: "Sequence[SourceConfig]",
+    resolved_sources: "Sequence[ResolvedSource]",
     extractor_cfg: Any,
     elapsed: float,
     workflow_instance: "WorkflowConfig | None" = None,
@@ -407,6 +431,13 @@ def _populate_result_metadata(
 ) -> None:
     """Fill in the JATIC metadata envelope from resolved source/extractor context."""
     from dataeval_flow import __version__
+
+    dataset_names = [
+        operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
+    ]
+    # Correct for a single source, wrong for a merge: it keeps the first operand's source
+    # and drops the rest. Build nothing else on it.
+    sources = [rs.operands[0].source for rs in resolved_sources]
 
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__

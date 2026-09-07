@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Literal
 
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflow.base import Reportable, render_label_source
 from dataeval_flow.workflows.cleaning.outputs import (
     DataCleaningRawOutputs,
     IndexValue,
@@ -67,7 +68,7 @@ def _duplicate_finding(raw: DataCleaningRawOutputs, thresholds: DataCleaningHeal
 def _label_distribution_finding(
     raw: DataCleaningRawOutputs,
     thresholds: DataCleaningHealthThresholds,
-    label_source: str | None = None,
+    label_source: str | Sequence[str] | None = None,
 ) -> Reportable | None:
     """Build a Label Distribution finding from raw results, or None if no label stats."""
     if not raw.label_stats:
@@ -84,7 +85,7 @@ def _label_distribution_finding(
     imbalance_ratio = round(max(counts_list) / min(counts_list), 1) if counts_list and not has_empty_class else 0.0
     footer_lines: list[str] = []
     if label_source:
-        footer_lines.append(f"Labels {label_source}")
+        footer_lines.append(f"Labels {render_label_source(label_source)}")
     if has_empty_class:
         footer_lines.append("Warning: one or more classes have zero items")
     elif imbalance_ratio == 1.0:
@@ -186,7 +187,7 @@ def build_findings(
     raw: DataCleaningRawOutputs,
     metadata: Any,  # noqa: ARG001 - reserved for future metadata-based findings
     thresholds: DataCleaningHealthThresholds,
-    label_source: str | None = None,
+    label_source: str | Sequence[str] | None = None,
 ) -> list[Reportable]:
     """Generate human-readable findings from raw results."""
     findings: list[Reportable] = []

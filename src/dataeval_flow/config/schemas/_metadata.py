@@ -20,7 +20,7 @@ class ResultMetadata(BaseModel):
     version: str = "1.0"
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     dataset_id: str | Sequence[str] = ""
-    label_source: str | None = None
+    label_source: str | Sequence[str] | None = None
     model_id: str | None = None
     preprocessor_id: str | None = None
     selection_id: str | None = None
