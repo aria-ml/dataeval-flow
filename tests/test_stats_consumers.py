@@ -297,3 +297,60 @@ class TestAnalysisDuplicateColumnsAreDeclared:
 
         assert "brightness" in widened["stats"]  # confirms the widening actually happened
         assert self._leakage(calc_a, calc_b_widened) == baseline
+
+
+@pytest.mark.required
+class TestFactorColumnsAreDeclared:
+    """The injected factor set is what `intrinsic_factors` and `factors_from` name."""
+
+    def _factors(self, dataset, policy):
+        from dataeval_flow.metadata import build_metadata
+
+        return sorted(build_metadata(dataset, policy).factor_names)
+
+    def _warm(self, dataset):
+        return lambda: get_or_compute_stats(
+            ResolvedStatsPolicy.of_flags(ImageStats.PIXEL | ImageStats.DIMENSION),
+            dataset=dataset,
+            per_target=False,
+        )
+
+    def test_a_warm_cache_injects_the_same_factors_as_a_cold_one(self, toy_images):
+        from dataeval_flow.policy import ResolvedPolicy
+
+        policy = ResolvedPolicy(intrinsic_factors=("visual",))
+        cold = _in_fresh_cache(lambda: self._factors(toy_images, policy))
+        widened, warm = _in_warmed_cache(self._warm(toy_images), lambda: self._factors(toy_images, policy))
+        assert "mean" in widened["stats"]  # confirms the warm-up actually widened the shared entry
+        assert cold == warm
+
+    def test_only_the_declared_family_is_injected(self, toy_images):
+        from dataeval_flow.policy import ResolvedPolicy
+
+        factors = _in_fresh_cache(lambda: self._factors(toy_images, ResolvedPolicy(intrinsic_factors=("visual",))))
+        assert "mean" not in factors
+        assert "brightness" in factors
+
+    def test_a_band_group_is_injected_only_when_factors_from_names_it(self, toy_multiband_dataset):
+        from dataeval_flow.policy import ResolvedPolicy
+
+        stats = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
+            channels=(("ir", (3,)),),
+            factors_from=(None,),
+        )
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), stats=stats)
+        factors = _in_fresh_cache(lambda: self._factors(toy_multiband_dataset, policy))
+        assert not any(name.endswith("ir_brightness") for name in factors)
+
+    def test_naming_the_group_injects_it(self, toy_multiband_dataset):
+        from dataeval_flow.policy import ResolvedPolicy
+
+        stats = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
+            channels=(("ir", (3,)),),
+            factors_from=(None, "ir"),
+        )
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), stats=stats)
+        factors = _in_fresh_cache(lambda: self._factors(toy_multiband_dataset, policy))
+        assert any(name.endswith("ir_brightness") for name in factors)

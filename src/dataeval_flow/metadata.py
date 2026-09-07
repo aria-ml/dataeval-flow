@@ -140,6 +140,10 @@ def inject_intrinsic_factors(metadata: Metadata, calc_result: Mapping[str, Any])
     ``add_factors`` records them in :attr:`~dataeval.Metadata.dropped_factors`, which is what
     lets the metadata summary report them as measured-but-not-representable rather than
     leaving them missing without explanation.
+
+    *calc_result* is expected already restricted to the columns the policy names: the cache
+    returns everything computed under one scope, so injecting it unrestricted would make the
+    factor set a function of cache state rather than of the policy.
     """
     # Object, unicode, bytes and void dtypes are the hash columns.  Numeric and boolean
     # arrays are both usable — bool digitizes to a two-value category.
@@ -215,7 +219,7 @@ def _inject(
     # Imported here, not at module scope: cache.py imports build_metadata from this module,
     # so a module-level import back would be circular.
     from dataeval_flow.cache import get_or_compute_stats
-    from dataeval_flow.stats import ResolvedStatsPolicy, check_consumers
+    from dataeval_flow.stats import ResolvedStatsPolicy, check_consumers, columns_for, restrict_columns
 
     flags = resolve_families(_modality_of(dataset), policy.intrinsic_factors)
     if not isinstance(flags, ImageStats):
@@ -239,7 +243,8 @@ def _inject(
         per_target=metadata.multi_target,
         value_range=policy.value_range,
     )
-    return bool(inject_intrinsic_factors(metadata, calc_result))
+    allowed = columns_for(stats_policy.factors_from, flags)
+    return bool(inject_intrinsic_factors(metadata, restrict_columns(calc_result, allowed)))
 
 
 def _modality_of(dataset: AnnotatedDataset[Any]) -> str:
