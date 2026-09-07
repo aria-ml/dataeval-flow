@@ -59,6 +59,47 @@ This is precisely where provenance meets [reproducibility](Reproducibility.md):
 provenance records the inputs; reproducibility guarantees that replaying them
 reproduces the result. A result you can trace is a result you can reproduce.
 
+## A merged corpus records every operand
+
+A source can merge other sources into one corpus. Every envelope field that
+names one input then names all of them: **dataset identifiers** list each
+operand's dataset, the **selection identifier** lists every view in the chain,
+operand views first and the merged source's own view last, the **source
+descriptions** spell the merge out, and the **label source** becomes a list
+where the operands disagree about where their labels came from.
+
+The resolved configuration recurses too. A merged source expands into a `merge`
+list, one entry per operand, with each operand's dataset config and view config
+inlined. Nothing about the run has to be looked up elsewhere, so a merged run is
+replayable from the envelope alone.
+
+## The label space is what a label means
+
+A label is an integer, and an integer means nothing without the vocabulary it
+indexes. Two results that agree on a class name can still disagree on what that
+class contains, and no other field separates them. The envelope therefore
+records the vocabulary itself, in **label space**.
+
+There is one record per conformed view: one for each operand of a merged source,
+plus one for a merged source's own view where that view relabels again. Each
+record carries the source whose view applied the rewrite, the ontology and its
+digest, the class remapping, the target vocabulary in index order, and a digest
+over the three.
+
+One record per operand, rather than one per result, because a merge applies a
+different remapping per operand against one shared target. A single record would
+have to union those mappings, and a union hashes to a value no audit ever
+produced.
+
+Any workflow can declare an ontology, not only `data-coverage`. That is the
+join. A coverage audit computes the digest from its own alignment; any other
+workflow computes the same digest from the `Relabel` parameters in its source's
+view. Declare the same ontology on both and the downstream result's digest
+equals the digest of the audit that justified its vocabulary, so matching the
+two is a comparison of one value rather than an argument about intent. An
+exported dataset carries the same digest in its provenance sidecar, which
+extends the join to the corpus itself.
+
 ## Provenance enables interoperability
 
 Provenance is also what lets a DataEval Flow result leave the tool and compose

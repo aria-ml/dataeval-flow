@@ -9,6 +9,14 @@
   artifact itself
 - A workflow's `ontology:` value resolves as a pool name first and a path second, so existing configs that name a
   file keep working unchanged
+- `merge:` on a source, concatenating other sources into one corpus. Give every operand a view whose `Relabel`
+  passes the identical `target`
+- Top-level `exports:` key, writing a source out as a dataset under `output/datasets/<name>/` in COCO, YOLO,
+  Hugging Face, or VisDrone format, with a `provenance.json` recording every write
+- `ontology:` on any workflow, not only `data-coverage`, so a result carries the digest of the audit that
+  justified its vocabulary
+- `label_space` on a result envelope, recording the vocabulary each conformed source was read under, with a
+  digest that matches the `data-coverage` audit that justified it
 
 ### Fixed
 

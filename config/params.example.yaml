@@ -11,11 +11,12 @@
 #
 #   datasets:      → named dataset definitions
 #   views:         → named view (dataset operation) pipelines
-#   sources:       → dataset + optional view bundles
+#   sources:       → dataset + optional view bundles, or a merge of other sources
 #   preprocessors: → named preprocessing pipelines
 #   extractors:    → model + optional preprocessor + batch_size bundles
 #   workflows:     → named workflow instances (type + params)
 #   tasks:         → lightweight composition by name
+#   exports:       → sources written out as datasets on disk
 #
 # Sources and extractors are composition layers that bundle related
 # components. Tasks reference these by name — keeping tasks lightweight
@@ -110,9 +111,25 @@
 #       - type: Limit
 #         params:
 #           size: 10000
+#
+#   # One conform view per dataset being merged. The `class_remap` differs per
+#   # dataset; the `target` must not.
+#   - name: conform_mine
+#     operations:
+#       - type: Relabel
+#         params:
+#           class_remap: { car: Vehicle, truck: Vehicle }
+#           target: [Person, Vehicle]
+#
+#   - name: conform_other
+#     operations:
+#       - type: Relabel
+#         params:
+#           class_remap: { pedestrian: Person, van: Vehicle }
+#           target: [Person, Vehicle]
 
 # -----------------------------------------------------------------------------
-# SOURCES — Dataset + optional view
+# SOURCES — Dataset or merge, + optional view
 # -----------------------------------------------------------------------------
 # Named source bundles. Tasks reference these by name.
 #
@@ -123,6 +140,23 @@
 #   - name: my_dataset_subset
 #     dataset: my-dataset
 #     view: training_subset
+#
+#   - name: my_dataset_conformed
+#     dataset: my-dataset
+#     view: conform_mine
+#
+#   - name: coco_train_conformed
+#     dataset: coco-train
+#     view: conform_other
+#
+#   # A source names either `dataset` or `merge`, never both. A merge names at
+#   # least two sources and concatenates them in the order given. Give every
+#   # operand a view whose `Relabel` passes the identical `target`, or their
+#   # integer labels denote different classes and the merge is refused. Each
+#   # datum's id becomes "<position>:<id>".
+#   - name: merged_corpus
+#     merge: [my_dataset_conformed, coco_train_conformed]
+#     view: training_subset            # optional, applied after the merge
 
 # -----------------------------------------------------------------------------
 # EXTRACTORS — Model + optional preprocessor + batch_size
@@ -224,3 +258,20 @@
 #     workflow: strict_clean
 #     sources: my_dataset_full
 #     extractor: resnet_extractor
+
+# -----------------------------------------------------------------------------
+# EXPORTS — Write a source out as a dataset (optional)
+# -----------------------------------------------------------------------------
+# Each export names a source, not a task, so it is written whether or not a
+# task reads that source. Written to output/datasets/<name>/, beside
+# output/results/, with a provenance.json sidecar recording every write.
+# Declare the ontology here as well: an export names no workflow, so it
+# inherits none, and one written without it carries label-space digests the
+# run's envelope does not.
+#
+# exports:
+#   - name: conformed_corpus
+#     source: merged_corpus
+#     format: coco                     # coco | yolo | huggingface_vision | visdrone
+#     mode: error                      # error (refuse a non-empty destination) | replace | append
+#     ontology: vehicles               # name under `ontologies:`, or a path

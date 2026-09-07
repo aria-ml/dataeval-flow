@@ -2,7 +2,8 @@
 
 You do not always want to evaluate a whole dataset. A first pass over 500 images, a run restricted to two classes, a
 reproducible random sample — all of these are {term}`views <View>`: named, ordered pipelines of dataset operations
-applied before a workflow sees the data.
+applied before a workflow sees the data. A view also conforms a dataset to a shared vocabulary, which is what lets two
+datasets be merged into one corpus.
 
 ## Used in these tutorials
 
@@ -128,12 +129,106 @@ view = ViewConfig(
 source = SourceConfig(name="cppe5_src", dataset="cppe5_train", view="first500")
 ```
 
+## Merge sources into one corpus
+
+Merging composes sources, not datasets, because each operand needs its own `Relabel`. Two datasets almost never
+number their classes the same way, so each one is conformed to a shared vocabulary before anything concatenates them,
+and the `Relabel` that conforms it lives in a view a source references.
+
+Name the operands under `merge:` on a source. A source names either `dataset:` or `merge:`, never both, and a `merge:`
+names at least two sources:
+
+```yaml
+datasets:
+  - name: m3fd
+    format: coco
+    path: m3fd
+    annotations_file: annotations/instances_train.json
+    images_dir: images
+  - name: drone
+    format: yolo
+    path: drone
+    split: train
+
+views:
+  - name: conform_m3fd
+    operations:
+      - type: Relabel
+        params:
+          class_remap: { people: Person, car: Vehicle, truck: Vehicle }
+          target: [Person, Vehicle]
+  - name: conform_drone
+    operations:
+      - type: Relabel
+        params:
+          class_remap: { pedestrian: Person, van: Vehicle }
+          target: [Person, Vehicle]
+
+sources:
+  - name: m3fd_conformed
+    dataset: m3fd
+    view: conform_m3fd
+  - name: drone_conformed
+    dataset: drone
+    view: conform_drone
+  - name: merged
+    merge: [m3fd_conformed, drone_conformed]
+```
+
+An operand's view is applied before the merge, so it is part of the corpus rather than something the workflow applies
+later. Everything else a view can do applies to an operand too: filter it, limit it, crop it.
+
+### Give every operand the identical target
+
+`target` is the integer indexing of the merged label space. Operands conformed against differently ordered targets
+carry labels that denote different classes, so the merge is refused:
+
+```text
+merge_datasets requires all datasets to share the same 'index2label'.
+```
+
+Fix it in the config. Pass every operand's `Relabel` the same `target` list, in the same order. The `class_remap`
+differs per operand; the `target` does not.
+
+### Expect re-keyed ids
+
+A merge re-keys every datum's id to `<position>:<id>`, where `position` is the operand's place in the `merge:` list.
+Two operands that both number an item `0` stay distinguishable. A merged run's ids therefore differ from the ids the
+same dataset produces on its own. Strip the prefix to match them back.
+
+### Apply a view after the merge
+
+A merged source may carry its own `view:`, applied to the concatenated corpus:
+
+```yaml
+sources:
+  - name: merged
+    merge: [m3fd_conformed, drone_conformed]
+    view: two_classes_sample
+```
+
+Use it to sample, limit, or shuffle across both operands at once, or to `Relabel` the shared target into a coarser
+one. Operand views run first, then the merge, then this one.
+
+### Nest a merge inside a merge
+
+An operand may itself be a merged source. A source that merges itself through any path is refused:
+
+```text
+Source 'a' merges itself through: a -> b -> a.
+```
+
+So is nesting more than eight deep. Flatten a config that hits the bound: name the leaf sources in one `merge:`.
+
 ## How views interact with the cache
 
 The {term}`cache <Caching>` key includes a hash of the applied view, so two sources that differ only by view do not
 collide, and changing a view invalidates only that view's artifacts. This is why a seeded `Shuffle` is worth the
 keystrokes: an unseeded one produces a new view on every run and nothing is ever reused. See
 {doc}`reuse_results_with_cache`.
+
+A merged source's key covers every operand and the view it was merged under, so narrowing one operand's view
+invalidates that corpus and nothing else.
 
 ## A note on the legacy vocabulary
 
@@ -145,4 +240,7 @@ aliases of `ViewConfig` and `ViewOperation`. New configs should use the current 
 
 - [Reproducibility](../concepts/Reproducibility.md) — why a seeded, declarative view is part of a defensible result
 - {doc}`reuse_results_with_cache` — how the view participates in the cache key
+- {doc}`export_a_dataset` — write a conformed or merged corpus out as a dataset on disk
+- [Provenance](../concepts/Provenance.md) — what the envelope records about a merged corpus and the label
+  space it was read under
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — `ViewConfig` and `ViewOperation`

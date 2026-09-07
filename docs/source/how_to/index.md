@@ -82,6 +82,7 @@ configure_metadata_binning
 :hidden:
 
 read_evaluation_outputs
+export_a_dataset
 reuse_results_with_cache
 containerized_workflows
 ```
@@ -92,6 +93,8 @@ containerized_workflows
 
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
+- - {doc}`Export a dataset <export_a_dataset>`
+  - Write a conformed or merged source out as a dataset on disk, with the provenance that produced it.
 - - {doc}`Reuse results with the disk cache <reuse_results_with_cache>`
   - Persist embeddings and statistics across runs, and know what invalidates them.
 - - {doc}`Run workflows in containers <containerized_workflows>`
