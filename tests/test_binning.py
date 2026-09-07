@@ -651,7 +651,7 @@ class TestInjectedFactorsCoverBandViews:
         assert "unit_brightness" in injected
 
     def test_a_view_the_policy_does_not_read_is_not_marked(self, toy_multiband_dataset):
-        """`factors_from` is the whole statement — a measured view it omits is not injected."""
+        """`factors_from` is the whole statement. A measured view it omits is not injected."""
         from dataeval_flow.metadata import build_metadata
 
         policy = self._policy([None])

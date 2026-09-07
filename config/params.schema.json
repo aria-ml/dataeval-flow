@@ -1898,7 +1898,7 @@
     },
     "DemoDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for a dataset the tutorials use.\n\nNames one of the datasets shipped for tutorials so a tutorial pipeline runs from\nconfig alone. This is not an ingestion path for your own data \u2014 read that with\n`coco`, `yolo`, `huggingface`, or `image_folder`.\n\n``path`` is the root the dataset was downloaded under, not the dataset directory\nitself: each loader appends its own subdirectory.\n\nYAML example::\n\n    datasets:\n      - name: m3fd_train\n        format: demo\n        dataset: M3FD\n        path: data\n        image_set: train\n        channel_groups:\n          rgb: [0, 1, 2]\n          ir: 3",
+      "description": "Dataset config for a dataset the tutorials use.\n\nNames one of the datasets shipped for tutorials so a tutorial pipeline runs from\nconfig alone. This is not an ingestion path for your own data. Read that with\n`coco`, `yolo`, `huggingface`, or `image_folder`.\n\n``path`` is the root the dataset was downloaded under, not the dataset directory\nitself: each loader appends its own subdirectory.\n\nYAML example::\n\n    datasets:\n      - name: m3fd_train\n        format: demo\n        dataset: M3FD\n        path: data\n        image_set: train\n        channel_groups:\n          rgb: [0, 1, 2]\n          ir: 3",
       "properties": {
         "format": {
           "const": "demo",
@@ -1978,7 +1978,7 @@
             }
           ],
           "default": null,
-          "description": "Split to load, in the loader's own vocabulary \u2014 `train`, `val`, `test`, or `base` where the loader offers them. Leave unset for the loader's default.",
+          "description": "Split to load, in the loader's own vocabulary: `train`, `val`, `test`, or `base` where the loader offers them. Leave unset for the loader's default.",
           "title": "Image Set"
         },
         "download": {

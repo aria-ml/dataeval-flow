@@ -542,8 +542,8 @@ def attach_binning(
         source = policy.factor_source
 
         # The statistics a policy's families produce, band-group and level prefixes
-        # included.  Derived from the flags rather than from the Metadata, so a cache hit —
-        # which never ran the injector — marks the same factors as a cache miss.
+        # included.  Derived from the flags rather than from the Metadata, so a cache hit,
+        # which never ran the injector, marks the same factors as a cache miss.
         #
         # A stats policy decides which views the injector reads, so the names it produces
         # carry those views' prefixes: `factors_from: [~, rgb]` injects `rgb_brightness`
@@ -555,7 +555,7 @@ def attach_binning(
             families = resolve_families("image", policy.intrinsic_factors)
             # Band views are an image-statistics idea, so a non-image modality keeps the
             # bare names. This function never raises, so the narrowing degrades rather
-            # than rejecting — `_inject` is where a mismatch is an error.
+            # than rejecting. `_inject` is where a mismatch is an error.
             if policy.stats is None or not isinstance(families, ImageStats):
                 bare = set(stat_names_for(families))
             else:

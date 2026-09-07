@@ -95,7 +95,7 @@ class DemoDatasetConfig(_DatasetConfigBase):
     """Dataset config for a dataset the tutorials use.
 
     Names one of the datasets shipped for tutorials so a tutorial pipeline runs from
-    config alone. This is not an ingestion path for your own data — read that with
+    config alone. This is not an ingestion path for your own data. Read that with
     `coco`, `yolo`, `huggingface`, or `image_folder`.
 
     ``path`` is the root the dataset was downloaded under, not the dataset directory
@@ -125,7 +125,7 @@ class DemoDatasetConfig(_DatasetConfigBase):
     image_set: str | None = Field(
         default=None,
         description=(
-            "Split to load, in the loader's own vocabulary — `train`, `val`, `test`, or "
+            "Split to load, in the loader's own vocabulary: `train`, `val`, `test`, or "
             "`base` where the loader offers them. Leave unset for the loader's default."
         ),
     )

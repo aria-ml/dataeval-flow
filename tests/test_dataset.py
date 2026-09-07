@@ -1316,13 +1316,13 @@ class TestLoadDatasetDemo:
     def _stub_module(recorder: dict[str, Any]) -> Any:
         """A stand-in for `maite_datasets.object_detection` that records its call.
 
-        Patched in so these tests do not need `maite-datasets` installed — it is a docs
+        Patched in so these tests do not need `maite-datasets` installed. It is a docs
         dependency, not a test one.
         """
 
         class _Module:
             @staticmethod
-            def M3FD(root: str, **kwargs: Any) -> Any:  # noqa: N802 — mirrors the real class name
+            def M3FD(root: str, **kwargs: Any) -> Any:  # noqa: N802 (mirrors the class name)
                 recorder["root"] = root
                 recorder["kwargs"] = kwargs
                 return _stub_dataset()

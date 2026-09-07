@@ -490,13 +490,13 @@ def _assess_cross_label_health(
         }
     )
 
-    # Label parity — chi-squared test over the classes both splits have.
+    # Label parity: a chi-squared test over the classes both splits have.
     #
     # Class ids are positions in a label space, not a dense range: conforming to an
     # ontology leaves abstract concepts and unused classes with no instances, so the ids
     # present run past how many there are. Encode both sides against the shared classes
-    # so a code means the same class on each side, and so no cell has a zero expectation —
-    # a class one split lacks makes the chi-square undefined (`inf` or `nan`), which reads
+    # so a code means the same class on each side, and so no cell has a zero expectation.
+    # A class one split lacks makes the chi-square undefined (`inf` or `nan`), which reads
     # as a significant result while carrying no evidence about proportions. Those classes
     # are the `_only` lists in `label_overlap` above, and `classes_compared` below records
     # how many the test actually covered.

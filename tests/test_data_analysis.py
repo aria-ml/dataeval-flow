@@ -1496,7 +1496,7 @@ class TestAssessCrossLabelHealth:
 
         `label_parity` builds its distributions over `range(num_classes)`, so passing the
         count of classes present rejects ids above it. Conforming to an ontology produces
-        exactly that — abstract concepts and unused classes keep their positions.
+        exactly that. Abstract concepts and unused classes keep their positions.
         """
         ls_a = _make_ls(
             {
