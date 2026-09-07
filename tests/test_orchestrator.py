@@ -2045,3 +2045,53 @@ class TestLabelSourceOf:
         from dataeval_flow.workflow.orchestrator import _label_source_of
 
         assert _label_source_of(["protocol", None]) == ["protocol", "unknown"]
+
+
+def _resolved_source_with(*, channel_groups):
+    """A ResolvedSource whose operands declare the given `channel_groups`, in order.
+
+    Carries `source.name` as well as `dataset_config`: Task 4 refactors
+    `_channel_groups_of` onto a shared helper that reads the operand's source name.
+    """
+    from types import SimpleNamespace
+    from typing import cast
+
+    from dataeval_flow.sources import ResolvedSource
+
+    operands = tuple(
+        SimpleNamespace(
+            source=SimpleNamespace(name=f"leaf{i}"),
+            dataset_config=SimpleNamespace(channel_groups=groups),
+        )
+        for i, groups in enumerate(channel_groups)
+    )
+    return cast(ResolvedSource, SimpleNamespace(name="src", operands=operands))
+
+
+@pytest.mark.required
+class TestChannelGroupsOnContext:
+    """A merged source's operands must agree about what its bands are."""
+
+    def test_carries_the_declared_groups(self):
+        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+
+        resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2], "ir": 3}])
+        assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}
+
+    def test_none_when_nothing_declares_groups(self):
+        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+
+        assert _channel_groups_of(_resolved_source_with(channel_groups=[None, None])) is None
+
+    def test_refuses_operands_defining_one_name_differently(self):
+        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+
+        resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"rgb": [0, 1]}])
+        with pytest.raises(ValueError, match="different bands for channel group 'rgb'"):
+            _channel_groups_of(resolved)
+
+    def test_unions_groups_the_operands_do_not_share(self):
+        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+
+        resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"ir": 3}])
+        assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}

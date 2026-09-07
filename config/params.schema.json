@@ -393,6 +393,32 @@
           "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
           "title": "Value Range"
         },
+        "channel_groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "title": "Channel Groups"
+        },
         "annotations_file": {
           "anyOf": [
             {
@@ -2333,6 +2359,32 @@
           "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
           "title": "Value Range"
         },
+        "channel_groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "title": "Channel Groups"
+        },
         "split": {
           "anyOf": [
             {
@@ -2402,6 +2454,32 @@
           "default": null,
           "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "channel_groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "title": "Channel Groups"
         },
         "recursive": {
           "default": false,
@@ -4483,6 +4561,32 @@
           "default": null,
           "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "channel_groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "title": "Channel Groups"
         },
         "split": {
           "anyOf": [

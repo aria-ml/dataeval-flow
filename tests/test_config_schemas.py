@@ -1325,3 +1325,35 @@ class TestExportConfig:
         from dataeval_flow.config.schemas import ExportConfig
 
         assert ExportConfig(name="conformed_corpus.v2", source="merged").name == "conformed_corpus.v2"
+
+
+@pytest.mark.required
+class TestChannelGroups:
+    """`channel_groups` describes the imagery, so it lives on the dataset."""
+
+    def test_accepts_an_index_and_a_sequence(self):
+        cfg = CocoDatasetConfig(name="d", path="d", channel_groups={"rgb": [0, 1, 2], "ir": 3})
+        assert cfg.channel_groups == {"rgb": [0, 1, 2], "ir": 3}
+
+    def test_defaults_to_none(self):
+        assert CocoDatasetConfig(name="d", path="d").channel_groups is None
+
+    def test_refuses_a_name_that_collides_with_a_statistic(self):
+        with pytest.raises(ValidationError, match="brightness"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"brightness": [0, 1]})
+
+    def test_refuses_the_reserved_background_name(self):
+        with pytest.raises(ValidationError, match="background"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"background": [0, 1]})
+
+    def test_refuses_a_name_that_collides_with_a_row_level(self):
+        with pytest.raises(ValidationError, match="instance"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"instance": [0, 1]})
+
+    def test_refuses_an_empty_group(self):
+        with pytest.raises(ValidationError, match="no bands"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"rgb": []})
+
+    def test_refuses_a_negative_band(self):
+        with pytest.raises(ValidationError, match="negative"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"rgb": [0, -1]})

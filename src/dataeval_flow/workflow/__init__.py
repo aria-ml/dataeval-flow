@@ -54,6 +54,11 @@ class DatasetContext:
     #: reads more than one provenance.
     label_source: "str | Sequence[str] | None" = None
     value_range: "tuple[float, float] | None" = None
+    channel_groups: "Mapping[str, tuple[int, ...]] | None" = None
+    """Named band groups this dataset declares, taken from the dataset config.
+
+    Read by the stats policy, which selects the groups it measures from these.
+    """
     cache: "DatasetCache | None" = None
     selection_steps: "InitVar[Sequence[ViewOperation] | None]" = None  # deprecated
 

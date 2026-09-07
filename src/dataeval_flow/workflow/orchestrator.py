@@ -161,6 +161,34 @@ def _value_range_of(resolved: "ResolvedSource") -> "tuple[float, float] | None":
     return declared[0] if declared else None
 
 
+def _channel_groups_of(resolved: "ResolvedSource") -> "Mapping[str, tuple[int, ...]] | None":
+    """Return the band groups *resolved* declares, or None where no operand declares any.
+
+    Union the operands' groups: a merged corpus may draw one group from each dataset.
+
+    Raises
+    ------
+    ValueError
+        When two operands give one name different bands. `ir_mean` measured over
+        different bands is not one statistic, and the merged column would hold both.
+    """
+    merged: dict[str, tuple[int, ...]] = {}
+    for operand in resolved.operands:
+        declared = getattr(operand.dataset_config, "channel_groups", None) or {}
+        for name, bands in declared.items():
+            indices = (bands,) if isinstance(bands, int) else tuple(bands)
+            existing = merged.get(name)
+            if existing is not None and existing != indices:
+                raise ValueError(
+                    f"Source {resolved.name!r} merges datasets declaring different bands "
+                    f"for channel group {name!r} ({list(existing)} and {list(indices)}). "
+                    "One column name means one measurement, so there is no right answer to "
+                    "pick — give the datasets one definition, or rename one group.",
+                )
+            merged[name] = indices
+    return merged or None
+
+
 def _label_source_of(label_sources: "Sequence[str | None]") -> "str | Sequence[str] | None":
     """Return where a corpus's labels came from, given each operand's provenance.
 
@@ -313,6 +341,7 @@ def _run_single_task(
             batch_size=batch_size,
             label_source=_label_source_of(resolved.label_sources),
             value_range=_value_range_of(resolved),
+            channel_groups=_channel_groups_of(resolved),
             cache=ds_cache,
         )
 

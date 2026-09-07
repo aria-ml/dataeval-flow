@@ -1,5 +1,6 @@
 """Dataset configuration schemas — one class per format."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -27,11 +28,57 @@ class _DatasetConfigBase(BaseModel):
             "imagery."
         ),
     )
+    channel_groups: Mapping[str, int | Sequence[int]] | None = Field(
+        default=None,
+        description=(
+            "Named groups of bands measured separately, as `name: index` or "
+            "`name: [indices]`. That channel 3 is infrared is a fact about the sensor, so "
+            "declare it here and every workflow reading this dataset sees the same one. "
+            "A group becomes a set of `<name>_<statistic>` columns alongside the "
+            "unprefixed ones. Reference the groups from a `stats:` policy's `measure` to "
+            "decide which statistics each one gets. Leave unset for single-band or "
+            "undifferentiated imagery."
+        ),
+    )
 
     @field_validator("path")
     @classmethod
     def _path_must_be_relative(cls, v: str) -> str:
         return validate_config_path(v)
+
+    @field_validator("channel_groups")
+    @classmethod
+    def _groups_are_usable(
+        cls, value: "Mapping[str, int | Sequence[int]] | None"
+    ) -> "Mapping[str, int | Sequence[int]] | None":
+        """Refuse a group name or band list that cannot produce a column.
+
+        Check here rather than at the stats call: a collision surfaces as a silently
+        overwritten column after the dataset walk, and an empty group as a column of NaN.
+        """
+        if value is None:
+            return value
+
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.metadata import stat_names_for
+        from dataeval_flow.policy import _ROW_LEVELS
+
+        reserved = stat_names_for(ImageStats.ALL) | {"background"} | set(_ROW_LEVELS)
+        for name, bands in value.items():
+            if name in reserved:
+                raise ValueError(
+                    f"Channel group {name!r} collides with a reserved name. A group name "
+                    "must not be a statistic name, `background`, or a row level, because "
+                    "its columns are named `<group>_<statistic>` and would be "
+                    "indistinguishable. Rename the group.",
+                )
+            indices = [bands] if isinstance(bands, int) else list(bands)
+            if not indices:
+                raise ValueError(f"Channel group {name!r} names no bands. Give it an index or a list of indices.")
+            if any(index < 0 for index in indices):
+                raise ValueError(f"Channel group {name!r} names a negative band index. Band indices start at 0.")
+        return value
 
 
 class HuggingFaceDatasetConfig(_DatasetConfigBase):
