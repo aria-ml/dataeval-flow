@@ -25,6 +25,13 @@
 - `crop_padding` and `crop_min_size` on `data-coverage`, and `dropped_detections` on its
   coverage assessment, reporting the annotations the coverage numbers do not describe
 
+### Changed
+
+- The metadata cache key now includes the stats policy's `factor_identity()`, so every existing metadata archive
+  recomputes once on upgrade. Stats caches are unaffected: a stats policy's own cache key omits `measure` and the
+  consumer view lists, and stays empty for a policy declaring no band groups and no background — the same key it
+  keyed under before this field existed
+
 ### Fixed
 
 - A relative `ontology:` path now resolves against the run's data root rather than the process-wide root
