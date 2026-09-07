@@ -1716,6 +1716,210 @@ class TestMergedEnvelope:
 
 
 @pytest.mark.required
+class TestLabelSpaceRecords:
+    """Each conformed operand records the vocabulary its labels were read under."""
+
+    def test_one_record_per_conformed_operand(self):
+        meta = _run_envelope(_envelope_config()).metadata
+        assert [r.source for r in meta.label_space] == ["a", "b"]
+        assert [r.class_remap for r in meta.label_space] == [{"car": "Car"}, {"lorry": "Truck"}]
+        assert all(list(r.target) == ["Person", "Car", "Truck"] for r in meta.label_space)
+
+    def test_digests_differ_per_operand(self):
+        meta = _run_envelope(_envelope_config()).metadata
+        assert meta.label_space[0].digest != meta.label_space[1].digest
+
+    def test_scalar_digest_is_unset_when_operands_disagree(self):
+        meta = _run_envelope(_envelope_config()).metadata
+        assert meta.label_space_digest is None
+
+    def test_scalar_digest_is_set_for_one_conformed_source(self):
+        config = _envelope_config()
+        assert config.tasks is not None
+        config.tasks[0].sources = "a"
+        meta = _run_envelope(config).metadata
+        assert len(meta.label_space) == 1
+        assert meta.label_space_digest == meta.label_space[0].digest
+
+    def test_no_relabel_records_nothing(self):
+        config = _envelope_config()
+        assert config.sources is not None
+        assert config.tasks is not None
+        config.sources[0] = SourceConfig(name="a", dataset="ds_a")  # type: ignore[reportIndexIssue]
+        config.tasks[0].sources = "a"
+        meta = _run_envelope(config).metadata
+        assert list(meta.label_space) == []
+        assert meta.label_space_digest is None
+
+    def test_target_defaults_to_the_remap_values_in_first_seen_order(self):
+        """Relabel derives the vocabulary from the remap when `target` is omitted."""
+        from dataeval_flow.sources import label_space_records
+
+        config = _envelope_config()
+        assert config.views is not None
+        config.views[0].operations[0].params = {"class_remap": {"car": "Car", "van": "Car", "x": "Bus"}}
+        from dataeval_flow.sources import resolve_source
+
+        records = label_space_records([resolve_source("a", config)], None)
+        assert list(records[0].target) == ["Car", "Bus"]
+
+    def test_digest_matches_the_coverage_audit(self):
+        """A run conformed by an audit's stanza carries the audit's own digest."""
+        from dataeval_flow.label_space import label_space_digest, ontology_digest
+
+        config = _envelope_config()
+        assert config.tasks is not None
+        config.tasks[0].sources = "a"
+        meta = _run_envelope(config).metadata
+        assert meta.label_space[0].digest == label_space_digest(
+            ontology=ontology_digest([]),
+            class_remap={"car": "Car"},
+            target=["Person", "Car", "Truck"],
+        )
+        assert meta.label_space[0].ontology is None
+
+    def test_a_workflow_stamped_digest_survives(self):
+        """A workflow that already stamped its own digest — the coverage audit does — keeps it."""
+        config = _envelope_config()
+        assert config.tasks is not None
+        config.tasks[0].sources = "a"
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.metadata = ResultMetadata(label_space_digest="already-stamped")
+        mock_wf = MagicMock()
+        mock_wf.params_schema = None
+        mock_wf.execute.return_value = mock_result
+        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+            result = _run_single_task(config.tasks[0], config)
+
+        assert result.metadata.label_space_digest == "already-stamped"
+
+    def test_merged_sources_own_relabel_is_recorded_too(self):
+        """A merged source's own view can carry a further Relabel, coarsening the shared target."""
+        from dataeval_flow.config import SourceConfig, ViewConfig, ViewOperation
+        from dataeval_flow.sources import label_space_records, resolve_source
+        from tests.test_sources import _merge_config
+
+        config = _merge_config()
+        assert config.views is not None
+        assert config.sources is not None
+        config.views.append(  # type: ignore[reportAttributeAccessIssue]
+            ViewConfig(
+                name="collapse",
+                operations=[
+                    ViewOperation(
+                        type="Relabel",
+                        params={
+                            "class_remap": {"Car": "Vehicle", "Truck": "Vehicle"},
+                            "target": ["Person", "Vehicle"],
+                        },
+                    )
+                ],
+            )
+        )
+        config.sources[2] = SourceConfig(name="merged", merge=["a", "b"], view="collapse")  # type: ignore[reportIndexIssue]
+
+        records = label_space_records([resolve_source("merged", config)], None)
+        assert [r.source for r in records] == ["a", "b", "merged"]
+        assert records[-1].class_remap == {"Car": "Vehicle", "Truck": "Vehicle"}
+        assert list(records[-1].target) == ["Person", "Vehicle"]
+
+    def test_a_plain_sources_view_is_not_recorded_twice(self):
+        """A non-merged source's view_config is the same object as its one operand's."""
+        from dataeval_flow.sources import label_space_records, resolve_source
+
+        config = _envelope_config()
+        records = label_space_records([resolve_source("a", config)], None)
+        assert [r.source for r in records] == ["a"]
+
+    def test_failed_ontology_leaves_the_label_and_digest_unset(self):
+        """A failed load leaves `source` set and `ontology` None — recording the label would
+        claim a vocabulary nothing was conformed to."""
+        from dataeval_flow.sources import label_space_records, resolve_source
+        from dataeval_flow.workflow import ResolvedOntology
+
+        config = _envelope_config()
+        ontology = ResolvedOntology(ontology=None, source="vehicles", error="ontology file not found")
+        records = label_space_records([resolve_source("a", config)], ontology)
+        assert records[0].ontology is None
+        assert records[0].ontology_digest is None
+
+    def test_explicit_empty_target_is_recorded_as_empty(self):
+        """An explicit `target: []` is a real, empty vocabulary — not an omitted one."""
+        from dataeval_flow.sources import label_space_records, resolve_source
+
+        config = _envelope_config()
+        assert config.views is not None
+        config.views[0].operations[0].params = {"class_remap": {"car": "Car"}, "target": []}
+        records = label_space_records([resolve_source("a", config)], None)
+        assert list(records[0].target) == []
+
+    def test_mapping_target_sorts_numerically_not_lexicographically(self):
+        """A JSON config's mapping keys are strings; "10" must not sort before "2"."""
+        from dataeval_flow.sources import label_space_records, resolve_source
+
+        config = _envelope_config()
+        assert config.views is not None
+        config.views[0].operations[0].params = {
+            "class_remap": {"car": "Car"},
+            "target": {"0": "Person", "1": "Car", "2": "Truck", "10": "X"},
+        }
+        records = label_space_records([resolve_source("a", config)], None)
+        target = list(records[0].target)
+        assert target[:3] == ["Person", "Car", "Truck"]
+        assert target[10] == "X"
+
+    def test_mapping_target_pads_gaps_so_sparse_cannot_collide_with_dense(self):
+        """A sparse mapping's gaps become "", so it cannot hash the same as a dense one."""
+        from dataeval_flow.sources import label_space_records, resolve_source
+
+        config = _envelope_config()
+        assert config.views is not None
+        config.views[0].operations[0].params = {
+            "class_remap": {"car": "Car"},
+            "target": {"0": "Person", "5": "Car"},
+        }
+        records = label_space_records([resolve_source("a", config)], None)
+        assert list(records[0].target) == ["Person", "", "", "", "", "Car"]
+
+
+@pytest.mark.required
+class TestRelabelTarget:
+    """`_relabel_target` in isolation — the vocabulary-derivation rules `Relabel` itself applies."""
+
+    def test_sequence_is_taken_as_given(self):
+        from dataeval_flow.sources import _relabel_target
+
+        assert _relabel_target(["Person", "Car"], {}) == ["Person", "Car"]
+
+    def test_explicit_empty_sequence_stays_empty(self):
+        from dataeval_flow.sources import _relabel_target
+
+        assert _relabel_target([], {"car": "Car"}) == []
+
+    def test_omitted_derives_from_the_remap_values_first_seen_first(self):
+        from dataeval_flow.sources import _relabel_target
+
+        assert _relabel_target(None, {"car": "Car", "van": "Car", "x": "Bus"}) == ["Car", "Bus"]
+
+    def test_dense_mapping_is_ordered_by_index(self):
+        from dataeval_flow.sources import _relabel_target
+
+        assert _relabel_target({1: "Car", 0: "Person"}, {}) == ["Person", "Car"]
+
+    def test_mapping_keys_sort_numerically(self):
+        from dataeval_flow.sources import _relabel_target
+
+        assert _relabel_target({"10": "X", "2": "Y", "0": "Z"}, {}) == ["Z", "", "Y", "", "", "", "", "", "", "", "X"]
+
+    def test_sparse_mapping_pads_with_empty_string(self):
+        from dataeval_flow.sources import _relabel_target
+
+        assert _relabel_target({0: "Person", 5: "Car"}, {}) == ["Person", "", "", "", "", "Car"]
+
+
+@pytest.mark.required
 class TestValueRangeOf:
     """_value_range_of reports a range only where every operand declares the same one."""
 

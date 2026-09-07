@@ -10,6 +10,52 @@ from dataeval_flow.config._paths import validate_config_path
 from dataeval_flow.config.schemas._task import AutoBinMethod, FactorSource
 
 
+class LabelSpaceRecord(BaseModel):
+    """The vocabulary one source's labels were rewritten into.
+
+    Built from the `Relabel` in a source's view, not from an alignment result, so the
+    digest can be computed from the config alone. A `data-coverage` audit computes the
+    same digest from its own alignment, so a result conformed by that audit's stanza
+    carries the audit's value and can be matched back to it.
+    """
+
+    source: str = Field(description="Source whose view applied the Relabel.")
+    ontology: str | None = Field(
+        default=None,
+        description=(
+            "How the ontology was named: a pool entry's name, a resolved path, or `inline`. "
+            "Null where the task named none, or where the one it named failed to load."
+        ),
+    )
+    ontology_digest: str | None = Field(
+        default=None,
+        description=(
+            "Digest of that ontology's concept ids. Null where the task named none, or "
+            "where the one it named failed to load."
+        ),
+    )
+    class_remap: Mapping[str, str] = Field(
+        default_factory=dict,
+        description="Source class name to target concept, as the Relabel applied it.",
+    )
+    target: Sequence[str] = Field(
+        default=(),
+        description=(
+            "Target vocabulary in index order. Order is the integer indexing, so two "
+            "datasets conformed against differently ordered targets carry labels that "
+            "mean different things."
+        ),
+    )
+    digest: str = Field(
+        default="",
+        description=(
+            "Identity of this vocabulary, over the ontology digest, the class_remap and "
+            "the target. Compare it against a coverage audit's label_space_digest to find "
+            "the audit that justified this vocabulary."
+        ),
+    )
+
+
 class ResultMetadata(BaseModel):
     """Base metadata envelope for workflow results.
 
@@ -55,6 +101,12 @@ class ResultMetadata(BaseModel):
     #: also the join key to the audit that produced the vocabulary, since the `data-coverage`
     #: run whose alignment produced it carries the same value.
     label_space_digest: str | None = None
+
+    #: One entry per source whose view conformed its labels, in the order the sources are
+    #: read. A merge applies a different ``class_remap`` per operand against one shared
+    #: target, so a single entry would have to union the mappings and would hash to a value
+    #: no audit produced. Empty for a run that conformed nothing.
+    label_space: Sequence[LabelSpaceRecord] = ()
 
     #: Library diagnostics raised while the workflow ran — the decisions
     #: DataEval made on the caller's behalf and the ranges it could not resolve.

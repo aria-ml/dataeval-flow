@@ -1,7 +1,15 @@
 """Resolve a source to the datasets it reads, merging where it names operands."""
 
-__all__ = ["MergeConfigError", "ResolvedSource", "SourceOperand", "flatten_source", "resolve_source"]
+__all__ = [
+    "MergeConfigError",
+    "ResolvedSource",
+    "SourceOperand",
+    "flatten_source",
+    "label_space_records",
+    "resolve_source",
+]
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,6 +22,8 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from dataeval_flow.config import PipelineConfig, SourceConfig, ViewConfig
+    from dataeval_flow.config.schemas import LabelSpaceRecord
+    from dataeval_flow.workflow import ResolvedOntology
 
 #: How deep a source may nest merges. A merge of merges is legitimate; a chain this long
 #: is a config that has lost track of itself.
@@ -240,3 +250,95 @@ def _view_of(source: "SourceConfig", config: "PipelineConfig") -> "ViewConfig | 
     if source.view is None:
         return None
     return _resolve_by_name(config.views, source.view, "view")
+
+
+def _relabel_params(view_config: "ViewConfig | None") -> "Mapping[str, Any] | None":
+    """Return the params of the last Relabel in a view, or None where it holds none.
+
+    The last one wins, because a later Relabel rewrites what an earlier one produced.
+    """
+    if view_config is None:
+        return None
+    relabels = [op.params for op in view_config.operations if op.type == "Relabel"]
+    return relabels[-1] if relabels else None
+
+
+def label_space_records(
+    resolved_sources: "Sequence[ResolvedSource]",
+    ontology: "ResolvedOntology | None",
+) -> "list[LabelSpaceRecord]":
+    """Build one record per view that conformed labels.
+
+    One record per operand rather than one per result: a merge applies a different
+    ``class_remap`` per operand against one shared target, so a single record would have
+    to union the mappings — and a union hashes to a value no audit ever produced. A merged
+    source's own view can then coarsen that shared target again, so it gets its own record
+    under the source's own name.
+    """
+    from dataeval_flow.label_space import ontology_digest
+
+    # `ResolvedOntology.source` is a source label: a pool entry's name, a resolved path, or
+    # `inline`. Read it only when the ontology loaded — a failed load leaves the label set
+    # and the ontology None, and recording the label then would claim a vocabulary nothing
+    # was conformed to.
+    name = ontology.source if ontology is not None and ontology.ontology is not None else None
+    ids = list(ontology.ontology.ids) if ontology is not None and ontology.ontology is not None else []
+    digest_of_ontology = ontology_digest(ids)
+
+    records: list[LabelSpaceRecord] = []
+    for rs in resolved_sources:
+        for operand in rs.operands:
+            params = _relabel_params(operand.view_config)
+            if params is not None:
+                records.append(_label_space_record(operand.source.name, params, name, digest_of_ontology))
+        # A merged source's own view can carry a further Relabel — one that collapses the
+        # operands' shared target into a coarser one. Only a merged source's own view is
+        # recorded here: a plain source's view_config is the same object as its one
+        # operand's, already recorded above, and recording it again would duplicate it.
+        if rs.is_merged:
+            merge_params = _relabel_params(rs.view_config)
+            if merge_params is not None:
+                records.append(_label_space_record(rs.name, merge_params, name, digest_of_ontology))
+    return records
+
+
+def _label_space_record(
+    source_name: str,
+    params: "Mapping[str, Any]",
+    ontology_name: str | None,
+    digest_of_ontology: str,
+) -> "LabelSpaceRecord":
+    """Build one record from a Relabel's params."""
+    from dataeval_flow.config.schemas import LabelSpaceRecord
+    from dataeval_flow.label_space import label_space_digest
+
+    class_remap = {str(k): str(v) for k, v in dict(params.get("class_remap") or {}).items()}
+    target = _relabel_target(params.get("target"), class_remap)
+    return LabelSpaceRecord(
+        source=source_name,
+        ontology=ontology_name,
+        ontology_digest=digest_of_ontology if ontology_name else None,
+        class_remap=class_remap,
+        target=target,
+        digest=label_space_digest(ontology=digest_of_ontology, class_remap=class_remap, target=target),
+    )
+
+
+def _relabel_target(declared: "Any", class_remap: "Mapping[str, str]") -> list[str]:
+    """Return the target vocabulary a Relabel actually ran with.
+
+    Mirrors `dataeval.data.Relabel`: a mapping is an `index -> label` vocabulary — indices
+    become positions, and a gap a sparse mapping leaves is backfilled with `""` so it
+    cannot collide with the dense list a smaller mapping produces. A sequence is taken as
+    given, including an explicit empty one. Omitted (`None`), the vocabulary is the
+    remap's distinct values, first seen first. The mapping case is handled explicitly —
+    letting a dict fall through to the sequence branch would iterate its keys and silently
+    produce the wrong vocabulary.
+    """
+    if isinstance(declared, Mapping):
+        indexed = {int(k): str(v) for k, v in declared.items()}
+        width = max(indexed) + 1 if indexed else 0
+        return [indexed.get(i, "") for i in range(width)]
+    if declared is not None:
+        return [str(v) for v in declared]
+    return list(dict.fromkeys(class_remap.values()))

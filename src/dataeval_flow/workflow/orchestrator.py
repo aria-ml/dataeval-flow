@@ -374,6 +374,7 @@ def _run_single_task(
         instance,
         config,
         data_dir=data_dir,
+        ontology=ontology,
     )
 
     return result
@@ -426,9 +427,11 @@ def _populate_result_metadata(
     workflow_instance: "WorkflowConfig | None" = None,
     pipeline_config: "PipelineConfig | None" = None,
     data_dir: Path | None = None,
+    ontology: "ResolvedOntology | None" = None,
 ) -> None:
     """Fill in the JATIC metadata envelope from resolved source/extractor context."""
     from dataeval_flow import __version__
+    from dataeval_flow.sources import label_space_records
 
     dataset_names = [
         operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
@@ -457,6 +460,15 @@ def _populate_result_metadata(
     label_source = _label_source_of([ls for rs in resolved_sources for ls in rs.label_sources])
     if label_source is not None:
         result.metadata.label_source = label_source
+
+    records = label_space_records(resolved_sources, ontology)
+    if records:
+        result.metadata.label_space = records
+        digests = {record.digest for record in records}
+        # Set the scalar only where the run read one vocabulary. A workflow that stamped
+        # its own — the coverage audit does — keeps it.
+        if len(digests) == 1 and not result.metadata.label_space_digest:
+            result.metadata.label_space_digest = records[0].digest
 
     result.metadata.resolved_config = _build_resolved_config(
         resolved_sources, workflow_instance, extractor_cfg, pipeline_config, data_dir=data_dir

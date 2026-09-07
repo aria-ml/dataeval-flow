@@ -24,7 +24,7 @@ from dataeval_flow.config.schemas._extractor import (
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
 )
-from dataeval_flow.config.schemas._metadata import MetadataPolicyConfig, ResultMetadata
+from dataeval_flow.config.schemas._metadata import LabelSpaceRecord, MetadataPolicyConfig, ResultMetadata
 from dataeval_flow.config.schemas._ontology import OntologyConceptConfig, OntologyConfig
 from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
 from dataeval_flow.config.schemas._task import (
@@ -131,6 +131,7 @@ __all__ = [
     "ParameterSweepTaskConfig",
     "TaskConfig",
     # Other
+    "LabelSpaceRecord",
     "PreprocessorConfig",
     "ResultMetadata",
     "ViewConfig",
