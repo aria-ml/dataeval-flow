@@ -34,6 +34,12 @@
 
 ### Fixed
 
+- A dataset whose target class defines no `__repr__` now keys the same way twice. Such a
+  class renders as its memory address, which is new on every read, so the fingerprint and
+  the cache directory with it changed on every call and nothing was ever reused. An
+  element that describes itself by address is now hashed by its type and contents
+  instead. Datasets whose elements already had a descriptive repr keep the fingerprints
+  they had, so their caches survive
 - A source's view now reaches its cache key, so editing one invalidates what it produced.
   Only the part of a view that changes the index set reached `selection_repr`, so
   `SelectChannels`, `Resize`, and a `Relabel` that renames without dropping anything were

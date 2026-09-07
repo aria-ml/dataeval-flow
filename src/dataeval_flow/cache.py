@@ -79,6 +79,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 from collections.abc import Callable, Generator, Mapping
@@ -398,6 +399,63 @@ def selection_repr(dataset: Any) -> str:
     return "sel:all"
 
 
+#: A repr Python produced from ``object.__repr__``, which names the object's address
+#: rather than what it holds. The address is new on every construction, so hashing it
+#: gives a dataset a different fingerprint each time it is read.
+_IDENTITY_REPR = re.compile(r" (?:object|instance) at 0x[0-9a-fA-F]+")
+
+#: How far to recurse into an object that describes itself by address. Targets nest a
+#: level or two; the bound stops a cycle from hanging the walk.
+_MAX_FINGERPRINT_DEPTH = 4
+
+
+def _hash_element(hasher: Any, element: Any, depth: int = 0) -> None:
+    """Fold one datum element into *hasher* by what it holds, not where it lives.
+
+    An element that describes itself well is hashed by its ``repr``, which is what this
+    has always done and keeps every existing fingerprint intact. An element whose repr
+    carries its address is walked instead: its type, then its attributes or items. That
+    walk is what makes a dataset whose target class defines no ``__repr__`` reusable,
+    rather than keying differently on every read and never hitting the cache.
+
+    An object that offers nothing to walk keeps its address-bearing repr. That still
+    misses the cache, which costs a recompute; hashing its type alone would collide two
+    different targets and serve one's results for the other.
+    """
+    from dataeval.utils import as_numpy
+
+    if isinstance(element, Array):
+        hasher.update(as_numpy(element).ravel().tobytes())
+        return
+
+    text = repr(element)
+    if depth >= _MAX_FINGERPRINT_DEPTH or _IDENTITY_REPR.search(text) is None:
+        hasher.update(text.encode("utf-8"))
+        return
+
+    hasher.update(type(element).__qualname__.encode("utf-8"))
+    if isinstance(element, Mapping):
+        for key in sorted(element, key=repr):
+            hasher.update(repr(key).encode("utf-8"))
+            _hash_element(hasher, element[key], depth + 1)
+        return
+    if isinstance(element, (list, tuple, set, frozenset)):
+        items = sorted(element, key=repr) if isinstance(element, (set, frozenset)) else element
+        for item in items:
+            _hash_element(hasher, item, depth + 1)
+        return
+
+    attributes = getattr(element, "__dict__", None)
+    if attributes is None and hasattr(type(element), "__slots__"):
+        attributes = {name: getattr(element, name) for name in type(element).__slots__ if hasattr(element, name)}
+    if not attributes:
+        hasher.update(text.encode("utf-8"))
+        return
+    for name in sorted(attributes):
+        hasher.update(name.encode("utf-8"))
+        _hash_element(hasher, attributes[name], depth + 1)
+
+
 def dataset_fingerprint(dataset: Any) -> str:
     """Build a content-based fingerprint by hashing a sample of datum tuples.
 
@@ -419,7 +477,6 @@ def dataset_fingerprint(dataset: Any) -> str:
         Hex digest fingerprint of the sampled data.
     """
     import xxhash as xxh
-    from dataeval.utils import as_numpy
 
     n = len(dataset)
     hasher = xxh.xxh3_64()
@@ -439,10 +496,7 @@ def dataset_fingerprint(dataset: Any) -> str:
         datum = dataset[idx]
         datum = datum if isinstance(datum, tuple) else (datum,)
         for element in datum:
-            if isinstance(element, Array):
-                hasher.update(as_numpy(element).ravel().tobytes())
-            else:
-                hasher.update(repr(element).encode("utf-8"))
+            _hash_element(hasher, element)
 
     return hasher.hexdigest()
 

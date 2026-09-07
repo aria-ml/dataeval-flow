@@ -125,6 +125,22 @@ class _FakeDataset:
         return (self._images[idx], self._targets[idx], self._metadata[idx])
 
 
+def xxhash_of_reprs(images: list, targets: list) -> str:
+    """The fingerprint the pre-fix algorithm produced: arrays by bytes, the rest by repr."""
+    import xxhash as xxh
+    from dataeval.utils import as_numpy
+
+    hasher = xxh.xxh3_64()
+    hasher.update(len(images).to_bytes(8, "little"))
+    for idx in range(len(images)):
+        for element in (images[idx], targets[idx], {"idx": idx}):
+            if hasattr(element, "__array__") or isinstance(element, np.ndarray):
+                hasher.update(as_numpy(element).ravel().tobytes())
+            else:
+                hasher.update(repr(element).encode("utf-8"))
+    return hasher.hexdigest()
+
+
 class TestDatasetFingerprint:
     def test_deterministic(self):
         imgs = [np.random.RandomState(i).rand(3, 8, 8).astype(np.float32) for i in range(5)]
@@ -144,6 +160,82 @@ class TestDatasetFingerprint:
         tgts_a = [np.array(0) for _ in range(5)]
         tgts_b = [np.array(1) for _ in range(5)]
         assert dataset_fingerprint(_FakeDataset(imgs, tgts_a)) != dataset_fingerprint(_FakeDataset(imgs, tgts_b))
+
+    def test_a_target_built_per_read_is_still_the_same_fingerprint(self):
+        """A class with no `__repr__` renders as its address, which is new every read.
+
+        Hashing that gave the dataset a different key on every call, so nothing it
+        produced was ever reused and each run recomputed from scratch.
+        """
+
+        class _Target:  # no __repr__, so Python describes it by address
+            def __init__(self, labels, boxes):
+                self.labels = labels
+                self.boxes = boxes
+
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+
+        def build():
+            # A fresh target per read, which is what a real dataset does.
+            return _FakeDataset(imgs, [_Target(np.array([0]), np.zeros((1, 4))) for _ in range(5)])
+
+        assert dataset_fingerprint(build()) == dataset_fingerprint(build())
+
+    def test_a_target_with_no_repr_still_reports_its_content(self):
+        """Stability must not come from ignoring what the target holds."""
+
+        class _Target:
+            def __init__(self, labels):
+                self.labels = labels
+
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        a = _FakeDataset(imgs, [_Target(np.array([0])) for _ in range(5)])
+        b = _FakeDataset(imgs, [_Target(np.array([1])) for _ in range(5)])
+        assert dataset_fingerprint(a) != dataset_fingerprint(b)
+
+    def test_a_slotted_target_is_read_too(self):
+        """`__slots__` leaves no `__dict__`, so the attributes come off the class."""
+
+        class _Target:
+            __slots__ = ("labels",)
+
+            def __init__(self, labels):
+                self.labels = labels
+
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+
+        def build(label):
+            return _FakeDataset(imgs, [_Target(np.array([label])) for _ in range(5)])
+
+        assert dataset_fingerprint(build(0)) == dataset_fingerprint(build(0))
+        assert dataset_fingerprint(build(0)) != dataset_fingerprint(build(1))
+
+    def test_metadata_holding_an_opaque_object_reports_its_content(self):
+        """The walk reaches inside a mapping, which is where datum metadata lives."""
+
+        class _Reading:
+            def __init__(self, value):
+                self.value = value
+
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        a = _FakeDataset(imgs, metadata=[{"sensor": _Reading(1)} for _ in range(5)])
+        b = _FakeDataset(imgs, metadata=[{"sensor": _Reading(2)} for _ in range(5)])
+        assert dataset_fingerprint(a) == dataset_fingerprint(
+            _FakeDataset(imgs, metadata=[{"sensor": _Reading(1)} for _ in range(5)])
+        )
+        assert dataset_fingerprint(a) != dataset_fingerprint(b)
+
+    def test_a_named_tuple_target_keeps_the_fingerprint_it_had(self):
+        """A repr that already describes its fields is hashed as before, so caches survive."""
+        from typing import NamedTuple
+
+        class _Target(NamedTuple):
+            labels: tuple
+
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+        targets = [_Target(labels=(0,)) for _ in range(5)]
+        expected = xxhash_of_reprs(imgs, targets)
+        assert dataset_fingerprint(_FakeDataset(imgs, targets)) == expected
 
     def test_different_metadata_different_fingerprint(self):
         imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
