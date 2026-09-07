@@ -23,6 +23,8 @@ from dataeval_flow.cache import (
     selection_repr,
 )
 from dataeval_flow.embeddings import build_extractor
+from dataeval_flow.stats import HASH_FLAG_MAP as _HASH_FLAG_MAP
+from dataeval_flow.stats import OUTLIER_FLAG_MAP as _OUTLIER_FLAG_MAP
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import effective_value_range
 from dataeval_flow.workflows.prioritization.outputs import (
@@ -72,17 +74,6 @@ def _get_embeddings_for_context(
 # ---------------------------------------------------------------------------
 # Flag resolution for cleaning
 # ---------------------------------------------------------------------------
-
-_OUTLIER_FLAG_MAP: dict[str, ImageStats] = {
-    "dimension": ImageStats.DIMENSION,
-    "pixel": ImageStats.PIXEL,
-    "visual": ImageStats.VISUAL,
-}
-
-_HASH_FLAG_MAP: dict[str, ImageStats] = {
-    "hash_basic": ImageStats.HASH_DUPLICATES_BASIC,
-    "hash_d4": ImageStats.HASH_DUPLICATES_D4,
-}
 
 
 def _resolve_cleaning_flags(

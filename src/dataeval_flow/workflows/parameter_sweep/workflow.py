@@ -14,6 +14,8 @@ from pydantic import BaseModel
 
 from dataeval_flow.cache import active_cache, get_or_compute_stats
 from dataeval_flow.embeddings import build_extractor
+from dataeval_flow.stats import HASH_FLAG_MAP
+from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
 from dataeval_flow.workflows.cleaning._internal import (
@@ -32,17 +34,6 @@ from dataeval_flow.workflows.parameter_sweep.outputs import (
 from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
 
 _logger: logging.Logger = logging.getLogger(__name__)
-
-FLAG_MAP: dict[str, ImageStats] = {
-    "dimension": ImageStats.DIMENSION,
-    "pixel": ImageStats.PIXEL,
-    "visual": ImageStats.VISUAL,
-}
-
-HASH_FLAG_MAP: dict[str, ImageStats] = {
-    "hash_basic": ImageStats.HASH_DUPLICATES_BASIC,
-    "hash_d4": ImageStats.HASH_DUPLICATES_D4,
-}
 
 # Maps each outcome column to the input parameters that affect it.
 # Exact duplicates depend on no swept inputs and are intentionally omitted.

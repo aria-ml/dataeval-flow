@@ -29,6 +29,7 @@ from dataeval_flow.workflow.base import raw_field
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config.schemas import AutoBinMethod, FactorSource, MetadataPolicyConfig
+    from dataeval_flow.stats import ResolvedStatsPolicy
     from dataeval_flow.workflow.base import MetadataConfigMixin
 
 _logger: logging.Logger = logging.getLogger(__name__)
@@ -140,6 +141,14 @@ class ResolvedPolicy:
     anything about it — but carried on the policy because it changes the injected values
     and therefore the codes, which is what ``policy_key`` is a rendering of.
     """
+    stats: "ResolvedStatsPolicy | None" = None
+    """What was measured and which views become factors, resolved by the orchestrator.
+
+    Authored under the config's ``stats:`` key rather than here, but carried on the policy
+    because it decides the set of factors injection produces, which is what ``policy_key``
+    is a rendering of. Without it, two runs whose declarations produce different factor sets
+    share one metadata archive.
+    """
 
     def metadata_kwargs(self, *, for_load: bool = False) -> dict[str, Any]:
         """What to hand :class:`dataeval.Metadata`, omitting anything left unset.
@@ -230,6 +239,7 @@ def policy_key(policy: ResolvedPolicy) -> str:
             "partial_factors": policy.partial_factors,
             "intrinsic_factors": sorted(family.lower() for family in policy.intrinsic_factors),
             "value_range": list(policy.value_range) if policy.value_range else None,
+            "stats": None if policy.stats is None else policy.stats.factor_identity(),
         },
         sort_keys=True,
         default=str,

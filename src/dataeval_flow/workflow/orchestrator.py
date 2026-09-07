@@ -4,7 +4,8 @@ __all__ = ["run_task", "run_tasks", "select_tasks"]
 
 import logging
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, overload, runtime_checkable
 
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     )
     from dataeval_flow.policy import ResolvedPolicy
     from dataeval_flow.sources import ResolvedSource, SourceOperand
+    from dataeval_flow.stats import ResolvedStatsPolicy
     from dataeval_flow.workflow import DatasetContext, ResolvedOntology, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
@@ -123,8 +125,6 @@ def _apply_dataset_value_range(
         across incompatible pixel scales are not comparable, and refusing here costs a
         config error rather than an hour of walking images.
     """
-    from dataclasses import replace
-
     declared = sorted({value for value in ranges if value is not None})
     if len(declared) > 1:
         raise ValueError(
@@ -161,32 +161,75 @@ def _value_range_of(resolved: "ResolvedSource") -> "tuple[float, float] | None":
     return declared[0] if declared else None
 
 
-def _channel_groups_of(resolved: "ResolvedSource") -> "Mapping[str, tuple[int, ...]] | None":
-    """Return the band groups *resolved* declares, or None where no operand declares any.
+def _merge_channel_groups(
+    entries: "Iterable[tuple[str, Mapping[str, Any] | None]]",
+    subject: str,
+) -> "Mapping[str, tuple[int, ...]] | None":
+    """Union declared band groups, refusing two definitions of one name.
 
-    Union the operands' groups: a merged corpus may draw one group from each dataset.
+    *entries* pairs a description of where each declaration came from with the declaration.
+    *subject* names what is being merged, for the error.
 
     Raises
     ------
     ValueError
-        When two operands give one name different bands. `ir_mean` measured over
-        different bands is not one statistic, and the merged column would hold both.
+        When one group name is given different bands. `ir_mean` measured over different
+        bands is not one statistic, and the merged column would hold both.
     """
     merged: dict[str, tuple[int, ...]] = {}
-    for operand in resolved.operands:
-        declared = getattr(operand.dataset_config, "channel_groups", None) or {}
-        for name, bands in declared.items():
+    for _origin, declared in entries:
+        for name, bands in (declared or {}).items():
             indices = (bands,) if isinstance(bands, int) else tuple(bands)
             existing = merged.get(name)
             if existing is not None and existing != indices:
                 raise ValueError(
-                    f"Source {resolved.name!r} merges datasets declaring different bands "
-                    f"for channel group {name!r} ({list(existing)} and {list(indices)}). "
-                    "One column name means one measurement, so there is no right answer to "
-                    "pick — give the datasets one definition, or rename one group.",
+                    f"{subject} declares different bands for channel group {name!r} "
+                    f"({list(existing)} and {list(indices)}). One column name means one "
+                    "measurement, so there is no right answer to pick — give them one "
+                    "definition, or rename one group.",
                 )
             merged[name] = indices
     return merged or None
+
+
+def _channel_groups_of(resolved: "ResolvedSource") -> "Mapping[str, tuple[int, ...]] | None":
+    """Return the band groups *resolved* declares, or None where no operand declares any."""
+    return _merge_channel_groups(
+        (
+            (operand.source.name, getattr(operand.dataset_config, "channel_groups", None))
+            for operand in resolved.operands
+        ),
+        f"Source {resolved.name!r}",
+    )
+
+
+def _channel_groups_for(
+    dataset_contexts: "Mapping[str, DatasetContext]",
+) -> "Mapping[str, tuple[int, ...]] | None":
+    """Return the band groups every dataset this workflow reads declares."""
+    return _merge_channel_groups(
+        ((name, ctx.channel_groups) for name, ctx in dataset_contexts.items()),
+        "This workflow's datasets",
+    )
+
+
+def _resolve_stats_policy(
+    instance: Any,
+    config: "PipelineConfig",
+    dataset_contexts: "Mapping[str, DatasetContext]",
+) -> "ResolvedStatsPolicy | None":
+    """Resolve the stats policy for one workflow, or None where it computes no statistics.
+
+    Kept here rather than inside the workflows because resolving it needs the pipeline the
+    pool lives on and the datasets that declare the bands, and because every check it runs
+    is worth running before the dataset is walked.
+    """
+    from dataeval_flow.stats import resolve_stats_policy
+    from dataeval_flow.workflow.base import StatsConfigMixin
+
+    if not isinstance(instance, StatsConfigMixin):
+        return None
+    return resolve_stats_policy(instance, config, _channel_groups_for(dataset_contexts))
 
 
 def _label_source_of(label_sources: "Sequence[str | None]") -> "str | Sequence[str] | None":
@@ -367,6 +410,13 @@ def _run_single_task(
         instance.name,
     )
 
+    # Resolved after the datasets, because a policy's band groups are taken from them, and
+    # before the run, because a group no dataset declares is a config error rather than an
+    # hour of walking images.
+    stats_policy = _resolve_stats_policy(instance, config, dataset_contexts)
+    if policy is not None and stats_policy is not None:
+        policy = replace(policy, stats=stats_policy)
+
     ontology = _resolve_ontology(instance, config, data_dir)
 
     # 6. Build WorkflowContext
@@ -375,6 +425,7 @@ def _run_single_task(
         batch_size=batch_size,
         metadata_policy=policy,
         ontology=ontology,
+        stats_policy=stats_policy,
     )
 
     # 7. Run workflow with timing

@@ -606,6 +606,42 @@ class TestValueRangeOnThePolicy:
         assert policy_key(first) != policy_key(second)
 
 
+@pytest.mark.required
+class TestStatsPolicyInPolicyKey:
+    """The stats policy decides the factor set, so it keys the metadata archive."""
+
+    def _policy(self, **kwargs):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        base = {"name": "p", "measure": ((None, ImageStats.VISUAL),)}
+        return ResolvedPolicy(intrinsic_factors=("visual",), stats=ResolvedStatsPolicy(**{**base, **kwargs}))
+
+    def test_a_policy_with_stats_keys_differently_from_one_without(self):
+        from dataeval_flow.policy import ResolvedPolicy, policy_key
+
+        assert policy_key(self._policy()) != policy_key(ResolvedPolicy(intrinsic_factors=("visual",)))
+
+    def test_factors_from_changes_the_key(self):
+        from dataeval_flow.policy import policy_key
+
+        assert policy_key(self._policy(factors_from=(None,))) != policy_key(self._policy(factors_from=(None, "ir")))
+
+    def test_outliers_from_does_not_change_the_key(self):
+        from dataeval_flow.policy import policy_key
+
+        assert policy_key(self._policy(outliers_from=(None,))) == policy_key(self._policy(outliers_from=(None, "ir")))
+
+    def test_the_key_stays_json(self):
+        import json
+
+        from dataeval_flow.policy import policy_key
+
+        assert json.loads(policy_key(self._policy()))["stats"]["background"] is False
+
+
 class TestDeprecatedIncludeImageStats:
     """The old spelling keeps working for one minor version, and says so."""
 

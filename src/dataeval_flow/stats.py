@@ -10,6 +10,8 @@ family a consumer needs and nothing measures costs a config error rather than an
 """
 
 __all__ = [
+    "HASH_FLAG_MAP",
+    "OUTLIER_FLAG_MAP",
     "ResolvedStatsPolicy",
     "check_consumers",
     "columns_for",
@@ -39,6 +41,19 @@ _GROUP_FAMILIES = ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH
 
 #: Always emitted with the background, and named for no family.
 _BACKGROUND_FRACTION = "background_fraction"
+
+#: Outlier families as `outlier_flags` spells them.
+OUTLIER_FLAG_MAP: dict[str, ImageStats] = {
+    "dimension": ImageStats.DIMENSION,
+    "pixel": ImageStats.PIXEL,
+    "visual": ImageStats.VISUAL,
+}
+
+#: Hash sets as `duplicate_flags` spells them.
+HASH_FLAG_MAP: dict[str, ImageStats] = {
+    "hash_basic": ImageStats.HASH_DUPLICATES_BASIC,
+    "hash_d4": ImageStats.HASH_DUPLICATES_D4,
+}
 
 
 def _is_background(view: str | None) -> bool:

@@ -38,6 +38,7 @@ from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.policy import derive_from, policy_for, resolve_policy
+from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
@@ -72,12 +73,6 @@ if TYPE_CHECKING:
 
 
 _logger = logging.getLogger(__name__)
-
-FLAG_MAP: dict[str, ImageStats] = {
-    "dimension": ImageStats.DIMENSION,
-    "pixel": ImageStats.PIXEL,
-    "visual": ImageStats.VISUAL,
-}
 
 
 # ---------------------------------------------------------------------------

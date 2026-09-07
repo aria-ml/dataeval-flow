@@ -19,6 +19,8 @@ from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.policy import policy_for
+from dataeval_flow.stats import HASH_FLAG_MAP
+from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows.cleaning._internal import (
@@ -47,17 +49,6 @@ _logger: logging.Logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Factory helpers
 # ---------------------------------------------------------------------------
-
-FLAG_MAP: dict[str, ImageStats] = {
-    "dimension": ImageStats.DIMENSION,
-    "pixel": ImageStats.PIXEL,
-    "visual": ImageStats.VISUAL,
-}
-
-HASH_FLAG_MAP: dict[str, ImageStats] = {
-    "hash_basic": ImageStats.HASH_DUPLICATES_BASIC,
-    "hash_d4": ImageStats.HASH_DUPLICATES_D4,
-}
 
 
 def _build_outliers(

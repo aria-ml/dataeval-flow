@@ -2095,3 +2095,36 @@ class TestChannelGroupsOnContext:
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"ir": 3}])
         assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}
+
+
+@pytest.mark.required
+class TestResolveStatsPolicy:
+    """A named stats policy is resolved before the dataset is walked."""
+
+    def _contexts(self, *groups):
+        from dataeval_flow.workflow import DatasetContext
+
+        return {
+            f"s{i}": DatasetContext(name=f"s{i}", dataset=[], channel_groups=g)  # type: ignore[arg-type]
+            for i, g in enumerate(groups)
+        }
+
+    def test_unions_groups_across_the_datasets_a_workflow_reads(self):
+        from dataeval_flow.workflow.orchestrator import _channel_groups_for
+
+        merged = _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"ir": (3,)}))
+        assert merged == {"rgb": (0, 1, 2), "ir": (3,)}
+
+    def test_refuses_two_datasets_defining_one_group_differently(self):
+        from dataeval_flow.workflow.orchestrator import _channel_groups_for
+
+        with pytest.raises(ValueError, match="different bands for channel group 'rgb'"):
+            _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"rgb": (0, 1)}))
+
+    def test_none_for_a_workflow_that_computes_no_statistics(self):
+        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow.workflow.orchestrator import _resolve_stats_policy
+        from dataeval_flow.workflows.splitting.params import DataSplittingParameters
+
+        instance = DataSplittingParameters(name="s", type="data-splitting")  # type: ignore[call-arg]
+        assert _resolve_stats_policy(instance, PipelineConfig(), {}) is None

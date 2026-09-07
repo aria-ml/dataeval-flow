@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from dataeval_flow.cache import DatasetCache
     from dataeval_flow.config.schemas import ExtractorConfig, ResultMetadata, ViewOperation
     from dataeval_flow.policy import ResolvedPolicy
+    from dataeval_flow.stats import ResolvedStatsPolicy
 
 
 @dataclass
@@ -112,6 +113,14 @@ class WorkflowContext:
     resolving a name needs the pipeline holding the pool, resolving a path needs the data
     root, and a workflow has neither. ``None`` when the caller built a context directly or
     configured no ontology. The workflow then reads its own parameters.
+    """
+    stats_policy: "ResolvedStatsPolicy | None" = None
+    """What to measure and which views each consumer reads, resolved before the run.
+
+    Set here rather than in the workflow, for the same reason as :attr:`metadata_policy`:
+    resolving a name needs the pipeline holding the pool, and resolving its bands needs the
+    datasets. ``None`` when the caller built a context directly or named no policy, in which
+    case a workflow measures the whole image with its own flags.
     """
 
 
