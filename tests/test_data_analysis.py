@@ -1343,7 +1343,7 @@ class TestAssessCrossRedundancy:
         mock_items = mock_dup_cls.return_value.from_stats.return_value.items
         mock_items.data.return_value = _cross_dup_df([])
 
-        result = _assess_cross_redundancy({}, {}, "train", "test")  # type: ignore
+        result = _assess_cross_redundancy(_mock_calc_result(), _mock_calc_result(), "train", "test")
         assert result.duplicate_leakage["exact_count"] == 0
         assert result.duplicate_leakage["near_count"] == 0
 
@@ -1364,7 +1364,7 @@ class TestAssessCrossRedundancy:
             ]
         )
 
-        result = _assess_cross_redundancy({}, {}, "train", "test")  # type: ignore
+        result = _assess_cross_redundancy(_mock_calc_result(), _mock_calc_result(), "train", "test")
         assert result.duplicate_leakage["exact_count"] == 2
         groups = result.duplicate_leakage["exact_groups"]
         assert len(groups) == 1
@@ -1388,7 +1388,7 @@ class TestAssessCrossRedundancy:
             ]
         )
 
-        result = _assess_cross_redundancy({}, {}, "train", "test")  # type: ignore
+        result = _assess_cross_redundancy(_mock_calc_result(), _mock_calc_result(), "train", "test")
         assert result.duplicate_leakage["exact_count"] == 0
 
     @patch(f"{_WF}.Duplicates")
@@ -1407,7 +1407,7 @@ class TestAssessCrossRedundancy:
             ]
         )
 
-        result = _assess_cross_redundancy({}, {}, "train", "test")  # type: ignore
+        result = _assess_cross_redundancy(_mock_calc_result(), _mock_calc_result(), "train", "test")
         assert result.duplicate_leakage["near_count"] == 2
         assert result.duplicate_leakage["exact_count"] == 0
 

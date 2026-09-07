@@ -251,7 +251,9 @@ class ParameterSweepWorkflow(WorkflowProtocol[ParameterSweepMetadata, ParameterS
                     "flags": hash_flags,
                 }
                 duplicates_eval = Duplicates(**dup_kwargs)
-                duplicates_result = duplicates_eval.from_stats(calc_result)
+                duplicates_result = duplicates_eval.from_stats(
+                    restrict_columns(calc_result, columns_for([None], hash_flags))
+                )
 
                 if m_duplicate_cluster_sensitivity is not None and embeddings_array is not None:
                     from dataeval_flow.workflows.cleaning.params import DataCleaningParameters

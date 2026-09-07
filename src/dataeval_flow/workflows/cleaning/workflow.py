@@ -350,6 +350,8 @@ def _run_duplicate_detection(
     """Run hash-based and optionally cluster-based duplicate detection."""
     import time as _time
 
+    from dataeval_flow.stats import columns_for, restrict_columns
+
     _logger.info("  [4e] Running duplicate detection…")
     _t0 = _time.monotonic()
 
@@ -358,7 +360,7 @@ def _run_duplicate_detection(
     if params.duplicate_flags is not None:
         dup_kwargs["flags"] = hash_flags
     duplicates_eval = Duplicates(**dup_kwargs)  # type: ignore[arg-type]
-    hash_dup_result = duplicates_eval.from_stats(calc_result)  # type: ignore[arg-type]
+    hash_dup_result = duplicates_eval.from_stats(restrict_columns(calc_result, columns_for([None], hash_flags)))
 
     if embeddings_array is not None and params.duplicate_cluster_sensitivity is not None:
         duplicates_result = _merge_duplicate_results(hash_dup_result, embeddings_array, params, run_ctx)

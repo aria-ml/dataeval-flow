@@ -39,7 +39,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_co
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.policy import derive_from, policy_for, resolve_policy
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
-from dataeval_flow.stats import columns_for, stats_policy_for
+from dataeval_flow.stats import columns_for, restrict_columns, stats_policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
@@ -257,7 +257,7 @@ def _assess_image_quality(
 def _assess_redundancy(data: SplitData) -> RedundancyResult:
     """Assess data redundancy via duplicate detection."""
     _logger.info("  Detecting duplicates ...")
-    dup_result = Duplicates().from_stats(data.calc_result)
+    dup_result = Duplicates().from_stats(restrict_columns(data.calc_result, columns_for([None], ImageStats.HASH)))
     exact_groups = dup_result.items.exact or []
     near_groups = dup_result.items.near or []
 
@@ -354,7 +354,8 @@ def _assess_cross_redundancy(
     We only report groups where both datasets have members (true cross-split
     leakage), ignoring within-split duplicates.
     """
-    dup_result = Duplicates().from_stats([calc_a, calc_b])
+    allowed = columns_for([None], ImageStats.HASH)
+    dup_result = Duplicates().from_stats([restrict_columns(calc_a, allowed), restrict_columns(calc_b, allowed)])
     ds_names = {0: name_a, 1: name_b}
 
     exact_groups, near_groups = (
