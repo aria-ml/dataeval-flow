@@ -146,8 +146,10 @@ def run(
         configure_log_levels(config.logging.app_level, config.logging.lib_level)
 
     if not config.tasks:
+        # An export names a source, not a task, so a config that runs nothing still has a
+        # corpus to write.
         _logger.info("No tasks defined in config.")
-        return 0
+        return 1 if _write_declared_exports(config, output_dir, resolved_data) else 0
 
     # Resolve the selection here as well as inside run_tasks, so the results pair back
     # to the tasks that produced them.  run_tasks returns one result per *executed*
@@ -167,11 +169,13 @@ def run(
         _logger.info("  Wrote result.json and result.txt to %s", results_dir)
         _write_encoding_descriptor(collected.binning, results_dir)
 
+    export_failures = _write_declared_exports(config, output_dir, resolved_data)
+
     failures = collected.failures
     warned = collected.warned
     _logger.info("Done. %d/%d succeeded.", len(selected) - failures, len(selected))
 
-    if failures:
+    if failures or export_failures:
         return 1
 
     if warned:
@@ -184,6 +188,24 @@ def run(
             return 1
 
     return 0
+
+
+def _write_declared_exports(config: PipelineConfig, output_dir: Path | None, data_dir: Path) -> int:
+    """Write the run's declared exports, and report how many failed.
+
+    An export the config asked for and did not get is a failure the caller must see:
+    succeeding quietly would hand somebody an empty output directory. Writing needs an
+    output directory, so a run that produces no file artifacts produces no exports either.
+    """
+    if output_dir is None or not config.exports:
+        return 0
+
+    from dataeval_flow.export import write_exports
+
+    export_failures = write_exports(config, output_dir, data_dir=data_dir)
+    if export_failures:
+        _logger.error("  %d export(s) failed to write.", export_failures)
+    return export_failures
 
 
 def _write_encoding_descriptor(binning: dict[str, dict], results_dir: Path) -> None:

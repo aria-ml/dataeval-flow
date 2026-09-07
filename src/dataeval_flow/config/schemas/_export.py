@@ -4,7 +4,7 @@ __all__ = ["ExportConfig"]
 
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ExportConfig(BaseModel):
@@ -51,3 +51,25 @@ class ExportConfig(BaseModel):
             "audit. An export names no workflow, so it cannot inherit one."
         ),
     )
+
+    @field_validator("name")
+    @classmethod
+    def _one_directory_segment(cls, value: str) -> str:
+        """Refuse a name that is not a single safe directory segment.
+
+        The name becomes a directory under the run's output. A separator or a `..` in it
+        would write the corpus somewhere the caller never named.
+        """
+        if not value:
+            raise ValueError("Export name must not be empty. Give it a plain name, such as 'conformed_corpus'.")
+        if "/" in value or "\\" in value:
+            raise ValueError(
+                f"Export name '{value}' must be one directory segment and cannot contain '/' or '\\'. "
+                "It names a directory under the run's output, not a path to write to."
+            )
+        if value in {".", ".."}:
+            raise ValueError(
+                f"Export name '{value}' names a relative path rather than a directory. "
+                "Give it a plain name, such as 'conformed_corpus'."
+            )
+        return value

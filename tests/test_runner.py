@@ -279,3 +279,73 @@ class TestFailOnWarning:
 
         assert (tmp_path / "out" / "results" / "result.json").exists()
         assert (tmp_path / "out" / "results" / "result.txt").exists()
+
+
+def _with_exports(path: Path, source: str) -> Path:
+    """Append an `exports:` block naming *source* to an existing config file."""
+    path.write_text(path.read_text() + f"exports:\n  - name: corpus\n    source: {source}\n")
+    return path
+
+
+class TestRunnerExports:
+    """The runner writes declared exports beside the results, and answers for a failure."""
+
+    def test_exports_are_written_beside_the_results(self, tmp_path: Path):
+        import dataeval_flow.export as export_mod
+        import dataeval_flow.workflow.orchestrator as orch
+        from dataeval_flow.runner import run
+
+        config = _with_exports(_write_config(tmp_path), "src")
+        out = tmp_path / "out"
+        with (
+            patch.object(orch, "_run_single_task", return_value=_fake_result()),
+            patch.object(export_mod, "write_exports", return_value=0) as write_exports,
+        ):
+            assert run(config, out, data_dir=tmp_path) == 0
+
+        write_exports.assert_called_once()
+        assert write_exports.call_args.args[1] == out
+        assert write_exports.call_args.kwargs["data_dir"] == tmp_path
+
+    def test_nothing_is_exported_without_an_output_directory(self, tmp_path: Path):
+        """No output directory means no file artifacts, exports included."""
+        import dataeval_flow.export as export_mod
+        import dataeval_flow.workflow.orchestrator as orch
+        from dataeval_flow.runner import run
+
+        config = _with_exports(_write_config(tmp_path), "src")
+        with (
+            patch.object(orch, "_run_single_task", return_value=_fake_result()),
+            patch.object(export_mod, "write_exports") as write_exports,
+        ):
+            assert run(config, None, data_dir=tmp_path) == 0
+
+        write_exports.assert_not_called()
+
+    def test_a_failing_export_makes_the_run_non_zero(self, tmp_path: Path, caplog):
+        """An export the config asked for and did not get is a failure the caller must see."""
+        import logging
+
+        import dataeval_flow.workflow.orchestrator as orch
+        from dataeval_flow.runner import run
+
+        config = _with_exports(_write_config(tmp_path), "absent")
+        with patch.object(orch, "_run_single_task", return_value=_fake_result()), caplog.at_level(logging.ERROR):
+            assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
+
+        assert "export" in caplog.text.lower()
+        # The tasks still ran and their results were written.
+        assert (tmp_path / "out" / "results" / "result.json").exists()
+
+    def test_an_export_is_written_when_the_config_declares_no_tasks(self, tmp_path: Path):
+        """An export names a source, so a config that runs nothing still writes its corpus."""
+        import dataeval_flow.export as export_mod
+        from dataeval_flow.runner import run
+
+        path = tmp_path / "config.yaml"
+        path.write_text("datasets: []\nsources: []\n")
+        _with_exports(path, "src")
+        with patch.object(export_mod, "write_exports", return_value=0) as write_exports:
+            assert run(path, tmp_path / "out", data_dir=tmp_path) == 0
+
+        write_exports.assert_called_once()

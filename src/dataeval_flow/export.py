@@ -8,7 +8,7 @@ each box's geometry, class and score, and drops the source annotation id, `area`
 where you need those.
 """
 
-__all__ = ["build_od_dataset"]
+__all__ = ["build_od_dataset", "export_provenance", "write_export", "write_exports"]
 
 import logging
 from pathlib import PurePosixPath
@@ -16,11 +16,15 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
     import numpy as np
     from datamaite import DatasetMetadata, ImageObjectDetectionSample, ObjectDetectionDataset
 
-    from dataeval_flow.sources import ResolvedSource
+    from dataeval_flow.config import PipelineConfig
+    from dataeval_flow.config.schemas import ExportConfig, LabelSpaceRecord
+    from dataeval_flow.sources import ResolvedSource, SourceOperand
+    from dataeval_flow.workflow import ResolvedOntology
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -280,3 +284,303 @@ def _with_taxonomy(
         ordered_names=tuple(index2label[code] for code in codes),
     )
     return dataclasses.replace(dataset_metadata, taxonomy=taxonomy)
+
+
+def export_provenance(
+    resolved: "ResolvedSource",
+    *,
+    ontology: "ResolvedOntology | None" = None,
+) -> "DatasetMetadata":
+    """Build the dataset metadata an export carries.
+
+    Record what a reader needs to answer where this corpus came from: each operand's
+    dataset and the mapping that conformed it, the ontology it was conformed to, and the
+    label-space digests. The digests are the join — the same values the result envelope
+    carries and a coverage audit stamped, so an emitted corpus can be matched back to
+    the run and the audit that justified its vocabulary.
+
+    Parameters
+    ----------
+    resolved : ResolvedSource
+        The source being written.
+    ontology : ResolvedOntology or None
+        Label space the export declared, already resolved. One that failed to load is
+        recorded as no ontology, rather than claiming a vocabulary nothing was conformed
+        to.
+
+    Returns
+    -------
+    DatasetMetadata
+        Metadata whose ``info`` block holds the provenance. A COCO write round-trips it
+        verbatim into the file's own ``info``.
+    """
+    from datetime import datetime, timezone
+
+    from datamaite import DatasetMetadata
+
+    from dataeval_flow import __version__
+    from dataeval_flow.sources import label_space_records
+
+    records = label_space_records([resolved], ontology)
+    # Key by the source whose view applied the Relabel. A merged source's own view gets a
+    # record under the merged source's own name, which matches no operand: that Relabel
+    # conformed the corpus rather than any one operand, so it belongs in `label_space` and
+    # not in an operand entry.
+    by_source = {record.source: record for record in records}
+    name, digest = _ontology_entry(ontology)
+    info: dict[str, Any] = {
+        "tool": "dataeval-flow",
+        "tool_version": __version__,
+        "created": datetime.now(timezone.utc).isoformat(),
+        "source": resolved.name,
+        "ontology": name,
+        "ontology_digest": digest,
+        "operands": [_operand_entry(operand, by_source.get(operand.source.name)) for operand in resolved.operands],
+        "label_space": [record.model_dump(mode="json") for record in records],
+    }
+    return DatasetMetadata(source_dataset=resolved.name, info=info)
+
+
+def _ontology_entry(ontology: "ResolvedOntology | None") -> "tuple[str | None, str | None]":
+    """Name the ontology a corpus was conformed to, and digest its concepts.
+
+    Read from the resolution rather than from the label-space records, so a corpus that
+    needed no Relabel still says which vocabulary its labels are read under. Both are null
+    where the export named no ontology, and where the one it named failed to load —
+    recording a name then would claim a vocabulary nothing was read against.
+    """
+    from dataeval_flow.label_space import ontology_digest
+
+    if ontology is None or ontology.ontology is None:
+        return (None, None)
+    return (ontology.source, ontology_digest(ontology.ontology.ids))
+
+
+def _operand_entry(operand: "SourceOperand", record: "LabelSpaceRecord | None") -> dict[str, Any]:
+    """Describe one operand: the dataset it read, the view it read through, and the remap.
+
+    ``record`` is None where the operand's view conformed nothing, which is a corpus
+    merged from sources that already shared a vocabulary.
+    """
+    return {
+        "source": operand.source.name,
+        "dataset": operand.source.dataset,
+        "view": operand.view_config.name if operand.view_config else None,
+        "class_remap": dict(record.class_remap) if record is not None else {},
+    }
+
+
+def write_export(
+    export: "ExportConfig",
+    config: "PipelineConfig",
+    dest_root: "Path",
+    *,
+    data_dir: "Path | None" = None,
+) -> "Path":
+    """Write one export under *dest_root*, and return the directory written.
+
+    The directory holds the corpus in the requested format and a `provenance.json`
+    sidecar carrying the same mapping the COCO writer embeds in its `info` block.
+
+    Parameters
+    ----------
+    export : ExportConfig
+        The export to write: the source it names, the format, and what to do about a
+        destination that already holds a dataset.
+    config : PipelineConfig
+        Pipeline holding the `sources:`, `datasets:`, `views:` and `ontologies:` pools.
+    dest_root : Path
+        Directory the export's own directory is created under.
+    data_dir : Path or None
+        Root a relative dataset or ontology path resolves against.
+
+    Returns
+    -------
+    Path
+        The directory written, ``dest_root / export.name``.
+
+    Raises
+    ------
+    FileExistsError
+        If the destination already holds a dataset and `mode` is `error`.
+    ValueError
+        If the export names a source the config does not define.
+    """
+    from datamaite import write
+
+    from dataeval_flow.sources import resolve_source
+
+    # An export names no workflow, so resolve its own ontology. Reuse the orchestrator's
+    # resolver so a name, a path and an inline hierarchy all mean here what they mean
+    # there, and so an unreadable ontology degrades to provenance without one instead of
+    # losing the whole export.
+    from dataeval_flow.workflow.orchestrator import _resolve_ontology
+
+    dest = dest_root / export.name
+    _refuse_occupied_destination(dest, export.mode)
+    _warn_on_missing_ontology(export, config)
+
+    resolved = resolve_source(export.source, config, data_dir=data_dir)
+    ontology = _resolve_ontology(export, config, data_dir)
+    provenance = export_provenance(resolved, ontology=ontology)
+    dataset = build_od_dataset(resolved, dataset_metadata=provenance)
+
+    cleared = export.mode == "replace" and _holds_a_dataset(dest)
+    try:
+        write(dataset, dest, output_format=export.format, mode=export.mode)
+    except Exception:
+        if cleared:
+            _logger.error(
+                "  Export '%s' cleared %s before it failed. `mode: replace` empties the "
+                "destination first and does not restore it, so the corpus that was there is gone.",
+                export.name,
+                dest,
+            )
+        raise
+    _write_provenance(dest, provenance)
+    _logger.info("  Wrote export '%s' (%s, %d images) to %s", export.name, export.format, len(dataset.samples), dest)
+    return dest
+
+
+def _holds_a_dataset(dest: "Path") -> bool:
+    """Whether *dest* is a directory with anything in it."""
+    return dest.is_dir() and any(dest.iterdir())
+
+
+def _refuse_occupied_destination(dest: "Path", mode: str) -> None:
+    """Refuse an occupied destination before the corpus is built.
+
+    datamaite applies the same policy, but only once its writer has walked the dataset —
+    by which point every image has been decoded. Check it here so a re-run that cannot
+    write is refused immediately instead of paying for a corpus it will throw away.
+    """
+    if mode != "error" or not _holds_a_dataset(dest):
+        return
+    raise FileExistsError(
+        f"Destination {dest} already exists and is not empty. "
+        "Set mode to 'replace' to clear it first, or to 'append' to write into it "
+        "(append may leave stale files that a reload of the destination would pick up)."
+    )
+
+
+def _warn_on_missing_ontology(export: "ExportConfig", config: "PipelineConfig") -> None:
+    """Warn where the config reads an ontology the export does not.
+
+    An export names no workflow and inherits nothing from one, which is what keeps it
+    independent of `tasks:`. But an export written without the ontology a workflow declares
+    digests an empty label space, and the emitted corpus then carries an identity the run's
+    envelope does not. Name the workflows so you can copy the ontology onto the export.
+    """
+    if export.ontology is not None or not config.workflows:
+        return
+    named = [workflow.name for workflow in config.workflows if getattr(workflow, "ontology", None) is not None]
+    if not named:
+        return
+    _logger.warning(
+        "  Export '%s' declares no ontology, but these workflows do: %s. Its label-space "
+        "digests will not match the run's. Declare the same ontology on the export.",
+        export.name,
+        ", ".join(named),
+    )
+
+
+def _write_provenance(dest: "Path", provenance: "DatasetMetadata") -> None:
+    """Write the provenance sidecar into a written export.
+
+    Only the COCO writer carries `DatasetMetadata.info` into the files it writes; the
+    others drop it. Write it beside the corpus for every format, so an export's provenance
+    does not depend on the format you asked for. COCO then carries it in both places, and
+    the embedded block stays the flat mapping datamaite round-trips.
+
+    The sidecar holds a `runs` list, one entry per write, in the order they were written.
+    `mode: append` writes into a directory that already holds a corpus, so a sidecar
+    carrying one entry would describe part of that corpus and read as the whole of it.
+    A fresh write leaves one entry; every other case keeps what is already recorded.
+
+    Call this after the corpus is written, so a failed write leaves no sidecar describing
+    a dataset that is not there.
+    """
+    import json
+
+    dest.mkdir(parents=True, exist_ok=True)
+    path = dest / "provenance.json"
+    runs = [*_recorded_runs(path), dict(provenance.info)]
+    path.write_text(json.dumps({"runs": runs}, indent=2) + "\n", encoding="utf-8")
+
+
+def _recorded_runs(path: "Path") -> list[Any]:
+    """Return the writes a sidecar already records, or none where it records nothing.
+
+    A sidecar that cannot be read, or that is not shaped this way, is replaced and the
+    reason logged: an unreadable sidecar must not cost you the export, and history you
+    could have kept must not be dropped in silence.
+    """
+    import json
+
+    if not path.is_file():
+        return []
+    try:
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        _logger.warning("  Could not read %s (%s). Recording this write alone.", path, exc)
+        return []
+    runs = recorded.get("runs") if isinstance(recorded, dict) else None
+    if not isinstance(runs, list):
+        _logger.warning("  %s records no 'runs' list. Recording this write alone.", path)
+        return []
+    return runs
+
+
+def write_exports(
+    config: "PipelineConfig",
+    output_dir: "Path",
+    *,
+    data_dir: "Path | None" = None,
+) -> int:
+    """Write every declared export under ``<output_dir>/datasets/``.
+
+    Parameters
+    ----------
+    config : PipelineConfig
+        Pipeline holding the `exports:` block and the pools each export reads.
+    output_dir : Path
+        The run's output directory. Exports are written to its `datasets` subdirectory,
+        beside `results`.
+    data_dir : Path or None
+        Root a relative dataset or ontology path resolves against.
+
+    Returns
+    -------
+    int
+        How many exports failed. Report a failure rather than raising it, so one bad
+        export does not cost the run its others — the caller decides what a failure
+        means for the exit code.
+    """
+    if not config.exports:
+        return 0
+
+    dest_root = output_dir / "datasets"
+    return sum(not _write_one(export, config, dest_root, data_dir) for export in config.exports)
+
+
+def _write_one(
+    export: "ExportConfig",
+    config: "PipelineConfig",
+    dest_root: "Path",
+    data_dir: "Path | None",
+) -> bool:
+    """Write one export, reporting failure rather than raising it.
+
+    Catch every exception. An export is one unit of work at a batch boundary, and what it
+    can raise is open-ended: a `target: 5` in a `Relabel` raises `TypeError`, a
+    classification source written as object detection raises `AttributeError`, and each
+    writer has failures of its own. Enumerating them is unmaintainable, and one that
+    escapes costs the run its other exports and its exit code. Every failure here is
+    logged with the export's name and counted into that exit code.
+    """
+    try:
+        write_export(export, config, dest_root, data_dir=data_dir)
+    except Exception as exc:  # noqa: BLE001
+        _logger.error("  Export '%s' failed: %s", export.name, exc)
+        return False
+    return True

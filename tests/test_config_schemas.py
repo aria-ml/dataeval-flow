@@ -1312,3 +1312,16 @@ class TestExportConfig:
         config = PipelineConfig(exports=[ExportConfig(name="corpus", source="merged")])
         assert config.exports is not None
         assert config.exports[0].name == "corpus"
+
+    @pytest.mark.parametrize("name", ["", "/etc/corpus", "nested/corpus", "nested\\corpus", ".", ".."])
+    def test_a_name_that_is_not_one_directory_segment_is_refused(self, name):
+        """The name becomes a directory under the run's output, so it cannot be a path."""
+        from dataeval_flow.config.schemas import ExportConfig
+
+        with pytest.raises(ValidationError):
+            ExportConfig(name=name, source="merged")
+
+    def test_a_plain_name_is_kept(self):
+        from dataeval_flow.config.schemas import ExportConfig
+
+        assert ExportConfig(name="conformed_corpus.v2", source="merged").name == "conformed_corpus.v2"
