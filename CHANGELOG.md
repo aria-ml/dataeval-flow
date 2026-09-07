@@ -4,116 +4,73 @@
 
 ### Added
 
-- Top-level `ontologies:` key defining named label spaces, referenced by workflows by name
-- `concepts:` on an ontology entry, adding to or replacing an artifact's concepts by id, without editing the
-  artifact itself
-- A workflow's `ontology:` value resolves as a pool name first and a path second, so existing configs that name a
-  file keep working unchanged
-- `merge:` on a source, concatenating other sources into one corpus. Give every operand a view whose `Relabel`
-  passes the identical `target`
-- Top-level `exports:` key, writing a source out as a dataset under `output/datasets/<name>/` in COCO, YOLO,
-  Hugging Face, or VisDrone format, with a `provenance.json` recording every write
-- `ontology:` on any workflow, not only `data-coverage`, so a result carries the digest of the audit that
-  justified its vocabulary
-- `label_space` on a result envelope, recording the vocabulary each conformed source was read under, with a
-  digest that matches the `data-coverage` audit that justified it
-- `channel_groups:` on a dataset, naming groups of bands measured separately as
-  `<group>_<statistic>` columns
-- Top-level `stats:` key defining named policies: which statistic families are measured over
-  which views, whether the image background is measured, and which views drive outlier
-  detection and metadata factors
-- `format: demo` on a dataset, naming a dataset the tutorials use so a tutorial pipeline
-  runs from config alone. Names resolve through a fixed table, never by importing what the
-  config names
-- `crop_padding` and `crop_min_size` on `data-coverage`, and `dropped_detections` on its
-  coverage assessment, reporting the annotations the coverage numbers do not describe
+- Top-level `ontologies:` key defining named label spaces referenced by workflows
+- `concepts:` on ontology entries to add or override concepts by id without altering source artifacts
+- Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
+- `merge:` on sources to concatenate multiple inputs into one corpus, unified via `Relabel` views
+- Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
+- `ontology:` support across all workflows, attaching the vocabulary audit digest to results
+- `label_space` on result envelopes, recording conformed vocabulary and matching audit digest
+- `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
+- Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
+- `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
+- `crop_padding` and `crop_min_size` on `data-coverage`, with `dropped_detections` reporting omitted annotations
 
 ### Changed
 
-- The metadata cache key now includes the stats policy's `factor_identity()`, so every existing metadata archive
-  recomputes once on upgrade. Stats caches are unaffected: a stats policy's own cache key omits `measure` and the
-  consumer view lists, and stays empty for a policy declaring no band groups and no background — the same key it
-  keyed under before this field existed
+- Metadata cache key now includes the stats policy `factor_identity()`, recomputing metadata archives on upgrade
+- Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
 
 ### Fixed
 
-- A dataset whose target class defines no `__repr__` now keys the same way twice. Such a
-  class renders as its memory address, which is new on every read, so the fingerprint and
-  the cache directory with it changed on every call and nothing was ever reused. An
-  element that describes itself by address is now hashed by its type and contents
-  instead. Datasets whose elements already had a descriptive repr keep the fingerprints
-  they had, so their caches survive
-- A source's view now reaches its cache key, so editing one invalidates what it produced.
-  Only the part of a view that changes the index set reached `selection_repr`, so
-  `SelectChannels`, `Resize`, and a `Relabel` that renames without dropping anything were
-  invisible: editing one and re-running served the previous view's embeddings, clusters,
-  metadata and statistics. A merged source's own view reached no key at all. A source
-  without a view keys exactly as before and keeps its entries; one with a view recomputes
-  once on upgrade
-- A relative `ontology:` path now resolves against the run's data root rather than the process-wide root
-- `outlier_flags` now decides which columns flag an outlier. A warm cache, or a second
-  workflow reading the same source, previously widened outlier detection to every numeric
-  column in the shared cache entry, so narrowing the setting did not narrow the results
-- `duplicate_flags` now decides which hashes detect a duplicate, for the same reason
-- `intrinsic_factors` now decides which statistics are injected as metadata factors. The
-  injected set previously depended on cache state, and both sets were stored under one
-  metadata cache key
-- Cross-split label parity now compares only the classes both splits carry. A conformed
-  label space leaves gaps, so class ids run past how many classes are present, and the
-  chi-square was called with a count that rejected them — the comparison failed outright.
-  A class only one split carries has a zero expectation and leaves the statistic undefined,
-  so it is excluded from the test and reported in `label_overlap` instead
-- Cross-split duplicate detection now restricts both operands to the same columns before
-  comparing them. Two splits with divergent stat caches previously reached DataEval's
-  `_reject_stat_name_mismatch` and crashed, so cross-split leakage detection failed outright
-  rather than reporting a result
+- Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
+- Include source views in cache keys, so editing one invalidates the embeddings, metadata, and statistics it produced
+- Relative `ontology:` paths now resolve against the run's data root rather than the process root
+- Restrict outlier detection to configured `outlier_flags`, preventing shared caches from widening column checks
+- Restrict duplicate detection to configured `duplicate_flags`, preventing shared cache widening
+- Restrict injected metadata factors to configured `intrinsic_factors` instead of cache state
+- Record band-group statistics in `injected_factors` rather than misattributing them as dataset columns
+- Restrict cross-split label parity to shared classes, preventing chi-square errors on gapped label spaces
+- Exclude single-split classes from the parity test and report them in `label_overlap` instead
+- Restrict cross-split duplicate detection to common columns, preventing crashes on divergent stat caches
 
 ### Removed
 
-- Poetry packaging support. `poetry.lock`, the `[tool.poetry]` configuration, and the `poetry install`
-  CI lane are gone; v0.2.2 is the last release that supports it. Install with uv, pip, or conda instead
+- Poetry packaging support; install with uv, pip, or conda instead
 
 ## v0.2.2
 
 ### Added
 
-- `--task NAME` on the headless CLI, selecting tasks by name; repeat it to run several, in the order given.
-  A named task runs whether or not the config marks it `enabled`
-- `--fail-on-warning` on the headless CLI, exiting non-zero when a task succeeds but reports findings that
-  breached their health thresholds — so a pipeline can gate on data quality without parsing the text report
-- `--version`, reporting the installed build
-- `dataeval-flow workflows` lists the available workflow types; naming one prints the JSON Schema for its
-  parameters. Discovery for images that ship without the `app` extra
+- `--task NAME` on the headless CLI to select tasks by name, running in the given order regardless of `enabled`
+- `--fail-on-warning` on the headless CLI, exiting non-zero when health thresholds are breached
+- `--version` flag reporting the installed build
+- `dataeval-flow workflows` command listing workflow types and printing parameter JSON Schemas
 - Result envelopes carry a `health` block (`status`, `warnings`, `findings`) beside `metadata`
-- `WorkflowResult.health`, `.warning_count`, and `.findings` expose the report's health line programmatically
-- `select_tasks` resolves the task selection a run executes, so callers can pair results back to their tasks
+- `WorkflowResult.health`, `.warning_count`, and `.findings` exposing report health programmatically
+- `select_tasks` helper resolving executed tasks so callers can pair them with results
 
 ### Fixed
 
-- A task marked `enabled: false` crashed the headless and container runner after every workflow had already
-  run, losing the results — the runner paired results against every configured task rather than the executed ones
+- Runner crash when pairing results against tasks marked `enabled: false`
 
 ## v0.2.1
 
 ### Added
 
-- `split` on YOLO dataset configs, selecting one split (`train` / `val` / `test`) from the dataset root —
-  restoring the per-split loading lost when the loaders moved from `maite-datasets` to `datamaite`
-- `yaml_file` and `ann_dir` on YOLO dataset configs, for a `data.yaml` outside the root's conventional names
-  and for label trees kept outside `labels/`
+- `split` on YOLO dataset configs, selecting `train`, `val`, or `test` from the dataset root
+- `yaml_file` and `ann_dir` on YOLO dataset configs for non-standard layout paths
 
 ### Changed
 
-- CUDA variants bumped from `cu118` / `cu128` to `cu126` / `cu130`, tracking the CUDA builds PyTorch publishes
-- `onnx-gpu` extra split into `onnx-cu126` and `onnx-cu130` so the `onnxruntime-gpu` build matches the
-  selected CUDA runtime
-- Capped the `opencv` extra at `4.12.0.88` for compatibility with FIPS enabled systems
-- Empty-load errors name the requested split, and point at the split's expected layout for YOLO
+- Bumped CUDA variants from `cu118` / `cu128` to `cu126` / `cu130`, tracking PyTorch builds
+- Split `onnx-gpu` extra into `onnx-cu126` and `onnx-cu130` to match the selected CUDA runtime
+- Capped `opencv` extra at `4.12.0.88` for compatibility with FIPS-enabled systems
+- Empty-load errors now name the requested split and expected YOLO directory layout
 
 ### Fixed
 
-- Example config advertised `images_dir`, `labels_dir`, and `classes_file` on YOLO datasets and
-  `classes_file` on COCO datasets; those fields were removed in v0.2.0 and are rejected by the schema
+- Removed obsolete `images_dir`, `labels_dir`, and `classes_file` fields from example configs
 
 ## v0.2.0
 
@@ -210,8 +167,7 @@
 
 ### Infrastructure
 
-- Container hardening for SDP 1.2 — pinned Trivy, per-image SBOM attestation, GitLab Container-Scanning template,
-  PEP/OCI-compliant versioned tags with promotion gated on image scans
+- Container hardening for SDP 1.2 (pinned Trivy, SBOM attestation, PEP/OCI tags gated on scans)
 - Markdown lint and link-check jobs; governance and DSOR documentation
 - FR/NFR verification tests and metarepo artifacts
 
