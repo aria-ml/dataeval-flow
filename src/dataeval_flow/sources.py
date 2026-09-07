@@ -200,7 +200,7 @@ def resolve_source(
             dataset=operands[0].raw,
             view_config=operands[0].view_config,
             cache_name=operands[0].dataset_config.name,  # pyright: ignore[reportAttributeAccessIssue]
-            cache_key=operands[0].cache_key,
+            cache_key=operands[0].cache_key + _view_key(operands[0].view_config),
         )
 
     merged = merge_datasets([operand.view() for operand in operands])
@@ -211,8 +211,32 @@ def resolve_source(
         dataset=merged,
         view_config=view_config,
         cache_name=name,
-        cache_key="merge:" + "|".join(_operand_key(operand) for operand in operands),
+        cache_key="merge:" + "|".join(_operand_key(operand) for operand in operands) + _view_key(view_config),
     )
+
+
+def _view_key(view_config: "ViewConfig | None") -> str:
+    """Return the cache-key fragment for a view a workflow applies later.
+
+    Empty when there is no view, so a source without one keys exactly as it did before
+    this fragment existed and keeps hitting the entries it already wrote.
+
+    A view has to reach the key because only part of it reaches `selection_repr`, which
+    hashes the indices a selection resolved to. `Limit` and `Shuffle` change indices and
+    are caught there. `SelectChannels`, `Resize` and a `Relabel` that renames without
+    dropping anything change pixels or labels while leaving the index set alone, so
+    without this they are invisible: edit one, re-run, and every artifact under the
+    selection - embeddings, clusters, metadata and statistics alike - is served from the
+    previous view.
+    """
+    if view_config is None:
+        return ""
+    # `params` is a free mapping, so an operation can hold a live object a workflow builds
+    # with — a torchvision transform, say — which JSON cannot carry. Render those with
+    # `repr` rather than refusing to key the source at all. An object whose repr carries
+    # its address then keys differently on every run, which costs a cache hit and never
+    # serves a stale one.
+    return f"+view:{view_config.model_dump_json(fallback=repr)}"
 
 
 def _load_operand(
@@ -246,7 +270,7 @@ def _operand_key(operand: SourceOperand) -> str:
     than something the workflow applies later. Fold it into the key, or narrowing one
     operand's view would serve the previous corpus's cached embeddings.
     """
-    view = operand.view_config.model_dump_json() if operand.view_config is not None else "none"
+    view = operand.view_config.model_dump_json(fallback=repr) if operand.view_config is not None else "none"
     return f"{operand.cache_key}+view:{view}"
 
 

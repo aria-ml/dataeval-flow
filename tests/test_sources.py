@@ -209,6 +209,57 @@ class TestResolveSource:
         with pytest.raises(ValueError, match="index2label"):
             resolve_source("merged", config)
 
+    def test_plain_source_view_reaches_the_cache_key(self):
+        """A view that changes pixels but not indices must still change the key.
+
+        `selection_repr` hashes the indices a selection resolved to, so `SelectChannels`
+        is invisible to it. Without the view in this key, editing the channels and
+        re-running serves the previous view's embeddings, statistics and metadata.
+        """
+        config = _merge_config()
+        assert config.views is not None
+        base = resolve_source("a", config).cache_key
+
+        config.views[0].operations = [
+            *config.views[0].operations,
+            ViewOperation(type="SelectChannels", params={"channels": [0]}),
+        ]
+        assert resolve_source("a", config).cache_key != base
+
+    def test_a_source_without_a_view_keys_as_before(self):
+        """No view, no fragment, so entries written before this field still hit."""
+        config = _merge_config()
+        assert config.sources is not None
+        config.sources[0].view = None
+        resolved = resolve_source("a", config)
+        assert "+view:" not in resolved.cache_key
+
+    def test_merged_source_own_view_reaches_the_cache_key(self):
+        """A merged source's own view is applied after the merge and was in no key at all.
+
+        The operand keys cover each operand's own view. This one is the merged source's,
+        so two sources merging the same operands under different views collided.
+        """
+        config = _merge_config()
+        assert config.views is not None
+        assert config.sources is not None
+        base = resolve_source("merged", config).cache_key
+
+        config.views.append(
+            ViewConfig(name="one_band", operations=[ViewOperation(type="SelectChannels", params={"channels": [0]})])
+        )
+        config.sources[2].view = "one_band"
+        assert resolve_source("merged", config).cache_key != base
+
+    def test_relabel_that_only_renames_reaches_the_cache_key(self):
+        """A rename drops nothing, so the index set is identical and only the key differs."""
+        config = _merge_config()
+        assert config.views is not None
+        base = resolve_source("a", config).cache_key
+
+        config.views[0].operations[0].params = {"class_remap": {"car": "Truck"}, "target": _TARGET}
+        assert resolve_source("a", config).cache_key != base
+
     def test_merged_source_applies_its_own_view_last(self):
         config = _merge_config()
         assert config.views is not None
@@ -242,3 +293,19 @@ class TestResolveSource:
         after = resolve_source("merged", config)
         assert len(after.dataset) == 3
         assert after.cache_key != before
+
+
+@pytest.mark.required
+class TestViewKeyToleratesLiveObjects:
+    """`params` is a free mapping, so a view can hold something JSON cannot carry."""
+
+    def test_a_transform_object_does_not_break_the_key(self):
+        """Refusing to serialize would take the whole source down, not just its key."""
+        from torchvision.transforms import v2
+
+        config = _merge_config()
+        assert config.views is not None
+        config.views[0].operations = [
+            ViewOperation(type="TorchvisionTransform", params={"transform": v2.ColorJitter(brightness=(2.0, 2.0))})
+        ]
+        assert "+view:" in resolve_source("a", config).cache_key

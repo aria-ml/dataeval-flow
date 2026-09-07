@@ -2442,3 +2442,79 @@ class TestUncachedNarrowsChannelsToMatch:
 
         assert "brightness" in result["stats"]
         assert "rgb_mean" not in result["stats"]
+
+
+@pytest.mark.required
+class TestAViewEditIsNotServedFromTheOldCache:
+    """The end of the chain: a changed key has to actually prevent the stale read."""
+
+    class _Toy:
+        """Four-band images with a plain array target, so the fingerprint is repeatable.
+
+        A target object without its own ``__repr__`` renders with a memory address, which
+        `dataset_fingerprint` hashes, and the key then differs on every call — the entry
+        could never be reused and this test could not tell a hit from a miss.
+        """
+
+        def __init__(self) -> None:
+            import numpy as np
+
+            rng = np.random.default_rng(0)
+            self._images = [rng.integers(0, 255, (4, 16, 16), dtype=np.uint8) for _ in range(8)]
+            self.metadata = {"id": "toy", "index2label": {0: "a"}}
+
+        def __len__(self) -> int:
+            return len(self._images)
+
+        def __getitem__(self, index):
+            import numpy as np
+
+            return self._images[index], np.array([0]), {"id": index}
+
+    def _brightness(self, tmp_path, dataset, channels: list[int]) -> float:
+        import numpy as np
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import (
+            DatasetCache,
+            active_cache,
+            get_or_compute_stats,
+            selection_repr,
+        )
+        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow.config._models import SourceConfig
+        from dataeval_flow.config.schemas import DatasetProtocolConfig, ViewOperation
+        from dataeval_flow.config.schemas._view import ViewConfig
+        from dataeval_flow.sources import resolve_source
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        config = PipelineConfig(
+            datasets=[DatasetProtocolConfig(name="toy", dataset=dataset)],
+            views=[
+                ViewConfig(
+                    name="bands",
+                    operations=[ViewOperation(type="SelectChannels", params={"channels": channels})],
+                )
+            ],
+            sources=[SourceConfig(name="src", dataset="toy", view="bands")],
+        )
+        resolved = resolve_source("src", config)
+        cache = DatasetCache.get_or_create(tmp_path, resolved.cache_name, resolved.cache_key)
+        policy = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=())
+        with active_cache(cache, selection_repr(resolved.realized())):
+            result = get_or_compute_stats(
+                policy, dataset=resolved.realized(), per_target=False, value_range=(0.0, 255.0)
+            )
+        return float(np.mean(result["stats"]["brightness"]))
+
+    def test_the_same_view_twice_is_served_from_the_cache(self, tmp_path):
+        """The control: without this, the test below could pass on a cache that never hits."""
+        dataset = self._Toy()
+        assert self._brightness(tmp_path, dataset, [0, 1, 2]) == self._brightness(tmp_path, dataset, [0, 1, 2])
+
+    def test_editing_the_channels_recomputes_rather_than_reusing(self, tmp_path):
+        """`SelectChannels` leaves the index set alone, so only the source key separates these."""
+        dataset = self._Toy()
+        rgb = self._brightness(tmp_path, dataset, [0, 1, 2])
+        ir = self._brightness(tmp_path, dataset, [3])
+        assert rgb != ir

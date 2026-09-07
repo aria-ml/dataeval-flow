@@ -34,6 +34,13 @@
 
 ### Fixed
 
+- A source's view now reaches its cache key, so editing one invalidates what it produced.
+  Only the part of a view that changes the index set reached `selection_repr`, so
+  `SelectChannels`, `Resize`, and a `Relabel` that renames without dropping anything were
+  invisible: editing one and re-running served the previous view's embeddings, clusters,
+  metadata and statistics. A merged source's own view reached no key at all. A source
+  without a view keys exactly as before and keeps its entries; one with a view recomputes
+  once on upgrade
 - A relative `ontology:` path now resolves against the run's data root rather than the process-wide root
 - `outlier_flags` now decides which columns flag an outlier. A warm cache, or a second
   workflow reading the same source, previously widened outlier detection to every numeric
