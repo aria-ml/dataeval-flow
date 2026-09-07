@@ -1342,6 +1342,25 @@ class TestBackgroundFractionLeads:
         names = ["a", "b", "c"]
         assert _order_factors(names) == names
 
+    def test_the_fraction_leads_on_level_prefixed_detection_data(self):
+        """`background: true` is only meaningful on detection data, where `add_factors`
+
+        level-prefixes every name — the real names this has to handle are
+        `unit_background_fraction` and `instance_background_brightness`, not the bare forms.
+        """
+        from dataeval_flow.workflows.analysis.workflow import _order_factors
+
+        ordered = _order_factors(
+            ["unit_brightness", "instance_background_brightness", "unit_background_fraction", "unit_mean"]
+        )
+        assert ordered.index("unit_background_fraction") < ordered.index("instance_background_brightness")
+
+    def test_a_level_prefixed_run_without_a_background_is_unchanged(self):
+        from dataeval_flow.workflows.analysis.workflow import _order_factors
+
+        names = ["unit_brightness", "instance_mean"]
+        assert _order_factors(names) == names
+
 
 # ===========================================================================
 # _assess_cross_redundancy

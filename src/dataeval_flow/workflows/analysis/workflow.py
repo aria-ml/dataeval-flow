@@ -37,7 +37,7 @@ from pydantic import BaseModel
 from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow.cache import selection_repr as _sel_repr
-from dataeval_flow.policy import derive_from, policy_for, resolve_policy
+from dataeval_flow.policy import _ROW_LEVELS, derive_from, policy_for, resolve_policy
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.stats import columns_for, restrict_columns, stats_policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
@@ -287,22 +287,44 @@ def _assess_label_health(data: SplitData) -> LabelHealthResult:
     )
 
 
+def _strip_row_level(name: str) -> str:
+    """Return *name* with a leading row-level prefix removed, if it carries one.
+
+    `add_factors` level-prefixes names on multi-target data — `background_fraction` becomes
+    `unit_background_fraction`, `background_brightness` becomes `instance_background_brightness`
+    — and the two need not share a level, since each is level-split by its own row count.
+    Strip it before comparing names so `_order_factors` matches on classification data and
+    on detection data alike.
+    """
+    for level in _ROW_LEVELS:
+        prefix = f"{level}_"
+        if name.startswith(prefix):
+            return name[len(prefix) :]
+    return name
+
+
 def _order_factors(names: Sequence[str]) -> list[str]:
     """Order factor names so `background_fraction` leads the background ones.
 
     A background statistic measured over a few percent of an image is noise, so put the
     share of the image that was measured where a reader meets it first. Everything else
     keeps the order it came in.
+
+    `background: true` only means anything on detection data, where `add_factors`
+    level-prefixes every name — so the names this actually has to match, on the data this
+    feature targets, are `unit_background_fraction` and `instance_background_brightness`,
+    not the bare forms. Match with the row-level prefix stripped so both data shapes work.
     """
     ordered = list(names)
-    if "background_fraction" not in ordered:
+    fraction_name = next((name for name in ordered if _strip_row_level(name) == "background_fraction"), None)
+    if fraction_name is None:
         return ordered
     first_background = next(
-        (i for i, name in enumerate(ordered) if name.startswith("background_")),
+        (i for i, name in enumerate(ordered) if _strip_row_level(name).startswith("background_")),
         len(ordered),
     )
-    ordered.remove("background_fraction")
-    ordered.insert(first_background, "background_fraction")
+    ordered.remove(fraction_name)
+    ordered.insert(first_background, fraction_name)
     return ordered
 
 
