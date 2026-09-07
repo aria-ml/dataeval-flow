@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from dataeval_flow.cache import active_cache, get_or_compute_stats
 from dataeval_flow.embeddings import build_extractor
-from dataeval_flow.stats import HASH_FLAG_MAP, stats_policy_for
+from dataeval_flow.stats import HASH_FLAG_MAP, columns_for, restrict_columns, stats_policy_for
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
@@ -218,7 +218,10 @@ class ParameterSweepWorkflow(WorkflowProtocol[ParameterSweepMetadata, ParameterS
                     flags=outlier_flags,
                     outlier_threshold=(m_outlier_method, m_outlier_threshold),
                 )
-                outlier_output = outliers_eval.from_stats(calc_result, per_target=False)
+                outlier_output = outliers_eval.from_stats(
+                    restrict_columns(calc_result, columns_for(stats_policy.outliers_from, outlier_flags)),
+                    per_target=False,
+                )
 
                 if m_outlier_cluster_threshold is not None and embeddings_array is not None:
                     # We need a DataCleaningParameters object because _merge_outlier_outputs expects it

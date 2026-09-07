@@ -25,7 +25,7 @@ from dataeval_flow.cache import (
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.stats import HASH_FLAG_MAP as _HASH_FLAG_MAP
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as _OUTLIER_FLAG_MAP
-from dataeval_flow.stats import stats_policy_for
+from dataeval_flow.stats import columns_for, restrict_columns, stats_policy_for
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import effective_value_range
 from dataeval_flow.workflows.prioritization.outputs import (
@@ -129,7 +129,9 @@ def _run_outlier_detection_per_source(
         flags=outlier_flags,
         outlier_threshold=(cleaning.outlier_method, cleaning.outlier_threshold),
     )
-    outlier_output = outliers_eval.from_stats(calc_result)  # type: ignore[arg-type]
+    outlier_output = outliers_eval.from_stats(
+        restrict_columns(calc_result, columns_for(stats_policy.outliers_from, outlier_flags))
+    )
     return set(outlier_output.outliers.keys())
 
 

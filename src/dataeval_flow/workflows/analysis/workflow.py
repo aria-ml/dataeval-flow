@@ -39,7 +39,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_co
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.policy import derive_from, policy_for, resolve_policy
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
-from dataeval_flow.stats import stats_policy_for
+from dataeval_flow.stats import columns_for, stats_policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
@@ -220,19 +220,21 @@ def _compute_split_data(
 
 def _assess_image_quality(
     data: SplitData,
+    outlier_flags: ImageStats,
     outlier_method: Literal["adaptive", "zscore", "modzscore", "iqr"],
     outlier_threshold: float | None = None,
 ) -> ImageQualityResult:
     """Assess image quality via outlier detection."""
     _logger.info("  Detecting outliers ...")
 
-    # Filter to image-level entries only
+    # Filter to image-level entries, and to the columns outlier_flags names.
+    allowed = columns_for(data.stats_policy.outliers_from, outlier_flags)
     img_calc: StatsResult = {
         "source_index": [si for si, m in zip(data.calc_result["source_index"], data.img_mask, strict=True) if m],
         "object_count": data.calc_result["object_count"],
         "invalid_box_count": data.calc_result["invalid_box_count"],
         "image_count": data.calc_result["image_count"],
-        "stats": {k: v[data.img_mask] for k, v in data.calc_result["stats"].items()},
+        "stats": {k: v[data.img_mask] for k, v in data.calc_result["stats"].items() if k in allowed},
     }
 
     outliers_eval = Outliers(outlier_threshold=(f"{outlier_method}", outlier_threshold))
@@ -1182,7 +1184,9 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
             _logger.info("[data-analysis] Assessing '%s' ...", split_name)
             sr = SplitResult(
                 num_samples=data.dataset_len,
-                image_quality=_assess_image_quality(data, params.outlier_method, params.outlier_threshold),
+                image_quality=_assess_image_quality(
+                    data, _resolve_outlier_flags(params), params.outlier_method, params.outlier_threshold
+                ),
                 redundancy=_assess_redundancy(data),
                 label_health=_assess_label_health(data),
                 bias=_assess_bias(data, params.balance, params.diversity_method, run_policy.factor_source),

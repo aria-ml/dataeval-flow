@@ -1240,7 +1240,13 @@ class TestRunCleaningClusterBranches:
         mock_compute_emb: MagicMock,
         mock_merge_outlier: MagicMock,
     ):
-        mock_get_stats.return_value = {}
+        mock_get_stats.return_value = {
+            "stats": {},
+            "source_index": [],
+            "object_count": [],
+            "invalid_box_count": [],
+            "image_count": 0,
+        }
 
         issues_df = pl.DataFrame({"item_index": [0], "metric_name": ["brightness"], "metric_value": [0.1]})
         mock_outlier_output = MagicMock()

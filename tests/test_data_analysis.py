@@ -1140,6 +1140,10 @@ class TestComputeSplitData:
 
 class TestAssessImageQuality:
     def _make_split_data(self, n: int = 3) -> MagicMock:
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         data = MagicMock(spec=SplitData)
         si = MagicMock()
         si.key = None
@@ -1152,20 +1156,25 @@ class TestAssessImageQuality:
         }
         data.img_mask = np.ones(n, dtype=bool)
         data.dataset_len = n
+        data.stats_policy = ResolvedStatsPolicy.of_flags(ImageStats.VISUAL)
         return data
 
     @patch(f"{_WF}.Outliers")
     def test_no_outliers(self, mock_outliers_cls):
+        from dataeval.flags import ImageStats
+
         mock_outliers_cls.return_value.from_stats.return_value.data.return_value = pl.DataFrame(
             schema={"item_index": pl.Int64, "metric_name": pl.Utf8, "metric_value": pl.Float64}
         )
         data = self._make_split_data()
-        result = _assess_image_quality(data, "modzscore")
+        result = _assess_image_quality(data, ImageStats.VISUAL, "modzscore")
         assert result.outlier_count == 0
         assert result.outlier_rate == 0.0
 
     @patch(f"{_WF}.Outliers")
     def test_with_outliers(self, mock_outliers_cls):
+        from dataeval.flags import ImageStats
+
         mock_outliers_cls.return_value.from_stats.return_value.data.return_value = pl.DataFrame(
             {
                 "item_index": [0, 1, 1],
@@ -1174,7 +1183,7 @@ class TestAssessImageQuality:
             }
         )
         data = self._make_split_data(10)
-        result = _assess_image_quality(data, "modzscore")
+        result = _assess_image_quality(data, ImageStats.VISUAL, "modzscore")
         assert result.outlier_count == 2
         assert result.outlier_rate == 0.2
         assert "brightness" in result.outlier_summary

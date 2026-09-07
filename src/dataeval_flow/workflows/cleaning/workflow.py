@@ -383,7 +383,7 @@ def _run_cleaning(
     import time as _time
 
     from dataeval_flow.cache import get_or_compute_stats
-    from dataeval_flow.stats import stats_policy_for
+    from dataeval_flow.stats import columns_for, restrict_columns, stats_policy_for
 
     _validate_cluster_params(params, extractor)
 
@@ -407,7 +407,10 @@ def _run_cleaning(
         flags=outlier_flags,
         outlier_threshold=(params.outlier_method, params.outlier_threshold),
     )
-    outlier_output = outliers_eval.from_stats(calc_result, per_target=True)  # type: ignore[arg-type]
+    outlier_output = outliers_eval.from_stats(
+        restrict_columns(calc_result, columns_for(stats_policy.outliers_from, outlier_flags)),
+        per_target=True,
+    )
     _logger.info("  [4b] Stats-based outlier detection done in %.1fs", _time.monotonic() - _t0)
 
     # --- Shared embeddings for cluster-based detection ---
