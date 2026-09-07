@@ -3,9 +3,10 @@
 An export is not lossless. Detections are rebuilt from the realized corpus rather than
 copied from the source records, because a view can filter and relabel them and nothing
 then maps an output detection back to the annotation it came from. So an export carries
-each box's geometry, class and score, and drops the source annotation id, `area`,
+each box's geometry and class, and drops the source annotation id, `area`,
 `segmentation`, `iscrowd` and the per-detection attributes. Read a source's own files
-where you need those.
+where you need those. Scores are not carried either: an export writes ground truth, and a
+`score` records a prediction's confidence.
 """
 
 __all__ = ["build_od_dataset", "export_provenance", "write_export", "write_exports"]
