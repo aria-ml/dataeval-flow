@@ -68,7 +68,7 @@ __all__ = [
     "get_or_compute_embeddings",
     "get_or_compute_metadata",
     "get_or_compute_stats",
-    "missing_flags",
+    "missing_views",
     "scope_key",
     "dataset_fingerprint",
     "selection_repr",
@@ -81,7 +81,7 @@ import logging
 import os
 import tempfile
 import threading
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -97,6 +97,7 @@ if TYPE_CHECKING:
     from dataeval import Metadata
 
     from dataeval_flow.policy import ResolvedPolicy
+    from dataeval_flow.stats import ResolvedStatsPolicy
 
 _logger = logging.getLogger(__name__)
 
@@ -450,17 +451,24 @@ def scope_key(
     per_image: bool = True,
     per_target: bool = True,
     value_range: tuple[float, float] | None = None,
+    stats_policy: "ResolvedStatsPolicy | None" = None,
 ) -> str:
-    """Build a deterministic scope key from per_image/per_target settings.
+    """Build a deterministic scope key from the settings that make results unmergeable.
 
-    Stats computed with different scope settings have incompatible
-    ``source_index`` arrays and cannot be merged.  The scope key ensures
-    they are cached separately.
+    Stats computed with different scope settings have incompatible ``source_index`` arrays
+    and cannot be merged. The scope key keeps them apart.
 
-    ``value_range`` participates because it changes the values themselves:
-    the VISUAL family, ``PIXEL_HISTOGRAM``, ``PIXEL_ENTROPY`` and
-    ``DIMENSION_DEPTH`` all read it, and answer ``NaN`` without one on float
-    data.  Two runs declaring different ranges must not share an entry.
+    ``value_range`` participates because it changes the values themselves: the VISUAL
+    family, ``PIXEL_HISTOGRAM``, ``PIXEL_ENTROPY`` and ``DIMENSION_DEPTH`` all read it, and
+    answer ``NaN`` without one on float data.
+
+    The stats policy participates through its band definitions and ``background`` only. Two
+    runs defining ``rgb`` as ``[0, 1, 2]`` and as ``[0, 1]`` must not share an entry.
+    ``background`` is in the key so that coverage can be asked of base columns alone: inside
+    one entry every compute ran with the same ``per_background``, so a view's background
+    columns always arrive with its base ones. Which families a policy asks for is not here,
+    because it changes which columns exist rather than what any column holds, and the cache
+    merges columns on a partial hit.
     """
     parts: list[str] = []
     if per_image:
@@ -470,34 +478,44 @@ def scope_key(
     key = "+".join(parts) or "none"
     if value_range is not None:
         key = f"{key}_vr{value_range[0]:g}-{value_range[1]:g}"
+    fragment = stats_policy.scope_fragment() if stats_policy is not None else ""
+    if fragment:
+        key = f"{key}_st{_config_hash(fragment)}"
     return key
 
 
-def missing_flags(cached_metrics: set[str], desired_flags: ImageStats) -> ImageStats:
-    """Compute the ``ImageStats`` flags not yet covered by cached metrics.
+def missing_views(
+    cached_metrics: set[str],
+    request: "Mapping[str | None, ImageStats]",
+) -> dict[str | None, ImageStats]:
+    """Return the part of *request* the cache does not already hold, per view.
 
-    Parameters
-    ----------
-    cached_metrics : set[str]
-        Metric names already present in the cache.
-    desired_flags : ImageStats
-        The flags the workflow wants computed.
+    Ask coverage per ``(view, metric)``: ``rgb_brightness`` is a different column from
+    ``brightness``, and an entry holding one answers nothing about the other.
 
-    Returns
-    -------
-    ImageStats
-        Flags that still need to be computed.  ``ImageStats.NONE`` if all
-        desired metrics are already cached.
+    Only base columns are checked. ``background`` is in the scope key, so within one entry
+    every compute used the same ``per_background`` and a view's background columns arrived
+    with its base ones.
+
+    Returns a mapping in the shape ``compute_stats`` takes, naming only uncovered views, so
+    a partial recomputation asks for exactly what is missing.
     """
-    uncovered = ImageStats.NONE
-    for flag in ImageStats:
-        # Only consider individual (atomic, single-bit) flags
-        if flag.value and (flag.value & (flag.value - 1)) == 0 and flag in desired_flags:
-            metric_name = FLAG_TO_METRIC.get(flag)
-            if metric_name and metric_name not in cached_metrics:
-                uncovered |= flag
-    # Re-resolve so that dependencies of missing flags are included
-    return uncovered if uncovered else ImageStats.NONE
+    uncovered: dict[str | None, ImageStats] = {}
+    for view, desired in request.items():
+        missing = ImageStats.NONE
+        for flag in ImageStats:
+            # Only atomic flags name a column; the composites are convenience groups.
+            if not (flag.value and (flag.value & (flag.value - 1)) == 0 and flag in desired):
+                continue
+            metric = FLAG_TO_METRIC.get(flag)
+            if metric is None:
+                continue
+            column = metric if view is None else f"{view}_{metric}"
+            if column not in cached_metrics:
+                missing |= flag
+        if missing:
+            uncovered[view] = missing
+    return uncovered
 
 
 # ---------------------------------------------------------------------------
@@ -507,25 +525,30 @@ def missing_flags(cached_metrics: set[str], desired_flags: ImageStats) -> ImageS
 
 def _do_compute_stats(
     dataset: AnnotatedDataset[Any],
-    desired_flags: ImageStats,
+    policy: "ResolvedStatsPolicy",
     per_image: bool = True,
     per_target: bool = True,
     value_range: tuple[float, float] | None = None,
 ) -> StatsResult:
-    """Compute stats and return.
+    """Compute the statistics *policy* asks for and return them.
 
-    ``normalize_pixel_values`` is passed explicitly rather than left to the
-    default so the scale is pinned by this project rather than by the
-    installed dataeval.  ``False`` reports pixel statistics in the units the
-    data is stored in; the outlier thresholds flow uses (``zscore``,
-    ``modzscore``, ``iqr``) are location-scale equivariant, so the scale
-    changes what a metric reads without changing which items it flags.
+    ``normalize_pixel_values`` is passed explicitly rather than left to the default so the
+    scale is pinned by this project rather than by the installed dataeval.  ``False``
+    reports pixel statistics in the units the data is stored in; the outlier thresholds
+    flow uses (``zscore``, ``modzscore``, ``iqr``) are location-scale equivariant, so the
+    scale changes what a metric reads without changing which items it flags.
+
+    The request is always a mapping, even for the one-view case. ``{None: flags}`` with no
+    channels is identical to ``flags``, so this does not change the call a config without a
+    stats policy issues.
     """
     from dataeval.core import compute_stats
 
     return compute_stats(
         dataset,
-        stats=desired_flags,
+        stats=policy.request,
+        channels=policy.channel_map,
+        per_background=policy.background,
         per_image=per_image,
         per_target=per_target,
         normalize_pixel_values=False,
@@ -573,7 +596,7 @@ def _do_compute_clusters(
 
 
 def get_or_compute_stats(
-    desired_flags: ImageStats,
+    policy: "ResolvedStatsPolicy",
     dataset: AnnotatedDataset[Any],
     per_image: bool = True,
     per_target: bool = True,
@@ -581,23 +604,23 @@ def get_or_compute_stats(
 ) -> StatsResult:
     """Centralized stats computation with context-aware caching.
 
-    Uses the :func:`active_cache` context when set, otherwise computes
-    directly without any caching.
+    Uses the :func:`active_cache` context when set, otherwise computes directly without any
+    caching.
     """
     ctx = _active_cache.get()
     if ctx is not None:
         cache, sel_key = ctx
         return cache.load_or_compute_stats(
             sel_key,
-            scope_key(per_image, per_target, value_range),
-            desired_flags,
+            scope_key(per_image, per_target, value_range, policy),
+            policy,
             dataset,
             per_image=per_image,
             per_target=per_target,
             value_range=value_range,
         )
     _logger.info("Computing stats (no cache)")
-    return _do_compute_stats(dataset, desired_flags, per_image, per_target, value_range)
+    return _do_compute_stats(dataset, policy, per_image, per_target, value_range)
 
 
 def get_or_compute_metadata(
@@ -1361,7 +1384,7 @@ class DatasetCache:
         self,
         selection_repr: str,
         scope: str,
-        desired_flags: ImageStats,
+        policy: "ResolvedStatsPolicy",
         dataset: AnnotatedDataset[Any],
         per_image: bool = True,
         per_target: bool = True,
@@ -1375,8 +1398,8 @@ class DatasetCache:
             Selection key (from :func:`selection_repr`).
         scope : str
             Scope key (from :func:`scope_key`).
-        desired_flags : ImageStats
-            All flags the caller needs.
+        policy : ResolvedStatsPolicy
+            What the caller needs, by view.
         dataset
             The dataset to pass to ``compute_stats()`` on miss.
         per_image, per_target
@@ -1390,12 +1413,11 @@ class DatasetCache:
         """
         cached = self.load_stats(selection_repr, scope)
         if cached is not None:
-            cached_metric_names = set(cached["stats"].keys())
-            to_compute = missing_flags(cached_metric_names, desired_flags)
+            to_compute = missing_views(set(cached["stats"].keys()), policy.request)
         else:
-            to_compute = desired_flags
+            to_compute = policy.request
 
-        if to_compute == ImageStats.NONE and cached is not None:
+        if not to_compute and cached is not None:
             _logger.info("Full cache hit for stats (scope=%s)", scope)
             return cached
 
@@ -1405,8 +1427,12 @@ class DatasetCache:
                 sorted(cached["stats"].keys()),
             )
 
+        from dataclasses import replace as _replace
+
         # Compute the missing stats
-        fresh = _do_compute_stats(dataset, to_compute, per_image, per_target, value_range)
+        fresh = _do_compute_stats(
+            dataset, _replace(policy, measure=tuple(to_compute.items())), per_image, per_target, value_range
+        )
 
         if cached is None:
             self.save_stats(selection_repr, scope, dict(fresh))

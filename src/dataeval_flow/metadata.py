@@ -215,12 +215,23 @@ def _inject(
     # Imported here, not at module scope: cache.py imports build_metadata from this module,
     # so a module-level import back would be circular.
     from dataeval_flow.cache import get_or_compute_stats
+    from dataeval_flow.stats import ResolvedStatsPolicy, check_consumers
 
     flags = resolve_families(_modality_of(dataset), policy.intrinsic_factors)
     if not isinstance(flags, ImageStats):
         raise ValueError(f"Intrinsic factors are only supported for image datasets, not {flags}.")
+    stats_policy = policy.stats
+    if stats_policy is None:
+        stats_policy = ResolvedStatsPolicy.of_flags(flags)
+    else:
+        check_consumers(
+            stats_policy,
+            outlier_flags=ImageStats.NONE,
+            duplicate_flags=ImageStats.NONE,
+            factor_flags=flags,
+        )
     calc_result = get_or_compute_stats(
-        desired_flags=flags,
+        stats_policy,
         dataset=dataset,
         per_image=True,
         # Detection data measures at both levels; asking for target statistics on

@@ -26,7 +26,6 @@ from dataeval_flow.cache import (
     get_or_compute_embeddings,
     get_or_compute_metadata,
     get_or_compute_stats,
-    missing_flags,
     scope_key,
     selection_repr,
 )
@@ -199,40 +198,6 @@ class TestScopeKey:
 
     def test_none_scope(self):
         assert scope_key(False, False) == "none"
-
-
-# ---------------------------------------------------------------------------
-# missing_flags helper
-# ---------------------------------------------------------------------------
-
-
-class TestMissingFlags:
-    def test_all_cached_returns_none(self):
-        from dataeval.flags import ImageStats
-
-        cached = {"mean", "std", "var"}
-        desired = ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD | ImageStats.PIXEL_VAR
-        assert missing_flags(cached, desired) == ImageStats.NONE
-
-    def test_none_cached_returns_all(self):
-        from dataeval.flags import ImageStats
-
-        desired = ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD
-        result = missing_flags(set(), desired)
-        assert result != ImageStats.NONE
-        # Should include at least the requested flags
-        assert ImageStats.PIXEL_MEAN in result
-        assert ImageStats.PIXEL_STD in result
-
-    def test_partial_returns_only_missing(self):
-        from dataeval.flags import ImageStats
-
-        cached = {"mean"}  # have mean
-        desired = ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD  # want mean + std
-        result = missing_flags(cached, desired)
-        assert ImageStats.PIXEL_STD in result
-        # mean is already cached so it should NOT be in the result
-        assert ImageStats.PIXEL_MEAN not in result
 
 
 # ---------------------------------------------------------------------------
@@ -780,9 +745,10 @@ class TestComputeStatsArguments:
         from dataeval.flags import ImageStats
 
         from dataeval_flow.cache import _do_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
 
         with patch(self._CALC_STATS_PATH, return_value=_make_calc_result(3)) as mock_calc:
-            _do_compute_stats(MagicMock(), ImageStats.PIXEL_MEAN)
+            _do_compute_stats(MagicMock(), ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN))
         _, kwargs = mock_calc.call_args
         return kwargs
 
@@ -805,11 +771,14 @@ class TestLoadOrComputeStats:
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
+        policy = ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = cache.load_or_compute_stats("sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True)
+            result = cache.load_or_compute_stats("sel:all", "img+tgt", policy, MagicMock(), True, True)
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -820,12 +789,15 @@ class TestLoadOrComputeStats:
     def test_full_hit_returns_cached(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
+        policy = ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN)
 
         with patch(self._CALC_STATS_PATH) as mock_calc:
-            result = cache.load_or_compute_stats("sel:all", "img+tgt", ImageStats.PIXEL_MEAN, MagicMock(), True, True)
+            result = cache.load_or_compute_stats("sel:all", "img+tgt", policy, MagicMock(), True, True)
             # Should NOT call compute_stats — full cache hit
             mock_calc.assert_not_called()
 
@@ -833,6 +805,8 @@ class TestLoadOrComputeStats:
 
     def test_partial_hit_computes_missing_only(self, tmp_path: Path):
         from dataeval.flags import ImageStats
+
+        from dataeval_flow.stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Pre-populate cache with "mean" only
@@ -843,17 +817,16 @@ class TestLoadOrComputeStats:
         # Request mean + std
         fresh_result = _make_calc_result(3)
         fresh_result["stats"] = {"std": np.array([0.1, 0.2, 0.3])}
+        policy = ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD)
 
         with patch(self._CALC_STATS_PATH, return_value=fresh_result) as mock_calc:
-            result = cache.load_or_compute_stats(
-                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD, MagicMock(), True, True
-            )
+            result = cache.load_or_compute_stats("sel:all", "img+tgt", policy, MagicMock(), True, True)
             mock_calc.assert_called_once()
-            # Should request only PIXEL_STD (mean is cached)
+            # Should request only PIXEL_STD (mean is cached), keyed to the whole-image view.
             call_args = mock_calc.call_args
-            requested_flags = call_args[1]["stats"]
-            assert ImageStats.PIXEL_STD in requested_flags
-            assert ImageStats.PIXEL_MEAN not in requested_flags
+            requested = call_args[1]["stats"]
+            assert ImageStats.PIXEL_STD in requested[None]
+            assert ImageStats.PIXEL_MEAN not in requested[None]
 
         # Merged result should have both
         assert "mean" in result["stats"]
@@ -861,6 +834,8 @@ class TestLoadOrComputeStats:
 
     def test_merged_result_persisted(self, tmp_path: Path):
         from dataeval.flags import ImageStats
+
+        from dataeval_flow.stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Pre-populate with "mean"
@@ -871,11 +846,10 @@ class TestLoadOrComputeStats:
         # Compute "std"
         fresh = _make_calc_result(3)
         fresh["stats"] = {"std": np.array([0.1, 0.2, 0.3])}
+        policy = ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD)
 
         with patch(self._CALC_STATS_PATH, return_value=fresh):
-            cache.load_or_compute_stats(
-                "sel:all", "img+tgt", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD, MagicMock(), True, True
-            )
+            cache.load_or_compute_stats("sel:all", "img+tgt", policy, MagicMock(), True, True)
 
         # Cache should now have both metrics
         cached = cache.load_stats("sel:all", "img+tgt")
@@ -892,10 +866,12 @@ class TestGetOrComputeStats:
     def test_without_cache_computes_directly(self):
         from dataeval.flags import ImageStats
 
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
+            result = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN), dataset=MagicMock())
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -903,11 +879,13 @@ class TestGetOrComputeStats:
     def test_with_cache_delegates_to_workflow_cache(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
 
         with active_cache(cache, "sel:all"), patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
+            result = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN), dataset=MagicMock())
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -918,12 +896,14 @@ class TestGetOrComputeStats:
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
         cache.save_stats("sel:all", "img+tgt", stats)
 
         with active_cache(cache, "sel:all"), patch(self._CALC_STATS_PATH) as mock_calc:
-            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
+            result = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN), dataset=MagicMock())
             mock_calc.assert_not_called()
 
         assert "mean" in result["stats"]
@@ -932,10 +912,12 @@ class TestGetOrComputeStats:
         """When no active_cache context is set, computes directly without caching."""
         from dataeval.flags import ImageStats
 
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
         mock_result = _make_calc_result(3)
 
         with patch(self._CALC_STATS_PATH, return_value=mock_result) as mock_calc:
-            result = get_or_compute_stats(desired_flags=ImageStats.PIXEL_MEAN, dataset=MagicMock())
+            result = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN), dataset=MagicMock())
             mock_calc.assert_called_once()
 
         assert "mean" in result["stats"]
@@ -2181,3 +2163,198 @@ class TestCachedMetadataKeepsTheExpansion:
         assert loaded is not None
         assert loaded.continuous_factor_bins == {"unit_brightness": 4, "instance_brightness": 4}
         assert "brightness" not in loaded.continuous_factor_bins
+
+
+@pytest.mark.required
+class TestScopeKeyWithBands:
+    """A scope key separates results that cannot be merged, and nothing else."""
+
+    def _policy(self, **kwargs):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        return ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), **kwargs)
+
+    def test_unchanged_for_a_policy_declaring_no_bands_or_background(self):
+        from dataeval_flow.cache import scope_key
+
+        assert scope_key(True, True, None, self._policy()) == scope_key(True, True, None)
+
+    def test_two_definitions_of_one_group_do_not_share_an_entry(self):
+        from dataeval_flow.cache import scope_key
+
+        a = self._policy(channels=(("rgb", (0, 1, 2)),))
+        b = self._policy(channels=(("rgb", (0, 1)),))
+        assert scope_key(True, True, None, a) != scope_key(True, True, None, b)
+
+    def test_background_separates_entries(self):
+        from dataeval_flow.cache import scope_key
+
+        assert scope_key(True, True, None, self._policy(background=True)) != scope_key(
+            True, True, None, self._policy(background=False)
+        )
+
+    def test_the_consumer_view_sets_do_not_separate_entries(self):
+        from dataeval_flow.cache import scope_key
+
+        a = self._policy(channels=(("rgb", (0, 1, 2)),), outliers_from=(None,))
+        b = self._policy(channels=(("rgb", (0, 1, 2)),), outliers_from=(None, "rgb"))
+        assert scope_key(True, True, None, a) == scope_key(True, True, None, b)
+
+
+@pytest.mark.required
+class TestMissingViews:
+    """Coverage is asked per view and metric, not per metric alone."""
+
+    def test_nothing_missing_when_every_column_is_cached(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import missing_views
+
+        cached = {"brightness", "contrast", "darkness", "sharpness", "percentiles"}
+        assert missing_views(cached, {None: ImageStats.VISUAL}) == {}
+
+    def test_a_prefixed_column_is_not_covered_by_the_bare_one(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import missing_views
+
+        cached = {"brightness", "contrast", "darkness", "sharpness", "percentiles"}
+        missing = missing_views(cached, {"rgb": ImageStats.VISUAL_BRIGHTNESS})
+        assert missing == {"rgb": ImageStats.VISUAL_BRIGHTNESS}
+
+    def test_reports_only_the_uncovered_views(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import missing_views
+
+        cached = {"brightness", "rgb_mean"}
+        missing = missing_views(
+            cached,
+            {None: ImageStats.VISUAL_BRIGHTNESS, "rgb": ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD},
+        )
+        assert missing == {"rgb": ImageStats.PIXEL_STD}
+
+    def test_an_empty_cache_asks_for_everything(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import missing_views
+
+        request = {None: ImageStats.VISUAL_BRIGHTNESS, "ir": ImageStats.PIXEL_MEAN}
+        assert missing_views(set(), request) == request
+
+
+@pytest.mark.required
+class TestBandAwareCompute:
+    """A policy naming groups reaches compute_stats as channels and a mapping."""
+
+    def test_a_group_produces_its_prefixed_columns(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        policy = ResolvedStatsPolicy(
+            measure=((None, ImageStats.DIMENSION), ("ir", ImageStats.PIXEL_MEAN)),
+            channels=(("ir", (3,)),),
+        )
+        result = get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)
+        assert "ir_mean" in result["stats"]
+        assert "width" in result["stats"]
+        assert "mean" not in result["stats"]
+
+    def test_background_produces_the_fraction(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        policy = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), background=True)
+        result = get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)
+        assert "background_fraction" in result["stats"]
+
+    def test_the_derived_policy_issues_the_call_it_issued_before(self, toy_multiband_dataset, monkeypatch):
+        """A config with no stats policy must not change what compute_stats is asked."""
+        from dataeval.flags import ImageStats
+
+        import dataeval_flow.cache as cache_mod
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        seen = {}
+
+        def _spy(_dataset, **kwargs):
+            seen.update(kwargs)
+            return {
+                "source_index": [],
+                "object_count": [],
+                "invalid_box_count": [],
+                "image_count": 0,
+                "stats": {},
+            }
+
+        monkeypatch.setattr("dataeval.core.compute_stats", _spy)
+        cache_mod._do_compute_stats(
+            toy_multiband_dataset, ResolvedStatsPolicy.of_flags(ImageStats.VISUAL), True, True, None
+        )
+        assert seen["stats"] == {None: ImageStats.VISUAL}
+        assert seen["channels"] is None
+        assert seen["per_background"] is False
+        assert seen["normalize_pixel_values"] is False
+
+
+@pytest.mark.required
+class TestUnsatisfiableGroup:
+    """A group no datum can supply is measured over an all-NaN slice."""
+
+    def test_a_group_naming_an_absent_band_is_all_nan(self, toy_images):
+        """`toy_images` is three-band, so band 7 exists in no datum."""
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        policy = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("swir", ImageStats.PIXEL_MEAN)),
+            channels=(("swir", (7,)),),
+        )
+        result = get_or_compute_stats(policy, dataset=toy_images, per_target=False)
+        assert np.isnan(result["stats"]["swir_mean"]).all()
+
+    def test_an_all_nan_column_flags_no_outlier(self, toy_images):
+        from dataeval.flags import ImageStats
+        from dataeval.quality import Outliers
+
+        from dataeval_flow.cache import get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy, columns_for, restrict_columns
+
+        policy = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("swir", ImageStats.PIXEL_MEAN)),
+            channels=(("swir", (7,)),),
+            outliers_from=("swir",),
+        )
+        result = get_or_compute_stats(policy, dataset=toy_images, per_target=False)
+        restricted = restrict_columns(result, columns_for(policy.outliers_from, ImageStats.PIXEL_MEAN))
+        assert dict(Outliers().from_stats(restricted).outliers) == {}
+
+
+@pytest.mark.required
+class TestPrefixedFactorsSplitByLevel:
+    """A band-prefixed statistic measured at both levels still splits by level."""
+
+    def test_a_group_measured_at_both_levels_yields_unit_and_instance_factors(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        stats = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
+            channels=(("ir", (3,)),),
+            factors_from=(None, "ir"),
+        )
+        policy = ResolvedPolicy(intrinsic_factors=("visual",), stats=stats)
+        names = set(build_metadata(toy_multiband_dataset, policy).factor_names)
+        assert "unit_ir_brightness" in names
+        assert "instance_ir_brightness" in names

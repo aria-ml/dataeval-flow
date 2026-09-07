@@ -25,6 +25,7 @@ from dataeval_flow.cache import (
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.stats import HASH_FLAG_MAP as _HASH_FLAG_MAP
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as _OUTLIER_FLAG_MAP
+from dataeval_flow.stats import stats_policy_for
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import effective_value_range
 from dataeval_flow.workflows.prioritization.outputs import (
@@ -106,17 +107,20 @@ def _run_outlier_detection_per_source(
     dc: DatasetContext,
     dataset: AnnotatedDataset[Any],
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> set[int]:
     """Run stats-based outlier detection on a single dataset.
 
     Returns the set of flagged item indices.
     """
+    stats_policy = stats_policy_for(context, outlier_flags=outlier_flags, duplicate_flags=hash_flags)
     sel_key = selection_repr(dataset)
     with contextlib.ExitStack() as stack:
         if dc.cache is not None:
             stack.enter_context(active_cache(dc.cache, sel_key))
         calc_result = get_or_compute_stats(
-            desired_flags=outlier_flags | hash_flags,
+            stats_policy,
             dataset=dataset,
             value_range=value_range,
         )
@@ -177,6 +181,8 @@ def _run_cleaning(
     ref_dataset: AnnotatedDataset[Any],
     add_datasets: list[tuple[str, DatasetContext, AnnotatedDataset[Any]]],
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> tuple[
     dict[str, set[int]],  # per-source flagged indices
     CleaningSummaryDict,
@@ -195,7 +201,9 @@ def _run_cleaning(
     flagged_outliers: dict[str, set[int]] = {}
     total_outliers = 0
     for name, dc, ds in all_sources:
-        flagged = _run_outlier_detection_per_source(cleaning, outlier_flags, hash_flags, dc, ds, value_range)
+        flagged = _run_outlier_detection_per_source(
+            cleaning, outlier_flags, hash_flags, dc, ds, value_range, context=context
+        )
         flagged_outliers[name] = flagged
         total_outliers += len(flagged)
         _logger.info("  Outliers in %s: %d", name, len(flagged))
@@ -369,7 +377,12 @@ class DataPrioritizationWorkflow(WorkflowProtocol[DataPrioritizationMetadata, Da
 
         if params.cleaning is not None:
             per_source_flagged, cleaning_summary = _run_cleaning(
-                params.cleaning, ref_dc, ref_dataset, add_datasets, effective_value_range(ref_dc, params)
+                params.cleaning,
+                ref_dc,
+                ref_dataset,
+                add_datasets,
+                effective_value_range(ref_dc, params),
+                context=context,
             )
             total_removed = cleaning_summary["total_removed"]
 

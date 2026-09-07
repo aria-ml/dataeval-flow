@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from dataeval_flow.cache import active_cache, get_or_compute_stats
 from dataeval_flow.embeddings import build_extractor
-from dataeval_flow.stats import HASH_FLAG_MAP
+from dataeval_flow.stats import HASH_FLAG_MAP, stats_policy_for
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable
@@ -137,8 +137,9 @@ class ParameterSweepWorkflow(WorkflowProtocol[ParameterSweepMetadata, ParameterS
                 stack.enter_context(active_cache(dc.cache, sel_key))
 
             # Pre-compute shared stats
+            stats_policy = stats_policy_for(context, outlier_flags=outlier_flags, duplicate_flags=hash_flags)
             calc_result = get_or_compute_stats(
-                desired_flags=outlier_flags | hash_flags,
+                stats_policy,
                 dataset=dataset,
             )
 

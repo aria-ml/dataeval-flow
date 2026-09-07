@@ -24,6 +24,7 @@ from dataeval_flow.cache import (
     selection_repr,
 )
 from dataeval_flow.policy import policy_for, resolve_policy
+from dataeval_flow.stats import stats_policy_for
 from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import effective_value_range
 from dataeval_flow.workflows.ood.outputs import (
@@ -305,17 +306,20 @@ def _extract_stats_factors(
     dc: DatasetContext,
     dataset: AnnotatedDataset[Any],
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> dict[str, NDArray[Any]] | None:
     """Compute per-image stats and return as ``{metric_name: array}``."""
     from dataeval.flags import ImageStats
 
     try:
+        stats_policy = stats_policy_for(context, outlier_flags=ImageStats.ALL, duplicate_flags=ImageStats.NONE)
         with contextlib.ExitStack() as stack:
             if dc.cache is not None:
                 sel_key = selection_repr(dataset)
                 stack.enter_context(active_cache(dc.cache, sel_key))
             stats_result = get_or_compute_stats(
-                desired_flags=ImageStats.ALL,
+                stats_policy,
                 dataset=dataset,
                 per_image=True,
                 per_target=False,
@@ -429,6 +433,8 @@ def _collect_numeric_factors(
     binning_sink: dict[str, Any] | None = None,
     policy: ResolvedPolicy | None = None,
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> tuple[dict[str, NDArray[Any]], dict[str, NDArray[Any]]] | None:
     """Collect and intersect numeric metadata + stats factors from reference and test datasets.
 
@@ -440,11 +446,11 @@ def _collect_numeric_factors(
     *None* when no usable numeric factors are available.
     """
     # --- Stats factors (always available) ---
-    ref_stats = _extract_stats_factors(ref_dc, ref_dataset, value_range)
+    ref_stats = _extract_stats_factors(ref_dc, ref_dataset, value_range, context=context)
 
     test_stats_parts: list[dict[str, NDArray[Any]]] = []
     for _, t_dc, t_ds in test_datasets:
-        t_stats = _extract_stats_factors(t_dc, t_ds, value_range)
+        t_stats = _extract_stats_factors(t_dc, t_ds, value_range, context=context)
         if t_stats is not None:
             test_stats_parts.append(t_stats)
 
@@ -487,6 +493,8 @@ def _compute_metadata_insights(
     params: OODDetectionParameters,
     policy: ResolvedPolicy | None = None,
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> tuple[list[FactorDeviationDict] | None, dict[str, float] | None, dict[str, Any] | None]:
     """Compute factor_deviation, factor_predictors, and the binning record."""
     if not ood_indices:
@@ -496,7 +504,9 @@ def _compute_metadata_insights(
     t0 = _time.monotonic()
 
     binning: dict[str, Any] = {}
-    collected = _collect_numeric_factors(ref_dc, ref_dataset, test_datasets, params, binning, policy, value_range)
+    collected = _collect_numeric_factors(
+        ref_dc, ref_dataset, test_datasets, params, binning, policy, value_range, context=context
+    )
     if collected is None:
         return None, None, binning or None
     ref_factors_common, test_factors_common = collected
@@ -654,6 +664,7 @@ class OODDetectionWorkflow(WorkflowProtocol[OODDetectionMetadata, OODDetectionOu
                 params,
                 policy_for(context, params),
                 value_range,
+                context=context,
             )
 
         # --- 7. Build outputs ---

@@ -376,20 +376,25 @@ def _run_cleaning(
     metadata: Metadata | None = None,
     run_ctx: CleaningRunContext | None = None,
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> DataCleaningRawOutputs:
     """Run outlier + duplicate detection on dataset."""
     import time as _time
 
     from dataeval_flow.cache import get_or_compute_stats
+    from dataeval_flow.stats import stats_policy_for
 
     _validate_cluster_params(params, extractor)
 
     outlier_flags, hash_flags = _resolve_flags(params)
 
+    stats_policy = stats_policy_for(context, outlier_flags=outlier_flags, duplicate_flags=hash_flags)
+
     # --- Centralized stats: cache-aware load / compute / save ---
     _t0 = _time.monotonic()
     calc_result = get_or_compute_stats(
-        desired_flags=outlier_flags | hash_flags,
+        stats_policy,
         dataset=dataset,
         value_range=value_range,
     )
@@ -567,6 +572,7 @@ class DataCleaningWorkflow(WorkflowProtocol[DataCleaningMetadata, DataCleaningOu
                     metadata,  # type: ignore[arg-type]
                     run_ctx,
                     effective_value_range(dc, params),
+                    context=context,
                 )
             _logger.info(
                 "[4/4] Detection complete in %.1fs: %d outliers, %d exact dup groups, %d near dup groups",

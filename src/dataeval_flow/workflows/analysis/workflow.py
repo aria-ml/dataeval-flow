@@ -39,6 +39,7 @@ from dataeval_flow.cache import active_cache, get_or_compute_metadata, get_or_co
 from dataeval_flow.cache import selection_repr as _sel_repr
 from dataeval_flow.policy import derive_from, policy_for, resolve_policy
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
+from dataeval_flow.stats import stats_policy_for
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
@@ -70,6 +71,7 @@ __all__ = ["DataAnalysisWorkflow"]
 if TYPE_CHECKING:
     from dataeval_flow.config.schemas import FactorSource
     from dataeval_flow.policy import ResolvedPolicy
+    from dataeval_flow.stats import ResolvedStatsPolicy
 
 
 _logger = logging.getLogger(__name__)
@@ -94,6 +96,7 @@ class SplitData:
     label_stats: "LabelStatsResult"
     embeddings: np.ndarray[Any, Any] | None
     dataset_len: int
+    stats_policy: "ResolvedStatsPolicy"
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +157,8 @@ def _compute_split_data(
     split_name: str = "default",
     policy: "ResolvedPolicy | None" = None,
     value_range: tuple[float, float] | None = None,
+    *,
+    context: WorkflowContext | None = None,
 ) -> SplitData:
     """Compute shared data for a single split.
 
@@ -170,9 +175,9 @@ def _compute_split_data(
     is_od = metadata.multi_target
     _logger.info("  Computing image statistics for '%s' ...", split_name)
     outlier_flags = _resolve_outlier_flags(params)
-    all_flags = outlier_flags | ImageStats.HASH
+    stats_policy = stats_policy_for(context, outlier_flags=outlier_flags, duplicate_flags=ImageStats.HASH)
     calc_result = get_or_compute_stats(
-        desired_flags=all_flags,
+        stats_policy,
         dataset=dataset,
         per_image=True,
         per_target=is_od,
@@ -204,6 +209,7 @@ def _compute_split_data(
         label_stats=ls,
         embeddings=emb,
         dataset_len=len(dataset),
+        stats_policy=stats_policy,
     )
 
 
@@ -1152,6 +1158,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
                     split_name=split_name,
                     policy=split_policy,
                     value_range=effective_value_range(dc, params),
+                    context=context,
                 )
 
             if split_name == reference_split:
