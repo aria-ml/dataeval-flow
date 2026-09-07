@@ -66,6 +66,35 @@ def toy_multiband_dataset():
 
 
 @pytest.fixture
+def toy_detection_dataset():
+    """A three-band detection dataset whose boxes range from 8 pixels wide to 2."""
+    import numpy as np
+
+    rng = np.random.default_rng(2)
+    # One large box and one 2-pixel box per image, so a crop_min_size above 2 drops half.
+    boxes = np.array([[2.0, 2.0, 10.0, 10.0], [12.0, 12.0, 14.0, 14.0]], dtype=np.float32)
+
+    class _Toy:
+        def __init__(self, n=6):
+            self.n = n
+            self._images = [rng.integers(0, 255, (3, 16, 16), dtype=np.uint8) for _ in range(n)]
+            self.metadata = {"id": "toy-detection", "index2label": {0: "a", 1: "b"}}
+
+        def __len__(self):
+            return self.n
+
+        def __getitem__(self, index):
+            target = _BandTarget(
+                np.array([0, 1], dtype=np.intp),
+                boxes.copy(),
+                np.ones(2, dtype=np.float32),
+            )
+            return self._images[index], target, {"id": index}
+
+    return _Toy()
+
+
+@pytest.fixture
 def toy_images():
     """A tiny three-band classification dataset with one obvious pixel outlier."""
     import numpy as np

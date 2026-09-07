@@ -99,6 +99,14 @@ class CoverageAssessment(BaseModel):
             "ground-truth boxes via DetectionCrops"
         ),
     )
+    dropped_detections: int = Field(
+        default=0,
+        description=(
+            "Detections not embedded because they were smaller than `crop_min_size` or "
+            "degenerate. These are annotations the coverage numbers do not describe, so "
+            "read this before acting on an uncovered rate."
+        ),
+    )
     per_class: list[ClassCoverageRow] = Field(
         default_factory=list,
         description="Per-class variety signals, lowest dispersion first",

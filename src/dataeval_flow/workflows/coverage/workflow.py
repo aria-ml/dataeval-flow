@@ -93,11 +93,13 @@ def _run_coverage(
     embeddings: np.ndarray,
     params: DataCoverageParameters,
     unit: str = "image",
+    dropped: int = 0,
 ) -> CoverageAssessment:
     """Run embedding-space coverage analysis, broken down by class.
 
     ``unit`` names what one embedding is — an ``"image"`` for image classification,
     a ``"detection crop"`` when the dataset was wrapped by :func:`_crop_view`.
+    ``dropped`` carries through the count of detections :func:`_crop_view` excluded.
     """
     from dataeval.scope import Coverage
 
@@ -134,6 +136,7 @@ def _run_coverage(
         coverage_radius=float(result.coverage_radius),
         observation_count=len(embeddings),
         observation_unit=unit,
+        dropped_detections=dropped,
         per_class=[
             ClassCoverageRow(
                 class_name=str(row["class"]),
@@ -164,7 +167,8 @@ def _crop_view(
     dataset: AnnotatedDataset[Any],
     metadata: Metadata,
     sel_key: str,
-) -> tuple[AnnotatedDataset[Any], Metadata, str, str]:
+    params: DataCoverageParameters,
+) -> tuple[AnnotatedDataset[Any], Metadata, str, str, int]:
     """Present an object-detection dataset's boxes as an image-classification dataset.
 
     The embedding assessments assume one embedding per label. An object-detection
@@ -174,15 +178,16 @@ def _crop_view(
     ground-truth box into its own classification datum (one crop per detection,
     labeled with that detection's class), restoring the 1:1 alignment.
 
-    Returns ``(dataset, metadata, cache_key, unit)``, all unchanged for an
-    image-classification dataset.
+    Returns ``(dataset, metadata, cache_key, unit, dropped)``, all unchanged (and
+    ``dropped=0``) for an image-classification dataset. ``dropped`` counts the
+    detections the coverage numbers do not describe.
     """
     if not _is_object_detection(dataset):
-        return dataset, metadata, sel_key, "image"
+        return dataset, metadata, sel_key, "image", 0
 
     from dataeval.data import DetectionCrops
 
-    crops = DetectionCrops(dataset)
+    crops = DetectionCrops(dataset, padding=params.crop_padding, min_size=params.crop_min_size)
     _logger.info(
         "[data-coverage] Object detection dataset — embedding %d detection crops (%d degenerate boxes dropped).",
         len(crops),
@@ -196,8 +201,16 @@ def _crop_view(
     crop_metadata = metadata if aligned else Metadata(crops)
 
     # Distinct cache key: crop embeddings must never be served from — or overwrite —
-    # the whole-image embeddings cached under the dataset's own selection key.
-    return crops, crop_metadata, f"{sel_key}|detection-crops:n={len(crops)}", "detection crop"
+    # the whole-image embeddings cached under the dataset's own selection key. padding
+    # changes the pixels inside each crop without changing len(crops), so it must be
+    # in the key too, or a padding change would serve stale embeddings.
+    return (
+        crops,
+        crop_metadata,
+        f"{sel_key}|detection-crops:n={len(crops)},pad={params.crop_padding:g},min={params.crop_min_size}",
+        "detection crop",
+        crops.n_dropped,
+    )
 
 
 def _run_embedding_analysis(
@@ -217,7 +230,7 @@ def _run_embedding_analysis(
     if dc.extractor is None:
         return None, None, None
 
-    emb_dataset, emb_metadata, emb_key, unit = _crop_view(dataset, metadata, sel_key)
+    emb_dataset, emb_metadata, emb_key, unit, dropped = _crop_view(dataset, metadata, sel_key, params)
     if len(emb_dataset) == 0:
         skipped_reason = f"there are no {unit}s to embed"
         _logger.warning("[data-coverage] Skipping embedding analysis — %s.", skipped_reason)
@@ -239,7 +252,7 @@ def _run_embedding_analysis(
     coverage_result: CoverageAssessment | None = None
     skipped_reason: str | None = None
     if len(all_embeddings) > params.num_observations:
-        coverage_result = _run_coverage(emb_metadata, all_embeddings, params, unit=unit)
+        coverage_result = _run_coverage(emb_metadata, all_embeddings, params, unit=unit, dropped=dropped)
     else:
         skipped_reason = (
             f"needs more than num_observations={params.num_observations} samples, "

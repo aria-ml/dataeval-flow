@@ -388,11 +388,12 @@ class TestCropView:
     def test_image_classification_passes_through(self) -> None:
         ds = _make_dataset(10)
         meta = _make_metadata(10)
-        out_ds, out_meta, key, unit = _crop_view(ds, meta, "sel:all")
+        out_ds, out_meta, key, unit, dropped = _crop_view(ds, meta, "sel:all", _make_params())
         assert out_ds is ds
         assert out_meta is meta
         assert key == "sel:all"
         assert unit == "image"
+        assert dropped == 0
         assert _is_object_detection(ds) is False
 
     def test_object_detection_is_wrapped_in_crops(self) -> None:
@@ -401,12 +402,13 @@ class TestCropView:
 
         ds = _ODDataset(n_images=6)
         meta = Metadata(ds)
-        crops, crop_meta, key, unit = _crop_view(ds, meta, "sel:all")
+        crops, crop_meta, key, unit, dropped = _crop_view(ds, meta, "sel:all", _make_params())
 
         assert _is_object_detection(ds) is True
         assert isinstance(crops, DetectionCrops)
         assert len(crops) == 12  # 6 images x 2 boxes
         assert unit == "detection crop"
+        assert dropped == 0
         # Crop embeddings must not be served from — or overwrite — the whole-image
         # embeddings cached under the dataset's own selection key.
         assert key != "sel:all"
@@ -420,14 +422,66 @@ class TestCropView:
 
         ds = _ODDataset(n_images=6, degenerate=True)
         meta = Metadata(ds)
-        crops, crop_meta, _, _ = _crop_view(ds, meta, "sel:all")
+        crops, crop_meta, _, _, dropped = _crop_view(ds, meta, "sel:all", _make_params())
 
         assert isinstance(crops, DetectionCrops)
         assert crops.n_dropped == 1
+        assert dropped == 1
         assert len(crops) == len(meta.class_labels) - 1
         # The source labels no longer line up, so a Metadata over the view is built.
         assert crop_meta is not meta
         assert len(crop_meta.class_labels) == len(crops)
+
+
+@pytest.mark.required
+class TestCropParameters:
+    """Padding and min_size change which detections survive and what each embedding sees."""
+
+    def test_defaults_match_the_dataeval_defaults(self):
+        params = DataCoverageParameters(name="c", type="data-coverage")  # type: ignore[call-arg]
+        assert params.crop_padding == 0.0
+        assert params.crop_min_size == 1
+
+    def test_padding_must_not_be_negative(self):
+        with pytest.raises(ValidationError):
+            DataCoverageParameters(name="c", type="data-coverage", crop_padding=-0.1)  # type: ignore[call-arg]
+
+    def test_min_size_must_be_at_least_one(self):
+        with pytest.raises(ValidationError):
+            DataCoverageParameters(name="c", type="data-coverage", crop_min_size=0)  # type: ignore[call-arg]
+
+    def test_padding_changes_the_cache_key(self, toy_detection_dataset):
+        from dataeval import Metadata
+
+        metadata = Metadata(toy_detection_dataset)
+        base_params = DataCoverageParameters(name="c", type="data-coverage")  # type: ignore[call-arg]
+        padded_params = DataCoverageParameters(
+            name="c",  # type: ignore[call-arg]
+            type="data-coverage",  # type: ignore[call-arg]
+            crop_padding=0.1,
+        )
+        a = _crop_view(toy_detection_dataset, metadata, "sel", base_params)
+        b = _crop_view(toy_detection_dataset, metadata, "sel", padded_params)
+        assert a[2] != b[2]
+
+    def test_min_size_drops_small_boxes_and_reports_the_count(self, toy_detection_dataset):
+        from dataeval import Metadata
+
+        metadata = Metadata(toy_detection_dataset)
+        # Measured empirically: this fixture's boxes are 8x8 and 2x2 (post-squaring).
+        # min_size in [3, 8] drops exactly the 2x2 boxes; min_size >= 9 drops both,
+        # which would leave zero crops and fire an "empty dataset" warning instead.
+        params = DataCoverageParameters(name="c", type="data-coverage", crop_min_size=6)  # type: ignore[call-arg]
+        _dataset, _metadata, _key, _unit, dropped = _crop_view(toy_detection_dataset, metadata, "sel", params)
+        assert dropped > 0
+
+    def test_an_image_classification_dataset_drops_nothing(self, toy_images):
+        from dataeval import Metadata
+
+        params = DataCoverageParameters(name="c", type="data-coverage")  # type: ignore[call-arg]
+        result = _crop_view(toy_images, Metadata(toy_images), "sel", params)
+        assert result[4] == 0
+        assert result[3] == "image"
 
 
 # ---------------------------------------------------------------------------

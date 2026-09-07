@@ -1410,6 +1410,20 @@
           "title": "Near Duplicate Factor",
           "type": "number"
         },
+        "crop_padding": {
+          "default": 0.0,
+          "description": "Fraction of each box's size to widen its crop by before embedding, so the embedding sees some of the scene around the object. 0.0 crops the box exactly. Applies to object-detection datasets, whose boxes are embedded as crops.",
+          "minimum": 0.0,
+          "title": "Crop Padding",
+          "type": "number"
+        },
+        "crop_min_size": {
+          "default": 1,
+          "description": "Smallest crop side, in pixels, that is embedded. Detections smaller than this are dropped, and the count is reported as `dropped_detections`. Raise it to keep boxes too small to carry a usable embedding out of the coverage numbers.",
+          "minimum": 1,
+          "title": "Crop Min Size",
+          "type": "integer"
+        },
         "run_completeness": {
           "default": true,
           "description": "Compute dimensional completeness when an extractor is available.",

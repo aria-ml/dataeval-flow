@@ -162,6 +162,25 @@ class DataCoverageParameters(WorkflowParametersBase, MetadataConfigMixin, StatsC
         ),
     )
 
+    crop_padding: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Fraction of each box's size to widen its crop by before embedding, so the "
+            "embedding sees some of the scene around the object. 0.0 crops the box exactly. "
+            "Applies to object-detection datasets, whose boxes are embedded as crops."
+        ),
+    )
+    crop_min_size: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Smallest crop side, in pixels, that is embedded. Detections smaller than this "
+            "are dropped, and the count is reported as `dropped_detections`. Raise it to "
+            "keep boxes too small to carry a usable embedding out of the coverage numbers."
+        ),
+    )
+
     # --- Completeness ---
     run_completeness: bool = Field(
         default=True,

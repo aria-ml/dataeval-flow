@@ -83,6 +83,11 @@ def _finding_coverage(  # noqa: C901
             f" The embedding assessments run on {units} — one per ground-truth box — because "
             "coverage assumes one embedding per label."
         )
+    if cov.dropped_detections:
+        description += (
+            f" {cov.dropped_detections} detection(s) were too small or degenerate to embed and "
+            "are not covered by these numbers."
+        )
     if clustered:
         description += f" Clustered (low dispersion): {', '.join(r.class_name for r in clustered)}."
     if flat:
