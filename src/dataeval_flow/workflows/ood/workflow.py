@@ -312,8 +312,12 @@ def _extract_stats_factors(
     """Compute per-image stats and return as ``{metric_name: array}``."""
     from dataeval.flags import ImageStats
 
+    # Resolved outside the try: a bad stats policy is a config error and must raise, not
+    # come back as a silently empty result. OOD reads whatever a policy measures rather
+    # than a named set of families, so `derive_flags` requests everything when no policy
+    # is declared and runs no consumer check against one that is.
+    stats_policy = stats_policy_for(context, derive_flags=ImageStats.ALL)
     try:
-        stats_policy = stats_policy_for(context, outlier_flags=ImageStats.ALL, duplicate_flags=ImageStats.NONE)
         with contextlib.ExitStack() as stack:
             if dc.cache is not None:
                 sel_key = selection_repr(dataset)

@@ -280,14 +280,31 @@ def stats_policy_for(
     outlier_flags: ImageStats = ImageStats.NONE,
     duplicate_flags: ImageStats = ImageStats.NONE,
     factor_flags: ImageStats = ImageStats.NONE,
+    derive_flags: ImageStats | None = None,
+    duplicate_declaration: str = "`duplicate_flags`",
 ) -> ResolvedStatsPolicy:
     """The stats policy a caller should read, however it was invoked.
 
     Pass the flags this caller will actually consume, one argument per consumer. A declared
     policy is checked against them here, before the dataset is walked: `measure` is a
     complete statement, so a family the caller reads and no entry measures would otherwise
-    surface as an empty column set. Without a declared policy the union of the three becomes
-    the request over the whole image, which is the call flow issues today.
+    surface as an empty column set.
+
+    `outlier_flags`, `duplicate_flags`, and `factor_flags` serve two jobs, on two different
+    paths. Without a declared policy, their union is what gets *requested* over the whole
+    image — the call flow every workflow issued before policies existed. With a declared
+    policy, they are instead what gets *checked* against it: a consumer reading a family no
+    entry measures is a config error, not an empty column set discovered later.
+
+    `derive_flags` is for a caller that does not fit that shape: one that reads whatever a
+    policy measures rather than a named set, and so has nothing to check a declared policy
+    against. Pass it to say what to request when no policy is declared, without checking a
+    declared one against anything. Leave it unset to request the union and check that union,
+    which is what every consumer with a real, checkable set of flags wants.
+
+    `duplicate_declaration` names what to blame in the error a missing `hash` family raises.
+    Default to the `duplicate_flags` field most callers expose; override it where the
+    request is fixed by the workflow itself rather than read off a field by that name.
 
     The orchestrator resolves a named policy up front and puts it on the context, because
     resolving one needs the pipeline the pool lives on and the datasets that declare the
@@ -296,12 +313,14 @@ def stats_policy_for(
     """
     resolved = getattr(context, "stats_policy", None)
     if resolved is None:
-        return ResolvedStatsPolicy.of_flags(outlier_flags | duplicate_flags | factor_flags)
+        union = outlier_flags | duplicate_flags | factor_flags
+        return ResolvedStatsPolicy.of_flags(union if derive_flags is None else derive_flags)
     check_consumers(
         resolved,
         outlier_flags=outlier_flags,
         duplicate_flags=duplicate_flags,
         factor_flags=factor_flags,
+        duplicate_declaration=duplicate_declaration,
     )
     return resolved
 
@@ -312,6 +331,7 @@ def check_consumers(
     outlier_flags: ImageStats,
     duplicate_flags: ImageStats,
     factor_flags: ImageStats,
+    duplicate_declaration: str = "`duplicate_flags`",
 ) -> None:
     """Refuse a policy whose `measure` does not produce what a consumer reads.
 
@@ -319,29 +339,45 @@ def check_consumers(
     computed nowhere and that consumer reads an empty column set. Name the entry to add.
 
     Duplicate detection is checked against the whole image alone: DataEval reads the bare
-    hash names and cannot see a prefixed one.
+    hash names and cannot see a prefixed one. Pass `duplicate_declaration` where the caller's
+    request is not read off a field named `duplicate_flags` — naming a field the caller does
+    not have would send a reader looking for config that is not there.
     """
-    _check_views("outlier_flags", policy, policy.outliers_from, outlier_flags)
-    _check_views("intrinsic_factors", policy, policy.factors_from, factor_flags)
-    _check_views("duplicate_flags", policy, (None,), duplicate_flags)
+    _check_views("`outlier_flags`", "outliers_from", policy, policy.outliers_from, outlier_flags)
+    _check_views("`intrinsic_factors`", "factors_from", policy, policy.factors_from, factor_flags)
+    _check_views(duplicate_declaration, None, policy, (None,), duplicate_flags)
 
 
 def _check_views(
     declaration: str,
+    consumer_field: "str | None",
     policy: ResolvedStatsPolicy,
     views: "Sequence[str | None]",
     required: ImageStats,
 ) -> None:
-    """Refuse where one consumer's views do not measure what it needs."""
+    """Refuse where one consumer's views do not measure what it needs.
+
+    *consumer_field* names the config list *views* came from (`outliers_from` or
+    `factors_from`), so the error can offer dropping the view, or emptying the list, as an
+    alternative to measuring more. Pass None where there is no such list — duplicate
+    detection always reads the whole image and has no view list to narrow.
+    """
     for view in views:
         wanted = columns_for([view], measurable_in(view, required))
         have = columns_for([view], policy.families_of(view))
         missing = sorted(wanted - have)
         if missing:
             spelled = "~" if view is None else view
+            if consumer_field is not None:
+                lever = (
+                    f", drop {spelled!r} from `{consumer_field}`, or set `{consumer_field}: []` to stop "
+                    "asking for any view"
+                )
+            else:
+                lever = ", or stop asking for them"
             raise ValueError(
                 f"Stats policy {policy.name!r} does not measure {', '.join(missing)}, which "
-                f"`{declaration}` asks for on view {spelled!r}. `measure` is a complete "
-                f"statement, so add those families to its `{{bands: {spelled}}}` entry, or "
-                "stop asking for them.",
+                f"{declaration} asks for on view {spelled!r}. `measure` is a complete "
+                f"statement, so add those families to its `{{bands: {spelled}}}` entry"
+                f"{lever}.",
             )

@@ -433,6 +433,38 @@ class TestExtractStatsFactors:
         assert "f_mean" in result
         assert "f_bad" not in result
 
+    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_stats")
+    def test_a_declared_band_group_policy_is_not_discarded(self, mock_stats: MagicMock):
+        """A band-group policy used to be checked against `ImageStats.ALL` and refused.
+
+        The refusal was swallowed by this function's own `except Exception`, so
+        `factor_deviation`/`factor_predictors` came back `None` with no visible error.
+        `derive_flags` fixes this: no consumer check runs, and whatever the policy
+        measures is read straight off the result.
+        """
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow.workflow import WorkflowContext
+        from dataeval_flow.workflows.ood.workflow import _extract_stats_factors
+
+        mock_stats.return_value = {
+            "stats": {"rgb_mean": np.array([0.1, 0.2, 0.3])},
+            "image_count": 3,
+        }
+        policy = ResolvedStatsPolicy(
+            name="bands",
+            measure=(("rgb", ImageStats.VISUAL),),
+            channels=(("rgb", (0, 1, 2)),),
+        )
+        dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
+        context = WorkflowContext(dataset_contexts={"test": dc}, stats_policy=policy)
+
+        result = _extract_stats_factors(dc, dc.dataset, context=context)
+
+        assert result is not None
+        assert "f_rgb_mean" in result
+
 
 class TestCollectNumericFactors:
     @patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors")

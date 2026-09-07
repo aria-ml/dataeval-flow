@@ -278,6 +278,48 @@ class TestCheckConsumers:
             factor_flags=ImageStats.ALL,
         )
 
+    def test_the_outlier_message_offers_the_view_list_as_a_lever(self):
+        with pytest.raises(ValueError, match=r"drop '~' from `outliers_from`.*outliers_from: \[\]"):
+            check_consumers(
+                _policy(outliers_from=(None,)),
+                outlier_flags=ImageStats.PIXEL,
+                duplicate_flags=ImageStats.NONE,
+                factor_flags=ImageStats.NONE,
+            )
+
+    def test_the_factor_message_offers_the_view_list_as_a_lever(self):
+        with pytest.raises(ValueError, match=r"drop 'ir' from `factors_from`.*factors_from: \[\]"):
+            check_consumers(
+                _policy(factors_from=("ir",)),
+                outlier_flags=ImageStats.NONE,
+                duplicate_flags=ImageStats.NONE,
+                factor_flags=ImageStats.VISUAL,
+            )
+
+    def test_the_duplicate_declaration_defaults_to_the_field_name(self):
+        with pytest.raises(ValueError, match="`duplicate_flags`"):
+            check_consumers(
+                _policy(measure=((None, ImageStats.VISUAL),)),
+                outlier_flags=ImageStats.NONE,
+                duplicate_flags=ImageStats.HASH_XXHASH,
+                factor_flags=ImageStats.NONE,
+            )
+
+    def test_the_duplicate_declaration_is_overridable(self):
+        """A caller with no `duplicate_flags` field of its own must not have the error
+
+        point at one. `duplicate_declaration` lets it name what actually drove the request.
+        """
+        with pytest.raises(ValueError, match="this workflow's duplicate detection") as excinfo:
+            check_consumers(
+                _policy(measure=((None, ImageStats.VISUAL),)),
+                outlier_flags=ImageStats.NONE,
+                duplicate_flags=ImageStats.HASH_XXHASH,
+                factor_flags=ImageStats.NONE,
+                duplicate_declaration="this workflow's duplicate detection",
+            )
+        assert "duplicate_flags" not in str(excinfo.value)
+
 
 @pytest.mark.required
 class TestStatsPolicyFor:
@@ -310,6 +352,28 @@ class TestStatsPolicyFor:
         context = SimpleNamespace(stats_policy=_policy(name="p", outliers_from=(None,)))
         with pytest.raises(ValueError, match="outlier_flags"):
             stats_policy_for(context, outlier_flags=ImageStats.PIXEL)
+
+    def test_derive_flags_is_requested_in_place_of_the_union_when_no_policy_is_declared(self):
+        from types import SimpleNamespace
+
+        policy = stats_policy_for(
+            SimpleNamespace(stats_policy=None),
+            outlier_flags=ImageStats.PIXEL,
+            derive_flags=ImageStats.ALL,
+        )
+        assert policy.request == {None: ImageStats.ALL}
+
+    def test_derive_flags_runs_no_consumer_check_against_a_declared_policy(self):
+        """A caller that reads whatever is measured has nothing to check a declared policy
+
+        against — a band-group-only policy must not be refused for lacking `ImageStats.ALL`.
+        """
+        from types import SimpleNamespace
+
+        declared = _policy(name="bands", outliers_from=(None,))
+        context = SimpleNamespace(stats_policy=declared)
+        policy = stats_policy_for(context, derive_flags=ImageStats.ALL)
+        assert policy is declared
 
     def test_does_not_check_the_derived_policy(self):
         from types import SimpleNamespace
