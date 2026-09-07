@@ -17,10 +17,28 @@
   justified its vocabulary
 - `label_space` on a result envelope, recording the vocabulary each conformed source was read under, with a
   digest that matches the `data-coverage` audit that justified it
+- `channel_groups:` on a dataset, naming groups of bands measured separately as
+  `<group>_<statistic>` columns
+- Top-level `stats:` key defining named policies: which statistic families are measured over
+  which views, whether the image background is measured, and which views drive outlier
+  detection and metadata factors
+- `crop_padding` and `crop_min_size` on `data-coverage`, and `dropped_detections` on its
+  coverage assessment, reporting the annotations the coverage numbers do not describe
 
 ### Fixed
 
 - A relative `ontology:` path now resolves against the run's data root rather than the process-wide root
+- `outlier_flags` now decides which columns flag an outlier. A warm cache, or a second
+  workflow reading the same source, previously widened outlier detection to every numeric
+  column in the shared cache entry, so narrowing the setting did not narrow the results
+- `duplicate_flags` now decides which hashes detect a duplicate, for the same reason
+- `intrinsic_factors` now decides which statistics are injected as metadata factors. The
+  injected set previously depended on cache state, and both sets were stored under one
+  metadata cache key
+- Cross-split duplicate detection now restricts both operands to the same columns before
+  comparing them. Two splits with divergent stat caches previously reached DataEval's
+  `_reject_stat_name_mismatch` and crashed, so cross-split leakage detection failed outright
+  rather than reporting a result
 
 ### Removed
 

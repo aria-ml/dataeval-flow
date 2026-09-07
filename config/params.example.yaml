@@ -73,6 +73,14 @@
 #     split: train                # train | val | test; omit to load every split
 #     yaml_file: data.yaml        # optional: config outside the root's default name
 #     ann_dir: labels             # optional: labels kept outside labels/
+#
+#   - name: m3fd
+#     format: coco
+#     path: m3fd
+#     value_range: [0, 255]
+#     # Named groups of bands, measured separately as `<group>_<statistic>` columns.
+#     # A fact about the sensor, so every workflow reading this dataset sees the same one.
+#     channel_groups: {rgb: [0, 1, 2], ir: 3}
 
 # -----------------------------------------------------------------------------
 # PREPROCESSING (optional)
@@ -210,6 +218,27 @@
 #         definition: A railway car designed to carry freight.
 
 # -----------------------------------------------------------------------------
+# STATS — Named policies: what is measured, over which views, and who reads it
+# -----------------------------------------------------------------------------
+# Define a policy once and reference it by name so workflows meant to be
+# compared measure the same things.
+#
+# stats:
+#   - name: multispectral
+#     # Read as a complete statement: a view with no entry is not measured.
+#     measure:
+#       - {bands: ~,   families: [dimension, hash]}
+#       - {bands: rgb, families: [visual]}
+#       - {bands: ir,  families: [pixel]}
+#     # Measure every pixel the boxes do not cover, as `background_*` columns.
+#     background: true
+#     # Views whose columns flag an outlier. Defaults to the whole image alone, so adding
+#     # a band group does not move a cleaning result until you name it here.
+#     outliers_from: [~]
+#     # Views whose columns become metadata factors. Same default, same reason.
+#     factors_from: [~, rgb, ir]
+
+# -----------------------------------------------------------------------------
 # WORKFLOWS — Named workflow instances (type + params)
 # -----------------------------------------------------------------------------
 # Each workflow instance binds a workflow type to specific parameters.
@@ -242,6 +271,12 @@
 #         chunking:                   # optional temporal drift analysis
 #           chunk_size: 500           # or chunk_count (mutually exclusive)
 #           incomplete: keep          # keep | drop | append
+#
+#   - name: clean
+#     type: data-cleaning
+#     stats: multispectral
+#     outlier_method: modzscore
+#     outlier_flags: [visual]
 
 # -----------------------------------------------------------------------------
 # TASKS — Lightweight composition by name
