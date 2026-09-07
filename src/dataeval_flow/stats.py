@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, Any
 from dataeval.core import StatsResult
 from dataeval.flags import ImageStats
 
+from dataeval_flow.metadata import stat_names_for
+
 if TYPE_CHECKING:
     from dataeval_flow.config import PipelineConfig
 
@@ -82,8 +84,6 @@ def columns_for(views: "Iterable[str | None]", flags: ImageStats) -> set[str]:
     names. `background_fraction` comes with the background view whatever families are
     named, because it describes the view rather than measuring anything.
     """
-    from dataeval_flow.metadata import stat_names_for
-
     names = stat_names_for(flags)
     view_list = list(views)
     columns = {name if view is None else f"{view}_{name}" for view in view_list for name in names}
