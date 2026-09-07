@@ -55,8 +55,8 @@ workflows naming the same policy measure the same things, so their results are c
 ### measure is a complete statement
 
 `measure` lists every view that gets computed, and nothing else. A view with no entry is not measured — nothing is
-inferred for a missing whole-image entry, even though the whole image is what every workflow measured before band
-groups existed. Write out `{bands: ~, ...}` if you want it.
+inferred for a missing whole-image entry, even though every workflow measured the whole image before band groups
+existed. Write out `{bands: ~, ...}` if you want it.
 
 `bands: ~` names the whole image. `bands: rgb` and `bands: ir` name groups the dataset declares under
 `channel_groups`; naming a group the dataset does not declare is refused before the dataset is read.
@@ -100,9 +100,10 @@ plus `background: true`, the full naming vocabulary has `2n + 2` forms. m3fd's t
 | `background_rgb` | the scene behind every box, of the rgb group | `background_rgb_brightness` |
 | `background_ir` | the scene behind every box, of the ir group | `background_ir_mean` |
 
-Two band groups plus a background already reach this six-view vocabulary, and a three-family request across them
-can produce 49 columns from one `measure` block. Ask for what each consumer in `outliers_from` and `factors_from`
-actually reads, not more.
+Two band groups plus a background already reach this six-view vocabulary, and each view can carry more than one
+statistic family, so the columns a `measure` block computes multiply far past what any one consumer reads. Call
+`produced_views()` on your own policy to see which views it actually produces, rather than assuming a count. Ask
+for what each consumer in `outliers_from` and `factors_from` actually reads, not more.
 
 `measure` is a complete statement, so a policy only produces the views its entries ask for. The `multispectral`
 policy above produces five of the six: `~`, `rgb`, `ir`, `background_rgb`, and `background_ir`. Its whole-image
