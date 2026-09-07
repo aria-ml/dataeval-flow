@@ -97,6 +97,7 @@ class SplitData:
     embeddings: np.ndarray[Any, Any] | None
     dataset_len: int
     stats_policy: "ResolvedStatsPolicy"
+    outlier_flags: ImageStats
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +211,7 @@ def _compute_split_data(
         embeddings=emb,
         dataset_len=len(dataset),
         stats_policy=stats_policy,
+        outlier_flags=outlier_flags,
     )
 
 
@@ -1227,7 +1229,7 @@ class DataAnalysisWorkflow(WorkflowProtocol[DataAnalysisMetadata, DataAnalysisOu
             sr = SplitResult(
                 num_samples=data.dataset_len,
                 image_quality=_assess_image_quality(
-                    data, _resolve_outlier_flags(params), params.outlier_method, params.outlier_threshold
+                    data, data.outlier_flags, params.outlier_method, params.outlier_threshold
                 ),
                 redundancy=_assess_redundancy(data),
                 label_health=_assess_label_health(data),
