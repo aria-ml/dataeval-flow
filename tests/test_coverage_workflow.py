@@ -376,6 +376,18 @@ class TestRunCoverage:
         with pytest.raises(ValidationError):
             _make_params(coverage_method="both")
 
+    def test_dropped_is_carried_onto_the_assessment(self) -> None:
+        """The `dropped` argument, not just `unit`, must reach the built CoverageAssessment."""
+        rng = np.random.default_rng(3)
+        emb = rng.random((30, 8))
+        meta = _make_metadata(n=30, num_classes=2)
+        meta.class_labels = np.array([i % 2 for i in range(30)], dtype=np.intp)
+        meta.index2label = {0: "a", 1: "b"}
+
+        result = _run_coverage(meta, emb, _make_params(num_observations=5), unit="detection crop", dropped=7)
+
+        assert result.dropped_detections == 7
+
 
 # ---------------------------------------------------------------------------
 # TestRunCompleteness
@@ -468,12 +480,19 @@ class TestCropParameters:
         from dataeval import Metadata
 
         metadata = Metadata(toy_detection_dataset)
-        # Measured empirically: this fixture's boxes are 8x8 and 2x2 (post-squaring).
-        # min_size in [3, 8] drops exactly the 2x2 boxes; min_size >= 9 drops both,
-        # which would leave zero crops and fire an "empty dataset" warning instead.
+        # Measured empirically: DetectionCrops.__init__ applies min_size to each box's raw
+        # width/height (box[2]-box[0], box[3]-box[1]) directly off the source dataset's box
+        # array, before padding or squaring — squaring only happens later, in
+        # CropPolicy.crop() at __getitem__ time. This fixture's boxes happen to already be
+        # square (8x8 and 2x2), so the raw and squared sizes coincide, but the filter itself
+        # runs on the raw, unsquared box. min_size in [3, 8] drops exactly the 2x2 boxes and
+        # keeps the 8x8 ones; min_size >= 9 drops both, leaving zero crops and firing an
+        # "empty dataset" warning instead — the degenerate case this test must not regress
+        # into, which is why it also asserts survivors remain.
         params = DataCoverageParameters(name="c", type="data-coverage", crop_min_size=6)  # type: ignore[call-arg]
-        _dataset, _metadata, _key, _unit, dropped = _crop_view(toy_detection_dataset, metadata, "sel", params)
+        crops, _metadata, _key, _unit, dropped = _crop_view(toy_detection_dataset, metadata, "sel", params)
         assert dropped > 0
+        assert len(crops) > 0
 
     def test_an_image_classification_dataset_drops_nothing(self, toy_images):
         from dataeval import Metadata
@@ -750,6 +769,45 @@ class TestBuildFindings:
         cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
         assert cov_finding.severity == "info"
         assert "not health-checked" in (cov_finding.description or "")
+
+    def test_no_dropped_detections_is_not_mentioned(self) -> None:
+        """dropped_detections=0 must not add a sentence about uncovered detections."""
+        raw = DataCoverageRawOutputs(
+            dataset_size=100,
+            coverage=CoverageAssessment(
+                method="adaptive",
+                uncovered_count=5,
+                uncovered_rate=0.05,
+                coverage_radius=0.3,
+                dropped_detections=0,
+            ),
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=2, class_distribution={"a": 50, "b": 50}),
+        )
+        findings = build_findings(raw, DataCoverageHealthThresholds())
+        cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
+        assert "not covered" not in (cov_finding.description or "")
+
+    def test_dropped_detections_reported_when_nonzero(self) -> None:
+        """dropped_detections > 0 must surface as annotations the coverage numbers don't cover."""
+        raw = DataCoverageRawOutputs(
+            dataset_size=100,
+            coverage=CoverageAssessment(
+                method="adaptive",
+                uncovered_count=5,
+                uncovered_rate=0.05,
+                coverage_radius=0.3,
+                observation_unit="detection crop",
+                dropped_detections=9,
+            ),
+            metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
+            label_distribution=LabelDistributionResult(num_classes=2, class_distribution={"a": 50, "b": 50}),
+        )
+        findings = build_findings(raw, DataCoverageHealthThresholds())
+        cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
+        description = cov_finding.description or ""
+        assert "9" in description
+        assert "not covered" in description
 
     def test_completeness_warning_severity(self) -> None:
         raw = DataCoverageRawOutputs(
