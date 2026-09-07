@@ -227,9 +227,9 @@
 #   - name: multispectral
 #     # Read as a complete statement: a view with no entry is not measured.
 #     measure:
-#       - {bands: ~,   families: [dimension, hash]}
+#       - {bands: ~,   families: [dimension, visual, hash]}
 #       - {bands: rgb, families: [visual]}
-#       - {bands: ir,  families: [pixel]}
+#       - {bands: ir,  families: [visual, pixel]}
 #     # Measure every pixel the boxes do not cover, as `background_*` columns.
 #     background: true
 #     # Views whose columns flag an outlier. Defaults to the whole image alone, so adding

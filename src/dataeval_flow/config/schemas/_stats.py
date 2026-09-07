@@ -57,9 +57,9 @@ class StatsPolicyConfig(BaseModel):
         stats:
           - name: multispectral
             measure:
-              - {bands: ~,   families: [dimension, hash]}
+              - {bands: ~,   families: [dimension, visual, hash]}
               - {bands: rgb, families: [visual]}
-              - {bands: ir,  families: [pixel]}
+              - {bands: ir,  families: [visual, pixel]}
             background: true
             outliers_from: [~]
             factors_from:  [~, rgb, ir]
