@@ -15,6 +15,11 @@ _BACKGROUND_FAMILIES = frozenset({"pixel", "visual"})
 StatFamily = Literal["dimension", "pixel", "visual", "hash"]
 
 
+def _render_view(view: str | None) -> str:
+    """Render a view the way config authors write it: `~` for the whole image."""
+    return "~" if view is None else view
+
+
 class StatsMeasureConfig(BaseModel):
     """One view of the imagery and the statistic families measured over it."""
 
@@ -133,13 +138,23 @@ class StatsPolicyConfig(BaseModel):
         whole_image = next((entry for entry in self.measure if entry.bands is None), None)
         whole_families = set(whole_image.families) if whole_image is not None else set()
         for entry in self.measure:
-            if entry.bands is not None and "dimension" in entry.families and "dimension" not in whole_families:
+            if entry.bands is None:
+                continue
+            if "dimension" in entry.families and "dimension" not in whole_families:
                 raise ValueError(
                     f"Stats policy {self.name!r} asks `dimension` of group {entry.bands!r}, "
                     "but geometry does not vary with a band subset, so no "
                     f"`{entry.bands}_width` is produced and that family is computed "
                     "nowhere. Ask `dimension` of the whole image instead, with a "
                     "`{bands: ~, families: [dimension, ...]}` entry.",
+                )
+            if not set(entry.families) - {"dimension"}:
+                raise ValueError(
+                    f"Stats policy {self.name!r} asks only `dimension` of group "
+                    f"{entry.bands!r}. Geometry does not vary with a band subset, so this "
+                    f"entry produces no columns: no `{entry.bands}_*` column is ever "
+                    "computed, whether or not the whole image also asks for `dimension`. "
+                    "Add `pixel`, `visual` or `hash` to this entry, or drop it.",
                 )
 
         if self.background and not any(_BACKGROUND_FAMILIES.intersection(e.families) for e in self.measure):
@@ -157,10 +172,10 @@ class StatsPolicyConfig(BaseModel):
         for field_name in ("outliers_from", "factors_from"):
             for view in getattr(self, field_name):
                 if view not in produced:
-                    valid = ", ".join(sorted("~" if v is None else v for v in produced))
+                    valid = ", ".join(sorted(_render_view(v) for v in produced))
                     raise ValueError(
-                        f"Stats policy {self.name!r} names view "
-                        f"{'~' if view is None else view!r} in `{field_name}`, which "
-                        f"`measure` does not produce. Views this policy produces: {valid}.",
+                        f"Stats policy {self.name!r} names view {_render_view(view)!r} in "
+                        f"`{field_name}`, which `measure` does not produce. Views this "
+                        f"policy produces: {valid}.",
                     )
         return self

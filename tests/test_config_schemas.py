@@ -1422,6 +1422,24 @@ class TestStatsPolicyConfig:
         )
         assert policy.produced_views() == {None, "rgb"}
 
+    def test_refuses_a_dimension_only_group_even_when_the_whole_image_asks_dimension_too(self):
+        with pytest.raises(ValidationError, match="produces no columns"):
+            self._policy(
+                measure=[
+                    {"bands": None, "families": ["dimension"]},
+                    {"bands": "rgb", "families": ["dimension"]},
+                ]
+            )
+
+    def test_produced_views_never_reports_a_view_with_no_columns(self):
+        policy = self._policy(
+            measure=[
+                {"bands": None, "families": ["dimension"]},
+                {"bands": "rgb", "families": ["dimension", "visual"]},
+            ]
+        )
+        assert policy.produced_views() == {None, "rgb"}
+
     def test_refuses_background_with_nothing_it_can_measure(self):
         with pytest.raises(ValidationError, match="measures nothing"):
             self._policy(measure=[{"bands": None, "families": ["hash"]}], background=True)
