@@ -19,7 +19,7 @@ from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_metadata
 from dataeval_flow.embeddings import build_extractor
 from dataeval_flow.policy import policy_for
-from dataeval_flow.stats import HASH_FLAG_MAP
+from dataeval_flow.stats import HASH_FLAG_MAP, columns_for, restrict_columns
 from dataeval_flow.stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflow import WorkflowContext, WorkflowProtocol, WorkflowResult
 from dataeval_flow.workflow.base import Reportable, effective_value_range
@@ -350,8 +350,6 @@ def _run_duplicate_detection(
     """Run hash-based and optionally cluster-based duplicate detection."""
     import time as _time
 
-    from dataeval_flow.stats import columns_for, restrict_columns
-
     _logger.info("  [4e] Running duplicate detection…")
     _t0 = _time.monotonic()
 
@@ -385,7 +383,7 @@ def _run_cleaning(
     import time as _time
 
     from dataeval_flow.cache import get_or_compute_stats
-    from dataeval_flow.stats import columns_for, restrict_columns, stats_policy_for
+    from dataeval_flow.stats import stats_policy_for
 
     _validate_cluster_params(params, extractor)
 
