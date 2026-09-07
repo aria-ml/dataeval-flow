@@ -1317,6 +1317,33 @@ class TestAssessBias:
 
 
 # ===========================================================================
+# _order_factors
+# ===========================================================================
+
+
+@pytest.mark.required
+class TestBackgroundFractionLeads:
+    """A background statistic measured over a few percent of an image is noise."""
+
+    def test_the_fraction_comes_first_among_the_background_factors(self):
+        from dataeval_flow.workflows.analysis.workflow import _order_factors
+
+        ordered = _order_factors(["brightness", "background_brightness", "background_fraction", "mean"])
+        assert ordered.index("background_fraction") < ordered.index("background_brightness")
+
+    def test_non_background_factors_keep_their_order(self):
+        from dataeval_flow.workflows.analysis.workflow import _order_factors
+
+        assert _order_factors(["brightness", "mean"]) == ["brightness", "mean"]
+
+    def test_a_run_without_a_background_is_unchanged(self):
+        from dataeval_flow.workflows.analysis.workflow import _order_factors
+
+        names = ["a", "b", "c"]
+        assert _order_factors(names) == names
+
+
+# ===========================================================================
 # _assess_cross_redundancy
 # ===========================================================================
 

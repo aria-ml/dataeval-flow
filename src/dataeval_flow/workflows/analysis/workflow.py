@@ -12,7 +12,7 @@ Assessments are organized by the issue they help diagnose:
 import contextlib
 import logging
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from itertools import combinations
 from typing import TYPE_CHECKING, Any, Literal
@@ -287,6 +287,25 @@ def _assess_label_health(data: SplitData) -> LabelHealthResult:
     )
 
 
+def _order_factors(names: Sequence[str]) -> list[str]:
+    """Order factor names so `background_fraction` leads the background ones.
+
+    A background statistic measured over a few percent of an image is noise, so put the
+    share of the image that was measured where a reader meets it first. Everything else
+    keeps the order it came in.
+    """
+    ordered = list(names)
+    if "background_fraction" not in ordered:
+        return ordered
+    first_background = next(
+        (i for i, name in enumerate(ordered) if name.startswith("background_")),
+        len(ordered),
+    )
+    ordered.remove("background_fraction")
+    ordered.insert(first_background, "background_fraction")
+    return ordered
+
+
 def _assess_bias(
     data: SplitData,
     balance: bool,
@@ -329,7 +348,7 @@ def _assess_bias(
     meta_summary = _compute_metadata_summary(data.metadata)
 
     return BiasResult(
-        metadata_factors=list(data.metadata.factor_names),
+        metadata_factors=_order_factors(list(data.metadata.factor_names)),
         metadata_summary=meta_summary,
         balance_summary=balance_summary,
         diversity_summary=diversity_summary,
