@@ -17,6 +17,7 @@ Getting the right data, in the right representation, in front of a workflow.
 build_dataset_views
 ../notebooks/torchvision_datasets
 declare_an_ontology
+measure_band_groups
 ```
 
 :::{list-table}
@@ -29,6 +30,9 @@ declare_an_ontology
   - Feed a `torchvision` classification or detection dataset straight into a workflow.
 - - {doc}`Declare an ontology <declare_an_ontology>`
   - Define the sanctioned label space so coverage can name classes that were never collected.
+- - {doc}`Measure band groups <measure_band_groups>`
+  - Measure a dataset's channels separately, and its image background, without moving any cleaning result or bias
+    number until a policy names them.
 
 :::
 
