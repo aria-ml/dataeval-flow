@@ -189,7 +189,8 @@ def _crop_view(
 
     crops = DetectionCrops(dataset, padding=params.crop_padding, min_size=params.crop_min_size)
     _logger.info(
-        "[data-coverage] Object detection dataset — embedding %d detection crops (%d degenerate boxes dropped).",
+        "[data-coverage] Object detection dataset — embedding %d detection crops "
+        "(%d boxes dropped as degenerate or smaller than min_size).",
         len(crops),
         crops.n_dropped,
     )

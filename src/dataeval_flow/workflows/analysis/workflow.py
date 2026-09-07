@@ -176,7 +176,15 @@ def _compute_split_data(
     is_od = metadata.multi_target
     _logger.info("  Computing image statistics for '%s' ...", split_name)
     outlier_flags = _resolve_outlier_flags(params)
-    stats_policy = stats_policy_for(context, outlier_flags=outlier_flags, duplicate_flags=ImageStats.HASH)
+    stats_policy = stats_policy_for(
+        context,
+        outlier_flags=outlier_flags,
+        duplicate_flags=ImageStats.HASH,
+        # `DataAnalysisParameters` has no `duplicate_flags` field — duplicate detection is
+        # always on. Name that here, or the default message would send a reader looking
+        # for a field this workflow does not have.
+        duplicate_declaration="this workflow's duplicate detection, which always runs",
+    )
     calc_result = get_or_compute_stats(
         stats_policy,
         dataset=dataset,

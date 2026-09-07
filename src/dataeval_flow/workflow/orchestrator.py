@@ -162,12 +162,11 @@ def _value_range_of(resolved: "ResolvedSource") -> "tuple[float, float] | None":
 
 
 def _merge_channel_groups(
-    entries: "Iterable[tuple[str, Mapping[str, Any] | None]]",
+    declarations: "Iterable[Mapping[str, Any] | None]",
     subject: str,
 ) -> "Mapping[str, tuple[int, ...]] | None":
     """Union declared band groups, refusing two definitions of one name.
 
-    *entries* pairs a description of where each declaration came from with the declaration.
     *subject* names what is being merged, for the error.
 
     Raises
@@ -177,7 +176,7 @@ def _merge_channel_groups(
         bands is not one statistic, and the merged column would hold both.
     """
     merged: dict[str, tuple[int, ...]] = {}
-    for _origin, declared in entries:
+    for declared in declarations:
         for name, bands in (declared or {}).items():
             indices = (bands,) if isinstance(bands, int) else tuple(bands)
             existing = merged.get(name)
@@ -195,10 +194,7 @@ def _merge_channel_groups(
 def _channel_groups_of(resolved: "ResolvedSource") -> "Mapping[str, tuple[int, ...]] | None":
     """Return the band groups *resolved* declares, or None where no operand declares any."""
     return _merge_channel_groups(
-        (
-            (operand.source.name, getattr(operand.dataset_config, "channel_groups", None))
-            for operand in resolved.operands
-        ),
+        (getattr(operand.dataset_config, "channel_groups", None) for operand in resolved.operands),
         f"Source {resolved.name!r}",
     )
 
@@ -208,7 +204,7 @@ def _channel_groups_for(
 ) -> "Mapping[str, tuple[int, ...]] | None":
     """Return the band groups every dataset this workflow reads declares."""
     return _merge_channel_groups(
-        ((name, ctx.channel_groups) for name, ctx in dataset_contexts.items()),
+        (ctx.channel_groups for ctx in dataset_contexts.values()),
         "This workflow's datasets",
     )
 
