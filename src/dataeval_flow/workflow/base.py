@@ -146,6 +146,18 @@ class WorkflowParametersBase(BaseModel):
         default="advisory",
         description="advisory: report only, preparatory: modify dataset",
     )
+    ontology: dict[str, Any] | str | None = Field(
+        default=None,
+        description=(
+            "Label space this workflow's labels are read under. Name an entry under the "
+            "top-level `ontologies:` key, or give a path to a serialized RDF artifact "
+            "resolved against the data root; a nested mapping of concept to children is "
+            "read as an inline hierarchy. Recorded in the result envelope's `label_space`, "
+            "so a run conformed by a `data-coverage` audit's stanza carries that audit's "
+            "digest and can be matched back to it. Declare it wherever a source's view "
+            "applies a `Relabel`."
+        ),
+    )
 
 
 # --- Output bases ---

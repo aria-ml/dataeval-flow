@@ -1885,6 +1885,56 @@ class TestLabelSpaceRecords:
 
 
 @pytest.mark.required
+class TestAuditToRunJoin:
+    """A run conformed by an audit's stanza carries that audit's digest."""
+
+    def test_analysis_digest_matches_the_audit_that_justified_it(self):
+        """Run the audit, conform a source by what it emitted, and compare digests."""
+        from dataeval import Ontology
+
+        from dataeval_flow.config import ViewConfig, ViewOperation
+        from dataeval_flow.sources import label_space_records, resolve_source
+        from dataeval_flow.workflow import ResolvedOntology
+        from dataeval_flow.workflows.coverage.ontology import _alignment
+
+        ontology = Ontology.from_hierarchy({"Vehicle": ["Car", "Truck"], "Person": []})
+        alignment = _alignment(ontology, ["car", "van"])
+
+        # What a user pastes out of the audit's report and into a view.
+        config = _envelope_config()
+        assert config.views is not None
+        assert config.sources is not None
+        config.views[0] = ViewConfig(  # type: ignore[reportIndexIssue]
+            name="conform_a",
+            operations=[
+                ViewOperation(
+                    type="Relabel",
+                    params={
+                        "class_remap": alignment.paste_remap,
+                        "target": alignment.target_vocabulary,
+                    },
+                )
+            ],
+        )
+
+        records = label_space_records(
+            [resolve_source("a", config)],
+            ResolvedOntology(ontology=ontology, source="vehicles"),
+        )
+        assert records[0].digest == alignment.label_space_digest
+        assert records[0].ontology == "vehicles"
+
+    def test_any_workflow_can_declare_an_ontology(self):
+        """Not only data-coverage. A conformed run of any type must be able to join."""
+        from dataeval_flow.config import DataAnalysisWorkflowConfig
+
+        instance = DataAnalysisWorkflowConfig(
+            name="a", outlier_method="zscore", outlier_flags=["dimension"], ontology="vehicles"
+        )
+        assert instance.ontology == "vehicles"
+
+
+@pytest.mark.required
 class TestRelabelTarget:
     """`_relabel_target` in isolation — the vocabulary-derivation rules `Relabel` itself applies."""
 

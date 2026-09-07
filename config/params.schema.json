@@ -587,6 +587,23 @@
           "title": "Mode",
           "type": "string"
         },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
+        },
         "outlier_method": {
           "description": "Statistical method for outlier detection",
           "enum": [
@@ -867,6 +884,23 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
         },
         "outlier_method": {
           "description": "Statistical method for outlier detection",
@@ -1241,6 +1275,23 @@
           "title": "Mode",
           "type": "string"
         },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sanctioned label space. A nested mapping of concept to children is read as an inline hierarchy; a string is read as a path to a serialized RDF artifact (.ttl/.rdf/.owl/.xml/.nt/.jsonld), resolved against the data root. When unset, a flat ontology is synthesized from the dataset's index2label \u2014 enough for a class balance worklist, but it can only name classes the dataset already declares.",
+          "title": "Ontology"
+        },
         "coverage_method": {
           "default": "adaptive",
           "description": "Coverage radius method. 'adaptive' flags the sparsest coverage_percent of observations \u2014 a useful shortlist, but its rate restates the config, so the uncovered_rate threshold is not applied to it. 'naive' compares each radius against a fixed geometric radius, giving a data-driven rate, but that radius grows with embedding dimensionality and saturates on wide embeddings. Either way, the per-class dispersion / isotropy / near-duplicate signals are the data-driven health signal.",
@@ -1342,23 +1393,6 @@
           "minimum": 1,
           "title": "Gap Min Representation",
           "type": "integer"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Sanctioned label space. A nested mapping of concept to children is read as an inline hierarchy; a string is read as a path to a serialized RDF artifact (.ttl/.rdf/.owl/.xml/.nt/.jsonld), resolved against the data root. When unset, a flat ontology is synthesized from the dataset's index2label \u2014 enough for a class balance worklist, but it can only name classes the dataset already declares.",
-          "title": "Ontology"
         },
         "ontology_expected": {
           "anyOf": [
@@ -1464,6 +1498,23 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
         },
         "method": {
           "default": "knn",
@@ -1608,6 +1659,23 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
         },
         "test_frac": {
           "default": 0.2,
@@ -2034,6 +2102,23 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
         },
         "detectors": {
           "description": "List of drift detectors to run. At least one required.",
@@ -2602,6 +2687,23 @@
           "title": "Mode",
           "type": "string"
         },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
+        },
         "max_examples": {
           "default": 20,
           "description": "Distinct values shown per kind per factor in the report. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
@@ -2764,6 +2866,23 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
         },
         "detectors": {
           "description": "List of OOD detectors to run. At least one required.",
@@ -3138,6 +3257,23 @@
           ],
           "title": "Mode",
           "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "title": "Ontology"
         },
         "outlier_flags": {
           "default": [
