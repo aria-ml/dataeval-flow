@@ -33,9 +33,9 @@ ontology belong on the dataset for the same reason — see {doc}`configure_metad
 stats:
   - name: multispectral
     measure:
-      - {bands: ~,   families: [dimension, hash]}
+      - {bands: ~,   families: [dimension, visual, hash]}
       - {bands: rgb, families: [visual]}
-      - {bands: ir,  families: [pixel]}
+      - {bands: ir,  families: [visual, pixel]}
     background: true
     outliers_from: [~]
     factors_from:  [~, rgb, ir]
@@ -86,6 +86,24 @@ Which statistic *families* get injected as factors at all is a separate decision
 metadata policy (see {doc}`configure_metadata_binning`). `factors_from` decides which *views* those families are
 read from.
 
+### Every view a consumer reads must measure what it needs
+
+Naming a view in `outliers_from` or `factors_from` does not pull in extra families for that view — it only says a
+consumer reads whatever `measure`'s own entry for it already provides. Every view a consumer's list names must
+measure, in its own `measure` entry, every family that consumer reads, or the run is refused before the dataset is
+walked, naming the missing families and the view to add them to.
+
+This is why measuring band groups *instead of* the whole image is a config error unless you also narrow the
+consumer lists. `outliers_from` and `factors_from` both default to `[~]`, so dropping the whole-image entry from
+`measure` — to measure only `rgb` and `ir`, say — leaves both lists pointing at a view that measures nothing at
+all. Narrow them to the groups you actually measure, or keep a `{bands: ~, ...}` entry naming what they need.
+
+`data-analysis` is the sharpest version of this rule. It always runs duplicate detection over the whole image,
+whatever `stats:` policy is named — there is no field to turn it off, and no view list to narrow it with. A policy
+used by `data-analysis` must give `~` the full `hash` family for that reason alone, on top of whatever
+`outliers_from` and `factors_from` need there. The `multispectral` policy above does, so it would work with
+`data-analysis` too, not just the `data-cleaning` workflow shown.
+
 ## The view namespace
 
 A view is named by the prefix its columns carry, and channel groups compose with the background: for `n` groups
@@ -106,9 +124,23 @@ statistic family, so the columns a `measure` block computes multiply far past wh
 for what each consumer in `outliers_from` and `factors_from` actually reads, not more.
 
 `measure` is a complete statement, so a policy only produces the views its entries ask for. The `multispectral`
-policy above produces five of the six: `~`, `rgb`, `ir`, `background_rgb`, and `background_ir`. Its whole-image
-entry asks for `dimension` and `hash` only, and neither is measured for the background, so it has no plain
-`background` view. The section on reading `background_fraction`, below, shows what that means and how to get one.
+policy above produces all six: every entry asks for `visual`, and `visual` is one of the two families the
+background is measured for, so `background`, `background_rgb`, and `background_ir` all get produced alongside
+`~`, `rgb`, and `ir`.
+
+The general rule: the background carries only `pixel` and `visual` (see the section above), so a view whose entry
+names neither produces no `background_<view>`. A group measuring only `hash`, say, gets no background variant —
+`background: true` does not add a family its own entry never asked for:
+
+```yaml
+measure:
+  - {bands: ~,   families: [dimension, visual]}
+  - {bands: rgb, families: [hash]}
+background: true
+```
+
+produces `~`, `rgb`, and `background` — not `background_rgb`, because `rgb`'s only family is not one the
+background carries.
 
 ## Enabling a band group moves nothing until you name it
 
@@ -138,22 +170,15 @@ views for it could only ever say `[~]`.
 families you ask for elsewhere. Read it before any other `background_*` number: a background statistic measured
 over a few percent of an image is noise.
 
-`background_fraction` belongs to the plain `background` view, and that view is only produced if the whole-image
-entry itself measures `pixel` or `visual`. The `multispectral` policy above asks `dimension` and `hash` of the
-whole image, so it has no plain `background` view to name — only `background_rgb` and `background_ir`, from the
-groups that do measure something background-eligible. Ask `pixel` or `visual` of `~` too, and name `background`
-alongside the views you already read:
+`background_fraction` belongs to the plain `background` view, produced wherever the whole-image entry measures
+`pixel` or `visual`. The `multispectral` policy above does — its whole-image entry asks for `visual` — so
+`background` is already among the views it produces.
+
+Producing it is not the same as reading it, though: `factors_from: [~, rgb, ir]` leaves `background` out, exactly
+as the section above describes. Name it to have `Balance` and `Diversity` see it:
 
 ```yaml
-stats:
-  - name: multispectral
-    measure:
-      - {bands: ~,   families: [dimension, pixel, hash]}
-      - {bands: rgb, families: [visual]}
-      - {bands: ir,  families: [pixel]}
-    background: true
-    outliers_from: [~]
-    factors_from:  [~, rgb, ir, background]
+factors_from: [~, rgb, ir, background]
 ```
 
 `Balance` and `Diversity` now see `background_fraction` alongside the whole-image and group factors, so you can
