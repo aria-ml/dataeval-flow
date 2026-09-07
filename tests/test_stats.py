@@ -147,6 +147,30 @@ class TestResolvedStatsPolicy:
 
 
 @pytest.mark.required
+class TestNarrowedTo:
+    """Narrowing a request narrows the bands to match, so `compute_stats` never sees a mismatch."""
+
+    def test_narrowing_to_the_bare_view_drops_every_group(self):
+        policy = _policy(channels=(("ir", (3,)),))
+        narrowed = policy.narrowed_to({None: ImageStats.VISUAL})
+        assert narrowed.request == {None: ImageStats.VISUAL}
+        assert narrowed.channel_map is None
+
+    def test_narrowing_to_a_group_alone_keeps_only_that_group(self):
+        policy = _policy(channels=(("ir", (3,)), ("rgb", (0, 1, 2))))
+        narrowed = policy.narrowed_to({"ir": ImageStats.PIXEL_MEAN})
+        assert narrowed.request == {"ir": ImageStats.PIXEL_MEAN}
+        assert narrowed.channel_map == {"ir": [3]}
+
+    def test_background_and_consumer_view_sets_are_carried_through(self):
+        policy = _policy(background=True, outliers_from=(None, "ir"), factors_from=("ir",))
+        narrowed = policy.narrowed_to({None: ImageStats.VISUAL})
+        assert narrowed.background is True
+        assert narrowed.outliers_from == (None, "ir")
+        assert narrowed.factors_from == ("ir",)
+
+
+@pytest.mark.required
 class TestResolveStatsPolicy:
     def _config(self, **policy):
         from dataeval_flow.config import PipelineConfig

@@ -23,7 +23,7 @@ __all__ = [
 
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from dataeval.core import StatsResult
@@ -178,6 +178,19 @@ class ResolvedStatsPolicy:
         return json.dumps(
             {"channels": [[name, list(bands)] for name, bands in self.channels], "background": self.background},
             sort_keys=True,
+        )
+
+    def narrowed_to(self, request: "Mapping[str | None, ImageStats]") -> "ResolvedStatsPolicy":
+        """Return this policy asking only for *request*, with its bands narrowed to match.
+
+        Use this to recompute part of a policy. `compute_stats` requires a stats mapping's
+        named keys to be exactly the channel group names, in both directions, so narrowing
+        the request without narrowing the groups raises.
+        """
+        return replace(
+            self,
+            measure=tuple(request.items()),
+            channels=tuple((name, bands) for name, bands in self.channels if name in request),
         )
 
     def factor_identity(self) -> dict[str, Any]:

@@ -2358,3 +2358,59 @@ class TestPrefixedFactorsSplitByLevel:
         names = set(build_metadata(toy_multiband_dataset, policy).factor_names)
         assert "unit_ir_brightness" in names
         assert "instance_ir_brightness" in names
+
+
+@pytest.mark.required
+class TestPartialHitNarrowsChannelsToMatch:
+    """A partial recompute narrows `channels` along with `measure`, in either direction.
+
+    `compute_stats` requires a stats mapping's keys to be exactly the channel group names, in
+    both directions. Narrowing `measure` to the coverage gap without narrowing `channels` to
+    match names a group nothing is being asked for, or asks for a group nothing declares.
+    """
+
+    def test_a_group_cached_first_then_the_bare_view_is_added(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import DatasetCache, active_cache, get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        cache = DatasetCache.get_or_create(None, name="toy", cache_key="group-first")
+
+        group_only = ResolvedStatsPolicy(measure=(("rgb", ImageStats.PIXEL_MEAN),), channels=(("rgb", (0, 1, 2)),))
+        with active_cache(cache, "sel:all"):
+            get_or_compute_stats(group_only, dataset=toy_multiband_dataset, per_target=False)
+
+        both = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.PIXEL_MEAN)),
+            channels=(("rgb", (0, 1, 2)),),
+        )
+        with active_cache(cache, "sel:all"):
+            result = get_or_compute_stats(both, dataset=toy_multiband_dataset, per_target=False)
+
+        assert "rgb_mean" in result["stats"]
+        assert "brightness" in result["stats"]
+
+    def test_the_bare_view_cached_first_then_the_group_is_added(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.cache import DatasetCache, active_cache, get_or_compute_stats
+        from dataeval_flow.stats import ResolvedStatsPolicy
+
+        cache = DatasetCache.get_or_create(None, name="toy", cache_key="bare-first")
+
+        # Declares the same `channels` as `both` below so the two calls share one scope key,
+        # even though this policy's own `measure` never asks for the group.
+        bare_only = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=(("rgb", (0, 1, 2)),))
+        with active_cache(cache, "sel:all"):
+            get_or_compute_stats(bare_only, dataset=toy_multiband_dataset, per_target=False)
+
+        both = ResolvedStatsPolicy(
+            measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.PIXEL_MEAN)),
+            channels=(("rgb", (0, 1, 2)),),
+        )
+        with active_cache(cache, "sel:all"):
+            result = get_or_compute_stats(both, dataset=toy_multiband_dataset, per_target=False)
+
+        assert "rgb_mean" in result["stats"]
+        assert "brightness" in result["stats"]

@@ -1427,12 +1427,8 @@ class DatasetCache:
                 sorted(cached["stats"].keys()),
             )
 
-        from dataclasses import replace as _replace
-
         # Compute the missing stats
-        fresh = _do_compute_stats(
-            dataset, _replace(policy, measure=tuple(to_compute.items())), per_image, per_target, value_range
-        )
+        fresh = _do_compute_stats(dataset, policy.narrowed_to(to_compute), per_image, per_target, value_range)
 
         if cached is None:
             self.save_stats(selection_repr, scope, dict(fresh))
