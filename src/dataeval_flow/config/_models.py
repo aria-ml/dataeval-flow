@@ -14,6 +14,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 from dataeval_flow.config.schemas import (
     DatasetConfig,
     DatasetProtocolConfig,
+    ExportConfig,
     ExtractorConfig,
     MetadataPolicyConfig,
     OntologyConfig,
@@ -170,6 +171,13 @@ class PipelineConfig(BaseModel):
     extractors: Sequence[ExtractorConfig] | None = Field(
         default=None,
         description="Named extractor definitions (model type + params + optional preprocessor + batch_size)",
+    )
+    exports: Sequence[ExportConfig] | None = Field(
+        default=None,
+        description=(
+            "Named datasets to write out, referenced by source. Declared here rather than "
+            "on a task, so a corpus is written whether or not a task reads it."
+        ),
     )
 
     # Execution

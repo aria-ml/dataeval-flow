@@ -47,6 +47,7 @@ SECTIONS: list[tuple[str, str]] = [
     ("ontologies", "Ontologies"),
     ("workflows", "Workflows"),
     ("tasks", "Tasks"),
+    ("exports", "Exports"),
 ]
 
 SECTION_KEYS: list[str] = [s[0] for s in SECTIONS]
@@ -135,6 +136,7 @@ CROSS_REFS: dict[str, dict[str, str]] = {
     "sources": {"dataset": "datasets", "view": "views"},
     "tasks": {"workflow": "workflows", "extractor": "extractors"},
     "extractors": {"preprocessor": "preprocessors"},
+    "exports": {"source": "sources"},
 }
 
 MULTI_REF_FIELDS: dict[str, dict[str, str]] = {

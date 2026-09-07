@@ -1275,3 +1275,40 @@ class TestOntologyConfig:
                     {"name": "vehicles", "source": "b.jsonld"},
                 ]  # type: ignore[arg-type]
             )
+
+
+@pytest.mark.required
+class TestExportConfig:
+    """An export names a source and a datamaite output format."""
+
+    def test_defaults_to_coco_and_refuses_to_overwrite(self):
+        from dataeval_flow.config.schemas import ExportConfig
+
+        export = ExportConfig(name="corpus", source="merged")
+        assert export.format == "coco"
+        assert export.mode == "error"
+
+    def test_unknown_format_is_refused(self):
+        from dataeval_flow.config.schemas import ExportConfig
+
+        with pytest.raises(ValidationError):
+            ExportConfig(name="corpus", source="merged", format="parquet")  # type: ignore[arg-type]
+
+    def test_every_declared_format_is_a_datamaite_output_format(self):
+        """Pinned rather than left open, so a typo is a config error."""
+        from typing import get_args
+
+        from datamaite import available_output_formats
+
+        from dataeval_flow.config.schemas import ExportConfig
+
+        declared = set(get_args(ExportConfig.model_fields["format"].annotation))
+        assert declared <= {f.value for f in available_output_formats()}
+
+    def test_pipeline_holds_the_pool(self):
+        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow.config.schemas import ExportConfig
+
+        config = PipelineConfig(exports=[ExportConfig(name="corpus", source="merged")])
+        assert config.exports is not None
+        assert config.exports[0].name == "corpus"

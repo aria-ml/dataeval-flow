@@ -474,6 +474,7 @@ class TestConstants:
             "ontologies",
             "workflows",
             "tasks",
+            "exports",
         }
         assert len(SECTIONS) == len(SECTION_KEYS)
 

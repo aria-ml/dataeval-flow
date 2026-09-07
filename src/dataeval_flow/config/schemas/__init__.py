@@ -17,6 +17,7 @@ from dataeval_flow.config.schemas._dataset import (
     ImageFolderDatasetConfig,
     YoloDatasetConfig,
 )
+from dataeval_flow.config.schemas._export import ExportConfig
 from dataeval_flow.config.schemas._extractor import (
     BoVWExtractorConfig,
     FlattenExtractorConfig,
@@ -131,6 +132,7 @@ __all__ = [
     "ParameterSweepTaskConfig",
     "TaskConfig",
     # Other
+    "ExportConfig",
     "LabelSpaceRecord",
     "PreprocessorConfig",
     "ResultMetadata",

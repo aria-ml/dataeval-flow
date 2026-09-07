@@ -2186,6 +2186,64 @@
       "title": "DriftMonitoringWorkflowConfig",
       "type": "object"
     },
+    "ExportConfig": {
+      "additionalProperties": false,
+      "description": "A named dataset to write, and the format to write it in.\n\nDeclare an export to take a conformed corpus out of the tool. It is written to\n``output/datasets/<name>/`` when the run has an output directory, beside\n``output/results/``. An export names a source, not a task, so it writes whether or\nnot any task reads that source.\n\nYAML example::\n\n    exports:\n      - name: conformed_corpus\n        source: merged\n        format: coco",
+      "properties": {
+        "name": {
+          "description": "Identifier for the export, and the directory it is written to.",
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "description": "Reference to a source name.",
+          "title": "Source",
+          "type": "string"
+        },
+        "format": {
+          "default": "coco",
+          "description": "Output format, from datamaite's object-detection writers. Pinned rather than left open so a typo is a config error and not a failure after the walk.",
+          "enum": [
+            "coco",
+            "yolo",
+            "huggingface_vision",
+            "visdrone"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "mode": {
+          "default": "error",
+          "description": "What to do when the destination already holds a dataset. The default refuses, so a re-run cannot overwrite a corpus somebody is using. `replace` clears it first; `append` writes into it and may leave stale files behind.",
+          "enum": [
+            "error",
+            "replace",
+            "append"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted corpus carries the same digest as the run and the audit. An export names no workflow, so it cannot inherit one.",
+          "title": "Ontology"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "title": "ExportConfig",
+      "type": "object"
+    },
     "FlattenExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for simple flattening (no model).\n\nYAML example::\n\n    extractors:\n      - name: flat_extractor\n        model: flatten",
@@ -4667,6 +4725,22 @@
       "default": null,
       "description": "Named extractor definitions (model type + params + optional preprocessor + batch_size)",
       "title": "Extractors"
+    },
+    "exports": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ExportConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named datasets to write out, referenced by source. Declared here rather than on a task, so a corpus is written whether or not a task reads it.",
+      "title": "Exports"
     },
     "workflows": {
       "anyOf": [
