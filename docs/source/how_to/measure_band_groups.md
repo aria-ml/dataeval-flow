@@ -101,8 +101,9 @@ all. Narrow them to the groups you actually measure, or keep a `{bands: ~, ...}`
 `data-analysis` is the sharpest version of this rule. It always runs duplicate detection over the whole image,
 whatever `stats:` policy is named — there is no field to turn it off, and no view list to narrow it with. A policy
 used by `data-analysis` must give `~` the full `hash` family for that reason alone, on top of whatever
-`outliers_from` and `factors_from` need there. The `multispectral` policy above does, so it would work with
-`data-analysis` too, not just the `data-cleaning` workflow shown.
+`outliers_from` and `factors_from` need there. The `multispectral` policy above does, which is what
+`data-analysis`'s unconditional duplicate detection needs regardless of its `outlier_flags` — those still have to
+name families `~` measures, exactly as they do for `data-cleaning`.
 
 ## The view namespace
 
@@ -182,7 +183,7 @@ factors_from: [~, rgb, ir, background]
 ```
 
 `Balance` and `Diversity` now see `background_fraction` alongside the whole-image and group factors, so you can
-read it against `background_mean` and `background_std` before trusting either one.
+read it against `background_brightness` and `background_contrast` before trusting either one.
 
 ## Related material
 
