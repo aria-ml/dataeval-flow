@@ -1014,24 +1014,44 @@ class TestCacheDirAndLabelSource:
 
 
 class TestBuildResolvedConfig:
-    """Direct tests for _build_resolved_config branches."""
+    """Direct tests for _build_resolved_config branches, over a single-operand source."""
+
+    @staticmethod
+    def _single(dataset_config: Any, view_config: Any = None, dataset: str = "ds"):
+        """One ResolvedSource wrapping one operand, for exercising _operand_entry."""
+        from dataeval_flow.sources import ResolvedSource, SourceOperand
+
+        operand = SourceOperand(
+            source=SourceConfig(name="src", dataset=dataset),
+            dataset_config=dataset_config,
+            view_config=view_config,
+            raw=MagicMock(),
+            label_source=None,
+            cache_key="k",
+        )
+        return ResolvedSource(
+            name="src",
+            operands=(operand,),
+            dataset=operand.raw,
+            view_config=view_config,
+            cache_name="src",
+            cache_key="k",
+        )
 
     def test_non_serializable_dataset_protocol_config(self):
-        """Non-serializable dataset (DatasetProtocolConfig) produces protocol entry (lines 268-275)."""
-        from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
+        """A non-serializable dataset (DatasetProtocolConfig) writes a protocol entry."""
+        from dataeval_flow.config import DatasetProtocolConfig
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         runtime_ds = MagicMock()
         runtime_ds.metadata = {"id": "my-dataset-id"}
         ds_cfg = DatasetProtocolConfig(name="proto_ds", dataset=runtime_ds)
-        source = SourceConfig(name="src", dataset="proto_ds")
-        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source])
 
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg, dataset="proto_ds")],
             workflow_instance=None,
             extractor_cfg=None,
-            pipeline_config=pipeline,
+            pipeline_config=None,
         )
 
         ds_config = cfg["sources"][0]["dataset_config"]
@@ -1039,79 +1059,78 @@ class TestBuildResolvedConfig:
         assert ds_config["dataset"]["id"] == "my-dataset-id"
 
     def test_non_serializable_dataset_none_runtime_obj(self):
-        """Non-serializable dataset with None runtime object uses 'unknown' (line 272)."""
-        from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
+        """A non-serializable dataset with no runtime object records 'unknown'."""
+        from dataeval_flow.config import DatasetProtocolConfig
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         ds_cfg = DatasetProtocolConfig(name="proto_ds", dataset=None)
-        source = SourceConfig(name="src", dataset="proto_ds")
-        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source])
 
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg, dataset="proto_ds")],
             workflow_instance=None,
             extractor_cfg=None,
-            pipeline_config=pipeline,
+            pipeline_config=None,
         )
 
         ds_config = cfg["sources"][0]["dataset_config"]
         assert ds_config["dataset"]["class"] == "unknown"
 
-    def test_serializable_dataset_with_pipeline_config(self):
-        """Serializable dataset uses model_dump (line 266)."""
-        from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig
+    def test_serializable_dataset_uses_model_dump(self):
+        """A serializable dataset config is dumped as-is."""
+        ds_cfg = ImageFolderDatasetConfig(name="photos", path="./data")
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
-        ds_cfg = ImageFolderDatasetConfig(name="photos", path="./data")
-        source = SourceConfig(name="src", dataset="photos")
-        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source])
-
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg, dataset="photos")],
             workflow_instance=None,
             extractor_cfg=None,
-            pipeline_config=pipeline,
+            pipeline_config=None,
         )
 
-        ds_config = cfg["sources"][0]["dataset_config"]
-        assert ds_config["name"] == "photos"
+        assert cfg["sources"][0]["dataset_config"]["name"] == "photos"
 
-    def test_source_with_view_and_pipeline_config(self):
-        """Source with view resolves view config inline (lines 278-280)."""
-        from dataeval_flow.config import (
-            ImageFolderDatasetConfig,
-            PipelineConfig,
-            SourceConfig,
-            ViewConfig,
-            ViewOperation,
-        )
+    def test_source_with_view_writes_view_config(self):
+        """An operand's view is resolved inline as `view` and `view_config`."""
+        from dataeval_flow.config import ViewConfig, ViewOperation
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         view = ViewConfig(name="sub", operations=[ViewOperation(type="Limit", params={"size": 100})])
-        source = SourceConfig(name="src", dataset="ds", view="sub")
-        pipeline = PipelineConfig(datasets=[ds_cfg], sources=[source], views=[view])
 
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg, view_config=view)],
             workflow_instance=None,
             extractor_cfg=None,
-            pipeline_config=pipeline,
+            pipeline_config=None,
         )
 
         entry = cfg["sources"][0]
         assert entry["view"] == "sub"
-        assert "view_config" in entry
         assert entry["view_config"]["name"] == "sub"
 
-    def test_workflow_instance_included(self):
-        """Workflow instance is included when not None (line 285-286)."""
-        from dataeval_flow.config import SourceConfig
+    def test_source_with_no_view_omits_view_keys(self):
+        """An operand naming no view writes no `view` or `view_config` key."""
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
-        source = SourceConfig(name="src", dataset="ds")
+        ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg)],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=None,
+        )
+
+        entry = cfg["sources"][0]
+        assert "view" not in entry
+        assert "view_config" not in entry
+
+    def test_workflow_instance_included(self):
+        """Workflow instance is included when not None."""
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
+        cfg = _build_resolved_config(
+            resolved_sources=[self._single(ds_cfg)],
             workflow_instance=_CLEAN_INSTANCE,
             extractor_cfg=None,
             pipeline_config=None,
@@ -1122,14 +1141,13 @@ class TestBuildResolvedConfig:
         assert cfg["workflow"]["type"] == "data-cleaning"
 
     def test_extractor_included(self):
-        """Extractor config is included when not None (line 289-290)."""
-        from dataeval_flow.config import SourceConfig
+        """Extractor config is included when not None."""
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
-        source = SourceConfig(name="src", dataset="ds")
+        ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         ext = OnnxExtractorConfig(name="ext", model_path="./m.onnx", batch_size=32)
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg)],
             workflow_instance=None,
             extractor_cfg=ext,
             pipeline_config=None,
@@ -1140,12 +1158,11 @@ class TestBuildResolvedConfig:
 
     def test_no_workflow_no_extractor(self):
         """No workflow or extractor omits those keys."""
-        from dataeval_flow.config import SourceConfig
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
-        source = SourceConfig(name="src", dataset="ds")
+        ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[self._single(ds_cfg)],
             workflow_instance=None,
             extractor_cfg=None,
             pipeline_config=None,
@@ -1154,22 +1171,52 @@ class TestBuildResolvedConfig:
         assert "workflow" not in cfg
         assert "extractor" not in cfg
 
-    def test_source_with_view_no_pipeline_config(self):
-        """Source with view but no pipeline_config skips view_config (line 278->281)."""
-        from dataeval_flow.config import SourceConfig
+    def test_merge_recurses_into_operands(self):
+        """A merged source's entry lists `merge` operands and keeps its own view separate."""
+        from dataeval_flow.config import ViewConfig, ViewOperation
+        from dataeval_flow.sources import ResolvedSource, SourceOperand
         from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
-        source = SourceConfig(name="src", dataset="ds", view="sub")
+        ds_a = ImageFolderDatasetConfig(name="ds_a", path="./a")
+        ds_b = ImageFolderDatasetConfig(name="ds_b", path="./b")
+        own_view = ViewConfig(name="head", operations=[ViewOperation(type="Limit", params={"size": 3})])
+        operand_a = SourceOperand(
+            source=SourceConfig(name="a", dataset="ds_a"),
+            dataset_config=ds_a,
+            view_config=None,
+            raw=MagicMock(),
+            label_source=None,
+            cache_key="ka",
+        )
+        operand_b = SourceOperand(
+            source=SourceConfig(name="b", dataset="ds_b"),
+            dataset_config=ds_b,
+            view_config=None,
+            raw=MagicMock(),
+            label_source=None,
+            cache_key="kb",
+        )
+        resolved = ResolvedSource(
+            name="merged",
+            operands=(operand_a, operand_b),
+            dataset=MagicMock(),
+            view_config=own_view,
+            cache_name="merged",
+            cache_key="merge:ka|kb",
+        )
+
         cfg = _build_resolved_config(
-            sources=[source],
+            resolved_sources=[resolved],
             workflow_instance=None,
             extractor_cfg=None,
             pipeline_config=None,
         )
 
         entry = cfg["sources"][0]
-        assert entry["view"] == "sub"
-        assert "view_config" not in entry
+        assert entry["name"] == "merged"
+        assert [op["dataset"] for op in entry["merge"]] == ["ds_a", "ds_b"]
+        assert entry["view"] == "head"
+        assert "dataset" not in entry
 
 
 # ---------------------------------------------------------------------------
@@ -1178,25 +1225,15 @@ class TestBuildResolvedConfig:
 
 
 class TestPopulateResultMetadataLabelSource:
-    """Test that label_source is not set when dc.label_source is falsy (line 243->247)."""
+    """label_source is left unset when no operand of any source reports one."""
 
     def test_no_label_source_skips_annotation(self):
         from dataeval_flow.config import SourceConfig
         from dataeval_flow.sources import ResolvedSource, SourceOperand
-        from dataeval_flow.workflow import DatasetContext, WorkflowResult
+        from dataeval_flow.workflow import WorkflowResult
         from dataeval_flow.workflow.orchestrator import _populate_result_metadata
 
         result = WorkflowResult(name="t", success=True, data=MagicMock(), metadata=ResultMetadata())
-        dc = DatasetContext(
-            name="src",
-            dataset=MagicMock(),
-            extractor=None,
-            transforms=None,
-            view_operations=None,
-            batch_size=None,
-            label_source=None,
-            cache=None,
-        )
         operand = SourceOperand(
             source=SourceConfig(name="src", dataset="ds"),
             dataset_config=MagicMock(),
@@ -1216,13 +1253,11 @@ class TestPopulateResultMetadataLabelSource:
 
         _populate_result_metadata(
             result=result,
-            dataset_contexts={"src": dc},
             resolved_sources=[resolved],
             extractor_cfg=None,
             elapsed=1.0,
         )
 
-        # label_source should remain None when dc.label_source is None
         assert result.metadata.label_source is None
 
 
@@ -1594,6 +1629,90 @@ class TestMergedSourceTask:
             result = _run_single_task(config.tasks[0], config)
 
         assert result.metadata.dataset_id == "ds_a,ds_b"
+
+
+# ---------------------------------------------------------------------------
+# _populate_result_metadata / _build_resolved_config — merged source envelope
+# ---------------------------------------------------------------------------
+
+
+def _envelope_config():
+    """The merge fixture, wired to one task that reads the merged source."""
+    from dataeval_flow.config import TaskConfig
+    from tests.test_sources import _merge_config
+
+    config = _merge_config()
+    config.workflows = [_CLEAN_INSTANCE]
+    config.tasks = [TaskConfig(name="t", workflow="clean", sources="merged")]
+    return config
+
+
+def _run_envelope(config):
+    """Run the config's one task against a stub workflow and return the result."""
+    from dataeval_flow.workflow.orchestrator import _run_single_task
+
+    mock_result = MagicMock()
+    mock_result.success = True
+    mock_result.metadata = ResultMetadata()
+    mock_wf = MagicMock()
+    mock_wf.params_schema = None
+    mock_wf.execute.return_value = mock_result
+    with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        return _run_single_task(config.tasks[0], config)
+
+
+@pytest.mark.required
+class TestMergedEnvelope:
+    """A merged source is fully recorded in the result envelope."""
+
+    def test_dataset_id_names_every_operand(self):
+        assert _run_envelope(_envelope_config()).metadata.dataset_id == "ds_a,ds_b"
+
+    def test_selection_id_names_the_conform_views(self):
+        assert _run_envelope(_envelope_config()).metadata.selection_id == "conform_a,conform_b"
+
+    def test_source_description_spells_the_merge(self):
+        meta = _run_envelope(_envelope_config()).metadata
+        assert list(meta.source_descriptions) == ["merged (merge: ds_a[conform_a] + ds_b[conform_b])"]
+
+    def test_merged_source_records_its_own_view(self):
+        """A merged source's own view lands after the operands' in `selection_id` and as a suffix."""
+        from dataeval_flow.config import SourceConfig, ViewConfig, ViewOperation
+
+        config = _envelope_config()
+        assert config.views is not None
+        assert config.sources is not None
+        config.views.append(  # type: ignore[reportAttributeAccessIssue]
+            ViewConfig(name="head", operations=[ViewOperation(type="Limit", params={"size": 3})])
+        )
+        config.sources[2] = SourceConfig(name="merged", merge=["a", "b"], view="head")  # type: ignore[reportIndexIssue]
+
+        meta = _run_envelope(config).metadata
+        assert meta.selection_id == "conform_a,conform_b,head"
+        assert list(meta.source_descriptions) == ["merged (merge: ds_a[conform_a] + ds_b[conform_b])[head]"]
+
+    def test_resolved_config_recurses_into_operands(self):
+        cfg = _run_envelope(_envelope_config()).metadata.resolved_config
+        entry = cfg["sources"][0]
+        assert entry["name"] == "merged"
+        assert [op["dataset"] for op in entry["merge"]] == ["ds_a", "ds_b"]
+        # The Relabel that defines the label space is recorded verbatim.
+        relabel = entry["merge"][0]["view_config"]["operations"][0]
+        assert relabel["type"] == "Relabel"
+        assert relabel["params"]["class_remap"] == {"car": "Car"}
+        assert relabel["params"]["target"] == ["Person", "Car", "Truck"]
+
+    def test_single_source_entry_is_unchanged(self):
+        config = _envelope_config()
+        assert config.tasks is not None
+        config.tasks[0].sources = "a"
+        entry = _run_envelope(config).metadata.resolved_config["sources"][0]
+        assert entry["dataset"] == "ds_a"
+        assert sorted(entry) == ["dataset", "dataset_config", "name", "view", "view_config"]
+        assert "merge" not in entry
+
+    def test_label_source_is_scalar_when_operands_agree(self):
+        assert _run_envelope(_envelope_config()).metadata.label_source == "protocol"
 
 
 @pytest.mark.required

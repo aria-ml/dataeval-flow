@@ -15,7 +15,7 @@ from dataeval_flow._logging import capture_diagnostics
 _logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from dataeval_flow.config import PipelineConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config import PipelineConfig, TaskConfig
     from dataeval_flow.config.schemas import WorkflowConfig
     from dataeval_flow.config.schemas._task import (
         DataAnalysisTaskConfig,
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         ParameterSweepTaskConfig,
     )
     from dataeval_flow.policy import ResolvedPolicy
-    from dataeval_flow.sources import ResolvedSource
+    from dataeval_flow.sources import ResolvedSource, SourceOperand
     from dataeval_flow.workflow import DatasetContext, ResolvedOntology, WorkflowResult
     from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, DataAnalysisOutputs
     from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata, DataCleaningOutputs
@@ -368,7 +368,6 @@ def _run_single_task(
     # 9. Populate metadata envelope
     _populate_result_metadata(
         result,
-        dataset_contexts,
         resolved_sources,
         extractor_cfg,
         elapsed,
@@ -421,7 +420,6 @@ def _ensure_result_datasets(
 
 def _populate_result_metadata(
     result: "WorkflowResult[Any, Any]",
-    dataset_contexts: "Mapping[str, DatasetContext]",
     resolved_sources: "Sequence[ResolvedSource]",
     extractor_cfg: Any,
     elapsed: float,
@@ -435,85 +433,69 @@ def _populate_result_metadata(
     dataset_names = [
         operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
     ]
-    # Correct for a single source, wrong for a merge: it keeps the first operand's source
-    # and drops the rest. Build nothing else on it.
-    sources = [rs.operands[0].source for rs in resolved_sources]
-
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
 
-    # Source context — view info
-    view_names = [s.view for s in sources if s.view is not None]
+    # Every view a source reads through, operands first. A merge's conform views define
+    # the label space, so leaving them out would drop what the result was read under.
+    view_names: list[str] = []
+    for rs in resolved_sources:
+        view_names.extend(operand.view_config.name for operand in rs.operands if operand.view_config is not None)
+        if rs.is_merged and rs.view_config is not None:
+            view_names.append(rs.view_config.name)
     if view_names:
         result.metadata.selection_id = view_names[0] if len(view_names) == 1 else ",".join(view_names)
 
-    # Build human-readable source descriptions: "src_name (dataset[view])"
-    source_descs: list[str] = []
-    for src in sources:
-        if src.view is not None:
-            source_descs.append(f"{src.name} ({src.dataset}[{src.view}])")
-        else:
-            source_descs.append(f"{src.name} ({src.dataset})")
-    result.metadata.source_descriptions = source_descs
+    result.metadata.source_descriptions = [_source_description(rs) for rs in resolved_sources]
 
-    # Extractor context — model + preprocessor info
     if extractor_cfg is not None:
         result.metadata.model_id = f"{extractor_cfg.name} ({extractor_cfg.model})"
         if extractor_cfg.preprocessor is not None:
             result.metadata.preprocessor_id = extractor_cfg.preprocessor
 
-    # Annotate dataset source when label provenance is known
-    dc = next(iter(dataset_contexts.values()))
-    if dc.label_source:
-        result.metadata.label_source = dc.label_source
+    label_source = _label_source_of([ls for rs in resolved_sources for ls in rs.label_sources])
+    if label_source is not None:
+        result.metadata.label_source = label_source
 
-    # Build fully resolved config snapshot for report traceability
     result.metadata.resolved_config = _build_resolved_config(
-        sources, workflow_instance, extractor_cfg, pipeline_config, data_dir=data_dir
+        resolved_sources, workflow_instance, extractor_cfg, pipeline_config, data_dir=data_dir
     )
 
 
+def _operand_description(operand: "SourceOperand") -> str:
+    """Render one operand as `dataset[view]`, or `dataset` where it reads no view."""
+    if operand.view_config is None:
+        return str(operand.source.dataset)
+    return f"{operand.source.dataset}[{operand.view_config.name}]"
+
+
+def _source_description(resolved: "ResolvedSource") -> str:
+    """Render one source for the report's Source line.
+
+    A merged source spells out its operands, because the datasets it reads and the views
+    that conformed them are what a reader needs and the source name alone hides both.
+    """
+    if not resolved.is_merged:
+        return f"{resolved.name} ({_operand_description(resolved.operands[0])})"
+    parts = " + ".join(_operand_description(operand) for operand in resolved.operands)
+    own_view = f"[{resolved.view_config.name}]" if resolved.view_config is not None else ""
+    return f"{resolved.name} (merge: {parts}){own_view}"
+
+
 def _build_resolved_config(
-    sources: "Sequence[SourceConfig]",
+    resolved_sources: "Sequence[ResolvedSource]",
     workflow_instance: "WorkflowConfig | None",
     extractor_cfg: Any,
     pipeline_config: "PipelineConfig | None",
     data_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Build a fully resolved config dict for report traceability."""
-    cfg: dict[str, Any] = {}
+    cfg: dict[str, Any] = {"sources": [_source_entry(rs) for rs in resolved_sources]}
 
-    # Sources — expand dataset and view configs inline
-    source_entries: list[dict[str, Any]] = []
-    for src in sources:
-        entry: dict[str, Any] = {"name": src.name, "dataset": src.dataset}
-        if pipeline_config is not None and src.dataset is not None:
-            ds = _resolve_by_name(pipeline_config.datasets, src.dataset, "dataset")
-            if getattr(ds, "serializable", True):
-                entry["dataset_config"] = ds.model_dump(mode="json")
-            else:
-                dumped = ds.model_dump(mode="json", exclude={"dataset"})
-                runtime_obj = getattr(ds, "dataset", None)
-                dumped["dataset"] = {
-                    "type": "protocol",
-                    "class": type(runtime_obj).__qualname__ if runtime_obj is not None else "unknown",
-                    "id": getattr(runtime_obj, "metadata", {}).get("id", "unknown"),
-                }
-                entry["dataset_config"] = dumped
-        if src.view is not None:
-            entry["view"] = src.view
-            if pipeline_config is not None:
-                view = _resolve_by_name(pipeline_config.views, src.view, "view")
-                entry["view_config"] = view.model_dump(mode="json")
-        source_entries.append(entry)
-    cfg["sources"] = source_entries
-
-    # Workflow params
     if workflow_instance is not None:
         cfg["workflow"] = workflow_instance.model_dump(mode="json")
 
-    # Extractor
     if extractor_cfg is not None:
         cfg["extractor"] = extractor_cfg.model_dump(mode="json")
 
@@ -523,6 +505,46 @@ def _build_resolved_config(
         cfg["deterministic"] = pipeline_config.deterministic
 
     return _relativize_paths(cfg, root=data_dir)
+
+
+def _source_entry(resolved: "ResolvedSource") -> dict[str, Any]:
+    """Expand one source, recursing into a merge's operands.
+
+    Recurse so a merged run is replayable. `view_config` carries each operand's `Relabel`
+    verbatim, so the conformed vocabulary lands here once the walk reaches it.
+    """
+    if not resolved.is_merged:
+        return {"name": resolved.name, **_operand_entry(resolved.operands[0])}
+
+    entry: dict[str, Any] = {
+        "name": resolved.name,
+        "merge": [_operand_entry(operand) for operand in resolved.operands],
+    }
+    if resolved.view_config is not None:
+        entry["view"] = resolved.view_config.name
+        entry["view_config"] = resolved.view_config.model_dump(mode="json")
+    return entry
+
+
+def _operand_entry(operand: "SourceOperand") -> dict[str, Any]:
+    """Expand one leaf source's dataset and view configs inline."""
+    entry: dict[str, Any] = {"dataset": operand.source.dataset}
+    ds = operand.dataset_config
+    if getattr(ds, "serializable", True):
+        entry["dataset_config"] = ds.model_dump(mode="json")
+    else:
+        dumped = ds.model_dump(mode="json", exclude={"dataset"})
+        runtime_obj = getattr(ds, "dataset", None)
+        dumped["dataset"] = {
+            "type": "protocol",
+            "class": type(runtime_obj).__qualname__ if runtime_obj is not None else "unknown",
+            "id": getattr(runtime_obj, "metadata", {}).get("id", "unknown"),
+        }
+        entry["dataset_config"] = dumped
+    if operand.view_config is not None:
+        entry["view"] = operand.view_config.name
+        entry["view_config"] = operand.view_config.model_dump(mode="json")
+    return entry
 
 
 def _relativize_paths(obj: Any, root: Path | None = None) -> Any:
