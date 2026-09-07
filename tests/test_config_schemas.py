@@ -365,10 +365,15 @@ class TestSourceConfig:
         assert cfg.sources is not None
         assert cfg.sources[0].view == "first_5k"
 
-    def test_source_config_missing_dataset_raises(self):
-        """SourceConfig requires dataset field."""
-        with pytest.raises(ValidationError, match="dataset"):
+    def test_source_config_neither_dataset_nor_merge_raises(self):
+        """A source naming neither `dataset` nor `merge` is refused."""
+        with pytest.raises(ValidationError, match="names neither"):
             SourceConfig(name="src")  # type: ignore[call-arg]
+
+    def test_source_config_both_dataset_and_merge_raises(self):
+        """A source naming both `dataset` and `merge` is refused."""
+        with pytest.raises(ValidationError, match="names both"):
+            SourceConfig(name="src", dataset="ds", merge=["a", "b"])
 
 
 class TestExtractorConfig:

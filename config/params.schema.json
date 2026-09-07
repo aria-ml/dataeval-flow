@@ -3870,7 +3870,7 @@
       "type": "object"
     },
     "SourceConfig": {
-      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
+      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one corpus.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
       "properties": {
         "name": {
           "description": "Identifier for the source",
@@ -3878,9 +3878,33 @@
           "type": "string"
         },
         "dataset": {
-          "description": "Reference to a dataset name",
-          "title": "Dataset",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a dataset name. Name either this or `merge`, not both.",
+          "title": "Dataset"
+        },
+        "merge": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sources to concatenate into one corpus, in the order given. Name either this or `dataset`, not both. Give every operand a view whose `Relabel` passes the identical `target`, or their integer labels denote different classes and the merge is refused. Each datum's id becomes '<position>:<id>', so an item keeps its source's identity.",
+          "title": "Merge"
         },
         "view": {
           "anyOf": [
@@ -3897,8 +3921,7 @@
         }
       },
       "required": [
-        "name",
-        "dataset"
+        "name"
       ],
       "title": "SourceConfig",
       "type": "object"

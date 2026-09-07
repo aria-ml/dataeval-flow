@@ -259,6 +259,8 @@ def _run_single_task(
     for src_name in source_names:
         source: SourceConfig = _resolve_by_name(config.sources, src_name, "source")
         resolved_sources.append(source)
+        if source.dataset is None:
+            raise ValueError(f"Source '{source.name}' names `merge`. Task execution does not resolve merges yet.")
         ds_config = _resolve_by_name(config.datasets, source.dataset, "dataset")
         resolved = resolve_dataset(ds_config, data_dir=data_dir)
         dataset_names.append(source.dataset)
@@ -455,7 +457,7 @@ def _build_resolved_config(
     source_entries: list[dict[str, Any]] = []
     for src in sources:
         entry: dict[str, Any] = {"name": src.name, "dataset": src.dataset}
-        if pipeline_config is not None:
+        if pipeline_config is not None and src.dataset is not None:
             ds = _resolve_by_name(pipeline_config.datasets, src.dataset, "dataset")
             if getattr(ds, "serializable", True):
                 entry["dataset_config"] = ds.model_dump(mode="json")

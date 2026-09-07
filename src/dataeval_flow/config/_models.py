@@ -31,12 +31,17 @@ from dataeval_flow.config.schemas import (
 class SourceConfig(BaseModel):
     """Named source definition — bundles a dataset with an optional view.
 
+    Name a `dataset` to read one dataset, or `merge` to concatenate other sources
+    into one corpus.
+
     YAML example::
 
         sources:
           - name: cifar_train_subset
             dataset: cifar10_train
             view: first_5k
+          - name: merged
+            merge: [m3fd_conformed, drone_conformed]
 
     The legacy ``selection`` key is accepted as a deprecated alias for ``view``.
     """
@@ -44,12 +49,39 @@ class SourceConfig(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
 
     name: str = Field(description="Identifier for the source")
-    dataset: str = Field(description="Reference to a dataset name")
+    dataset: str | None = Field(
+        default=None,
+        description="Reference to a dataset name. Name either this or `merge`, not both.",
+    )
+    merge: Sequence[str] | None = Field(
+        default=None,
+        description=(
+            "Sources to concatenate into one corpus, in the order given. Name either this "
+            "or `dataset`, not both. Give every operand a view whose `Relabel` passes the "
+            "identical `target`, or their integer labels denote different classes and the "
+            "merge is refused. Each datum's id becomes '<position>:<id>', so an item keeps "
+            "its source's identity."
+        ),
+    )
     view: str | None = Field(
         default=None,
         validation_alias=AliasChoices("view", "selection"),
         description="Reference to a view name (optional)",
     )
+
+    @model_validator(mode="after")
+    def _exactly_one_input(self) -> "SourceConfig":
+        """Refuse a source that names both a dataset and a merge, or neither."""
+        if self.merge is not None and len(self.merge) < 2:
+            raise ValueError(f"Source '{self.name}' merges at least two sources; this one names {len(self.merge)}.")
+        if self.dataset is not None and self.merge is not None:
+            raise ValueError(
+                f"Source '{self.name}' names both `dataset` and `merge`. Name one: `dataset` "
+                "reads one dataset, `merge` concatenates other sources."
+            )
+        if self.dataset is None and self.merge is None:
+            raise ValueError(f"Source '{self.name}' names neither `dataset` nor `merge`. Name one.")
+        return self
 
 
 # ---------------------------------------------------------------------------
