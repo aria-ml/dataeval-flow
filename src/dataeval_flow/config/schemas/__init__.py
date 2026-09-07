@@ -28,6 +28,7 @@ from dataeval_flow.config.schemas._extractor import (
 from dataeval_flow.config.schemas._metadata import LabelSpaceRecord, MetadataPolicyConfig, ResultMetadata
 from dataeval_flow.config.schemas._ontology import OntologyConceptConfig, OntologyConfig
 from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
+from dataeval_flow.config.schemas._stats import StatsMeasureConfig, StatsPolicyConfig
 from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
     DataAnalysisTaskConfig,
@@ -136,6 +137,8 @@ __all__ = [
     "LabelSpaceRecord",
     "PreprocessorConfig",
     "ResultMetadata",
+    "StatsMeasureConfig",
+    "StatsPolicyConfig",
     "ViewConfig",
     "ViewOperation",
     # Deprecated aliases (use ViewConfig / ViewOperation)

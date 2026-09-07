@@ -19,6 +19,7 @@ from dataeval_flow.config.schemas import (
     MetadataPolicyConfig,
     OntologyConfig,
     PreprocessorConfig,
+    StatsPolicyConfig,
     TaskConfig,
     ViewConfig,
     WorkflowConfig,
@@ -160,6 +161,15 @@ class PipelineConfig(BaseModel):
         description=(
             "Named label-space definitions, referenced by workflows. Defined once and shared "
             "so that workflows meant to be compared read the same vocabulary."
+        ),
+    )
+
+    stats: Sequence[StatsPolicyConfig] | None = Field(
+        default=None,
+        description=(
+            "Named stats policy definitions (which statistics over which views), referenced "
+            "by workflows. Defined once and shared so that workflows meant to be compared "
+            "measure the same things."
         ),
     )
 

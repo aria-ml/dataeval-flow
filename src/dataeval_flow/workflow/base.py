@@ -64,6 +64,17 @@ class StatsConfigMixin(BaseModel):
     Mix into workflow parameter classes that call ``compute_stats``.
     """
 
+    stats: str | None = Field(
+        default=None,
+        description=(
+            "Name of a policy defined under the top-level `stats:` key. Declare one to "
+            "measure named band groups or the image background, and to name the views that "
+            "drive outlier detection and metadata factors. Leave unset to measure the whole "
+            "image alone, which is what this workflow's own `outlier_flags`, "
+            "`duplicate_flags` and the metadata policy's `intrinsic_factors` ask for."
+        ),
+    )
+
     value_range: tuple[float, float] | None = Field(
         default=None,
         deprecated=(

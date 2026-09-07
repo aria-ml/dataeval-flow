@@ -1357,3 +1357,114 @@ class TestChannelGroups:
     def test_refuses_a_negative_band(self):
         with pytest.raises(ValidationError, match="negative"):
             CocoDatasetConfig(name="d", path="d", channel_groups={"rgb": [0, -1]})
+
+
+@pytest.mark.required
+class TestStatsPolicyConfig:
+    """A stats policy states what is measured and who reads it."""
+
+    def _policy(self, **kwargs):
+        from dataeval_flow.config.schemas import StatsPolicyConfig
+
+        base = {"name": "p", "measure": [{"bands": None, "families": ["visual"]}]}
+        return StatsPolicyConfig(**{**base, **kwargs})
+
+    def test_defaults_to_the_unprefixed_view_for_both_consumers(self):
+        policy = self._policy()
+        assert list(policy.outliers_from) == [None]
+        assert list(policy.factors_from) == [None]
+        assert policy.background is False
+
+    def test_produced_views_lists_the_prefixes_the_call_emits(self):
+        policy = self._policy(
+            measure=[
+                {"bands": None, "families": ["visual"]},
+                {"bands": "ir", "families": ["pixel"]},
+            ],
+            background=True,
+        )
+        assert policy.produced_views() == {None, "ir", "background", "background_ir"}
+
+    def test_a_hash_only_view_has_no_background_variant(self):
+        policy = self._policy(
+            measure=[
+                {"bands": None, "families": ["visual"]},
+                {"bands": "ir", "families": ["hash"]},
+            ],
+            background=True,
+        )
+        assert policy.produced_views() == {None, "ir", "background"}
+
+    def test_refuses_two_entries_for_one_view(self):
+        with pytest.raises(ValidationError, match="names view"):
+            self._policy(
+                measure=[
+                    {"bands": "rgb", "families": ["visual"]},
+                    {"bands": "rgb", "families": ["pixel"]},
+                ]
+            )
+
+    def test_refuses_dimension_of_a_group_that_no_whole_image_entry_asks_for(self):
+        with pytest.raises(ValidationError, match="does not vary with a band subset"):
+            self._policy(
+                measure=[
+                    {"bands": None, "families": ["visual"]},
+                    {"bands": "rgb", "families": ["dimension"]},
+                ]
+            )
+
+    def test_allows_dimension_of_a_group_when_the_whole_image_asks_too(self):
+        policy = self._policy(
+            measure=[
+                {"bands": None, "families": ["dimension"]},
+                {"bands": "rgb", "families": ["dimension", "visual"]},
+            ]
+        )
+        assert policy.produced_views() == {None, "rgb"}
+
+    def test_refuses_background_with_nothing_it_can_measure(self):
+        with pytest.raises(ValidationError, match="measures nothing"):
+            self._policy(measure=[{"bands": None, "families": ["hash"]}], background=True)
+
+    def test_refuses_a_consumer_naming_an_unproduced_view(self):
+        with pytest.raises(ValidationError, match="outliers_from"):
+            self._policy(outliers_from=["rgb"])
+
+    def test_accepts_an_empty_consumer_list(self):
+        assert list(self._policy(factors_from=[]).factors_from) == []
+
+    def test_refuses_an_empty_family_list(self):
+        with pytest.raises(ValidationError):
+            self._policy(measure=[{"bands": None, "families": []}])
+
+
+@pytest.mark.required
+class TestStatsPoolWiring:
+    """The pool is referenced by name, like `metadata:` and `ontologies:`."""
+
+    def test_pipeline_holds_a_stats_pool(self):
+        from dataeval_flow.config import PipelineConfig
+
+        cfg = PipelineConfig(
+            stats=[{"name": "p", "measure": [{"bands": None, "families": ["visual"]}]}]  # type: ignore[arg-type]
+        )
+        assert cfg.stats is not None
+        assert cfg.stats[0].name == "p"
+
+    def test_stats_mixin_carries_a_reference(self):
+        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+
+        params = DataCleaningParameters(
+            name="c",  # type: ignore[call-arg]
+            type="data-cleaning",  # type: ignore[call-arg]
+            outlier_method="modzscore",
+            outlier_flags=["visual"],
+            stats="p",
+        )
+        assert params.stats == "p"
+
+    def test_parameter_sweep_can_name_a_stats_policy(self):
+        from dataeval_flow.workflow.base import StatsConfigMixin
+        from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
+
+        assert issubclass(ParameterSweepParameters, StatsConfigMixin)

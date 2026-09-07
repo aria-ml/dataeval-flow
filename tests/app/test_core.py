@@ -472,6 +472,7 @@ class TestConstants:
             "extractors",
             "metadata",
             "ontologies",
+            "stats",
             "workflows",
             "tasks",
             "exports",

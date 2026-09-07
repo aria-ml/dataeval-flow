@@ -45,6 +45,7 @@ SECTIONS: list[tuple[str, str]] = [
     ("extractors", "Extractors"),
     ("metadata", "Metadata Policies"),
     ("ontologies", "Ontologies"),
+    ("stats", "Stats Policies"),
     ("workflows", "Workflows"),
     ("tasks", "Tasks"),
     ("exports", "Exports"),

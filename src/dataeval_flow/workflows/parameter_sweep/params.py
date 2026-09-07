@@ -5,12 +5,12 @@ from typing import Literal
 
 from pydantic import Field
 
-from dataeval_flow.workflow.base import WorkflowParametersBase
+from dataeval_flow.workflow.base import StatsConfigMixin, WorkflowParametersBase
 
 __all__ = ["ParameterSweepParameters"]
 
 
-class ParameterSweepParameters(WorkflowParametersBase):
+class ParameterSweepParameters(WorkflowParametersBase, StatsConfigMixin):
     """Parameters for parameter sweep workflow.
 
     Allows sweeping over various data cleaning parameters to see how they
