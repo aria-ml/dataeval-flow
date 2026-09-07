@@ -9,6 +9,7 @@ __all__ = [
     # Dataset configs
     "CocoDatasetConfig",
     "DatasetProtocolConfig",
+    "DemoDatasetConfig",
     "HuggingFaceDatasetConfig",
     "ImageFolderDatasetConfig",
     "YoloDatasetConfig",
@@ -76,6 +77,7 @@ from dataeval_flow.config.schemas import (
     DatasetProtocolConfig,
     DataSplittingTaskConfig,
     DataSplittingWorkflowConfig,
+    DemoDatasetConfig,
     DriftMonitoringTaskConfig,
     DriftMonitoringWorkflowConfig,
     FlattenExtractorConfig,

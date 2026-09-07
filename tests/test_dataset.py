@@ -1309,6 +1309,70 @@ class TestResolveDatasetFormatOptions:
 
 
 @pytest.mark.required
+class TestLoadDatasetDemo:
+    """`format: demo` constructs a tutorial dataset by name, never by importing one."""
+
+    @staticmethod
+    def _stub_module(recorder: dict[str, Any]) -> Any:
+        """A stand-in for `maite_datasets.object_detection` that records its call.
+
+        Patched in so these tests do not need `maite-datasets` installed — it is a docs
+        dependency, not a test one.
+        """
+
+        class _Module:
+            @staticmethod
+            def M3FD(root: str, **kwargs: Any) -> Any:  # noqa: N802 — mirrors the real class name
+                recorder["root"] = root
+                recorder["kwargs"] = kwargs
+                return _stub_dataset()
+
+        return _Module
+
+    def test_forwards_root_image_set_and_download(self, tmp_path: Path) -> None:
+        from dataeval_flow.config import DemoDatasetConfig
+        from dataeval_flow.dataset import resolve_dataset
+
+        recorder: dict[str, Any] = {}
+        cfg = DemoDatasetConfig(name="m3fd", dataset="M3FD", path="data", image_set="train", download=True)
+        with patch("importlib.import_module", return_value=self._stub_module(recorder)):
+            resolved = resolve_dataset(cfg, data_dir=tmp_path)
+
+        assert recorder["root"] == str(tmp_path / "data")
+        assert recorder["kwargs"] == {"download": True, "image_set": "train"}
+        assert resolved.label_source == "annotations"
+
+    def test_omits_image_set_when_unset(self, tmp_path: Path) -> None:
+        """An unset `image_set` is left out so the loader applies its own default."""
+        from dataeval_flow.config import DemoDatasetConfig
+        from dataeval_flow.dataset import resolve_dataset
+
+        recorder: dict[str, Any] = {}
+        cfg = DemoDatasetConfig(name="m3fd", dataset="M3FD", path="data")
+        with patch("importlib.import_module", return_value=self._stub_module(recorder)):
+            resolve_dataset(cfg, data_dir=tmp_path)
+
+        assert recorder["kwargs"] == {"download": False}
+
+    def test_rejects_unknown_name(self) -> None:
+        """The table is the only way in, so an unlisted name never reaches an import."""
+        from dataeval_flow.dataset import load_dataset_demo
+
+        with pytest.raises(ValueError, match="Unknown demo dataset"):
+            load_dataset_demo("os", Path("data"))
+
+    def test_reports_missing_dependency(self, tmp_path: Path) -> None:
+        """A missing `maite-datasets` is named, with the formats to use instead."""
+        from dataeval_flow.dataset import load_dataset_demo
+
+        with (
+            patch("importlib.import_module", side_effect=ImportError("no module")),
+            pytest.raises(ValueError, match="needs `maite-datasets`"),
+        ):
+            load_dataset_demo("M3FD", tmp_path)
+
+
+@pytest.mark.required
 class TestResolveDatasetsUnsupported:
     def test_raises_for_unsupported_config(self) -> None:
         from pydantic import BaseModel

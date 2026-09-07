@@ -585,6 +585,59 @@ def _is_arrow_dump(root: Path) -> bool:
     return (root / "dataset_info.json").is_file() and any(root.glob("*.arrow"))
 
 
+def load_dataset_demo(
+    dataset: str,
+    root: "Path",
+    image_set: str | None = None,
+    download: bool = False,
+) -> "AnnotatedDataset[Any]":
+    """Load one of the tutorial datasets by name.
+
+    The name is resolved through the table in
+    :mod:`dataeval_flow.config.schemas._dataset`, never by importing what the config
+    names, so a config file cannot import code by naming it.
+
+    Parameters
+    ----------
+    dataset : str
+        Name from the built-in table, already validated by the config schema.
+    root : Path
+        Directory the dataset was downloaded under. The loader appends its own
+        subdirectory.
+    image_set : str or None
+        Split in the loader's own vocabulary. None uses the loader's default.
+    download : bool
+        Fetch the data when it is missing under *root*.
+
+    Raises
+    ------
+    ValueError
+        When *dataset* is not in the table, or `maite_datasets` is not installed.
+    """
+    from importlib import import_module
+
+    from dataeval_flow.config.schemas._dataset import _DEMO_DATASETS
+
+    module_name = _DEMO_DATASETS.get(dataset)
+    if module_name is None:
+        known = ", ".join(sorted(_DEMO_DATASETS))
+        raise ValueError(f"Unknown demo dataset {dataset!r}. Choose one of: {known}.")
+
+    try:
+        module = import_module(module_name)
+    except ImportError as exc:
+        raise ValueError(
+            f"Loading demo dataset {dataset!r} needs `maite-datasets`, which is not "
+            "installed. Install it, or read your own data with `coco`, `yolo`, "
+            "`huggingface`, or `image_folder`.",
+        ) from exc
+
+    kwargs: dict[str, Any] = {"download": download}
+    if image_set is not None:
+        kwargs["image_set"] = image_set
+    return getattr(module, dataset)(str(root), **kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Resolved dataset — unified output of config → dataset resolution
 # ---------------------------------------------------------------------------
@@ -594,6 +647,7 @@ _LABEL_SOURCE: dict[str, str] = {
     "yolo": "annotations",
     "huggingface": "huggingface",
     "maite": "protocol",
+    "demo": "annotations",
     "torchvision": "torchvision",
 }
 
@@ -630,6 +684,7 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
     from dataeval_flow.config.schemas._dataset import (
         CocoDatasetConfig,
         DatasetProtocolConfig,
+        DemoDatasetConfig,
         HuggingFaceDatasetConfig,
         ImageFolderDatasetConfig,
         YoloDatasetConfig,
@@ -640,6 +695,20 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
         dataset = load_dataset_torchvision(config.dataset) if config.format == "torchvision" else config.dataset
         label_source: str | None = _LABEL_SOURCE.get(config.format)
         cache_key = f"{config.name}:{config.format}:{config.version}"
+    elif isinstance(config, DemoDatasetConfig):
+        # Checked before the generic branch below: a demo dataset is a `_DatasetConfigBase`
+        # for `path`, `value_range` and `channel_groups`, but it is constructed by name
+        # rather than read off disk, so it does not go through `load_dataset`.
+        from dataeval_flow.config._loader import resolve_path
+
+        dataset = load_dataset_demo(
+            config.dataset,
+            resolve_path(config.path, data_dir, default_subdir="data"),
+            image_set=config.image_set,
+            download=config.download,
+        )
+        label_source = _LABEL_SOURCE.get(config.format)
+        cache_key = config.model_dump_json(exclude_defaults=False)
     elif isinstance(config, _DatasetConfigBase):
         # All file-backed dataset configs share path/format; dispatch through load_dataset
         kwargs: dict[str, Any] = {}

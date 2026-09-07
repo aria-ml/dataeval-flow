@@ -13,6 +13,7 @@ from pydantic import Field
 from dataeval_flow.config.schemas._dataset import (
     CocoDatasetConfig,
     DatasetProtocolConfig,
+    DemoDatasetConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
     YoloDatasetConfig,
@@ -64,7 +65,7 @@ from dataeval_flow.config.schemas._workflow import (
 # -- discriminated-union aliases (internal) ---------------------------------
 
 DatasetConfig = Annotated[
-    HuggingFaceDatasetConfig | ImageFolderDatasetConfig | CocoDatasetConfig | YoloDatasetConfig,
+    HuggingFaceDatasetConfig | ImageFolderDatasetConfig | CocoDatasetConfig | YoloDatasetConfig | DemoDatasetConfig,
     Field(discriminator="format"),
 ]
 
@@ -95,6 +96,7 @@ __all__ = [
     "CocoDatasetConfig",
     "DatasetConfig",
     "DatasetProtocolConfig",
+    "DemoDatasetConfig",
     "HuggingFaceDatasetConfig",
     "ImageFolderDatasetConfig",
     "YoloDatasetConfig",

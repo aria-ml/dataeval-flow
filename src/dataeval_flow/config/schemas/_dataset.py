@@ -81,6 +81,76 @@ class _DatasetConfigBase(BaseModel):
         return value
 
 
+#: Tutorial datasets `format: demo` can name, mapped to their `maite_datasets` module.
+#: An explicit table rather than a dynamic import: `dataset:` comes from a config file,
+#: and resolving it by importing whatever it names would let a config run arbitrary code.
+_DEMO_DATASETS: "Mapping[str, str]" = {
+    "M3FD": "maite_datasets.object_detection",
+    "DroneVehicle": "maite_datasets.object_detection",
+    "SeaDrone": "maite_datasets.object_detection",
+}
+
+
+class DemoDatasetConfig(_DatasetConfigBase):
+    """Dataset config for a dataset the tutorials use.
+
+    Names one of the datasets shipped for tutorials so a tutorial pipeline runs from
+    config alone. This is not an ingestion path for your own data — read that with
+    `coco`, `yolo`, `huggingface`, or `image_folder`.
+
+    ``path`` is the root the dataset was downloaded under, not the dataset directory
+    itself: each loader appends its own subdirectory.
+
+    YAML example::
+
+        datasets:
+          - name: m3fd_train
+            format: demo
+            dataset: M3FD
+            path: data
+            image_set: train
+            channel_groups:
+              rgb: [0, 1, 2]
+              ir: 3
+    """
+
+    format: Literal["demo"] = "demo"
+    dataset: str = Field(
+        description=(
+            "Which tutorial dataset to load. Accepts a name from the built-in table; "
+            "anything else is refused, because a config file must not be able to import "
+            "code by naming it."
+        ),
+    )
+    image_set: str | None = Field(
+        default=None,
+        description=(
+            "Split to load, in the loader's own vocabulary — `train`, `val`, `test`, or "
+            "`base` where the loader offers them. Leave unset for the loader's default."
+        ),
+    )
+    download: bool = Field(
+        default=False,
+        description=(
+            "Fetch the data if it is not already under `path`. Off by default: a config "
+            "run should not reach the network unless you asked it to. Some tutorial "
+            "datasets are credential-gated and cannot be fetched this way at all."
+        ),
+    )
+
+    @field_validator("dataset")
+    @classmethod
+    def _dataset_is_known(cls, value: str) -> str:
+        """Refuse a name that is not in the table."""
+        if value not in _DEMO_DATASETS:
+            known = ", ".join(sorted(_DEMO_DATASETS))
+            raise ValueError(
+                f"Unknown demo dataset {value!r}. Choose one of: {known}. To read your own "
+                "data, use `coco`, `yolo`, `huggingface`, or `image_folder` instead.",
+            )
+        return value
+
+
 class HuggingFaceDatasetConfig(_DatasetConfigBase):
     """Dataset config for HuggingFace format.
 

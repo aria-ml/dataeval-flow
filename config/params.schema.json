@@ -1896,6 +1896,106 @@
       "title": "DatasetProtocolConfig",
       "type": "object"
     },
+    "DemoDatasetConfig": {
+      "additionalProperties": false,
+      "description": "Dataset config for a dataset the tutorials use.\n\nNames one of the datasets shipped for tutorials so a tutorial pipeline runs from\nconfig alone. This is not an ingestion path for your own data \u2014 read that with\n`coco`, `yolo`, `huggingface`, or `image_folder`.\n\n``path`` is the root the dataset was downloaded under, not the dataset directory\nitself: each loader appends its own subdirectory.\n\nYAML example::\n\n    datasets:\n      - name: m3fd_train\n        format: demo\n        dataset: M3FD\n        path: data\n        image_set: train\n        channel_groups:\n          rgb: [0, 1, 2]\n          ir: 3",
+      "properties": {
+        "format": {
+          "const": "demo",
+          "default": "demo",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "value_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Interval this dataset's imagery occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. A description of the data rather than a decision about it, which is why it lives here and not under `metadata:`, and why every workflow reading this dataset gets the same one. Leave unset for integer imagery.",
+          "title": "Value Range"
+        },
+        "channel_groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "title": "Channel Groups"
+        },
+        "dataset": {
+          "description": "Which tutorial dataset to load. Accepts a name from the built-in table; anything else is refused, because a config file must not be able to import code by naming it.",
+          "title": "Dataset",
+          "type": "string"
+        },
+        "image_set": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split to load, in the loader's own vocabulary \u2014 `train`, `val`, `test`, or `base` where the loader offers them. Leave unset for the loader's default.",
+          "title": "Image Set"
+        },
+        "download": {
+          "default": false,
+          "description": "Fetch the data if it is not already under `path`. Off by default: a config run should not reach the network unless you asked it to. Some tutorial datasets are credential-gated and cannot be fetched this way at all.",
+          "title": "Download",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "dataset"
+      ],
+      "title": "DemoDatasetConfig",
+      "type": "object"
+    },
     "DriftDetectorDomainClassifier": {
       "additionalProperties": false,
       "description": "Binary domain classifier (LightGBM) approach.\n\nTrains a binary classifier to distinguish reference from test data.\nAn AUROC significantly above 0.5 indicates the distributions are\ndistinguishable \u2014 i.e. drift has occurred.",
@@ -4897,6 +4997,7 @@
                 "discriminator": {
                   "mapping": {
                     "coco": "#/$defs/CocoDatasetConfig",
+                    "demo": "#/$defs/DemoDatasetConfig",
                     "huggingface": "#/$defs/HuggingFaceDatasetConfig",
                     "image_folder": "#/$defs/ImageFolderDatasetConfig",
                     "yolo": "#/$defs/YoloDatasetConfig"
@@ -4915,6 +5016,9 @@
                   },
                   {
                     "$ref": "#/$defs/YoloDatasetConfig"
+                  },
+                  {
+                    "$ref": "#/$defs/DemoDatasetConfig"
                   }
                 ]
               },

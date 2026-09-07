@@ -9,6 +9,7 @@ from dataeval_flow.config import (
     BoVWExtractorConfig,
     CocoDatasetConfig,
     DataCleaningWorkflowConfig,
+    DemoDatasetConfig,
     FlattenExtractorConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
@@ -544,6 +545,32 @@ class TestP1SchemaClasses:
         """HuggingFaceDatasetConfig has no recursive field."""
         with pytest.raises(ValidationError):
             HuggingFaceDatasetConfig(name="ds", path="./data", recursive=True)  # type: ignore[call-arg]
+
+    def test_demo_dataset_config_valid(self):
+        """DemoDatasetConfig names a dataset from the built-in table."""
+        dataset = DemoDatasetConfig(name="m3fd_train", dataset="M3FD", path="data", image_set="train")
+        assert dataset.format == "demo"
+        assert dataset.dataset == "M3FD"
+        assert dataset.image_set == "train"
+        assert dataset.download is False
+
+    def test_demo_dataset_config_rejects_unknown_name(self):
+        """An unknown `dataset:` is refused, so a config cannot import code by naming it."""
+        with pytest.raises(ValidationError, match="Unknown demo dataset"):
+            DemoDatasetConfig(name="ds", dataset="os.system", path="data")
+
+    def test_demo_dataset_config_carries_channel_groups(self):
+        """A demo dataset takes the shared `channel_groups` and `value_range` fields."""
+        dataset = DemoDatasetConfig(
+            name="m3fd", dataset="M3FD", path="data", channel_groups={"rgb": [0, 1, 2], "ir": 3}
+        )
+        assert dataset.channel_groups is not None
+        assert dict(dataset.channel_groups) == {"rgb": [0, 1, 2], "ir": 3}
+
+    def test_demo_dataset_config_rejects_split(self):
+        """DemoDatasetConfig uses `image_set`, not `split`."""
+        with pytest.raises(ValidationError):
+            DemoDatasetConfig(name="ds", dataset="M3FD", path="data", split="train")  # type: ignore[call-arg]
 
     def test_preprocessor_config_valid(self):
         """PreprocessorConfig with valid steps."""

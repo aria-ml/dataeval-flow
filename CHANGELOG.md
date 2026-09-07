@@ -22,6 +22,9 @@
 - Top-level `stats:` key defining named policies: which statistic families are measured over
   which views, whether the image background is measured, and which views drive outlier
   detection and metadata factors
+- `format: demo` on a dataset, naming a dataset the tutorials use so a tutorial pipeline
+  runs from config alone. Names resolve through a fixed table, never by importing what the
+  config names
 - `crop_padding` and `crop_min_size` on `data-coverage`, and `dropped_detections` on its
   coverage assessment, reporting the annotations the coverage numbers do not describe
 
