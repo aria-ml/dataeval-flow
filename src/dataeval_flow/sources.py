@@ -1,4 +1,11 @@
-"""Resolve a source to the datasets it reads, merging where it names operands."""
+"""Resolve a source to the datasets it reads, merging where it names operands.
+
+A source names either one dataset or a `merge` of other sources. Resolving one flattens
+that to its leaf datasets, loads each, applies the view it is conformed under, and
+concatenates the results into the corpus a task reads. `label_space_records` reports the
+vocabulary each of those views conformed its labels to, one record per view, so a result
+carries the label space it was produced under.
+"""
 
 __all__ = [
     "MergeConfigError",

@@ -16,7 +16,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
     import numpy as np
@@ -35,6 +35,17 @@ _DERIVED_KEYS = frozenset({"id", "file_name", "width", "height"})
 #: Channels datamaite decodes a referenced image to. It reads every one with
 #: `cv2.IMREAD_COLOR`, so a realized image of any other channel count is a view's doing.
 _DECODED_CHANNELS = 3
+
+#: View operations that provably leave pixels alone: they select, order and relabel datums.
+#: Every other operation transforms imagery, and so does every operation `dataeval` adds
+#: that is not listed here. Keep this a deny-by-default list. Leaving a pixel-safe
+#: operation off it makes an export slower, because it encodes pixels it could have
+#: referenced; inverting the rule makes an export wrong, because it writes a file the run
+#: never analyzed. Add a name here only once you have confirmed the operation cannot touch
+#: pixels.
+_PIXEL_SAFE_OPERATIONS = frozenset(
+    {"ClassBalance", "ClassFilter", "Indices", "Limit", "Relabel", "Reverse", "Shuffle", "Stride"}
+)
 
 
 class _ImageReference(NamedTuple):
@@ -76,16 +87,18 @@ def build_od_dataset(
     Raises
     ------
     ValueError
-        If a datum's imagery has to be encoded and is not 8-bit.
+        If a datum's imagery has to be encoded and is not 8-bit, or has a channel count
+        PNG cannot hold.
     """
     from datamaite import ObjectDetectionDataset
 
     dataset = resolved.realized()
     index2label = dict(dataset.metadata.get("index2label", {}))
     samples_by_id = _samples_by_datum_id(resolved)
+    pixel_safe = _pixel_safe_by_operand(resolved)
 
     samples = tuple(
-        _sample(ordinal, dataset[ordinal], samples_by_id, index2label, merged=resolved.is_merged)
+        _sample(ordinal, dataset[ordinal], samples_by_id, index2label, pixel_safe, merged=resolved.is_merged)
         for ordinal in range(len(dataset))
     )
     return ObjectDetectionDataset(
@@ -112,6 +125,23 @@ def _samples_by_datum_id(resolved: "ResolvedSource") -> dict[str, tuple[int, Any
             key = f"{position}:{sample.image_id}" if resolved.is_merged else str(sample.image_id)
             index[key] = (position, sample)
     return index
+
+
+def _pixel_safe_by_operand(resolved: "ResolvedSource") -> tuple[bool, ...]:
+    """Say, per operand, whether its imagery reaches the export untouched.
+
+    An operand's own view runs before the merge and the source's own view runs after it,
+    so both are in the chain a merged operand's pixels pass through. A source that is not
+    merged has one view, held by its single operand.
+    """
+    after_merge = list(resolved.view_config.operations) if resolved.is_merged and resolved.view_config else []
+    return tuple(
+        all(
+            operation.type in _PIXEL_SAFE_OPERATIONS
+            for operation in list(operand.view_config.operations if operand.view_config else []) + after_merge
+        )
+        for operand in resolved.operands
+    )
 
 
 def _file_name(ordinal: int, position: int, source: Any, *, merged: bool) -> str:
@@ -142,17 +172,20 @@ def _image_reference(
     found: "tuple[int, Any] | None",
     image: "np.ndarray",
     meta: "Mapping[str, Any]",
+    pixel_safe: "Sequence[bool]",
     *,
     merged: bool,
 ) -> _ImageReference:
     """Decide how one output sample carries its imagery.
 
-    Reference the file on disk only where the realized image still matches it — same
-    size, same channel count. A view operation transforms the imagery a run analyzed
-    without touching the file, so referencing that file would emit imagery nobody
-    evaluated: `Crop` pairs the original pixels with boxes drawn for smaller ones, and
-    `SelectChannels` pairs one band with a file holding three. datamaite decodes every
-    image it references as 3-channel RGB, so any other channel count is a view's doing.
+    Reference the file on disk only where the realized image is still that file: every
+    operation in the view chain is one that cannot touch pixels, and the realized image
+    matches the file's size and channel count. A view that transforms imagery leaves the
+    file alone, so referencing it would emit pixels nobody evaluated — `Crop` pairs the
+    original image with boxes drawn for a smaller one, `SelectChannels` pairs one band
+    with a file holding three, and a color transform changes neither shape nor channels
+    and so cannot be measured at all. Read the operations instead, and encode wherever
+    they do not prove the pixels survived.
     """
     channels, height, width = (int(size) for size in image.shape[:3])
     if found is None:
@@ -161,7 +194,13 @@ def _image_reference(
 
     position, source = found
     file_name = _file_name(ordinal, position, source, merged=merged)
-    if source.path_or_uri is None or channels != _DECODED_CHANNELS or _declared_size(source, meta) != (width, height):
+    referenceable = (
+        pixel_safe[position]
+        and source.path_or_uri is not None
+        and channels == _DECODED_CHANNELS
+        and _declared_size(source, meta) == (width, height)
+    )
+    if not referenceable:
         return _ImageReference(file_name, None, _encode(image), width, height, source.split)
     return _ImageReference(file_name, source.path_or_uri, None, width, height, source.split)
 
@@ -171,6 +210,7 @@ def _sample(
     datum: "tuple[Any, Any, Mapping[str, Any]]",
     samples_by_id: dict[str, tuple[int, Any]],
     index2label: "Mapping[int, str]",
+    pixel_safe: "Sequence[bool]",
     *,
     merged: bool,
 ) -> "ImageObjectDetectionSample":
@@ -179,7 +219,7 @@ def _sample(
 
     image, target, meta = datum
     datum_id = str(meta.get("id", ordinal))
-    reference = _image_reference(ordinal, samples_by_id.get(datum_id), image, meta, merged=merged)
+    reference = _image_reference(ordinal, samples_by_id.get(datum_id), image, meta, pixel_safe, merged=merged)
 
     return ImageObjectDetectionSample(
         # Allocate an integer: COCO's writer skips a sample whose image_id is not an int,

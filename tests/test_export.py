@@ -35,18 +35,28 @@ from tests.test_sources import _PNG, _merge_config, _od_dataset
 _CAR = ObjectDetectionAnnotation(bbox=(1.0, 2.0, 3.0, 4.0), category_id=0, category_name="Car")
 
 
+def _grey_png(fill: int) -> bytes:
+    """An 8x8 PNG of one flat value, so a pixel transform has something to change."""
+    import cv2
+
+    ok, buf = cv2.imencode(".png", np.full((8, 8, 3), fill, dtype=np.uint8))
+    assert ok
+    return bytes(buf)
+
+
 def _disk_config(
     tmp_path: Path,
     *,
     operations: list[ViewOperation] | None = None,
     splits: tuple[str | None, ...] = (None,),
     declare_size: bool = True,
+    fill: int = 0,
 ) -> PipelineConfig:
     """A single source whose images are PNGs on disk rather than bytes in memory."""
     samples = []
     for index, split in enumerate(splits):
         png = tmp_path / f"on_disk_{index}.png"
-        png.write_bytes(_PNG)
+        png.write_bytes(_grey_png(fill) if fill else _PNG)
         samples.append(
             ImageObjectDetectionSample(
                 image_id=index,
@@ -70,6 +80,46 @@ def _disk_config(
         datasets=[DatasetProtocolConfig(name="ds_disk", dataset=dataset)],
         views=[ViewConfig(name="transform", operations=operations)] if operations else None,
         sources=[SourceConfig(name="disk", dataset="ds_disk", view="transform" if operations else None)],
+    )
+
+
+def _merged_disk_config(tmp_path: Path, operations: list[ViewOperation] | None = None) -> PipelineConfig:
+    """Two on-disk sources merged, with the merged source carrying its own view."""
+    datasets = []
+    for name in ("a", "b"):
+        directory = tmp_path / name
+        directory.mkdir()
+        png = directory / "img_000.png"
+        png.write_bytes(_PNG)
+        datasets.append(
+            DatasetProtocolConfig(
+                name=f"ds_{name}",
+                dataset=ObjectDetectionDataset(
+                    samples=(
+                        ImageObjectDetectionSample(
+                            image_id=0,
+                            path_or_uri=str(png),
+                            file_name="img_000.png",
+                            width=8,
+                            height=8,
+                            detections=(_CAR,),
+                        ),
+                    ),
+                    dataset_metadata=DatasetMetadata(
+                        taxonomy=Taxonomy(entries=(CategoryEntry(source_id=0, name="Car"),), id_density="dense")
+                    ),
+                    dataset_id=name,
+                ),
+            )
+        )
+    return PipelineConfig(
+        datasets=datasets,
+        views=[ViewConfig(name="after", operations=operations)] if operations else None,
+        sources=[
+            SourceConfig(name="a", dataset="ds_a"),
+            SourceConfig(name="b", dataset="ds_b"),
+            SourceConfig(name="merged_disk", merge=["a", "b"], view="after" if operations else None),
+        ],
     )
 
 
@@ -215,6 +265,43 @@ class TestImageReference:
         assert sample.image_bytes is not None
         assert (sample.width, sample.height) == (4, 4)
         assert sample.detections[0].bbox == (1.0, 2.0, 3.0, 2.0)
+
+    def test_a_view_that_only_changes_pixels_stops_referencing_the_file(self, tmp_path):
+        """A color transform moves no box and no dimension, so only the operation names it."""
+        import cv2
+        from torchvision.transforms import v2
+
+        operations = [
+            ViewOperation(type="TorchvisionTransform", params={"transform": v2.ColorJitter(brightness=(2.0, 2.0))})
+        ]
+        sample = _built_from_disk(tmp_path, fill=40, operations=operations).samples[0]
+        assert sample.path_or_uri is None
+        assert sample.image_bytes is not None
+        decoded = cv2.imdecode(np.frombuffer(sample.image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+        assert decoded.mean() > 40
+
+    def test_an_operation_outside_the_safe_set_stops_referencing_the_file(self, tmp_path):
+        """Deny by default: an unlisted operation encodes even where it changed nothing."""
+        operations = [ViewOperation(type="SelectChannels", params={"channels": "rgb"})]
+        sample = _built_from_disk(tmp_path, operations=operations).samples[0]
+        assert sample.path_or_uri is None
+        assert sample.image_bytes is not None
+        assert (sample.width, sample.height) == (8, 8)
+
+    def test_a_merged_source_still_references_its_operands_files(self, tmp_path):
+        resolved = resolve_source("merged_disk", _merged_disk_config(tmp_path))
+        built = build_od_dataset(resolved, dataset_metadata=DatasetMetadata())
+        assert [s.path_or_uri for s in built.samples] == [
+            str(tmp_path / "a" / "img_000.png"),
+            str(tmp_path / "b" / "img_000.png"),
+        ]
+
+    def test_a_merged_sources_own_view_is_read_too(self, tmp_path):
+        """The merged source's view runs after the merge, so it is in every operand's chain."""
+        operations = [ViewOperation(type="SelectChannels", params={"channels": "rgb"})]
+        resolved = resolve_source("merged_disk", _merged_disk_config(tmp_path, operations))
+        built = build_od_dataset(resolved, dataset_metadata=DatasetMetadata())
+        assert all(s.path_or_uri is None and s.image_bytes is not None for s in built.samples)
 
     def test_a_view_that_selects_channels_stops_referencing_the_file(self, tmp_path):
         """datamaite decodes every referenced file as 3-channel RGB, so one band is not it."""
