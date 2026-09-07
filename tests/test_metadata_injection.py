@@ -85,6 +85,35 @@ class TestStatNames:
         assert stat_names_for(ImageStats.ALL) & {"basic", "distribution", "duplicates_basic", "hash"} == set()
 
 
+@pytest.mark.required
+class TestStatNamesForMatchesComputeStats:
+    """`stat_names_for` derives names from the enum; `compute_stats` derives columns from it.
+
+    `stat_names_for` was a request-side convenience once, read only to build a `stats:`
+    mapping. It is now a filter gate at every consumer — `columns_for` calls it to decide
+    what a view is even allowed to carry — so a `dataeval` column that does not follow the
+    `<FAMILY>_<STATISTIC>` naming this derives from would vanish from every consumer
+    silently, with no error anywhere naming the mismatch. Pin the two together against a
+    real `compute_stats` call, so upstream renaming a statistic, or adding one that breaks
+    the naming assumption, fails here instead.
+    """
+
+    def test_every_column_compute_stats_emits_is_named(self, toy_images):
+        from dataeval.core import compute_stats
+
+        result = compute_stats(
+            toy_images,
+            stats={None: ImageStats.ALL},
+            channels=None,
+            per_background=False,
+            per_image=True,
+            per_target=False,
+            normalize_pixel_values=False,
+            value_range=(0, 255),
+        )
+        assert set(result["stats"].keys()) == stat_names_for(ImageStats.ALL)
+
+
 class TestExpandingDeclaredBins:
     """A bin declared on a bare name has to reach the level-split factors."""
 
