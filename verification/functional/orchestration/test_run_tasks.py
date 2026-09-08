@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.test_case("6-1")
 class TestOrchestration:
-    def test_list_workflows_returns_seven(self) -> None:
+    def test_list_workflows_returns_the_registered_set(self) -> None:
         wfs = list_workflows()
         names = {w["name"] for w in wfs}
         assert names == {
@@ -30,6 +30,7 @@ class TestOrchestration:
             "parameter-sweep",
             "data-prioritization",
             "data-splitting",
+            "metadata-triage",
         }
 
     def test_get_workflow_returns_protocol(self) -> None:

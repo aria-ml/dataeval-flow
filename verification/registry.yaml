@@ -307,12 +307,12 @@ test_cases:
     name: Workflow Orchestration
     test_type: Core Functionality
     business_case: >-
-      Verify that the workflow registry exposes seven workflows and that
-      run_tasks executes them in sequence and returns WorkflowResult objects.
+      Verify that the workflow registry exposes every registered workflow and
+      that run_tasks executes them in sequence and returns WorkflowResult objects.
     initial_conditions:
       - dataeval-flow installed
     expected_results:
-      - list_workflows() returns 7 entries with name + description
+      - list_workflows() returns every registered workflow with name + description
       - get_workflow("data-cleaning") returns a WorkflowProtocol
       - run_tasks on a synthetic pipeline returns a list of WorkflowResult
       - Each WorkflowResult has populated metadata.timestamp and tool fields
