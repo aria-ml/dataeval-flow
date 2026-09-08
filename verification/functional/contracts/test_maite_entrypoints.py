@@ -23,7 +23,7 @@ from importlib.metadata import distribution
 
 import pytest
 
-pytestmark = pytest.mark.required
+pytestmark = [pytest.mark.required, pytest.mark.test_case("22-1")]
 
 DIST_NAME = "dataeval-flow"
 PROTOCOL_PREFIX = "maite.protocols"

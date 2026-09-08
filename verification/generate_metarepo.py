@@ -45,7 +45,16 @@ def _result_char(status: str) -> str:
         return "P"
     if status == "skipped":
         return "S"
+    # A documented, expected failure — the footnote carries the reason.
+    if status == "xfailed":
+        return "X"
     return "F"
+
+
+def _footnote(i: int, test: dict) -> str:
+    """Render one test-step footnote, quoting an xfail's reason when there is one."""
+    reason = f" ({test['reason']})" if test.get("reason") else ""
+    return f"[^{i}]: `{test['test']}` — {test['status']}{reason}"
 
 
 def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str:
@@ -100,12 +109,11 @@ def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str
             r = _result_char(test["status"])
             lines.append(f"|{i:<10}|    {r}    |  [^{i}] |")
         overall = tc_report["status"]
-        confirm = "P" if overall == "passed" else "F"
+        confirm = _result_char(overall)
         n = len(tests) + 1
         lines.append(f"|{n:<10}|    {confirm}    |  [^{n}] |")
         lines.append("")
-        for i, test in enumerate(tests, 1):
-            lines.append(f"[^{i}]: `{test['test']}` — {test['status']}")
+        lines.extend(_footnote(i, test) for i, test in enumerate(tests, 1))
         lines.append(f"[^{n}]: Overall verification — {overall}")
     else:
         lines.append("|1         |   P/F   |  [^1] |")
@@ -152,7 +160,14 @@ def generate_vcrm(registry: dict, report: dict | None) -> str:
         tc_key = f"test-case-{tc_id}"
         if report and tc_key in report.get("test_cases", {}):
             status = report["test_cases"][tc_key]["status"]
-            verification_cells.append("Pass" if status == "passed" else "Fail")
+            if status == "passed":
+                verification_cells.append("Pass")
+            elif status == "xfailed":
+                # Hard steps pass, a recommended one is a documented gap. Neither
+                # "Pass" nor "Fail" is true; the test-case doc has the reason.
+                verification_cells.append("Partial")
+            else:
+                verification_cells.append("Fail")
         else:
             verification_cells.append("Pending")
     verification_row = "| **Verification** | | | " + " | ".join(verification_cells) + " |"
@@ -205,7 +220,8 @@ def main() -> None:
         s = report["summary"]
         print(
             f"Loaded verification report: {s['total_test_cases']} test cases "
-            f"({s['passed']} passed, {s['failed']} failed, {s['skipped']} skipped)",
+            f"({s['passed']} passed, {s['failed']} failed, {s['skipped']} skipped, "
+            f"{s.get('xfailed', 0)} xfailed)",
         )
     else:
         print("No verification report found — generating templates only")

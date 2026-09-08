@@ -52,6 +52,11 @@ def _get_test_status(item):
             return "error"
     call = reports.get("call")
     if call is not None:
+        # An xfail lands as `skipped` with `wasxfail` set. Keep it distinct: a known,
+        # documented gap is not the same as an unrun test, and a strict xpass stays
+        # `failed` so the mark gets removed when the gap closes.
+        if call.skipped and hasattr(call, "wasxfail"):
+            return "xfailed"
         if call.passed:
             return "passed"
         if call.skipped:
@@ -63,12 +68,22 @@ def _get_test_status(item):
     return "error"
 
 
+def _get_xfail_reason(item) -> str | None:
+    """Return the xfail mark's reason for an xfailed test, so the report can quote it."""
+    call = getattr(item, "_verification_reports", {}).get("call")
+    return getattr(call, "wasxfail", None) or None
+
+
 def _tc_status(tests: list[dict]) -> str:
     statuses = {t["status"] for t in tests}
     if statuses & {"failed", "error"}:
         return "failed"
     if statuses == {"skipped"}:
         return "skipped"
+    # One xfail keeps the whole case off a clean pass, so a known gap cannot be
+    # laundered out of the VCRM by the passing tests sitting next to it.
+    if "xfailed" in statuses:
+        return "xfailed"
     return "passed"
 
 
@@ -79,13 +94,15 @@ def pytest_sessionfinish(session, exitstatus):
         for marker in item.iter_markers("test_case"):
             for tc_num in marker.args:
                 tc_id = f"test-case-{tc_num}"
-                results.setdefault(tc_id, []).append(
-                    {
-                        "test": item.nodeid,
-                        "file": str(Path(item.path).relative_to(VERIFICATION_DIR)),
-                        "status": status,
-                    },
-                )
+                entry = {
+                    "test": item.nodeid,
+                    "file": str(Path(item.path).relative_to(VERIFICATION_DIR)),
+                    "status": status,
+                }
+                reason = _get_xfail_reason(item)
+                if reason:
+                    entry["reason"] = reason
+                results.setdefault(tc_id, []).append(entry)
 
     if not results:
         return
@@ -94,6 +111,7 @@ def pytest_sessionfinish(session, exitstatus):
     passed = sum(1 for s in tc_statuses.values() if s == "passed")
     failed = sum(1 for s in tc_statuses.values() if s == "failed")
     skipped = sum(1 for s in tc_statuses.values() if s == "skipped")
+    xfailed = sum(1 for s in tc_statuses.values() if s == "xfailed")
 
     report = {
         "summary": {
@@ -101,6 +119,7 @@ def pytest_sessionfinish(session, exitstatus):
             "passed": passed,
             "failed": failed,
             "skipped": skipped,
+            "xfailed": xfailed,
         },
         "test_cases": {
             tc_id: {
@@ -128,7 +147,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         f"Test Cases: {summary['total_test_cases']} total, "
         f"{summary['passed']} passed, "
         f"{summary['failed']} failed, "
-        f"{summary['skipped']} skipped",
+        f"{summary['skipped']} skipped, "
+        f"{summary.get('xfailed', 0)} xfailed",
     )
     terminalreporter.write_line(f"Report: {report_path}")
     for tc_id, tc_data in report["test_cases"].items():
@@ -137,6 +157,11 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             for test in tc_data["tests"]:
                 if test["status"] in ("failed", "error"):
                     terminalreporter.write_line(f"    - {test['test']}")
+        elif tc_data["status"] == "xfailed":
+            terminalreporter.write_line(f"  XFAILED: {tc_id} ({tc_data['meta_repo_file']})")
+            for test in tc_data["tests"]:
+                if test["status"] == "xfailed":
+                    terminalreporter.write_line(f"    - {test['test']}: {test.get('reason', '')}")
 
 
 # ---------------------------------------------------------------------------

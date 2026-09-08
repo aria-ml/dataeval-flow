@@ -150,6 +150,13 @@ requirements:
     file: FR-19-coverage-workflow.md
     test_cases: ["20-1"]
 
+  FR-20:
+    name: MAITE Component & Task Entrypoints
+    origin: IR-1-H-3
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/software/interoperability/
+    file: FR-20-maite-entrypoints.md
+    test_cases: ["22-1"]
+
   NFR-1:
     name: Python Version Compatibility
     origin: DR-1.5
@@ -536,3 +543,23 @@ test_cases:
       - Label and metadata distribution analyses are populated on every run
       - Embedding coverage and completeness are None (skipped, not fatal) with no extractor
       - A declared ontology yields either an ontology assessment or a recorded skip reason
+
+  "22-1":
+    name: MAITE Component & Task Entrypoints
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the MAITE components and tasks dataeval-flow advertises through
+      [project.entry-points] are real, importable objects (IR-1-H-3), and record
+      whether the advertised components statically satisfy their MAITE protocols
+      (IR-1-R-2, a recommendation).
+    initial_conditions:
+      - dataeval-flow installed
+      - Pyright on PATH and a MAITE exposing statically_verify_exposed_component_entrypoints
+    expected_results:
+      - At least one maite.* entrypoint is advertised in the installed metadata
+      - Both a maite.protocols.* component group and the maite.tasks group are advertised
+      - Every advertised entrypoint target imports
+      - >-
+        Advertised maite.protocols.* components statically verify against their protocols.
+        Known upstream gap - datamaite's dataset classes are annotated too loosely to satisfy
+        the protocol, so this step is an expected failure until upstream tightens them.
