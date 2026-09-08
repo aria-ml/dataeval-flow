@@ -12,7 +12,8 @@ This test guards those advertisements two ways:
 * When Pyright and a recent MAITE are available — the advertised
   ``maite.protocols.*`` components are statically verified against their
   protocols using MAITE's ``statically_verify_exposed_component_entrypoints``
-  (the IR-1-R-2 recommendation).
+  (the IR-1-R-2 recommendation). That check is a known upstream gap and is
+  marked ``xfail(strict=True)``; see the mark's reason.
 """
 
 from __future__ import annotations
@@ -50,6 +51,16 @@ def test_entrypoint_target_importable(ep) -> None:
     assert obj is not None
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "datamaite's dataset classes are annotated too loosely for the protocol: `metadata` is a "
+        "read-only property returning `dict[str, Any]` where MAITE wants a mutable `DatasetMetadata` "
+        "attribute, and `__getitem__` returns `dict[str, Any]` rather than a `DatumMetadata`. Both hold "
+        "in 0.4.1 and 0.5.0. Drop this mark once datamaite tightens them — strict=True fails the run "
+        "when it does."
+    ),
+)
 def test_protocol_entrypoints_statically_verify() -> None:
     """maite.protocols.* components are valid protocol implementers (IR-1-R-2)."""
     if shutil.which("pyright") is None:
