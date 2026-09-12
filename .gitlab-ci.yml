@@ -113,7 +113,7 @@ include:
   # pip and conda install paths each produce a working install. Sanity-import by
   # default; the `rules:` are overridden at the bottom onto .rules_main_mr_deps
   # so the jobs run only when a dependency-defining file changes.
-  - component: gitlab.jatic.net/jatic/aria/ci/install@0.9.0
+  - component: gitlab.jatic.net/jatic/aria/ci/install@0.9.1
     inputs:
       job_name: install:pip
       toolchain: pip
@@ -125,7 +125,7 @@ include:
       pip_index_url: "https://download.pytorch.org/whl/cpu"
       python_version: "3.11"
 
-  - component: gitlab.jatic.net/jatic/aria/ci/install@0.9.0
+  - component: gitlab.jatic.net/jatic/aria/ci/install@0.9.1
     inputs:
       job_name: install:conda
       toolchain: conda
