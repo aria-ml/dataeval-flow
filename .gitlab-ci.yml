@@ -109,6 +109,37 @@ include:
       apt_packages: git
       git_depth: "0"
 
+  # Install validation [SR-3-H-2..5, SR-5-H-1, SR-5-H-2]: prove the documented
+  # pip and conda install paths each produce a working install. Sanity-import by
+  # default; the `rules:` are overridden at the bottom onto .rules_main_mr_deps
+  # so the jobs run only when a dependency-defining file changes.
+  - component: gitlab.jatic.net/jatic/aria/ci/install@0.9.0
+    inputs:
+      job_name: install:pip
+      toolchain: pip
+      stage: test
+      image: python:${PYTHON_VERSION}-slim
+      module_name: dataeval_flow
+      cli_name: dataeval-flow
+      pip_spec: ".[cpu]"
+      pip_index_url: "https://download.pytorch.org/whl/cpu"
+      python_version: "3.11"
+
+  - component: gitlab.jatic.net/jatic/aria/ci/install@0.9.0
+    inputs:
+      job_name: install:conda
+      toolchain: conda
+      stage: test
+      image: mambaorg/micromamba:2-ubuntu24.04
+      module_name: dataeval_flow
+      cli_name: dataeval-flow
+      pip_spec: ".[cpu]"
+      # dataeval is pinned to github main in environment.yml, so micromamba
+      # clones it during the create's pip phase -- that phase only sees the new
+      # env's PATH, so git must be created into the env itself.
+      conda_create_deps: git
+      python_version: "3.11"
+
   # Merges the per-interpreter coverage data files from the test matrix into one
   # report and gates the union at the 90% group guideline. htmlcov/ is what the
   # `pages coverage` job publishes.
@@ -265,61 +296,17 @@ linkchecker:
 # Runs only when dependency-defining files change.
 # -----------------------------------------------------------------------------
 
-# `install:lock` (uv.lock vs pyproject.toml) comes from a component, which
-# hardcodes the shared main+MR rules. Install validation runs only when a
-# dependency-defining file changes, so its rules are replaced here -- a job-level
-# `rules:` replaces rather than merges, which is what is wanted.
+# `install:lock` (uv.lock vs pyproject.toml), `install:pip` and `install:conda`
+# all come from components, which default to the shared main+MR rules. Install
+# validation runs only when a dependency-defining file changes, so their rules
+# are replaced here -- a job-level `rules:` replaces rather than merges, which
+# is what is wanted.
 install:lock:
   rules: !reference [.rules_main_mr_deps, rules]
-
-# Validate `pip install .[cpu]` from a source checkout.
-# `git` + full history are required so hatch-vcs can derive __version__ from
-# tags when the hatchling build hook runs inside pip.
 install:pip:
-  extends: [.rules_main_mr_deps]
-  stage: test
-  image: python:${PYTHON_VERSION}-slim
-  variables:
-    PYTHON_VERSION: "3.11"
-    GIT_DEPTH: "0"
-  before_script:
-    - apt-get update -qq && apt-get install -y --no-install-recommends git
-    - git fetch --tags
-  script:
-    - python -m venv /tmp/venv-pip
-    - /tmp/venv-pip/bin/pip install --upgrade pip
-    - /tmp/venv-pip/bin/pip install ".[cpu]" --extra-index-url https://download.pytorch.org/whl/cpu
-    - /tmp/venv-pip/bin/python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
-    - /tmp/venv-pip/bin/dataeval-flow --help
-
-# Validate `conda env create -f environment.yml` (uses committed environment.yml).
-# `git` is required so hatch-vcs can derive __version__ during `pip install -e`.
-# The micromamba image runs as a non-root user (mambauser) and does not include
-# git; install it from conda-forge (unprivileged-friendly) instead of apt.
+  rules: !reference [.rules_main_mr_deps, rules]
 install:conda:
-  extends: [.rules_main_mr_deps]
-  stage: test
-  image: mambaorg/micromamba:2-ubuntu24.04
-  variables:
-    PYTHON_VERSION: "3.11"
-  before_script:
-    - eval "$(micromamba shell hook --shell bash)"
-    - micromamba create -f environment.yml -n dataeval-flow python=$PYTHON_VERSION
-    - micromamba activate dataeval-flow
-    # Install git into the active env so it's on PATH for `git fetch` and for
-    # the hatchling build subprocess invoked by `pip install -e` (which
-    # inherits the active env's PATH).
-    - micromamba install -y -c conda-forge git
-    # Workspace is owned by the GitLab runner UID, not mambauser → mark safe
-    - git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - git fetch --tags
-    # Install the project itself (conda manages base deps, but the package isn't on conda-forge)
-    # Plus the cpu extra so torch is available for the smoke test
-    - pip install --quiet -e ".[cpu]"
-    - micromamba list
-  script:
-    - python -c "import dataeval_flow; print('dataeval_flow', dataeval_flow.__version__)"
-    - dataeval-flow --help
+  rules: !reference [.rules_main_mr_deps, rules]
 
 # -----------------------------------------------------------------------------
 # Documentation — runs in parallel with container jobs
