@@ -135,7 +135,7 @@ def xxhash_of_reprs(images: list, targets: list) -> str:
     for idx in range(len(images)):
         for element in (images[idx], targets[idx], {"idx": idx}):
             if hasattr(element, "__array__") or isinstance(element, np.ndarray):
-                hasher.update(as_numpy(element).ravel().tobytes())
+                hasher.update(as_numpy(element).ravel().tobytes())  # type: ignore[reportArgumentType]
             else:
                 hasher.update(repr(element).encode("utf-8"))
     return hasher.hexdigest()

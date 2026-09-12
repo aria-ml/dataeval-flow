@@ -1271,7 +1271,7 @@ requires-dist = [
     { name = "onnxruntime-gpu", marker = "python_full_version >= '3.11' and extra == 'onnx-cu126' and extra != 'onnx-cu130'", specifier = ">=1.20,<1.27" },
     { name = "onnxruntime-gpu", marker = "python_full_version >= '3.14' and extra == 'onnx-cu126' and extra != 'onnx-cu130'", specifier = ">=1.24,<1.27" },
     { name = "opencv-python-headless", marker = "extra == 'opencv'", specifier = ">=4.8.0,<4.13.0" },
-    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pydantic", specifier = ">=2.11" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "textual", marker = "extra == 'app'", specifier = ">=3.0" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "dataeval-flow", extra = "cpu" } },

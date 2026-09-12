@@ -245,7 +245,7 @@ class TestResolveSource:
         assert config.sources is not None
         base = resolve_source("merged", config).cache_key
 
-        config.views.append(
+        config.views.append(  # type: ignore[reportAttributeAccessIssue]
             ViewConfig(name="one_band", operations=[ViewOperation(type="SelectChannels", params={"channels": [0]})])
         )
         config.sources[2].view = "one_band"
