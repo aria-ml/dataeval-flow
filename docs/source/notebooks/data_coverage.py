@@ -38,15 +38,15 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Load MNIST from HuggingFace and build a **deliberately biased** subset
-#   that simulates a flawed data collection pipeline — including two
-#   classes that were never collected at all
-# - Attach synthetic metadata factors (lighting condition, collection
-#   facility) with intentional gaps for certain classes
+# - Load the **MilitaryVehicles** ground-vehicle dataset and simulate a
+#   collection cycle that missed an entire vehicle category, using a
+#   `ClassFilter` view operation
 # - Run the `data-coverage` workflow **without** an extractor to surface
 #   label and metadata issues quickly
-# - Declare an **ontology** — the sanctioned label space — and see it
-#   name classes that raw counts never could
+# - Find that the collection looks **healthy by count** — and see why that
+#   is not the same as being complete
+# - Declare an **ontology** — and use the taxonomy the dataset already ships
+#   to name the categories raw counts never could
 # - Re-run **with** a BoVW extractor to add per-class embedding variety
 #   signals and dimensional completeness analysis
 # - Read the built-in **coverage report** and drill into raw results
@@ -55,8 +55,8 @@
 # %% [markdown]
 # ## What you'll learn
 #
-# - How uneven data collection creates coverage gaps that are invisible
-#   until you explicitly measure them
+# - Why a well-balanced class distribution is **not** evidence of coverage,
+#   and what question it actually answers
 # - How to configure and run the `data-coverage` workflow via `run_task()`
 # - The two orthogonal axes coverage measures: **which categories you
 #   have** — your labels checked against an ontology — and **how varied
@@ -65,286 +65,112 @@
 # - Why a class with zero examples is invisible to counts but visible to
 #   an ontology, and why a class can be "well represented" by count and
 #   still be embedding-collapsed
-# - The difference between running with and without an extractor, and
-#   with and without an ontology
+# - That an **empty concept is not automatically a defect** — sometimes it
+#   tells you the ontology is broader than the collection's scope, which is
+#   a different finding with a different response
+# - That whether a count-based check can name a missing class depends on
+#   whether your loader still declares it
 # - How to adjust health thresholds for different risk tolerances
 
 # %% [markdown]
 # ## What you'll need
 #
 # - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `datasets` (to download MNIST from HuggingFace Hub)
-# - Internet connection (to download MNIST from HuggingFace Hub on first run)
+# - `maite-datasets` (to download MilitaryVehicles)
+# - Internet connection (first run only — the dataset is cached under `./data`)
 
 # %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Data Preparation: Build a biased dataset
+# ## Data Preparation: a collection with a hole in it
 #
-# Imagine you're building a digit recognition model for a postal sorting
-# system. Your data comes from three sorting facilities:
+# You are standing up a ground-vehicle recognition capability. The label space
+# is not "whatever we happened to photograph" — it is a **taxonomy**, agreed in
+# advance, of the vehicle types the system is required to recognize.
 #
-# - **Facility A** — handles digits 0–3, well-staffed, collected plenty
-#   of images under both bright and dim lighting
-# - **Facility B** — handles digits 4–6, moderate collection effort
-# - **Facility C** — handles digits 7–9, understaffed, and this
-#   collection cycle only ever got digit 7 into the training set — 8
-#   and 9 never showed up at all
+# MilitaryVehicles ships exactly that: a `hierarchy` attribute describing
+# tanks, BMPs, BTRs, self-propelled artillery, air defense systems and two
+# one-off types, all nested under `land vehicle`, with `watercraft` and
+# `aircraft` declared alongside. That is a real ontology, versioned with the
+# dataset, rather than one invented for a tutorial.
 #
-# This kind of uneven collection is common in real-world ML pipelines.
-# The result is a dataset with **class imbalance** (digit 7 is thin,
-# digits 8 and 9 are absent), **metadata gaps** (dim lighting nearly
-# absent for Facility C), and **poor embedding coverage** in the
-# under-represented region.
-#
-# We'll simulate this by subsampling MNIST and attaching synthetic
-# metadata.
+# To simulate a collection cycle that went wrong, we drop the whole **Air
+# Defense** category with a `ClassFilter` view operation. Everything else about
+# the data — the class counts, the imagery, the imbalance — stays exactly as
+# collected.
 
 # %% tags=["remove_output"]
-from typing import cast
-
-from datasets import Dataset
-from datasets import load_dataset as hf_load
-
-# Download MNIST test split (10 000 images)
-mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test"))
-
-print(f"Downloaded {len(mnist_test)} MNIST test images")
-
-# %% [markdown]
-# ### Subsample with collection bias
-#
-# We take different numbers of samples per digit class to mimic the
-# uneven collection across the three facilities.
-#
-# datamaite has no in-memory constructor — every dataset comes from a
-# filesystem loader — so we materialize the biased subset as an
-# **ImageFolder** tree (`<root>/<label>/<seq>.png`) and read it back with
-# `load_ic(..., dataset_format="huggingface_vision")`. That loader also
-# supplies the `index2label` mapping the workflow uses to name classes.
-
-# %%
-import tempfile
 from pathlib import Path
 
 import numpy as np
+from dataeval.data import ClassFilter, Limit, Shuffle, View
 from datamaite import load_ic
+from maite_datasets.image_classification import MilitaryVehicles
 
-rng = np.random.default_rng(42)
+data_root = Path("./data")
+MilitaryVehicles(root=data_root, image_set="base", download=True)
+MilitaryVehicles(root=data_root, image_set="train", as_datamaite=True)
 
-# Per-class sample budgets — Facility C (digits 7–9) gets far fewer, and the
-# collection never captured 8 or 9 at all.
-samples_per_class = {
-    0: 200,
-    1: 200,
-    2: 200,
-    3: 200,  # Facility A — well-covered
-    4: 120,
-    5: 120,
-    6: 120,  # Facility B — moderate
-    7: 30,  # Facility C — under-represented
-}
+vehicles_raw = load_ic(data_root / "militaryvehicles_datamaite_train" / "train", dataset_format="huggingface_vision")
+index2label = vehicles_raw.metadata.get("index2label", {})
 
-# Collect indices per class, then subsample
-selected_indices: list[int] = []
-labels_full = np.asarray(mnist_test["label"])
+# The category this collection cycle never captured.
+AIR_DEFENSE = {"30N6E", "Iskander", "Pantsir-S1", "Rs-24"}
+collected_classes = [i for i, name in index2label.items() if name not in AIR_DEFENSE]
 
-for cls, n in samples_per_class.items():
-    cls_indices = np.where(labels_full == cls)[0]
-    chosen = rng.choice(cls_indices, size=min(n, len(cls_indices)), replace=False)
-    selected_indices.extend(chosen.tolist())
+# `ClassFilter` is what enforces the gap — it reads each frame's own label, so nothing
+# here re-derives the label space by hand. `Shuffle` then `Limit` samples the result to
+# keep the tutorial quick; coverage findings are about *which categories exist*, which a
+# random sample preserves.
+collected = View(vehicles_raw, [ClassFilter(collected_classes), Shuffle(seed=0), Limit(1500)])
 
-selected_indices.sort()
-
-# Materialize the biased subset as an ImageFolder tree, then load it via datamaite
-postal_root = Path(tempfile.mkdtemp(prefix="dataeval_flow_postal_"))
-for seq, idx in enumerate(selected_indices):
-    example = mnist_test[int(idx)]
-    label_dir = postal_root / str(example["label"])
-    label_dir.mkdir(parents=True, exist_ok=True)
-    example["image"].save(label_dir / f"{seq:05d}.png")
-
-
-# Two classes are plentiful by count but hollow in embedding space — the defects
-# that per-class coverage catches and raw counts cannot.
-#
-#   digit 7 — every image is the same scanned card with tiny pixel jitter, so
-#             almost the whole class sits in near-identical pairs. It also ends
-#             up with the lowest dispersion, though (as we'll see) not low
-#             enough to trip the default threshold.
-#   digit 6 — 120 genuine images plus 60 copies of a single frame, so roughly a
-#             third of the class is redundant.
-def _jittered(frame: np.ndarray, count: int, rng: np.random.Generator) -> list[np.ndarray]:
-    """`count` near-duplicate copies of one frame with tiny pixel jitter."""
-    f = frame.astype(np.int16)
-    return [np.clip(f + rng.integers(-3, 4, size=f.shape), 0, 255).astype(np.uint8) for _ in range(count)]
-
-
-from PIL import Image
-
-seven_dir = postal_root / "7"
-seven_frame = np.asarray(Image.open(sorted(seven_dir.glob("*.png"))[0]))
-for path in sorted(seven_dir.glob("*.png")):
-    path.unlink()
-for seq, arr in enumerate(_jittered(seven_frame, 30, rng)):
-    Image.fromarray(arr).save(seven_dir / f"{seq:05d}.png")
-
-six_dir = postal_root / "6"
-six_frame = np.asarray(Image.open(sorted(six_dir.glob("*.png"))[0]))
-for seq, arr in enumerate(_jittered(six_frame, 60, rng), start=10_000):
-    Image.fromarray(arr).save(six_dir / f"{seq:05d}.png")
-
-postal_maite = load_ic(postal_root, dataset_format="huggingface_vision")
-
-# Computed from the materialized tree, not the collection budget above — that's
-# the only way the count reflects digit 6's planted duplicates.
-class_counts = {int(d.name): len(list(d.glob("*.png"))) for d in sorted(postal_root.iterdir())}
-
-print(f"Selected {len(postal_maite)} images with biased class distribution")
-print(f"Per-class counts: {class_counts}")
+print(f"Full collection:  {len(vehicles_raw)} frames, {len(index2label)} types")
+print(f"After the gap:    {len(collected)} frames, {len(collected_classes)} types")
+print(f"Never collected:  {sorted(AIR_DEFENSE)}")
 
 # %% [markdown]
-# ### Attach synthetic metadata
+# ### Look at the class distribution
 #
-# We add two metadata factors that simulate real collection conditions:
-#
-# - **lighting** — `"bright"` or `"dim"`. Facility C rarely collected
-#   dim lighting samples, creating a metadata gap for digit 7.
-# - **facility** — `"A"`, `"B"`, or `"C"`. Encodes where the image was
-#   collected. Strongly correlated with class, which gap analysis will
-#   detect.
-
+# Before running anything, the obvious first check: are the classes balanced?
 
 # %%
-from collections.abc import Mapping
-from typing import Any
+labels = np.array([int(np.argmax(collected[i][1])) for i in range(len(collected))])
+class_counts = {index2label[c]: int((labels == c).sum()) for c in sorted(set(labels.tolist()))}
+ordered = sorted(class_counts.items(), key=lambda kv: -kv[1])
 
-from numpy.typing import NDArray
-
-
-def digit_of(target: Any) -> int:
-    """Recover the class index from a datamaite one-hot classification target."""
-    t = np.asarray(target)
-    return int(np.argmax(t)) if t.ndim == 1 and t.size > 1 else int(t)
-
-
-class BiasedMNIST:
-    """Wraps a MAITE dataset with synthetic collection-condition metadata factors.
-
-    Simulates a postal sorting system with uneven data collection across
-    three facilities, each handling different digit classes under different
-    lighting conditions.
-    """
-
-    def __init__(
-        self,
-        dataset: Any,
-        rng: np.random.Generator,
-    ) -> None:
-        self._dataset = dataset
-
-        # A MAITE `AnnotatedDataset` must expose a `metadata` mapping — dataeval
-        # reads `index2label` from it to name classes in the report. Forward the
-        # wrapped dataset's mapping rather than dropping it.
-        self.metadata: dict[str, Any] = dict(dataset.metadata)
-
-        # Pre-compute labels for metadata assignment
-        self._labels = np.array([digit_of(dataset[i][1]) for i in range(len(dataset))])
-
-        # Assign facility based on digit class
-        self.facility = np.array(["A" if lbl <= 3 else "B" if lbl <= 6 else "C" for lbl in self._labels])
-
-        # Assign lighting — dim is common for Facility A/B, rare for C
-        self.lighting = np.empty(len(self._labels), dtype=object)
-        for i, lbl in enumerate(self._labels):
-            if lbl <= 6:
-                # Facility A/B: 40% dim, 60% bright
-                self.lighting[i] = rng.choice(["bright", "dim"], p=[0.6, 0.4])
-            else:
-                # Facility C: 95% bright, 5% dim — a metadata gap
-                self.lighting[i] = rng.choice(["bright", "dim"], p=[0.95, 0.05])
-
-    def __len__(self) -> int:
-        return len(self._dataset)
-
-    def __getitem__(self, index: int) -> tuple[NDArray[Any], Any, Mapping[str, Any]]:
-        image, target, sample_metadata = self._dataset[index]
-
-        # Keep the loader's per-sample metadata (`id`, `height`, `width`) and add ours
-        metadata: dict[str, Any] = {
-            **dict(sample_metadata),
-            "lighting": self.lighting[index],
-            "facility": self.facility[index],
-        }
-
-        return np.asarray(image), target, metadata
-
-
-biased_dataset = BiasedMNIST(postal_maite, rng)
-print(f"BiasedMNIST: {len(biased_dataset)} samples")
-
-# Spot-check metadata
-for i in [0, 100, len(biased_dataset) - 1]:
-    _, target, meta = biased_dataset[i]
-    print(f"  Sample {i}: digit={digit_of(target)}, lighting={meta['lighting']}, facility={meta['facility']}")
-
-# %% [markdown]
-# ### Visualize the collection bias
-#
-# Before running the workflow, let's see what the imbalance looks like.
+largest, smallest = ordered[0], ordered[-1]
+ratio = largest[1] / smallest[1]
+print(f"Largest class:  {largest[0]} ({largest[1]})")
+print(f"Smallest class: {smallest[0]} ({smallest[1]})")
+print(f"Imbalance ratio: {ratio:.2f}:1")
 
 # %%
 import matplotlib.pyplot as plt
 
-# class_counts was computed from the materialized tree above, so digit 6's
-# planted duplicates and digit 7's near-duplicate replacement both show up here.
-ordered_classes = sorted(class_counts)  # range(8): digits 0-7
-colors = ["#2ecc71"] * 4 + ["#f39c12"] * 3 + ["#e74c3c"]
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 4))
-
-# Class distribution
-ax1.bar([str(c) for c in ordered_classes], [class_counts[c] for c in ordered_classes], color=colors)
-ax1.set_xlabel("Digit class")
-ax1.set_ylabel("Sample count")
-ax1.set_title("Class distribution (biased collection)")
-ax1.axhline(y=np.mean(list(class_counts.values())), color="gray", linestyle="--", label="mean")
-ax1.legend()
-
-# Lighting distribution per facility
-facilities = ["A", "B", "C"]
-bright_counts = []
-dim_counts = []
-for fac in facilities:
-    mask = biased_dataset.facility == fac
-    bright_counts.append(int(np.sum(biased_dataset.lighting[mask] == "bright")))
-    dim_counts.append(int(np.sum(biased_dataset.lighting[mask] == "dim")))
-
-x = np.arange(len(facilities))
-ax2.bar(x - 0.15, bright_counts, 0.3, label="bright", color="#f1c40f")
-ax2.bar(x + 0.15, dim_counts, 0.3, label="dim", color="#34495e")
-ax2.set_xticks(x)
-ax2.set_xticklabels(facilities)
-ax2.set_xlabel("Facility")
-ax2.set_ylabel("Sample count")
-ax2.set_title("Lighting distribution per facility")
-ax2.legend()
-
+fig, ax = plt.subplots(figsize=(12, 4))
+names = [n for n, _ in ordered]
+values = [v for _, v in ordered]
+ax.bar(names, values, color="#3498db")
+ax.axhline(y=float(np.mean(values)), color="gray", linestyle="--", label="mean")
+ax.set_ylabel("Frame count")
+ax.set_title("Class distribution of the collected data")
+ax.tick_params(axis="x", rotation=60)
+for tick in ax.get_xticklabels():
+    tick.set_horizontalalignment("right")
+ax.legend()
 plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# The charts show exactly the kind of blind spots we want to catch:
-# - Facility C (digit 7) has far fewer samples than Facility A or B — and the
-#   bar chart cannot show what it doesn't have any of: digits 8 and 9 are
-#   simply missing from the x-axis
-# - Facility C has almost no dim lighting samples
+# The distribution is **fine**. Largest to smallest is under 2:1 — comfortably
+# inside any reasonable imbalance threshold. Nothing about these bars is a
+# warning, and a collection this even is not what a broken pipeline looks like.
 #
-# A model trained on this data might perform well on bright images of
-# common digits but fail on dim images of digit 7 — and it would never
-# even see digits 8 or 9. Step 1 below can only speak to the classes the
-# data declares; Step 2 introduces a way to name the ones it doesn't.
+# The chart also cannot show what is not there: four sanctioned vehicle types
+# have no bar, because a chart plotted from the data has no row for a category
+# the data contains none of. Whether anything *else* can name them turns out to
+# depend on a detail we come back to in Step 1.
 
 # %% [markdown]
 # ## Step 1: Run coverage without an extractor (metadata only)
@@ -354,54 +180,77 @@ plt.show()
 # still analyzes label distribution, metadata distribution, metadata
 # gaps, and — since no `ontology` is configured yet — a class balance
 # worklist synthesized from the dataset's own declared classes.
+#
+# For metadata we use **intrinsic factors**: statistics computed from the
+# imagery itself (brightness, contrast, sharpness, and so on). This dataset
+# carries no collection metadata of its own, and rather than invent some, we
+# measure what is actually in the frames. Gap analysis then cross-tabulates
+# class against binned factor values, which answers a real question: *was any
+# vehicle type only ever imaged under one set of conditions?*
 
 # %%
-from pathlib import Path
-
 from dataeval_flow.config import PipelineConfig, SourceConfig
 from dataeval_flow.config.schemas import (
     DataCoverageTaskConfig,
     DataCoverageWorkflowConfig,
     DatasetProtocolConfig,
+    MetadataPolicyConfig,
 )
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.coverage.params import DataCoverageHealthThresholds
 
+vehicle_factors = MetadataPolicyConfig(
+    name="vehicle_factors",
+    # Nothing in this dataset's own per-sample metadata is a collection condition:
+    # `id` is unique per frame (so it looks perfectly class-predictive) and height and
+    # width describe the crop, not the scene. Ask for measured image statistics instead.
+    intrinsic_factors=["visual", "pixel"],
+    exclude=["id", "height", "width"],
+    # Declare the bins rather than letting them be inferred. Auto-binning derives the bin
+    # count from the data, so the same factor measured on two samples is not comparable —
+    # fine for a one-off look, wrong for anything you intend to track over time.
+    continuous_factor_bins={
+        "brightness": 5,
+        "contrast": 5,
+        "darkness": 5,
+        "entropy": 5,
+        "kurtosis": 5,
+        "mean": 5,
+        "sharpness": 5,
+        "skew": 5,
+        "std": 5,
+        "var": 5,
+        "zeros": 5,
+    },
+)
+
 metadata_only_workflow = DataCoverageWorkflowConfig(
     name="coverage-metadata-only",
-    # datamaite's loader attaches `id`, `height` and `width` to every sample.
-    # `id` is unique per image (so it looks perfectly class-predictive) and the
-    # two dimensions are constant here — exclude all three so the analysis sees
-    # only the collection factors we care about.
-    metadata_exclude=["id", "height", "width"],
+    metadata="vehicle_factors",
     run_gap_analysis=True,
-    # `lighting` only deviates for 1 of 8 classes (digit 7), so its class→factor
-    # mutual information is small (~0.013). Keep the threshold below that or
-    # the dim-lighting gap this tutorial is built around never gets
-    # cross-tabulated.
-    gap_mi_threshold=0.01,
     gap_min_representation=5,  # Flag class-factor-value combos with < 5 samples
     balance=True,
     diversity_method="simpson",
     health_thresholds=DataCoverageHealthThresholds(
-        class_imbalance_ratio=3.0,  # Tight — we want to catch moderate imbalance
-        gap_count=2,  # Warn if ≥ 2 gaps found
+        class_imbalance_ratio=3.0,  # Tight — we want to catch even moderate imbalance
+        gap_count=2,  # Warn if >= 2 gaps found
     ),
 )
 
 task_metadata = DataCoverageTaskConfig(
-    name="postal-coverage-metadata",
+    name="vehicles-coverage-metadata",
     workflow="coverage-metadata-only",
-    sources="postal_src",
+    sources="vehicles_src",
     # No extractor — metadata-only pass
 )
 
 config_metadata = PipelineConfig(
+    metadata=[vehicle_factors],
     datasets=[
-        DatasetProtocolConfig(name="postal_biased", format="maite", dataset=biased_dataset),
+        DatasetProtocolConfig(name="vehicles_collected", format="maite", dataset=collected),
     ],
     sources=[
-        SourceConfig(name="postal_src", dataset="postal_biased"),
+        SourceConfig(name="vehicles_src", dataset="vehicles_collected"),
     ],
     workflows=[metadata_only_workflow],
     tasks=[task_metadata],
@@ -421,38 +270,6 @@ result_metadata = run_task(task_metadata, config_metadata, cache_dir=Path("./cac
 print(result_metadata.report())
 
 # %% [markdown]
-# ### Interpreting the findings
-#
-# The report reveals several issues:
-#
-# - **Label Distribution** — The 200:30 ratio between the largest and
-#   smallest classes (≈6.7:1) exceeds our 3:1 threshold, triggering a
-#   warning. Digit 7 is severely under-represented — and digits 8 and 9
-#   don't show up in this finding at all, because the dataset never
-#   declares them as classes in the first place.
-# - **Metadata Coverage Gaps** — The gap analysis cross-references class
-#   labels with metadata factors. It flags that digit 7 has almost no
-#   `dim` lighting samples (≈1 where ≈11 are expected) — a blind spot
-#   that could hurt real-world performance.
-# - **Metadata Distribution** — Shows the `lighting` and `facility`
-#   factors and their value counts.
-# - **Class Balance Worklist** — With no `ontology` configured, the
-#   workflow synthesizes a flat one from the dataset's own `index2label`
-#   and reports how many labels each class is short of an even spread.
-#   Three classes fall short of an even 156-per-class split: digit 7 by
-#   126 images, digits 4 and 5 by 36 each. Note what this *cannot* say:
-#   it only knows about the eight classes the data declares.
-#
-# One caveat on reading the gap table: `facility` is a *deterministic*
-# function of the digit class here (A handles 0–3, B handles 4–6, C
-# handles 7 — the only Facility-C digit we actually collected), so every
-# class shows a 100% deficit for the two facilities that never see it.
-# Those rows are by construction, not collection failures. The
-# `lighting` rows are the real signal — the factor varies within every
-# class, so a class that is missing one of its values genuinely was
-# under-collected.
-
-# %% [markdown]
 # ### Drill into raw results
 #
 # The `result.data.raw` object provides machine-readable access to every
@@ -461,28 +278,31 @@ print(result_metadata.report())
 # %%
 raw = result_metadata.data.raw
 
-# Label distribution
 ld = raw.label_distribution
 print(f"Number of classes: {ld.num_classes}")
 print(f"Empty images: {len(ld.empty_images)}")
-print("\nClass distribution:")
-for cls, count in sorted(ld.class_distribution.items(), key=lambda x: x[1], reverse=True):
-    print(f"  {cls}: {count}")
+print("\nClass distribution (five largest, five smallest):")
+by_size = sorted(ld.class_distribution.items(), key=lambda x: x[1], reverse=True)
+for cls, count in by_size[:5]:
+    print(f"  {cls:<26} {count}")
+print("  ...")
+for cls, count in by_size[-5:]:
+    print(f"  {cls:<26} {count}")
 
 # %%
-# Metadata gaps — the most actionable finding
+# Metadata gaps — where a class was only ever imaged under some conditions
 if raw.metadata_gaps and raw.metadata_gaps.gaps:
-    print("Metadata coverage gaps:")
-    print(f"  Total gaps found: {len(raw.metadata_gaps.gaps)}\n")
+    print(f"Metadata coverage gaps: {len(raw.metadata_gaps.gaps)}\n")
 
-    print("  Mutual information (class → factor):")
-    for factor, mi in raw.metadata_gaps.mutual_info_class_to_factor.items():
-        print(f"    {factor}: {mi:.4f}")
+    print("  Mutual information (class -> factor), five strongest:")
+    mi = sorted(raw.metadata_gaps.mutual_info_class_to_factor.items(), key=lambda x: -x[1])
+    for factor, value in mi[:5]:
+        print(f"    {factor:<28} {value:.4f}")
 
-    print("\n  Gap details:")
-    for gap in raw.metadata_gaps.gaps:
+    print("\n  Gap details (first ten):")
+    for gap in raw.metadata_gaps.gaps[:10]:
         print(
-            f"    {gap.class_name} × {gap.factor_name}={gap.factor_value}: "
+            f"    {gap.class_name:<14} x {gap.factor_name}={gap.factor_value}: "
             f"count={gap.class_count}, expected={gap.expected_count:.1f}, "
             f"deficit={gap.deficit:.0%}"
         )
@@ -490,40 +310,68 @@ else:
     print("No metadata gaps detected.")
 
 # %% [markdown]
+# ### Interpreting the findings
+#
+# Two things are worth stopping on.
+#
+# **The imbalance check passes and the label distribution warns anyway.** The
+# ratio is 1.8:1, nowhere near the 3:1 we configured. The warning comes from a
+# different clause of the same finding — *4 declared class(es) have zero
+# samples* — naming all four Air Defense systems.
+#
+# That deserves scrutiny rather than applause, because it depends on how the data
+# got here. `ClassFilter` removes *samples*; it does not rewrite the dataset's
+# `index2label`. This view therefore still declares twenty-four classes and
+# reports twenty of them with counts. A collection that genuinely never captured
+# those systems — no folder, no label entry — would declare twenty classes, and
+# there would be nothing left for this finding to name. **The workflow can report
+# an empty class only while something still declares it.** Getting this warning
+# for free is a property of your loader, not of your collection.
+#
+# **No metadata gaps.** Gap analysis cross-references class labels against binned
+# intrinsic factors and looks for combinations under-represented relative to an
+# even spread. Nothing cleared the default mutual-information threshold, and that
+# is the honest answer: measured image statistics are not strongly
+# class-predictive in this dataset, so there is no "this vehicle type was only
+# ever imaged in bright conditions" story to tell. A null result is a result.
+#
+# So the classes are balanced, the imagery is not conditioned on class, and the
+# one warning we did get arrived by luck of the loader. Step 2 asks the question
+# that does not depend on luck.
+
+# %% [markdown]
 # ## Step 2: Declare the sanctioned label space
 #
-# A postal sorter reads *alphanumeric* codes — the label space is not
-# "whatever digits we happened to collect", it is every character a code
-# can contain. Writing that down as an **ontology** is what lets the
+# A recognition system is specified against a taxonomy, not against a
+# collection. Writing that taxonomy down as an **ontology** is what lets the
 # workflow name a class that was never collected at all.
+#
+# MilitaryVehicles already carries one, so there is nothing to invent:
 
 # %%
-import string
+import json
 
-postal_ontology = {
-    "postal_char": {
-        "digit": {
-            "low": [str(d) for d in range(5)],
-            "high": [str(d) for d in range(5, 10)],
-        },
-        "letter": {
-            "vowel": list("AEIOU"),
-            "consonant": [c for c in string.ascii_uppercase if c not in "AEIOU"],
-        },
-    }
-}
+print(json.dumps(MilitaryVehicles.hierarchy, indent=2)[:900] + "\n...")
+
+# %% [markdown]
+# Note `watercraft` and `aircraft` sitting alongside `land vehicle` with nothing
+# under them. Hold on to that — it matters in a moment.
+
+# %%
+vehicle_ontology = MilitaryVehicles.hierarchy
 
 ontology_workflow = metadata_only_workflow.model_copy(
-    update={"name": "coverage-ontology", "ontology": postal_ontology},
+    update={"name": "coverage-ontology", "ontology": vehicle_ontology},
 )
 
 task_ontology = DataCoverageTaskConfig(
-    name="postal-coverage-ontology",
+    name="vehicles-coverage-ontology",
     workflow="coverage-ontology",
-    sources="postal_src",
+    sources="vehicles_src",
 )
 
 config_ontology = PipelineConfig(
+    metadata=config_metadata.metadata,
     datasets=config_metadata.datasets,
     sources=config_metadata.sources,
     workflows=[ontology_workflow],
@@ -533,26 +381,6 @@ config_ontology = PipelineConfig(
 result_ontology = run_task(task_ontology, config_ontology, cache_dir=Path("./cache"))
 print(result_ontology.report())
 
-# %% [markdown]
-# ### What the ontology found that counts could not
-#
-# Four new sections replace the Class Balance Worklist:
-#
-# - **Label Space Coverage** — 8 of 36 sanctioned characters have any
-#   examples. Digits `8` and `9` show up as `acquire` rows: sanctioned,
-#   never collected. Step 1 could not name them, because a class with no
-#   images declares nothing to count.
-# - **Label Conformance** — every collected class name resolves to a
-#   concept, so the label set conforms.
-# - **Label Alignment** — mergeability is `lossless`: the 8 collected
-#   digits already use their ontology concept names, so no classes are
-#   merged or dropped. Conformance reports whether a name resolves;
-#   alignment reports what it maps to, and provides a `Relabel` stanza
-#   you can paste into a view to conform the dataset to the 43-concept
-#   vocabulary.
-# - **Ontology Structure** — the artifact itself: 36 leaves under two
-#   branches, no collisions.
-
 # %%
 onto = result_ontology.data.raw.ontology
 print(f"source: {onto.source} (synthesized={onto.synthesized})")
@@ -561,22 +389,68 @@ print(f"total deficit: {onto.representation.total_deficit} labels\n")
 
 print("Dark branches — whole regions of the label space with nothing in them:")
 for branch in onto.representation.dark_branches:
-    print(f"  {branch.label}: {branch.leaves} leaf classes, zero examples")
+    print(f"  {branch.label:<16} {branch.leaves} leaf class(es), zero examples")
 
 print("\nTop of the collection worklist:")
-for row in onto.representation.worklist[:6]:
-    print(f"  {row.label:>10}  {row.action:<8} have {row.count:>3}, want {row.target:>3}")
+for row in onto.representation.worklist[:8]:
+    print(f"  {row.label:>14}  {row.action:<8} have {row.count:>4}, want {row.target:>4}")
 
 # %% [markdown]
-# The `letter` branch is entirely dark — 26 sanctioned characters, no
-# images. That is one finding, not 26, because `dark_branches` rolls
-# missing leaves up to the highest wholly-empty concept.
+# ### What the ontology adds
 #
+# Four new sections replace the Class Balance Worklist:
+#
+# - **Label Space Coverage** — 76.9% leaf coverage, six concepts to acquire, a
+#   deficit of 358 frames. Four of the six are the Air Defense systems Step 1
+#   also named. **The other two are the point**: `aircraft` and `watercraft` are
+#   sanctioned by the taxonomy and were never in this dataset's vocabulary at
+#   all — no label index, no folder, nothing for a count to notice. No amount of
+#   reading the data surfaces them; only a declared label space does.
+# - **Label Conformance** — every collected class name resolves to a concept,
+#   so the label set conforms. Nothing was captured that the taxonomy does not
+#   sanction.
+# - **Label Alignment** — the collected names already *are* the ontology's leaf
+#   names, so alignment is lossless. Conformance reports whether a name
+#   resolves; alignment reports what it maps to, and provides a `Relabel` stanza
+#   you can paste into a view to conform a dataset whose spellings differ.
+# - **Ontology Structure** — the artifact itself: 34 concepts, 26 leaves,
+#   depth 4, no collisions.
+#
+# The worklist turns that into a collection order: six `acquire` rows at 58
+# frames each, then `augment` rows for the thinnest classes actually collected.
+
+# %% [markdown]
+# ### Read the worklist with scope in mind
+#
+# One branch comes back dark: `Air Defense`, four leaves, zero examples. That is
+# a real finding. It sits under `land vehicle` alongside the categories we did
+# collect, it was in scope, and it is missing. `dark_branches` rolls missing
+# leaves up to the highest wholly-empty concept, so this is reported once rather
+# than four times.
+#
+# `aircraft` and `watercraft` are a different matter. They are leaves in their
+# own right rather than branches, so they do not appear in the dark-branch
+# rollup — they appear in the worklist, as `acquire` rows wanting 58 frames
+# each. Acquiring them would be absurd: this is a *ground-vehicle* collection.
+# They are empty because the taxonomy is broader than the collection's scope,
+# not because anything went wrong.
+#
+# The workflow cannot tell those apart for you. Scope is your knowledge, not the
+# data's. What it buys you is that the question gets asked at all — six named
+# concepts with nothing in them, each one either a gap to fill or a scope
+# boundary to write down and stop re-litigating.
+#
+# It is also the argument for keeping the ontology no broader than what you
+# intend to field. Rooted at `land vehicle`, this collection would be scored
+# against concepts it is actually responsible for, and `dark_branch_count=0`
+# would be a meaningful health threshold rather than a permanent warning.
+
+# %% [markdown]
 # ### When a label does not reconcile
 #
-# Conformance catches the opposite problem: a class name the ontology
-# does not sanction. Reconciliation is exact, not fuzzy, so a typo or an
-# unsanctioned class shows up as **unmatched**.
+# Conformance catches the opposite problem: a class name the ontology does not
+# sanction. Reconciliation is exact, not fuzzy, so a typo or an unsanctioned
+# class shows up as **unmatched**.
 
 # %%
 from dataeval import Ontology
@@ -584,10 +458,17 @@ from dataeval.core import label_reconciliation
 
 # The workflow builds this for you from the `ontology` field; here we construct
 # the same object directly so we can reconcile an arbitrary label list against it.
-ontology_obj = Ontology.from_hierarchy(postal_ontology)
-check = label_reconciliation(["0", "1", "oh", "seven"], ontology_obj)
+ontology_obj = Ontology.from_hierarchy(vehicle_ontology)
+check = label_reconciliation(["T-72", "BTR-80", "T72", "technical"], ontology_obj)
 print("matched:  ", dict(check["matched"]))
 print("unmatched:", list(check["unmatched"]))
+
+# %% [markdown]
+# `T-72` and `BTR-80` resolve. `T72` does not — the hyphen matters, and exact
+# reconciliation is the point: a silent fuzzy match on vehicle designations is
+# exactly the kind of convenience that turns a labelling error into a training
+# set. `technical` does not resolve either, because the taxonomy does not
+# sanction it.
 
 # %% [markdown]
 # ### Sharing one ontology across workflows
@@ -598,17 +479,17 @@ print("unmatched:", list(check["unmatched"]))
 #
 # ```yaml
 # ontologies:
-#   - name: postal
-#     source: config/postal.jsonld
+#   - name: vehicles
+#     source: config/vehicles.jsonld
 #     concepts:
-#       - id: http://example.org/postal#hyphen
-#         label: hyphen
-#         synonyms: [dash, "-"]
+#       - id: http://example.org/vehicles#technical
+#         label: technical
+#         synonyms: [pickup-mounted, NSV]
 #
 # workflows:
 #   - name: coverage-ontology
 #     type: data-coverage
-#     ontology: postal
+#     ontology: vehicles
 # ```
 #
 # Use `concepts:` to add concepts on top of `source` when you need to extend an artifact you
@@ -629,19 +510,15 @@ print("unmatched:", list(check["unmatched"]))
 # regions — areas where the model would encounter inputs unlike anything
 # in the training data. Dimensional completeness measures how
 # effectively the data explores the embedding dimensions.
-
-# %% [markdown]
-# We use a 256-word vocabulary — the smallest `vocab_size` the config
-# schema allows (`ge=256`) — rather than a larger one. `isotropy` — how
-# many independent directions a class varies in — is only defined when a
-# class has more samples than embedding dimensions. Our largest class
-# has 200 images, which is below even this floor, so `isotropy` reports
-# `null` for every class below. That is a real, honest result: our
-# classes are simply too small relative to BoVW's minimum embedding
-# width for shape to be measurable here. `dispersion` and
-# `near_duplicate_fraction` only require `min_class_samples` (default
-# 20) — far below any of our class sizes — and are unaffected; they are
-# the metrics doing the work in this tutorial.
+#
+# We use a 256-word vocabulary — the smallest `vocab_size` the config schema
+# allows (`ge=256`). `isotropy` — how many independent directions a class varies
+# in — is only defined when a class has more samples than embedding dimensions,
+# and our sampled classes sit below 256, so it reports `null` throughout. That
+# is a real result, not a failure: the classes are too small relative to BoVW's
+# minimum embedding width for shape to be measurable. `dispersion` and
+# `near_duplicate_fraction` only require `min_class_samples` (default 20) and
+# are unaffected — they are the columns doing the work here.
 
 # %%
 from dataeval.config import set_max_processes
@@ -652,37 +529,34 @@ set_max_processes(8)
 
 full_workflow = DataCoverageWorkflowConfig(
     name="coverage-full",
-    metadata_exclude=["id", "height", "width"],
+    metadata="vehicle_factors",
+    ontology=vehicle_ontology,  # carry the label space forward
     coverage_method="adaptive",
     coverage_percent=0.01,  # adaptive: flag the sparsest 1% of observations
     num_observations=50,  # Number of neighbors for coverage analysis
     run_completeness=True,  # Measure dimensional completeness
     run_gap_analysis=True,
-    gap_mi_threshold=0.01,  # lighting's MI is ~0.013 — see the note in Step 1
     balance=True,
     diversity_method="simpson",
     health_thresholds=DataCoverageHealthThresholds(
         uncovered_rate=10.0,  # Warn if > 10% uncovered in embedding space
         completeness_score=0.5,  # Warn if completeness < 0.5
-        class_imbalance_ratio=3.0,  # Keep the tight threshold
+        class_imbalance_ratio=3.0,
         gap_count=2,
     ),
 )
 
 task_full = DataCoverageTaskConfig(
-    name="postal-coverage-full",
+    name="vehicles-coverage-full",
     workflow="coverage-full",
-    sources="postal_src",
+    sources="vehicles_src",
     extractor="bovw_ext",
 )
 
 config_full = PipelineConfig(
-    datasets=[
-        DatasetProtocolConfig(name="postal_biased", format="maite", dataset=biased_dataset),
-    ],
-    sources=[
-        SourceConfig(name="postal_src", dataset="postal_biased"),
-    ],
+    metadata=config_metadata.metadata,
+    datasets=config_metadata.datasets,
+    sources=config_metadata.sources,
     extractors=[
         BoVWExtractorConfig(name="bovw_ext", vocab_size=256, batch_size=32),
     ],
@@ -697,37 +571,19 @@ result_full = run_task(task_full, config_full, cache_dir=Path("./cache"))
 # ### Full coverage report
 #
 # Now the report includes embedding coverage and dimensional
-# completeness in addition to label and metadata findings.
+# completeness in addition to label, ontology and metadata findings.
 
 # %%
 print(result_full.report())
 
 # %% [markdown]
-# ### Understanding the new findings
-#
-# With the extractor enabled, two new sections appear:
-#
-# - **Embedding Coverage** — Reports how many observations are
-#   "uncovered" in embedding space — i.e. sit in a region where the model
-#   would have little training support, broken down per class. Read the
-#   dataset-wide rate as a *ranking* of which samples are most isolated,
-#   not as a health percentage; see the note below on why. The per-class
-#   columns are the part that is actually data-driven.
-#
-# - **Dimensional Completeness** — A score between 0 and 1 measuring how
-#   well the data fills the embedding dimensions. Low completeness
-#   suggests the data clusters in a narrow subspace, leaving many
-#   directions unexplored. A biased dataset like ours tends to have
-#   lower completeness because the under-represented classes don't
-#   contribute enough variation.
-
-# %% [markdown]
-# ### Per-class coverage is the signal
+# ### Reading the per-class columns
 #
 # The dataset-wide uncovered count is a triage shortlist — with
-# `coverage_method="adaptive"` it always returns exactly
-# `coverage_percent` of observations, so its *rate* restates your config.
-# The per-class columns are the part that depends on the data:
+# `coverage_method="adaptive"` it returns exactly `coverage_percent` of
+# observations, so its *rate* restates your config rather than measuring your
+# data. 15 of 1,500, at the 1% we asked for. The per-class columns are the part
+# that depends on what you collected:
 #
 # - **dispersion** — how far the class spreads, relative to a typical
 #   class. Around 1 is normal; well below means **clustered**.
@@ -736,31 +592,15 @@ print(result_full.report())
 # - **near_duplicate_fraction** — the share sitting in near-identical
 #   pairs. High means **padded with repeated frames**.
 #
-# In this run `near_duplicate_fraction` does all the work, and it flags
-# three classes — one more than we planted:
+# None of them fire. Dispersion sits between 0.97 and 1.01 across all twenty
+# classes — which is what "relative to a typical class" looks like when every
+# class is typical. `near_duplicate_fraction` is 0.00 everywhere: nothing here
+# is padded with repeated frames. `isotropy` is `null` throughout, for the
+# sample-count reason above.
 #
-# - **digit 7** (0.69) — the scanned-card class. Every image is one frame
-#   plus jitter, so nearly all of it sits in near-identical pairs.
-# - **digit 1** (0.45) — *not planted*. These are 200 genuine MNIST
-#   images; handwritten 1s simply resemble each other more than other
-#   digits do. A real property of the data, found the same way as the
-#   synthetic ones.
-# - **digit 6** (0.36) — the padded class: 120 real images plus 60 copies
-#   of a single frame, so roughly a third is redundant.
-#
-# Digit 1 is the useful lesson. The metric does not know which
-# redundancy you introduced and which the world handed you — it reports
-# what is there, and you decide whether 45% near-duplicates in a class is
-# a collection failure or just what that class looks like.
-#
-# Note what does **not** fire. Digit 7 has the lowest `dispersion` (0.56)
-# but the default `min_dispersion` is 0.5, so it stays just inside the
-# threshold and is never reported as clustered — 30 jittered copies still
-# spread further, relative to a typical class, than the cutoff allows
-# for. And `isotropy` is `null` for every class, for the sample-count
-# reason described above. Three columns, one of them carrying the signal
-# here: that is normal, and it is why the workflow reports all three
-# rather than collapsing them into a score.
+# That is a clean bill of health, and it is worth stating plainly rather than
+# hunting for something to flag. This collection has no embedding pathology. Its
+# problem lies entirely on the other axis — the categories that are not in it.
 
 # %% [markdown]
 # ### Inspect embedding results
@@ -768,19 +608,19 @@ print(result_full.report())
 # %%
 raw_full = result_full.data.raw
 
-# Embedding coverage
 if raw_full.coverage:
     cov = raw_full.coverage
     print(f"Method: {cov.method}")
     print(f"Uncovered: {cov.uncovered_count} ({cov.uncovered_rate:.1%})\n")
-    print(f"{'class':>8}  {'count':>5}  {'disp':>6}  {'iso':>6}  {'nearDup':>7}")
-    for row in cov.per_class:
+    print(f"{'class':>14}  {'count':>5}  {'disp':>6}  {'iso':>6}  {'nearDup':>7}")
 
-        def _fmt(v: float | None) -> str:
-            return "  -   " if v is None else f"{v:6.2f}"
+    def _fmt(v: float | None) -> str:
+        return "  -   " if v is None else f"{v:6.2f}"
 
+    for row in sorted(cov.per_class, key=lambda r: -(r.near_duplicate_fraction or 0.0)):
         print(
-            f"{row.class_name:>8}  {row.count:>5}  {_fmt(row.dispersion)}  {_fmt(row.isotropy)}  {_fmt(row.near_duplicate_fraction):>7}"
+            f"{row.class_name:>14}  {row.count:>5}  {_fmt(row.dispersion)}  "
+            f"{_fmt(row.isotropy)}  {_fmt(row.near_duplicate_fraction):>7}"
         )
 elif raw_full.coverage_skipped_reason:
     print(f"Embedding coverage skipped: {raw_full.coverage_skipped_reason}")
@@ -789,7 +629,6 @@ else:
 
 print()
 
-# Dimensional completeness
 if raw_full.completeness:
     comp = raw_full.completeness
     print("Dimensional Completeness:")
@@ -824,9 +663,7 @@ else:
 # `uncovered_rate` applies only when `coverage_method="naive"`. The three
 # label-space thresholds apply only when an `ontology` is configured —
 # against a synthesized one they would be scoring their own construction.
-#
-# For a safety-critical application like postal sorting where
-# misclassification has real cost, tighten the thresholds:
+# Because `coverage-full` carries the real ontology forward, they bite here.
 
 # %%
 strict_thresholds = DataCoverageHealthThresholds(
@@ -847,13 +684,14 @@ strict_workflow = full_workflow.model_copy(
 )
 
 task_strict = DataCoverageTaskConfig(
-    name="postal-coverage-strict",
+    name="vehicles-coverage-strict",
     workflow="coverage-strict",
-    sources="postal_src",
+    sources="vehicles_src",
     extractor="bovw_ext",
 )
 
 config_strict = PipelineConfig(
+    metadata=config_full.metadata,
     datasets=config_full.datasets,
     sources=config_full.sources,
     extractors=config_full.extractors,
@@ -865,16 +703,18 @@ result_strict = run_task(task_strict, config_strict, cache_dir=Path("./cache"))
 print(result_strict.report())
 
 # %% [markdown]
-# With stricter thresholds, more findings escalate to warnings — the
-# same data now triggers more alerts. This is the right behavior for
-# safety-critical deployments where you'd rather over-flag than miss
-# a coverage gap.
+# Exactly one more finding escalates: **Dimensional Completeness**, at 0.578, is
+# informational against the default 0.5 and a warning against the strict 0.6.
+# Two warnings become three.
 #
-# Note that `leaf_coverage`, `dark_branch_count`, and
-# `unmatched_class_count` are inert here: `coverage-strict` is copied
-# from `full_workflow`, which has no `ontology` configured, so its
-# ontology is synthesized and those three thresholds never apply. To
-# see them bite, copy `ontology_workflow` from Step 2 instead.
+# One finding, not a cascade — and that is the useful observation. Tightening a
+# threshold changes an outcome only when the measured value sits near it.
+# `class_imbalance_ratio` went from 3.0 to 2.0 and still does not fire, because
+# the data is at 1.8. `max_near_duplicate_fraction` went from 0.1 to 0.02 and
+# still does not fire, because the data is at 0.00. Thresholds are how you tune
+# sensitivity to a metric you are already measuring; they are not a way to make
+# a count-based check notice a category that is missing entirely. Only the
+# ontology does that.
 
 # %% [markdown]
 # ## Results Exploration: Export results
@@ -889,33 +729,38 @@ print(json_str[:500] + "\n...")
 #
 # In this tutorial you learned how to:
 #
-# - **Simulate a biased dataset** that mirrors real-world uneven data
-#   collection across facilities and conditions — including two classes
-#   collected zero times
-# - **Run coverage without an extractor** for a fast metadata-only pass
-#   that catches class imbalance and metadata gaps, and synthesizes a
-#   balance worklist from the classes the data happens to declare
-# - **Declare an ontology** for the sanctioned label space, and see
-#   `Label Space Coverage` name the classes that were never collected —
-#   something a balance worklist over declared classes cannot do
+# - **Simulate a collection gap** with a `ClassFilter` view operation, leaving
+#   everything else about the data exactly as collected
+# - **Run coverage without an extractor** for a fast metadata-only pass that
+#   checks class balance and cross-tabulates classes against measured image
+#   statistics
+# - **Recognize a clean bill of health for what it is** — a well-balanced class
+#   distribution answers "are the classes I have evenly represented?", which is
+#   a different question from "did I collect the right ones?"
+# - **Understand why an empty class is sometimes visible to a count** — because
+#   the label map still declares it — and why that is luck rather than coverage
+# - **Declare an ontology** — here, the taxonomy the dataset already ships — and
+#   see `Label Space Coverage` name concepts the dataset's own vocabulary never
+#   contained
+# - **Read the worklist with scope in mind**, distinguishing a genuine
+#   collection gap from an ontology broader than the collection's remit
 # - **Add an extractor** to unlock per-class embedding signals
-#   (dispersion, isotropy, near-duplicate fraction) and dimensional
-#   completeness — revealing blind spots that counts alone can't show
-# - **Read the coverage report** — a single `result.report()` call
-#   covering both axes, with health status
-# - **Drill into raw results** for programmatic access to gap details,
-#   per-class coverage metrics, ontology findings, and distribution data
+#   (dispersion, isotropy, near-duplicate fraction) and dimensional completeness
 # - **Tune health thresholds** to match your domain's risk tolerance
 #
-# The key takeaway: coverage has **two orthogonal axes**, and low
-# coverage on either is often invisible until you explicitly measure it.
-# *Which categories you have* is a labels-against-an-ontology question —
-# a class with zero examples doesn't even appear in a count. *How varied
-# each one is* is an embeddings question — a class can be plentiful by
-# count and still collapse into one pocket of the space, or turn out to
-# be mostly repeated frames. Running the `data-coverage` workflow before
-# training helps you catch both kinds of blind spot early, when they're
-# cheapest to fix.
+# The result on this dataset is worth stating bluntly: **every check that looks
+# inside the collection passes.** The classes are balanced at 1.8:1. No metadata
+# gap clears the threshold. Dispersion is ~1.0 for all twenty classes and the
+# near-duplicate fraction is zero. Tightening every threshold at once adds a
+# single warning. By any within-data measure this is a healthy dataset.
+#
+# It is also missing 23% of its sanctioned label space, and that is the finding
+# that matters. Coverage has **two orthogonal axes**. *How varied each category
+# is* is an embeddings question, and this collection answers it well. *Which
+# categories you have at all* is a labels-against-an-ontology question, and no
+# amount of measuring the data you collected will answer it — you have to state
+# what you were supposed to collect. Running `data-coverage` before training
+# catches both kinds of blind spot early, when they're cheapest to fix.
 
 # %% [markdown]
 # ## What's next
@@ -924,16 +769,16 @@ print(json_str[:500] + "\n...")
 #   outliers and duplicates in your dataset before training
 # - **Drift monitoring** — After deploying, use `drift-monitoring` to
 #   detect when incoming data drifts away from your training distribution
-# - **Targeted collection** — Use the gap analysis results to guide
-#   additional data collection: specifically gather dim lighting samples
-#   from Facility C to fill the identified gaps
+# - **Targeted collection** — Use the worklist rows to drive the next
+#   collection cycle: the four Air Defense systems, in the quantities the
+#   `acquire` rows name
 # - **Ship a real ontology** — Replace the inline hierarchy with a
 #   versioned SKOS or OWL file (`ontology: ./taxonomy.ttl`), which also
 #   carries synonyms, definitions and stable concept ids. Needs
 #   `pip install "dataeval[ontology]"`.
 # - **Targeted labeling** — Feed the gap findings into the
-#   `prioritization` workflow to rank unlabeled candidates that fall in
-#   the under-covered regions
+#   [prioritization workflow](data_prioritization) to rank unlabeled candidates
+#   that fall in the under-covered regions
 
 # %% [markdown]
 # ## Related guides
@@ -943,6 +788,8 @@ print(json_str[:500] + "\n...")
 # - **How-to: Declare an ontology** — [Declare an ontology](../how_to/declare_an_ontology.md)
 #   to define the sanctioned label space this workflow checks a dataset against,
 #   inline or as a versioned SKOS/OWL file.
+# - **How-to: Build dataset views** — [Build dataset views](../how_to/build_dataset_views.md)
+#   for the `ClassFilter`, `Shuffle` and `Limit` operations used to shape the data here.
 # - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
 #   to build a container image, write a YAML config, and run this workflow with `docker run`.
 # - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)

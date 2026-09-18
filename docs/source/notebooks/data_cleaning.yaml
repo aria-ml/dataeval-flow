@@ -7,22 +7,26 @@
 # yaml-language-server: $schema=../../../config/params.schema.json
 
 datasets:
-  - name: cppe5_train
-    format: huggingface
-    path: data/cppe5/train
-    task: object_detection
+  - name: skysealand_base
+    format: coco
+    path: data/skysealand_datamaite_base
 
 views:
-  - name: first500
+  # Shuffle before limiting: SkySeaLand is stored grouped by collection site, so a bare
+  # Limit would sample one site rather than the dataset.
+  - name: sample300
     operations:
+      - type: Shuffle
+        params:
+          seed: 0
       - type: Limit
         params:
-          size: 500
+          size: 300
 
 sources:
-  - name: cppe5_src
-    dataset: cppe5_train
-    view: first500
+  - name: skysealand_src
+    dataset: skysealand_base
+    view: sample300
 
 extractors:
   - name: bovw_ext
@@ -31,7 +35,7 @@ extractors:
     batch_size: 32
 
 workflows:
-  - name: cppe5_advisory_clean
+  - name: skysealand_advisory_clean
     type: data-cleaning
     mode: advisory
     # Outlier detection
@@ -40,12 +44,12 @@ workflows:
     outlier_flags: [dimension, pixel, visual]
     outlier_cluster_threshold: 3.5
     outlier_cluster_algorithm: hdbscan
-    outlier_n_clusters: 5
+    outlier_n_clusters: 4
     # Duplicate detection — hash-based plus cluster-based
     duplicate_cluster_sensitivity: 0.5
     duplicate_cluster_algorithm: hdbscan
-    duplicate_n_clusters: 5
-    # Relaxed thresholds for a diverse object-detection dataset
+    duplicate_n_clusters: 4
+    # Relaxed thresholds: four collection sites with different sensors and altitudes
     health_thresholds:
       exact_duplicates: 0.0
       near_duplicates: 5.0
@@ -55,7 +59,7 @@ workflows:
       class_label_imbalance: 5.0
 
 tasks:
-  - name: cppe5_clean
-    workflow: cppe5_advisory_clean
-    sources: cppe5_src
+  - name: skysealand_clean
+    workflow: skysealand_advisory_clean
+    sources: skysealand_src
     extractor: bovw_ext

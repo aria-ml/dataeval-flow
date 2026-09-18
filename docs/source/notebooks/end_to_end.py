@@ -30,7 +30,7 @@
 # %% [markdown]
 # ## What you'll do
 #
-# 1. **Load a dataset** — fetch CPPE-5 and write it to disk in a layout DataEval Flow reads
+# 1. **Load a dataset** — fetch SkySeaLand and export it in a layout DataEval Flow reads
 # 2. **Write the configuration** — one `end_to_end.yaml` describing the datasets, sources,
 #    extractor, three workflows, and three tasks
 # 3. **Run the pipeline** — `run_tasks()` executes all three tasks against the same data
@@ -53,84 +53,57 @@
 #
 # - `dataeval-flow` (brings `dataeval`, `datamaite`, `pydantic`)
 # - `dataeval-plots` (to look at flagged images)
-# - `datasets` (to fetch CPPE-5 from the HuggingFace Hub)
+# - `maite-datasets[datamaite]` (to fetch SkySeaLand and export it for DataEval Flow)
 # - Internet access on the first run; everything after that comes from disk
 # - Docker, for the last section only
 
 # %% [markdown]
 # ## Step 1: Load the dataset
 #
-# [CPPE-5](https://huggingface.co/datasets/rishitdagli/cppe-5) is a small object-detection
-# dataset of medical personal protective equipment — 5 classes, ~1K train images and 29 test
-# images. Two splits is what makes the cross-split half of this pipeline meaningful.
-
-# %% tags=["remove_output"]
-from datasets import load_dataset as hf_load
-
-cppe5 = hf_load("rishitdagli/cppe-5")
-for split_name, split in cppe5.items():
-    print(f"{split_name}: {len(split)} images")
+# [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
+# imagery detection dataset — 1,307 frames from four sites, 19,102 objects across `airplane`,
+# `boat`, `car` and `ship`. It arrives already partitioned by its publisher into `train`
+# (1,048 frames), `val` (132) and `test` (127). This pipeline uses `train` and `test`; two
+# splits is what makes the cross-split half of it meaningful.
 
 # %% [markdown]
-# ### Materialize it on disk
+# `maite-datasets` downloads the dataset, and `as_datamaite=True` writes it back out in a
+# format DataEval Flow reads directly — no conversion code to maintain here. Each export is
+# named after both the dataset and the `image_set`, so `train` and `test` land in two
+# directories instead of overwriting one another.
 #
-# DataEval Flow reads datasets from a filesystem layout, so the in-memory HuggingFace
-# `Dataset` has to be written out first. We use the HuggingFace **ImageFolder**
-# object-detection convention — image files plus a `metadata.parquet` whose `objects` column
-# carries parallel `bbox` / `category` lists. CPPE-5 already stores absolute-pixel `xywh`
-# boxes, which is what this convention expects, so no coordinate conversion is needed.
-#
-# :::{note}
-# **Write `metadata.parquet`, not `metadata.jsonl`, to keep class names.** Parquet is the only
-# ImageFolder metadata format with a schema channel: `Dataset.to_parquet()` embeds the
-# HuggingFace features schema in the file header, and datamaite reads the `ClassLabel` name
-# table out of it. That is why the reports below name `Coverall` and `Face_Shield` instead of
-# `0` and `1`. `metadata.csv` and `metadata.jsonl` carry no schema, so integer categories stay
-# integers there — matching HuggingFace's own behavior.
-# :::
+# That naming is not cosmetic: a COCO export records no split of its own, so a shared
+# directory would serve whichever split was written first to every later reader.
 
 # %% tags=["remove_output"]
 from pathlib import Path
 
-from datasets import Dataset
+from maite_datasets.object_detection import SkySeaLand
 
-data_path = Path("./data/cppe5")
+data_root = Path("./data")
 
+# One ~262 MB download into ./data/skysealand, shared by both exports below.
+# A re-run reads what is already on disk instead of downloading again.
+SkySeaLand(root=data_root, image_set="base", download=True)
 
-def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
-    """Write a HuggingFace object-detection split in the ImageFolder convention."""
-    root.mkdir(parents=True, exist_ok=True)
-    for stale in root.glob("metadata.*"):  # a leftover metadata file is read alongside the new one
-        stale.unlink()
+split_paths = {name: data_root / f"skysealand_datamaite_{name}" for name in ("train", "test")}
+for image_set in split_paths:
+    SkySeaLand(root=data_root, image_set=image_set, as_datamaite=True)
 
-    file_names = []
-    for seq, example in enumerate(hf_dataset):
-        file_name = f"{seq:05d}.jpg"
-        example["image"].convert("RGB").save(root / file_name, quality=95)
-        file_names.append(file_name)
-
-    # Carry the source `objects` column through untouched so its `category` ClassLabel — the
-    # Coverall/Face_Shield/... name table — lands in the parquet features schema.
-    metadata = hf_dataset.remove_columns(["image", "image_id", "width", "height"]).add_column("file_name", file_names)
-    metadata.to_parquet(root / "metadata.parquet")
-
-
-for split_name, split in cppe5.items():
-    write_imagefolder(split, data_path / split_name)
-
-print(f"Wrote {data_path}/train and {data_path}/test")
+print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 
 # %% [markdown]
 # ### Confirm it loads
 #
 # Before writing any config, check that DataEval Flow can actually read what you just wrote.
 # `load_dataset()` is the same loader the pipeline uses internally, so if this works the
-# config will too.
+# config will too. There is no `split=` argument here — each split is its own directory, which
+# is exactly why the exports are named the way they are.
 
 # %%
 from dataeval_flow import load_dataset
 
-train_ds = load_dataset(data_path, split="train", dataset_format="huggingface", task="object_detection")
+train_ds = load_dataset(split_paths["train"], dataset_format="coco")
 image, target, _ = train_ds[0]
 
 print(f"Images:      {len(train_ds)}")
@@ -344,7 +317,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # ## Step 6: Run the same pipeline in Docker
 #
 # Nothing above is Python-specific — the pipeline is the YAML file. The container reads the
-# same `end_to_end.yaml`, against the same `data/cppe5`, and produces the same envelopes.
+# same `end_to_end.yaml`, against the same exports under `data/`, and produces the same envelopes.
 # This is how the pipeline runs in CI or on a machine that has no Python environment.
 #
 # The container has three mount points:
@@ -358,21 +331,26 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ### Lay out the workspace
 #
-# One directory becomes the data root. Config at its top level, dataset underneath at the
-# path the config names (`data/cppe5`).
+# One directory becomes the data root. Config at its top level, datasets underneath at the
+# paths the config names. Only the two exports travel — the raw download the exports were
+# built from is not read by the pipeline.
 #
 # ```bash
 # mkdir -p dataeval-run/data dataeval-run/output dataeval-run/cache
-# cp -r docs/source/notebooks/data/cppe5 dataeval-run/data/cppe5
+# cp -r docs/source/notebooks/data/skysealand_datamaite_train dataeval-run/data/
+# cp -r docs/source/notebooks/data/skysealand_datamaite_test dataeval-run/data/
 # cp docs/source/notebooks/end_to_end.yaml dataeval-run/
 #
 # tree -L 3 dataeval-run
 # # dataeval-run
 # # ├── cache
 # # ├── data
-# # │   └── cppe5
-# # │       ├── test
-# # │       └── train
+# # │   ├── skysealand_datamaite_test
+# # │   │   ├── annotations
+# # │   │   └── sample_01049.jpg ...
+# # │   └── skysealand_datamaite_train
+# # │       ├── annotations
+# # │       └── sample_00001.jpg ...
 # # ├── end_to_end.yaml
 # # └── output
 # ```
@@ -489,7 +467,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #
 # The pattern to keep:
 #
-# 1. Materialize the dataset on disk in a supported layout
+# 1. Materialize the dataset on disk in a supported layout, one directory per split
 # 2. Describe the whole run in one config file — datasets, sources, extractors, workflows, tasks
 # 3. `run_tasks()` in Python, or `dataeval-flow` / the container in a shell
 # 4. Read `result.report()` interactively, `result.data.report.findings` programmatically

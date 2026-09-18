@@ -9,6 +9,7 @@ datasets be merged into one corpus.
 
 - {doc}`Clean a dataset <../notebooks/data_cleaning>`
 - {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
+- {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
 
 ## Define a view and reference it
 
@@ -16,10 +17,9 @@ Views are declared once and referenced by name from a `source`:
 
 ```yaml
 datasets:
-  - name: cppe5_train
-    format: huggingface
-    path: data/cppe5/train
-    task: object_detection
+  - name: skysealand_train
+    format: coco
+    path: data/skysealand_datamaite_train
 
 views:
   - name: first500
@@ -29,13 +29,37 @@ views:
           size: 500
 
 sources:
-  - name: cppe5_src
-    dataset: cppe5_train
+  - name: skysealand_src
+    dataset: skysealand_train
     view: first500
 ```
 
 Operations run in the order listed, each consuming the output of the last. A `source` without a `view` uses the whole
 dataset.
+
+:::{warning}
+**`Limit` on its own samples the storage order, not the dataset.** Collections are often written grouped — by capture
+site, by class, by acquisition date — and a bare `Limit` keeps whatever happens to be at the front. On SkySeaLand, the
+first 500 frames put `ship` at 11% of annotations against 20% for the whole split, which is enough to move every
+statistic computed afterwards.
+
+Put a seeded `Shuffle` in front of the `Limit` unless you specifically want the head of the dataset:
+
+```yaml
+views:
+  - name: sample500
+    operations:
+      - type: Shuffle
+        params:
+          seed: 0
+      - type: Limit
+        params:
+          size: 500
+```
+
+`Shuffle` without a `seed` is not reproducible, and a pipeline-level `seed:` does not reach view operations — declare
+it here.
+:::
 
 ## Available operations
 
@@ -123,10 +147,13 @@ still accepted. A range that expands past 1,000,000 elements is rejected — loa
 from dataeval_flow.config import PipelineConfig, SourceConfig, ViewConfig, ViewOperation
 
 view = ViewConfig(
-    name="first500",
-    operations=[ViewOperation(type="Limit", params={"size": 500})],
+    name="sample500",
+    operations=[
+        ViewOperation(type="Shuffle", params={"seed": 0}),
+        ViewOperation(type="Limit", params={"size": 500}),
+    ],
 )
-source = SourceConfig(name="cppe5_src", dataset="cppe5_train", view="first500")
+source = SourceConfig(name="skysealand_src", dataset="skysealand_train", view="sample500")
 ```
 
 ## Merge sources into one corpus

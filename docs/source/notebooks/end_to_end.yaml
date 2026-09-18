@@ -17,41 +17,60 @@
 seed: 42
 
 # -----------------------------------------------------------------------------
+# METADATA — which factors bias analysis reads, and how they are encoded
+# -----------------------------------------------------------------------------
+metadata:
+  - name: skysealand_factors
+    # SkySeaLand ships no telemetry, so the only factors available are the ones
+    # measured from the imagery itself.
+    intrinsic_factors: [visual, pixel]
+    # True for every frame, so it separates nothing.
+    exclude: [label_file_exists]
+    # One encoding for both splits, so their per-factor statistics compare.
+    reference_split: train_src
+
+# -----------------------------------------------------------------------------
 # DATASETS — where the data lives and how to read it
 # -----------------------------------------------------------------------------
 datasets:
-  - name: cppe5_train
-    format: huggingface
-    path: data/cppe5
-    split: train
-    task: object_detection
+  # One export per split: a COCO export records no split of its own, so each
+  # `image_set` gets its own directory rather than sharing one.
+  - name: skysealand_train
+    format: coco
+    path: data/skysealand_datamaite_train
 
-  - name: cppe5_test
-    format: huggingface
-    path: data/cppe5
-    split: test
-    task: object_detection
+  - name: skysealand_test
+    format: coco
+    path: data/skysealand_datamaite_test
 
 # -----------------------------------------------------------------------------
 # VIEWS — narrow a dataset without touching what is on disk
 # -----------------------------------------------------------------------------
 views:
-  - name: first_250
+  # Shuffle before limiting: SkySeaLand is stored grouped by collection site, so a
+  # bare Limit would sample one site rather than the split. The seed is declared here
+  # rather than inherited from the pipeline `seed:` above, which governs clustering and
+  # splitting; these are the same 300 frames the data_analysis tutorial profiles, so the
+  # two tutorials report the same numbers for the same splits.
+  - name: sample300
     operations:
+      - type: Shuffle
+        params:
+          seed: 0
       - type: Limit
         params:
-          size: 250
+          size: 300
 
 # -----------------------------------------------------------------------------
 # SOURCES — dataset + optional view, referenced by tasks
 # -----------------------------------------------------------------------------
 sources:
   - name: train_src
-    dataset: cppe5_train
-    view: first_250
+    dataset: skysealand_train
+    view: sample300
 
   - name: test_src
-    dataset: cppe5_test
+    dataset: skysealand_test
 
 # -----------------------------------------------------------------------------
 # EXTRACTORS — how embeddings are produced (BoVW needs no model file)
@@ -88,7 +107,7 @@ workflows:
     outlier_flags: [dimension, pixel, visual]
     balance: true
     diversity_method: simpson
-    include_image_stats: true
+    metadata: skysealand_factors
 
   - name: split
     type: data-splitting

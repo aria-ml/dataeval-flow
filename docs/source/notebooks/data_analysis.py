@@ -33,7 +33,7 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Download the CPPE-5 dataset from HuggingFace and prepare it as a multi-split dataset
+# - Download SkySeaLand with `maite-datasets` and export the three splits it ships with
 # - Build a workflow configuration for multi-split analysis
 # - Run the `data-analysis` workflow via `run_task()`
 # - View the built-in **analysis report** for a high-level summary of all assessment areas
@@ -49,152 +49,149 @@
 # - What the five assessment areas cover: image quality, redundancy, label health, bias, and
 #   cross-split comparisons
 # - How to configure **health thresholds** to control warning severity
-# - The difference between **advisory** mode (report only) and **preparatory** mode
+# - Why a significant parity test and a meaningful one are not the same question
 
 # %% [markdown]
 # ## What you'll need
 #
 # - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `datasets` (to download CPPE-5 from HuggingFace Hub)
-# - Internet connection (to download CPPE-5 from HuggingFace Hub on first run)
+# - `maite-datasets[datamaite]` (to download SkySeaLand and export it for `dataeval-flow`)
+# - Internet connection (a ~262 MB download on first run)
 
 # %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Data Preparation: Load and prepare the dataset
+# ## Data Preparation: Load the splits the dataset ships with
 #
-# Download [CPPE-5](https://huggingface.co/datasets/rishitdagli/cppe-5) from HuggingFace and
-# save it to disk. CPPE-5 is a small (~1.5K images) object detection dataset for medical
-# personal protective equipment with 5 classes (Coverall, Face Shield, Gloves, Goggles, Mask).
-# It ships with `train` and `test` splits, making it ideal for demonstrating cross-split analysis.
-
-# %% tags=["remove_output"]
-from datasets import load_dataset as hf_load
-
-# Download CPPE-5 from HuggingFace (train + test splits)
-cppe5 = hf_load("rishitdagli/cppe-5")
-print(f"Splits: {list(cppe5.keys())}")
-for name, ds in cppe5.items():
-    print(f"  {name}: {len(ds)} images")
-
-# %% [markdown]
-# ### Materialize the splits on disk
+# [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
+# imagery detection dataset: 1,307 frames collected at four sites around the world and
+# annotated with 19,102 objects across `airplane`, `boat`, `car` and `ship`. It arrives
+# already partitioned by its publisher into `train` (1,048 frames), `val` (132) and `test`
+# (127), which is what makes it the right dataset for this workflow. The question here is
+# not "is this data any good" — that is [data cleaning](data_cleaning) — but "do these three
+# partitions agree with each other", and that question only exists once somebody has drawn
+# the lines.
 #
-# datamaite reads datasets from a filesystem layout, so each in-memory HuggingFace
-# `Dataset` has to be written out before `dataeval-flow` can load it. We write the
-# HuggingFace **ImageFolder** object-detection convention: the image files plus a
-# `metadata.parquet` whose `objects` column carries parallel `bbox` / `category`
-# lists. Boxes need no conversion — CPPE-5 stores absolute-pixel `xywh`, which is
-# also this convention's format.
-#
-# :::{note}
-# **Write `metadata.parquet`, not `metadata.jsonl`, to keep class names.** CPPE-5's
-# names (`Coverall`, `Face_Shield`, `Gloves`, `Goggles`, `Mask`) are declared as a
-# HuggingFace `ClassLabel` table, and parquet is the only ImageFolder metadata format
-# with a schema channel to carry it: `Dataset.to_parquet()` embeds the features schema
-# in the file header, and datamaite reads the name table out of it. `metadata.csv` and
-# `metadata.jsonl` have no schema channel, so integer categories stay integers there —
-# matching HuggingFace's own behavior.
-# :::
+# `maite-datasets` downloads the dataset, and `as_datamaite=True` writes it back out in a
+# format `dataeval-flow` reads directly. Each export is named after both the dataset and the
+# `image_set`, so the three splits land in three folders instead of overwriting one another.
 
 # %% tags=["remove_output"]
 from pathlib import Path
 
-from datasets import Dataset
+from maite_datasets.object_detection import SkySeaLand
 
-data_path = Path("./data/cppe5")
+data_root = Path("./data")
 
+# One ~262 MB download into ./data/skysealand, shared by all three exports below.
+# A re-run reads what is already on disk instead of downloading again.
+SkySeaLand(root=data_root, image_set="base", download=True)
 
-def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
-    """Write a HuggingFace object-detection split in the ImageFolder convention."""
-    root.mkdir(parents=True, exist_ok=True)
-    for stale in root.glob("metadata.*"):  # a leftover metadata file is read alongside the new one
-        stale.unlink()
+split_paths = {name: data_root / f"skysealand_datamaite_{name}" for name in ("train", "val", "test")}
+for image_set in split_paths:
+    SkySeaLand(root=data_root, image_set=image_set, as_datamaite=True)
 
-    file_names = []
-    for seq, example in enumerate(hf_dataset):
-        file_name = f"{seq:05d}.jpg"
-        example["image"].convert("RGB").save(root / file_name, quality=95)
-        file_names.append(file_name)
-
-    # Carry the source `objects` column through untouched so its `category` ClassLabel — the
-    # Coverall/Face_Shield/... name table — lands in the parquet features schema.
-    metadata = hf_dataset.remove_columns(["image", "image_id", "width", "height"]).add_column("file_name", file_names)
-    metadata.to_parquet(root / "metadata.parquet")
-
-
-for split_name, split in cppe5.items():
-    write_imagefolder(split, data_path / str(split_name))
-print(f"Saved to {data_path}")
+print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# The `data-analysis` workflow requires explicit parameters (no hidden defaults). We'll
-# configure outlier detection using **z-score** thresholding across dimension, pixel, and
+# The `data-analysis` workflow requires explicit parameters (no hidden defaults). We
+# configure outlier detection using **adaptive** thresholding across dimension, pixel and
 # visual statistics, and enable **balance** and **diversity** analysis to surface metadata
 # bias signals.
 #
-# Health thresholds control when findings are elevated to warnings. We relax several
-# thresholds because CPPE-5 is a diverse object-detection dataset where moderate outlier
-# rates and class imbalance are expected.
+# Three choices below are worth explaining.
+#
+# **`train` is sampled; `val` and `test` are read whole.** Profiling all 1,048 train frames
+# decodes about 15 GB of pixels. 300 frames characterize the split well enough, and they
+# leave the three sources close enough in size that the cross-split statistics compare like
+# with like. Remove the view to profile the whole split.
+#
+# **The sample is shuffled before it is limited.** SkySeaLand is stored grouped by collection
+# site, so a bare `Limit` would describe one site rather than the split: the first 300 frames
+# put `ship` at 11% of annotations against 20% across the whole split. Shuffling first brings
+# every class within about five points of its share of the full split.
+#
+# **A metadata policy declares the bias factors.** SkySeaLand ships no telemetry — no
+# altitude, no sensor, no time of day — so the only factors available are the ones measured
+# from the imagery, which `intrinsic_factors` asks for. `reference_split` matters as soon as
+# more than one split is analyzed: splits binned independently land on different cutpoints
+# for the same factor, and their per-factor statistics stop being comparable. Naming one
+# split's encoding makes all three read the same cuts.
 
 # %%
 from dataeval.config import set_max_processes
 
 from dataeval_flow.config import (
+    CocoDatasetConfig,
     DataAnalysisTaskConfig,
     DataAnalysisWorkflowConfig,
-    HuggingFaceDatasetConfig,
     PipelineConfig,
     SourceConfig,
     ViewConfig,
     ViewOperation,
 )
+from dataeval_flow.config.schemas import MetadataPolicyConfig
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds
 
-set_max_processes(8)
+# Four workers rather than eight: peak memory is workers x batch x decoded image size, and
+# these are ~1.3 MP frames.
+set_max_processes(4)
 
 analysis_workflow = DataAnalysisWorkflowConfig(
-    name="cppe5_analysis",
+    name="skysealand_analysis",
     outlier_method="adaptive",
     outlier_flags=["dimension", "pixel", "visual"],
     outlier_threshold=4.0,
     balance=True,
     diversity_method="simpson",
-    include_image_stats=True,
+    metadata="skysealand_factors",
     health_thresholds=DataAnalysisHealthThresholds(
-        image_outliers=5.0,  # Relaxed from 3% — CPPE-5 has diverse images
+        image_outliers=5.0,  # Relaxed from 3% — overhead frames vary widely in size and framing
         exact_duplicates=0.0,  # No exact duplicates allowed (default)
         near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
-        class_label_imbalance=5.0,  # CPPE-5 has moderate imbalance (default)
+        class_label_imbalance=5.0,  # Default; SkySeaLand sits near 2.5:1 in every split
         distribution_shift=0.5,  # Default
     ),
 )
 
 task = DataAnalysisTaskConfig(
-    name="cppe5-quality-check",
-    workflow="cppe5_analysis",
-    sources=["cppe5_trn_src", "cppe5_val_src", "cppe5_tst_src"],
+    name="skysealand-quality-check",
+    workflow="skysealand_analysis",
+    sources=["train", "val", "test"],
 )
 
 config = PipelineConfig(
-    datasets=[
-        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), split="train", task="object_detection"),
-        HuggingFaceDatasetConfig(name="cppe5_test", path=str(data_path), split="test", task="object_detection"),
+    metadata=[
+        MetadataPolicyConfig(
+            name="skysealand_factors",
+            # Statistics measured from the imagery, injected as factors for bias analysis.
+            intrinsic_factors=["visual", "pixel"],
+            # Bookkeeping the export carries. `label_file_exists` is true for every frame,
+            # so it separates nothing; the export's other bookkeeping columns hold a
+            # different value in every row and are dropped before this policy is read.
+            exclude=["label_file_exists"],
+            # One encoding for all three splits, so their per-factor statistics compare.
+            reference_split="train",
+        )
     ],
+    datasets=[CocoDatasetConfig(name=f"skysealand_{name}", path=str(path)) for name, path in split_paths.items()],
     views=[
-        ViewConfig(name="trn-500", operations=[ViewOperation(type="Limit", params={"size": 500})]),
         ViewConfig(
-            name="val-50", operations=[ViewOperation(type="Indices", params={"indices": {"start": 500, "stop": 550}})]
+            name="sample300",
+            operations=[
+                ViewOperation(type="Shuffle", params={"seed": 0}),
+                ViewOperation(type="Limit", params={"size": 300}),
+            ],
         ),
     ],
     sources=[
-        SourceConfig(name="cppe5_trn_src", dataset="cppe5_train", view="trn-500"),
-        SourceConfig(name="cppe5_val_src", dataset="cppe5_train", view="val-50"),
-        SourceConfig(name="cppe5_tst_src", dataset="cppe5_test"),
+        SourceConfig(name="train", dataset="skysealand_train", view="sample300"),
+        SourceConfig(name="val", dataset="skysealand_val"),
+        SourceConfig(name="test", dataset="skysealand_test"),
     ],
     workflows=[analysis_workflow],
     tasks=[task],
@@ -210,6 +207,23 @@ print(f"  Sources:    {task.sources}")
 
 # %%
 result = run_task(task, config, cache_dir=Path("./cache"))
+
+# %% [markdown]
+# :::{note}
+# The run prints two warnings, and each is the workflow reporting something true about this
+# dataset rather than something wrong with the configuration.
+#
+# `file_name`, `file_path`, `label_file` and `original_id` are **dropped**: the export records
+# where each frame came from, and a column holding a different value in every row identifies
+# rows rather than grouping them, so bias analysis has nothing to read in it.
+#
+# The remaining continuous factors are **binned automatically**, because no cutpoints were
+# declared for them. Bins derived this way come from the sample in front of them, so the same
+# factor measured on a different sample may not land on the same cuts — which is fine for a
+# first look and not fine for numbers you intend to compare across runs.
+# [Metadata triage](metadata_triage) is the workflow that turns those derived bins into a
+# declared policy you can keep.
+# :::
 
 # %% tags=["remove_cell"]
 if not result.success:
@@ -239,6 +253,24 @@ assert result.success
 
 # %%
 print(result.report())
+
+# %% [markdown]
+# ### What this run found
+#
+# Three findings are flagged, and they say very different things.
+#
+# **Image quality** flags 5.7%, 7.6% and 7.9% of the three splits against a 5% threshold.
+# That the three rates are close to each other is the useful part: this is a property of the
+# collection, not of any one split. The dominant flags are `zeros` and `aspect_ratio` —
+# overhead frames arrive cropped to the sensor swath, so black padding and extreme aspect
+# ratios are normal here rather than corruption.
+#
+# **Bias** reports that class identity is strongly predicted by image statistics alone
+# (`unit_mean` and `unit_skew` at MI ≈ 0.87). With four sites imaged under different
+# conditions, a model can learn "frame looks like this → airplane" without learning what an
+# airplane looks like. That is a shortcut risk worth testing for, not a defect in the data.
+#
+# **Label parity** is the finding to act on, and the next section unpacks it.
 
 # %% [markdown]
 # ### Understanding health thresholds
@@ -272,7 +304,7 @@ print(result.report())
 #
 # When analyzing multiple splits, the report includes pairwise cross-split findings.
 # Let's look at the raw cross-split data for the most interesting comparisons —
-# label overlap and proportion differences between train and test.
+# label overlap and proportion differences between the splits.
 
 # %%
 import polars as pl
@@ -317,9 +349,6 @@ for pair_name, comparison in raw.cross_split.items():
 # Is there a statistically significant difference between label distributions across splits?
 # A significant result (p < 0.05) suggests the splits were not drawn from the same label
 # distribution, indicating potential sampling bias.
-#
-# > NOTE: Due to the size disparity in CPPE-5's very small test split, the chi-squared test
-# > may produce inaccurate results.
 
 # %%
 for pair_name, comparison in raw.cross_split.items():
@@ -336,12 +365,55 @@ for pair_name, comparison in raw.cross_split.items():
         print(f"{pair_name}: label parity not computed")
 
 # %% [markdown]
+# ### Significant is not the same as meaningful
+#
+# All three pairs come back "significantly different", which on its own says very little:
+# with thousands of annotations per split, chi-squared will find a difference in almost any
+# pair. The proportion table above is what separates them.
+#
+# - **train vs test** — every class within 3.3 percentage points, at `p = 0.008`. Significant,
+#   and not worth acting on. For practical purposes these two splits describe the same world.
+# - **train vs val** and **val vs test** — `boat` is 33% of the annotations in `val` against
+#   16% in each of the other two, at `p = 6e-97` and `p = 3e-63`. That difference is large
+#   enough to change decisions: a model tuned against this validation split is tuned against
+#   a boat-heavy world it will not meet at test time.
+#
+# So read the p-value and the proportions together. The p-value tells you the difference is
+# not chance; only the proportions tell you whether it matters. Here the publisher's `val`
+# split is the odd one out, and a team that needs a validation set matching test conditions
+# should redraw it — which is what [dataset splitting](dataset_splitting) is for.
+
+# %% [markdown]
 # ### Per-split duplicates
 #
-# Each split's `RedundancyResult` now exposes the actual duplicate group indices.
-# We plot exact duplicate groups so you can visually confirm they are true duplicates.
-# Near duplicate groups are printed for reference but not rendered (the hash-based
-# detector can be noisy).
+# Each split's `RedundancyResult` exposes the duplicate group indices, so you can get from a
+# rate in the summary to the specific images behind it.
+#
+# SkySeaLand has none — no two frames in the collection share a hash — which is what the
+# `[ok]` on the Redundancy line reports, and the expected outcome for a curated release. On
+# a dataset that does have duplicates these lists are the input to visual inspection; the
+# [data cleaning](data_cleaning) tutorial renders them with `dataeval-plots`.
+
+# %%
+for split_name, split_data in raw.splits.items():
+    rd = split_data.redundancy
+    print(f"{split_name}: {len(rd.exact_groups)} exact, {len(rd.near_groups)} near duplicate group(s)")
+    for i, group in enumerate(rd.exact_groups):
+        print(f"  exact group {i + 1}: {[f'{split_name}[{idx}]' for idx in group]}")
+    for i, group in enumerate(rd.near_groups):
+        print(f"  near group {i + 1}: {[f'{split_name}[{idx}]' for idx in group]}")
+
+# %% [markdown]
+# ### Cross-split leakage
+#
+# Does the same image, or a near-duplicate of it, appear in more than one split? Leakage
+# between train and test silently inflates every evaluation metric computed afterwards. It is
+# the one finding on this page that invalidates results rather than merely describing them.
+#
+# SkySeaLand's publisher drew disjoint splits, so nothing is found here and the cell below
+# prints three clean lines. It stays executable rather than illustrative because this is the
+# check worth pointing at your own data: when duplicates are found, the images are rendered
+# side by side so you can confirm the match before acting on it.
 
 # %%
 import matplotlib.pyplot as plt
@@ -349,52 +421,12 @@ import numpy as np
 
 assert result.sources is not None
 
-
-def plot_duplicate_group(dataset: object, indices: list[int], source_name: str, group_label: str) -> plt.Figure:
-    """Plot a single duplicate group with source[idx] labels."""
-    n = len(indices)
-    fig, axes = plt.subplots(1, n, figsize=(3 * n, 3))
-    if n == 1:
-        axes = [axes]
-    for ax, idx in zip(axes, indices, strict=True):
-        img = np.array(dataset[idx][0])  # type: ignore[index]
-        if img.ndim == 3 and img.shape[0] in (1, 3, 4):
-            img = img.transpose(1, 2, 0)
-        ax.imshow(img)
-        ax.set_title(f"{source_name}[{idx}]", fontsize=10)
-        ax.axis("off")
-    fig.suptitle(group_label, fontsize=12, fontweight="bold")
-    fig.tight_layout()
-    return fig
-
-
-for split_name, split_data in raw.splits.items():
-    rd = split_data.redundancy
-    if rd.exact_groups:
-        print(f"\n{split_name}: {len(rd.exact_groups)} exact duplicate group(s)")
-        for i, group in enumerate(rd.exact_groups):
-            plot_duplicate_group(result.sources[split_name], group, split_name, f"Exact duplicate group {i + 1}")
-    if rd.near_groups:
-        print(f"\n{split_name}: {len(rd.near_groups)} near duplicate group(s)")
-        for i, group in enumerate(rd.near_groups):
-            print(f"  Group {i + 1}: {[f'{split_name}[{idx}]' for idx in group]}")
-
-# %% [markdown]
-# ### Cross-split leakage
-#
-# Does the same image (or a near-duplicate) appear in multiple splits? Data leakage between
-# train and test silently inflates evaluation metrics.
-#
-# When exact duplicates are found we render them side by side so you can visually confirm
-# the leakage. Near duplicate leakage is printed for reference.
-
-# %%
 for pair_name, comparison in raw.cross_split.items():
     leakage = comparison.redundancy.duplicate_leakage
     exact_count = leakage.get("exact_count", 0)
     near_count = leakage.get("near_count", 0)
     if exact_count == 0 and near_count == 0:
-        print(f"{pair_name}: No cross-split duplicates -- train/test integrity preserved")
+        print(f"{pair_name}: No cross-split duplicates -- split integrity preserved")
         continue
 
     print(f"{pair_name}: DATA LEAKAGE DETECTED -- {exact_count} exact, {near_count} near duplicates")
@@ -447,16 +479,19 @@ print(json_str[:500] + "\n...")
 #
 # - **Configure** the `data-analysis` workflow with explicit outlier, bias, and divergence parameters
 # - **Set health thresholds** to control when findings are elevated to warnings
-# - **Run** the workflow via `run_task()` on a multi-split dataset (CPPE-5 train + test)
+# - **Run** the workflow via `run_task()` across the three splits SkySeaLand ships with
 # - **Read the analysis report** -- a single `result.report()` call for a formatted summary
 #   covering image quality, redundancy, label health, bias, and cross-split comparisons
 # - **Explore cross-split data** -- label overlap, proportion differences, parity testing,
 #   and leakage detection
+# - **Separate a significant difference from a meaningful one** when reading the parity test
 # - **Export** results to JSON for integration with automated pipelines
 
 # %% [markdown]
 # ## What's next
 #
+# - **Dataset splitting** -- Redraw the splits yourself when the publisher's partition does
+#   not match your evaluation conditions, as `val` does not here
 # - **Data cleaning** -- Use the `data-cleaning` workflow for actionable outlier and duplicate
 #   detection with visual inspection via `dataeval-plots`
 # - **Custom extractors** -- Add an ONNX model configuration to enable embedding-based
@@ -476,3 +511,6 @@ print(json_str[:500] + "\n...")
 #   same configuration.
 # - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
 #   to add a pretrained model and enable embedding-based cross-split divergence analysis.
+# - **Tutorial: Triage a dataset's metadata** — [Metadata triage](metadata_triage)
+#   to replace the automatically derived factor bins above with a policy you declare once
+#   and reuse across runs.

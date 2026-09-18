@@ -16,7 +16,7 @@
 # %% [markdown]
 # # Split a dataset
 #
-# Partition a HuggingFace dataset into stratified train/val/test splits
+# Partition a dataset into stratified train/val/test splits
 # using the config-driven `data-splitting` workflow.
 
 # %% [markdown]
@@ -33,7 +33,7 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Download the MNIST test split (10K images, 10 digit classes) from HuggingFace
+# - Load MilitaryVehicles (7,823 train images across 24 vehicle classes)
 # - Build a splitting workflow configuration with stratified partitioning
 # - Run `run_task()` to produce train/val/test index sets
 # - View the built-in splitting report for class distribution and split sizes
@@ -53,55 +53,41 @@
 # ## What you'll need
 #
 # - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `datasets` (to download MNIST from HuggingFace Hub)
-# - Internet connection (to download MNIST from HuggingFace Hub on first run)
+# - `maite-datasets[datamaite]` (to download MilitaryVehicles and export it)
+# - Internet connection on the first run; everything after that comes from disk
 
 # %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Data Preparation: Load and prepare the dataset
+# ## Data Preparation: Load the dataset
 #
-# Download [MNIST](https://huggingface.co/datasets/ylecun/mnist) from HuggingFace and save it
-# to disk. We use the test split (10K images, 10 classes) for fast execution.
-
-# %% tags=["remove_output"]
-from typing import cast
-
-from datasets import Dataset
-from datasets import load_dataset as hf_load
-
-mnist_test = cast(Dataset, hf_load("ylecun/mnist", split="test"))
-
-# %% [markdown]
-# ### Materialize the split on disk
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) is a
+# classification dataset of 9,444 images across 24 vehicle types. We split its `train` image
+# set — 7,823 images, between 119 and 424 per class.
 #
-# datamaite reads datasets from a filesystem layout, so the in-memory HuggingFace
-# `Dataset` has to be written out before `dataeval-flow` can load it. We use the
-# HuggingFace **ImageFolder** convention — `<label>/<file>.png` — which is what the
-# `huggingface` dataset format reads. (An Arrow dump from `Dataset.save_to_disk()`
-# is *not* readable: datamaite has no `datasets` dependency.)
+# That imbalance is the point. A 3.6:1 spread means the rarest class contributes only about
+# 24 images to a 20% test holdout, and a partition drawn without stratification can easily
+# leave a fold with too few of it to evaluate on. MNIST-style balanced data never exercises
+# this; real collections nearly always do.
+#
+# `as_datamaite=True` writes the dataset as a class-per-directory tree — the HuggingFace
+# **ImageFolder** layout the `huggingface` dataset format reads.
 
 # %% tags=["remove_output"]
 from pathlib import Path
 
-data_path = Path("./data/mnist/test")
+from maite_datasets.image_classification import MilitaryVehicles
 
+data_root = Path("./data")
 
-def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
-    """Materialize a HuggingFace image dataset as an ImageFolder tree.
+# One download shared by every export; a re-run reads what is already on disk.
+MilitaryVehicles(root=data_root, image_set="base", download=True)
+MilitaryVehicles(root=data_root, image_set="train", as_datamaite=True)
 
-    Writes ``<root>/<label>/<seq>.png`` with a zero-padded sequence number.
-    Note that the loader groups images by class folder, so the reloaded sample
-    order is by label, not the original upload order.
-    """
-    for seq, example in enumerate(hf_dataset):
-        label_dir = root / str(example["label"])
-        label_dir.mkdir(parents=True, exist_ok=True)
-        example["image"].save(label_dir / f"{seq:05d}.png")
-
-
-write_imagefolder(mnist_test, data_path)
+# The export nests its images one level down, under the split name.
+data_path = data_root / "militaryvehicles_datamaite_train" / "train"
+print(f"Reading from {data_path}")
 
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
@@ -111,11 +97,11 @@ write_imagefolder(mnist_test, data_path)
 # cross-validation.
 #
 # With `num_folds=3`, the validation fraction is automatically set to `1/num_folds`
-# (i.e., 1/3 of the training portion). On 10K items with `test_frac=0.2`:
+# (i.e., 1/3 of the training portion). On 7,823 items with `test_frac=0.2`:
 #
-# - test = 20% of 10K = 2000 (shared across all folds)
-# - val = 1/3 of remaining 8000 ≈ 2667 (per fold)
-# - train ≈ 5333 (per fold)
+# - test = 20% of 7,823 ≈ 1,565 (shared across all folds)
+# - val = 1/3 of the remaining 6,258 ≈ 2,086 (per fold)
+# - train ≈ 4,172 (per fold)
 #
 # Each fold gets a distinct train/val partition while the test holdout stays fixed.
 # Exact counts may vary slightly due to stratification rounding per class.
@@ -135,7 +121,7 @@ from dataeval_flow.config.schemas import (
 from dataeval_flow.workflow import run_task
 
 workflow = DataSplittingWorkflowConfig(
-    name="mnist_split",
+    name="mv_split",
     test_frac=0.2,  # 20% of full dataset held out for test
     val_frac=0.0,  # Must be 0 when num_folds > 1; validation is 1/num_folds
     num_folds=3,  # 3-fold cross-validation
@@ -143,18 +129,18 @@ workflow = DataSplittingWorkflowConfig(
 )
 
 task = DataSplittingTaskConfig(
-    name="split_mnist",
-    workflow="mnist_split",
-    sources="mnist_src",
+    name="split_military_vehicles",
+    workflow="mv_split",
+    sources="mv_src",
 )
 
 # Build the full pipeline config — datasets, sources, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="mnist_test", path=str(data_path), task="image_classification"),
+        HuggingFaceDatasetConfig(name="mv_train", path=str(data_path), task="image_classification"),
     ],
     sources=[
-        SourceConfig(name="mnist_src", dataset="mnist_test"),
+        SourceConfig(name="mv_src", dataset="mv_train"),
     ],
     workflows=[workflow],
     tasks=[task],
@@ -186,19 +172,22 @@ print(result.report())
 #
 # The report contains several findings:
 #
-# - **Class distribution** — per-class counts and max imbalance ratio.
-#   With MNIST's approximately balanced classes, this should show `[ok]`.
-# - **Split sizes** — train/val/test sample counts per fold. Expect ~5333 train,
-#   ~2667 val, ~2000 test.
+# - **Class distribution** — per-class counts and max imbalance ratio. MilitaryVehicles
+#   spans 119 to 424 images per class, so expect a ratio around 3.6:1 rather than the
+#   flat distribution a benchmark dataset would report.
+# - **Split sizes** — train/val/test sample counts per fold. Expect ~4,172 train,
+#   ~2,086 val, ~1,565 test.
 # - **Pre-split balance** — mutual information between metadata factors and
 #   class labels. High MI means a factor is predictive of the label (potential
 #   bias source).
 # - **Pre-split diversity** — Shannon diversity of metadata factors.
 #   Low diversity means a factor has limited variation in the dataset.
 #
-# For uniform-dimension datasets like MNIST (all 28×28 grayscale), these tables
-# will be sparse. Richer datasets with additional metadata columns will produce
-# more detailed factor analysis.
+# These tables are only as informative as the metadata behind them. MilitaryVehicles carries
+# no telemetry, so the factors available are the ones measured from the imagery — and because
+# its images vary in size (roughly 100×100 to 224×224), `height` and `width` are real factors
+# here rather than constants. A dataset of uniformly sized images would leave these tables
+# nearly empty.
 
 # %% [markdown]
 # ### Split indices
@@ -242,9 +231,14 @@ print(f"All {len(raw.folds)} folds verified: no overlap, full coverage.")
 # %% [markdown]
 # ### Label distribution per split
 #
-# With `stratify=True`, each split should have roughly proportional class counts.
-# MNIST has ~1000 images per class in the test set. With 3-fold splitting, each
-# class should appear proportionally in train (~533), val (~267), and test (~200).
+# With `stratify=True`, each split should hold roughly proportional class counts — and on an
+# imbalanced dataset that is a claim worth checking rather than assuming.
+#
+# The rarest class here has 119 images, so proportional allocation gives it 63 in train, 32
+# in val and 24 in test. The largest has 424, giving 227/113/84. Watch the ratio between a
+# class's share of a split and its share of the whole dataset: that is what stratification
+# holds fixed, not the raw counts. The report's **Stratification quality** finding does this
+# arithmetic for you — here it comes back with a maximum deviation of 0.1 percentage points.
 
 # %%
 # Full dataset label stats
@@ -274,9 +268,11 @@ if raw.label_stats_test:
 # (a potential bias source). The diversity output shows Shannon diversity per
 # factor.
 #
-# For uniform-dimension datasets like MNIST, these tables will be sparse since
-# all images share the same 28×28 dimensions. Richer datasets with additional
-# metadata columns will produce more detailed factor tables.
+# The factors here are `height` and `width`, the only ones the export carries besides the
+# label. Both score near zero (about 0.01), which is the answer you want: vehicle type is not
+# predictable from image geometry, so a model cannot take that shortcut instead of learning
+# the vehicle itself. Diversity flags both as *low*, which says something different — image
+# sizes cluster tightly even though they are not all identical.
 
 # %%
 # Pre-split balance — mutual information between factors and labels
@@ -344,7 +340,7 @@ print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 # In this tutorial you learned how to:
 #
 # - **Configure** the `data-splitting` workflow with test/val fractions, multi-fold, and stratification
-# - **Run** the workflow via `run_task()` on MNIST
+# - **Run** the workflow via `run_task()` on MilitaryVehicles
 # - **Read the splitting report** for class distribution health and split sizes
 # - **Access raw split indices** — train, val, and test index lists across multiple folds
 # - **Verify split integrity** — no overlap, full coverage, proportional class distribution

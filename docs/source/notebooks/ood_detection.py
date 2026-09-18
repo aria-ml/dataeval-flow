@@ -33,20 +33,24 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Download MNIST from HuggingFace and load it as a MAITE dataset via datamaite
-# - Synthesize **incoming data** that mixes normal digits with out-of-distribution
-#   samples: **color-inverted** digits (via an in-memory transform)
+# - Load MilitaryVehicles as a MAITE dataset via datamaite
+# - Synthesize **incoming data** in which a run of frames carries the **right label and
+#   the wrong image** — imagery from a different collection entirely, as though a folder
+#   had been dropped in the wrong place
 # - Configure the `ood-detection` workflow with **K-Neighbors** and
-#   **Domain Classifier** detectors
+#   **Domain Classifier** detectors, embedding with a pretrained **ResNet-18**
 # - Enable **metadata insights** to explain *why* flagged samples are OOD
 # - Review the OOD report and inspect per-sample results
+# - Run a second pass on **corrupted** imagery, where the two detectors disagree
 
 # %% [markdown]
 # ## What you'll learn
 #
 # - How to configure and run the `ood-detection` workflow via `run_task()`
 # - The difference between **K-Neighbors** (distance-based) and
-#   **Domain Classifier** (LightGBM-based) OOD detectors
+#   **Domain Classifier** (LightGBM-based) OOD detectors — including a case where one
+#   finds almost nothing the other finds easily
+# - Why "out of distribution" is a property of the **representation**, not of the image
 # - How **metadata insights** (`factor_deviation`, `factor_predictors`) explain
 #   which metadata factors correlate with OOD status
 # - How to use `DatasetProtocolConfig` to pass in-memory datasets directly
@@ -56,172 +60,148 @@
 # ## What you'll need
 #
 # - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `datasets` (to download MNIST from HuggingFace Hub)
-# - Internet connection (to download MNIST from HuggingFace Hub on first run)
+# - `maite-datasets[datamaite]` (for MilitaryVehicles and Ships)
+# - `torch` and `torchvision` (for the pretrained ResNet-18 used as the extractor)
+# - Internet connection on the first run; everything after that comes from disk
 
 # %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Data Preparation: Download MNIST and build in-memory datasets
+# ## Data Preparation: Load the dataset
 #
-# datamaite has no in-memory constructor — every dataset comes from a
-# filesystem loader. We'll download the MNIST training split from HuggingFace,
-# materialize a 2 500-image subset once to a temporary **ImageFolder** layout
-# (`<label>/<file>.png`), and load it back with datamaite's `huggingface_vision`
-# loader. From that single loaded dataset we carve out two **in-memory** views —
-# no further files written to disk:
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) is a
+# classification dataset of 9,444 images across 24 vehicle types. `as_datamaite=True`
+# writes it as a class-per-directory tree, which datamaite's `huggingface_vision` loader
+# reads directly.
 #
-# - **Reference** — 2 000 normal MNIST digits (the "known good" distribution)
-# - **Incoming** — 500 digits where **odd-digit classes (1, 3, 5, 7, 9) are
-#   color-inverted** (pixel values flipped: white digit on black → black digit
-#   on white), while even-digit classes remain normal
-#
-# Unlike drift detection — which compares distributions as a whole — OOD
-# detection flags **individual samples** that don't belong. The inverted images
-# look visually different from the reference despite sharing the same digit
-# classes, so a good detector should flag them. Because the inversion is
-# class-driven, metadata insights should identify `class_label` as a strong
-# predictor of OOD status.
-#
-# :::{note}
-# Color inversion flips pixel intensities end-to-end, producing a strong
-# embedding shift that OOD detectors should reliably catch.
-# :::
+# The loader returns samples grouped by class folder. We impose one fixed shuffled order
+# so the reference and incoming slices below each see a mix of classes rather than a few
+# alphabetically adjacent ones.
 
 # %% tags=["remove_output"]
-import tempfile
-from pathlib import Path
-from typing import Any, cast
-
-from datamaite import load_ic
-from datasets import Dataset
-from datasets import load_dataset as hf_load
-
-# Download MNIST training split, keep the first 2 500 images (reference + incoming)
-mnist_train = cast(Dataset, hf_load("ylecun/mnist", split="train")).select(range(2500))
-
-# Materialize as an ImageFolder tree: <root>/<label>/<seq>.png. The zero-padded
-# sequence number lets us recover the original download order after reload,
-# since datamaite's huggingface_vision loader groups samples by class folder.
-mnist_root = Path(tempfile.mkdtemp(prefix="dataeval_flow_mnist_"))
-for seq, example in enumerate(mnist_train):
-    label_dir = mnist_root / str(example["label"])
-    label_dir.mkdir(parents=True, exist_ok=True)
-    example["image"].save(label_dir / f"{seq:05d}.png")
-
-mnist_maite_raw = load_ic(mnist_root, dataset_format="huggingface_vision")
-_order = sorted(range(len(mnist_maite_raw)), key=lambda i: int(Path(mnist_maite_raw.samples[i].image_id).stem))
-
-
-class OrderedView:
-    """Presents *dataset* through a fixed list of source indices.
-
-    datamaite's ``huggingface_vision`` loader groups samples by class folder
-    for a deterministic layout, discarding upload order. We recover it via
-    ``_order`` (built from the sequence number embedded in each file name),
-    which also lets us slice out the reference and incoming splits below.
-    """
-
-    def __init__(self, dataset: Any, indices: list[int]) -> None:
-        self._dataset = dataset
-        self._indices = indices
-
-    def __len__(self) -> int:
-        return len(self._indices)
-
-    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
-        return self._dataset[self._indices[index]]
-
-    @property
-    def metadata(self) -> Any:
-        return self._dataset.metadata
-
-
-# Reference: first 2 000 images, restored to original download order
-ref_maite = OrderedView(mnist_maite_raw, _order[:2000])
-
-print(f"Reference: {len(ref_maite)} images")
-print(f"Sample shape: image={ref_maite[0][0].shape}, dtype={ref_maite[0][0].dtype}, label={ref_maite[0][1]}")
-
-# %% [markdown]
-# ### Build the incoming dataset with an in-memory inversion transform
-#
-# We create a thin wrapper around the MAITE dataset that **color-inverts
-# samples by class**. All odd-digit classes (1, 3, 5, 7, 9) are inverted while
-# even digits remain unchanged. datamaite decodes images as `uint8` pixel
-# values in `[0, 255]`, so inversion is simply `255 - pixel_value`.
-
-# %%
 from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 
 import numpy as np
+from dataeval.data import Indices, Limit, Shuffle, View
+from datamaite import load_ic
+from maite_datasets.image_classification import MilitaryVehicles, Ships
 from numpy.typing import NDArray
 
+data_root = Path("./data")
+MilitaryVehicles(root=data_root, image_set="base", download=True)
+MilitaryVehicles(root=data_root, image_set="train", as_datamaite=True)
 
-class InvertedTailDataset:
-    """Wraps a MAITE dataset and color-inverts images by class label.
+vehicles_raw = load_ic(data_root / "militaryvehicles_datamaite_train" / "train", dataset_format="huggingface_vision")
+
+# The loader groups samples by class folder, so raw index order is alphabetical by class.
+# `Shuffle` imposes one seeded sequence, which is what keeps the reference and incoming
+# slices below from being drawn from different corners of the label space. `View` is the
+# same machinery a `ViewConfig` drives from the pipeline config; `resolve_indices()` hands
+# back the shuffled source indices so each slice can be cut with `Indices`.
+_order = View(vehicles_raw, [Shuffle(seed=42), Limit(2500)]).resolve_indices()
+
+# Reference: the first 2 000 frames, unmodified
+ref_maite = View(vehicles_raw, [Indices(_order[:2000])])
+
+print(f"Reference: {len(ref_maite)} frames")
+print(f"Sample shape: image={ref_maite[0][0].shape}, dtype={ref_maite[0][0].dtype}")
+
+# %% [markdown]
+# ### Build the incoming dataset: right label, wrong image
+#
+# The out-of-distribution samples here are not corrupted vehicles. They are frames from a
+# **different collection entirely** — satellite imagery of ships — carrying the vehicle
+# labels that belonged to the frames they displaced.
+#
+# That models a specific and unglamorous failure: a folder lands in the wrong place, an
+# index goes out of step, a sync half-completes. Every annotation is still correct,
+# internally consistent, and in its right proportions. Nothing that inspects labels can
+# see the problem, because nothing is wrong with the labels — the images beneath them
+# simply are not what they claim to be.
+#
+# It is also why the labels are left untouched below. Had we invented a class for the
+# foreign frames, class label would predict OOD status perfectly and the metadata
+# insights at the end would be reporting our own construction back to us.
+
+# %%
+ships = Ships(root=data_root, download=True)
+print(f"Foreign source: {len(ships)} satellite frames, shape {ships[0][0].shape}")
+
+
+class MisalignedImages:
+    """Keeps each datum's annotation and replaces only its pixels.
 
     Parameters
     ----------
     dataset
         A MAITE-compatible dataset returning (image, target, metadata) tuples.
-    classes_to_invert
-        Class labels to color-invert.
+    foreign
+        The dataset supplying replacement imagery.
+    start, count
+        The contiguous run of positions whose images are replaced — contiguous because
+        that is what a misplaced folder looks like, and because it makes the planted
+        samples easy to check against what the detectors flag.
     """
 
-    def __init__(self, dataset: Any, classes_to_invert: list[int] | None = None) -> None:
+    def __init__(self, dataset: Any, foreign: Any, start: int, count: int) -> None:
         self._dataset = dataset
-        self._classes_to_invert = classes_to_invert or []
-        self.metadata = {"id": f"inverted_tail_{len(self._classes_to_invert)}", "original_metadata": dataset.metadata}
+        self._foreign = foreign
+        self._span = range(start, start + count)
+        self.metadata = {"id": "misaligned_images", "original_metadata": dataset.metadata}
 
     def __len__(self) -> int:
         return len(self._dataset)
 
+    def swapped(self, index: int) -> bool:
+        """Whether this position carries foreign imagery — the ground truth to score against."""
+        return index in self._span
+
     def __getitem__(self, index: int) -> tuple[NDArray[Any], Any, Mapping[str, Any]]:
         image, target, metadata = self._dataset[index]
-        if np.argmax(target) in self._classes_to_invert:
-            image = 255 - np.asarray(image)
+        if index in self._span:
+            image = np.asarray(self._foreign[(index - self._span.start) % len(self._foreign)][0])
         return image, target, metadata
 
 
-# Incoming: next 500 images, restored to original download order, odd-digit classes get inverted
-incoming_maite = OrderedView(mnist_maite_raw, _order[2000:2500])
-incoming_dataset = InvertedTailDataset(incoming_maite, classes_to_invert=[1, 3, 5, 7, 9])
+# Incoming: the next 500 frames, with positions 200-299 carrying ships imagery
+incoming_maite = View(vehicles_raw, [Indices(_order[2000:2500])])
+incoming_dataset = MisalignedImages(incoming_maite, ships, start=200, count=100)
 
-n_inverted = sum(1 for i in range(len(incoming_dataset)) if np.argmax(incoming_dataset[i][1]) in [1, 3, 5, 7, 9])
-print(f"Incoming: {len(incoming_dataset)} images")
-print(f"  In-distribution (even digits): {len(incoming_dataset) - n_inverted}")
-print(f"  Out-of-distribution (inverted odd digits): {n_inverted}")
+n_swapped = sum(1 for i in range(len(incoming_dataset)) if incoming_dataset.swapped(i))
+print(f"Incoming: {len(incoming_dataset)} frames")
+print(f"  In-distribution (vehicles):        {len(incoming_dataset) - n_swapped}")
+print(f"  Out-of-distribution (ships under vehicle labels): {n_swapped}")
 
 # %% [markdown]
-# Let's visualize some in-distribution and OOD samples side by side:
+# Let's look at what slipped in. The top row is reference imagery; the bottom row is what
+# the incoming stream carries at the swapped positions — with the vehicle label each frame
+# inherited printed above it.
 
 # %%
 import matplotlib.pyplot as plt
 
+index2label = vehicles_raw.metadata.get("index2label", {})
 fig, axes = plt.subplots(2, 8, figsize=(12, 4))
 
-# Row 0: sample reference images
 for col in range(8):
     img_arr = np.transpose(np.asarray(ref_maite[col][0]), (1, 2, 0))  # CHW -> HWC
     axes[0, col].imshow(img_arr)
-    axes[0, col].set_title("ref", fontsize=9)
+    axes[0, col].set_title("reference", fontsize=9)
     axes[0, col].axis("off")
 
-# Row 1: color-inverted OOD samples (odd-digit classes)
-ood_indices = [i for i in range(len(incoming_dataset)) if np.argmax(incoming_dataset[i][1]) in [1, 3, 5, 7, 9]]
+swapped_indices = [i for i in range(len(incoming_dataset)) if incoming_dataset.swapped(i)]
 for col in range(8):
-    img_arr = np.transpose(np.asarray(incoming_dataset[ood_indices[col]][0]), (1, 2, 0))  # CHW -> HWC
-    label = int(np.argmax(incoming_dataset[ood_indices[col]][1]))
+    idx = swapped_indices[col * 4]
+    image, target, _ = incoming_dataset[idx]
+    img_arr = np.transpose(np.asarray(image), (1, 2, 0))  # CHW -> HWC
     axes[1, col].imshow(img_arr)
-    axes[1, col].set_title(f"inverted\n(digit {label})", fontsize=8)
+    axes[1, col].set_title(f"labelled\n{index2label[int(np.argmax(target))]}", fontsize=8)
     axes[1, col].axis("off")
 
-axes[0, 0].set_ylabel("Reference", fontsize=9)
-axes[1, 0].set_ylabel("Inverted", fontsize=9)
-
-fig.suptitle("Reference digits (top) vs inverted odd-digit OOD samples (bottom)", fontsize=12)
+fig.suptitle("Reference vehicles (top) vs foreign frames carrying vehicle labels (bottom)", fontsize=12)
 plt.tight_layout()
 plt.show()
 
@@ -235,8 +215,16 @@ plt.show()
 # 3. **Detector configuration** — which OOD detection methods to run
 # 4. **Health thresholds** — what percentage of OOD samples triggers a warning
 #
-# We'll use the **Flatten** extractor (reshapes each 28x28 image into a 784-D
-# vector) and configure two complementary detectors:
+# The extractor is the part worth deciding deliberately, because **"out of distribution"
+# is a property of the representation, not of the image**. A `flatten` extractor compares
+# raw pixels, which works on MNIST-shaped data and misleads on natural imagery: measured
+# on this dataset, colour-inverting a frame — the most violent thing you can do to it in
+# pixel space — moves a pretrained network's features so little that a distance-based
+# detector finds 3% of the planted samples. Networks trained with colour augmentation are
+# built to ignore exactly that.
+#
+# We use a pretrained **ResNet-18** and take its 512-dimensional `avgpool` features, with
+# ResNet's own preprocessing in front. Two complementary detectors run on top:
 #
 # | Detector | How it works | Strengths |
 # |---|---|---|
@@ -244,7 +232,25 @@ plt.show()
 # | **Domain Classifier** | Trains a LightGBM to distinguish ref from test; flags easily-separated samples | Powerful with many features, captures complex boundaries |
 
 # %%
-from dataeval_flow.config import DatasetProtocolConfig, FlattenExtractorConfig, PipelineConfig, SourceConfig
+import torch
+import torchvision
+
+from dataeval_flow.config import (
+    DatasetProtocolConfig,
+    PipelineConfig,
+    PreprocessorConfig,
+    SourceConfig,
+    TorchExtractorConfig,
+)
+from dataeval_flow.preprocessing import PreprocessingStep
+
+# torchvision fetches the weights once (~45 MB) into its own cache; saving the model
+# beside the notebook is what `TorchExtractorConfig` loads.
+model_dir = Path("./models")
+model_dir.mkdir(exist_ok=True)
+model_path = model_dir / "resnet18.pt"
+if not model_path.exists():
+    torch.save(torchvision.models.resnet18(weights="IMAGENET1K_V1").eval(), model_path)
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
 ref_config = DatasetProtocolConfig(
@@ -260,8 +266,28 @@ incoming_config = DatasetProtocolConfig(
 )
 
 # --- Extractor ---
-# Flatten reshapes each 28x28 grayscale image into a 784-D feature vector
-extractor_config = FlattenExtractorConfig(name="flatten", batch_size=64)
+# ResNet's own preprocessing. It also settles the mismatch in frame sizes: vehicle frames
+# are around 180x280 and the ships imagery is 80x80, and both arrive at the network as
+# 224x224.
+preprocessor_config = PreprocessorConfig(
+    name="imagenet",
+    steps=[
+        PreprocessingStep(step="Resize", params={"size": [224, 224], "antialias": True}),
+        PreprocessingStep(step="ToDtype", params={"dtype": "float32", "scale": True}),
+        PreprocessingStep(
+            step="Normalize",
+            params={"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+        ),
+    ],
+)
+
+extractor_config = TorchExtractorConfig(
+    name="resnet18",
+    model_path=str(model_path),
+    layer_name="avgpool",  # 512-d feature, before the classification head
+    preprocessor="imagenet",
+    batch_size=32,
+)
 
 # %% [markdown]
 # ### Configure OOD detectors
@@ -290,10 +316,10 @@ from dataeval_flow.workflows.ood.params import (
 )
 
 task = OODDetectionTaskConfig(
-    name="mnist-ood-check",
-    workflow="mnist-ood",
+    name="vehicles-ood-check",
+    workflow="vehicles-ood",
     sources=["ref_src", "inc_src"],
-    extractor="flatten",
+    extractor="resnet18",
 )
 
 config = PipelineConfig(
@@ -302,10 +328,11 @@ config = PipelineConfig(
         SourceConfig(name="ref_src", dataset="reference"),
         SourceConfig(name="inc_src", dataset="incoming"),
     ],
+    preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
         OODDetectionWorkflowConfig(
-            name="mnist-ood",
+            name="vehicles-ood",
             detectors=[
                 OODDetectorKNeighbors(
                     k=10,
@@ -369,6 +396,30 @@ for method, det_result in raw.detectors.items():
     print(f"  OOD percentage: {det_result['ood_percentage']:.1f}%")
     print(f"  Threshold:     {det_result['threshold_score']:.4f}")
     print()
+
+# %% [markdown]
+# ### Did they find what we planted?
+#
+# We know exactly which frames carry foreign imagery, so we can score the detectors
+# rather than take their word for it. On your own data you will not have this luxury —
+# which is the reason to establish on data you *have* labelled whether a detector finds
+# the failures you care about.
+#
+# **Recall** is the share of planted frames a detector flagged; **precision** is the
+# share of its flags that were actually planted.
+
+# %%
+truth = [incoming_dataset.swapped(i) for i in range(len(incoming_dataset))]
+planted = sum(truth)
+
+for method, det_result in raw.detectors.items():
+    flagged = [sample["index"] for sample in det_result.get("samples", []) if sample.get("is_ood")]
+    hits = sum(1 for i in flagged if truth[i])
+    recall = hits / planted * 100 if planted else 0.0
+    precision = hits / len(flagged) * 100 if flagged else 0.0
+    print(
+        f"{method:>18}: flagged {len(flagged):>3} of {planted} planted -- recall {recall:.0f}%, precision {precision:.0f}%"
+    )
 
 # %% [markdown]
 # ### Visualize OOD scores
@@ -471,6 +522,95 @@ if raw.factor_deviations:
         print(f"  Sample {dev['index']:4d}: {factors_str}")
 
 # %% [markdown]
+# ## A second failure: corrupted imagery, and where the detectors disagree
+#
+# The misalignment above is caught cleanly by both detectors, which makes it a poor guide
+# to choosing between them. So run a different failure through the same pipeline: the same
+# frames, from the same collection, with heavy sensor noise on five of the twenty-four
+# classes. Nothing foreign has arrived — the imagery is simply degraded.
+
+# %%
+NOISY_CLASSES = [1, 5, 11, 16, 23]
+
+
+class NoisyClasses:
+    """Adds heavy sensor noise to frames of the named classes."""
+
+    def __init__(self, dataset: Any, classes: list[int], sigma: float = 60.0) -> None:
+        self._dataset = dataset
+        self._classes = set(classes)
+        self._sigma = sigma
+        self._rng = np.random.default_rng(0)
+        self.metadata = {"id": "noisy_classes", "original_metadata": dataset.metadata}
+
+    def __len__(self) -> int:
+        return len(self._dataset)
+
+    def corrupted(self, index: int) -> bool:
+        return int(np.argmax(self._dataset[index][1])) in self._classes
+
+    def __getitem__(self, index: int) -> tuple[NDArray[Any], Any, Mapping[str, Any]]:
+        image, target, metadata = self._dataset[index]
+        if int(np.argmax(target)) in self._classes:
+            noise = self._rng.normal(0, self._sigma, np.asarray(image).shape)
+            image = np.clip(np.asarray(image).astype(np.int16) + noise, 0, 255).astype(np.asarray(image).dtype)
+        return image, target, metadata
+
+
+noisy_dataset = NoisyClasses(View(vehicles_raw, [Indices(_order[2000:2500])]), NOISY_CLASSES)
+print(f"Corrupting: {[index2label[c] for c in NOISY_CLASSES]}")
+
+noisy_task = OODDetectionTaskConfig(
+    name="vehicles-ood-noise",
+    workflow="vehicles-ood",
+    sources=["ref_src", "noisy_src"],
+    extractor="resnet18",
+)
+noisy_config = config.model_copy(
+    update={
+        "datasets": [ref_config, DatasetProtocolConfig(name="noisy", format="maite", dataset=noisy_dataset)],
+        "sources": [
+            SourceConfig(name="ref_src", dataset="reference"),
+            SourceConfig(name="noisy_src", dataset="noisy"),
+        ],
+        "tasks": [noisy_task],
+    }
+)
+
+noisy_result = run_task(noisy_task, noisy_config, cache_dir=Path("./cache"))
+
+# %%
+noisy_truth = [noisy_dataset.corrupted(i) for i in range(len(noisy_dataset))]
+noisy_planted = sum(noisy_truth)
+
+for method, det_result in noisy_result.data.raw.detectors.items():
+    flagged = [sample["index"] for sample in det_result.get("samples", []) if sample.get("is_ood")]
+    hits = sum(1 for i in flagged if noisy_truth[i])
+    recall = hits / noisy_planted * 100 if noisy_planted else 0.0
+    precision = hits / len(flagged) * 100 if flagged else 0.0
+    print(
+        f"{method:>18}: flagged {len(flagged):>3} of {noisy_planted} corrupted -- recall {recall:.0f}%, precision {precision:.0f}%"
+    )
+
+# %% [markdown]
+# ### The detectors are not interchangeable
+#
+# On the misaligned frames both detectors were near-perfect. On noise they part company:
+# the Domain Classifier recovers nearly all of it, while K-Neighbors finds under half — at
+# high precision, so what it does flag is right, there is simply much it never sees.
+#
+# The reason is in how each one decides. K-Neighbors asks whether a sample sits further
+# from its reference neighbours than reference samples sit from each other, and noise
+# moves a frame in a direction the reference set already spreads along, so many corrupted
+# frames stay inside the existing spread. The Domain Classifier instead *learns* whatever
+# separates the two sets, and a consistent noise signature is exactly the kind of cue a
+# gradient-boosted model picks up on.
+#
+# Neither is the better detector. They fail differently, which is the argument for running
+# both and reading the aggregate finding: agreement is evidence, and disagreement tells you
+# which kind of difference you are looking at.
+
+# %% [markdown]
 # ## Results Exploration: Export results
 #
 # The JSON output contains all raw detector results, per-sample scores, and
@@ -489,12 +629,24 @@ print(json_str[:600] + "\n...")
 #
 # - **Prepare** reference and incoming datasets with known OOD samples
 # - **Configure** the `ood-detection` workflow with K-Neighbors and Domain
-#   Classifier detectors
+#   Classifier detectors, embedding with a pretrained ResNet-18
 # - **Run** the workflow and read the OOD report with per-detector summaries
+# - **Score the detectors against ground truth**, rather than reading a count of flags
+#   and assuming they landed on the right samples
 # - **Inspect** per-sample OOD scores and visualize the score distributions
 # - **Use metadata insights** to understand which factors correlate with OOD
 #   status
 # - **Export** structured JSON results for downstream automation
+#
+# Two things are worth carrying away beyond the mechanics.
+#
+# **"Out of distribution" is a property of the representation.** The same frame can be
+# wildly anomalous in pixel space and unremarkable to a pretrained network, or the
+# reverse. Choosing the extractor is choosing what the question means.
+#
+# **The detectors fail differently.** Both caught foreign imagery almost perfectly; only
+# one caught sensor noise. Running both and reading where they agree is worth more than
+# picking the one that scored best on somebody else's data.
 #
 # The key difference from **drift monitoring** is granularity: drift detection
 # answers "has the distribution changed?" while OOD detection answers "which

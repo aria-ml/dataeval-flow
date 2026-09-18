@@ -16,7 +16,7 @@
 # %% [markdown]
 # # Clean a dataset
 #
-# Flag outliers and duplicates in CPPE-5 using the config-driven `data-cleaning` workflow.
+# Flag outliers and duplicates in SkySeaLand using the config-driven `data-cleaning` workflow.
 
 # %% [markdown]
 # **Who this is for** — T&E engineers and data scientists who need to vet an
@@ -32,7 +32,7 @@
 # %% [markdown]
 # ## What you'll do
 #
-# - Download the CPPE-5 dataset from HuggingFace and save it to disk
+# - Load the SkySeaLand overhead-imagery dataset through `maite-datasets` in datamaite format
 # - Build a workflow configuration using BoVW (Bag of Visual Words) for embedding extraction
 # - Run `run_tasks()` to detect outliers and duplicates (including cluster-based detection)
 # - View the built-in **cleaning report** for a high-level summary
@@ -55,72 +55,34 @@
 #
 # - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
 # - `dataeval-plots` (for visualizing flagged images)
-# - `datasets` (to download CPPE-5 from HuggingFace Hub)
-# - Internet connection (to download CPPE-5 from HuggingFace Hub on first run)
+# - `maite-datasets` (provides SkySeaLand)
+# - Internet connection — SkySeaLand downloads on first run (about 262 MB)
 
 # %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Data Preparation: Load and prepare the dataset
+# ## Data Preparation: Load the dataset
 #
-# Download [CPPE-5](https://huggingface.co/datasets/rishitdagli/cppe-5) from HuggingFace and save it
-# to disk. CPPE-5 is a well-known object detection dataset with 5 classes and 1K images.
-# We'll work with a subset of the `train` split for simplicity sake.
-
-# %% tags=["remove_output"]
-from typing import cast
-
-from datasets import Dataset
-from datasets import load_dataset as hf_load
-
-cppe5_train = cast(Dataset, hf_load("rishitdagli/cppe-5", split="train"))
-
-# %% [markdown]
-# ### Materialize the split on disk
+# [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
+# imagery detection dataset: 1,307 frames collected at four sites around the world and
+# annotated with 19,102 objects across four classes — `airplane`, `boat`, `car` and `ship`.
 #
-# datamaite reads datasets from a filesystem layout, so the in-memory HuggingFace
-# `Dataset` has to be written out before `dataeval-flow` can load it. We write the
-# HuggingFace **ImageFolder** object-detection convention: the image files plus a
-# `metadata.parquet` whose `objects` column carries parallel `bbox` / `category`
-# lists. Boxes need no conversion — CPPE-5 stores absolute-pixel `xywh`, which is
-# also this convention's format.
-#
-# :::{note}
-# **Write `metadata.parquet`, not `metadata.jsonl`, to keep class names.** CPPE-5's
-# names (`Coverall`, `Face_Shield`, `Gloves`, `Goggles`, `Mask`) are declared as a
-# HuggingFace `ClassLabel` table, and parquet is the only ImageFolder metadata format
-# with a schema channel to carry it: `Dataset.to_parquet()` embeds the features schema
-# in the file header, and datamaite reads the name table out of it. `metadata.csv` and
-# `metadata.jsonl` have no schema channel, so integer categories stay integers there —
-# matching HuggingFace's own behavior.
-# :::
+# `maite-datasets` downloads it, and `as_datamaite=True` writes it back out in a format
+# `dataeval-flow` reads directly. There is no conversion code to maintain here: the export
+# is named after both the dataset and the `image_set`, so loading a second split later adds
+# a folder rather than overwriting this one.
 
 # %% tags=["remove_output"]
 from pathlib import Path
 
-data_path = Path("./data/cppe5/train")
+from maite_datasets.object_detection import SkySeaLand
 
+# Downloads to ./data/skysealand on first run (~262 MB), then writes the datamaite-format
+# export beside it. A re-run reuses the export instead of rebuilding it.
+SkySeaLand(root="./data", image_set="base", download=True, as_datamaite=True)
 
-def write_imagefolder(hf_dataset: Dataset, root: Path) -> None:
-    """Write a HuggingFace object-detection split in the ImageFolder convention."""
-    root.mkdir(parents=True, exist_ok=True)
-    for stale in root.glob("metadata.*"):  # a leftover metadata file is read alongside the new one
-        stale.unlink()
-
-    file_names = []
-    for seq, example in enumerate(hf_dataset):
-        file_name = f"{seq:05d}.jpg"
-        example["image"].convert("RGB").save(root / file_name, quality=95)
-        file_names.append(file_name)
-
-    # Carry the source `objects` column through untouched so its `category` ClassLabel — the
-    # Coverall/Face_Shield/... name table — lands in the parquet features schema.
-    metadata = hf_dataset.remove_columns(["image", "image_id", "width", "height"]).add_column("file_name", file_names)
-    metadata.to_parquet(root / "metadata.parquet")
-
-
-write_imagefolder(cppe5_train, data_path)
+data_path = Path("./data/skysealand_datamaite_base")
 
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
@@ -133,15 +95,24 @@ write_imagefolder(cppe5_train, data_path)
 # Adaptive thresholding automatically picks between Z-score and modified Z-score
 # per metric based on the data distribution. A threshold of 3.5 keeps the outlier
 # rate conservative without over-flagging on metrics with low variance.
+#
+# :::{note}
+# **The view shuffles before it limits.** SkySeaLand stores its frames grouped by
+# collection site, so a bare `Limit` would hand the workflow the first site and little
+# else — the statistics below would then describe that site rather than the dataset. On
+# this data a contiguous 500-frame slice is 11.2:1 across classes where the dataset as a
+# whole is 1.9:1. Shuffling with a fixed `seed` keeps the sample representative and the
+# run reproducible. See [Narrow a dataset with views](../how_to/build_dataset_views.md).
+# :::
 
 # %%
 from dataeval.config import set_max_processes
 
 from dataeval_flow.config import (
     BoVWExtractorConfig,
+    CocoDatasetConfig,
     DataCleaningTaskConfig,
     DataCleaningWorkflowConfig,
-    HuggingFaceDatasetConfig,
     PipelineConfig,
     SourceConfig,
     ViewConfig,
@@ -150,47 +121,56 @@ from dataeval_flow.config import (
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 
-set_max_processes(8)  # Set max processes for parallel execution (adjust as needed)
+# Each worker decodes its own images, so peak memory is roughly workers x batch x image
+# size. Four keeps a 300-frame pass comfortable on a 16 GB machine; raise it if you have
+# the headroom.
+set_max_processes(4)
 
 advisory_workflow = DataCleaningWorkflowConfig(
-    name="cppe5_advisory_clean",
+    name="skysealand_advisory_clean",
     mode="advisory",
     outlier_method="adaptive",  # Use adaptive thresholding for outliers
     outlier_threshold=3.5,
     outlier_flags=["dimension", "pixel", "visual"],  # All image stat groups
     outlier_cluster_threshold=3.5,  # Cluster-based detection in embedding space (requires extractor).
     outlier_cluster_algorithm="hdbscan",
-    outlier_n_clusters=5,  # CPPE-5 has 5 classes
+    outlier_n_clusters=4,  # SkySeaLand has 4 classes
     duplicate_cluster_sensitivity=0.5,  # Duplicate detection — hash-based plus cluster-based.
     duplicate_cluster_algorithm="hdbscan",
-    duplicate_n_clusters=5,
+    duplicate_n_clusters=4,
     health_thresholds=DataCleaningHealthThresholds(
         exact_duplicates=0.0,  # No exact duplicates allowed (default)
         near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
-        image_outliers=5.0,  # Relaxed from 3% default — CPPE-5 has diverse images
+        image_outliers=5.0,  # Relaxed from 3% default — four collection sites, varied sensors
         target_outliers=10.0,  # Relaxed from 3% default — object detection has annotation variance
         classwise_outliers=12.0,  # Relaxed from 3% default — some classes are visually diverse
-        class_label_imbalance=5.0,  # CPPE-5 has moderate imbalance (default)
+        class_label_imbalance=5.0,  # Default; SkySeaLand sits near 1.9:1, well inside it
     ),
 )
 
 task = DataCleaningTaskConfig(
-    name="cppe5_clean",
-    workflow="cppe5_advisory_clean",
-    sources="cppe5_src",
+    name="skysealand_clean",
+    workflow="skysealand_advisory_clean",
+    sources="skysealand_src",
     extractor="bovw_ext",
 )
 
 # Build the full pipeline config — datasets, sources, extractors, views, workflows, and tasks
 config = PipelineConfig(
     datasets=[
-        HuggingFaceDatasetConfig(name="cppe5_train", path=str(data_path), task="object_detection"),
+        CocoDatasetConfig(name="skysealand_base", path=str(data_path)),
     ],
     views=[
-        ViewConfig(name="first500", operations=[ViewOperation(type="Limit", params={"size": 500})]),
+        ViewConfig(
+            name="sample300",
+            operations=[
+                ViewOperation(type="Shuffle", params={"seed": 0}),
+                ViewOperation(type="Limit", params={"size": 300}),
+            ],
+        ),
     ],
     sources=[
-        SourceConfig(name="cppe5_src", dataset="cppe5_train", view="first500"),
+        SourceConfig(name="skysealand_src", dataset="skysealand_base", view="sample300"),
     ],
     extractors=[
         BoVWExtractorConfig(name="bovw_ext", vocab_size=512, batch_size=32),
@@ -237,8 +217,9 @@ print(result.report())
 # | `class_label_imbalance` | 5:1 | Lower to 3:1 for binary; raise to 10–20:1 for large hierarchies (25+ classes) |
 #
 # In this tutorial we **relax** several thresholds above their defaults because
-# CPPE-5 is a diverse object-detection dataset where moderate outlier rates and
-# class imbalance are expected.
+# SkySeaLand is a diverse collection: its frames come from four sites with different
+# sensors, altitudes and lighting, so a moderate outlier rate is expected rather than
+# alarming.
 #
 # To tighten thresholds for a stricter audit:
 #
@@ -305,6 +286,12 @@ if outlier_indices:
 #
 # Plot each duplicate group side by side — both exact and near duplicates — so
 # you can visually confirm whether the images are truly redundant.
+#
+# This sample finds none. SkySeaLand's frames are distinct captures, so the two loops below
+# produce no output — which is the result you want from a curated collection, and worth
+# seeing so you recognise it. On data that does carry redundancy — a sensor repeating a
+# frame, augmented copies kept alongside their originals, the same image pulled from two
+# sources — each group renders here for you to judge.
 
 # %%
 exact_groups = raw.duplicates["items"].get("exact", [])
@@ -338,13 +325,13 @@ for i, group in enumerate(near_groups[:3]):
 # Define a preparatory pipeline — same params but mode="preparatory"
 # Copy the advisory workflow and change name + mode
 prep_workflow = advisory_workflow.model_copy(
-    update={"name": "cppe5_prep_clean", "mode": "preparatory"},
+    update={"name": "skysealand_prep_clean", "mode": "preparatory"},
 )
 
 task_prep = DataCleaningTaskConfig(
-    name="cppe5-clean-prep",
-    workflow="cppe5_prep_clean",
-    sources="cppe5_src",
+    name="skysealand-clean-prep",
+    workflow="skysealand_prep_clean",
+    sources="skysealand_src",
     extractor="bovw_ext",
 )
 
@@ -389,7 +376,7 @@ print(json_str[:500] + "\n...")
 # - **Configure** the `data-cleaning` workflow with explicit outlier and duplicate detection parameters
 # - **Use BoVW** (Bag of Visual Words) for lightweight embedding extraction — no model file or preprocessing needed
 # - **Set health thresholds** to control when findings are elevated to warnings
-# - **Run** the workflow via `run_tasks()` on a CPPE-5 split
+# - **Run** the workflow via `run_tasks()` on a SkySeaLand view
 # - **Read the cleaning report** — a single `result.report()` call for a formatted summary with health status
 # - **Visually inspect** flagged outliers and duplicates with `dataeval-plots`
 # - **Use preparatory mode** to get `flagged_indices` and `clean_indices` for downstream filtering
