@@ -275,6 +275,40 @@ class TestDatasetFingerprint:
 # ---------------------------------------------------------------------------
 
 
+class TestTheFingerprintCatchesLocalizedChanges:
+    """A wrapper that alters part of a dataset must change its fingerprint.
+
+    Sampling a few fixed positions is cheap, but if those positions are three
+    contiguous clusters then any edit that misses all three is invisible and the
+    cache silently serves results computed from the unmodified data.
+    """
+
+    @staticmethod
+    def _images(n: int) -> list[np.ndarray]:
+        return [np.full((3, 4, 4), i % 251, dtype=np.uint8) for i in range(n)]
+
+    def test_a_change_between_the_sampled_clusters_is_detected(self):
+        n = 1000
+        clean = self._images(n)
+        # Degrade a contiguous span that avoids the first, middle and last few
+        # frames -- exactly the shape of a wrapper corrupting one slice.
+        degraded = list(clean)
+        for i in range(700, 760):
+            degraded[i] = np.zeros((3, 4, 4), dtype=np.uint8)
+
+        assert dataset_fingerprint(_FakeDataset(clean)) != dataset_fingerprint(_FakeDataset(degraded))
+
+    def test_a_change_to_a_scattered_minority_is_detected(self):
+        n = 2000
+        clean = self._images(n)
+        # Every 8th frame altered, as a class-selective degradation would do.
+        degraded = list(clean)
+        for i in range(0, n, 8):
+            degraded[i] = np.zeros((3, 4, 4), dtype=np.uint8)
+
+        assert dataset_fingerprint(_FakeDataset(clean)) != dataset_fingerprint(_FakeDataset(degraded))
+
+
 class TestScopeKey:
     def test_default_scope(self):
         assert scope_key() == "img+tgt"

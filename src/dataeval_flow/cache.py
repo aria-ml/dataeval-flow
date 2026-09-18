@@ -456,13 +456,26 @@ def _hash_element(hasher: Any, element: Any, depth: int = 0) -> None:
         _hash_element(hasher, attributes[name], depth + 1)
 
 
+# How many datum tuples `dataset_fingerprint` reads. Every sample costs a decode, so
+# this trades resolve-time cost against the size of change the fingerprint can miss.
+_FINGERPRINT_SAMPLES = 64
+
+
 def dataset_fingerprint(dataset: Any) -> str:
     """Build a content-based fingerprint by hashing a sample of datum tuples.
 
-    Hashes the first 5, middle 5, and last 5 datum tuples (or all data
-    if the dataset has 15 or fewer items) plus the dataset length using
-    xxHash.  Each element of the tuple (image, target, metadata) is
-    hashed so that label or metadata changes also invalidate the cache.
+    Hashes up to :data:`_FINGERPRINT_SAMPLES` datum tuples spread evenly across
+    the dataset (or all data if it is no larger than that), plus the dataset
+    length, using xxHash.  Each element of the tuple (image, target, metadata)
+    is hashed so that label or metadata changes also invalidate the cache.
+
+    The sample is spread rather than clustered because the changes this has to
+    catch are usually *localized*: a wrapper that corrupts one span of frames, or
+    degrades a few classes out of many.  Sampling a handful of contiguous
+    positions leaves everything between them invisible, and an undetected change
+    means the cache serves results computed from data that no longer exists.
+    Even spacing bounds that blind spot -- any contiguous span longer than
+    ``len(dataset) / _FINGERPRINT_SAMPLES`` is guaranteed to be sampled.
 
     Parameters
     ----------
@@ -485,12 +498,13 @@ def dataset_fingerprint(dataset: Any) -> str:
     # the sampled items happen to remain unchanged.
     hasher.update(n.to_bytes(8, "little"))
 
-    # Sample indices: first 5 + middle 5 + last 5, or all if <= 15.
-    if n <= 15:
+    # Sample indices: evenly spaced across the whole dataset, both endpoints
+    # included, or every item when the dataset is small enough to hash entirely.
+    if n <= _FINGERPRINT_SAMPLES:
         indices = list(range(n))
     else:
-        mid = n // 2
-        indices = list(range(5)) + list(range(mid - 2, mid + 3)) + list(range(n - 5, n))
+        step = n / _FINGERPRINT_SAMPLES
+        indices = sorted({min(n - 1, int(i * step)) for i in range(_FINGERPRINT_SAMPLES)} | {n - 1})
 
     for idx in indices:
         datum = dataset[idx]
