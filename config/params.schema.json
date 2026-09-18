@@ -7,6 +7,7 @@
         "how": {
           "description": "Name of the reduction.",
           "enum": [
+            "abs_sum",
             "all",
             "any",
             "changes",

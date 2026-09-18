@@ -326,6 +326,7 @@ CorrectionConfig = Annotated[
 # result file and cannot be compared.
 
 Reduction = Literal[
+    "abs_sum",
     "all",
     "any",
     "changes",
@@ -351,7 +352,7 @@ Pinned so a typo is a config error rather than a failure after the walk. `REDUCT
 not exported from `dataeval`, so a registry-sync test holds this in step with it.
 
 Four of these are temporal (`variability`, `trend`, `changes`, `longest_run`) and need an
-ordering column the source level carries. A flat list admits all eighteen, so a temporal
+ordering column the source level carries. A flat list admits all nineteen, so a temporal
 reduction on data with no ordering validates here and is refused at run time — which levels
 carry an ordering is a property of the dataset, not of the name.
 """
