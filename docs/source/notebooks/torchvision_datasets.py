@@ -53,8 +53,19 @@ tv_dataset = FashionMNIST(root="./data", train=True, download=True)
 # %%
 # 2. Build the full pipeline config (using a small subset for speed)
 datasets = [DatasetProtocolConfig(name="fmnist-train", format="torchvision", dataset=tv_dataset)]
-views = [ViewConfig(name="first500", operations=[ViewOperation(type="Limit", params={"size": 500})])]
-sources = [SourceConfig(name="fmnist-src", dataset="fmnist-train", view="first500")]
+# `Limit` on its own takes the first N in storage order, which is whatever order the
+# dataset happens to sit in on disk — for a class-sorted dataset that is a handful of
+# classes rather than a sample. Shuffle first so the subset represents the whole.
+views = [
+    ViewConfig(
+        name="sample500",
+        operations=[
+            ViewOperation(type="Shuffle", params={"seed": 0}),
+            ViewOperation(type="Limit", params={"size": 500}),
+        ],
+    )
+]
+sources = [SourceConfig(name="fmnist-src", dataset="fmnist-train", view="sample500")]
 extractors = [BoVWExtractorConfig(name="bovw", vocab_size=512, batch_size=64)]
 
 workflows = [
@@ -178,6 +189,9 @@ DatasetProtocolConfig(
 #   them to the MAITE `ObjectDetectionTarget` protocol.  Raw annotation
 #   formats (list-of-dicts from `CocoDetection`, XML dicts from
 #   `VOCDetection`) are not supported directly.
+# - **Shuffle before you limit.** A bare `Limit` samples storage order, not the
+#   dataset — see [Build dataset views](../how_to/build_dataset_views.md) for what that
+#   costs on a class-sorted dataset, and why `Shuffle` needs its own explicit `seed`.
 # - **Class discovery** relies on the `.classes` attribute that most
 #   torchvision datasets expose.  If your dataset doesn't have it, the
 #   adapter still works but `index2label` will be empty and integer targets

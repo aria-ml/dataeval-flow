@@ -19,6 +19,21 @@
 # This guide shows how to configure an ONNX extractor with preprocessing
 # transforms.  ONNX extractors use pretrained models (e.g. ResNet50) for
 # higher-fidelity embeddings than lightweight methods like BoVW.
+#
+# :::{important}
+# ONNX support is an optional extra and is **not** installed by default. Without it
+# the config below still validates, but running a task that uses the extractor fails
+# on import:
+#
+# ```bash
+# pip install "dataeval-flow[onnx]"          # CPU
+# pip install "dataeval-flow[onnx-cu126]"    # CUDA 12.6
+# pip install "dataeval-flow[onnx-cu130]"    # CUDA 13.0
+# ```
+#
+# The CUDA variants pin an `onnxruntime-gpu` build against a specific CUDA major, so
+# pick the one matching your torch build.
+# :::
 
 # %% [markdown]
 # ## Used in these tutorials
@@ -107,5 +122,5 @@ resnet_preprocess = PreprocessorConfig(
 # | Setup complexity | Higher | Minimal |
 #
 # Use ONNX when cluster-based detection benefits from richer feature
-# representations.  Use BoVW (see the [data cleaning tutorial](../notebooks/data_cleaning))
+# representations.  Use BoVW (see the [data cleaning tutorial](data_cleaning))
 # for a simpler setup with no external model dependencies.
