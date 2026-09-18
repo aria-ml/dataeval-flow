@@ -3,10 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from maite.protocols import DatasetMetadata
 
-import dataeval_flow.embeddings
-import dataeval_flow.metadata
-import dataeval_flow.view  # noqa: F401
 from dataeval_flow.config import (
     BoVWExtractorConfig,
     FlattenExtractorConfig,
@@ -165,6 +163,67 @@ class TestBuildMetadata:
 # ---------------------------------------------------------------------------
 # build_view
 # ---------------------------------------------------------------------------
+
+
+class TestOperationsRequiringTuplesAreReachableFromConfig:
+    """YAML and JSON have no tuple type, so a config can only ever supply a list.
+
+    `Resize((h, w))` and `Crop((x0, y0, x1, y1))` reject lists outright, which put
+    both operations out of reach of every config-driven view.
+    """
+
+    def test_resize_accepts_a_two_element_list_as_an_exact_size(self):
+        from dataeval_flow.view import build_view
+
+        view = build_view(
+            _ImageDataset(count=4),
+            [ViewOperation(type="Resize", params={"size": [8, 12]})],
+        )
+
+        assert view[0][0].shape[-2:] == (8, 12)
+
+    def test_crop_accepts_a_four_element_list_as_a_region(self):
+        from dataeval_flow.view import build_view
+
+        view = build_view(
+            _ImageDataset(count=4),
+            [ViewOperation(type="Crop", params={"region": [0, 0, 6, 6]})],
+        )
+
+        assert view[0][0].shape[-2:] == (6, 6)
+
+    def test_a_list_param_that_is_not_a_tuple_is_left_alone(self):
+        """`ClassFilter` takes a sequence; coercion must not change what it receives."""
+        from dataeval_flow.view import build_view
+
+        view = build_view(
+            _ImageDataset(count=6, labels=[0, 1, 0, 1, 0, 1]),
+            [ViewOperation(type="ClassFilter", params={"classes": [1]})],
+        )
+
+        assert len(view) == 3
+
+
+class _ImageDataset:
+    """Small in-memory classification dataset for view-operation tests."""
+
+    def __init__(self, count: int, labels: list[int] | None = None) -> None:
+        import numpy as np
+
+        self._images = [np.full((3, 16, 16), i, dtype=np.uint8) for i in range(count)]
+        self._labels = labels if labels is not None else list(range(count))
+        self._classes = max(self._labels) + 1
+        self.metadata = DatasetMetadata(id="image_dataset", index2label={i: str(i) for i in range(self._classes)})
+
+    def __len__(self) -> int:
+        return len(self._images)
+
+    def __getitem__(self, idx: int):
+        import numpy as np
+
+        target = np.zeros(self._classes, dtype=np.float32)
+        target[self._labels[idx]] = 1.0
+        return self._images[idx], target, {"id": idx}
 
 
 class TestBuildView:
