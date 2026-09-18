@@ -712,9 +712,19 @@ def get_or_compute_embeddings(
     """
     ctx = _active_cache.get()
     if ctx is not None:
+        from dataeval_flow.embeddings import fitting_source, is_stateful_extractor
+
         cache, sel_key = ctx
         config_json = _extractor_config_key(extractor_config)
         transforms_key = repr(transforms) if transforms is not None else "none"
+        if is_stateful_extractor(extractor_config):
+            # A stateful extractor's config does not describe its output: BoVW built on
+            # the reference and BoVW built on the incoming data serialize identically and
+            # produce histograms in different bases. Naming the selection that fitted it
+            # keeps one run's embeddings from being served to a run that fitted elsewhere.
+            fitter = fitting_source(f"{extractor_config.model_dump_json()}|{transforms!r}", sel_key)
+            if fitter is not None:
+                config_json = f"{config_json}|fitted_by={fitter}"
         return cache.load_or_compute_embeddings(
             sel_key,
             config_json,

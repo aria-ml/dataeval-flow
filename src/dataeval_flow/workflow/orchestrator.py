@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, overload, runtime_chec
 from pydantic import BaseModel
 
 from dataeval_flow._logging import capture_diagnostics
+from dataeval_flow.embeddings import shared_extractor_scope
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -838,4 +839,7 @@ def run_task(
         *task* is an :class:`~dataeval_flow.config.OODDetectionTaskConfig`.
     """
     _logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
-    return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir)
+    # One scope per task, so every source a task compares is described by the same
+    # stateful extractor rather than one fitted per source.
+    with shared_extractor_scope():
+        return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir)
