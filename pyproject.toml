@@ -126,8 +126,7 @@ docs = [
     "pip>=24.0",
     "pyarrow>=25.0",
     "dataeval-plots>=0.0.7",
-    "datasets>=4.0.0",
-    "maite-datasets[datamaite]>=0.0.23",
+    "maite-datasets[hf,datamaite]>=0.0.24",
 ]
 docker = [
     { include-group = "base" },
