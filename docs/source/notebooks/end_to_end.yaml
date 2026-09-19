@@ -24,8 +24,38 @@ metadata:
     # SkySeaLand ships no telemetry, so the only factors available are the ones
     # measured from the imagery itself.
     intrinsic_factors: [visual, pixel]
-    # True for every frame, so it separates nothing.
-    exclude: [label_file_exists]
+    # label_file_exists, instance_missing, and unit_missing hold one value across
+    # every frame, so they separate nothing. instance_zeros needs a sentinel-value
+    # remap before it can be binned; that judgment call belongs in the metadata
+    # triage tutorial, not this pipeline. `metadata-triage` found all four.
+    exclude: [label_file_exists, instance_missing, unit_missing, instance_zeros]
+    # Pin bin counts so profiling is reproducible across runs and samples;
+    # `metadata-triage` derived these from a 300-frame sample of train_src.
+    continuous_factor_bins:
+      height: 5
+      instance_brightness: 25
+      instance_contrast: 20
+      instance_darkness: 11
+      instance_entropy: 20
+      instance_kurtosis: 40
+      instance_mean: 17
+      instance_sharpness: 14
+      instance_skew: 32
+      instance_std: 20
+      instance_var: 16
+      num_annotations: 2
+      unit_brightness: 9
+      unit_contrast: 5
+      unit_darkness: 7
+      unit_entropy: 2
+      unit_kurtosis: 2
+      unit_mean: 7
+      unit_sharpness: 3
+      unit_skew: 3
+      unit_std: 5
+      unit_var: 4
+      unit_zeros: 2
+      width: 4
     # One encoding for both splits, so their per-factor statistics compare.
     reference_split: train_src
 
@@ -92,6 +122,7 @@ workflows:
     outlier_threshold: 3.5
     outlier_flags: [dimension, pixel, visual]
     duplicate_cluster_sensitivity: 0.5
+    metadata: skysealand_factors
     health_thresholds:
       exact_duplicates: 0.0
       near_duplicates: 5.0

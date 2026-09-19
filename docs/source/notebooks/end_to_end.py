@@ -33,11 +33,12 @@
 # ## What you will do
 #
 # 1. **Load a dataset**: Fetch SkySeaLand and export it in a layout supported by DataEval Flow.
-# 2. **Write the configuration**: Define datasets, sources, extractor, workflows, and tasks in `end_to_end.yaml`.
-# 3. **Run the pipeline**: Execute all tasks in a single call with `run_tasks()`.
-# 4. **Display results**: Inspect text reports, structured findings, and flagged images.
-# 5. **Export results**: Generate machine-readable result envelopes for downstream tools.
-# 6. **Run in Docker**: Execute the identical pipeline inside a container without Python code.
+# 2. **Analyze the metadata**: Run `metadata-triage` to decide which factors to drop and how to bin the rest.
+# 3. **Write the configuration**: Define datasets, sources, extractor, workflows, and tasks in `end_to_end.yaml`.
+# 4. **Run the pipeline**: Execute all tasks in a single call with `run_tasks()`.
+# 5. **Display results**: Inspect text reports, structured findings, and flagged images.
+# 6. **Export results**: Generate machine-readable result envelopes for downstream tools.
+# 7. **Run in Docker**: Execute the identical pipeline inside a container without Python code.
 
 # %% [markdown]
 # The three tasks demonstrate different evaluation workflows:
@@ -51,6 +52,7 @@
 # %% [markdown]
 # ## What you will learn
 #
+# - How to run `metadata-triage` to decide which factors to exclude and how to bin the rest.
 # - How to declare multiple evaluation workflows in a single YAML configuration file.
 # - How to run end-to-end pipelines using `run_tasks()` in Python.
 # - How to inspect text reports and query structured findings programmatically.
@@ -113,7 +115,66 @@ print(f"Boxes:       {len(target.boxes)}")
 print(f"Classes:     {train_ds.metadata['index2label']}")
 
 # %% [markdown]
-# ## Step 2: Set up the configuration
+# ## Step 2: Analyze the metadata
+#
+# Before you commit to a `metadata:` policy, run the `metadata-triage` workflow. It flags factors
+# that carry no information and factors whose bin counts would otherwise be derived silently
+# (and unstably) at run time.
+#
+# ```{seealso}
+# This section only covers the operational checkpoint: run triage, act on its findings, move on.
+# For a full walkthrough of reading triage findings, distribution charts, and remediation
+# policies, see [Triage a dataset's metadata](metadata_triage).
+# ```
+
+# %% tags=["remove_output"]
+from dataeval_flow.config import CocoDatasetConfig, PipelineConfig, SourceConfig, ViewConfig, ViewOperation
+from dataeval_flow.config.schemas import MetadataPolicyConfig, MetadataTriageTaskConfig, MetadataTriageWorkflowConfig
+from dataeval_flow.workflow import run_task
+
+triage_config = PipelineConfig(
+    metadata=[MetadataPolicyConfig(name="skysealand_factors", intrinsic_factors=["visual", "pixel"])],
+    datasets=[CocoDatasetConfig(name="skysealand_train", path=str(split_paths["train"]))],
+    views=[
+        ViewConfig(
+            name="sample300",
+            operations=[
+                ViewOperation(type="Shuffle", params={"seed": 0}),
+                ViewOperation(type="Limit", params={"size": 300}),
+            ],
+        )
+    ],
+    sources=[SourceConfig(name="train_src", dataset="skysealand_train", view="sample300")],
+    workflows=[MetadataTriageWorkflowConfig(name="triage", metadata="skysealand_factors")],
+    tasks=[MetadataTriageTaskConfig(name="triage_train", workflow="triage", sources="train_src")],
+)
+
+triage_result = run_task(triage_config.tasks[0], triage_config, data_dir=Path("."), cache_dir=Path("./cache"))
+
+# %%
+findings = triage_result.data.raw.findings
+degenerate = sorted({f.factor for f in findings if f.category == "degenerate"})
+unbinned = sorted({f.factor for f in findings if f.category == "unbinned"})
+
+print(f"Factors:              {triage_result.data.raw.factor_count}")
+print(f"Findings:             {len(findings)} ({triage_result.metadata.blocking} blocking)")
+print(f"Degenerate (exclude): {degenerate}")
+print(f"Need explicit bins:   {len(unbinned)} factors")
+
+# %% [markdown]
+# `metadata-triage` flags `label_file_exists`, `instance_missing`, and `unit_missing` as
+# degenerate: every frame holds the same value, so the factor separates nothing. It also flags
+# `instance_zeros` for a sentinel-value remap before it can be binned — that judgment call is
+# exactly what the [metadata triage tutorial](metadata_triage) covers, so this pipeline excludes
+# it instead. The remaining continuous pixel and visual factors need explicit bin counts, or
+# `data-analysis` would derive them silently from whatever sample happens to run.
+#
+# `end_to_end.yaml`'s `metadata:` section already applies these findings: the four degenerate
+# and unresolved factors are excluded, and every remaining continuous factor has a pinned
+# `continuous_factor_bins` count.
+
+# %% [markdown]
+# ## Step 3: Set up the configuration
 #
 # You can define pipeline execution in a single YAML file using modular sections:
 #
@@ -151,7 +212,7 @@ print(f"Workflows:  {[(w.name, w.type) for w in config.workflows]}")
 print(f"Tasks:      {[(t.name, t.workflow, t.sources) for t in config.tasks]}")
 
 # %% [markdown]
-# ## Step 3: Run the pipeline
+# ## Step 4: Run the pipeline
 #
 # You can execute all enabled tasks using `run_tasks()`:
 #
@@ -182,7 +243,7 @@ assert all(r.success for r in results), [r.errors for r in results if not r.succ
 clean_result, profile_result, split_result = results
 
 # %% [markdown]
-# ## Step 4: Display the results
+# ## Step 5: Display the results
 #
 # Each task result exposes three primary interfaces:
 #
@@ -194,14 +255,14 @@ clean_result, profile_result, split_result = results
 # for per-finding breakdowns.
 
 # %% [markdown]
-# ### 4a. Summary reports
+# ### 5a. Summary reports
 
 # %%
 for result in results:
     print(result.report(detailed=False))
 
 # %% [markdown]
-# ### 4b. Structured findings
+# ### 5b. Structured findings
 #
 # Each finding includes a `title`, `severity` (`ok`, `info`, or `warning`), and `description`.
 # You can query these programmatically in automated CI/CD gates.
@@ -215,7 +276,7 @@ for result in results:
         print(f"  {marker} {finding.title:<34} {headline[0][:60] if headline else ''}")
 
 # %% [markdown]
-# ### 4c. Data cleaning: Inspect flagged images
+# ### 5c. Data cleaning: Inspect flagged images
 #
 # The cleaning report summarizes the count of flagged images. You can retrieve specific
 # sample indices from `result.data.raw` and slice `result.dataset` directly without reloading data.
@@ -245,7 +306,7 @@ if outlier_indices:
     )
 
 # %% [markdown]
-# ### 4d. Data analysis: Cross-split comparisons
+# ### 5d. Data analysis: Cross-split comparisons
 #
 # The analysis task evaluates both train and test splits. It reports cross-split
 # overlap, class parity, and duplicate leakage across splits.
@@ -271,7 +332,7 @@ for pair, section in profile_result.data.raw.cross_split.items():
     )
 
 # %% [markdown]
-# ### 4e. Dataset splitting: Partition indices
+# ### 5e. Dataset splitting: Partition indices
 #
 # The splitting task generates explicit index lists for each fold. You can use
 # these indices to construct PyTorch `Subset` or `DataLoader` instances.
@@ -286,7 +347,7 @@ print(f"Val   indices (first 10): {fold.val_indices[:10]}")
 print(f"Test  indices (first 10): {split_result.data.raw.test_indices[:10]}")
 
 # %% [markdown]
-# ## Step 5: Export the results
+# ## Step 6: Export the results
 #
 # You can call `export()` to write the result envelope to disk. Result envelopes
 # contain findings alongside execution metadata: timestamps, tool versions,
@@ -310,7 +371,7 @@ print(f"Timestamp:      {envelope['metadata']['timestamp']}")
 print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 
 # %% [markdown]
-# ## Step 6: Run the same pipeline in Docker
+# ## Step 7: Run the same pipeline in Docker
 #
 # You can execute the same YAML pipeline in Docker without Python dependencies.
 # The container consumes `end_to_end.yaml`, reads datasets from `/dataeval`, and
@@ -442,6 +503,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # In this tutorial, you learned how to:
 #
 # - Stage dataset splits in isolated disk directories.
+# - Run `metadata-triage` to decide which factors to exclude and how to bin the rest.
 # - Define multi-workflow pipelines in a single YAML configuration file.
 # - Execute pipelines using `run_tasks()` and the container CLI.
 # - Inspect formatted reports and extract structured findings.
@@ -451,6 +513,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Next steps
 #
+# - [Triage a dataset's metadata](metadata_triage): Deep dive into reading triage findings, distribution charts, and remediation policies.
 # - [Clean a dataset](data_cleaning): Deep dive into outlier and duplicate detection.
 # - [Analyze dataset quality across splits](data_analysis): Multi-split quality profiling and distribution shift.
 # - [Split a dataset](dataset_splitting): Stratification, cross-validation folds, and group-aware splitting.
@@ -458,6 +521,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Related guides
 #
+# - **How-to**: [Configure metadata binning](../how_to/configure_metadata_binning.md) explains declaring cuts and vocabularies.
 # - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) covers Docker execution options and flags.
 # - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md) explains caching behaviors and invalidation.
 # - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details result envelope structure and querying.
