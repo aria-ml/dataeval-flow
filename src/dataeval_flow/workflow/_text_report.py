@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -998,7 +999,12 @@ def _render_binning_section(
     if diagnostics:
         lines.append("")
         lines.append("  Diagnostics:")
-        lines.extend(f"    {message}" for message in diagnostics)
+        for message in diagnostics:
+            # A diagnostic is prose from the library, with no length contract, printed into
+            # a report where every other line has one.  Unwrapped, a single sentence drags
+            # the whole block sideways — and in the documentation, where the block scrolls
+            # rather than wraps, it takes the factor table with it.
+            lines.extend(textwrap.wrap(message, width=_WIDTH, initial_indent="    ", subsequent_indent="      "))
 
     return lines
 

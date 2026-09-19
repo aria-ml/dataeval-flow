@@ -63,6 +63,23 @@
     font-display: block;
 }
 
+/* sphinx-immaterial feeds every code element from one custom property, and defaults it
+   to Roboto Mono in an inline <style> that base.html emits before this file is linked:
+
+       :root { --md-code-font: "Roboto Mono" }
+       body  { --md-code-font-family: var(--md-code-font,_), SFMono-Regular, Consolas, ... }
+       code, kbd, pre { font-family: var(--md-code-font-family) }
+
+   Roboto Mono carries no Block Elements at all, so every sparkline glyph falls past it
+   into whichever of those fallbacks the reader happens to have -- the misalignment this
+   file exists to stop. Overriding the property rather than the elements it feeds means
+   anything else the theme styles from it follows along, instead of needing its own rule
+   here every time the theme grows one. It is set on `body` because that is where the
+   theme sets it, and a `:root` override would lose to it. */
+body {
+    --md-code-font-family: "DataEval Mono", "DejaVu Sans Mono", "Menlo", "Consolas", monospace !important;
+}
+
 code, .docutils.literal {
     font-family: "DataEval Mono", "DejaVu Sans Mono", "Menlo", "Consolas", monospace;
     font-size: 0.9em;

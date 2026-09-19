@@ -1209,6 +1209,27 @@ class TestBinningRecordDetail:
         assert any("occupied [52, 223]" in line for line in lines)
 
 
+class TestDiagnostics:
+    """Library prose printed into a report that has a width."""
+
+    def test_a_long_diagnostic_wraps_to_the_report_width(self):
+        """A diagnostic has no length contract, and the report around it does. Left
+        unwrapped, one sentence drags the whole block sideways — and in the documentation,
+        where the block scrolls rather than wraps, it takes the factor table with it."""
+        message = "dataeval: Declared cuts left bins unused: " + ", ".join(
+            f"factor_{i} ({i} of 40 bins hold rows)" for i in range(10)
+        )
+        lines = _render_binning_section(None, [message])
+        assert all(len(line) <= _WIDTH for line in lines), max(len(line) for line in lines)
+        body = [line for line in lines if line.startswith("    ")]
+        assert len(body) > 1, "a message this long has to occupy more than one line"
+        assert body[1].startswith("      "), "continuations indent under the message they belong to"
+
+    def test_a_short_diagnostic_stays_on_one_line(self):
+        lines = _render_binning_section(None, ["dataeval: nothing to report"])
+        assert "    dataeval: nothing to report" in lines
+
+
 class TestSplitComparability:
     """Two splits are comparable when the same code means the same thing in both."""
 
