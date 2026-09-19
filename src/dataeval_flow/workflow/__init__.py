@@ -216,8 +216,10 @@ class WorkflowResult(Generic[TMetadata, TData]):
         Parameters
         ----------
         detailed : bool
-            When ``True`` (default), the report includes detail sections
-            for each finding.  When ``False``, only the summary is shown.
+            When ``True`` (default), the report includes detail sections for each
+            finding, and the metadata factor table is followed by the per-factor
+            breakdown of bin edges and counts.  When ``False``, only the summary
+            and the factor table are shown.
 
         Returns
         -------
@@ -235,7 +237,9 @@ class WorkflowResult(Generic[TMetadata, TData]):
         lines.extend(self._summary_lines(findings))
         if detailed:
             lines.extend(self._detail_lines(findings))
-        lines.extend(_render_binning_section(self.metadata.metadata_binning, self.metadata.diagnostics))
+        lines.extend(
+            _render_binning_section(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed)
+        )
         lines.extend(_render_config_section(self.metadata.resolved_config))
         lines.append("")
         lines.append("=" * _WIDTH)

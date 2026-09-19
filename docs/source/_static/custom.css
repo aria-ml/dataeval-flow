@@ -31,24 +31,57 @@
     }
 }
 
+/* The report renderers draw with block, box-drawing and arrow characters, and every
+   one of those is East Asian *Ambiguous*: a renderer may give it one column or two.
+   Worse, a font that lacks the glyph falls back to one whose advance width is its
+   own, so a single missing character shifts every cell after it. Liberation Mono --
+   what "Courier New" resolves to on Linux, and what this stack used to fall through
+   to -- is missing U+2581, U+258F, U+2589 and U+2503, which is most of a sparkline.
+
+   Naming only locally-installed fonts meant every reader resolved the stack
+   differently and saw a different table. DataEval Mono is a subset of DejaVu Sans
+   Mono holding every character the reports emit, all at one advance width, so the
+   page no longer depends on what the reader happens to have installed.
+   Rebuild it with `python docs/build_font_subset.py`. */
+@font-face {
+    font-family: "DataEval Mono";
+    src: url("fonts/DataEvalMono-Regular.woff") format("woff"),
+         url("fonts/DataEvalMono-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    /* `block`, not `swap`: swapping in a fallback first shows the misaligned
+       rendering this font exists to prevent. */
+    font-display: block;
+}
+
+@font-face {
+    font-family: "DataEval Mono";
+    src: url("fonts/DataEvalMono-Bold.woff") format("woff"),
+         url("fonts/DataEvalMono-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: block;
+}
+
 code, .docutils.literal {
-    font-family: "Consolas", "Menlo", "Monaco", "Courier New", monospace;
+    font-family: "DataEval Mono", "DejaVu Sans Mono", "Menlo", "Consolas", monospace;
     font-size: 0.9em;
 }
 
 pre, pre code, div.highlight pre {
-    font-family: "Consolas", "Menlo", "Monaco", "Courier New", monospace;
+    font-family: "DataEval Mono", "DejaVu Sans Mono", "Menlo", "Consolas", monospace;
     font-size: 0.9em;
 }
 
-/* Wrap notebook cell output (report text, stdout/stderr) instead of letting it
-   run off the page. Reports render at 80 columns, so wrapping only affects the
-   occasional over-long line: file paths, progress bars, wide tables. */
+/* Notebook cell output (report text, stdout/stderr) scrolls rather than wraps.
+   Wrapping re-flows a report row onto the next line, which breaks the column
+   alignment the table is read by -- and reports render at 90 columns, so it is the
+   ordinary row that wraps, not the occasional long one. */
 div.cell_output pre,
 div.cell_output div.highlight pre,
 div.cell_output .output pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    white-space: pre;
+    overflow-x: auto;
 }
 
 /* Keep the logo visible below the desktop breakpoint. sphinx-immaterial hides

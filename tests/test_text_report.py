@@ -7,11 +7,14 @@ import pytest
 from dataeval_flow.workflow._text_report import (
     _BAR_MAX,
     _MAX_ENUMERATED,
+    _SHAPE_CELLS,
     _WIDTH,
     _brief_value,
     _compact_indices,
+    _factor_table,
     _flow_repr,
     _format_value,
+    _render_binning_record,
     _render_binning_section,
     _render_chunk_table,
     _render_classwise_table,
@@ -26,6 +29,7 @@ from dataeval_flow.workflow._text_report import (
     _render_split_comparability,
     _render_table,
     _section_header,
+    _shape_cells,
     _summary_line,
 )
 from dataeval_flow.workflow.base import Reportable
@@ -847,11 +851,13 @@ def _binned(
     provenance: str = "derived",
     method: str | None = "uniform_width",
     names: dict[str, str] | None = None,
+    hist: list[int] | None = None,
+    level: str = "unit",
 ) -> dict[str, object]:
     """A binned factor in the shape describe_binning emits: policy, names, and fit."""
-    return {
+    entry: dict[str, object] = {
         "type": "continuous",
-        "level": "unit",
+        "level": level,
         "encoding": {"kind": "bins", "edges": edges, "provenance": provenance, "method": method},
         "names": _bin_labels(edges) if names is None else names,
         "fit": {
@@ -861,6 +867,19 @@ def _binned(
             "empty": [code for code in range(1, len(edges)) if code not in occupied],
         },
     }
+    if hist is not None:
+        spans = list(occupied.values())
+        entry["distribution"] = {
+            "histogram": hist,
+            "cells": len(hist),
+            "quantiles": {"0.0": min(lo for _, lo, _ in spans), "1.0": max(hi for _, _, hi in spans)},
+        }
+    return entry
+
+
+def _record(**factors: object) -> dict[str, object]:
+    """A binning record holding just the factors a test cares about."""
+    return {"factors": dict(factors), "dropped": {}}
 
 
 class TestRenderFactorLineLevels:
@@ -987,6 +1006,207 @@ class TestRenderFactorLineBins:
         info = _binned(["-inf", 0.0, "inf"], {1: (1, 0.0, 1.0)}, "edges", None)
         del info["fit"]
         assert _render_factor_line("temp_c", info) == ["    temp_c [continuous @ unit] — edges declared"]
+
+
+class TestShapeCells:
+    """A factor's shape, drawn to one width so two factors can be compared."""
+
+    def test_draws_one_width_whatever_the_record_holds(self):
+        assert len(_shape_cells([1, 2])) == _SHAPE_CELLS
+        assert len(_shape_cells([1] * 400)) == _SHAPE_CELLS
+
+    def test_a_cell_nothing_reached_renders_blank(self):
+        assert " " not in _shape_cells([5] * _SHAPE_CELLS)
+        assert _shape_cells([5, 5, 5, 0, *([5] * 16)], cells=20)[3] == " "
+
+    def test_merges_rather_than_samples_so_a_spike_survives(self):
+        """Taking every other cell would drop a spike that landed in the skipped one."""
+        counts = [0] * 40
+        counts[7] = 100
+        assert _shape_cells(counts, cells=20)[3] == "\u2588"
+
+    def test_the_default_resolution_keeps_every_recorded_cell(self):
+        """The record is forty cells wide and so is the column, so nothing merges away:
+        a spike that occupied one recorded cell still occupies exactly one drawn cell."""
+        counts = [0] * 40
+        counts[7] = 100
+        drawn = _shape_cells(counts)
+        assert drawn[7] == "\u2588"
+        assert drawn.count("\u2588") == 1
+
+    def test_a_flat_record_draws_flat_at_any_width(self):
+        """Integer grouping gives one cell two source cells and its neighbour one, so a
+        column of identical counts draws ragged — a distortion a reader has no way to tell
+        from the data.  Every drawn cell has to cover the same slice of the record."""
+        flat = [10] * 40
+        for cells in (17, 26, 33, 37):
+            assert len(set(_shape_cells(flat, cells))) == 1, f"ragged at {cells}: {_shape_cells(flat, cells)}"
+
+    def test_a_record_nothing_reached_draws_nothing_rather_than_a_floor(self):
+        assert _shape_cells([0, 0, 0]) == " " * _SHAPE_CELLS
+        assert _shape_cells([]) == " " * _SHAPE_CELLS
+
+    def test_every_populated_cell_keeps_a_mark_however_thin(self):
+        """One row beside a thousand is the reason anyone reads the column."""
+        assert _shape_cells([1000, *([1] * 19)], cells=20) == "\u2588" + "\u2581" * 19
+
+
+class TestFactorTable:
+    """One fixed-width row per factor, so two factors can be compared at a glance."""
+
+    @staticmethod
+    def _height() -> dict[str, object]:
+        return _binned(
+            ["-inf", 500.0, "inf"],
+            {1: (23, 52.0, 223.0), 2: (204, 757.0, 931.0)},
+            "count",
+            hist=[2, 0, 5, 30],
+        )
+
+    def test_renders_a_header_and_one_row_per_encoded_factor(self):
+        record = _record(
+            height=self._height(),
+            width=_binned(["-inf", 900.0, "inf"], {1: (36, 46.0, 493.0)}, "count", hist=[4, 1, 0, 20]),
+        )
+        rows = _factor_table(record)
+        assert rows[0].split() == ["factor", "lvl", "bins", "shape", "(low", "\u2192", "high)", "n/bin", "range"]
+        assert [line.split()[0] for line in rows[1:]] == ["height", "width"]
+
+    def test_occupancy_range_counts_a_bin_nothing_reached_as_zero(self):
+        """A cut with gaps whose range skipped its own empty bins hid the gap."""
+        info = _binned(["-inf", 0.0, 10.0, "inf"], {2: (61, 1.0, 9.0)}, "edges", None, hist=[0, 61, 0])
+        row = _factor_table(_record(temp_c=info))[1]
+        assert "0\u201361" in row
+
+    def test_shape_is_drawn_from_the_record_not_from_the_cut(self):
+        """Two bins over a bimodal column still show both modes."""
+        hist = [9, *([0] * 38), 9]
+        info = _binned(["-inf", 5.0, "inf"], {1: (9, 0.0, 1.0), 2: (9, 9.0, 10.0)}, "count", hist=hist)
+        (row,) = _factor_table(_record(temp_c=info))[1:]
+        assert "\u2588" + " " * 38 + "\u2588" in row
+
+    def test_a_declared_edge_list_is_printed_because_the_row_cannot_imply_it(self):
+        """A bin *count* places edges uniformly across the span, so bins and range recover
+        them.  A verbatim edge list is arbitrary by construction and nothing else says where
+        it fell — which is exactly the decision the policy exists to make visible."""
+        info = _binned(
+            ["-inf", 0.0, 10.0, "inf"],
+            {1: (5, -3.0, -1.0), 2: (60, 1.0, 9.0), 3: (5, 11.0, 20.0)},
+            "edges",
+            None,
+            hist=[5, 60, 5],
+        )
+        assert any("edges: 0, 10" in line for line in _factor_table(_record(temp_c=info)))
+
+    def test_a_count_declared_cut_carries_no_edge_line(self):
+        assert not any("edges:" in line for line in _factor_table(_record(height=self._height())))
+
+    def test_a_long_edge_list_is_truncated_rather_than_overrunning_the_report(self):
+        edges: list[object] = ["-inf", *[float(i) for i in range(40)], "inf"]
+        info = _binned(edges, {1: (5, -1.0, 0.0)}, "edges", None)
+        line = next(line for line in _factor_table(_record(elevation=info)) if "edges:" in line)
+        assert len(line) <= _WIDTH
+        assert line.endswith("more")
+
+    def test_a_digitized_factor_reports_its_levels_and_no_numeric_span(self):
+        """A vocabulary has no extremes to report, so the column stays empty rather than
+        inventing an ordering for values that have none."""
+        row = _factor_table(_record(sensor=_digitized([("a", 15), ("b", 22), ("c", 23)])))[1]
+        assert row.startswith("  sensor  unit")
+        assert row.endswith("15\u201323")
+
+    def test_a_record_without_a_histogram_falls_back_to_its_buckets(self):
+        """A result written before the shape was recorded still draws something true."""
+        info = _binned(["-inf", 5.0, "inf"], {1: (1, 0.0, 1.0), 2: (99, 6.0, 9.0)}, "count")
+        row = _factor_table(_record(temp=info))[1]
+        assert "\u2588" in row
+        assert "\u2581" in row
+
+    def test_a_factor_that_was_never_encoded_stays_out_of_the_table(self):
+        """Nothing to compare: no cut, no shape, no occupancy."""
+        assert _factor_table(_record(sensor={"type": "categorical", "level": "unit"})) == []
+
+    def test_the_shape_column_gives_up_cells_before_the_table_gives_up_its_width(self):
+        """A span like `1.145e-06 – 0.07204` is nineteen characters beside a nineteen
+        character factor name.  The shape is the one column that can shrink without the
+        table losing a fact, and it stays one width across every row while it does."""
+        record = _record(
+            instance_brightness=self._height(),
+            unit_zeros=_binned(
+                ["-inf", 0.5, "inf"],
+                {1: (4, 1.145e-06, 0.05), 2: (123, 0.06, 0.07204)},
+                "count",
+                hist=[1] * 40,
+            ),
+        )
+        lines = _factor_table(record)
+        assert all(len(line) <= _WIDTH for line in lines), max(len(line) for line in lines)
+        # The span is still printed in full: the fit came out of the shape, not the facts.
+        assert "1.145e-06 \u2013 0.07204" in lines[2]
+
+    def test_row_carries_level_bin_count_and_observed_span(self):
+        (row,) = _factor_table(_record(height=self._height()))[1:]
+        assert row.startswith("  height  unit")
+        assert row.endswith("  23\u2013204  52 \u2013 931")
+
+
+class TestBinningRecordDetail:
+    """The table is the default read; the full breakdown stays available behind `detailed`."""
+
+    @staticmethod
+    def _record_with_height() -> dict[str, object]:
+        return _record(
+            height=_binned(
+                ["-inf", 500.0, "inf"],
+                {1: (23, 52.0, 223.0), 2: (204, 757.0, 931.0)},
+                "count",
+                hist=[2, 0, 5, 30],
+            )
+        )
+
+    def test_renders_the_table_alone_by_default(self):
+        lines = _render_binning_record(self._record_with_height())
+        assert any("n/bin" in line for line in lines)
+        assert not any(line.startswith("    height [") for line in lines)
+
+    def test_section_passes_the_detail_request_to_every_split(self):
+        binning = {"per_split": {"train": self._record_with_height(), "test": self._record_with_height()}}
+        assert sum(1 for line in _render_binning_section(binning, detailed=True) if "occupied" in line) == 4
+        assert not any("occupied" in line for line in _render_binning_section(binning))
+
+    def test_each_split_is_set_off_from_the_one_above_it(self):
+        """Two tables running together read as one table with a stray heading in it."""
+        binning = {"per_split": {"train": self._record_with_height(), "test": self._record_with_height()}}
+        lines = _render_binning_section(binning)
+        assert lines[lines.index("  [test]") - 1] == ""
+
+    def test_every_split_table_shares_one_column_layout(self):
+        """Splits drawn at two resolutions cannot be read against each other, which is the one
+        thing this section promises about them when they share an encoding — and two tables
+        whose columns land in different places do not stack into something readable."""
+        narrow = _binned(["-inf", 5.0, "inf"], {1: (4, 1.0, 4.0), 2: (1234, 6.0, 9.0)}, "count", hist=[1] * 40)
+        wide = _binned(
+            ["-inf", 0.5, "inf"],
+            {1: (4, 1.145e-06, 0.05), 2: (123, 0.06, 0.07204)},
+            "count",
+            hist=[1] * 40,
+        )
+        binning = {
+            "per_split": {
+                "train": _record(instance_brightness=narrow),
+                "test": _record(instance_brightness=wide),
+            }
+        }
+        headers = [line for line in _render_binning_section(binning) if "n/bin" in line]
+        assert len(headers) == 2
+        assert len(set(headers)) == 1
+
+    def test_detailed_keeps_the_full_breakdown_under_the_table(self):
+        lines = _render_binning_record(self._record_with_height(), detailed=True)
+        table_at = next(i for i, line in enumerate(lines) if "n/bin" in line)
+        detail_at = next(i for i, line in enumerate(lines) if line.startswith("    height ["))
+        assert table_at < detail_at
+        assert any("occupied [52, 223]" in line for line in lines)
 
 
 class TestSplitComparability:
@@ -1257,7 +1477,7 @@ def test_a_cut_factor_is_drawn_from_its_shape_not_its_bins():
     lines = _render_distribution(_shaped(q, [60, 20, 10, 5, 3, 2, 1, 1]))
     assert len(lines) == 2
     assert "p25 -1" in lines[1]
-    assert "┃" in lines[1], "the median mark is drawn"
+    assert "│" in lines[1], "the median mark is drawn"
 
 
 def test_a_skewed_box_never_collapses_to_bare_whiskers():
@@ -1267,7 +1487,7 @@ def test_a_skewed_box_never_collapses_to_bare_whiskers():
     # Where the box collapses onto the median, the median mark is the box. What must not
     # happen is a line of bare whiskers, which reads as broken rather than as skewed.
     assert not lines[1].startswith("├" + "─" * 6 + "┤"), f"the box vanished: {lines[1]!r}"
-    assert "┃" in lines[1]
+    assert "│" in lines[1]
 
 
 def test_a_digitized_factor_keeps_its_vocabulary():

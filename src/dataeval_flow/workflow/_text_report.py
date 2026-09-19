@@ -20,8 +20,9 @@ __all__ = [
     "_summary_line",
 ]
 
-# Width of the report (matches the === bars).
-_WIDTH = 80
+# Width of the report (matches the === bars).  Wide enough for the factor table to keep a
+# readable shape column, narrow enough to survive a CI log viewer and a phone-width browser.
+_WIDTH = 90
 # Maximum bar chart width in characters.
 _BAR_MAX = 30
 # Above this many bins or categories, per-entry detail is dropped for a summary
@@ -644,7 +645,204 @@ def _render_factor_line(name: str, info: dict[str, Any]) -> list[str]:
     return _render_digitized_factor(head, encoding, fit)
 
 
-def _render_binning_record(record: dict[str, Any], split_name: str | None = None) -> list[str]:
+#: How many cells a factor's shape occupies in the table.  Fixed for every factor, so two
+#: of them can be compared and neither is drawn through its own bin count.  Matched to the
+#: resolution :func:`dataeval_flow.binning.describe_binning` records, so the column draws
+#: what was measured rather than a merge of it.
+_SHAPE_CELLS = 40
+#: Narrowest the shape column is allowed to get before it stops being a chart at all.
+_SHAPE_MIN = 10
+
+
+def _shape_cells(counts: Sequence[int], cells: int = _SHAPE_CELLS) -> str:
+    """Draw ``counts`` into a fixed number of cells, in eighths.
+
+    A record wider than the column is *merged* rather than sampled: a spike that fell in one
+    of two combined cells survives, where taking every other cell would drop it.  A record
+    coarser than the column is stretched instead, so the column is one width whatever the
+    histogram behind it — which is the whole point of drawing every factor here.
+    """
+    total = len(counts)
+    if not total:
+        return " " * cells
+    # Resampled by area, not by integer grouping.  The record rarely divides by the column
+    # width, and slicing it would hand one cell two source cells and its neighbour one — so
+    # a column of identical counts draws ragged, and nothing tells the reader that the
+    # raggedness is the drawing rather than the data.  Giving every cell the same slice of
+    # the record, fractional edges included, removes the artifact at any width.
+    step = total / cells
+    merged: list[float] = []
+    for index in range(cells):
+        low, high = index * step, (index + 1) * step
+        merged.append(
+            sum(
+                counts[source] * (min(high, source + 1) - max(low, source))
+                for source in range(int(low), min(int(high - 1e-9) + 1, total))
+            )
+        )
+    peak = max(merged, default=0)
+    if not peak:
+        return " " * cells
+    # Same rule as every other bar here: blank means a cell nothing landed in, and a cell
+    # holding anything at all keeps a mark however thin its share of the peak.
+    return "".join(_SPARK_BLOCKS[0] if c == 0 else _SPARK_BLOCKS[max(1, round(c / peak * 8))] for c in merged)
+
+
+def _declared_counts(info: dict[str, Any]) -> list[int]:
+    """How many rows fell in each declared bucket, empties reinstated as zero.
+
+    ``fit["bins"]`` carries only the populated codes, so a cut with gaps would otherwise
+    report an occupancy range that skipped its own empty bins — the very thing a reader
+    checks a bin count against.
+    """
+    fit = info.get("fit") or {}
+    if fit.get("levels") is not None:
+        return [int(entry.get("count") or 0) for entry in fit["levels"]]
+    declared = max(len((info.get("encoding") or {}).get("edges") or ()) - 1, 0)
+    populated = {b["code"]: int(b.get("count") or 0) for b in fit.get("bins") or []}
+    return [populated.get(code, 0) for code in range(1, declared + 1)]
+
+
+def _observed_span(info: dict[str, Any]) -> str:
+    """The extremes the values actually reached, as ``low – high``.
+
+    Read from the recorded order statistics where there are any, because those describe the
+    column rather than the cut laid over it, and fall back to the occupied bins otherwise.
+    """
+    quantiles = (info.get("distribution") or {}).get("quantiles") or {}
+    try:
+        low, high = float(quantiles["0.0"]), float(quantiles["1.0"])
+    except (KeyError, TypeError, ValueError):
+        bins = (info.get("fit") or {}).get("bins") or []
+        if not bins:
+            return ""
+        low, high = min(b["min"] for b in bins), max(b["max"] for b in bins)
+    return f"{_fmt_num(low)} \u2013 {_fmt_num(high)}"
+
+
+def _declared_edges(info: dict[str, Any]) -> str:
+    """The cut points somebody wrote down, where the row cannot imply them.
+
+    A declared bin *count* places edges uniformly across the observed span, so ``bins`` and
+    ``range`` together recover every one of them and printing them again says nothing.  A
+    verbatim edge list is arbitrary by construction — that is what declaring one is for —
+    and nothing else in the row says where it fell.
+    """
+    encoding = info.get("encoding") or {}
+    if encoding.get("provenance") != "edges":
+        return ""
+    interior = [
+        _fmt_num(edge)
+        for edge in encoding.get("edges") or ()
+        if isinstance(edge, (int, float)) and edge not in (float("inf"), float("-inf"))
+    ]
+    if not interior:
+        return ""
+    prefix = "        edges: "
+    full = prefix + ", ".join(interior)
+    if len(full) <= _WIDTH:
+        return full
+    # Truncated rather than wrapped: a continuation line indented under a table row reads as
+    # another factor, and the point of the line is that a cut was declared, not to reproduce
+    # a list the envelope already holds in full.
+    shown: list[str] = []
+    for edge in interior:
+        if len(prefix + ", ".join([*shown, edge]) + f"  +{len(interior) - len(shown) - 1} more") > _WIDTH:
+            break
+        shown.append(edge)
+    return prefix + ", ".join(shown) + f"  +{len(interior) - len(shown)} more"
+
+
+def _factor_drafts(record: dict[str, Any]) -> list[tuple[str, str, str, list[int], str, str]]:
+    """Every encoded factor's cells, with its shape still a list of counts rather than a bar.
+
+    Drawn last, because how wide the bar may be depends on how wide the other columns came
+    out — and, across a multi-split run, on how wide they came out in the *other* splits.
+    """
+    drafts: list[tuple[str, str, str, list[int], str, str]] = []
+    for name, info in (record.get("factors") or {}).items():
+        if not info.get("encoding"):
+            continue
+        counts = _declared_counts(info)
+        level = str(info.get("level", "?"))
+        drafts.append(
+            (
+                name,
+                "inst" if level == "instance" else level,
+                str(len(counts)),
+                list((info.get("distribution") or {}).get("histogram") or counts),
+                f"{min(counts)}\u2013{max(counts)}" if counts else "",
+                _observed_span(info),
+            )
+        )
+    return drafts
+
+
+def _column_widths(drafts: Sequence[tuple[str, str, str, list[int], str, str]]) -> tuple[int, int, int, int, int]:
+    """How wide each column has to be to hold what is in it, headers included."""
+    return (
+        max(len("factor"), max(len(d[0]) for d in drafts)),
+        max(len("lvl"), max(len(d[1]) for d in drafts)),
+        max(len("bins"), max(len(d[2]) for d in drafts)),
+        max(len("n/bin"), max(len(d[4]) for d in drafts)),
+        max(len("range"), max(len(d[5]) for d in drafts)),
+    )
+
+
+def _table_layout(drafts: Sequence[tuple[str, str, str, list[int], str, str]]) -> tuple[int, int, int, int, int]:
+    """Where every column starts, as ``(name, lvl, bins, n/bin, shape)`` widths.
+
+    Every column but the shape carries a number that cannot be drawn smaller without losing
+    it, so the shape is what gives when the rest of the row is wide.  A multi-split run
+    measures every split at once and hands the answer to each table, because two tables
+    whose columns land in different places neither stack nor compare.
+    """
+    name_w, level_w, bins_w, count_w, span_w = _column_widths(drafts)
+    spare = _WIDTH - (12 + name_w + level_w + bins_w + count_w + span_w)
+    return name_w, level_w, bins_w, count_w, max(_SHAPE_MIN, min(_SHAPE_CELLS, spare))
+
+
+def _factor_table(record: dict[str, Any], layout: tuple[int, int, int, int, int] | None = None) -> list[str]:
+    """Every encoded factor as one fixed-width row, under a header.
+
+    The section this replaces gave a factor with twelve bins a line each and a factor with
+    forty a single line, so the busiest cuts said the least.  A row apiece says the same
+    amount about each of them, and the shape column is drawn from the *recorded* histogram
+    rather than from the factor's own cut — the chart exists to argue with that cut, so
+    drawing it through the cut would beg the question.
+
+    ``layout`` is passed in by a multi-split run so that every split's table lands on one
+    set of columns; splits drawn at two cannot be read against each other.
+
+    ``bins`` counts levels for a digitized factor; the detailed breakdown names them.
+    """
+    drafts = _factor_drafts(record)
+    if not drafts:
+        return []
+    name_w, level_w, bins_w, count_w, shape_w = layout or _table_layout(drafts)
+
+    def _line(name: str, level: str, bins: str, shape: str, counts: str, span: str) -> str:
+        return (
+            f"  {name:<{name_w}}  {level:<{level_w}}  {bins:>{bins_w}}  {shape:<{shape_w}}  {counts:>{count_w}}  {span}"
+        ).rstrip()
+
+    lines = [_line("factor", "lvl", "bins", "shape (low \u2192 high)"[:shape_w], "n/bin", "range")]
+    factors = record.get("factors") or {}
+    for name, level, bins, histogram, counts, span in drafts:
+        lines.append(_line(name, level, bins, _shape_cells(histogram, shape_w), counts, span))
+        edges = _declared_edges(factors[name])
+        if edges:
+            lines.append(edges)
+    return lines
+
+
+def _render_binning_record(
+    record: dict[str, Any],
+    split_name: str | None = None,
+    *,
+    detailed: bool = False,
+    layout: tuple[int, int, int, int, int] | None = None,
+) -> list[str]:
     """Render one dataset's (or split's) factor and binning record."""
     lines: list[str] = []
     if split_name is not None:
@@ -660,11 +858,46 @@ def _render_binning_record(record: dict[str, Any], split_name: str | None = None
         lines.append(f"  Unmatched bins:  {', '.join(record['unmatched_bin_requests'])}")
     lines.extend(_render_review_state(record))
 
-    for name, info in record.get("factors", {}).items():
-        lines.extend(_render_factor_line(name, info))
+    table = _factor_table(record, layout)
+    if table:
+        lines.append("")
+        lines.extend(table)
 
-    lines.extend(f"    {name} — dropped: {', '.join(reasons)}" for name, reasons in record.get("dropped", {}).items())
+    lines.extend(_render_dropped(record.get("dropped") or {}))
+
+    if detailed:
+        # The table is what the section is read for; the breakdown is what it is audited
+        # from.  Keeping both means the bin edges stay on screen for anyone who asked for
+        # them, without every reader paying a dozen lines a factor to find out a cut is fine.
+        factors = record.get("factors") or {}
+        if factors:
+            lines.append("")
+            lines.append("  Per-factor detail:")
+            for name, info in factors.items():
+                lines.extend(_render_factor_line(name, info))
     return lines
+
+
+def _render_dropped(dropped: Mapping[str, Sequence[str]]) -> list[str]:
+    """Columns that never became factors, grouped by why.
+
+    A line apiece said the same reason six times over.  Grouping states each reason once and
+    names what it took, which is the shape of the decision rather than a list of casualties.
+    """
+    if not dropped:
+        return []
+    by_reason: dict[str, list[str]] = {}
+    for name, reasons in dropped.items():
+        by_reason.setdefault(", ".join(reasons), []).append(name)
+    label = "  Dropped:"
+    pad = " " * len(label)
+    return [
+        "",
+        *(
+            f"{label if i == 0 else pad} {reason} — {', '.join(names)}"
+            for i, (reason, names) in enumerate(sorted(by_reason.items()))
+        ),
+    ]
 
 
 def _render_review_state(record: dict[str, Any]) -> list[str]:
@@ -732,7 +965,9 @@ def _render_split_comparability(per_split: dict[str, Any]) -> list[str]:
     ]
 
 
-def _render_binning_section(binning: dict[str, Any] | None, diagnostics: Sequence[str] = ()) -> list[str]:
+def _render_binning_section(
+    binning: dict[str, Any] | None, diagnostics: Sequence[str] = (), *, detailed: bool = False
+) -> list[str]:
     """Render how factors were typed and binned, plus any library diagnostics.
 
     Binning decides what every evaluator reads — a continuous factor reaches
@@ -747,11 +982,18 @@ def _render_binning_section(binning: dict[str, Any] | None, diagnostics: Sequenc
     if binning and "per_split" in binning:
         # A multi-split workflow bins each split independently.
         per_split = binning["per_split"]
-        for split_name, record in per_split.items():
-            lines.extend(_render_binning_record(record, split_name))
+        # One set of columns for every split, measured across all of them at once: reading
+        # the splits against each other is the whole reason they are printed together, and
+        # tables that land on different columns neither stack nor compare.
+        every = [draft for record in per_split.values() for draft in _factor_drafts(record)]
+        layout = _table_layout(every) if every else None
+        for index, (split_name, record) in enumerate(per_split.items()):
+            if index:
+                lines.append("")
+            lines.extend(_render_binning_record(record, split_name, detailed=detailed, layout=layout))
         lines.extend(_render_split_comparability(per_split))
     elif binning:
-        lines.extend(_render_binning_record(binning))
+        lines.extend(_render_binning_record(binning, detailed=detailed))
 
     if diagnostics:
         lines.append("")
@@ -886,7 +1128,10 @@ def _render_shape(info: dict[str, Any]) -> list[str]:
     # than as skewed. Same rule as every other bar here \u2014 a nonzero quantity keeps a cell.
     for i in range(_at(q1), max(_at(q3), _at(q1)) + 1):
         cells[i] = "\u2588"
-    cells[_at(med)] = "\u2503"
+    # Light rather than heavy: U+2503 is absent from Liberation Mono and several other
+    # common monospace faces, and a glyph the font lacks is drawn from a fallback whose
+    # advance width is its own — which shifts every cell after it out of alignment.
+    cells[_at(med)] = "\u2502"
     lo_label, hi_label = _fmt_num(low), _fmt_num(high)
     pad = " " * len(lo_label)
     return [
