@@ -20,46 +20,41 @@
 # the config-driven `drift-monitoring` workflow.
 
 # %% [markdown]
-# **Who this is for** — T&E engineers who operate a deployed model and need to know
-# when the data feeding it has shifted away from the data the model was evaluated on.
+# **Target audience**: You are a T&E engineer operating a deployed model who needs
+# to detect when incoming data shifts away from the validation baseline.
 #
-# **Where this fits** — Drift monitoring is an operational, ongoing stage of the T&E
-# workflow: after a model is deployed against a validated reference dataset, you watch
-# incoming data for distribution shift that could silently degrade performance and
-# trigger re-evaluation or retraining. See the
-# [Distribution shift](../concepts/DistributionShift.md) concept page for the detectors
-# and the relationship to [OOD detection](ood_detection) and [classwise drift](classwise_drift).
+# **Workflow role**: You should run drift monitoring during operational deployment.
+# Drift monitoring tracks distribution shifts over time that can degrade model
+# performance. See [Distribution shift](../concepts/DistributionShift.md) for
+# background on drift detection, [Detect out-of-distribution samples](ood_detection),
+# and [Detect classwise drift](classwise_drift).
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# - Load **MILCO** side-scan sonar imagery, which ships a reference and an operational
-#   split defined by *when the data was collected*
-# - Use the 2015/2017/2021 collection as the **reference** the model was evaluated against
-# - Monitor the 2010 and 2018 operational archive for drift away from it
-# - Configure the `drift-monitoring` workflow with **K-Neighbors**, **MMD**, and
-#   **Univariate (CVM)** detectors
-# - Enable **per-detector chunking** — chunked for K-Neighbors/MMD, non-chunked for Univariate
-# - Use the chunk breakdown to locate *where in the stream* the data changes
+# - Load MILCO side-scan sonar imagery partitioned into reference and operational splits by collection year.
+# - Use the 2015, 2017, and 2021 campaigns as the baseline reference set.
+# - Monitor the 2010 and 2018 operational archive for distribution drift.
+# - Configure the `drift-monitoring` workflow with K-Neighbors, MMD, and Univariate CVM detectors.
+# - Configure per-detector chunking to evaluate temporal drift progression.
+# - Run a control comparison using reference subsets to calibrate baseline campaign variation.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# - How to configure and run the `drift-monitoring` workflow via `run_task()`
-# - How **per-detector chunking** lets you mix chunked and non-chunked detectors in one run
-# - How to read the built-in drift report with per-detector and per-chunk results
-# - The difference between **K-Neighbors** (distance-based), **MMD** (distribution-wide),
-#   and **Univariate CVM** (per-feature) detectors
-# - Why the extractor you choose decides what "drift" can even mean
-# - **Why a drift verdict is uninterpretable without a control** — and how to build one
-#   out of the reference set you already have
+# - How to configure and execute the `drift-monitoring` workflow with `run_task()`.
+# - How to combine chunked and non-chunked detectors in a single pipeline.
+# - How to interpret formatted drift reports and chunked metric trends.
+# - How K-Neighbors, MMD, and Univariate CVM detectors evaluate distribution shift.
+# - How feature representations influence drift sensitivity.
+# - How to construct baseline controls from reference data to establish expected variance.
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `maite-datasets` (to download MILCO)
-# - Internet connection (first run only — the dataset is cached under `./data`)
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `maite-datasets` to download MILCO.
+# - Ensure network access for the initial dataset download.
 
 # %% [markdown]
 # ### Step-by-step guide
@@ -67,26 +62,22 @@
 # %% [markdown]
 # ## Data Preparation: a reference campaign and an operational archive
 #
-# MILCO is side-scan sonar imagery collected by an autonomous underwater vehicle,
-# annotated for **MILCO** (mine-like contacts) and **NOMBO** (non-mine-like bottom
-# objects). What makes it a good drift subject is that it was collected across five
-# separate years, and the dataset ships a split along that boundary:
+# MILCO contains side-scan sonar imagery collected by autonomous underwater vehicles,
+# annotated for `MILCO` (mine-like contacts) and `NOMBO` (non-mine-like bottom objects).
+# The imagery spans five collection years:
 #
 # | Split | Years | Frames |
 # |---|---|---|
 # | `train` | 2015, 2017, 2021 | 261 |
 # | `operational` | 2010, 2018 | 909 |
 #
-# So the scenario needs no synthetic corruption. Take the `train` collection as the
-# data a detector was evaluated against, point it at the `operational` archive, and
-# ask the question an operator actually has: **is this data still like the data we
-# validated on?**
+# You will use `train` as your baseline reference dataset and evaluate whether the
+# `operational` archive exhibits distribution drift.
 #
 # :::{important}
-# Both splits are exported in collection order, and that ordering is what makes
-# chunked analysis meaningful. In the operational archive the 345 frames from 2010
-# come first, followed by the 564 frames from 2018 — so a chunk boundary near index
-# 345 is a real change of collection campaign, eight years wide, not an artifact.
+# Both splits are exported in chronological collection order. In the operational
+# archive, 345 frames from 2010 appear first, followed by 564 frames from 2018.
+# Sequential chunk boundaries align with these distinct collection campaigns.
 # :::
 
 # %% tags=["remove_output"]
@@ -107,8 +98,7 @@ operational_path = data_root / "milco_datamaite_operational"
 # %% [markdown]
 # ### Confirm the campaign boundary
 #
-# The year is in every filename, so we can read the structure straight out of the
-# exported annotations rather than taking it on trust.
+# You can inspect collection years directly from exported annotation filenames:
 
 # %%
 import json
@@ -145,34 +135,29 @@ for ax, (title, image) in zip(axes, samples.items(), strict=True):
     ax.imshow(np.transpose(np.asarray(image), (1, 2, 0)))
     ax.set_title(f"{title}\n{np.asarray(image).shape[1]}x{np.asarray(image).shape[2]}", fontsize=10)
     ax.axis("off")
-fig.suptitle("MILCO side-scan sonar — reference campaigns vs operational archive", fontsize=13)
+fig.suptitle("MILCO side-scan sonar: reference campaigns vs operational archive", fontsize=13)
 plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# Note the frame sizes. MILCO ships images at both 416x416 and 1024x1024, mixed within
-# every collection year, which rules out the simplest possible extractor before we
-# start: a `flatten` extractor turns each image into a raw pixel vector, and vectors of
-# two different lengths cannot be compared at all. Even where it fits, raw pixels are
-# the wrong representation for sonar — see the
-# [classwise drift](classwise_drift) tutorial for what that failure looks like when it
-# does *not* raise an error.
+# MILCO includes frames at both 416x416 and 1024x1024 resolutions within each year.
+# A `flatten` extractor cannot process variable input sizes. You should use a
+# feature extractor that produces fixed-dimension embeddings across varying image sizes.
 
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# The `drift-monitoring` workflow needs:
+# To configure the `drift-monitoring` workflow, you specify:
 #
-# 1. **Two datasets** — the first is the reference, the rest are test (incoming) data
-# 2. **An extractor** — to compute embeddings that detectors compare
-# 3. **Detector configuration** — which statistical tests to run
-# 4. **Chunking** — to split incoming data into windows
+# 1. **Datasets**: A reference dataset followed by one or more test sources.
+# 2. **Extractor**: An extractor to produce embedding vectors.
+# 3. **Detectors**: Statistical drift detection algorithms.
+# 4. **Chunking**: Window parameters for temporal analysis.
 #
-# We use a **BoVW** (Bag of Visual Words) extractor. It detects SIFT keypoints, quantizes
-# them against a learned vocabulary, and returns a fixed-length histogram — so it copes
-# with the two frame sizes natively, and it describes sonar texture rather than raw
-# intensity. A preprocessor resizes every frame to a common resolution first, which keeps
-# the descriptor count comparable across frames and removes image size as a confound.
+# You will use a Bag of Visual Words (BoVW) extractor. BoVW quantizes SIFT keypoints
+# against a learned visual vocabulary, yielding fixed-length histograms regardless of
+# native image resolution. A preprocessing step resizes frames to 256x256 to ensure
+# uniform keypoint extraction density.
 
 # %%
 from dataeval_flow.config import (
@@ -200,7 +185,7 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # %% [markdown]
 # ### Configure drift detectors and chunking
 #
-# We'll set up three complementary detectors:
+# You will configure three complementary detectors:
 #
 # | Detector | What it tests | Chunked? | Strengths |
 # |---|---|---|---|
@@ -216,13 +201,11 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # **CVM (Cramér-von Mises)** is a univariate test that measures the integrated
 # squared distance between empirical CDFs for each feature independently. It
 # has higher statistical power than the default Kolmogorov-Smirnov test for
-# detecting subtle distributional shifts. We run it **without chunking** so
-# the report shows the contrast between a single overall verdict and the
-# temporal chunk breakdown from the other two detectors.
+# detecting subtle distributional shifts. You will run it **without chunking**
+# to contrast an overall verdict with temporal chunk breakdowns from other detectors.
 #
-# **Chunking** is configured **per detector**. With `chunk_size=200` over 909
-# operational frames we get five windows, and because the archive is in collection
-# order we know exactly which campaign each one covers.
+# **Chunking** is configured **per detector**. Specifying `chunk_size=200` over 909
+# operational frames yields windows that align with chronological collection campaigns.
 
 # %%
 from dataeval_flow.config import DriftMonitoringTaskConfig, DriftMonitoringWorkflowConfig
@@ -277,7 +260,7 @@ result = run_task(drift_task, config, cache_dir=Path("./cache"))
 # ## Results Exploration: Drift report
 #
 # The workflow produces a text report summarizing each detector's findings. With
-# chunking enabled, you'll see a per-chunk breakdown showing exactly which windows
+# chunking enabled, you will see a per-chunk breakdown showing which windows
 # drifted.
 
 # %%
@@ -286,52 +269,29 @@ print(result.report())
 # %% [markdown]
 # ### What each chunk actually contains
 #
-# `chunk_size=200` over 909 frames yields **four** windows, not five — the trailing
-# remainder is folded into the last chunk rather than left as a short one. They map
-# onto the two collection campaigns like this:
+# A `chunk_size=200` setting over 909 frames produces four windows:
 #
 # | Chunk | Campaign |
 # |---|---|
-# | `[0:199]` | **2010** throughout |
-# | `[200:399]` | **mixed** — 2010 up to index 344, then 2018 |
-# | `[400:599]` | **2018** throughout |
-# | `[600:908]` | **2018** throughout |
+# | `[0:199]` | 2010 campaign |
+# | `[200:399]` | 2010 up to index 344, followed by 2018 |
+# | `[400:599]` | 2018 campaign |
+# | `[600:908]` | 2018 campaign (includes remainder samples) |
 #
 # ### Reading the verdict
 #
-# Every chunk drifts, on both chunked detectors, and CVM reports **256 of 256**
-# features drifted at p = 0.000116. The archive does not drift away from the
-# reference partway through — it never matched it in the first place. The 2010
-# campaign is as far from the 2015/2017/2021 reference as the 2018 campaign is.
+# In this run, all chunks trigger drift warnings across K-Neighbors and MMD, and
+# Univariate CVM flags 256 of 256 features.
 #
-# That is worth separating from what this page's structure might lead you to expect.
-# Chunking answers *when did the stream change?*, and it can only answer that when
-# some of the stream still resembles the reference. Here none of it does, so the
-# chunk breakdown reports a uniform verdict and the interesting question moves
-# elsewhere: not "when did it change" but "was the reference ever representative?"
-#
-# The detectors do not agree on shape, which is informative in itself. K-Neighbors is
-# nearly flat across the archive (0.83 to 0.94), while MMD singles out `[400:599]` at
-# 0.5232 against roughly 0.22–0.27 for every other window. Both say "drifted"; only
-# one says the middle of the 2018 campaign is unusual *among* the drifted windows.
-#
-# A 4/4, 256/256 verdict should make you suspicious before it makes you confident.
-# A detector that flags everything is indistinguishable from a detector that is
-# broken, and the reference here is only 261 frames. Before drawing any conclusion
-# from the numbers above, the next cell establishes what these detectors say about
-# data we have no reason to call drifted.
+# To determine whether this signal reflects genuine operational degradation or
+# routine campaign variation, you should run a baseline control.
 
 # %% [markdown]
-# ### Control: do two reference campaigns drift from each other?
+# ### Control: Evaluate baseline variation between reference campaigns
 #
-# The reference is itself three collections — 2015 (frames 0–119), 2017 (120–212) and
-# 2021 (213–260). If *those* drift from one another as readily as the operational
-# archive does, then "different campaign" is all the detector is measuring and the
-# headline verdict says little about the operational data specifically.
-#
-# So we run the same detectors on a split that should come back clean-ish: 2015 as the
-# reference, 2017+2021 as the incoming stream. `ViewConfig` with `Indices` carves both
-# out of the dataset we already configured — no second copy on disk.
+# The reference dataset contains three campaigns: 2015 (frames 0 to 119), 2017
+# (120 to 212), and 2021 (213 to 260). You can test 2015 as the reference against
+# 2017 and 2021 as the incoming data to evaluate expected inter-campaign variance.
 
 # %%
 from dataeval_flow.config import ViewConfig, ViewOperation
@@ -363,8 +323,7 @@ control_config = PipelineConfig(
     workflows=[
         DriftMonitoringWorkflowConfig(
             name="milco-drift-control",
-            # No chunking — 141 incoming frames is one window, and all we want is a
-            # single verdict on whether campaign-to-campaign difference alone trips these.
+            # No chunking: 141 incoming frames forms a single window to test baseline variation.
             detectors=[
                 DriftDetectorKNeighbors(k=10),
                 DriftDetectorMMD(n_permutations=100),
@@ -379,47 +338,34 @@ control_result = run_task(control_task, control_config, cache_dir=Path("./cache"
 print(control_result.report())
 
 # %% [markdown]
-# ### The control fires too — and that changes the answer
+# ### Comparing operational drift to the control baseline
 #
-# Two campaigns *inside the reference* drift from each other on all three detectors,
-# at almost exactly the magnitude the operational archive produced:
+# You should compare operational distances directly against the control:
 #
-# | | K-Neighbors | MMD | CVM |
-# |---|---|---|---|
-# | **Control** (2015 vs 2017+2021) | 0.8425 | 0.2271 | 2.92, 218/256 features |
-# | **Operational** (per chunk) | 0.83 – 0.94 | 0.22 – 0.27, one at 0.52 | 14.46, 256/256 features |
+# | Detector | Control (2015 vs 2017+2021) | Operational (per chunk) |
+# |---|---|---|
+# | **K-Neighbors** | 0.8425 | 0.83 to 0.94 |
+# | **MMD** | 0.2271 | 0.22 to 0.27 (chunk `[400:599]`: 0.5232) |
+# | **CVM** | 2.92 (218/256 features) | 14.46 (256/256 features) |
 #
-# Read the K-Neighbors row first. The control sits at 0.8425, squarely inside the
-# 0.83–0.94 band the operational chunks occupy. By that detector, the 2018 archive is
-# no more different from the reference than two reference campaigns are from each
-# other. The MMD row is worse: the pure-2010 chunk scores **0.2178**, *below* the
-# control's 0.2271 — the 2010 campaign differs from the reference slightly less than
-# the reference differs from itself.
+# K-Neighbors distances for operational data match the inter-campaign control baseline
+# (0.8425), showing that general collection shifts account for much of the observed
+# difference.
 #
-# So the headline verdict does not say what it appears to say. On this representation
-# these detectors are largely measuring **"a different collection campaign"**, which
-# is a property every MILCO subset has, rather than anything specific to operational
-# data. A bare `drifted: True` was never going to distinguish those two.
+# However, two metrics indicate notable shifts beyond baseline variation:
 #
-# What does survive the comparison:
+# - **MMD on chunk `[400:599]` (0.5232)**: More than double the control baseline,
+#   indicating a substantial localized shift in the 2018 campaign.
+# - **CVM magnitude (14.46)**: Substantially larger than the control magnitude (2.92),
+#   reflecting widespread feature-level divergence.
 #
-# - **MMD on `[400:599]`, at 0.5232** — more than double the control and double every
-#   other window. That one is genuinely outside normal campaign variation and worth
-#   investigating.
-# - **CVM's magnitude** — 14.46 across 256/256 features against the control's 2.92
-#   across 218/256. Same verdict, very different strength.
-#
-# The lesson generalizes past this dataset. **A drift verdict is uninterpretable
-# without a baseline for normal variation**, and you usually have the material to
-# build one: hold out a slice of the reference and run the identical detectors on it.
-# Without that control this page would have reported a confident 4/4 drift result and
-# been largely wrong about what it meant.
+# You should always evaluate drift against baseline controls to distinguish normal
+# collection variance from severe operational drift.
 
 # %% [markdown]
 # ### Inspect chunk-level details programmatically
 #
-# The raw output gives you structured access to per-detector, per-chunk results
-# for custom analysis or visualization.
+# You can query per-detector and per-chunk metrics directly from `result.data.raw`:
 
 # %%
 import polars as pl
@@ -495,15 +441,15 @@ for ax, method in zip(axes, chunked_methods, strict=True):
     ax.set_xlabel("Chunk")
     ax.tick_params(axis="x", rotation=30)
 
-fig.suptitle("Chunk-level drift — green = ok, red = drift detected", fontsize=13)
+fig.suptitle("Chunk-level drift: green = ok, red = drift detected", fontsize=13)
 plt.tight_layout()
 plt.show()
 
 # %% [markdown]
 # ## Results Exploration: Export results
 #
-# The JSON output contains all raw detector results, chunk data, and metadata —
-# ready for integration with monitoring dashboards or automated pipelines.
+# You can export results to JSON format for integration with monitoring dashboards
+# and pipeline automations.
 
 # %%
 json_str = result.export(fmt="json")
@@ -513,50 +459,34 @@ print(json_str[:600] + "\n...")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial you learned how to:
+# In this tutorial, you learned how to:
 #
-# - **Use a real collection boundary** as the drift scenario — MILCO's reference and
-#   operational splits differ by collection year, so nothing had to be corrupted to
-#   create something to detect
-# - **Choose an extractor the data supports** — mixed frame sizes rule out `flatten`
-#   outright, and BoVW describes sonar texture rather than raw intensity
-# - **Configure** the `drift-monitoring` workflow with multiple detectors
-#   (K-Neighbors, MMD, Univariate CVM)
-# - **Use per-detector chunking** — chunked analysis for some detectors, non-chunked
-#   for others
-# - **Read the drift report** — per-detector summaries and per-chunk breakdowns
-# - **Map chunks back to the stream** so a drifted window names a real event
-# - **Run a control before believing the verdict** — holding out a slice of the
-#   reference and running the same detectors on it is what tells you whether a
-#   `drifted: True` means anything
-# - **Export** structured JSON results for downstream automation
-#
-# The result here is the part worth carrying away. Every detector flagged the
-# operational archive, on every chunk, across every feature — and the control showed
-# that two campaigns within the reference score almost identically. Most of that
-# verdict was campaign-to-campaign variation, not an operational shift. One finding
-# survived the comparison (MMD on `[400:599]`, at more than double the control), and
-# without the control there would have been no way to tell it apart from the rest.
+# - Configure the `drift-monitoring` workflow across reference and operational datasets.
+# - Use BoVW feature extractors to generate fixed-length descriptors from variable-sized sonar frames.
+# - Combine chunked and non-chunked detectors in a single workflow.
+# - Interpret formatted drift reports and per-chunk metric trends.
+# - Construct reference controls using `ViewConfig` to calibrate expected baseline variation.
+# - Evaluate operational drift against control baselines to identify genuine anomalies.
+# - Export structured drift findings to JSON.
 
 # %% [markdown]
-# ## What's next
+# ## Next steps
 #
-# - **Classwise drift** — Add `classwise: true` to break the verdict down by MILCO
-#   versus NOMBO and see which class carries the shift
-# - **Different detectors** — Try `domain_classifier` (trains a binary classifier to
-#   distinguish ref from test) or other univariate tests (`ks`, `mwu`, `anderson`, `bws`)
-# - **A stronger representation** — Swap BoVW for a pretrained model via
-#   [ONNX embeddings](onnx_embeddings) and see whether the verdict survives a change
-#   of feature space
+# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise=True`
+#   to identify which target classes drive the drift signal.
+# - **Alternative detectors**: Test alternative statistical detectors such as `domain_classifier`
+#   or Kolmogorov-Smirnov (`ks`).
+# - **Embedding backbones**: Configure an ONNX model via [Use an ONNX model for embeddings](onnx_embeddings)
+#   to test pretrained deep representations.
 
 # %% [markdown]
 # ## Related guides
 #
-# - **Concept** — [Distribution shift](../concepts/DistributionShift.md):
-#   how drift, classwise drift, and OOD detection relate, and what each detector measures.
-# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
-#   to interpret per-batch drift flags and p-values and export them for a monitoring dashboard.
-# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
-#   to run drift monitoring on a schedule against live data pipelines from a container.
-# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
-#   to use a pretrained model (e.g. ResNet) for richer embeddings that capture higher-level features.
+# - **Concept**: [Distribution shift](../concepts/DistributionShift.md) covers
+#   drift monitoring, classwise drift, and out-of-distribution detection.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) explains
+#   drift metric outputs, p-values, and export envelopes.
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
+#   how to schedule drift monitoring pipelines in Docker.
+# - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) shows how to configure
+#   pretrained extractors for drift monitoring.

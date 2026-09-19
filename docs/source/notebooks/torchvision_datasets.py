@@ -16,18 +16,18 @@
 # %% [markdown]
 # # Use a torchvision dataset with DataEval Flow
 #
-# This guide shows how to pass a torchvision dataset into the `data-cleaning`
-# workflow using the `"torchvision"` adapter.  The adapter converts both
+# You can pass a torchvision dataset directly into the `data-cleaning`
+# workflow with the `"torchvision"` adapter. This adapter converts both
 # **image classification** and **object detection** datasets to the MAITE
-# protocol that DataEval expects.
+# protocol.
 
 # %% [markdown]
 # ## Used in these tutorials
 #
-# This guide is referenced from:
+# You can reference this guide from:
 #
-# - [Clean a dataset](data_cleaning) — feed a `torchvision` classification or
-#   detection dataset straight into the `data-cleaning` workflow.
+# - [Clean a dataset](data_cleaning): Feed a `torchvision` classification or
+#   detection dataset directly into the `data-cleaning` workflow.
 
 # %% [markdown]
 # ## Image classification
@@ -47,15 +47,14 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.workflow import run_tasks
 
-# 1. Create the torchvision dataset (no transforms — the adapter handles conversion)
+# 1. Create the torchvision dataset without transforms. The adapter handles conversion.
 tv_dataset = FashionMNIST(root="./data", train=True, download=True)
 
 # %%
-# 2. Build the full pipeline config (using a small subset for speed)
+# 2. Build the pipeline configuration with a subset for faster execution.
 datasets = [DatasetProtocolConfig(name="fmnist-train", format="torchvision", dataset=tv_dataset)]
-# `Limit` on its own takes the first N in storage order, which is whatever order the
-# dataset happens to sit in on disk — for a class-sorted dataset that is a handful of
-# classes rather than a sample. Shuffle first so the subset represents the whole.
+# A bare Limit takes the first N samples in storage order.
+# Shuffle first so the subset represents the entire dataset.
 views = [
     ViewConfig(
         name="sample500",
@@ -102,23 +101,20 @@ print(results[0].report())
 # %% [markdown]
 # ### What happens under the hood
 #
-# The `"torchvision"` format tells the resolver to wrap the dataset in a
-# `TorchvisionDataset` adapter before passing it to the workflow.  The
-# adapter:
+# When you specify `"torchvision"` format, the resolver wraps your dataset in
+# a `TorchvisionDataset` adapter. The adapter performs these operations:
 #
 # - Converts PIL images to CHW float32 numpy arrays
-# - Converts integer labels to one-hot vectors (using `.classes` from the
-#   dataset when available)
-# - Exposes `.metadata` with `index2label` derived from the dataset's
-#   `.classes` attribute
+# - Converts integer labels to one-hot vectors using `.classes` when available
+# - Exposes `.metadata` with `index2label` derived from `.classes`
 
 # %% [markdown]
 # ## Object detection
 #
-# Torchvision object-detection datasets (e.g. `CocoDetection`,
-# `VOCDetection`) return targets in varying raw formats.  The recommended
-# approach is to use `wrap_dataset_for_transforms_v2` which normalises
-# targets into a dict with `"boxes"` (as `BoundingBoxes`) and `"labels"`:
+# Torchvision object-detection datasets (such as `CocoDetection` and
+# `VOCDetection`) return targets in varying raw formats. You should use
+# `wrap_dataset_for_transforms_v2` to normalize targets into a dictionary
+# with `"boxes"` (as `BoundingBoxes`) and `"labels"`:
 #
 # ```python
 # from torchvision.datasets import CocoDetection, wrap_dataset_for_transforms_v2
@@ -131,7 +127,7 @@ print(results[0].report())
 #     annFile="./data/coco/annotations/instances_val2017.json",
 # )
 #
-# # 2. Wrap with transforms v2 — this gives structured BoundingBoxes + labels
+# # 2. Wrap with transforms v2 to produce structured BoundingBoxes and labels
 # tv_dataset = wrap_dataset_for_transforms_v2(raw_ds)
 #
 # # 3. Pass to DataEval via the torchvision adapter
@@ -145,10 +141,8 @@ print(results[0].report())
 # %% [markdown]
 # ### Bounding box format handling
 #
-# The adapter automatically converts bounding boxes to XYXY format
-# regardless of the source `BoundingBoxFormat`.  This means datasets using
-# XYWH (COCO convention), CXCYWH, or any other torchvision format are
-# handled transparently:
+# The adapter converts bounding boxes to XYXY format from any supported
+# source `BoundingBoxFormat`:
 #
 # | Source format | Converted to |
 # |---|---|
@@ -156,14 +150,14 @@ print(results[0].report())
 # | `XYWH` | converted to `XYXY` |
 # | `CXCYWH` | converted to `XYXY` |
 #
-# The conversion uses `torchvision.ops.box_convert` so rotated formats
-# (`XYWHR`, `CXCYWHR`, `XYXYXYXY`) are also supported.
+# The adapter uses `torchvision.ops.box_convert` to support rotated formats
+# (`XYWHR`, `CXCYWHR`, `XYXYXYXY`).
 
 # %% [markdown]
 # ## Cache identity
 #
-# Since torchvision datasets are in-memory objects, the cache key is built
-# from the config's `name`, `format`, and `version` fields:
+# Because torchvision datasets are in-memory objects, DataEval Flow builds the
+# cache key from the `name`, `format`, and `version` fields:
 
 # %%
 DatasetProtocolConfig(
@@ -174,25 +168,22 @@ DatasetProtocolConfig(
 )
 
 # %% [markdown]
-# Changing `version` invalidates cached embeddings and statistics from
-# previous runs.
+# When you update `version`, DataEval Flow invalidates cached embeddings and
+# statistics from earlier runs.
 
 # %% [markdown]
 # ## Tips
 #
-# - **Don't apply transforms** to the torchvision dataset before passing it
-#   to the adapter.  The adapter expects raw PIL images (or tensors in HWC
-#   or CHW layout).  Use DataEval's preprocessor config for any
-#   transforms needed by the workflow.
-# - **Use `wrap_dataset_for_transforms_v2`** for detection datasets.  The
-#   adapter detects structured targets (dicts with `"boxes"`) and converts
-#   them to the MAITE `ObjectDetectionTarget` protocol.  Raw annotation
-#   formats (list-of-dicts from `CocoDetection`, XML dicts from
-#   `VOCDetection`) are not supported directly.
-# - **Shuffle before you limit.** A bare `Limit` samples storage order, not the
-#   dataset — see [Build dataset views](../how_to/build_dataset_views.md) for what that
-#   costs on a class-sorted dataset, and why `Shuffle` needs its own explicit `seed`.
-# - **Class discovery** relies on the `.classes` attribute that most
-#   torchvision datasets expose.  If your dataset doesn't have it, the
-#   adapter still works but `index2label` will be empty and integer targets
-#   will be passed through as scalar arrays.
+# - **Do not apply transforms** to your torchvision dataset before passing it
+#   to the adapter. The adapter expects raw PIL images or tensors in HWC
+#   or CHW layout. Configure DataEval preprocessors for required transforms.
+# - **Use `wrap_dataset_for_transforms_v2`** for detection datasets. The
+#   adapter converts structured targets (dictionaries with `"boxes"`) to the
+#   MAITE `ObjectDetectionTarget` protocol. Raw annotation formats are not
+#   supported directly.
+# - **Shuffle before you limit.** A bare `Limit` takes samples in disk storage
+#   order. Apply `Shuffle` with an explicit `seed` to sample evenly across
+#   classes. See [Build dataset views](../how_to/build_dataset_views.md).
+# - **Class discovery** relies on the `.classes` attribute. If your dataset
+#   lacks `.classes`, the adapter still works, but `index2label` will be empty
+#   and integer targets pass through as scalar arrays.

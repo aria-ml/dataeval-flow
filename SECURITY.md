@@ -17,7 +17,7 @@ vulnerabilities. Email <dataeval-flow@ariacoustics.com> with:
 
 You can expect:
 
-- An acknowledgement within **3 business days**
+- An acknowledgment within **3 business days**
 - A triage decision (accepted / false positive / duplicate) within **10 business days**
 - A fix or mitigation plan within **30 business days** for accepted Hard
   findings, tracked against the next `v0.x.y` release

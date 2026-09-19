@@ -116,9 +116,9 @@ API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::
 
-## Acknowledgement
+## Acknowledgment
 
-### CDAO Funding Acknowledgement
+### CDAO Funding Acknowledgment
 
 This material is based upon work supported by the Chief Digital and Artificial
 Intelligence Office under Contract No. W519TC-23-9-2033. The views and

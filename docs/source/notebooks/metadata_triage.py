@@ -20,42 +20,42 @@
 # configuration fixes using the `metadata-triage` workflow on SeaDrone telemetry.
 
 # %% [markdown]
-# **Who this is for** — Engineers and data scientists who need to verify dataset metadata before
-# computing coverage, drift, or bias metrics.
+# **Target audience**: You are an engineer or data scientist who needs to verify
+# dataset metadata before computing coverage, drift, or bias metrics.
 #
-# **Where this fits** — You should run triage before downstream evaluation workflows. Downstream workflows
-# like [analysis](data_analysis), [coverage](data_coverage), and [splitting](dataset_splitting) silently drop
-# unparseable metadata columns, mixed-type fields, or high-cardinality values without raising errors.
-# Triage surfaces these dropped columns so you can configure remediations.
+# **Workflow role**: You should run triage before downstream evaluation workflows.
+# Downstream workflows such as [Analyze dataset quality across splits](data_analysis),
+# [Assess dataset coverage](data_coverage), and [Split a dataset](dataset_splitting)
+# silently drop unparseable metadata columns, mixed-type fields, or high-cardinality
+# values without raising errors. Triage surfaces these issues so you can configure
+# remediations.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# In this tutorial, you will:
-# - Load a sample of the SeaDrone object-detection dataset with telemetry metadata
-# - Run the `metadata-triage` workflow and inspect the report
-# - Identify dropped or unparseable columns and review suggested remedies
-# - Review factors that parse cleanly but need remediation, such as unique identifiers and sentinel values
-# - Review the suggested policy configuration
-# - Complete required placeholder values in the policy, apply it, and re-run triage
-# - Compare results between the initial and corrected runs
+# - Load a sample of the SeaDrone object-detection dataset with telemetry metadata.
+# - Run the `metadata-triage` workflow and inspect the generated report.
+# - Identify dropped or unparseable columns and review suggested remedies.
+# - Review factors that parse cleanly but require remediation, such as unique identifiers and sentinel values.
+# - Inspect the suggested policy configuration.
+# - Complete required placeholder values in the policy, apply it, and re-run triage.
+# - Compare results between the initial and corrected runs.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# You will learn:
-# - How to run `metadata-triage` and interpret finding categories and severity levels
-# - How to interpret factor distribution charts and evaluate bin recommendations
-# - How you can configure policies to handle missing values, date parsing, and type conversions
-# - How verification tests proposed policies against your dataset
-# - The scope and limitations of automated metadata triage
+# - How to execute `metadata-triage` and interpret finding categories and severity levels.
+# - How to interpret factor distribution charts and evaluate bin recommendations.
+# - How to configure policies to handle missing values, date parsing, and type conversions.
+# - How verification tests proposed policies against your dataset.
+# - The operational scope and limitations of automated metadata triage.
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `maite-datasets` (provides SeaDrone)
-# - Internet connection — SeaDrone's validation split downloads on first run (about 1.2 GB)
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `maite-datasets` to access SeaDrone.
+# - Ensure network access for the initial validation split download (~1.2 GB).
 #
 # ```{note}
 # Unlike other tutorials, this notebook does not have a corresponding `.yaml` file. SeaDrone is
@@ -148,9 +148,9 @@ print(result.report())
 # You should review **blocking** findings first. These indicate metadata columns that could not be
 # processed and were dropped from the factor set:
 #
-# - **`date_time`** — Unique timestamps per row exceed cardinality limits. You must truncate or bucket
+# - **`date_time`**: Unique timestamps per row exceed cardinality limits. You must truncate or bucket
 #   the values to a broader granularity (such as day).
-# - **`latitude`** and **`longitude`** — 198 numeric values and 2 string values. Because the column has
+# - **`latitude`** and **`longitude`**: 198 numeric values and 2 string values. Because the column has
 #   mixed types, it is excluded until you harmonize the values.
 #
 # You can inspect the value counts and sample values printed for each mixed type:
@@ -199,7 +199,7 @@ print("runnable :", latitude.suggestion.complete)
 # You can evaluate proposed bin counts using the distribution charts in the report:
 #
 # ```text
-#   frame — declare 5 bins
+#   frame: declare 5 bins
 #     178 ▂▂▂▁▁▁▃▁▂▁▄█▅▁ ▂▂▁                 ▁▁▁▁▁ 1.98e+04
 #         ├──────████┃█──────────────────────────┤  p25 3465 · p50 5715 · p75 6240
 # ```
@@ -364,25 +364,26 @@ print(f"JSON output: {len(json_str)} characters")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial, you:
-# - Detected unparseable, mixed-type, and high-cardinality metadata columns
-# - Identified and excluded identifier fields
-# - Remapped sentinel and missing values to `.nan`
-# - Applied and verified a standardized `metadata` policy configuration
+# In this tutorial, you learned how to:
+# - Detect unparseable, mixed-type, and high-cardinality metadata columns.
+# - Identify and exclude identifier fields.
+# - Remap sentinel and missing values to `.nan`.
+# - Apply and verify a standardized `metadata` policy configuration.
 #
 # You should run metadata triage before downstream workflows to ensure that metadata factors are
 # correctly typed, binned, and accounted for in subsequent evaluations.
 
-# ## What's next
+# %% [markdown]
+# ## Next steps
 #
-# - [Analyze dataset quality across splits](data_analysis)
-# - [Assess dataset coverage](data_coverage)
-# - [Run a full evaluation pipeline end to end](end_to_end)
+# - [Analyze dataset quality across splits](data_analysis): Evaluate factors across dataset splits.
+# - [Assess dataset coverage](data_coverage): Measure representation across factor combinations.
+# - [Run a full evaluation pipeline end to end](end_to_end): Execute complete evaluation pipelines.
 
 # %% [markdown]
 # ## Related guides
 #
-# - [Configure metadata binning](../how_to/configure_metadata_binning) — declaring cuts and vocabularies
-# - [Build dataset views](../how_to/build_dataset_views) — the `Shuffle` and `Limit` used above
-# - [Read evaluation outputs](../how_to/read_evaluation_outputs) — the result envelope and its exports
-# - [Reuse results with cache](../how_to/reuse_results_with_cache)
+# - **How-to**: [Configure metadata binning](../how_to/configure_metadata_binning.md) explains declaring cuts and vocabularies.
+# - **How-to**: [Build dataset views](../how_to/build_dataset_views.md) explains dataset sampling and filtering operations.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) covers result objects and export formats.
+# - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md) explains caching evaluation outputs.

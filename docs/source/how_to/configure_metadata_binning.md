@@ -245,7 +245,7 @@ datasets:
     format: huggingface
     path: data/bathymetry
     task: image_classification
-    value_range: [-50.0, 50.0]      # metres above and below sea level
+    value_range: [-50.0, 50.0]      # meters above and below sea level
 
 workflows:
   - name: quality_check
@@ -318,7 +318,7 @@ and it means the same policy prints the same names over a different draw.
 The text report shows per-bucket detail only for a factor with 12 or fewer bins or levels. Above that it gives the
 count and how the buckets were populated — `40 levels, derived, n=3–19 per level`, or the occupied span for a binned
 factor — so one high-cardinality factor cannot bury the rest. A factor holding exactly one level per sample is an
-identifier rather than a grouping, and is labelled `(one per sample)`; it contributes nothing to balance or
+identifier rather than a grouping, and is labeled `(one per sample)`; it contributes nothing to balance or
 diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffected by the cap.
 
 From Python:

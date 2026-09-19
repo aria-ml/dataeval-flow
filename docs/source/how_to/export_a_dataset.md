@@ -119,7 +119,7 @@ The realized pixels are encoded instead in two cases: a source that is not file-
 image size or the channel count. `Crop`, `Resize`, and `SelectChannels` all produce imagery the file on disk no
 longer matches, and referencing that file would emit imagery nobody evaluated.
 
-Encoded imagery must be 8-bit, and greyscale or three-channel. An export refuses any other dtype or channel count
+Encoded imagery must be 8-bit, and grayscale or three-channel. An export refuses any other dtype or channel count
 rather than writing a black or unreadable corpus. Drop the view operation that normalizes the pixel range or changes
 the channel count.
 

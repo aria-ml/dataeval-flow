@@ -1,7 +1,7 @@
 # Measure band groups
 
 m3fd pairs a visible-light frame with a thermal one in the same record — four channels: three visible, one
-infrared. Left alone, every statistic reduces over all four channels together, so a colour statistic and a
+infrared. Left alone, every statistic reduces over all four channels together, so a color statistic and a
 thermal one are the same number. Declare `channel_groups:` to measure each one on its own, and a `stats:` policy to
 say which statistic families each group gets, whether the image background is measured too, and which views drive
 outlier detection and metadata factors.

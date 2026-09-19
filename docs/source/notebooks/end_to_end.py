@@ -16,64 +16,68 @@
 # %% [markdown]
 # # Run a full evaluation pipeline end to end
 #
-# Load a dataset, write one config file, run three workflows against it in a single call,
-# read the results — then run the identical pipeline in a container.
+# Load a dataset, configure three evaluation workflows in one YAML file, run the
+# pipeline in a single call, inspect results, and execute the identical pipeline
+# inside a container.
 
 # %% [markdown]
-# **Who this is for** — anyone who has DataEval Flow installed and wants to see the whole
-# operating loop once, start to finish, before drilling into any individual workflow.
+# **Target audience**: You are a model developer, data scientist, or T&E engineer
+# who wants to run a complete evaluation pipeline from configuration to containerized
+# execution.
 #
-# **Where this fits** — this is the shape of every DataEval Flow run: data on disk → a
-# config file → `run_tasks()` or `dataeval-flow` → result envelopes. The other tutorials
-# go deep on one workflow each; this one stays shallow and covers the full path.
+# **Workflow role**: This guide demonstrates an end-to-end evaluation pipeline:
+# dataset staging, configuration definition, pipeline execution via `run_tasks()`
+# or CLI, result inspection, and containerized execution.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# 1. **Load a dataset** — fetch SkySeaLand and export it in a layout DataEval Flow reads
-# 2. **Write the configuration** — one `end_to_end.yaml` describing the datasets, sources,
-#    extractor, three workflows, and three tasks
-# 3. **Run the pipeline** — `run_tasks()` executes all three tasks against the same data
-# 4. **Display the results** — reports, per-workflow detail, and the flagged images themselves
-# 5. **Export the results** — machine-readable envelopes for downstream tooling
-# 6. **Run it in Docker** — the same config file, no Python
+# 1. **Load a dataset**: Fetch SkySeaLand and export it in a layout supported by DataEval Flow.
+# 2. **Write the configuration**: Define datasets, sources, extractor, workflows, and tasks in `end_to_end.yaml`.
+# 3. **Run the pipeline**: Execute all tasks in a single call with `run_tasks()`.
+# 4. **Display results**: Inspect text reports, structured findings, and flagged images.
+# 5. **Export results**: Generate machine-readable result envelopes for downstream tools.
+# 6. **Run in Docker**: Execute the identical pipeline inside a container without Python code.
 
 # %% [markdown]
-# The three tasks are deliberately different shapes, because that is what a real evaluation
-# looks like:
+# The three tasks demonstrate different evaluation workflows:
 #
 # | Task | Workflow | Sources | Extractor | Answers |
 # | --- | --- | --- | --- | --- |
-# | `clean_train` | `data-cleaning` | train | BoVW | Is the training data fit to use? |
-# | `profile_splits` | `data-analysis` | train + test | — | Do the splits agree with each other? |
-# | `split_train` | `data-splitting` | train | — | How do I carve out train/val/test? |
+# | `clean_train` | `data-cleaning` | train | BoVW | Are training samples free of severe outliers and duplicates? |
+# | `profile_splits` | `data-analysis` | train + test | (none) | Do train and test splits share label distributions without leakage? |
+# | `split_train` | `data-splitting` | train | (none) | How should you partition training data into cross-validation folds? |
 
 # %% [markdown]
-# ## What you'll need
+# ## What you will learn
 #
-# - `dataeval-flow` (brings `dataeval`, `datamaite`, `pydantic`)
-# - `dataeval-plots` (to look at flagged images)
-# - `maite-datasets[datamaite]` (to fetch SkySeaLand and export it for DataEval Flow)
-# - Internet access on the first run; everything after that comes from disk
-# - Docker, for the last section only
+# - How to declare multiple evaluation workflows in a single YAML configuration file.
+# - How to run end-to-end pipelines using `run_tasks()` in Python.
+# - How to inspect text reports and query structured findings programmatically.
+# - How to export auditable result envelopes for CI/CD gates.
+# - How to execute pipelines inside Docker without Python code.
+
+# %% [markdown]
+# ## Prerequisites
+#
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `dataeval-plots` to visualize flagged images.
+# - Install `maite-datasets[datamaite]` to download and export SkySeaLand.
+# - Ensure network access for the initial download; subsequent runs read from disk.
+# - Install Docker if you plan to run the containerized execution section.
 
 # %% [markdown]
 # ## Step 1: Load the dataset
 #
 # [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
-# imagery detection dataset — 1,307 frames from four sites, 19,102 objects across `airplane`,
-# `boat`, `car` and `ship`. It arrives already partitioned by its publisher into `train`
-# (1,048 frames), `val` (132) and `test` (127). This pipeline uses `train` and `test`; two
-# splits is what makes the cross-split half of it meaningful.
+# object-detection dataset containing 1,307 frames from four sites, with 19,102 annotations
+# across `airplane`, `boat`, `car`, and `ship`. The dataset provides `train` (1,048 frames),
+# `val` (132), and `test` (127) splits. In this pipeline, you will evaluate `train` and `test`.
 
 # %% [markdown]
-# `maite-datasets` downloads the dataset, and `as_datamaite=True` writes it back out in a
-# format DataEval Flow reads directly — no conversion code to maintain here. Each export is
-# named after both the dataset and the `image_set`, so `train` and `test` land in two
-# directories instead of overwriting one another.
-#
-# That naming is not cosmetic: a COCO export records no split of its own, so a shared
-# directory would serve whichever split was written first to every later reader.
+# You can use `maite-datasets` with `as_datamaite=True` to export the dataset into standard
+# COCO format for DataEval Flow. Each export directory is named by dataset and `image_set`
+# to keep splits isolated on disk.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -82,8 +86,7 @@ from maite_datasets.object_detection import SkySeaLand
 
 data_root = Path("./data")
 
-# One ~262 MB download into ./data/skysealand, shared by both exports below.
-# A re-run reads what is already on disk instead of downloading again.
+# Download once into ./data/skysealand; exports reuse the cached download.
 SkySeaLand(root=data_root, image_set="base", download=True)
 
 split_paths = {name: data_root / f"skysealand_datamaite_{name}" for name in ("train", "test")}
@@ -95,10 +98,8 @@ print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 # %% [markdown]
 # ### Confirm it loads
 #
-# Before writing any config, check that DataEval Flow can actually read what you just wrote.
-# `load_dataset()` is the same loader the pipeline uses internally, so if this works the
-# config will too. There is no `split=` argument here — each split is its own directory, which
-# is exactly why the exports are named the way they are.
+# Before writing configuration, verify that DataEval Flow can read the exported files.
+# `load_dataset()` uses the same loader as the pipeline runtime.
 
 # %%
 from dataeval_flow import load_dataset
@@ -114,20 +115,18 @@ print(f"Classes:     {train_ds.metadata['index2label']}")
 # %% [markdown]
 # ## Step 2: Set up the configuration
 #
-# Everything about the run lives in one YAML file. The structure is **define once, reference
-# by name**:
+# You can define pipeline execution in a single YAML file using modular sections:
 #
 # | Section | What it declares |
 # | --- | --- |
 # | `datasets` | Where data lives and how to read it |
 # | `views` | How to narrow a dataset (limit, index range, class filter) |
-# | `sources` | A dataset plus an optional view — what tasks actually consume |
+# | `sources` | A dataset plus an optional view: the input consumed by tasks |
 # | `extractors` | How embeddings are produced |
-# | `workflows` | Named parameter sets, one per evaluation |
-# | `tasks` | Binds a workflow to sources (and an extractor when embeddings are used) |
+# | `workflows` | Named parameter sets for evaluations |
+# | `tasks` | Binds a workflow to sources (and an extractor when needed) |
 #
-# The file below sits next to this notebook. Read it top to bottom — the three `tasks` at
-# the end are the whole pipeline.
+# You can inspect the configuration file `end_to_end.yaml`:
 
 # %%
 config_path = Path("end_to_end.yaml")
@@ -136,9 +135,9 @@ print(config_path.read_text())
 # %% [markdown]
 # ### Load and validate it
 #
-# `load_config()` parses the YAML and validates it against the pipeline schema. Bad
-# parameters, unknown workflow types, and dangling name references all fail here — before
-# any data is touched.
+# You can call `load_config()` to parse the YAML file and validate it against the
+# pipeline schema. Validation catches invalid parameters, unknown workflow types,
+# and missing references before execution.
 
 # %%
 from dataeval_flow import load_config
@@ -154,13 +153,13 @@ print(f"Tasks:      {[(t.name, t.workflow, t.sources) for t in config.tasks]}")
 # %% [markdown]
 # ## Step 3: Run the pipeline
 #
-# `run_tasks()` executes every enabled task in order and returns one result per task.
+# You can execute all enabled tasks using `run_tasks()`:
 #
-# - `data_dir` is the root that every relative path in the config resolves against
-# - `cache_dir` persists embeddings, image statistics, and metadata between runs — the
-#   three tasks share one dataset, so the second and third reuse what the first computed
+# - `data_dir`: Base directory for resolving relative paths in configuration.
+# - `cache_dir`: Directory for caching embeddings, image statistics, and metadata
+#   across tasks and runs.
 #
-# This takes a few minutes on the first run and is much faster afterwards.
+# Tasks sharing datasets reuse intermediate calculations stored in the cache.
 
 # %% tags=["remove_output"]
 from dataeval_flow import run_tasks
@@ -185,27 +184,27 @@ clean_result, profile_result, split_result = results
 # %% [markdown]
 # ## Step 4: Display the results
 #
-# Every result carries the same three access points, whatever the workflow:
+# Each task result exposes three primary interfaces:
 #
-# - `result.report()` — formatted text summary, the thing you read first
-# - `result.data.report.findings` — the same findings as structured objects
-# - `result.data.raw` — the underlying numbers, per-workflow
+# - `result.report()`: Formatted text summary.
+# - `result.data.report.findings`: Structured finding objects.
+# - `result.data.raw`: Workflow-specific raw numerical metrics.
 #
-# `report(detailed=False)` gives the summary alone; the default `detailed=True` adds a
-# section per finding.
+# You can call `report(detailed=False)` for high-level summaries, or `report(detailed=True)`
+# for per-finding breakdowns.
 
 # %% [markdown]
-# ### 4a. The three summaries
+# ### 4a. Summary reports
 
 # %%
 for result in results:
     print(result.report(detailed=False))
 
 # %% [markdown]
-# ### 4b. Findings as data
+# ### 4b. Structured findings
 #
-# Each finding has a `title`, a `severity` (`ok` / `info` / `warning`), and a `description`.
-# This is what you'd assert on in a CI gate.
+# Each finding includes a `title`, `severity` (`ok`, `info`, or `warning`), and `description`.
+# You can query these programmatically in automated CI/CD gates.
 
 # %%
 for result in results:
@@ -216,11 +215,10 @@ for result in results:
         print(f"  {marker} {finding.title:<34} {headline[0][:60] if headline else ''}")
 
 # %% [markdown]
-# ### 4c. Cleaning — look at what was flagged
+# ### 4c. Data cleaning: Inspect flagged images
 #
-# The cleaning report says *how many* images were flagged. `result.data.raw` says *which
-# ones*, and `result.dataset` is the resolved post-view dataset, so the indices line up
-# directly — no reloading.
+# The cleaning report summarizes the count of flagged images. You can retrieve specific
+# sample indices from `result.data.raw` and slice `result.dataset` directly without reloading data.
 
 # %%
 raw = clean_result.data.raw
@@ -247,11 +245,10 @@ if outlier_indices:
     )
 
 # %% [markdown]
-# ### 4d. Analysis — where the splits disagree
+# ### 4d. Data analysis: Cross-split comparisons
 #
-# The analysis task is the only one that saw both splits, so it is the only one that can
-# report cross-split findings: shared label space, label parity, and duplicate leakage
-# between train and test.
+# The analysis task evaluates both train and test splits. It reports cross-split
+# overlap, class parity, and duplicate leakage across splits.
 
 # %%
 print(f"Splits analyzed: {profile_result.metadata.split_names}")
@@ -274,10 +271,10 @@ for pair, section in profile_result.data.raw.cross_split.items():
     )
 
 # %% [markdown]
-# ### 4e. Splitting — the partitions themselves
+# ### 4e. Dataset splitting: Partition indices
 #
-# The splitting result carries the actual index lists. Feed them straight to a
-# `Subset`/`DataLoader`, or persist them as the record of how the data was partitioned.
+# The splitting task generates explicit index lists for each fold. You can use
+# these indices to construct PyTorch `Subset` or `DataLoader` instances.
 
 # %%
 fold = split_result.data.raw.folds[0]
@@ -291,10 +288,9 @@ print(f"Test  indices (first 10): {split_result.data.raw.test_indices[:10]}")
 # %% [markdown]
 # ## Step 5: Export the results
 #
-# `export()` writes the **result envelope** — the findings plus the provenance that makes
-# them auditable: timestamp, tool version, dataset identifiers, and the fully resolved
-# configuration. This is the artifact you hand to another JATIC tool, attach to a review,
-# or diff against last week's run.
+# You can call `export()` to write the result envelope to disk. Result envelopes
+# contain findings alongside execution metadata: timestamps, tool versions,
+# dataset identifiers, and fully resolved configurations.
 
 # %%
 output_dir = Path("./output/end_to_end")
@@ -316,24 +312,22 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Step 6: Run the same pipeline in Docker
 #
-# Nothing above is Python-specific — the pipeline is the YAML file. The container reads the
-# same `end_to_end.yaml`, against the same exports under `data/`, and produces the same envelopes.
-# This is how the pipeline runs in CI or on a machine that has no Python environment.
+# You can execute the same YAML pipeline in Docker without Python dependencies.
+# The container consumes `end_to_end.yaml`, reads datasets from `/dataeval`, and
+# writes result envelopes to `/output`.
 #
-# The container has three mount points:
+# The container uses three mount paths:
 #
 # | Mount | Mode | Holds |
 # | --- | --- | --- |
-# | `/dataeval` | read-only | Data root — datasets, models, config files |
+# | `/dataeval` | read-only | Data root: datasets, models, configuration files |
 # | `/output` | read-write | Reports and result envelopes |
-# | `/cache` | read-write | Embedding and statistics cache (optional, speeds up re-runs) |
+# | `/cache` | read-write | Caches embeddings and statistics across runs |
 
 # %% [markdown]
 # ### Lay out the workspace
 #
-# One directory becomes the data root. Config at its top level, datasets underneath at the
-# paths the config names. Only the two exports travel — the raw download the exports were
-# built from is not read by the pipeline.
+# Create a root directory containing `end_to_end.yaml` and the exported dataset splits:
 #
 # ```bash
 # mkdir -p dataeval-run/data dataeval-run/output dataeval-run/cache
@@ -342,23 +336,12 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # cp docs/source/notebooks/end_to_end.yaml dataeval-run/
 #
 # tree -L 3 dataeval-run
-# # dataeval-run
-# # ├── cache
-# # ├── data
-# # │   ├── skysealand_datamaite_test
-# # │   │   ├── annotations
-# # │   │   └── sample_01049.jpg ...
-# # │   └── skysealand_datamaite_train
-# # │       ├── annotations
-# # │       └── sample_00001.jpg ...
-# # ├── end_to_end.yaml
-# # └── output
 # ```
 
 # %% [markdown]
 # ### Get the image
 #
-# Pull a pre-built image, or build one from a source checkout.
+# Pull the pre-built container image or build it locally:
 #
 # ```bash
 # # Pre-built (cpu / cu126 / cu130)
@@ -367,15 +350,15 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # # Optional: verify the signature
 # cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval:cpu
 #
-# # Or build locally from a checkout
+# # Or build locally from checkout
 # docker build -f docker/Dockerfile.cpu -t dataeval:cpu .
 # ```
 
 # %% [markdown]
 # ### Run it
 #
-# `--user` runs the container as your host user so `/output` and `/cache` are writable.
-# `-v` prints the full report to the console; `-vv` and `-vvv` add INFO and DEBUG logs.
+# Use `--user` so `/output` and `/cache` remain writable by your host account.
+# Use `-v` to print formatted reports to standard output.
 #
 # ```bash
 # cd dataeval-run
@@ -389,7 +372,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #     python -m dataeval_flow --config end_to_end.yaml -v
 # ```
 #
-# On a GPU host, add `--gpus all` and use a CUDA variant — the config does not change:
+# On GPU hosts, include `--gpus all` and select a CUDA image:
 #
 # ```bash
 # docker run --rm --gpus all \
@@ -402,16 +385,14 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # ```
 #
 # :::{note}
-# `--config` is optional. Without it the container auto-discovers and **merges every**
-# YAML/JSON file at the data root — convenient for a directory holding one config, wrong
-# for a directory holding several. Name the file explicitly when in doubt.
+# Specify `--config` explicitly when running with multiple YAML files in your data root.
+# Without `--config`, DataEval Flow merges all configuration files in the root directory.
 # :::
 
 # %% [markdown]
 # ### Read the output
 #
-# The container writes one merged `result.json` keyed by task name, one `result.txt`
-# holding the detailed text reports, and a run log.
+# The container produces `result.json`, `result.txt`, and run logs in `/output`:
 #
 # ```bash
 # find output -type f
@@ -420,33 +401,29 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # # output/results/result.txt
 # ```
 #
-# The same three findings sets you read in Step 4, now from the shell:
+# You can query the generated results using `jq`:
 #
 # ```bash
-# # Which tasks ran?
+# # Inspect executed tasks
 # jq -r 'keys[]' output/results/result.json
-# # clean_train
-# # profile_splits
-# # split_train
 #
-# # Every finding, with its severity
+# # Print findings and severities
 # jq -r 'to_entries[] | .key as $task | .value.report.findings[]
 #        | "\($task)\t\(.severity)\t\(.title)"' output/results/result.json
 #
-# # Fail a CI gate on any warning
+# # Gate CI/CD pipelines on warnings
 # jq -e '[.[].report.findings[] | select(.severity == "warning")] | length == 0' \
 #     output/results/result.json > /dev/null \
 #     && echo "PASS: no warnings" || echo "FAIL: warnings present"
 #
-# # The split indices, ready for downstream use
+# # Inspect split partition sizes
 # jq -r '.split_train.metadata.split_sizes' output/results/result.json
 # ```
 
 # %% [markdown]
 # ### Running offline
 #
-# Once the image and the dataset are staged locally, the run makes no outbound network
-# calls. Pin the environment to be sure:
+# Once container images and datasets are staged locally, you can run entirely offline:
 #
 # ```bash
 # docker run --rm --network none \
@@ -462,22 +439,25 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Conclusion
 #
-# You ran one dataset through three workflows, from raw download to exported envelopes, and
-# then ran the identical pipeline in a container with no Python involved.
+# In this tutorial, you learned how to:
 #
-# The pattern to keep:
+# - Stage dataset splits in isolated disk directories.
+# - Define multi-workflow pipelines in a single YAML configuration file.
+# - Execute pipelines using `run_tasks()` and the container CLI.
+# - Inspect formatted reports and extract structured findings.
+# - Export auditable result envelopes for CI/CD gates and downstream tools.
+# - Execute the complete evaluation pipeline inside Docker.
+
+# %% [markdown]
+# ## Next steps
 #
-# 1. Materialize the dataset on disk in a supported layout, one directory per split
-# 2. Describe the whole run in one config file — datasets, sources, extractors, workflows, tasks
-# 3. `run_tasks()` in Python, or `dataeval-flow` / the container in a shell
-# 4. Read `result.report()` interactively, `result.data.report.findings` programmatically
-# 5. `export()` the envelopes so a finding stays auditable after the session ends
+# - [Clean a dataset](data_cleaning): Deep dive into outlier and duplicate detection.
+# - [Analyze dataset quality across splits](data_analysis): Multi-split quality profiling and distribution shift.
+# - [Split a dataset](dataset_splitting): Stratification, cross-validation folds, and group-aware splitting.
+
+# %% [markdown]
+# ## Related guides
 #
-# ### Where to go next
-#
-# - [Clean a dataset](data_cleaning) — outlier and duplicate detection in depth
-# - [Analyze dataset quality across splits](data_analysis) — every assessment area the profile task touched
-# - [Split a dataset](dataset_splitting) — stratification, folds, and group-aware splitting
-# - [Run workflows in containers](../how_to/containerized_workflows.md) — every container option
-# - [Reuse results with the cache](../how_to/reuse_results_with_cache.md) — what is cached and when it invalidates
-# - [Read evaluation outputs](../how_to/read_evaluation_outputs.md) — the envelope format in detail
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) covers Docker execution options and flags.
+# - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md) explains caching behaviors and invalidation.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details result envelope structure and querying.

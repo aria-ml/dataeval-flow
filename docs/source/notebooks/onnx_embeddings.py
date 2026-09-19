@@ -16,14 +16,13 @@
 # %% [markdown]
 # # Use an ONNX model for embeddings
 #
-# This guide shows how to configure an ONNX extractor with preprocessing
-# transforms.  ONNX extractors use pretrained models (e.g. ResNet50) for
+# You can configure an ONNX extractor with preprocessing transforms to generate
+# embeddings from pretrained models such as ResNet-50. Pretrained models provide
 # higher-fidelity embeddings than lightweight methods like BoVW.
 #
 # :::{important}
-# ONNX support is an optional extra and is **not** installed by default. Without it
-# the config below still validates, but running a task that uses the extractor fails
-# on import:
+# ONNX support is an optional extra and is not installed by default. Without it,
+# your configuration validates, but task execution fails on import:
 #
 # ```bash
 # pip install "dataeval-flow[onnx]"          # CPU
@@ -31,14 +30,13 @@
 # pip install "dataeval-flow[onnx-cu130]"    # CUDA 13.0
 # ```
 #
-# The CUDA variants pin an `onnxruntime-gpu` build against a specific CUDA major, so
-# pick the one matching your torch build.
+# Select the CUDA variant that matches your PyTorch installation.
 # :::
 
 # %% [markdown]
 # ## Used in these tutorials
 #
-# These tutorials reference this guide for swapping in higher-fidelity embeddings:
+# You can reference this guide to configure higher-fidelity embeddings in:
 #
 # - [Clean a dataset](data_cleaning)
 # - [Analyze dataset quality across splits](data_analysis)
@@ -121,6 +119,6 @@ resnet_preprocess = PreprocessorConfig(
 # | Embedding quality | High (pretrained features) | Good (learned visual words) |
 # | Setup complexity | Higher | Minimal |
 #
-# Use ONNX when cluster-based detection benefits from richer feature
-# representations.  Use BoVW (see the [data cleaning tutorial](data_cleaning))
-# for a simpler setup with no external model dependencies.
+# Use ONNX when your tasks require rich feature representations from pretrained
+# models. Use BoVW (see [Clean a dataset](data_cleaning)) when you need a lightweight
+# setup without external model files.

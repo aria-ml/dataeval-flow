@@ -20,64 +20,43 @@
 # embedding blind spots using the config-driven `data-coverage` workflow.
 
 # %% [markdown]
-# **Who this is for** — T&E engineers and data scientists who need to establish
-# whether a dataset actually spans the operational conditions a model will face,
-# before that dataset is used to train or to certify.
+# **Target audience**: You are a T&E engineer or data scientist who needs to verify
+# that a dataset covers required operational conditions and label taxonomies before
+# model training or certification.
 #
-# **Where this fits** — Coverage assessment belongs at the front of the data
-# pipeline, alongside [data cleaning](data_cleaning). Cleaning asks whether the
-# data you collected is *sound*; coverage asks whether it is *complete* — whether
-# any sanctioned class, metadata condition, or region of the embedding space was
-# never collected at all. Gaps found here drive targeted collection, and they
-# bound how much a downstream [drift](drift_monitoring) or
-# [OOD](ood_detection) baseline can be trusted: a reference set with a blind spot
-# cannot flag drift into it. See the
-# [Dataset coverage](../concepts/Coverage.md) concept page for the ideas behind
-# the checks.
+# **Workflow role**: You should run coverage assessment during early data preparation
+# alongside [Clean a dataset](data_cleaning). While data cleaning checks data quality,
+# coverage evaluates completeness across classes, metadata factors, and feature spaces.
+# Gaps identified here inform data collection and establish trustworthy baselines for
+# [Monitor incoming data for drift](drift_monitoring) and
+# [Detect out-of-distribution samples](ood_detection). See [Dataset coverage](../concepts/Coverage.md)
+# for background.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# - Load the **MilitaryVehicles** ground-vehicle dataset and simulate a
-#   collection cycle that missed an entire vehicle category, using a
-#   `ClassFilter` view operation
-# - Run the `data-coverage` workflow **without** an extractor to surface
-#   label and metadata issues quickly
-# - Find that the collection looks **healthy by count** — and see why that
-#   is not the same as being complete
-# - Declare an **ontology** — and use the taxonomy the dataset already ships
-#   to name the categories raw counts never could
-# - Re-run **with** a BoVW extractor to add per-class embedding variety
-#   signals and dimensional completeness analysis
-# - Read the built-in **coverage report** and drill into raw results
-# - Tune **health thresholds** to control when findings become warnings
+# - Load MilitaryVehicles and filter out the Air Defense category using `ClassFilter` to simulate missing collection categories.
+# - Execute `data-coverage` without an extractor for rapid label and metadata gap analysis.
+# - Evaluate class balance metrics and identify why count-based metrics alone do not detect missing categories.
+# - Define an ontology using the dataset taxonomy to expose unsampled concepts.
+# - Re-run coverage with a BoVW extractor to evaluate embedding dispersion and dimensional completeness.
+# - Inspect coverage reports and configure health thresholds.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# - Why a well-balanced class distribution is **not** evidence of coverage,
-#   and what question it actually answers
-# - How to configure and run the `data-coverage` workflow via `run_task()`
-# - The two orthogonal axes coverage measures: **which categories you
-#   have** — your labels checked against an ontology — and **how varied
-#   each one is** — your embeddings checked for clustering, low
-#   dimensionality, and duplication
-# - Why a class with zero examples is invisible to counts but visible to
-#   an ontology, and why a class can be "well represented" by count and
-#   still be embedding-collapsed
-# - That an **empty concept is not automatically a defect** — sometimes it
-#   tells you the ontology is broader than the collection's scope, which is
-#   a different finding with a different response
-# - That whether a count-based check can name a missing class depends on
-#   whether your loader still declares it
-# - How to adjust health thresholds for different risk tolerances
+# - How to configure and execute `data-coverage` with `run_task()`.
+# - How coverage evaluates two orthogonal axes: taxonomic representation (ontology) and visual variation (embeddings).
+# - Why count-based distributions fail to detect unsampled classes when loaders drop missing categories.
+# - How to distinguish genuine collection gaps from intentional ontology scope boundaries.
+# - How to adjust health thresholds for varying domain risk tolerances.
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `maite-datasets` (to download MilitaryVehicles)
-# - Internet connection (first run only — the dataset is cached under `./data`)
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `maite-datasets` to download MilitaryVehicles.
+# - Ensure network access for the initial dataset download.
 
 # %% [markdown]
 # ### Step-by-step guide
@@ -85,20 +64,13 @@
 # %% [markdown]
 # ## Data Preparation: a collection with a hole in it
 #
-# You are standing up a ground-vehicle recognition capability. The label space
-# is not "whatever we happened to photograph" — it is a **taxonomy**, agreed in
-# advance, of the vehicle types the system is required to recognize.
+# Operational recognition systems require predefined label taxonomies. MilitaryVehicles
+# provides a `hierarchy` attribute categorizing tanks, BMPs, BTRs, self-propelled
+# artillery, air defense systems, and related vehicle types.
 #
-# MilitaryVehicles ships exactly that: a `hierarchy` attribute describing
-# tanks, BMPs, BTRs, self-propelled artillery, air defense systems and two
-# one-off types, all nested under `land vehicle`, with `watercraft` and
-# `aircraft` declared alongside. That is a real ontology, versioned with the
-# dataset, rather than one invented for a tutorial.
-#
-# To simulate a collection cycle that went wrong, we drop the whole **Air
-# Defense** category with a `ClassFilter` view operation. Everything else about
-# the data — the class counts, the imagery, the imbalance — stays exactly as
-# collected.
+# You will drop the Air Defense category using `ClassFilter` to simulate a collection
+# cycle that missed a required category. All remaining class counts and imagery remain
+# unmodified.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -119,10 +91,8 @@ index2label = vehicles_raw.metadata.get("index2label", {})
 AIR_DEFENSE = {"30N6E", "Iskander", "Pantsir-S1", "Rs-24"}
 collected_classes = [i for i, name in index2label.items() if name not in AIR_DEFENSE]
 
-# `ClassFilter` is what enforces the gap — it reads each frame's own label, so nothing
-# here re-derives the label space by hand. `Shuffle` then `Limit` samples the result to
-# keep the tutorial quick; coverage findings are about *which categories exist*, which a
-# random sample preserves.
+# `ClassFilter` enforces the gap by filtering on sample labels.
+# `Shuffle` and `Limit` sample the result for faster execution.
 collected = View(vehicles_raw, [ClassFilter(collected_classes), Shuffle(seed=0), Limit(1500)])
 
 print(f"Full collection:  {len(vehicles_raw)} frames, {len(index2label)} types")
@@ -163,30 +133,21 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# The distribution is **fine**. Largest to smallest is under 2:1 — comfortably
-# inside any reasonable imbalance threshold. Nothing about these bars is a
-# warning, and a collection this even is not what a broken pipeline looks like.
-#
-# The chart also cannot show what is not there: four sanctioned vehicle types
-# have no bar, because a chart plotted from the data has no row for a category
-# the data contains none of. Whether anything *else* can name them turns out to
-# depend on a detail we come back to in Step 1.
+# The sample distribution shows an imbalance ratio under 2:1. Count-based checks
+# indicate a balanced dataset, but cannot identify missing categories absent an
+# external ontology definition.
 
 # %% [markdown]
 # ## Step 1: Run coverage without an extractor (metadata only)
 #
-# The `data-coverage` workflow can run **without** an extractor for a
-# fast first pass. This skips embedding coverage and completeness but
-# still analyzes label distribution, metadata distribution, metadata
-# gaps, and — since no `ontology` is configured yet — a class balance
-# worklist synthesized from the dataset's own declared classes.
+# You can execute `data-coverage` without an extractor for a fast initial pass.
+# This pass skips embedding coverage and dimensional completeness while evaluating
+# label distributions, metadata distributions, and cross-tabulated metadata gaps.
 #
-# For metadata we use **intrinsic factors**: statistics computed from the
-# imagery itself (brightness, contrast, sharpness, and so on). This dataset
-# carries no collection metadata of its own, and rather than invent some, we
-# measure what is actually in the frames. Gap analysis then cross-tabulates
-# class against binned factor values, which answers a real question: *was any
-# vehicle type only ever imaged under one set of conditions?*
+# You will evaluate intrinsic image factors (such as brightness, contrast, and
+# sharpness) as metadata conditions. Gap analysis cross-tabulates class labels against
+# binned factors to detect whether particular vehicle classes were imaged under
+# limited operational conditions.
 
 # %%
 from dataeval_flow.config import PipelineConfig, SourceConfig
@@ -206,9 +167,7 @@ vehicle_factors = MetadataPolicyConfig(
     # width describe the crop, not the scene. Ask for measured image statistics instead.
     intrinsic_factors=["visual", "pixel"],
     exclude=["id", "height", "width"],
-    # Declare the bins rather than letting them be inferred. Auto-binning derives the bin
-    # count from the data, so the same factor measured on two samples is not comparable —
-    # fine for a one-off look, wrong for anything you intend to track over time.
+    # Explicitly declared bins keep factor cuts consistent across runs.
     continuous_factor_bins={
         "brightness": 5,
         "contrast": 5,
@@ -232,7 +191,7 @@ metadata_only_workflow = DataCoverageWorkflowConfig(
     balance=True,
     diversity_method="simpson",
     health_thresholds=DataCoverageHealthThresholds(
-        class_imbalance_ratio=3.0,  # Tight — we want to catch even moderate imbalance
+        class_imbalance_ratio=3.0,  # Catch moderate class imbalance
         gap_count=2,  # Warn if >= 2 gaps found
     ),
 )
@@ -241,7 +200,7 @@ task_metadata = DataCoverageTaskConfig(
     name="vehicles-coverage-metadata",
     workflow="coverage-metadata-only",
     sources="vehicles_src",
-    # No extractor — metadata-only pass
+    # No extractor for metadata-only pass
 )
 
 config_metadata = PipelineConfig(
@@ -263,7 +222,7 @@ result_metadata = run_task(task_metadata, config_metadata, cache_dir=Path("./cac
 # ### Coverage report (metadata only)
 #
 # The report summarizes label distribution, metadata distribution,
-# metadata gaps, and a class balance worklist. Since we didn't configure
+# metadata gaps, and a class balance worklist. When you run without
 # an extractor, embedding coverage and completeness are skipped.
 
 # %%
@@ -290,7 +249,7 @@ for cls, count in by_size[-5:]:
     print(f"  {cls:<26} {count}")
 
 # %%
-# Metadata gaps — where a class was only ever imaged under some conditions
+# Metadata gaps: evaluate if a class was only imaged under narrow conditions
 if raw.metadata_gaps and raw.metadata_gaps.gaps:
     print(f"Metadata coverage gaps: {len(raw.metadata_gaps.gaps)}\n")
 
@@ -312,41 +271,21 @@ else:
 # %% [markdown]
 # ### Interpreting the findings
 #
-# Two things are worth stopping on.
+# In this output, the imbalance ratio (1.8:1) satisfies the configured threshold.
+# However, a warning appears because four declared classes have zero samples.
 #
-# **The imbalance check passes and the label distribution warns anyway.** The
-# ratio is 1.8:1, nowhere near the 3:1 we configured. The warning comes from a
-# different clause of the same finding — *4 declared class(es) have zero
-# samples* — naming all four Air Defense systems.
-#
-# That deserves scrutiny rather than applause, because it depends on how the data
-# got here. `ClassFilter` removes *samples*; it does not rewrite the dataset's
-# `index2label`. This view therefore still declares twenty-four classes and
-# reports twenty of them with counts. A collection that genuinely never captured
-# those systems — no folder, no label entry — would declare twenty classes, and
-# there would be nothing left for this finding to name. **The workflow can report
-# an empty class only while something still declares it.** Getting this warning
-# for free is a property of your loader, not of your collection.
-#
-# **No metadata gaps.** Gap analysis cross-references class labels against binned
-# intrinsic factors and looks for combinations under-represented relative to an
-# even spread. Nothing cleared the default mutual-information threshold, and that
-# is the honest answer: measured image statistics are not strongly
-# class-predictive in this dataset, so there is no "this vehicle type was only
-# ever imaged in bright conditions" story to tell. A null result is a result.
-#
-# So the classes are balanced, the imagery is not conditioned on class, and the
-# one warning we did get arrived by luck of the loader. Step 2 asks the question
-# that does not depend on luck.
+# `ClassFilter` removed samples while leaving `index2label` intact in the dataset
+# metadata. If a dataset loader drops unused category entries completely, count-based
+# workflows cannot detect missing categories. To guarantee detection of missing
+# classes regardless of dataset metadata formatting, you should declare an ontology.
 
 # %% [markdown]
 # ## Step 2: Declare the sanctioned label space
 #
-# A recognition system is specified against a taxonomy, not against a
-# collection. Writing that taxonomy down as an **ontology** is what lets the
-# workflow name a class that was never collected at all.
+# When you supply an ontology, the workflow compares dataset labels against the
+# full taxonomy specification.
 #
-# MilitaryVehicles already carries one, so there is nothing to invent:
+# You will load the hierarchy attribute from MilitaryVehicles as your ontology:
 
 # %%
 import json
@@ -354,8 +293,8 @@ import json
 print(json.dumps(MilitaryVehicles.hierarchy, indent=2)[:900] + "\n...")
 
 # %% [markdown]
-# Note `watercraft` and `aircraft` sitting alongside `land vehicle` with nothing
-# under them. Hold on to that — it matters in a moment.
+# The hierarchy defines `land vehicle` along with `watercraft` and `aircraft`.
+# When evaluated against this taxonomy, unsampled concepts will be identified.
 
 # %%
 vehicle_ontology = MilitaryVehicles.hierarchy
@@ -387,7 +326,7 @@ print(f"source: {onto.source} (synthesized={onto.synthesized})")
 print(f"leaf coverage: {onto.representation.leaf_coverage:.0%}")
 print(f"total deficit: {onto.representation.total_deficit} labels\n")
 
-print("Dark branches — whole regions of the label space with nothing in them:")
+print("Dark branches: whole regions of the label space with zero examples:")
 for branch in onto.representation.dark_branches:
     print(f"  {branch.label:<16} {branch.leaves} leaf class(es), zero examples")
 
@@ -398,84 +337,53 @@ for row in onto.representation.worklist[:8]:
 # %% [markdown]
 # ### What the ontology adds
 #
-# Four new sections replace the Class Balance Worklist:
+# Declaring an ontology provides four additional evaluation sections:
 #
-# - **Label Space Coverage** — 76.9% leaf coverage, six concepts to acquire, a
-#   deficit of 358 frames. Four of the six are the Air Defense systems Step 1
-#   also named. **The other two are the point**: `aircraft` and `watercraft` are
-#   sanctioned by the taxonomy and were never in this dataset's vocabulary at
-#   all — no label index, no folder, nothing for a count to notice. No amount of
-#   reading the data surfaces them; only a declared label space does.
-# - **Label Conformance** — every collected class name resolves to a concept,
-#   so the label set conforms. Nothing was captured that the taxonomy does not
-#   sanction.
-# - **Label Alignment** — the collected names already *are* the ontology's leaf
-#   names, so alignment is lossless. Conformance reports whether a name
-#   resolves; alignment reports what it maps to, and provides a `Relabel` stanza
-#   you can paste into a view to conform a dataset whose spellings differ.
-# - **Ontology Structure** — the artifact itself: 34 concepts, 26 leaves,
-#   depth 4, no collisions.
-#
-# The worklist turns that into a collection order: six `acquire` rows at 58
-# frames each, then `augment` rows for the thinnest classes actually collected.
+# - **Label Space Coverage**: Identifies leaf coverage (76.9%) and specific missing
+#   concepts. In addition to the four held-out Air Defense classes, it surfaces
+#   `aircraft` and `watercraft` concepts defined in the taxonomy.
+# - **Label Conformance**: Verifies whether all collected dataset classes exist in the ontology.
+# - **Label Alignment**: Shows mapping between dataset class names and ontology concepts,
+#   providing relabeling rules where names differ.
+# - **Ontology Structure**: Reports concept hierarchy size, leaf counts, and depth.
 
 # %% [markdown]
 # ### Read the worklist with scope in mind
 #
-# One branch comes back dark: `Air Defense`, four leaves, zero examples. That is
-# a real finding. It sits under `land vehicle` alongside the categories we did
-# collect, it was in scope, and it is missing. `dark_branches` rolls missing
-# leaves up to the highest wholly-empty concept, so this is reported once rather
-# than four times.
+# The report flags `Air Defense` as a dark branch (4 leaves, 0 samples). This represents
+# an in-scope gap that requires targeted data collection.
 #
-# `aircraft` and `watercraft` are a different matter. They are leaves in their
-# own right rather than branches, so they do not appear in the dark-branch
-# rollup — they appear in the worklist, as `acquire` rows wanting 58 frames
-# each. Acquiring them would be absurd: this is a *ground-vehicle* collection.
-# They are empty because the taxonomy is broader than the collection's scope,
-# not because anything went wrong.
-#
-# The workflow cannot tell those apart for you. Scope is your knowledge, not the
-# data's. What it buys you is that the question gets asked at all — six named
-# concepts with nothing in them, each one either a gap to fill or a scope
-# boundary to write down and stop re-litigating.
-#
-# It is also the argument for keeping the ontology no broader than what you
-# intend to field. Rooted at `land vehicle`, this collection would be scored
-# against concepts it is actually responsible for, and `dark_branch_count=0`
-# would be a meaningful health threshold rather than a permanent warning.
+# The report also flags `aircraft` and `watercraft`. For a ground-vehicle system,
+# these categories represent ontology concepts outside operational scope. You should
+# scope your ontology to match operational requirements so health thresholds track valid
+# system targets.
 
 # %% [markdown]
 # ### When a label does not reconcile
 #
-# Conformance catches the opposite problem: a class name the ontology does not
-# sanction. Reconciliation is exact, not fuzzy, so a typo or an unsanctioned
-# class shows up as **unmatched**.
+# Label conformance performs exact matching against ontology concepts. Any misspellings
+# or unsanctioned classes are flagged as unmatched:
 
 # %%
 from dataeval import Ontology
 from dataeval.core import label_reconciliation
 
-# The workflow builds this for you from the `ontology` field; here we construct
-# the same object directly so we can reconcile an arbitrary label list against it.
+# The workflow builds this automatically from the `ontology` field. You can also
+# construct the object directly to reconcile arbitrary label lists against it.
 ontology_obj = Ontology.from_hierarchy(vehicle_ontology)
 check = label_reconciliation(["T-72", "BTR-80", "T72", "technical"], ontology_obj)
 print("matched:  ", dict(check["matched"]))
 print("unmatched:", list(check["unmatched"]))
 
 # %% [markdown]
-# `T-72` and `BTR-80` resolve. `T72` does not — the hyphen matters, and exact
-# reconciliation is the point: a silent fuzzy match on vehicle designations is
-# exactly the kind of convenience that turns a labelling error into a training
-# set. `technical` does not resolve either, because the taxonomy does not
-# sanction it.
+# `T-72` and `BTR-80` match successfully. `T72` fails due to the missing hyphen,
+# and `technical` fails because it is absent from the ontology.
 
 # %% [markdown]
 # ### Sharing one ontology across workflows
 #
-# The example above passes the ontology inline, which is the simplest form. When several
-# workflows read the same label space, define it once under `ontologies:` and reference it
-# by name so the definitions cannot drift apart:
+# You can define ontologies centrally under `ontologies:` in YAML and reference them
+# by name across tasks:
 #
 # ```yaml
 # ontologies:
@@ -491,34 +399,19 @@ print("unmatched:", list(check["unmatched"]))
 #     type: data-coverage
 #     ontology: vehicles
 # ```
-#
-# Use `concepts:` to add concepts on top of `source` when you need to extend an artifact you
-# do not own. Give each declared concept the dataset's own spelling under `synonyms`:
-# alignment matches on labels and synonyms, and a concept without the dataset's spelling
-# will not match that class. Flow reads a workflow's `ontology:` value as a name first and
-# as a path second, so configurations that name a file keep working.
 
 # %% [markdown]
 # ## Step 3: Run coverage with an extractor (full analysis)
 #
-# Now we add a **BoVW** (Bag of Visual Words) extractor to unlock
-# embedding-based analyses: **embedding coverage** and **dimensional
-# completeness**. These tell us whether the dataset's feature space has
-# blind spots that metadata alone can't reveal.
+# You can add an extractor to evaluate embedding coverage and dimensional completeness.
 #
-# Embedding coverage checks whether the feature space has uncovered
-# regions — areas where the model would encounter inputs unlike anything
-# in the training data. Dimensional completeness measures how
-# effectively the data explores the embedding dimensions.
+# Embedding coverage identifies low-density or uncovered regions in feature space.
+# Dimensional completeness evaluates how uniformly samples span embedding dimensions.
 #
-# We use a 256-word vocabulary — the smallest `vocab_size` the config schema
-# allows (`ge=256`). `isotropy` — how many independent directions a class varies
-# in — is only defined when a class has more samples than embedding dimensions,
-# and our sampled classes sit below 256, so it reports `null` throughout. That
-# is a real result, not a failure: the classes are too small relative to BoVW's
-# minimum embedding width for shape to be measurable. `dispersion` and
-# `near_duplicate_fraction` only require `min_class_samples` (default 20) and
-# are unaffected — they are the columns doing the work here.
+# You will configure a BoVW extractor with a 256-word vocabulary. Note that `isotropy`
+# requires more samples per class than embedding dimensions. For classes with fewer
+# than 256 samples, isotropy reports `null`, while `dispersion` and `near_duplicate_fraction`
+# evaluate fully.
 
 # %%
 from dataeval.config import set_max_processes
@@ -579,28 +472,16 @@ print(result_full.report())
 # %% [markdown]
 # ### Reading the per-class columns
 #
-# The dataset-wide uncovered count is a triage shortlist — with
-# `coverage_method="adaptive"` it returns exactly `coverage_percent` of
-# observations, so its *rate* restates your config rather than measuring your
-# data. 15 of 1,500, at the 1% we asked for. The per-class columns are the part
-# that depends on what you collected:
+# You should evaluate the per-class embedding metrics:
 #
-# - **dispersion** — how far the class spreads, relative to a typical
-#   class. Around 1 is normal; well below means **clustered**.
-# - **isotropy** — in how many independent directions it spreads. Low
-#   means **one-dimensional** even when dispersion looks fine.
-# - **near_duplicate_fraction** — the share sitting in near-identical
-#   pairs. High means **padded with repeated frames**.
+# - **dispersion**: Class variance relative to average class variance. Values near 1.0
+#   indicate typical spread; low values indicate tight clustering.
+# - **isotropy**: Directional variance across embedding dimensions. Low values indicate
+#   variation concentrated along few principal axes.
+# - **near_duplicate_fraction**: Proportion of samples in near-identical pairs.
 #
-# None of them fire. Dispersion sits between 0.97 and 1.01 across all twenty
-# classes — which is what "relative to a typical class" looks like when every
-# class is typical. `near_duplicate_fraction` is 0.00 everywhere: nothing here
-# is padded with repeated frames. `isotropy` is `null` throughout, for the
-# sample-count reason above.
-#
-# That is a clean bill of health, and it is worth stating plainly rather than
-# hunting for something to flag. This collection has no embedding pathology. Its
-# problem lies entirely on the other axis — the categories that are not in it.
+# Across all 20 classes, dispersion is balanced (~1.0) and near-duplicate fractions are 0.00,
+# showing healthy feature-space coverage for sampled classes.
 
 # %% [markdown]
 # ### Inspect embedding results
@@ -656,14 +537,12 @@ else:
 # | `dark_branch_count` | 0 | 0 | 2–5 |
 # | `unmatched_class_count` | 0 | 0 | 3–10 |
 #
-# All ten are required numbers — there is no `None` to switch one off. To
-# stop a metric from ever warning, set it past what the data can reach
-# (`uncovered_rate=100.0`, `leaf_coverage=0.0`, and so on).
+# All ten threshold parameters require numeric values. To prevent a metric from
+# triggering a warning, set it beyond reachable ranges (`uncovered_rate=100.0`,
+# `leaf_coverage=0.0`).
 #
-# `uncovered_rate` applies only when `coverage_method="naive"`. The three
-# label-space thresholds apply only when an `ontology` is configured —
-# against a synthesized one they would be scoring their own construction.
-# Because `coverage-full` carries the real ontology forward, they bite here.
+# `uncovered_rate` applies when `coverage_method="naive"`. Label-space thresholds
+# apply when an explicit ontology is configured.
 
 # %%
 strict_thresholds = DataCoverageHealthThresholds(
@@ -703,18 +582,11 @@ result_strict = run_task(task_strict, config_strict, cache_dir=Path("./cache"))
 print(result_strict.report())
 
 # %% [markdown]
-# Exactly one more finding escalates: **Dimensional Completeness**, at 0.578, is
-# informational against the default 0.5 and a warning against the strict 0.6.
-# Two warnings become three.
+# Exactly one additional warning triggers: Dimensional Completeness (0.578) falls below
+# the strict 0.6 threshold.
 #
-# One finding, not a cascade — and that is the useful observation. Tightening a
-# threshold changes an outcome only when the measured value sits near it.
-# `class_imbalance_ratio` went from 3.0 to 2.0 and still does not fire, because
-# the data is at 1.8. `max_near_duplicate_fraction` went from 0.1 to 0.02 and
-# still does not fire, because the data is at 0.00. Thresholds are how you tune
-# sensitivity to a metric you are already measuring; they are not a way to make
-# a count-based check notice a category that is missing entirely. Only the
-# ontology does that.
+# You can adjust individual health thresholds to match your domain tolerance without
+# altering underlying data calculations.
 
 # %% [markdown]
 # ## Results Exploration: Export results
@@ -727,74 +599,40 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial you learned how to:
+# In this tutorial, you learned how to:
 #
-# - **Simulate a collection gap** with a `ClassFilter` view operation, leaving
-#   everything else about the data exactly as collected
-# - **Run coverage without an extractor** for a fast metadata-only pass that
-#   checks class balance and cross-tabulates classes against measured image
-#   statistics
-# - **Recognize a clean bill of health for what it is** — a well-balanced class
-#   distribution answers "are the classes I have evenly represented?", which is
-#   a different question from "did I collect the right ones?"
-# - **Understand why an empty class is sometimes visible to a count** — because
-#   the label map still declares it — and why that is luck rather than coverage
-# - **Declare an ontology** — here, the taxonomy the dataset already ships — and
-#   see `Label Space Coverage` name concepts the dataset's own vocabulary never
-#   contained
-# - **Read the worklist with scope in mind**, distinguishing a genuine
-#   collection gap from an ontology broader than the collection's remit
-# - **Add an extractor** to unlock per-class embedding signals
-#   (dispersion, isotropy, near-duplicate fraction) and dimensional completeness
-# - **Tune health thresholds** to match your domain's risk tolerance
+# - Simulate missing categories using `ClassFilter` view operations.
+# - Execute metadata-only coverage to assess class balance and cross-tabulated factor gaps.
+# - Benchmark class counts against an ontology to detect missing categories.
+# - Define and reconcile label taxonomies using ontologies.
+# - Configure feature extractors to evaluate embedding dispersion and dimensional completeness.
+# - Tune health thresholds to enforce strict domain requirements.
+# - Export structured coverage results to JSON.
 #
-# The result on this dataset is worth stating bluntly: **every check that looks
-# inside the collection passes.** The classes are balanced at 1.8:1. No metadata
-# gap clears the threshold. Dispersion is ~1.0 for all twenty classes and the
-# near-duplicate fraction is zero. Tightening every threshold at once adds a
-# single warning. By any within-data measure this is a healthy dataset.
-#
-# It is also missing 23% of its sanctioned label space, and that is the finding
-# that matters. Coverage has **two orthogonal axes**. *How varied each category
-# is* is an embeddings question, and this collection answers it well. *Which
-# categories you have at all* is a labels-against-an-ontology question, and no
-# amount of measuring the data you collected will answer it — you have to state
-# what you were supposed to collect. Running `data-coverage` before training
-# catches both kinds of blind spot early, when they're cheapest to fix.
+# You should assess both label completeness against ontologies and feature diversity
+# in embedding space to ensure comprehensive dataset coverage.
 
 # %% [markdown]
-# ## What's next
+# ## Next steps
 #
-# - **Data cleaning** — Use the `data-cleaning` workflow to flag
-#   outliers and duplicates in your dataset before training
-# - **Drift monitoring** — After deploying, use `drift-monitoring` to
-#   detect when incoming data drifts away from your training distribution
-# - **Targeted collection** — Use the worklist rows to drive the next
-#   collection cycle: the four Air Defense systems, in the quantities the
-#   `acquire` rows name
-# - **Ship a real ontology** — Replace the inline hierarchy with a
-#   versioned SKOS or OWL file (`ontology: ./taxonomy.ttl`), which also
-#   carries synonyms, definitions and stable concept ids. Needs
-#   `pip install "dataeval[ontology]"`.
-# - **Targeted labeling** — Feed the gap findings into the
-#   [prioritization workflow](data_prioritization) to rank unlabeled candidates
-#   that fall in the under-covered regions
+# - **Data cleaning**: Use [Clean a dataset](data_cleaning) to detect outliers and duplicates.
+# - **Drift monitoring**: Use [Monitor incoming data for drift](drift_monitoring) to track
+#   operational distribution shifts.
+# - **Targeted prioritization**: Feed coverage gap targets into [Prioritize unlabeled data](data_prioritization)
+#   to prioritize acquisition of missing concepts.
 
 # %% [markdown]
 # ## Related guides
 #
-# - **Concept** — [Dataset coverage](../concepts/Coverage.md): the label-space
-#   and embedding-space completeness ideas behind this workflow.
-# - **How-to: Declare an ontology** — [Declare an ontology](../how_to/declare_an_ontology.md)
-#   to define the sanctioned label space this workflow checks a dataset against,
-#   inline or as a versioned SKOS/OWL file.
-# - **How-to: Build dataset views** — [Build dataset views](../how_to/build_dataset_views.md)
-#   for the `ClassFilter`, `Shuffle` and `Limit` operations used to shape the data here.
-# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
-#   to build a container image, write a YAML config, and run this workflow with `docker run`.
-# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
-#   to swap the BoVW extractor used here for a pretrained model with higher-fidelity embeddings.
-# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
-#   to interpret the coverage report, its health severities, and the exported result envelope.
-# - **How-to: Reuse results with the disk cache** — [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md)
-#   for the `cache_dir` used throughout this tutorial — what it stores and what invalidates it.
+# - **Concept**: [Dataset coverage](../concepts/Coverage.md) covers label-space
+#   and embedding-space coverage theory.
+# - **How-to**: [Declare an ontology](../how_to/declare_an_ontology.md) explains
+#   defining label spaces via inline dictionaries or SKOS/OWL files.
+# - **How-to**: [Build dataset views](../how_to/build_dataset_views.md) covers
+#   view operations such as `ClassFilter`, `Shuffle`, and `Limit`.
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
+#   running coverage tasks in Docker.
+# - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) covers configuring
+#   pretrained ONNX models for coverage feature extraction.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details
+#   how to parse reports and export envelopes.

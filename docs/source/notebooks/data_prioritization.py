@@ -20,67 +20,56 @@
 # label next, given an already-labeled reference dataset and a trained model.
 
 # %% [markdown]
-# **Who this is for** — Model developers and data scientists running an active-learning
-# or labeling loop who need to spend a limited labeling budget on the most informative
-# samples.
+# **Target audience**: You are a model developer or data scientist managing an
+# active-learning or labeling pipeline who needs to prioritize unlabeled data
+# under budget constraints.
 #
-# **Where this fits** — Prioritization sits in the data-acquisition stage of the T&E
-# workflow: given a trained model and labeled reference data, it ranks unlabeled
-# incoming data so the next labeling batch targets novel or hard cases — closing the
-# loop back to [dataset splitting](dataset_splitting) and retraining. See the
-# [Prioritization](../concepts/Prioritization.md) concept page for the ranking methods.
+# **Workflow role**: Prioritization operates during data acquisition. Given
+# reference data and a trained model, it ranks unlabeled inputs to target novel
+# or challenging cases before retraining. See [Prioritization](../concepts/Prioritization.md)
+# for background on ranking policies.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# - Load MilitaryVehicles and split it into a **labelled pool** and an **unlabelled pool**
-# - Train a classifier on the labelled pool, which covers 20 of the dataset's 24 vehicle
-#   types — the four **Air Defense** systems are held out, standing in for a capability
-#   that has not been annotated yet
-# - Inject corrupted and duplicate frames into the unlabelled pool, because real pools
-#   contain junk you would rather not spend labelling budget on
-# - Run the `data-prioritization` workflow to rank the pool
-# - **Measure** how much the ranking beats picking at random — and compare it against
-#   ranking by model uncertainty, which is the first thing most teams try
+# - Load MilitaryVehicles and split it into labeled reference and unlabeled pools.
+# - Train a classifier on the labeled pool covering 20 vehicle types, holding out 4 Air Defense systems.
+# - Inject corrupted and duplicate frames into the unlabeled pool to test automated pruning.
+# - Execute the `data-prioritization` workflow to rank unlabeled samples.
+# - Measure ranking efficiency against random selection baselines and model uncertainty sampling.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# - How to configure and run the `data-prioritization` workflow via `run_task()`
-# - How the reference dataset (labelled data) and extractor (trained model) shape prioritization
-# - How `hard_first` ordering surfaces novel or challenging samples
-# - How to map prioritized indices back to source labels and **score the ranking against a
-#   random baseline**, rather than assuming it worked
-# - Why ranking by model **uncertainty** does not find novel categories, and what does
-# - How optional pruning (outlier/duplicate removal) integrates with prioritization
+# - How to configure and execute `data-prioritization` with `run_task()`.
+# - How reference datasets and extractor representations direct prioritization.
+# - How `hard_first` ordering prioritizes out-of-distribution or challenging samples.
+# - How to benchmark prioritization gains against random sampling baselines.
+# - Why model uncertainty sampling fails to detect novel classes and how distance-based prioritization resolves this.
+# - How pre-prioritization pruning removes outliers and duplicates from the ranking pool.
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (brings in `dataeval`, `datamaite`, and `torch`) plus `torchvision`
-# - `maite-datasets[datamaite]` (to download MilitaryVehicles and export it)
-# - Internet connection on the first run; everything after that comes from disk
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `torch`) and `torchvision`.
+# - Install `maite-datasets[datamaite]` to download and export MilitaryVehicles.
+# - Ensure network access for the initial dataset download.
 
 # %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
-# ## Data Preparation: a labelled pool and an unlabelled one
+# ## Data Preparation: a labeled pool and an unlabeled one
 #
-# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) holds
-# 9,444 images across 24 vehicle types, and its `hierarchy` groups those types into coarse
-# categories — tanks, BMPs, BTRs, self-propelled artillery, air defense.
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles)
+# contains 9,444 images across 24 vehicle types. The dataset includes coarse categories
+# such as tanks, BMPs, BTRs, self-propelled artillery, and air defense systems.
 #
-# We hold out an entire category rather than a few arbitrary classes. The four **Air
-# Defense** systems (`30N6E`, `Iskander`, `Pantsir-S1`, `Rs-24`) are radar and missile
-# platforms, structurally unlike the tracked armour that makes up the rest — and holding
-# out a whole category is the realistic version of this scenario: a capability appears in
-# theatre that nobody has annotated yet. Holding out four tank variants instead would hold
-# out things that look like the training data, which is a different and much weaker test.
+# In this tutorial, you will hold out the four Air Defense systems (`30N6E`, `Iskander`,
+# `Pantsir-S1`, `Rs-24`) to simulate encountering an unannotated operational category:
 #
-# - **Labelled pool** — 4,000 frames drawn from the 20 known types
-# - **Unlabelled pool** — 1,500 frames sampled at random from everything left, which is
-#   where all the Air Defense frames end up, since none of them were ever labelled
+# - **Labeled pool**: 4,000 frames drawn from the 20 known vehicle types.
+# - **Unlabeled pool**: 1,500 frames drawn from remaining data, containing leftover known types and held-out Air Defense systems.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -103,35 +92,31 @@ HELD_OUT_NAMES = {"30N6E", "Iskander", "Pantsir-S1", "Rs-24"}
 held_out = {i for i, name in index2label.items() if name in HELD_OUT_NAMES}
 known_classes = [i for i in sorted(index2label) if i not in held_out]
 
-# Both pools are ordinary view pipelines built from the operations `ViewConfig` exposes.
-# We build them in Python rather than in the pipeline config because the model below
-# trains on the labelled pool directly, before any workflow runs.
+# Both pools are constructed using View operations.
+# You build them in Python here because the classification model trains on the
+# labeled pool directly before pipeline execution.
 #
-# Labelled pool: the twenty known types only. `ClassFilter` is what enforces the holdout —
-# it reads each datum's own label, so nothing here re-derives the label space by hand.
-labelled_dataset = View(vehicles, [ClassFilter(known_classes), Shuffle(seed=42), Limit(4000)])
-labelled_indices = labelled_dataset.resolve_indices()
+# Labeled pool: The twenty known classes only.
+labeled_dataset = View(vehicles, [ClassFilter(known_classes), Shuffle(seed=42), Limit(4000)])
+labeled_indices = labeled_dataset.resolve_indices()
 
-# Unlabelled pool: everything the labelled pool did not consume, which is where the Air
-# Defense frames sit alongside the leftover known types. `Indices(..., exclude=True)` is
-# the complement; shuffling before the limit is what keeps the pool honest, since taking a
-# prefix of the remainder would concentrate the held-out frames and flatter any ranking.
-pool_dataset = View(vehicles, [Indices(labelled_indices, exclude=True), Shuffle(seed=7), Limit(1500)])
+# Unlabeled pool: The remaining frames, containing Air Defense systems and leftover known types.
+pool_dataset = View(vehicles, [Indices(labeled_indices, exclude=True), Shuffle(seed=7), Limit(1500)])
 
 pool_labels = np.array([int(np.argmax(pool_dataset[i][1])) for i in range(len(pool_dataset))])
 n_novel = int(np.isin(pool_labels, sorted(held_out)).sum())
 print(f"Held out (Air Defense): {sorted(index2label[i] for i in held_out)}")
-print(f"Labelled pool:   {len(labelled_dataset)} frames, {len(known_classes)} types")
+print(f"Labeled pool:   {len(labeled_dataset)} frames, {len(known_classes)} types")
 print(
-    f"Unlabelled pool: {len(pool_dataset)} frames, {n_novel} of them Air Defense "
+    f"Unlabeled pool: {len(pool_dataset)} frames, {n_novel} of them Air Defense "
     f"({n_novel / len(pool_dataset) * 100:.0f}%)"
 )
 
 # %% [markdown]
 # ### Inject corrupted and duplicate images into the test data
 #
-# Real incoming data is messy. We simulate this with an in-memory wrapper that
-# corrupts a slice of the (uncorrupted, on-disk) test set on the fly:
+# You can simulate incoming data corruption using an in-memory wrapper that
+# corrupts a slice of the test set on the fly:
 #
 # | Indices   | Corruption            |
 # |-----------|-----------------------|
@@ -213,18 +198,14 @@ print(
 )
 
 # %% [markdown]
-# ## Step 1: Train a classifier on the labelled pool
+# ## Step 1: Train a classifier on the labeled pool
 #
-# The extractor has to be a model shaped by *this* label space, which is what makes the
-# ranking meaningful: frames unlike anything in the labelled pool should land far from
-# everything the model has organised.
+# You should use a feature extractor trained on your specific label space so that
+# embeddings reflect domain characteristics.
 #
-# We take a pretrained ResNet-18, freeze it, and train a small head over its features —
-# what most teams would actually do with 4,000 labelled frames. Training the trunk from
-# scratch on this much fine-grained data would produce a weak embedding space and a
-# correspondingly meaningless ranking.
-#
-# The hook target is the 128-dimensional `embed` layer between trunk and classifier.
+# You will fine-tune a linear head on top of a frozen pretrained ResNet-18 trunk.
+# You will extract embeddings from the 128-dimensional `embed` layer connecting trunk
+# and classification head.
 
 # %% tags=["remove_output"]
 import random
@@ -239,10 +220,10 @@ torch.manual_seed(42)
 
 
 class VehicleNet(nn.Module):
-    """A frozen pretrained trunk, a learned embedding, and a head over the known types.
+    """A frozen pretrained trunk, a learned embedding, and a head over known classes.
 
-    ``embed`` bundles Linear + ReLU so a forward hook captures the activated output —
-    the representation the classifier was actually trained on.
+    ``embed`` bundles Linear + ReLU so a forward hook captures the activated output:
+    the representation the classifier was trained on.
     """
 
     def __init__(self, num_classes: int) -> None:
@@ -267,11 +248,7 @@ _STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 
 
 def _trunk_features(dataset: Any) -> tuple[torch.Tensor, list[int]]:
-    """Run the frozen trunk once over a dataset; the head then trains on the result.
-
-    Labels come back from the same pass — the view already decoded each datum, so there
-    is no reason to walk it a second time just to read the targets.
-    """
+    """Run the frozen trunk once over a dataset to generate training features for the head."""
     out: list[torch.Tensor] = []
     labels: list[int] = []
     with torch.no_grad():
@@ -289,8 +266,8 @@ def _trunk_features(dataset: Any) -> tuple[torch.Tensor, list[int]]:
 
 # %% tags=["remove_output"]
 _remap = {c: k for k, c in enumerate(known_classes)}
-features, labelled_labels = _trunk_features(labelled_dataset)
-targets = torch.tensor([_remap[c] for c in labelled_labels], dtype=torch.long)
+features, labeled_labels = _trunk_features(labeled_dataset)
+targets = torch.tensor([_remap[c] for c in labeled_labels], dtype=torch.long)
 
 head = nn.Sequential(model.embed, model.classifier)
 optimizer = torch.optim.Adam(head.parameters(), lr=1e-3)
@@ -302,20 +279,13 @@ for _epoch in range(40):
 model.eval()
 
 accuracy = (head(features).argmax(1) == targets).float().mean().item()
-print(f"Head trained: loss={loss.item():.3f}, accuracy on the labelled pool={accuracy * 100:.1f}%")
-
-# %% [markdown]
-# Twenty-way fine-grained vehicle recognition is genuinely hard, and the accuracy above
-# reflects that — six of the twenty types are tank variants. That is fine for this purpose.
-# We are not shipping this classifier; we are using the embedding space it organises to ask
-# which unlabelled frames sit furthest from everything it knows.
+print(f"Head trained: loss={loss.item():.3f}, accuracy on the labeled pool={accuracy * 100:.1f}%")
 
 # %% [markdown]
 # ### Save the trained model to disk
 #
-# We save the full model so the workflow can load it via `TorchExtractorConfig`.
-# The config points to the `.pt` file path and specifies which layer to hook
-# for embeddings.
+# Save the model to disk so `TorchExtractorConfig` can load it and hook the
+# `embed` layer.
 
 # %% tags=["remove_output"]
 model_path = Path("./models/vehiclenet.pt")
@@ -326,18 +296,14 @@ print(f"Model saved to {model_path}")
 # %% [markdown]
 # ## Step 2: Build the prioritization workflow configuration
 #
-# We configure the workflow with:
+# You will configure:
 #
-# - **Reference**: the labelled pool (4,000 frames, 20 vehicle types) — what the model knows
-# - **Incoming data**: the unlabelled pool (1,500 frames, including Air Defense and the
-#   injected junk) — what needs labelling
-# - **Extractor**: our trained model, hooking the `embed` layer for 128-dim embeddings
-# - **Method**: KNN with `hard_first` — surface frames farthest from their reference neighbours
-# - **Pruning**: outlier + duplicate detection to drop corrupted and duplicate frames before ranking
-# - **Mode**: `preparatory` so the result includes clean/flagged index lists
-#
-# The question the next section answers is not whether the ranking *looks* sensible but
-# whether it beats picking frames at random — and by how much.
+# - **Reference**: Labeled pool (4,000 frames, 20 vehicle types).
+# - **Incoming data**: Unlabeled pool (1,500 frames, including held-out Air Defense and corrupted samples).
+# - **Extractor**: Trained VehicleNet hooking the `embed` layer for 128-dimensional embeddings.
+# - **Method**: KNN with `hard_first` ordering to rank samples farthest from reference neighbors.
+# - **Pruning**: Outlier and duplicate detection to filter invalid samples before ranking.
+# - **Mode**: `preparatory` mode to output explicit clean and flagged index lists.
 
 # %%
 from dataeval_flow.config import (
@@ -352,7 +318,7 @@ from dataeval_flow.config.schemas import (
     TorchExtractorConfig,
 )
 
-ref_dataset = labelled_dataset
+ref_dataset = labeled_dataset
 
 from dataeval_flow.workflows.prioritization.params import CleaningConfig
 
@@ -381,14 +347,12 @@ task = DataPrioritizationTaskConfig(
 # %% [markdown]
 # ### Assemble the pipeline config
 #
-# The first source is the reference (labeled data); subsequent sources
-# are the data to prioritize.  The `TorchExtractorConfig` points to
-# the saved `.pt` file and hooks the `embed` layer for 128-dim embeddings.
+# The first source specifies the reference dataset; subsequent sources specify
+# unlabeled data to prioritize. `TorchExtractorConfig` points to the saved model
+# and hooks the `embed` layer.
 #
-# We add a preprocessor to bring the dataset's images into the shape the model was trained
-# on — ResNet's own pipeline, and the same one used to compute the features the head was
-# fitted to. It also settles the variable frame sizes in this collection, which range from
-# roughly 100x100 to 224x224.
+# You should include a preprocessor that resizes frames to 224x224 and normalizes
+# pixel values using ImageNet statistics to match the model training conditions.
 
 # %%
 config = PipelineConfig(
@@ -430,8 +394,7 @@ config = PipelineConfig(
 # %% [markdown]
 # ## Step 3: Run the prioritization workflow
 #
-# A single `run_task()` call handles dataset loading, embedding extraction,
-# and KNN-based prioritization.
+# Execute `run_task()` to prune outliers and rank unlabeled samples.
 
 # %%
 from dataeval_flow.workflow import run_task
@@ -454,10 +417,9 @@ print(result.report())
 # %% [markdown]
 # ## Step 4: Inspect what pruning removed
 #
-# The pruning step ran outlier and duplicate detection across both the
-# reference and incoming datasets.  In `preparatory` mode, the metadata
-# includes the clean indices for each source — let's see what got removed
-# from the test data and whether it overlaps with our injected corruptions.
+# The pruning phase detects outliers and duplicates in both reference and incoming
+# data. In `preparatory` mode, `result.metadata` records clean indices and dropped
+# sample counts. You can verify whether pruning removed the injected corrupted samples.
 
 # %%
 raw = result.data.raw
@@ -480,7 +442,7 @@ pruned_indices = sorted(all_test_indices - clean_test_indices)
 
 print(f"Pool frames: {len(all_test_indices)} total, {len(clean_test_indices)} clean, {len(pruned_indices)} pruned")
 
-# Check overlap with our known corrupted ranges
+# Check overlap with known corrupted ranges
 corrupted_ranges = {
     "duplicates (900-919)": set(range(900, 920)),
     "blurred (920-939)": set(range(920, 940)),
@@ -494,29 +456,21 @@ for name, indices in corrupted_ranges.items():
     overlap = pruned_set & indices
     print(f"  {name}: {len(overlap)}/{len(indices)} pruned")
 
-# 900-999 are the frames we corrupted; 200-219 are the originals the duplicates at
-# 900-919 were copied from, so either copy of a pair is a fair catch.
 planted = set(range(900, 1000)) | set(range(200, 220))
 other_pruned = pruned_set - planted
 if other_pruned:
-    print(f"  Other (non-planted) frames pruned: {len(other_pruned)} of {len(all_test_indices) - len(planted)}")
+    print(f"  Other frames pruned: {len(other_pruned)} of {len(all_test_indices) - len(planted)}")
 
 # %% [markdown]
-# Read that table honestly. Cleaning catches what it is good at and misses the rest: the
-# exact duplicates and the heavily underexposed frames go 20/20, while blur at radius 3
-# gets 2/20 and noise 7/20 — those corruptions leave a frame well inside the spread of
-# ordinary imagery. It also prunes frames we never touched, which is the cost of an
-# outlier filter rather than a defect in it.
-#
-# What matters for the next step is only that pruned frames are excluded from the
-# ranking, so prioritization operates on the surviving pool.
+# Pruned frames are excluded from the final prioritization ranking so labeling
+# budgets target clean data.
 
 # %% [markdown]
 # ## Step 5: Does the ranking beat picking at random?
 #
-# This is the question worth asking, and it needs a baseline. Air Defense frames make up a
-# known share of the pool; if the ranking carries no signal, the top of it will hold that
-# same share. Anything above it is what prioritization bought you.
+# You should benchmark the prioritized ranking against random selection. In this
+# evaluation, you measure the proportion of held-out Air Defense samples retrieved
+# across various labeling budgets.
 
 
 # %%
@@ -535,19 +489,9 @@ for n in (50, 100, 200, 500):
     print(f"{n:>8}  {pct:>11.0f}%  {pct / baseline_pct:>9.2f}x")
 
 # %% [markdown]
-# The ranking clears the baseline at every budget, and the margin narrows as the budget
-# grows — strongest over the first hundred frames and decaying steadily from there. That
-# shape is the useful part: prioritization earns its keep when you can only label a small
-# fraction of the pool, and buys you less and less the more of the pool you work through.
-#
-# Read the shape, not the digits. The exact multiplier depends on which frames happened to
-# land in the labelled pool and which in the unlabelled one — re-drawing both with
-# different seeds moved our own top-50 figure between roughly 1.4x and 1.7x. What survives
-# the re-draw is the ordering (prioritized above random) and the decay.
-#
-# It is worth being clear about what this does *not* say. The ranking does not find every
-# novel frame, and a good share of what it surfaces is not novel at all — it is ordinary
-# imagery that happens to sit at the edge of the labelled distribution. Both are expected.
+# The prioritized ranking exceeds the random baseline across budgets. The relative
+# advantage is greatest at small budgets (such as the top 50 to 100 samples) and
+# gradually converges toward the baseline as larger fractions of the pool are labeled.
 
 # %%
 cumulative = np.cumsum(is_novel)
@@ -560,7 +504,7 @@ try:
     fig, ax = plt.subplots(figsize=(9, 4))
     ax.plot(n_items, novel_pct, linewidth=2, label="Prioritized (hard_first)")
     ax.axhline(baseline_pct, color="gray", linestyle="--", linewidth=1, label=f"Random baseline ({baseline_pct:.0f}%)")
-    ax.set_xlabel("Labelling budget (top-N frames)")
+    ax.set_xlabel("Labeling budget (top-N frames)")
     ax.set_ylabel("% Air Defense")
     ax.set_title("Novel-category concentration across the priority ranking")
     ax.set_xlim(1, len(cumulative))
@@ -576,11 +520,8 @@ except ImportError:
 # %% [markdown]
 # ### What about ranking by model uncertainty?
 #
-# The obvious alternative is to label whatever the classifier is least sure about. It is
-# the first thing most teams reach for, and on this problem it does not work.
-#
-# We already have the trained model, so we can rank the same pool by the entropy of its
-# softmax output and score it the same way.
+# You can evaluate entropy-based uncertainty sampling against distance-based prioritization.
+# Compute the entropy of predicted class probabilities across the unlabeled pool:
 
 
 # %%
@@ -611,25 +552,15 @@ for n in (50, 100, 200, 500):
     )
 
 # %% [markdown]
-# Uncertainty ranking never clears the baseline. It sits **below random** at every budget
-# here — a fifth of the first fifty picks are Air Defense against a 26% baseline — and
-# stays under water out to 500. `hard_first` is above it throughout.
-#
-# The reason is worth internalising: **a classifier trained without a category is not
-# uncertain about it.** It has twenty labels to choose from and no option for "something
-# else", so it assigns a confident answer to a system it has never seen — an Iskander
-# launcher looks enough like artillery for the head to say so, firmly. The frames it
-# *is* unsure about are the ones near boundaries it has genuinely learned, which is
-# mostly the six tank variants, not the systems missing from its label space.
-#
-# Uncertainty finds the boundaries *inside* a label space you already have. It does not
-# find things outside it. For that you need the distance-based view, which asks a different
-# question: not "which class is this?" but "have I seen anything like this before?"
+# Uncertainty sampling fails to prioritize novel classes because classifiers assign
+# confident predictions to unfamiliar inputs matching known feature patterns.
+# Uncertainty sampling identifies samples near known decision boundaries, whereas
+# distance-based prioritization identifies samples outside known clusters.
 
 # %% [markdown]
 # ## Step 6: Visualize the top-ranked images (optional)
 #
-# Let's see what the top-10 prioritized images actually look like.
+# You can plot the top-ranked prioritized samples to inspect flagged imagery:
 
 # %%
 try:
@@ -653,46 +584,31 @@ except ImportError:
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial you learned how to:
+# In this tutorial, you learned how to:
 #
-# - **Train a model** on a subset of the label space and use it as an embedding extractor
-# - **Inject corruptions** (blur, noise, brightness, duplicates) into the unlabelled pool
-# - **Configure** the `data-prioritization` workflow with KNN ranking,
-#   `hard_first` ordering, and pre-prioritization pruning
-# - **Run** the workflow via `run_task()` to prune and rank unlabelled data
-# - **Inspect pruned items** — verify that corrupted/duplicate frames were removed
-# - **Score the ranking against a random baseline** instead of assuming it worked
-# - **Compare it with uncertainty sampling**, and see why that does not find novel categories
-#
-# The result to carry away is a measured one rather than a promise. Prioritization
-# concentrates novel-category frames at the top of the ranking by a real but finite margin,
-# largest when the labelling budget is small and shrinking as it grows. Plan around that
-# shape: it is worth most for the first few dozen frames you can afford to label.
-#
-# And the negative result matters as much as the positive one. Ranking by model uncertainty
-# — the intuitive choice — barely beats random at a small budget and falls below it at a
-# larger one, because a classifier with no "something else" option answers confidently
-# about systems it has never seen. Uncertainty maps the boundaries within a label space;
-# distance is what looks outside it.
+# - Train a custom embedding extractor on reference data.
+# - Configure the `data-prioritization` workflow with KNN distance metrics and `hard_first` ordering.
+# - Prune outliers and duplicates before ranking using integrated cleaning parameters.
+# - Execute prioritization workflows via `run_task()`.
+# - Benchmark prioritization results against random selection baselines.
+# - Contrast distance-based prioritization with model uncertainty sampling.
+# - Export clean and prioritized index arrays for labeling queues.
 
 # %% [markdown]
-# ## What's next
+# ## Next steps
 #
-# - **Try different methods** — Compare `knn`, `kmeans_distance`, `hdbscan_complexity`, etc.
-# - **Class-balanced policy** — Use `policy="class_balanced"` to diversify across
-#   known classes while still surfacing novel samples
-# - **Tune pruning thresholds** — Adjust `outlier_flags` and `health_thresholds`
-#   to control how aggressively corrupted images are pruned
+# - **Alternative ranking methods**: Evaluate `kmeans_distance` or `hdbscan_complexity` policies.
+# - **Class-balanced sampling**: Use `policy="class_balanced"` to balance ranking across known classes.
+# - **Threshold tuning**: Adjust `outlier_threshold` and `outlier_flags` to control pruning sensitivity.
 
 # %% [markdown]
 # ## Related guides
 #
-# - **Concept** — [Prioritization](../concepts/Prioritization.md):
-#   the ranking methods (`knn`, `kmeans_distance`, `hdbscan_complexity`) and ordering policies.
-# - **How-to: Use a PyTorch model for embeddings** — [PyTorch embeddings](../how_to/torch_embeddings.md)
-#   to read an intermediate layer of the CNN trained here — the `layer_name: embed` configuration used above,
-#   explained in full.
-# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
-#   to interpret the ranking report and export the ordering for a labeling queue.
-# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
-#   to run prioritization from a YAML config inside a container for production pipelines.
+# - **Concept**: [Prioritization](../concepts/Prioritization.md) explains ranking
+#   methods and ordering policies.
+# - **How-to**: [PyTorch model for embeddings](../how_to/torch_embeddings.md) explains
+#   hooking intermediate neural network layers.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) covers
+#   ranking reports and result envelopes.
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
+#   how to run prioritization pipelines in Docker.

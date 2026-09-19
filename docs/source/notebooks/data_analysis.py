@@ -20,43 +20,42 @@
 # `data-analysis` workflow.
 
 # %% [markdown]
-# **Who this is for** — T&E engineers and data scientists who need a holistic,
-# multi-split quality report before signing off on a dataset for evaluation.
+# **Target audience**: You are a T&E engineer or data scientist who needs a
+# comprehensive quality evaluation across dataset splits before approving data
+# for training or evaluation.
 #
-# **Where this fits** — Dataset analysis is a gate in the T&E workflow: before you
-# split data or train a model, you confirm there is no cross-split leakage, no
-# excessive imbalance, and no distribution shift between train and test. It builds
-# on per-dataset [data cleaning](data_cleaning) and feeds [dataset splitting](dataset_splitting).
-# See the [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) concept
-# page for the underlying assessment areas.
+# **Workflow role**: You should use dataset analysis to audit splits before model
+# training. Dataset analysis verifies that your partitions are free from cross-split
+# leakage, excessive class imbalance, and distribution shifts. This workflow builds
+# on [Clean a dataset](data_cleaning) and guides [Split a dataset](dataset_splitting).
+# See [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) for background.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# - Download SkySeaLand with `maite-datasets` and export the three splits it ships with
-# - Build a workflow configuration for multi-split analysis
-# - Run the `data-analysis` workflow via `run_task()`
-# - View the built-in **analysis report** for a high-level summary of all assessment areas
-# - Explore cross-split comparisons — label overlap, duplicate leakage, and distribution parity
-# - Configure **health thresholds** to control when findings trigger warnings
-# - Export results to JSON for downstream tooling
+# - Download SkySeaLand using `maite-datasets` and export its train, validation, and test splits.
+# - Configure a multi-split `data-analysis` workflow.
+# - Execute the workflow with `run_task()`.
+# - Inspect the analysis report across image quality, redundancy, label health, and bias.
+# - Evaluate cross-split comparisons, including label overlap, duplicate leakage, and distribution parity.
+# - Configure health thresholds to govern warning severities.
+# - Export evaluation results to JSON format.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# - How to configure and run the `data-analysis` workflow via `run_task()`
-# - How to read the built-in **analysis report** (`result.report()`) for a quick summary
-# - What the five assessment areas cover: image quality, redundancy, label health, bias, and
-#   cross-split comparisons
-# - How to configure **health thresholds** to control warning severity
-# - Why a significant parity test and a meaningful one are not the same question
+# - How to configure and execute the `data-analysis` workflow.
+# - How to interpret findings and severity indicators in `result.report()`.
+# - What each of the five assessment areas evaluates.
+# - How to tune health thresholds for your quality standards.
+# - How to distinguish statistical significance from practical divergence in parity testing.
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `maite-datasets[datamaite]` (to download SkySeaLand and export it for `dataeval-flow`)
-# - Internet connection (a ~262 MB download on first run)
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `maite-datasets[datamaite]` to download and export SkySeaLand.
+# - Ensure network access for the initial dataset download (~262 MB).
 
 # %% [markdown]
 # ### Step-by-step guide
@@ -65,17 +64,13 @@
 # ## Data Preparation: Load the splits the dataset ships with
 #
 # [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
-# imagery detection dataset: 1,307 frames collected at four sites around the world and
-# annotated with 19,102 objects across `airplane`, `boat`, `car` and `ship`. It arrives
-# already partitioned by its publisher into `train` (1,048 frames), `val` (132) and `test`
-# (127), which is what makes it the right dataset for this workflow. The question here is
-# not "is this data any good" — that is [data cleaning](data_cleaning) — but "do these three
-# partitions agree with each other", and that question only exists once somebody has drawn
-# the lines.
+# object-detection dataset containing 1,307 frames from four sites across `airplane`, `boat`,
+# `car`, and `ship`. The dataset provides `train` (1,048 frames), `val` (132), and `test`
+# (127) partitions. You can use this workflow to evaluate whether partitioned splits agree
+# with each other.
 #
-# `maite-datasets` downloads the dataset, and `as_datamaite=True` writes it back out in a
-# format `dataeval-flow` reads directly. Each export is named after both the dataset and the
-# `image_set`, so the three splits land in three folders instead of overwriting one another.
+# You can use `maite-datasets` with `as_datamaite=True` to export the splits into COCO format.
+# Each split is exported into a distinct directory.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -97,29 +92,21 @@ print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# The `data-analysis` workflow requires explicit parameters (no hidden defaults). We
-# configure outlier detection using **adaptive** thresholding across dimension, pixel and
-# visual statistics, and enable **balance** and **diversity** analysis to surface metadata
-# bias signals.
+# You must specify workflow parameters explicitly. In this configuration, you will
+# configure outlier detection using **adaptive** thresholding across dimension, pixel,
+# and visual statistics, and enable **balance** and **diversity** analysis for bias checks.
 #
-# Three choices below are worth explaining.
+# Note these three configuration decisions:
 #
-# **`train` is sampled; `val` and `test` are read whole.** Profiling all 1,048 train frames
-# decodes about 15 GB of pixels. 300 frames characterize the split well enough, and they
-# leave the three sources close enough in size that the cross-split statistics compare like
-# with like. Remove the view to profile the whole split.
-#
-# **The sample is shuffled before it is limited.** SkySeaLand is stored grouped by collection
-# site, so a bare `Limit` would describe one site rather than the split: the first 300 frames
-# put `ship` at 11% of annotations against 20% across the whole split. Shuffling first brings
-# every class within about five points of its share of the full split.
-#
-# **A metadata policy declares the bias factors.** SkySeaLand ships no telemetry — no
-# altitude, no sensor, no time of day — so the only factors available are the ones measured
-# from the imagery, which `intrinsic_factors` asks for. `reference_split` matters as soon as
-# more than one split is analyzed: splits binned independently land on different cutpoints
-# for the same factor, and their per-factor statistics stop being comparable. Naming one
-# split's encoding makes all three read the same cuts.
+# - **Sample `train`; profile `val` and `test` completely**: Sampling 300 training
+#   frames reduces memory and computation while matching the sample scale of validation
+#   and test sets. Remove the view to profile the full training set.
+# - **Shuffle before limiting**: SkySeaLand is organized by collection site on disk.
+#   Applying `Shuffle` before `Limit` ensures that the sample represents all collection
+#   sites.
+# - **Declare a metadata policy for bias factors**: SkySeaLand provides image metadata
+#   measured directly from pixel data. Setting `reference_split="train"` ensures that all
+#   three splits use identical bin cuts for comparable statistics.
 
 # %%
 from dataeval.config import set_max_processes
@@ -137,8 +124,7 @@ from dataeval_flow.config.schemas import MetadataPolicyConfig
 from dataeval_flow.workflow import run_task
 from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds
 
-# Four workers rather than eight: peak memory is workers x batch x decoded image size, and
-# these are ~1.3 MP frames.
+# Limit concurrency to 4 processes for memory management during image decoding.
 set_max_processes(4)
 
 analysis_workflow = DataAnalysisWorkflowConfig(
@@ -150,7 +136,7 @@ analysis_workflow = DataAnalysisWorkflowConfig(
     diversity_method="simpson",
     metadata="skysealand_factors",
     health_thresholds=DataAnalysisHealthThresholds(
-        image_outliers=5.0,  # Relaxed from 3% — overhead frames vary widely in size and framing
+        image_outliers=5.0,  # Relaxed from 3% for diverse overhead imagery
         exact_duplicates=0.0,  # No exact duplicates allowed (default)
         near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
         class_label_imbalance=5.0,  # Default; SkySeaLand sits near 2.5:1 in every split
@@ -168,13 +154,11 @@ config = PipelineConfig(
     metadata=[
         MetadataPolicyConfig(
             name="skysealand_factors",
-            # Statistics measured from the imagery, injected as factors for bias analysis.
+            # Image statistics evaluated as factors for bias analysis
             intrinsic_factors=["visual", "pixel"],
-            # Bookkeeping the export carries. `label_file_exists` is true for every frame,
-            # so it separates nothing; the export's other bookkeeping columns hold a
-            # different value in every row and are dropped before this policy is read.
+            # Exclude constant metadata fields
             exclude=["label_file_exists"],
-            # One encoding for all three splits, so their per-factor statistics compare.
+            # Shared encoding reference for cross-split factor comparability
             reference_split="train",
         )
     ],
@@ -209,20 +193,16 @@ print(f"  Sources:    {task.sources}")
 result = run_task(task, config, cache_dir=Path("./cache"))
 
 # %% [markdown]
+# %% [markdown]
 # :::{note}
-# The run prints two warnings, and each is the workflow reporting something true about this
-# dataset rather than something wrong with the configuration.
+# The execution outputs two expected informational notices:
 #
-# `file_name`, `file_path`, `label_file` and `original_id` are **dropped**: the export records
-# where each frame came from, and a column holding a different value in every row identifies
-# rows rather than grouping them, so bias analysis has nothing to read in it.
+# Identifier columns (`file_name`, `file_path`, `label_file`, `original_id`) are
+# dropped because unique per-row values cannot serve as categorical factors.
 #
-# The remaining continuous factors are **binned automatically**, because no cutpoints were
-# declared for them. Bins derived this way come from the sample in front of them, so the same
-# factor measured on a different sample may not land on the same cuts — which is fine for a
-# first look and not fine for numbers you intend to compare across runs.
-# [Metadata triage](metadata_triage) is the workflow that turns those derived bins into a
-# declared policy you can keep.
+# Continuous factors are binned automatically when no explicit cuts are provided.
+# You can use [Metadata triage](metadata_triage) to establish explicit factor binning
+# policies.
 # :::
 
 # %% tags=["remove_cell"]
@@ -233,15 +213,13 @@ assert result.success
 # %% [markdown]
 # ## Step 3: View the analysis report
 #
-# The workflow result has a built-in `report()` method that renders a formatted text
-# summary. Each assessment area produces one or more **findings** — a concise summary
-# with a severity level:
+# You can call `result.report()` to display findings and severities across all
+# assessment areas:
 #
-# - `[ok]` — within the configured health threshold (no action needed)
-# - `[!!]` — exceeds the threshold (review recommended)
+# - `[ok]`: Finding is within configured health thresholds.
+# - `[!!]`: Finding exceeds configured health thresholds and requires review.
 #
-# The report covers all five assessment areas per split, plus cross-split comparisons
-# when multiple splits are present:
+# The report covers five assessment areas:
 #
 # | Area | What it checks |
 # |---|---|
@@ -257,26 +235,20 @@ print(result.report())
 # %% [markdown]
 # ### What this run found
 #
-# Three findings are flagged, and they say very different things.
+# You should review the three flagged findings:
 #
-# **Image quality** flags 5.7%, 7.6% and 7.9% of the three splits against a 5% threshold.
-# That the three rates are close to each other is the useful part: this is a property of the
-# collection, not of any one split. The dominant flags are `zeros` and `aspect_ratio` —
-# overhead frames arrive cropped to the sensor swath, so black padding and extreme aspect
-# ratios are normal here rather than corruption.
-#
-# **Bias** reports that class identity is strongly predicted by image statistics alone
-# (`unit_mean` and `unit_skew` at MI ≈ 0.87). With four sites imaged under different
-# conditions, a model can learn "frame looks like this → airplane" without learning what an
-# airplane looks like. That is a shortcut risk worth testing for, not a defect in the data.
-#
-# **Label parity** is the finding to act on, and the next section unpacks it.
+# - **Image quality**: Flags 5.7%, 7.6%, and 7.9% across the splits against a 5%
+#   threshold. The primary flags are `zeros` and `aspect_ratio`, reflecting cropping
+#   swaths standard in overhead sensor captures.
+# - **Bias**: Shows class identity correlates with image statistics (`unit_mean` and
+#   `unit_skew` with mutual information ~0.87). This indicates that sensor environments
+#   correlate with target classes across collection sites.
+# - **Label parity**: Detects proportional class shifts between validation and other splits.
 
 # %% [markdown]
 # ### Understanding health thresholds
 #
-# Health thresholds are configured via `DataAnalysisHealthThresholds` on the
-# `health_thresholds` parameter. The defaults are:
+# You can configure health thresholds via `DataAnalysisHealthThresholds`:
 #
 # | Threshold | Default | When to adjust |
 # |---|---|---|
@@ -286,25 +258,24 @@ print(result.report())
 # | `class_label_imbalance` | 5:1 | Lower to 3:1 for binary; raise to 10-20:1 for large hierarchies |
 # | `distribution_shift` | 0.5 | Lower for stricter cross-split consistency requirements |
 #
-# To tighten thresholds for a stricter audit:
+# To apply stricter thresholds, specify custom limits:
 #
 # ```python
 # from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds
 #
 # strict = DataAnalysisHealthThresholds(
-#     image_outliers=1.0,        # flag at 1% for safety-critical data
-#     exact_duplicates=0.0,      # no exact duplicates (default)
-#     near_duplicates=2.0,       # stricter near-duplicate limit
-#     class_label_imbalance=3.0, # tight balance for binary classification
+#     image_outliers=1.0,
+#     exact_duplicates=0.0,
+#     near_duplicates=2.0,
+#     class_label_imbalance=3.0,
 # )
 # ```
 
 # %% [markdown]
 # ## Step 4: Explore cross-split comparisons
 #
-# When analyzing multiple splits, the report includes pairwise cross-split findings.
-# Let's look at the raw cross-split data for the most interesting comparisons —
-# label overlap and proportion differences between the splits.
+# When analyzing multiple splits, the report provides pairwise cross-split comparisons.
+# You can inspect label overlap, class proportions, and distribution parity across splits.
 
 # %%
 import polars as pl
@@ -367,32 +338,26 @@ for pair_name, comparison in raw.cross_split.items():
 # %% [markdown]
 # ### Significant is not the same as meaningful
 #
-# All three pairs come back "significantly different", which on its own says very little:
-# with thousands of annotations per split, chi-squared will find a difference in almost any
-# pair. The proportion table above is what separates them.
+# Large sample sizes often produce statistically significant p-values for minor
+# distribution shifts. You should evaluate both p-values and absolute percentage
+# point differences to assess practical impact:
 #
-# - **train vs test** — every class within 3.3 percentage points, at `p = 0.008`. Significant,
-#   and not worth acting on. For practical purposes these two splits describe the same world.
-# - **train vs val** and **val vs test** — `boat` is 33% of the annotations in `val` against
-#   16% in each of the other two, at `p = 6e-97` and `p = 3e-63`. That difference is large
-#   enough to change decisions: a model tuned against this validation split is tuned against
-#   a boat-heavy world it will not meet at test time.
+# - **train vs test**: All classes remain within 3.3 percentage points (p = 0.008).
+#   The distributions align closely for operational evaluation.
+# - **train vs val** and **val vs test**: The `boat` class accounts for 33% of annotations
+#   in `val` compared to 16% in `train` and `test` (p < 1e-60). This significant shift indicates
+#   that models tuned on `val` face a different class balance than `test`.
 #
-# So read the p-value and the proportions together. The p-value tells you the difference is
-# not chance; only the proportions tell you whether it matters. Here the publisher's `val`
-# split is the odd one out, and a team that needs a validation set matching test conditions
-# should redraw it — which is what [dataset splitting](dataset_splitting) is for.
+# You can repartition splits using [Split a dataset](dataset_splitting) to resolve validation
+# distribution divergence.
 
 # %% [markdown]
 # ### Per-split duplicates
 #
-# Each split's `RedundancyResult` exposes the duplicate group indices, so you can get from a
-# rate in the summary to the specific images behind it.
+# You can inspect duplicate groups within each split via `split_data.redundancy`.
 #
-# SkySeaLand has none — no two frames in the collection share a hash — which is what the
-# `[ok]` on the Redundancy line reports, and the expected outcome for a curated release. On
-# a dataset that does have duplicates these lists are the input to visual inspection; the
-# [data cleaning](data_cleaning) tutorial renders them with `dataeval-plots`.
+# SkySeaLand contains no exact or near-duplicate frames in this sample. When duplicates
+# exist, you can use these index groups for targeted visual inspection.
 
 # %%
 for split_name, split_data in raw.splits.items():
@@ -406,14 +371,11 @@ for split_name, split_data in raw.splits.items():
 # %% [markdown]
 # ### Cross-split leakage
 #
-# Does the same image, or a near-duplicate of it, appear in more than one split? Leakage
-# between train and test silently inflates every evaluation metric computed afterwards. It is
-# the one finding on this page that invalidates results rather than merely describing them.
+# You should verify that images from training sets do not leak into evaluation splits.
+# Data leakage between train and test artifically inflates evaluation performance.
 #
-# SkySeaLand's publisher drew disjoint splits, so nothing is found here and the cell below
-# prints three clean lines. It stays executable rather than illustrative because this is the
-# check worth pointing at your own data: when duplicates are found, the images are rendered
-# side by side so you can confirm the match before acting on it.
+# SkySeaLand has disjoint splits with zero cross-split duplicates. If duplicates are
+# detected in your datasets, you can render matched pairs side by side to verify leakage.
 
 # %%
 import matplotlib.pyplot as plt
@@ -431,7 +393,7 @@ for pair_name, comparison in raw.cross_split.items():
 
     print(f"{pair_name}: DATA LEAKAGE DETECTED -- {exact_count} exact, {near_count} near duplicates")
 
-    # Render exact duplicate groups — images from both splits side by side
+    # Render exact duplicate groups: images from both splits side by side
     for i, group in enumerate(leakage.get("exact_groups", [])):
         all_images = []
         all_labels = []
@@ -454,7 +416,7 @@ for pair_name, comparison in raw.cross_split.items():
             fig.suptitle(f"Cross-split exact duplicate group {i + 1}", fontsize=12, fontweight="bold")
             fig.tight_layout()
 
-    # Print near duplicate leakage groups (skip rendering)
+    # Print near duplicate leakage groups
     for i, group in enumerate(leakage.get("near_groups", [])):
         labels = []
         for split_name, indices in group.items():
@@ -465,7 +427,7 @@ for pair_name, comparison in raw.cross_split.items():
 # %% [markdown]
 # ## Step 5: Export results
 #
-# Export the full result to JSON for integration with automated pipelines or archival.
+# You can export results to JSON format for CI/CD integration and archiving.
 
 # %%
 json_str = result.export(fmt="json")
@@ -475,42 +437,37 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial you learned how to:
+# In this tutorial, you learned how to:
 #
-# - **Configure** the `data-analysis` workflow with explicit outlier, bias, and divergence parameters
-# - **Set health thresholds** to control when findings are elevated to warnings
-# - **Run** the workflow via `run_task()` across the three splits SkySeaLand ships with
-# - **Read the analysis report** -- a single `result.report()` call for a formatted summary
-#   covering image quality, redundancy, label health, bias, and cross-split comparisons
-# - **Explore cross-split data** -- label overlap, proportion differences, parity testing,
-#   and leakage detection
-# - **Separate a significant difference from a meaningful one** when reading the parity test
-# - **Export** results to JSON for integration with automated pipelines
+# - Configure the `data-analysis` workflow across multiple dataset splits.
+# - Set health thresholds to govern finding severities.
+# - Execute multi-split analysis using `run_task()`.
+# - Read the analysis report covering image quality, redundancy, label health, bias, and cross-split metrics.
+# - Inspect cross-split label overlap, proportion differences, parity tests, and duplicate leakage.
+# - Distinguish statistical significance from practical divergence in distribution parity.
+# - Export evaluation results to JSON.
 
 # %% [markdown]
-# ## What's next
+# ## Next steps
 #
-# - **Dataset splitting** -- Redraw the splits yourself when the publisher's partition does
-#   not match your evaluation conditions, as `val` does not here
-# - **Data cleaning** -- Use the `data-cleaning` workflow for actionable outlier and duplicate
-#   detection with visual inspection via `dataeval-plots`
-# - **Custom extractors** -- Add an ONNX model configuration to enable embedding-based
-#   cross-split divergence analysis (distribution shift)
+# - **Dataset splitting**: Use [Split a dataset](dataset_splitting) to generate balanced,
+#   stratified partitions when published splits diverge.
+# - **Data cleaning**: Use [Clean a dataset](data_cleaning) to detect and remove flagged
+#   outliers and duplicates.
+# - **ONNX embeddings**: Configure an ONNX model to enable embedding-based distribution shift analysis.
 
 # %% [markdown]
 # ## Related guides
 #
-# - **Concept** — [Data quality and cleaning](../concepts/DataQualityAndCleaning.md):
-#   the five assessment areas and cross-split checks behind this report.
-# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
-#   to interpret the report's severities and reach the per-split raw results behind each finding.
-# - **How-to: Narrow a dataset with views** — [Narrow a dataset with views](../how_to/build_dataset_views.md)
-#   to limit, filter, or sample each split before it is profiled.
-# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
-#   to mount your dataset and config YAML, then run `dataeval-flow` as a container with the
-#   same configuration.
-# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
-#   to add a pretrained model and enable embedding-based cross-split divergence analysis.
-# - **Tutorial: Triage a dataset's metadata** — [Metadata triage](metadata_triage)
-#   to replace the automatically derived factor bins above with a policy you declare once
-#   and reuse across runs.
+# - **Concept**: [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) explains
+#   assessment areas and cross-split checks.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) explains
+#   result structure and finding severity levels.
+# - **How-to**: [Narrow a dataset with views](../how_to/build_dataset_views.md) explains
+#   dataset sampling and filtering operations.
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
+#   how to execute workflows in Docker.
+# - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) shows how to configure
+#   pretrained extractors for cross-split shift analysis.
+# - **Tutorial**: [Triage a dataset's metadata](metadata_triage) explains how to define
+#   explicit metadata binning policies.

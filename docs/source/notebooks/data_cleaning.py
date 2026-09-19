@@ -19,44 +19,43 @@
 # Flag outliers and duplicates in SkySeaLand using the config-driven `data-cleaning` workflow.
 
 # %% [markdown]
-# **Who this is for** — T&E engineers and data scientists who need to vet an
-# operational dataset for quality problems before it is used downstream.
+# **Target audience**: You are a T&E engineer or data scientist vetting an
+# operational dataset for quality issues before downstream use.
 #
-# **Where this fits** — Data cleaning is the first stage of preparing an
-# operational dataset: you flag and remove outliers and duplicates here so that
-# later stages — [dataset splitting](dataset_splitting), [drift monitoring](drift_monitoring),
-# and model training — run on trustworthy data. See the
-# [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) concept page
-# for the ideas behind the checks.
+# **Workflow role**: You should run data cleaning as the initial stage of preparing
+# an operational dataset. You can flag and remove outliers and duplicates before
+# [Split a dataset](dataset_splitting), [Monitor incoming data for drift](drift_monitoring),
+# or model training. See [Data quality and cleaning](../concepts/DataQualityAndCleaning.md)
+# for detection concepts.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# - Load the SkySeaLand overhead-imagery dataset through `maite-datasets` in datamaite format
-# - Build a workflow configuration using BoVW (Bag of Visual Words) for embedding extraction
-# - Run `run_tasks()` to detect outliers and duplicates (including cluster-based detection)
-# - View the built-in **cleaning report** for a high-level summary
-# - Visually inspect flagged **outlier** and **duplicate** images with `dataeval-plots`
-# - Use **preparatory mode** to get clean/flagged index lists for downstream filtering
+# - Load the SkySeaLand object-detection dataset using `maite-datasets`.
+# - Configure a `data-cleaning` workflow with BoVW (Bag of Visual Words) embeddings.
+# - Run `run_task()` to detect statistical outliers and image duplicates.
+# - Inspect the cleaning report and evaluate health status indicators.
+# - Visually inspect flagged outlier and duplicate images using `dataeval-plots`.
+# - Run preparatory mode to generate index lists of clean and flagged samples.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# - How to configure and run the `data-cleaning` workflow via `run_tasks()`
-# - How to use BoVW (Bag of Visual Words) for lightweight embedding-based detection — no model file needed
-# - What outlier and duplicate detection parameters are available
-# - How to configure **health thresholds** to control when findings trigger warnings
-# - How to read the built-in **cleaning report** (`result.report()`) for a quick summary with health status
-# - How to visually inspect outliers and duplicates with `dataeval-plots`
-# - The difference between **advisory** mode (report only) and **preparatory** mode (clean indices)
+# - How to configure and execute the `data-cleaning` workflow with `run_task()`.
+# - How to use BoVW feature extractors without external pretrained model files.
+# - How to configure outlier detection parameters and duplicate sensitivity.
+# - How to set health thresholds to trigger warning statuses.
+# - How to interpret the formatted cleaning report.
+# - How to inspect flagged samples with `dataeval-plots`.
+# - How advisory mode (reporting only) differs from preparatory mode (index filtering).
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `dataeval-plots` (for visualizing flagged images)
-# - `maite-datasets` (provides SkySeaLand)
-# - Internet connection — SkySeaLand downloads on first run (about 262 MB)
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `dataeval-plots` to visualize flagged images.
+# - Install `maite-datasets` to access SkySeaLand.
+# - Ensure network access for the initial dataset download (~262 MB).
 
 # %% [markdown]
 # ### Step-by-step guide
@@ -65,13 +64,11 @@
 # ## Data Preparation: Load the dataset
 #
 # [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
-# imagery detection dataset: 1,307 frames collected at four sites around the world and
-# annotated with 19,102 objects across four classes — `airplane`, `boat`, `car` and `ship`.
+# object-detection dataset containing 1,307 frames across four classes: `airplane`, `boat`,
+# `car`, and `ship`.
 #
-# `maite-datasets` downloads it, and `as_datamaite=True` writes it back out in a format
-# `dataeval-flow` reads directly. There is no conversion code to maintain here: the export
-# is named after both the dataset and the `image_set`, so loading a second split later adds
-# a folder rather than overwriting this one.
+# You can use `maite-datasets` to download the dataset and export it with `as_datamaite=True`
+# in a format readable by DataEval Flow. Subsequent runs load the export from disk.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -87,22 +84,20 @@ data_path = Path("./data/skysealand_datamaite_base")
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# The `data-cleaning` workflow requires explicit parameters (no hidden defaults). We'll configure
-# outlier detection using **adaptive** thresholding across dimension, pixel, and visual statistics,
-# and use the default hash-based duplicate detection. The BoVW (Bag of Visual Words) extractor learns
-# a visual vocabulary directly from the dataset images — no model file or preprocessing needed.
+# You must specify parameters explicitly in `data-cleaning`. In this configuration,
+# you will configure outlier detection using **adaptive** thresholding across dimension,
+# pixel, and visual statistics, along with hash-based and cluster-based duplicate detection.
+# The BoVW (Bag of Visual Words) extractor learns visual words directly from dataset
+# images without requiring an external model file.
 #
-# Adaptive thresholding automatically picks between Z-score and modified Z-score
-# per metric based on the data distribution. A threshold of 3.5 keeps the outlier
-# rate conservative without over-flagging on metrics with low variance.
+# Adaptive thresholding automatically selects between Z-score and modified Z-score
+# per metric based on data distribution. A threshold of 3.5 provides conservative
+# outlier flagging.
 #
 # :::{note}
-# **The view shuffles before it limits.** SkySeaLand stores its frames grouped by
-# collection site, so a bare `Limit` would hand the workflow the first site and little
-# else — the statistics below would then describe that site rather than the dataset. On
-# this data a contiguous 500-frame slice is 11.2:1 across classes where the dataset as a
-# whole is 1.9:1. Shuffling with a fixed `seed` keeps the sample representative and the
-# run reproducible. See [Narrow a dataset with views](../how_to/build_dataset_views.md).
+# You should shuffle before limiting a view. SkySeaLand frames are grouped by collection
+# site on disk. Applying `Shuffle` with a fixed seed ensures that the 300-frame sample
+# represents all collection sites. See [Narrow a dataset with views](../how_to/build_dataset_views.md).
 # :::
 
 # %%
@@ -135,15 +130,15 @@ advisory_workflow = DataCleaningWorkflowConfig(
     outlier_cluster_threshold=3.5,  # Cluster-based detection in embedding space (requires extractor).
     outlier_cluster_algorithm="hdbscan",
     outlier_n_clusters=4,  # SkySeaLand has 4 classes
-    duplicate_cluster_sensitivity=0.5,  # Duplicate detection — hash-based plus cluster-based.
+    duplicate_cluster_sensitivity=0.5,  # Duplicate detection: hash-based plus cluster-based.
     duplicate_cluster_algorithm="hdbscan",
     duplicate_n_clusters=4,
     health_thresholds=DataCleaningHealthThresholds(
         exact_duplicates=0.0,  # No exact duplicates allowed (default)
         near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
-        image_outliers=5.0,  # Relaxed from 3% default — four collection sites, varied sensors
-        target_outliers=10.0,  # Relaxed from 3% default — object detection has annotation variance
-        classwise_outliers=12.0,  # Relaxed from 3% default — some classes are visually diverse
+        image_outliers=5.0,  # Relaxed from 3% default for four collection sites and varied sensors
+        target_outliers=10.0,  # Relaxed from 3% default for annotation variance in object detection
+        classwise_outliers=12.0,  # Relaxed from 3% default for diverse class appearances
         class_label_imbalance=5.0,  # Default; SkySeaLand sits near 1.9:1, well inside it
     ),
 )
@@ -155,7 +150,7 @@ task = DataCleaningTaskConfig(
     extractor="bovw_ext",
 )
 
-# Build the full pipeline config — datasets, sources, extractors, views, workflows, and tasks
+# Build the pipeline configuration: datasets, sources, extractors, views, workflows, and tasks
 config = PipelineConfig(
     datasets=[
         CocoDatasetConfig(name="skysealand_base", path=str(data_path)),
@@ -188,9 +183,8 @@ result = run_task(task, config, cache_dir=Path("./cache"))
 # %% [markdown]
 # ### Cleaning report
 #
-# The workflow result has a built-in `report()` method that renders a formatted
-# text summary — outlier counts, duplicate groups, label stats, and **health status**
-# in one view.
+# You can call `result.report()` to display outlier counts, duplicate groups,
+# label statistics, and health statuses in a formatted text summary.
 
 # %%
 print(result.report())
@@ -198,14 +192,14 @@ print(result.report())
 # %% [markdown]
 # ### Understanding health status
 #
-# The **Health** line at the bottom of the summary tells you whether any findings
-# exceeded their configured thresholds. Each finding is either:
+# The **Health** summary line indicates whether findings exceeded configured
+# thresholds:
 #
-# - **info** — `[ok]` within the allowable threshold (no action needed)
-# - **warning** `[!!]` — exceeds the threshold (review recommended)
+# - **info** (`[ok]`): Finding is within the allowable threshold.
+# - **warning** (`[!!]`): Finding exceeds the threshold and requires review.
 #
-# Health thresholds are configured via `DataCleaningHealthThresholds` on
-# the `health_thresholds` parameter. The defaults are:
+# You can configure health thresholds using `DataCleaningHealthThresholds` on
+# `health_thresholds`. The default values are:
 #
 # | Metric | Default | When to adjust |
 # |---|---|---|
@@ -216,35 +210,29 @@ print(result.report())
 # | `classwise_outliers` | 3% | Lower to 1% for label-quality audits; raise to 5–10% for diverse classes |
 # | `class_label_imbalance` | 5:1 | Lower to 3:1 for binary; raise to 10–20:1 for large hierarchies (25+ classes) |
 #
-# In this tutorial we **relax** several thresholds above their defaults because
-# SkySeaLand is a diverse collection: its frames come from four sites with different
-# sensors, altitudes and lighting, so a moderate outlier rate is expected rather than
-# alarming.
+# In this tutorial, thresholds are relaxed because SkySeaLand includes four distinct
+# capture sites with differing sensors, altitudes, and lighting conditions.
 #
-# To tighten thresholds for a stricter audit:
+# To apply stricter thresholds, specify tighter tolerances:
 #
 # ```python
 # from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
 #
 # strict = DataCleaningHealthThresholds(
-#     exact_duplicates=0.0,   # no exact duplicates (default)
-#     near_duplicates=2.0,    # stricter near-duplicate limit
-#     image_outliers=1.0,     # flag at 1% for safety-critical data
-#     class_label_imbalance=3.0,  # tight balance for binary classification
+#     exact_duplicates=0.0,
+#     near_duplicates=2.0,
+#     image_outliers=1.0,
+#     class_label_imbalance=3.0,
 # )
-# params = DataCleaningParameters(..., health_thresholds=strict)
 # ```
 
 # %% [markdown]
 # ### Inspecting flagged images
 #
-# The report tells us *how many* outliers and duplicates were found. Now let's
-# actually **look** at them. We'll use `dataeval-plots` to render the flagged
-# images directly in the notebook so we can judge whether they are genuine
-# quality issues or acceptable variation.
+# You can inspect flagged images with `dataeval-plots` to determine whether
+# detected anomalies represent data quality errors or acceptable operational variation.
 #
-# The result object carries the resolved, post-view dataset so we can
-# index into it directly — no need to reload from disk.
+# You can access `result.dataset` directly to retrieve images without reloading from disk.
 
 # %%
 assert result.dataset is not None
@@ -253,9 +241,8 @@ ds = result.dataset
 # %% [markdown]
 # #### Outlier images
 #
-# Extract the image indices flagged as outliers and plot a sample. These are
-# images whose statistics (brightness, entropy, dimensions, …) fall outside the
-# expected range.
+# You can extract image indices flagged by statistical checks (such as brightness,
+# entropy, or dimensions) and display a sample.
 
 # %%
 raw = result.data.raw
@@ -276,7 +263,7 @@ from dataeval_plots import plot
 # Show a sample of outlier images (first 9)
 if outlier_indices:
     sample = outlier_indices[:9]
-    print("Outlier sample — flagged metrics per image:")
+    print("Outlier sample: flagged metrics per image:")
     for idx in sample:
         print(f"  Image {idx:>5d}: {', '.join(outlier_grouped[idx])}")
     _ = plot(ds, indices=sample, images_per_row=3, figsize=(12, 8), show_labels=True)
@@ -284,14 +271,11 @@ if outlier_indices:
 # %% [markdown]
 # #### Duplicate images
 #
-# Plot each duplicate group side by side — both exact and near duplicates — so
-# you can visually confirm whether the images are truly redundant.
+# You can plot duplicate groups side by side (both exact and near duplicates) to
+# verify whether images are redundant.
 #
-# This sample finds none. SkySeaLand's frames are distinct captures, so the two loops below
-# produce no output — which is the result you want from a curated collection, and worth
-# seeing so you recognise it. On data that does carry redundancy — a sensor repeating a
-# frame, augmented copies kept alongside their originals, the same image pulled from two
-# sources — each group renders here for you to judge.
+# SkySeaLand contains distinct captures without duplicates in this sample. When
+# duplicate images are detected in a dataset, each group renders here for visual inspection.
 
 # %%
 exact_groups = raw.duplicates["items"].get("exact", [])
@@ -316,13 +300,13 @@ for i, group in enumerate(near_groups[:3]):
     _ = plot(ds, indices=indices, images_per_row=len(indices), figsize=(4 * len(indices), 4), show_labels=True)
 
 # %% [markdown]
-# ## Step 3: Preparatory mode — get clean indices
+# ## Step 3: Preparatory mode: Get clean indices
 #
-# Re-run with `mode="preparatory"` to compute which indices to keep and which to remove.
-# This is useful for building a filtered dataset downstream.
+# Run the workflow with `mode="preparatory"` to compute clean indices and flagged
+# indices for downstream filtering.
 
 # %%
-# Define a preparatory pipeline — same params but mode="preparatory"
+# Define a preparatory pipeline with mode="preparatory"
 # Copy the advisory workflow and change name + mode
 prep_workflow = advisory_workflow.model_copy(
     update={"name": "skysealand_prep_clean", "mode": "preparatory"},
@@ -371,40 +355,39 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial you learned how to:
+# In this tutorial, you learned how to:
 #
-# - **Configure** the `data-cleaning` workflow with explicit outlier and duplicate detection parameters
-# - **Use BoVW** (Bag of Visual Words) for lightweight embedding extraction — no model file or preprocessing needed
-# - **Set health thresholds** to control when findings are elevated to warnings
-# - **Run** the workflow via `run_tasks()` on a SkySeaLand view
-# - **Read the cleaning report** — a single `result.report()` call for a formatted summary with health status
-# - **Visually inspect** flagged outliers and duplicates with `dataeval-plots`
-# - **Use preparatory mode** to get `flagged_indices` and `clean_indices` for downstream filtering
-# - **Export** results to JSON for integration with automated pipelines
+# - Configure the `data-cleaning` workflow with outlier and duplicate detection parameters.
+# - Use BoVW feature extractors without external model dependencies.
+# - Set health thresholds to control warning generation.
+# - Run the workflow via `run_task()` on a dataset view.
+# - Read the cleaning report and evaluate health statuses.
+# - Visually inspect flagged outliers and duplicates using `dataeval-plots`.
+# - Use preparatory mode to extract clean and flagged index lists for downstream filtering.
+# - Export cleaning results to JSON format.
 
 # %% [markdown]
-# ## What's next
+# ## Next steps
 #
-# - **Data analysis** — Use the `data-analysis` workflow for a comprehensive multi-split quality report
-#   including cross-split leakage, distribution shift, and bias analysis
-# - **Custom thresholds** — Tune `outlier_threshold`, switch to `"iqr"` method, or adjust
-#   `health_thresholds` for different sensitivity and warning profiles
+# - **Data analysis**: Use the `data-analysis` workflow for cross-split leakage,
+#   distribution shift, and bias analysis.
+# - **Threshold tuning**: Adjust `outlier_threshold`, test alternative outlier methods
+#   like IQR, or sweep parameters with `parameter-sweep`.
 
 # %% [markdown]
 # ## Related guides
 #
-# - **Concept** — [Data quality and cleaning](../concepts/DataQualityAndCleaning.md):
-#   the outlier and duplicate detection ideas behind this workflow.
-# - **How-to: Configure outlier detection** — [Configure outlier detection](../how_to/configure_outlier_detection.md)
-#   to pick a statistical method, choose which statistics to test, add cluster-based detection, and set the
-#   thresholds that turn a finding into a warning.
-# - **How-to: Read evaluation outputs** — [Read evaluation outputs](../how_to/read_evaluation_outputs.md)
-#   to interpret the report, export the result envelope, and pull the flagged indices out for inspection.
-# - **How-to: Narrow a dataset with views** — [Narrow a dataset with views](../how_to/build_dataset_views.md)
-#   to limit, filter, or sample the dataset before this workflow sees it.
-# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
-#   to build a container image, write a YAML config, and run this workflow with `docker run`.
-# - **How-to: Use an ONNX model for embeddings** — [ONNX embeddings](onnx_embeddings)
-#   to configure a pretrained ResNet50 model with preprocessing transforms for higher-fidelity embeddings.
-# - **How-to: Use a torchvision dataset** — [torchvision datasets](torchvision_datasets)
-#   to feed a `torchvision` classification or detection dataset straight into this workflow.
+# - **Concept**: [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) explains
+#   the outlier and duplicate detection algorithms used in this workflow.
+# - **How-to**: [Configure outlier detection](../how_to/configure_outlier_detection.md) explains
+#   statistical methods, visual metrics, and health thresholds.
+# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) explains
+#   how to parse reports and export result envelopes.
+# - **How-to**: [Narrow a dataset with views](../how_to/build_dataset_views.md) covers
+#   limiting, filtering, and sampling datasets.
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
+#   how to run cleaning workflows in Docker.
+# - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) shows how to configure
+#   pretrained ONNX models for feature extraction.
+# - **Guide**: [Use a torchvision dataset with DataEval Flow](torchvision_datasets) shows
+#   how to adapt torchvision datasets for DataEval workflows.

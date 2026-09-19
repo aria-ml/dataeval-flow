@@ -71,7 +71,7 @@ DataEval v1.1 upgrade, the data coverage workflow, and committed metadata
 encoding policies — see [CHANGELOG.md](CHANGELOG.md) and the
 [What's New](docs/source/home/whats_new/index.md) guide.
 
-- [x] Governance docs: CONTRIBUTING, BRANCHING, ROADMAP, README acknowledgement
+- [x] Governance docs: CONTRIBUTING, BRANCHING, ROADMAP, README acknowledgment
 - [x] Markdown CI gates: `markdownlint-cli2` and `markdown-link-check`
 - [x] MAITE entry-points declared in `pyproject.toml` (IR-1-H-3)
 - [x] Poetry support + committed `poetry.lock` (SR-3-H-2..4)

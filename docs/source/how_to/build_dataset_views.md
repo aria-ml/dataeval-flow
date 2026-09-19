@@ -41,7 +41,7 @@ dataset.
 **`Limit` on its own samples the storage order, not the dataset.** Collections are often written grouped — by capture
 site, by class, by acquisition date — and a bare `Limit` keeps whatever happens to be at the front. On SkySeaLand, the
 first 500 frames put `ship` at 11% of annotations against 20% for the whole split, which is enough to move every
-statistic computed afterwards.
+statistic computed afterward.
 
 Put a seeded `Shuffle` in front of the `Limit` unless you specifically want the head of the dataset:
 

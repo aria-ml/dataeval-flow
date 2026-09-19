@@ -16,45 +16,43 @@
 # %% [markdown]
 # # Split a dataset
 #
-# Partition a dataset into stratified train/val/test splits
+# Partition a dataset into stratified train, validation, and test splits
 # using the config-driven `data-splitting` workflow.
 
 # %% [markdown]
-# **Who this is for** — Model developers and T&E engineers who need defensible,
-# reproducible train/val/test partitions for model development and evaluation.
+# **Target audience**: You are a model developer or T&E engineer who needs
+# defensible, reproducible partitions for model development and evaluation.
 #
-# **Where this fits** — Splitting comes after a dataset has been cleaned and
-# analyzed: you turn one trustworthy dataset into the partitions a higher-level
-# T&E workflow relies on — training on the train fold, tuning on validation, and
-# holding out a test set for unbiased evaluation. See the
-# [Dataset splitting](../concepts/DatasetSplitting.md) concept page for stratification
-# and leakage-avoidance background.
+# **Workflow role**: You should split your dataset after cleaning and data
+# analysis. Dataset splitting creates isolated partitions for training, validation
+# tuning, and unbiased test evaluation. See [Dataset splitting](../concepts/DatasetSplitting.md)
+# for background on stratification and leakage avoidance.
 
 # %% [markdown]
-# ## What you'll do
+# ## What you will do
 #
-# - Load MilitaryVehicles (7,823 train images across 24 vehicle classes)
-# - Build a splitting workflow configuration with stratified partitioning
-# - Run `run_task()` to produce train/val/test index sets
-# - View the built-in splitting report for class distribution and split sizes
-# - Inspect per-split label statistics and balance/diversity metrics
-# - Export split indices for downstream use
+# - Load the MilitaryVehicles dataset (7,823 training images across 24 classes).
+# - Configure a stratified splitting workflow with a test holdout and 3-fold cross-validation.
+# - Run `run_task()` to generate partition index sets.
+# - Inspect the splitting report for class distribution and split sizes.
+# - Review label distribution statistics and metadata balance metrics.
+# - Export split indices and construct sliced dataset views.
 
 # %% [markdown]
-# ## What you'll learn
+# ## What you will learn
 #
-# - How to configure and run the `data-splitting` workflow via `run_task()`
-# - What splitting parameters are available (`test_frac`, `val_frac`, `num_folds`, `stratify`)
-# - How to read the splitting report for class distribution health
-# - How to access raw split indices for downstream filtering or training
-# - How pre-split balance and diversity metrics assess metadata factor influence
+# - How to configure and execute the `data-splitting` workflow.
+# - How to set splitting parameters (`test_frac`, `val_frac`, `num_folds`, `stratify`).
+# - How to evaluate class distribution balance across splits.
+# - How to access split index lists for downstream training workflows.
+# - How pre-split balance and diversity metrics evaluate metadata factor correlation.
 
 # %% [markdown]
-# ## What you'll need
+# ## Prerequisites
 #
-# - `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`)
-# - `maite-datasets[datamaite]` (to download MilitaryVehicles and export it)
-# - Internet connection on the first run; everything after that comes from disk
+# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `maite-datasets[datamaite]` to download and export MilitaryVehicles.
+# - Ensure network access for the initial download; subsequent runs use local cache.
 
 # %% [markdown]
 # ### Step-by-step guide
@@ -62,17 +60,16 @@
 # %% [markdown]
 # ## Data Preparation: Load the dataset
 #
-# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) is a
-# classification dataset of 9,444 images across 24 vehicle types. We split its `train` image
-# set — 7,823 images, between 119 and 424 per class.
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles)
+# contains 9,444 images across 24 vehicle types. In this tutorial, you will split
+# the `train` image set of 7,823 images. Per-class counts range from 119 to 424 images.
 #
-# That imbalance is the point. A 3.6:1 spread means the rarest class contributes only about
-# 24 images to a 20% test holdout, and a partition drawn without stratification can easily
-# leave a fold with too few of it to evaluate on. MNIST-style balanced data never exercises
-# this; real collections nearly always do.
+# Stratification maintains proportional representation for rare classes across all
+# folds. Without stratification, small classes can be underrepresented in validation
+# or test sets.
 #
-# `as_datamaite=True` writes the dataset as a class-per-directory tree — the HuggingFace
-# **ImageFolder** layout the `huggingface` dataset format reads.
+# Setting `as_datamaite=True` writes the dataset as a class-per-directory ImageFolder
+# structure for the `huggingface` dataset loader.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -92,21 +89,21 @@ print(f"Reading from {data_path}")
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# The `data-splitting` workflow requires explicit parameters (no hidden defaults).
-# We'll configure stratified splitting with a 20% test holdout and 3-fold
-# cross-validation.
+# You must specify splitting parameters explicitly. In this example, you will
+# configure stratified splitting with a 20% test holdout and 3-fold cross-validation.
 #
-# With `num_folds=3`, the validation fraction is automatically set to `1/num_folds`
-# (i.e., 1/3 of the training portion). On 7,823 items with `test_frac=0.2`:
+# When `num_folds=3`, the validation fraction is `1/num_folds` (one third of the
+# non-test portion). For 7,823 items with `test_frac=0.2`:
 #
-# - test = 20% of 7,823 ≈ 1,565 (shared across all folds)
-# - val = 1/3 of the remaining 6,258 ≈ 2,086 (per fold)
-# - train ≈ 4,172 (per fold)
+# - Test set: 20% of 7,823 ≈ 1,565 samples (shared across folds).
+# - Validation set: 1/3 of the remaining 6,258 ≈ 2,086 samples per fold.
+# - Training set: remaining 2/3 ≈ 4,172 samples per fold.
 #
-# Each fold gets a distinct train/val partition while the test holdout stays fixed.
-# Exact counts may vary slightly due to stratification rounding per class.
+# Each fold receives a distinct train and validation split while preserving the
+# shared test set. Exact counts may vary slightly due to per-class rounding.
 #
-# No extractor is needed — splitting works on labels and metadata, not embeddings.
+# You do not need an extractor because dataset splitting operates on labels and
+# metadata rather than embeddings.
 
 # %%
 from dataeval_flow.config import (
@@ -134,7 +131,7 @@ task = DataSplittingTaskConfig(
     sources="mv_src",
 )
 
-# Build the full pipeline config — datasets, sources, workflows, and tasks
+# Build the pipeline configuration
 config = PipelineConfig(
     datasets=[
         HuggingFaceDatasetConfig(name="mv_train", path=str(data_path), task="image_classification"),
@@ -160,9 +157,8 @@ assert result.success
 # %% [markdown]
 # ### Splitting report
 #
-# The workflow result has a built-in `report()` method that renders a formatted
-# text summary — class distribution, split sizes, balance, and diversity
-# metrics in one view.
+# Call `result.report()` to display class distributions, split sizes, and metadata
+# balance metrics in a formatted summary.
 
 # %%
 print(result.report())
@@ -170,30 +166,25 @@ print(result.report())
 # %% [markdown]
 # ### Understanding the report
 #
-# The report contains several findings:
+# You should inspect these report sections:
 #
-# - **Class distribution** — per-class counts and max imbalance ratio. MilitaryVehicles
-#   spans 119 to 424 images per class, so expect a ratio around 3.6:1 rather than the
-#   flat distribution a benchmark dataset would report.
-# - **Split sizes** — train/val/test sample counts per fold. Expect ~4,172 train,
-#   ~2,086 val, ~1,565 test.
-# - **Pre-split balance** — mutual information between metadata factors and
-#   class labels. High MI means a factor is predictive of the label (potential
-#   bias source).
-# - **Pre-split diversity** — Shannon diversity of metadata factors.
-#   Low diversity means a factor has limited variation in the dataset.
+# - **Class distribution**: Per-class counts and maximum imbalance ratio.
+#   MilitaryVehicles has an imbalance ratio of approximately 3.6:1.
+# - **Split sizes**: Train, validation, and test sample counts per fold.
+# - **Pre-split balance**: Mutual information between metadata factors and
+#   labels. High mutual information indicates potential label bias.
+# - **Pre-split diversity**: Shannon diversity of metadata factors. Low values
+#   indicate limited metadata variation.
 #
-# These tables are only as informative as the metadata behind them. MilitaryVehicles carries
-# no telemetry, so the factors available are the ones measured from the imagery — and because
-# its images vary in size (roughly 100×100 to 224×224), `height` and `width` are real factors
-# here rather than constants. A dataset of uniformly sized images would leave these tables
-# nearly empty.
+# MilitaryVehicles includes `height` and `width` as metadata factors. If your
+# dataset uses uniform image dimensions and no additional attributes, metadata
+# factor tables will be empty.
 
 # %% [markdown]
 # ### Split indices
 #
-# The raw output contains the actual index lists for each split. These can be
-# used to build filtered datasets for downstream training or evaluation.
+# You can retrieve raw split index lists from `result.data.raw` to build filtered
+# datasets for training or evaluation.
 
 # %%
 raw = result.data.raw
@@ -231,14 +222,11 @@ print(f"All {len(raw.folds)} folds verified: no overlap, full coverage.")
 # %% [markdown]
 # ### Label distribution per split
 #
-# With `stratify=True`, each split should hold roughly proportional class counts — and on an
-# imbalanced dataset that is a claim worth checking rather than assuming.
+# When you set `stratify=True`, each split preserves the overall class distribution.
 #
-# The rarest class here has 119 images, so proportional allocation gives it 63 in train, 32
-# in val and 24 in test. The largest has 424, giving 227/113/84. Watch the ratio between a
-# class's share of a split and its share of the whole dataset: that is what stratification
-# holds fixed, not the raw counts. The report's **Stratification quality** finding does this
-# arithmetic for you — here it comes back with a maximum deviation of 0.1 percentage points.
+# For example, a class with 119 images yields 63 training, 32 validation, and 24
+# test samples under this 3-fold split. The report section **Stratification quality**
+# computes deviations between split proportions and overall dataset proportions.
 
 # %%
 # Full dataset label stats
@@ -259,23 +247,18 @@ if raw.label_stats_test:
 # %% [markdown]
 # ### Balance and diversity
 #
-# The workflow runs DataEval's `Balance` and `Diversity` evaluators on the full
-# dataset before splitting. The results are serialized from Polars DataFrames
-# into list-of-dicts format.
+# The workflow evaluates `Balance` and `Diversity` on the full dataset before
+# splitting.
 #
-# The balance output shows mutual information between each metadata factor and
-# the class labels — high values indicate a factor that predicts the label
-# (a potential bias source). The diversity output shows Shannon diversity per
-# factor.
+# The balance output displays mutual information between metadata factors and class
+# labels. High mutual information indicates that a metadata factor predicts the label.
+# The diversity output displays Shannon diversity per factor.
 #
-# The factors here are `height` and `width`, the only ones the export carries besides the
-# label. Both score near zero (about 0.01), which is the answer you want: vehicle type is not
-# predictable from image geometry, so a model cannot take that shortcut instead of learning
-# the vehicle itself. Diversity flags both as *low*, which says something different — image
-# sizes cluster tightly even though they are not all identical.
+# In MilitaryVehicles, `height` and `width` have low mutual information scores
+# (around 0.01), showing vehicle labels do not depend on image resolution.
 
 # %%
-# Pre-split balance — mutual information between factors and labels
+# Pre-split balance: mutual information between factors and labels
 balance_rows = raw.pre_split_balance.get("balance")
 if balance_rows:
     print("Pre-split balance (mutual information):")
@@ -283,7 +266,7 @@ if balance_rows:
 else:
     print("No balance data (dataset may lack metadata factors)")
 
-# Pre-split diversity — Shannon diversity per factor
+# Pre-split diversity: Shannon diversity per factor
 diversity_rows = raw.pre_split_diversity.get("factors")
 if diversity_rows:
     print("\nPre-split diversity:")
@@ -315,12 +298,11 @@ for i, fold in enumerate(exported["raw"]["folds"]):
     print(f"Fold {i}: train={len(fold['train_indices'])}, val={len(fold['val_indices'])}")
 
 # %% [markdown]
-# The exported JSON contains the split indices directly. Pair them with
-# `result.dataset` — the resolved dataset the workflow actually ran on — and
-# `View` to build filtered datasets for training, evaluation, or further analysis.
+# You can extract split indices from exported JSON. You can apply them directly to
+# `result.dataset` using `View` to create training and evaluation datasets.
 #
-# Slicing `result.dataset` rather than re-loading from disk is what keeps the
-# indices meaningful: they refer to positions in *that* dataset.
+# You should slice `result.dataset` directly so the indices align with the resolved
+# dataset ordering.
 
 # %%
 from dataeval.data import Indices, View
@@ -337,32 +319,30 @@ print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial you learned how to:
+# In this tutorial, you learned how to:
 #
-# - **Configure** the `data-splitting` workflow with test/val fractions, multi-fold, and stratification
-# - **Run** the workflow via `run_task()` on MilitaryVehicles
-# - **Read the splitting report** for class distribution health and split sizes
-# - **Access raw split indices** — train, val, and test index lists across multiple folds
-# - **Verify split integrity** — no overlap, full coverage, proportional class distribution
-# - **Inspect balance and diversity** metrics computed on the pre-split dataset
-# - **Use split indices** with `View` on `result.dataset` to build filtered datasets for downstream use
-# - **Export** results to JSON and extract indices for integration with other tools
+# - Configure the `data-splitting` workflow with test fractions, fold counts, and stratification.
+# - Execute the workflow with `run_task()`.
+# - Read the splitting report for class distributions and partition sizes.
+# - Access raw partition index arrays for train, validation, and test sets.
+# - Verify partition coverage and verify that partitions do not overlap.
+# - Inspect pre-split balance and diversity metrics across metadata factors.
+# - Apply split indices to `result.dataset` using `View`.
+# - Export split definitions to JSON for downstream integration.
 
 # %% [markdown]
-# ## What's next
+# ## Next steps
 #
-# - **Data cleaning** — Use the `data-cleaning` workflow to flag outliers and duplicates
-#   in each split before training
-# - **Higher fold counts** — Increase `num_folds` for more robust cross-validation estimates
-# - **Group-aware splits** — Use `split_on=["group_id"]` to keep related samples
-#   together (e.g., same patient, same video sequence)
-# - **Rebalancing** — Set `rebalance_method="global"` to address class imbalance
-#   in the training split
+# - **Data cleaning**: Use the `data-cleaning` workflow to detect outliers and duplicates
+#   in each split before training.
+# - **Cross-validation**: Increase `num_folds` to evaluate model stability across more folds.
+# - **Group-aware splits**: Set `split_on=["group_id"]` to prevent leakage across related samples.
+# - **Rebalancing**: Set `rebalance_method="global"` to rebalance class distributions in training splits.
 
 # %% [markdown]
 # ## Related guides
 #
-# - **Concept** — [Dataset splitting](../concepts/DatasetSplitting.md):
-#   stratification, multi-fold cross-validation, and leakage avoidance.
-# - **How-to: Run workflows in containers** — [Containerized workflows](../how_to/containerized_workflows.md)
-#   to run the splitting workflow from a YAML config inside a container.
+# - **Concept**: [Dataset splitting](../concepts/DatasetSplitting.md) covers
+#   stratification, cross-validation, and data leakage avoidance.
+# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md)
+#   explains how to run splitting workflows from YAML configurations inside containers.
