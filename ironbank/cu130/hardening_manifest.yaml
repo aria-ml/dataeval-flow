@@ -1,0 +1,27 @@
+apiVersion: v1
+name: "dataeval/dataeval-flow-cu130"
+tags:
+  - "0.2.2"
+  - "0.2.2-cu130"
+args:
+  base_image: "ironbank/redhat/ubi/ubi9-minimal"
+  base_tag: "9.5"
+labels:
+  org.opencontainers.image.title: "DataEval Workflows (CUDA 13.0)"
+  org.opencontainers.image.description: "DataEval Workflows container - CUDA 13.0 variant"
+  org.opencontainers.image.licenses: "MIT"
+  org.opencontainers.image.url: "https://github.com/aria-ml/dataeval-flow"
+  org.opencontainers.image.vendor: "ARiA"
+  org.opencontainers.image.version: "0.2.2"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.image.parent: "ironbank/redhat/ubi/ubi9-minimal"
+resources:
+  - filename: "dataeval-flow-0.2.2-wheels-cu130.tar.gz"
+    url: "https://github.com/aria-ml/dataeval-flow/releases/download/v0.2.2/dataeval-flow-0.2.2-wheels-cu130.tar.gz"
+    validation:
+      type: "sha256"
+      value: "0000000000000000000000000000000000000000000000000000000000000000"
+maintainers:
+  - name: "ARiA DataEval Team"
+    username: "aria"
+    email: "dataeval@ariacoustics.com"

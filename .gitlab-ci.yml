@@ -606,6 +606,30 @@ container_scanning:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
+# Build the hermetic wheelhouse and bundle Iron Bank artifacts.
+# Uses parallel matrix across *variants so expanding to new variants is matrix-driven.
+ironbank:bundle:
+  extends: [.nox]
+  stage: publish
+  variables:
+    PYTHON_VERSION: "3.12"
+  needs:
+    - job: resolve:version
+      artifacts: true
+  parallel:
+    matrix: *variants
+  rules:
+    - *skip_publish_verification
+    - *skip_nightly_docs
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+  script:
+    - ./ironbank/build-wheelhouse.sh "${VARIANT}" "${DATAEVAL_FLOW_VERSION}"
+  artifacts:
+    paths:
+      - dist/ironbank/
+    expire_in: 7 days
+
 # -----------------------------------------------------------------------------
 # Release Stage — promote the immutable, scan-cleared image to a floating tag.
 # -----------------------------------------------------------------------------

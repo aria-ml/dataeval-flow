@@ -1,0 +1,65 @@
+# {{ label_title }}
+
+{{ label_description }}
+
+* **Upstream Repository**: [https://github.com/aria-ml/dataeval-flow](https://github.com/aria-ml/dataeval-flow)
+* **Base Image**: `{{ base_image }}:{{ base_tag }}`
+* **DISA STIG / SRG Compliance**:
+  * Runs as unprivileged user `dataeval` with numeric UID/GID `10001:10001`
+  * SetUID/SetGID bits stripped
+  * Zero build-time network access (hermetic installation via offline wheelhouse)
+  * Built-in `HEALTHCHECK` command
+  * Minimal attack surface (Red Hat UBI Minimal base)
+
+---
+
+## Volume Mounts
+
+| Mount Path | Description | Access Mode |
+|---|---|---|
+| `/dataeval` | Input datasets, models, and configuration files | Read-Only |
+| `/output` | Evaluation results, artifacts, and generated reports | Read-Write |
+| `/cache` | Optional disk computation cache | Read-Write |
+
+---
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `DATAEVAL_DATA` | Container input directory | `/dataeval` |
+| `DATAEVAL_OUTPUT` | Container output directory | `/output` |
+| `DATAEVAL_CACHE` | Cache directory (auto-enabled if mounted) | `/cache` |
+| `CONTAINER_MODE` | Runtime acceleration mode (`cpu` or `gpu`) | `{{ mode }}` |
+
+---
+
+## Running the Container
+
+### Usage
+
+```bash
+{% if mode == "gpu" %}
+docker run --rm --gpus all \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
+  registry1.dso.mil/ironbank/{{ repository_name }}-{{ variant_name }}:{{ version }}
+{% else %}
+docker run --rm \
+  --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
+  --mount type=bind,source=/path/to/output,target=/output \
+  registry1.dso.mil/ironbank/{{ repository_name }}-{{ variant_name }}:{{ version }}
+{% endif %}
+```
+
+### Interactive Help
+
+```bash
+docker run --rm registry1.dso.mil/ironbank/{{ repository_name }}-{{ variant_name }}:{{ version }} --help
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

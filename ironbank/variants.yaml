@@ -1,0 +1,43 @@
+# Iron Bank variant definitions for DataEval Workflows
+# Used by `ironbank/generate.py` to render Dockerfile, hardening_manifest.yaml, and README.md
+# per variant.
+
+python_version: "3.12"
+repository_name: "dataeval/dataeval-flow"
+release_url_prefix: "https://github.com/aria-ml/dataeval-flow/releases/download"
+
+maintainers:
+  - name: "ARiA DataEval Team"
+    username: "aria"
+    email: "dataeval@ariacoustics.com"
+
+variants:
+  cpu:
+    base_image: "ironbank/redhat/ubi/ubi9-minimal"
+    base_tag: "9.5"
+    extras: ["cpu", "onnx", "opencv", "app"]
+    label_title: "DataEval Workflows (CPU)"
+    label_description: "DataEval Workflows container - CPU variant"
+    mode: "cpu"
+
+  cu126:
+    # torch+cu126 and onnxruntime-gpu both bundle their own CUDA 12.6 runtime
+    # (nvidia-cublas-cu12, nvidia-cudnn-cu12, etc. — see requirements.cu126.txt)
+    # as pip wheels with self-resolving RPATHs, so no CUDA toolkit/runtime base
+    # image is needed. The NVIDIA driver is injected at `docker run --gpus all`
+    # time by the host's nvidia-container-toolkit, independent of the base image.
+    # Matches docker/variants.yaml's prod_base_image choice for the same reason.
+    base_image: "ironbank/redhat/ubi/ubi9-minimal"
+    base_tag: "9.5"
+    extras: ["cu126", "onnx-cu126", "opencv", "app"]
+    label_title: "DataEval Workflows (CUDA 12.6)"
+    label_description: "DataEval Workflows container - CUDA 12.6 variant"
+    mode: "gpu"
+
+  cu130:
+    base_image: "ironbank/redhat/ubi/ubi9-minimal"
+    base_tag: "9.5"
+    extras: ["cu130", "onnx-cu130", "opencv", "app"]
+    label_title: "DataEval Workflows (CUDA 13.0)"
+    label_description: "DataEval Workflows container - CUDA 13.0 variant"
+    mode: "gpu"

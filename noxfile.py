@@ -433,6 +433,12 @@ def docker_gen(session: nox.Session) -> None:
     session.run("python", "docker/generate.py")
 
 
+@nox_uv.session(uv_only_groups=["docker"], uv_no_install_project=True)
+def ironbank_gen(session: nox.Session) -> None:
+    """Generate Iron Bank variant directories and manifests from templates."""
+    session.run("python", "ironbank/generate.py")
+
+
 @nox_uv.session(uv_groups=["test"], uv_extras=UV_EXTRAS)
 def docker_smoke(session: nox.Session) -> None:
     """Container-focused smoke test invoked from the Dockerfile `test` stage.

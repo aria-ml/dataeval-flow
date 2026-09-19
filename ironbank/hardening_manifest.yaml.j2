@@ -1,0 +1,29 @@
+apiVersion: v1
+name: "{{ repository_name }}-{{ variant_name }}"
+tags:
+  - "{{ version }}"
+  - "{{ version }}-{{ variant_name }}"
+args:
+  base_image: "{{ base_image }}"
+  base_tag: "{{ base_tag }}"
+labels:
+  org.opencontainers.image.title: "{{ label_title }}"
+  org.opencontainers.image.description: "{{ label_description }}"
+  org.opencontainers.image.licenses: "MIT"
+  org.opencontainers.image.url: "https://github.com/aria-ml/dataeval-flow"
+  org.opencontainers.image.vendor: "ARiA"
+  org.opencontainers.image.version: "{{ version }}"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.image.parent: "{{ base_image }}"
+resources:
+  - filename: "dataeval-flow-{{ version }}-wheels-{{ variant_name }}.tar.gz"
+    url: "{{ release_url_prefix }}/v{{ version }}/dataeval-flow-{{ version }}-wheels-{{ variant_name }}.tar.gz"
+    validation:
+      type: "sha256"
+      value: "{{ wheelhouse_sha256 }}"
+maintainers:
+{% for m in maintainers %}
+  - name: "{{ m.name }}"
+    username: "{{ m.username }}"
+    email: "{{ m.email }}"
+{% endfor %}
