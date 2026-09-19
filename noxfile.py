@@ -343,7 +343,7 @@ def schema(session: nox.Session) -> None:
 # Files derived from pyproject.toml + uv.lock and committed alongside them. They
 # are what the pip and conda install lanes validate against, so a stale copy means
 # those lanes certify an environment nobody ships.
-EXPORTED_DEPENDENCY_FILES = ["requirements.txt", "environment.yml"]
+EXPORTED_DEPENDENCY_FILES = [f"requirements.{variant}.txt" for variant in DEVICE_VARIANTS] + ["environment.yml"]
 
 
 def _export_dependency_files(session: nox.Session) -> None:
@@ -354,8 +354,32 @@ def _export_dependency_files(session: nox.Session) -> None:
     included: both `uv export` and `p2c` record the invoking command line in the
     file header, so regenerating with a different `-o` would differ on the header
     alone.
+
+    One `requirements.<variant>.txt` per CUDA variant, mirroring
+    `docker/variants.yaml`'s extras -- device + matching onnx build + opencv +
+    app -- so each file matches what that variant's container actually ships.
     """
-    session.run("uv", "export", "--no-emit-project", "-o", "requirements.txt")
+    for variant in DEVICE_VARIANTS:
+        out = Path(f"requirements.{variant}.txt")
+        session.run(
+            "uv",
+            "export",
+            "--no-emit-project",
+            "--no-dev",
+            "--extra",
+            variant,
+            "--extra",
+            onnx_extra(variant),
+            "--extra",
+            "opencv",
+            "--extra",
+            "app",
+            "-o",
+            str(out),
+        )
+        # uv export does not emit index directives; prepend the matching PyTorch index.
+        out.write_text(f"--extra-index-url https://download.pytorch.org/whl/{variant}\n{out.read_text()}")
+
     session.run(
         "p2c",
         "yaml",
@@ -374,8 +398,8 @@ def _export_dependency_files(session: nox.Session) -> None:
 def lock(session: nox.Session) -> None:
     """Lock dependencies for uv, pip, and conda.
 
-    Regenerates `uv.lock`, `requirements.txt`, and `environment.yml`. Pass `upgrade`
-    to bump dependencies to the latest versions satisfying constraints.
+    Regenerates `uv.lock`, `requirements.{cpu,cu126,cu130}.txt`, and `environment.yml`.
+    Pass `upgrade` to bump dependencies to the latest versions satisfying constraints.
 
       nox -s lock                # refresh lockfiles preserving pins
       nox -s lock -- upgrade     # bump to latest compatible versions
@@ -389,10 +413,10 @@ def lock(session: nox.Session) -> None:
 def check(session: nox.Session) -> None:
     """Validate uv.lock and the files exported from it are up to date.
 
-    `uv lock --check` covers uv.lock. requirements.txt and environment.yml are
-    generated from it and committed, and nothing was verifying them: editing a
-    dependency without re-running `nox -s lock` left both stale, and the conda
-    lane then validated an environment.yml that no longer matched pyproject.toml.
+    `uv lock --check` covers uv.lock. requirements.{cpu,cu126,cu130}.txt and
+    environment.yml are generated from it and committed, and nothing was verifying
+    them: editing a dependency without re-running `nox -s lock` left both stale, and
+    the conda lane then validated an environment.yml that no longer matched pyproject.toml.
 
     Regenerating in place rather than into a scratch directory mirrors the `lint`
     session -- a local run repairs the tree, and CI still fails because the diff

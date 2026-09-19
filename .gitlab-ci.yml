@@ -242,7 +242,7 @@ variables:
           - pyproject.toml
           - uv.lock
           - environment.yml
-          - requirements.txt
+          - requirements.*.txt
 
 # Markdown lint [DR-3.3-H-3]
 markdownlint:
