@@ -19,13 +19,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
-# git resolves the git-sourced `dataeval` dependency that `uv sync` clones.
-# Needed by the build stage and, transitively, the test stage (FROM build); the
-# prod stage copies the prebuilt .venv and never runs uv, so it stays git-free.
-# A separate layer keeps the security-patching layer above byte-identical to
-# prod's, preserving that cache reuse.
+# git and ca-certificates resolve the git-sourced `dataeval` dependency that
+# `uv sync` clones. Needed by the build stage and, transitively, the test
+# stage (FROM build); the prod stage copies the prebuilt .venv and never runs
+# uv, so it stays git-free. A separate layer keeps the security-patching layer
+# above byte-identical to prod's, preserving that cache reuse.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy uv binary from official image (pin version for reproducibility)
