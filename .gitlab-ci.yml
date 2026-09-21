@@ -625,9 +625,19 @@ ironbank:bundle:
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
     - ./ironbank/build-wheelhouse.sh "${VARIANT}" "${DATAEVAL_FLOW_VERSION}"
+    - du -sh dist/ironbank/${VARIANT}/*.tar.gz
   artifacts:
     paths:
       - dist/ironbank/
+    # The wheelhouse tarball is the whole point of the job but far too big to
+    # upload (~470 MB cpu, ~3 GB cu130 — the coordinator rejects it with 413).
+    # The job still builds it, which is what proves the hermetic resolve works;
+    # what ships here is the reviewable Iron Bank bundle (hardening_manifest,
+    # Dockerfile, requirements, entrypoint) plus the .sha256, so the checksum
+    # recorded in the manifest can be checked against the tarball once it is
+    # attached to the release out-of-band.
+    exclude:
+      - dist/ironbank/**/*.tar.gz
     expire_in: 7 days
 
 # -----------------------------------------------------------------------------
