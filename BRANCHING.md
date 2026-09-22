@@ -83,20 +83,23 @@ Choose the version bump per Semver 2.0.0:
   breaking changes to the workflow YAML schema or container interface.
 - **MINOR (`0.X.0`)** — new features, new workflows, new extractors, new
   config fields that are backward-compatible.
-- **PATCH (`0.0.X`)** — bug fixes only; no new public API.
+- **PATCH (`0.0.X`)** — bug fixes, and additive backward-compatible changes
+  required for program standards compliance. No breaking changes to the public
+  API, the workflow YAML schema, or the container interface.
 
 While the project is **0.x (Alpha)**, minor bumps may include breaking changes;
 this is consistent with Semver's pre-1.0 allowance. Breaking changes should be
 called out explicitly in the CHANGELOG.
 
+Compliance updates in patch releases are restricted to additive, backward-compatible
+changes traceable to a specific program standards requirement recorded in the
+corresponding assessment.
+
 ## Hotfixes
 
-Today, hotfixes go through the same flow as any other change: branch from
-`main`, MR to `main`, then cut a new patch release.
-
-Long-lived `release/vX.Y` maintenance branches with cherry-pick-driven patch
-releases are **not** in use yet. They are planned for v0.3.0 once the project
-has multiple supported minor versions in production deployments.
+Supported minor versions are maintained on long-lived `release/vX.Y` branches.
+Fixes land on `main` first and are cherry-picked onto supported release lines as
+needed.
 
 ## CI/CD Gates
 
