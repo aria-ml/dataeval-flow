@@ -15,11 +15,16 @@
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
 - `crop_padding` and `crop_min_size` on `data-coverage`, with `dropped_detections` reporting omitted annotations
+- `DATAEVAL_CONFIG`, `DATAEVAL_VERBOSITY`, `DATAEVAL_TASKS`, `DATAEVAL_FAIL_ON_WARNING` and `DATAEVAL_LOG_FORMAT`, configuring every CLI parameter from the environment; CLI arguments take precedence
+- `--no-fail-on-warning`, disabling an environment-enabled `DATAEVAL_FAIL_ON_WARNING` for a single run
+- `--log-format {structured,plain}`
+- `scripts/release.py`, cutting and tagging a release from the branch you are standing on
 
 ### Changed
 
 - Metadata cache key now includes the stats policy `factor_identity()`, recomputing metadata archives on upgrade
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
+- Console logs carry an ISO-8601 UTC timestamp and level; set `DATAEVAL_LOG_FORMAT=plain` or pass `--log-format plain` for bare messages
 
 ### Fixed
 
@@ -33,6 +38,10 @@
 - Restrict cross-split label parity to shared classes, preventing chi-square errors on gapped label spaces
 - Exclude single-split classes from the parity test and report them in `label_overlap` instead
 - Restrict cross-split duplicate detection to common columns, preventing crashes on divergent stat caches
+- The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
+- The container image creates `/cache/.not_mounted`, matching `/dataeval` and `/output`; internal `/cache` is no longer exported as `DATAEVAL_CACHE` when no volume is mounted
+- Object-detection datasets are recognized consistently across supported Python versions; on 3.10 and 3.11 a dataset could be read as image classification, or fail outright
+- The GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
 
 ### Removed
 
