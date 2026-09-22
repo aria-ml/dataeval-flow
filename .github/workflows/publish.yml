@@ -53,7 +53,9 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.NOTES }}
           draft: false
-          prerelease: false
+          # `release.py prerelease` cuts vX.Y.Z-rcN / -aN; only those carry a hyphen,
+          # so a candidate is never published as the latest stable release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: dist/*
           generate_release_notes: true
 
