@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Requires DataEval 1.1.1 or newer.
+
 ## v0.2.2
 
 ### Added

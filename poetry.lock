@@ -1177,14 +1177,14 @@ tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
 name = "dataeval"
-version = "1.1.0"
+version = "1.1.1"
 description = "DataEval provides a simple interface to characterize image data and its impact on model performance across classification and object-detection tasks"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dataeval-1.1.0-py3-none-any.whl", hash = "sha256:e0d0e39fc0f2f46e86032926564f8962d45cc8925867bb11e65244819840feb0"},
-    {file = "dataeval-1.1.0.tar.gz", hash = "sha256:5b1ae1cdf5223ea7d3ea79c1beb9e0e20407839f2773b3c5bba5df3ca06b3c7a"},
+    {file = "dataeval-1.1.1-py3-none-any.whl", hash = "sha256:3eeb92d9c967a640be65b20b579a49d3a70bf71aa0813e83237f065103f626d7"},
+    {file = "dataeval-1.1.1.tar.gz", hash = "sha256:2a402a84c34be6505b5be5c1f8658a7851f9a75e2898a384b8b1dc2bac3c39a2"},
 ]
 
 [package.dependencies]
@@ -3875,7 +3875,7 @@ description = "Fundamental package for array computing in Python"
 optional = false
 python-versions = ">=3.11"
 groups = ["main", "docs", "security"]
-markers = "python_version >= \"3.11\""
+markers = "python_version == \"3.14\""
 files = [
     {file = "numpy-2.4.6-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4"},
     {file = "numpy-2.4.6-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:110f8b71aacb688ec69062bb7f6938a0f8acb01b7c1c4beb453c65b6d234584d"},
@@ -4233,27 +4233,6 @@ files = [
 
 [package.dependencies]
 numpy = {version = ">=2,<2.3.0", markers = "python_version >= \"3.9\""}
-
-[[package]]
-name = "opencv-python-headless"
-version = "4.13.0.92"
-description = "Wrapper package for OpenCV python bindings."
-optional = false
-python-versions = ">=3.6"
-groups = ["main"]
-files = [
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-macosx_13_0_arm64.whl", hash = "sha256:1a7d040ac656c11b8c38677cc8cccdc149f98535089dbe5b081e80a4e5903209"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-macosx_14_0_x86_64.whl", hash = "sha256:3e0a6f0a37994ec6ce5f59e936be21d5d6384a4556f2d2da9c2f9c5dc948394c"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:5c8cfc8e87ed452b5cecb9419473ee5560a989859fe1d10d1ce11ae87b09a2cb"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:0525a3d2c0b46c611e2130b5fdebc94cf404845d8fa64d2f3a3b679572a5bd22"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:eb60e36b237b1ebd40a912da5384b348df8ed534f6f644d8e0b4f103e272ba7d"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:0bd48544f77c68b2941392fcdf9bcd2b9cdf00e98cb8c29b2455d194763cf99e"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-win32.whl", hash = "sha256:a7cf08e5b191f4ebb530791acc0825a7986e0d0dee2a3c491184bd8599848a4b"},
-    {file = "opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl", hash = "sha256:77a82fe35ddcec0f62c15f2ba8a12ecc2ed4207c17b0902c7a3151ae29f37fb6"},
-]
-
-[package.dependencies]
-numpy = {version = ">=2", markers = "python_version >= \"3.9\""}
 
 [[package]]
 name = "packaging"
@@ -7999,9 +7978,8 @@ onnx-cu126 = ["onnx", "onnxruntime-gpu", "onnxruntime-gpu", "onnxruntime-gpu"]
 onnx-cu130 = ["onnx", "onnxruntime", "onnxruntime-gpu"]
 ontology = ["dataeval"]
 opencv = ["opencv-python-headless"]
-opencv-fips = ["opencv-python-headless"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "1249101835f62a8ab0586baccf6b00d6c262a46046e6fabe2a38d95f356aae25"
+content-hash = "2c0021586c99db5e71c9b327051ba4c07a4fc2b771ac4e275d85f1e13b269ebb"
