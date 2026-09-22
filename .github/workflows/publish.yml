@@ -29,8 +29,14 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
 
-          # Extract the section for this version from CHANGELOG.md
-          CHANGELOG=$(awk "/^## ${VERSION}\$/,/^## v[0-9]/" CHANGELOG.md | sed '$d' | tail -n +2)
+          # Extract the section for this version from CHANGELOG.md. An awk
+          # `start,end` range is wrong here: the heading matches the end pattern
+          # too, so the range would close on the line it opened and yield nothing.
+          CHANGELOG=$(awk -v ver="## ${VERSION}" '
+            $0 == ver { inside = 1; next }
+            inside && /^## v[0-9]/ { exit }
+            inside { print }
+          ' CHANGELOG.md)
 
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="Release ${VERSION}"
