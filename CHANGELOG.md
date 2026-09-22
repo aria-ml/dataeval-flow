@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Container floating tags are scoped by release line, so a v0.2 patch no longer moves
+  `:cpu`, `:cu126`, `:cu130` or `:edge` backwards over a newer build from `main`.
+- Prerelease tags (`vX.Y.Z-rcN`) are published as GitHub prereleases instead of replacing
+  the latest stable release.
+
 ## v0.2.3
 
 ### Changed
