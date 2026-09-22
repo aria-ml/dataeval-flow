@@ -3,9 +3,14 @@
 DataEval Flow follows a lightweight **GitLab Flow** model: trunk-based
 development on `main` with semver tags driving releases.
 
+Supported minor versions are maintained on long-lived `release/vX.Y` branches, so
+a line can receive patches without pulling in everything that has landed on
+`main` since.
+
 This document describes the **current state** of the project's branching and
-release process. A more sophisticated label-driven release automation model
-(mirroring the `dataeval` library) is planned for v0.3.0 — see
+release process. [scripts/release.py](scripts/release.py) picks the version,
+promotes the changelog and tags. Label-driven bumps, where `release::*`
+merge-request labels choose major/minor/patch, are still planned — see
 [ROADMAP.md](ROADMAP.md#v030--release-automation--container-hardening).
 
 ## Table of Contents
@@ -13,7 +18,7 @@ release process. A more sophisticated label-driven release automation model
 - [Overview](#overview)
 - [Branch Structure](#branch-structure)
 - [Release Process](#release-process)
-- [Hotfixes](#hotfixes)
+- [Release Lines and Hotfixes](#release-lines-and-hotfixes)
 - [CI/CD Gates](#cicd-gates)
 - [Best Practices](#best-practices)
 - [Planned Improvements](#planned-improvements)
@@ -24,16 +29,19 @@ release process. A more sophisticated label-driven release automation model
 
 - **Single source of truth:** all features and fixes merge to `main` first
 - **Semantic versioning:** [Semver 2.0.0](https://semver.org/) — `vMAJOR.MINOR.PATCH`
-- **Tag-driven releases:** annotated git tags on `main` matching `v\d+.*` trigger
-  the GitLab release pipeline (PyPI publish, Docker image build/sign/push,
-  documentation publish)
+- **Tag-driven releases:** annotated git tags matching `v\d+.*` trigger the
+  GitLab release pipeline (PyPI publish, Docker image build/sign/push,
+  documentation publish), whether tagged on `main` or on a release line
+- **Fixes flow forward first:** a fix lands on `main`, then is cherry-picked back
+  onto any supported `release/vX.Y` line that needs it
 
 ## Branch Structure
 
-| Branch                     | Purpose                                  | Lifetime    | Protected |
-| -------------------------- | ---------------------------------------- | ----------- | --------- |
-| `main`                     | Primary development branch, releasable   | Permanent   | Yes       |
-| `feature/*`, `fix/*`, etc. | Feature/fix development branches         | Short-lived | No        |
+| Branch                     | Purpose                                        | Lifetime    | Protected |
+| -------------------------- | ---------------------------------------------- | ----------- | --------- |
+| `main`                     | Primary development branch, releasable         | Permanent   | Yes       |
+| `release/vX.Y`             | Maintenance line for a supported minor version | Long-lived  | Yes       |
+| `feature/*`, `fix/*`, etc. | Feature/fix development branches               | Short-lived | No        |
 
 ### Branch Naming Conventions
 
@@ -102,14 +110,75 @@ While the project is **0.x (Alpha)**, minor bumps may include breaking changes;
 this is consistent with Semver's pre-1.0 allowance. Breaking changes should be
 called out explicitly in the CHANGELOG.
 
-## Hotfixes
+## Release Lines and Hotfixes
 
-Today, hotfixes go through the same flow as any other change: branch from
-`main`, MR to `main`, then cut a new patch release.
+Fixes always land on `main` first. A fix that also belongs on a supported older
+line is then cherry-picked onto that line's `release/vX.Y` branch, so `main`
+never has to be held back and the older line never has to take unrelated work.
 
-Long-lived `release/vX.Y` maintenance branches with cherry-pick-driven patch
-releases are **not** in use yet. They are planned for v0.3.0 once the project
-has multiple supported minor versions in production deployments.
+### Cutting a release line
+
+Not every release needs a branch — cut one when a minor version must keep
+receiving fixes after `main` has moved on. Branch from the line's newest release
+tag, never from `main`:
+
+```bash
+git switch -c release/v0.2 v0.2.2
+git push -u origin release/v0.2
+```
+
+Then mark the branch **protected** in the GitLab project settings. Beyond the
+usual merge protection, the shared CI rules key security scanning off
+`$CI_COMMIT_REF_PROTECTED`, so protecting the branch is what turns its scans on.
+
+Branching from the release tag is what keeps versioning correct: `git describe`
+on the new branch resolves against `v0.2.2`, so the next patch computes as
+`v0.2.3` rather than inheriting whatever `main` has reached.
+
+### Backporting a fix
+
+After a `[fix]` MR merges to `main`, decide which lines need it:
+
+```bash
+git fetch origin
+git switch -c cherry-pick/fix-to-v0-2 origin/release/v0.2
+git cherry-pick <commit-sha>
+# resolve conflicts if any, then:
+git push -u origin cherry-pick/fix-to-v0-2
+# open an MR targeting release/v0.2, titled "[fix] ..."
+```
+
+MRs into a release branch run the full lint, type, test and security suite, the
+same as MRs into `main` — the shared rules gate on the merge-request event, not
+on the target branch.
+
+### Releasing a patch
+
+Identical to the [release process above](#cutting-a-release) — record the notes
+under `## Unreleased`, open an MR against the release branch, merge — but run the
+script on the release branch rather than on `main`, where it bumps the patch:
+
+```bash
+git switch release/v0.2
+python scripts/release.py    # v0.2.2 -> v0.2.3
+git push --follow-tags origin release/v0.2
+```
+
+Release lines carry **fixes and housekeeping only**. New features, removals and
+breaking changes belong on `main` — shipping one in a patch breaks the promise
+the version number makes.
+
+### What the containers do
+
+The tag pipeline publishes `0.2.3-<variant>` as usual, and updates the series
+pointer `0.2-<variant>`. The bare `<variant>` pointer — "newest release" — moves
+**only** if the tag is the highest release in the repository, so a v0.2 patch cut
+after v0.3 has shipped will not drag `:cpu` backwards onto the older line.
+
+That decision lives in [`docker/promote-tags.sh`](docker/promote-tags.sh), which
+is unit-tested in `tests/test_promote_tags.py`. See the
+[Container Reference](docs/source/reference/containers.md#image-tags) for the
+full tag scheme.
 
 ## CI/CD Gates
 
@@ -158,9 +227,6 @@ v0.1.1. The following enhancements are still planned (see
   | deprecation | fix | misc` MR labels drive automatic version bumps,
   changelog generation, and tag creation. Mirrors the `dataeval` library's
   approach. *(planned: v0.3.0)*
-- **Long-lived `release/vX.Y` branches with cherry-pick patches** — enables
-  hotfixes to older supported minor versions without forcing an upgrade.
-  *(planned: v0.3.0, contingent on multiple supported releases existing)*
 - **`release::*` label validation in CI** — ensures every MR carries a valid
   release label so the changelog is always derivable. *(planned: v0.3.0)*
 

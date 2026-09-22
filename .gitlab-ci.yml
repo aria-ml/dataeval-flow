@@ -169,6 +169,13 @@ variables:
   DOCKER_TLS_CERTDIR: "/certs"
   FORCE_COLOR: "1"
 
+  # Long-lived maintenance branches (release/v0.2, ...), cut from a release tag so
+  # a supported line can take patches without pulling in everything on main. See
+  # BRANCHING.md. The container chain runs on these so an image can be validated
+  # before the tag is pushed; the docs/Pages publish deliberately does not, since
+  # an older line must not overwrite the published site.
+  RELEASE_BRANCH_PATTERN: '/^release\/v.*/'
+
   # Harbor Registry Configuration
   # HARBOR_TOKEN must be set as a CI/CD Variable in GitLab
   HARBOR_URL: "harbor.jatic.net"
@@ -429,6 +436,7 @@ pages coverage:
     - *skip_publish_verification
     - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ $RELEASE_BRANCH_PATTERN
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   before_script:
     # `docker:25.0.5-git` is Alpine — no bash by default. docker/resolve-version.sh
@@ -464,6 +472,7 @@ resolve:version:
     - *skip_publish_verification
     - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ $RELEASE_BRANCH_PATTERN
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
 # Shared push template with cosign signing. Version vars (DATAEVAL_FLOW_VERSION,
@@ -604,6 +613,7 @@ container_scanning:
     - *skip_publish_verification
     - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ $RELEASE_BRANCH_PATTERN
     - if: $CI_COMMIT_TAG =~ /^v\d+/
 
 # Build the hermetic wheelhouse and bundle Iron Bank artifacts.
@@ -622,6 +632,7 @@ ironbank:bundle:
     - *skip_publish_verification
     - *skip_nightly_docs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ $RELEASE_BRANCH_PATTERN
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
     - ./ironbank/build-wheelhouse.sh "${VARIANT}" "${DATAEVAL_FLOW_VERSION}"
@@ -655,19 +666,29 @@ promote:floating:
   needs: [push:docker, verify:docker, container_scanning, "resolve:version"]
   parallel:
     matrix: *variants
+  variables:
+    # Full tag history: promote-tags.sh ranks this release against every other one
+    # to decide whether it may hold the bare `:${VARIANT}` pointer.
+    GIT_DEPTH: "0"
   script:
     # DATAEVAL_FLOW_IMAGE_TAG inherited from resolve:version
     - IMMUTABLE_TAG="${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
+    - git fetch --tags --quiet
+    # Which floating pointers this build earns — see docker/promote-tags.sh. A
+    # release-branch patch gets its series pointer only; the bare pointer stays
+    # with the newest line. Prereleases get nothing and print an empty list.
+    - FLOATING_TAGS=$(git tag -l 'v*' | ./docker/promote-tags.sh "${VARIANT}")
     - |
-      if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
-        FLOATING_TAG="${VARIANT}"
-      else
-        FLOATING_TAG="edge-${VARIANT}"
+      if [[ -z "$FLOATING_TAGS" ]]; then
+        echo "No floating pointer for ${IMMUTABLE_TAG} — immutable tag only."
       fi
-    - echo "Promoting ${IMMUTABLE_TAG} → ${FLOATING_TAG}"
-    - docker buildx imagetools create
-      -t ${CI_APPLICATION_REPOSITORY}:${FLOATING_TAG}
-      ${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}
+    - |
+      for FLOATING_TAG in $FLOATING_TAGS; do
+        echo "Promoting ${IMMUTABLE_TAG} → ${FLOATING_TAG}"
+        docker buildx imagetools create \
+          -t ${CI_APPLICATION_REPOSITORY}:${FLOATING_TAG} \
+          ${CI_APPLICATION_REPOSITORY}:${IMMUTABLE_TAG}
+      done
 
 # Per-version SBOM release artifact [CS-2-H-4]
 # Downloads the CycloneDX cosign attestation written by push:docker (digest-

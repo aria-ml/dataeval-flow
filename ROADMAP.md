@@ -108,7 +108,9 @@ per-split loading for the object-detection formats.
       last release to support it. uv, pip, and conda remain (supersedes SR-3-H-2..4)
 - [ ] Label-driven semver release automation (`release::*` MR labels)
 - [ ] CI scripts for `create_release.py`, `create_patch_release.py`, `validate_release_label.py`
-- [ ] Release branch lifecycle (`release/vX.Y` long-lived branches)
+- [x] Release branch lifecycle (`release/vX.Y` long-lived branches) — cut from a release tag,
+      patched by cherry-pick from `main`; series-scoped container tags (`0.2-cpu`) keep a patch
+      on an older line from moving the `:cpu` pointer. See BRANCHING.md (RS-5-S-1)
 - [x] Container scan promoted to a gate — container scanning runs `allow_failure: false` at
       `CS_SEVERITY_THRESHOLD: HIGH`, blocking floating-tag promotion (CS-2-H-2 / DSOR-3-H-2)
 - [x] SBOM published with releases — per-image CycloneDX cosign attestation (CS-2-H-4)
