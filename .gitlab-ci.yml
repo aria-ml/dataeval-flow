@@ -43,7 +43,7 @@ variables:
 
   # Target Image Path
   # Used for tagging and pushing to Harbor
-  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}/aria/dataeval"
+  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}/aria/dataeval-flow"
   # Separate cache repo for buildx registry cache (mode=max)
   CI_CACHE_REPOSITORY: "${HARBOR_URL}/aria/cache"
 
@@ -646,7 +646,7 @@ container_scanning:
   # The Container-Scanning template hard-sets `dependencies: []`, which blocks
   # ALL artifact downloads — including resolve:version's dotenv — regardless of
   # `needs: artifacts: true`. Override it so DATAEVAL_FLOW_IMAGE_TAG is actually
-  # fetched; without this the image tag resolves empty (`dataeval:-cpu`).
+  # fetched; without this the image tag resolves empty (`dataeval-flow:-cpu`).
   dependencies: ["resolve:version"]
   parallel:
     matrix: *variants
@@ -666,7 +666,7 @@ container_scanning:
     # DATAEVAL_FLOW_IMAGE_TAG comes from resolve:version's dotenv. dotenv vars
     # are injected into the job environment at runtime but are NOT expanded
     # inside the `variables:` keyword — declaring CS_IMAGE there yields an empty
-    # tag (`dataeval:-cpu`) and the scan aborts with image-not-found. Assemble it
+    # tag (`dataeval-flow:-cpu`) and the scan aborts with image-not-found. Assemble it
     # here, where the dotenv var is present (same as push:docker does in script).
     - export CS_IMAGE="${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
     - echo "Scanning ${CS_IMAGE}"

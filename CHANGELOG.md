@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- **Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of
+  `harbor.jatic.net/aria/dataeval`.** Update any `docker pull` commands, Kubernetes
+  manifests, or CI jobs that reference the old path. Tags already published under the
+  old repository are unaffected. The OCI `image.title` label changed from
+  "DataEval Workflows" to "DataEval-Flow" to match.
+
 ### Fixed
 
 - Container floating tags are scoped by release line, so a v0.2 patch no longer moves

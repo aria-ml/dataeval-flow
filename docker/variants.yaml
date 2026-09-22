@@ -1,4 +1,4 @@
-# Docker variant definitions for DataEval Workflows
+# Docker variant definitions for DataEval-Flow
 # Used by `nox -s docker-gen` to render Dockerfile.<variant> from Dockerfile.j2
 #
 # To add a new CUDA variant:
@@ -21,21 +21,21 @@ variants:
     prod_base_image: "ubuntu:24.04"
 
     extras: ["cpu", "onnx", "opencv", "app"]
-    label_title: "DataEval Workflows (CPU)"
-    label_description: "DataEval Workflows container - CPU variant"
+    label_title: "DataEval-Flow (CPU)"
+    label_description: "DataEval-Flow container - CPU variant"
 
   cu126:
     build_base_image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04"
     prod_base_image: "ubuntu:24.04"
 
     extras: ["cu126", "onnx-cu126", "opencv", "app"]
-    label_title: "DataEval Workflows (CUDA 12.6)"
-    label_description: "DataEval Workflows container - CUDA 12.6 variant"
+    label_title: "DataEval-Flow (CUDA 12.6)"
+    label_description: "DataEval-Flow container - CUDA 12.6 variant"
 
   cu130:
     build_base_image: "nvidia/cuda:13.0.3-cudnn-devel-ubuntu24.04"
     prod_base_image: "ubuntu:24.04"
 
     extras: ["cu130", "onnx-cu130", "opencv", "app"]
-    label_title: "DataEval Workflows (CUDA 13.0)"
-    label_description: "DataEval Workflows container - CUDA 13.0 variant"
+    label_title: "DataEval-Flow (CUDA 13.0)"
+    label_description: "DataEval-Flow container - CUDA 13.0 variant"

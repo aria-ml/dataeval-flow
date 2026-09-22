@@ -111,8 +111,8 @@ RUN echo "__version__ = '${DATAEVAL_FLOW_VERSION}'" > /app/src/dataeval_flow/_ve
     && chown dataeval:dataeval /app/src/dataeval_flow/_version.py
 
 # Container labels
-LABEL org.opencontainers.image.title="DataEval Workflows (CPU)" \
-      org.opencontainers.image.description="DataEval Workflows container - CPU variant" \
+LABEL org.opencontainers.image.title="DataEval-Flow (CPU)" \
+      org.opencontainers.image.description="DataEval-Flow container - CPU variant" \
       org.opencontainers.image.version="${DATAEVAL_FLOW_VERSION}" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 
