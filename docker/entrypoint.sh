@@ -7,6 +7,10 @@ set -e
 # Resolve data root (matches Python-side DATAEVAL_DATA env var)
 DATA_DIR="${DATAEVAL_DATA:-/dataeval}"
 
+# Resolve output and cache roots (matches DATAEVAL_OUTPUT and DATAEVAL_CACHE env vars)
+OUTPUT_DIR="${DATAEVAL_OUTPUT:-/output}"
+CACHE_DIR="${DATAEVAL_CACHE:-/cache}"
+
 # Image tag for help text (e.g. dataeval:cpu, dataeval:cu130)
 IMAGE_TAG="dataeval:${UV_EXTRAS_OVERRIDE:-cpu}"
 
@@ -47,8 +51,8 @@ REQUIRED:
   $DATA_DIR          Data directory — datasets, models, configs (read-only)
 
 OPTIONAL:
-  /output            Results and output files (read-write)
-  /cache             Computation cache (read-write)
+  $OUTPUT_DIR        Results and output files (read-write)
+  $CACHE_DIR         Computation cache (read-write)
 
   No secret mounts are required: this tool uses no API keys, tokens, or
   passwords. None are read from the environment or baked into the image.
@@ -59,9 +63,18 @@ ENVIRONMENT VARIABLES
 
   DATAEVAL_DATA      Input data root inside the container (default: $DATA_DIR).
                      Datasets, models, and configs resolve relative to it.
-  DATAEVAL_OUTPUT    Output directory for results/reports (default: /output).
-  DATAEVAL_CACHE     Computation cache directory (optional; auto-set to /cache
-                     when that volume is mounted and writable).
+  DATAEVAL_OUTPUT    Output directory for results/reports (default: $OUTPUT_DIR).
+  DATAEVAL_CACHE     Computation cache directory (default: $CACHE_DIR when that
+                     volume is mounted and writable).
+  DATAEVAL_CONFIG    Config file or folder (default: auto-discover at the data root).
+  DATAEVAL_VERBOSITY Verbosity 0-3, as -v/-vv/-vvv (default: 0).
+  DATAEVAL_TASKS     Comma-separated task names to run (default: every enabled task).
+  DATAEVAL_FAIL_ON_WARNING
+                     Exit non-zero on health warnings: true/false (default: false).
+  DATAEVAL_LOG_FORMAT
+                     Console format: structured or plain (default: structured).
+                     'structured' prefixes each record with an ISO-8601 UTC
+                     timestamp and level.
 
   All are optional. Command-line options below take precedence over them.
 
@@ -76,6 +89,10 @@ COMMAND-LINE OPTIONS
   -d, --data PATH     Input data root (default: \$DATAEVAL_DATA or CWD).
   -o, --output PATH   Output directory for artifacts (default: \$DATAEVAL_OUTPUT).
   -k, --cache PATH    Disk-backed computation cache (default: \$DATAEVAL_CACHE).
+  -t, --task NAME     Run only this task. Repeat to run several, in order.
+      --log-format F  Console format: structured (default) or plain.
+      --fail-on-warning / --no-fail-on-warning
+                      Exit non-zero when a task reports health warnings.
   -v, --verbose       Increase verbosity (-v report, -vv +INFO, -vvv +DEBUG).
   -h, --help          Show this help and exit.
 
@@ -103,32 +120,32 @@ EXAMPLES
 Minimal (data + output):
     docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
-        --mount type=bind,source=/home/user/results,target=/output \\
+        --mount type=bind,source=/home/user/results,target=$OUTPUT_DIR \\
         $IMAGE_TAG
 
 With cache:
     docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
-        --mount type=bind,source=/home/user/results,target=/output \\
-        --mount type=bind,source=/home/user/cache,target=/cache \\
+        --mount type=bind,source=/home/user/results,target=$OUTPUT_DIR \\
+        --mount type=bind,source=/home/user/mycache,target=$CACHE_DIR \\
         $IMAGE_TAG
 
 With config path override (config in a subdirectory):
     docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
-        --mount type=bind,source=/home/user/results,target=/output \\
+        --mount type=bind,source=/home/user/results,target=$OUTPUT_DIR \\
         $IMAGE_TAG python -m dataeval_flow --config config/
 
 Verbose output (-v report, -vv +INFO, -vvv +DEBUG):
     docker run${GPU_FLAG} \\
         --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
-        --mount type=bind,source=/home/user/results,target=/output \\
+        --mount type=bind,source=/home/user/results,target=$OUTPUT_DIR \\
         $IMAGE_TAG python -m dataeval_flow -v
 
 Windows PowerShell:
     docker run${GPU_FLAG} \`
         --mount type=bind,source=C:\\data\\myproject,target=$DATA_DIR,readonly \`
-        --mount type=bind,source=C:\\output,target=/output \`
+        --mount type=bind,source=C:\\output,target=$OUTPUT_DIR \`
         $IMAGE_TAG
 
 --------------------------------------------------------------------------------
@@ -145,7 +162,7 @@ Custom data root (override DATAEVAL_DATA):
     docker run${GPU_FLAG} \\
         -e DATAEVAL_DATA=/data \\
         --mount type=bind,source=/home/user/myproject,target=/data,readonly \\
-        --mount type=bind,source=/home/user/results,target=/output \\
+        --mount type=bind,source=/home/user/results,target=$OUTPUT_DIR \\
         $IMAGE_TAG
 
 --------------------------------------------------------------------------------
@@ -154,7 +171,7 @@ TROUBLESHOOTING
 
 "No GPU detected"      -> Add --gpus all to command
 "No data mounted"      -> Add --mount for $DATA_DIR
-"Output not mounted"   -> Add --mount for /output
+"Output not mounted"   -> Add --mount for $OUTPUT_DIR
 "invalid mount config" -> Check source path exists on host
 "Permission denied"    -> Check host directory permissions
 
@@ -188,31 +205,29 @@ if [[ -z "$(ls -A "$DATA_DIR" 2>/dev/null)" ]]; then
 fi
 
 # ============== VALIDATE OUTPUT MOUNT (REQUIRED) ==============
-# Marker file exists = no mount attempted = show error
-if [[ -f "/output/.not_mounted" ]]; then
+# Validate output directory is mounted
+if [[ -f "$OUTPUT_DIR/.not_mounted" ]] || [[ ! -d "$OUTPUT_DIR" ]]; then
     echo ""
-    echo "ERROR: Output directory not mounted at /output"
+    echo "ERROR: Output directory not mounted at $OUTPUT_DIR"
     echo ""
     echo "Mount an output directory:"
-    echo "  --mount type=bind,source=/path/to/output,target=/output"
+    echo "  --mount type=bind,source=/path/to/results,target=$OUTPUT_DIR"
     echo ""
     echo "Run with --help for usage information."
     exit 1
 fi
 
-# /output - Results (required, check writability)
-if [[ ! -w "/output" ]]; then
+if [[ ! -w "$OUTPUT_DIR" ]]; then
     echo ""
-    echo "ERROR: Output mount at /output is not writable"
+    echo "ERROR: Output mount at $OUTPUT_DIR is not writable"
     echo ""
     echo "Check directory permissions on host."
     exit 1
 fi
 
-# /cache - Computation cache (optional, check writability if mounted)
-if [[ -d "/cache" ]] && [[ ! -w "/cache" ]]; then
+if [[ -d "$CACHE_DIR" ]] && [[ ! -w "$CACHE_DIR" ]]; then
     echo ""
-    echo "ERROR: Cache mount at /cache is not writable"
+    echo "ERROR: Cache mount at $CACHE_DIR is not writable"
     echo ""
     echo "Check directory permissions on host."
     exit 1
@@ -232,7 +247,7 @@ else
         echo ""
         echo "    docker run --gpus all \\"
         echo "        --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly \\"
-        echo "        --mount type=bind,source=/path/to/output,target=/output \\"
+        echo "        --mount type=bind,source=/path/to/results,target=$OUTPUT_DIR \\"
         echo "        $IMAGE_TAG"
         echo ""
         echo "For CPU-only machines, use: dataeval:cpu"
@@ -248,7 +263,7 @@ else
         echo ""
         echo "    docker run --gpus all \\"
         echo "        --mount type=bind,source=/path/to/data,target=$DATA_DIR,readonly \\"
-        echo "        --mount type=bind,source=/path/to/output,target=/output \\"
+        echo "        --mount type=bind,source=/path/to/results,target=$OUTPUT_DIR \\"
         echo "        $IMAGE_TAG"
         echo ""
         echo "Run with --help for full usage."
@@ -257,9 +272,10 @@ else
 fi
 
 # ============== AUTO-DETECT CACHE ==============
-# Set DATAEVAL_CACHE only if /cache is mounted and writable (not a marker stub)
-if [[ -z "${DATAEVAL_CACHE:-}" ]] && [[ -d "/cache" ]] && [[ -w "/cache" ]] && [[ ! -f "/cache/.not_mounted" ]]; then
-    export DATAEVAL_CACHE="/cache"
+# Set DATAEVAL_CACHE if cache mount is present and writable
+if [[ -z "${DATAEVAL_CACHE:-}" ]] && [[ -d "$CACHE_DIR" ]] && [[ -w "$CACHE_DIR" ]] \
+   && [[ ! -f "$CACHE_DIR/.not_mounted" ]]; then
+    export DATAEVAL_CACHE="$CACHE_DIR"
 fi
 
 # ============== SUCCESS ==============

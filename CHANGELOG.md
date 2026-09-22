@@ -16,6 +16,12 @@
 - `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` per run.
 - `--log-format {structured,plain}` option.
 
+### Fixed
+
+- The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths.
+- The container image now creates `/cache/.not_mounted`, matching `/dataeval` and `/output`.
+  Internal `/cache` is no longer exported as `DATAEVAL_CACHE` when no volume is mounted.
+
 ## v0.2.2
 
 ### Added

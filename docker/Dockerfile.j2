@@ -1,5 +1,5 @@
 # AUTO-GENERATED from docker/Dockerfile.j2 — do not edit directly.
-# Regenerate with: nox -s docker-gen
+# Regenerate with: nox -s docker_gen
 # Variant: {{ variant_name }}
 
 # Dynamic version (must match hatch-vcs source of truth — git tags).
@@ -89,7 +89,7 @@ RUN apt-get update \
 # Create non-root user early for --chown on COPY
 RUN useradd --create-home --shell /bin/bash dataeval \
     && mkdir -p /dataeval /output /cache \
-    && touch /dataeval/.not_mounted /output/.not_mounted \
+    && touch /dataeval/.not_mounted /output/.not_mounted /cache/.not_mounted \
     && chown -R dataeval:dataeval /dataeval /output /cache
 
 WORKDIR /app

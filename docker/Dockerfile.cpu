@@ -1,12 +1,12 @@
 # AUTO-GENERATED from docker/Dockerfile.j2 — do not edit directly.
-# Regenerate with: nox -s docker-gen
+# Regenerate with: nox -s docker_gen
 # Variant: cpu
 
 # Dynamic version (must match hatch-vcs source of truth — git tags).
 # CI passes the resolved version via --build-arg DATAEVAL_FLOW_VERSION=...
 # Local `docker build` uses the default below, set to the last published tag
 # by docker/generate.py so the committed value is stable across regenerations.
-ARG DATAEVAL_FLOW_VERSION="0.2.0"
+ARG DATAEVAL_FLOW_VERSION="0.2.2"
 
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
@@ -89,7 +89,7 @@ RUN apt-get update \
 # Create non-root user early for --chown on COPY
 RUN useradd --create-home --shell /bin/bash dataeval \
     && mkdir -p /dataeval /output /cache \
-    && touch /dataeval/.not_mounted /output/.not_mounted \
+    && touch /dataeval/.not_mounted /output/.not_mounted /cache/.not_mounted \
     && chown -R dataeval:dataeval /dataeval /output /cache
 
 WORKDIR /app
