@@ -4,6 +4,8 @@
 
 ### Changed
 
+- **Console logs now include an ISO-8601 UTC timestamp and log level by default.**
+  Set `DATAEVAL_LOG_FORMAT=plain` or pass `--log-format plain` to restore bare messages.
 - Requires DataEval 1.1.1 or newer.
 
 ## v0.2.2

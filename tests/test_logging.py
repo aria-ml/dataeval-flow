@@ -1,6 +1,7 @@
 """Tests for dataeval_flow._logging module."""
 
 import logging
+import re
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,18 @@ import pytest
 from dataeval_flow._logging import configure_log_levels, setup_logging
 
 pytestmark = pytest.mark.required
+
+_ISO_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z ")
+
+
+@pytest.fixture(autouse=True)
+def _reset_root_handlers():
+    root = logging.getLogger()
+    saved = list(root.handlers)
+    root.handlers.clear()
+    yield
+    root.handlers.clear()
+    root.handlers.extend(saved)
 
 
 def _find_log_file(tmp_path: Path) -> Path:
@@ -141,7 +154,7 @@ class TestLogMessage:
 class TestConsoleFormatter:
     def test_info_renders_bare_message(self, tmp_path: Path, capsys: pytest.CaptureFixture):
         """INFO/DEBUG console output is the bare message — no timestamp, name, or level tag."""
-        setup_logging(tmp_path, verbosity=2)  # console handler at INFO
+        setup_logging(tmp_path, verbosity=2, log_format="plain")  # console handler at INFO
 
         logging.getLogger("dataeval_flow.fmt").info("plain console message")
 
@@ -152,7 +165,7 @@ class TestConsoleFormatter:
 
     def test_warning_is_level_tagged(self, tmp_path: Path, capsys: pytest.CaptureFixture):
         """WARNING and above are prefixed with ``LEVEL:`` so problems stay visible."""
-        setup_logging(tmp_path, verbosity=0)  # console handler at WARNING
+        setup_logging(tmp_path, verbosity=0, log_format="plain")  # console handler at WARNING
 
         logging.getLogger("dataeval_flow.fmt").warning("be careful")
 
@@ -173,3 +186,40 @@ class TestConfigureLogLevels:
         configure_log_levels(lib_level="DEBUG")
 
         assert logging.getLogger().level == logging.DEBUG
+
+
+class TestConsoleFormat:
+    """Test timestamp and severity prefixing in console logs."""
+
+    def _emit(self, capsys, level: str, message: str, **kwargs) -> str:
+        setup_logging(**kwargs)
+        getattr(logging.getLogger("dataeval_flow.test"), level)(message)
+        return capsys.readouterr().out
+
+    def test_warning_is_stamped_at_default_verbosity(self, capsys):
+        """WARNING messages are stamped with timestamp and level by default."""
+        out = self._emit(capsys, "warning", "binning applied")
+        assert _ISO_UTC.match(out), out
+        assert "[WARNING]" in out
+        assert "binning applied" in out
+
+    def test_info_is_stamped_when_verbose(self, capsys):
+        out = self._emit(capsys, "info", "loading dataset", verbosity=2)
+        assert _ISO_UTC.match(out), out
+        assert "[INFO]" in out
+
+    def test_plain_mode_matches_previous_output(self, capsys):
+        out = self._emit(capsys, "warning", "binning applied", log_format="plain")
+        assert out == "WARNING: binning applied\n"
+
+    def test_plain_mode_info_is_bare(self, capsys):
+        out = self._emit(capsys, "info", "loading dataset", verbosity=2, log_format="plain")
+        assert out == "loading dataset\n"
+
+    def test_structured_formatter_converts_to_utc(self):
+        """Verify the structured console formatter uses time.gmtime for UTC."""
+        import time as _time
+
+        from dataeval_flow._logging import _ConsoleFormatter
+
+        assert _ConsoleFormatter("structured").converter is _time.gmtime

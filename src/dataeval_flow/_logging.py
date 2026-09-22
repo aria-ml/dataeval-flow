@@ -32,22 +32,31 @@ _FILE_ROLE = "_dataeval_flow_file"
 _FILE_FORMAT = "%(asctime)s [%(levelname)-5s] %(name)s: %(message)s"
 _FILE_DATEFMT = "%Y-%m-%dT%H:%M:%SZ"
 
+# Console format for structured mode (ISO-8601 UTC timestamp and log level).
+_CONSOLE_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
+_CONSOLE_DATEFMT = "%Y-%m-%dT%H:%M:%SZ"
+
 
 class _ConsoleFormatter(logging.Formatter):
-    """Clean console formatter for CLI/container output.
+    """Console formatter for CLI and container output.
 
-    Strips the library-style prefix (timestamp, logger name) so user-facing
-    output reads like plain program output.  INFO/DEBUG records render as just
-    the message; WARNING and above are tagged with ``LEVEL:`` so problems stay
-    visible.  Tracebacks (``exc_info``) are appended via the standard machinery.
+    Supports ``structured`` mode (ISO-8601 UTC timestamp and level prefix)
+    and ``plain`` mode (bare messages, with a level prefix only for WARNING
+    and above).
     """
 
-    def __init__(self) -> None:
-        super().__init__("%(message)s")
-        self._warn_formatter = logging.Formatter("%(levelname)s: %(message)s")
+    def __init__(self, log_format: str = "structured") -> None:
+        if log_format == "plain":
+            super().__init__("%(message)s")
+            self._warn_formatter: logging.Formatter | None = logging.Formatter("%(levelname)s: %(message)s")
+        else:
+            super().__init__(_CONSOLE_FORMAT, datefmt=_CONSOLE_DATEFMT)
+            # Ensure timestamps format in UTC
+            self.converter = time.gmtime
+            self._warn_formatter = None
 
     def format(self, record: logging.LogRecord) -> str:
-        if record.levelno >= logging.WARNING:
+        if self._warn_formatter is not None and record.levelno >= logging.WARNING:
             return self._warn_formatter.format(record)
         return super().format(record)
 
@@ -72,7 +81,11 @@ class LogMessage:
         return self._str
 
 
-def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
+def setup_logging(
+    output_dir: Path | None = None,
+    verbosity: int = 0,
+    log_format: str = "structured",
+) -> None:
     """Configure root logger with a clean console handler and optional file log.
 
     Additive and idempotent: the console (stdout) handler and the file handler
@@ -81,10 +94,11 @@ def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
     file handler once ``output_dir`` is known — without ever duplicating a
     handler.
 
-    The console handler uses :class:`_ConsoleFormatter` (bare messages, with a
-    ``LEVEL:`` prefix only for warnings and above) so CLI/container output reads
-    like plain program output.  The file handler keeps the full timestamped,
-    named format at DEBUG for diagnostics.
+    The console handler uses :class:`_ConsoleFormatter` in either
+    ``"structured"`` mode (ISO-8601 UTC timestamp and level prefix) or
+    ``"plain"`` mode (bare messages, with a level prefix only for WARNING
+    and above). The file handler retains the timestamped format at DEBUG
+    level.
 
     Parameters
     ----------
@@ -93,6 +107,9 @@ def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
         handler is created and output is console-only.
     verbosity : int
         Console verbosity level (0=quiet, 1=report, 2=+INFO, 3=+DEBUG).
+    log_format : str
+        Console format: ``"structured"`` (timestamp and level prefix) or
+        ``"plain"`` (bare messages). The file handler is unaffected.
     """
     global _initialized
     _initialized = True
@@ -110,7 +127,7 @@ def setup_logging(output_dir: Path | None = None, verbosity: int = 0) -> None:
             sh.setLevel(logging.INFO)
         else:
             sh.setLevel(logging.WARNING)
-        sh.setFormatter(_ConsoleFormatter())
+        sh.setFormatter(_ConsoleFormatter(log_format))
         setattr(sh, _CONSOLE_ROLE, True)
         root.addHandler(sh)
 
