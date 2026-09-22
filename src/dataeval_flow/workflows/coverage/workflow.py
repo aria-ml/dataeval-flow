@@ -10,6 +10,7 @@ Assessments are organized by the dimension they evaluate:
 """
 
 import contextlib
+import inspect
 import logging
 import warnings
 from typing import Any
@@ -20,6 +21,7 @@ from dataeval import Metadata
 from dataeval.core import label_stats
 from dataeval.protocols import AnnotatedDataset, ObjectDetectionTarget
 from pydantic import BaseModel
+from typing_extensions import get_protocol_members
 
 from dataeval_flow.binning import attach_binning
 from dataeval_flow.cache import active_cache, get_or_compute_embeddings, get_or_compute_metadata
@@ -149,12 +151,25 @@ def _run_coverage(
     )
 
 
+#: Protocol members declared by ObjectDetectionTarget.
+_OD_TARGET_MEMBERS = get_protocol_members(ObjectDetectionTarget)
+
+_MISSING = object()
+
+
 def _is_object_detection(dataset: AnnotatedDataset[Any]) -> bool:
-    """Whether the dataset's targets are detections rather than one label per image."""
+    """Check whether dataset targets implement the ObjectDetectionTarget protocol.
+
+    Uses :func:`inspect.getattr_static` to verify member presence without
+    invoking property getters, ensuring consistent behavior across Python
+    versions.
+    """
     if len(dataset) == 0:
         return False
     datum = dataset[0]
-    return isinstance(datum, tuple) and len(datum) == 3 and isinstance(datum[1], ObjectDetectionTarget)
+    if not isinstance(datum, tuple) or len(datum) != 3:
+        return False
+    return all(inspect.getattr_static(datum[1], name, _MISSING) is not _MISSING for name in _OD_TARGET_MEMBERS)
 
 
 def _crop_view(

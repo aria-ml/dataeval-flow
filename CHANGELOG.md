@@ -21,6 +21,9 @@
 - The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths.
 - The container image now creates `/cache/.not_mounted`, matching `/dataeval` and `/output`.
   Internal `/cache` is no longer exported as `DATAEVAL_CACHE` when no volume is mounted.
+- Object-detection datasets are recognized consistently across supported Python versions.
+  On Python 3.10 and 3.11 a dataset could be read as image classification, or fail outright,
+  depending on how its targets exposed `boxes`, `labels` and `scores`.
 
 ## v0.2.2
 
