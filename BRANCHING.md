@@ -48,23 +48,37 @@ While not strictly enforced, the following patterns are recommended for clarity:
 
 ### Cutting a Release
 
-1. Ensure `main` is green and includes the work to be released.
-2. Update [CHANGELOG.md](CHANGELOG.md) with a new section describing the
-   release. Follow the existing `## vX.Y.Z` heading pattern with `### Added`,
-   `### Changed`, `### Fixed`, and `### Removed` subsections (and others, such
-   as `### Infrastructure`, as needed).
+1. Ensure the branch is green and includes the work to be released.
+2. Record user-visible changes under an `## Unreleased` heading in
+   [CHANGELOG.md](CHANGELOG.md), using `### Added`, `### Changed`, `### Fixed`
+   and `### Removed` subsections (and others, such as `### Infrastructure`, as
+   needed). [scripts/release.py](scripts/release.py) renames that heading to the
+   new version; it does not generate the notes, because
+   [publish.yml](.github/workflows/publish.yml) lifts the section verbatim as the
+   GitHub Release body.
 3. **Do not edit any version field.** The package version is derived from the
    git tag by `hatch-vcs`, which writes `src/dataeval_flow/_version.py` at
    build time. `pyproject.toml` declares `dynamic = ["version"]` and carries no
    version to bump; the `[tool.poetry] version = "0.0.0"` entry is a required
    placeholder and must be left alone.
 4. Open a release MR titled `Release vX.Y.Z`. Get review and merge to `main`.
-5. From `main`, create an annotated tag and push it:
+5. Cut the release with the script, from `main` or a `release/vX.Y` branch:
 
    ```bash
-   git tag -a vX.Y.Z -m "Release vX.Y.Z"
-   git push origin vX.Y.Z
+   python scripts/release.py --dry-run  # preview; writes nothing
+   python scripts/release.py            # main -> minor, release/vN.N -> patch
    ```
+
+   It picks the version from the newest reachable tag, promotes the changelog
+   section, commits `Release vX.Y.Z` and creates the annotated tag. It never
+   pushes — review, then publish:
+
+   ```bash
+   git push --follow-tags origin <branch>
+   ```
+
+   A release branch carries patches only, so the script refuses `[feat]`,
+   `[major]` and `[depr]` commits there and names them. Land those on `main`.
 
 6. The tag triggers:
    - **GitLab CI** ([.gitlab-ci.yml](.gitlab-ci.yml)) — builds and signs the
