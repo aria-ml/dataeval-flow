@@ -8,6 +8,14 @@
   Set `DATAEVAL_LOG_FORMAT=plain` or pass `--log-format plain` to restore bare messages.
 - Requires DataEval 1.1.1 or newer.
 
+### Added
+
+- Supported configuring CLI parameters via environment variables: `DATAEVAL_CONFIG`,
+  `DATAEVAL_VERBOSITY`, `DATAEVAL_TASKS`, `DATAEVAL_FAIL_ON_WARNING`, and `DATAEVAL_LOG_FORMAT`.
+  CLI arguments take precedence over environment variables.
+- `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` per run.
+- `--log-format {structured,plain}` option.
+
 ## v0.2.2
 
 ### Added

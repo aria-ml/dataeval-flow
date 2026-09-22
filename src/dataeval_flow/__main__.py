@@ -3,10 +3,11 @@
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import NoReturn
+
+from dataeval_flow._env import env_bool, env_choice, env_int, env_list, env_path
 
 _logger = logging.getLogger(__name__)
 
@@ -41,35 +42,42 @@ def _build_parser() -> argparse.ArgumentParser:
         "-c",
         "--config",
         type=Path,
-        default=None,
-        help="Path to config file or folder. If omitted, auto-discovers YAML/JSON at the data root.",
+        default=env_path("DATAEVAL_CONFIG"),
+        help=(
+            "Path to config file or folder (default: $DATAEVAL_CONFIG). If omitted, "
+            "auto-discovers YAML/JSON at the data root."
+        ),
     )
-
-    _data_default = os.environ.get("DATAEVAL_DATA")
     parser.add_argument(
         "-d",
         "--data",
         type=Path,
-        default=Path(_data_default) if _data_default else None,
+        default=env_path("DATAEVAL_DATA"),
         help="Root directory for data files (default: $DATAEVAL_DATA or current directory)",
     )
-
-    _output_default = os.environ.get("DATAEVAL_OUTPUT")
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        default=Path(_output_default) if _output_default else None,
+        default=env_path("DATAEVAL_OUTPUT"),
         help="Path to output directory for artifacts (default: $DATAEVAL_OUTPUT or None).",
     )
-
-    _cache_default = os.environ.get("DATAEVAL_CACHE")
     parser.add_argument(
         "-k",
         "--cache",
         type=Path,
-        default=Path(_cache_default) if _cache_default else None,
+        default=env_path("DATAEVAL_CACHE"),
         help="Directory for disk-backed computation cache (default: $DATAEVAL_CACHE or None).",
+    )
+    parser.add_argument(
+        "--log-format",
+        choices=("structured", "plain"),
+        default=env_choice("DATAEVAL_LOG_FORMAT", ("structured", "plain")) or "structured",
+        help=(
+            "Console log format (default: $DATAEVAL_LOG_FORMAT, else structured). "
+            "'structured' prefixes each record with an ISO-8601 UTC timestamp and level; "
+            "'plain' prints bare messages."
+        ),
     )
     parser.add_argument(
         "-t",
@@ -85,10 +93,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--fail-on-warning",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=env_bool("DATAEVAL_FAIL_ON_WARNING") or False,
         help=(
             "Exit non-zero when a task succeeds but reports findings that breached their "
-            "health thresholds. Off by default, so a warning stays a prompt to look."
+            "health thresholds (default: $DATAEVAL_FAIL_ON_WARNING, else off). "
+            "Use --no-fail-on-warning to override the environment."
         ),
     )
 
@@ -131,14 +141,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "-d",
         "--data",
         type=Path,
-        default=None,
+        default=env_path("DATAEVAL_DATA"),
         help="Root directory for data files (default: $DATAEVAL_DATA or current directory)",
     )
     app_parser.add_argument(
         "-k",
         "--cache",
         type=Path,
-        default=None,
+        default=env_path("DATAEVAL_CACHE"),
         help="Directory for disk-backed computation cache (embeddings, metadata, stats).",
     )
 
@@ -157,6 +167,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Path to a result.json written by a run",
     )
+    # Do not read DATAEVAL_OUTPUT here: encoding defaults to stdout unless -o is explicitly specified.
     encoding_parser.add_argument(
         "-o",
         "--output",
@@ -221,15 +232,37 @@ def _list_workflows(name: str | None, *, as_json: bool) -> int:
     return 0
 
 
+def apply_env_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    """Apply environment variable defaults that cannot be handled by argparse defaults.
+
+    For options with ``count`` or ``append`` actions (such as ``--verbose`` and
+    ``--task``), setting defaults in argparse causes command-line arguments to
+    increment or append to the default instead of overriding it. Applying these
+    environment variables post-parsing ensures CLI arguments take precedence.
+
+    ``DATAEVAL_TASKS`` applies only to headless execution, not subcommands.
+    """
+    if getattr(args, "verbose", 0) == 0:
+        args.verbose = env_int("DATAEVAL_VERBOSITY") or 0
+    if args.command is None and getattr(args, "task", None) is None:
+        args.task = env_list("DATAEVAL_TASKS")
+    return args
+
+
 def parse_args() -> argparse.Namespace:
-    """Parse CLI arguments."""
+    """Parse CLI arguments and apply environment defaults."""
     parser = _build_parser()
-    return parser.parse_args()
+    return apply_env_defaults(parser.parse_args())
 
 
 def main() -> NoReturn:
     """CLI entry point."""
-    args = parse_args()
+    try:
+        args = parse_args()
+    except ValueError as e:
+        # Report invalid environment variable values without a traceback.
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if args.command == "app":
         try:
@@ -256,7 +289,7 @@ def main() -> NoReturn:
         # refused, and the "commit it" hand-off when it succeeds — is dropped and the user
         # is left with a bare exit code. At INFO because this command's whole output is
         # one artifact and one sentence saying where it went.
-        setup_logging(verbosity=max(args.verbose, 2))
+        setup_logging(verbosity=max(args.verbose, 2), log_format=args.log_format)
         sys.exit(write_encoding(args.result, args.output, args.task))
 
     if args.command == "workflows":
@@ -273,7 +306,7 @@ def main() -> NoReturn:
     # resolution are reported even before the runner configures the file log.
     from dataeval_flow._logging import setup_logging
 
-    setup_logging(verbosity=args.verbose)
+    setup_logging(verbosity=args.verbose, log_format=args.log_format)
     try:
         from dataeval_flow.runner import run
 
