@@ -455,11 +455,27 @@ def docker_smoke(session: nox.Session) -> None:
          platform, ABI mismatch).
       2. CLI smoke — ``python -m dataeval_flow --help`` exits 0 (validates the
          entrypoint and argparse wiring without requiring a config).
-      3. Wiring tests — fast integration tests against the installed venv:
+      3. Environment-only smoke — the full parameter surface driven entirely
+         through DATAEVAL_* env vars, with no CLI arguments.
+      4. Wiring tests — fast integration tests against the installed venv:
          config loading, runner, main entrypoint, and e2e orchestration.
     """
     session.run("python", "-c", "import dataeval_flow; from dataeval_flow import runner, workflow")
     session.run("python", "-m", "dataeval_flow", "--help")
+    # Verify parameter surface can be configured entirely via environment variables.
+    session.run(
+        "python",
+        "-m",
+        "dataeval_flow",
+        "workflows",
+        "--json",
+        env={
+            "DATAEVAL_VERBOSITY": "2",
+            "DATAEVAL_LOG_FORMAT": "structured",
+            "DATAEVAL_TASKS": "data-cleaning",
+            "DATAEVAL_FAIL_ON_WARNING": "true",
+        },
+    )
     session.run(
         "pytest",
         "tests/test_config_loader.py",

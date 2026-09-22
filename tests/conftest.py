@@ -1,6 +1,7 @@
 """Pytest configuration and shared fixtures."""
 
 import logging
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,6 +14,14 @@ def mock_hf_dataset() -> MagicMock:
     mock.keys.return_value = ["train", "test"]
     mock.__getitem__ = MagicMock(return_value="split_content")
     return mock
+
+
+@pytest.fixture(autouse=True)
+def _clear_dataeval_env(monkeypatch: pytest.MonkeyPatch):
+    """Strip DATAEVAL_* environment variables to isolate tests from the host environment."""
+    for name in list(os.environ):
+        if name.startswith("DATAEVAL_"):
+            monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(autouse=True)
