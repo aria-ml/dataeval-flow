@@ -134,7 +134,7 @@ docker pull harbor.jatic.net/aria/dataeval-flow:cu126   # cpu / cu126 / cu130
 **Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval-flow:0.2.1-cu126
+docker pull harbor.jatic.net/aria/dataeval-flow:0.2.4-cu126
 ```
 
 **Verifying the signature** — every published image is signed with
@@ -145,9 +145,9 @@ docker pull harbor.jatic.net/aria/dataeval-flow:0.2.1-cu126
 cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval-flow:cu126
 ```
 
-Then drop the `dataeval-flow:cu126` reference in the Quick Start `docker run`
-commands above with the fully-qualified `harbor.jatic.net/aria/dataeval-flow:cu126`
-(or pinned version) and skip step 1.
+Then replace the locally-built `dataeval-flow:cu126` reference in the Quick Start
+`docker run` commands above with the fully-qualified
+`harbor.jatic.net/aria/dataeval-flow:cu126` (or a pinned version) and skip step 1.
 
 > **Note on feature branches.** Containers are only built and published from
 > `main` and release tags — no image is produced for MRs or topic branches. If
