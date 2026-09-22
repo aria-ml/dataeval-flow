@@ -504,6 +504,68 @@ class TestCropParameters:
 
 
 # ---------------------------------------------------------------------------
+# TestIsObjectDetection
+# ---------------------------------------------------------------------------
+
+
+class _SingleDatumDataset:
+    """Single-item dataset wrapper."""
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "probe", "index2label": {0: "cat"}})
+
+    def __init__(self, datum: Any) -> None:
+        self._datum = datum
+
+    def __len__(self) -> int:
+        return 1
+
+    def __getitem__(self, index: int) -> Any:
+        return self._datum
+
+
+def _datum_with(target: Any) -> tuple[Any, Any, Any]:
+    """Return a MAITE 3-tuple containing *target*."""
+    return np.zeros((3, 8, 8), dtype=np.uint8), target, {"id": 0}
+
+
+class TestIsObjectDetection:
+    """Ensure object detection protocol checks behave consistently across Python versions."""
+
+    def test_target_with_every_member_is_a_detection(self) -> None:
+        ds = _SingleDatumDataset(_datum_with(_Target([[0.0, 0.0, 4.0, 4.0]], [0])))
+        assert _is_object_detection(ds) is True
+
+    def test_target_missing_a_member_is_not_a_detection(self) -> None:
+        target = _Target([[0.0, 0.0, 4.0, 4.0]], [0])
+        del target.scores
+        assert _is_object_detection(_SingleDatumDataset(_datum_with(target))) is False
+
+    def test_attribute_fabricating_stand_in_is_not_a_detection(self) -> None:
+        # Dynamic attribute mocks must not be treated as detection targets
+        assert _is_object_detection(_SingleDatumDataset(_datum_with(MagicMock()))) is False
+
+    def test_a_raising_member_cannot_escape_the_check(self) -> None:
+        class Guarded:
+            """Target whose property getter raises ValueError."""
+
+            @property
+            def boxes(self) -> Any:
+                raise ValueError("boxes are not readable here")
+
+            labels = np.zeros(1, dtype=np.intp)
+            scores = np.ones((1, 2), dtype=np.float32)
+
+        # Static member inspection must not invoke property getters
+        assert _is_object_detection(_SingleDatumDataset(_datum_with(Guarded()))) is True
+
+    def test_bare_image_datum_is_not_a_detection(self) -> None:
+        assert _is_object_detection(_SingleDatumDataset(np.zeros((3, 8, 8), dtype=np.uint8))) is False
+
+    def test_empty_dataset_is_not_a_detection(self) -> None:
+        assert _is_object_detection(_ODDataset(n_images=0)) is False
+
+
+# ---------------------------------------------------------------------------
 # TestRunCompleteness
 # ---------------------------------------------------------------------------
 
