@@ -118,8 +118,7 @@ scanning, container scanning, or secret detection.
      - Severity gate is set via `CS_SEVERITY_THRESHOLD` in
        [.gitlab-ci.yml](.gitlab-ci.yml); the container-scanning job's
        `allow_failure: false` ensures un-dismissed findings at or above
-       that threshold block promotion to a floating tag (`promote:floating`
-       on release pipelines, `promote:floating:edge` on main).
+       that threshold fail the pipeline.
 
    - **Secret Detection**
      - True positives must be rotated immediately (the secret is already
