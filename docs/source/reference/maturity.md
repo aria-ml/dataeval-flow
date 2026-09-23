@@ -44,9 +44,10 @@ Compliance Checklist, version 1.2.
 
 ## Maturity by Release
 
-Releases at Maturity Level I or higher carry the maturity label in the exact form
-`JATIC Maturity I`. The program forbids the label on releases below Maturity
-Level I, so no DataEval Flow release carries one.
+A release carries the maturity label `JATIC Maturity I` only if the product has
+reached Maturity Level I and the release was assessed and approved by the
+Program Direction Group as a mature release. DataEval Flow has not reached
+Maturity Level I, so no DataEval Flow release carries a label.
 
 ```{list-table}
 :widths: 30 20 20 30
@@ -70,8 +71,9 @@ Level I, so no DataEval Flow release carries one.
   - Not maturity-verified releases
 ```
 
-When DataEval Flow is approved at Maturity Level I, this table records the
-approved release and every stable release after it.
+If DataEval Flow reaches Maturity Level I, this table records each release
+approved as a mature release. Releases not approved as mature releases carry no
+label.
 
 ## Requirements by Level
 
