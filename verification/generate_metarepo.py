@@ -57,6 +57,26 @@ def _footnote(i: int, test: dict) -> str:
     return f"[^{i}]: `{test['test']}` — {test['status']}{reason}"
 
 
+def _verification_cell(status: str) -> str:
+    """Render a test case's overall status for the VCRM verification row.
+
+    A skipped test case is reported as "Skipped", never "Fail". Collapsing the
+    two reads as non-compliance against a requirement that was simply not
+    exercised in that job, which is the most damaging error a governance
+    artifact can make: it accuses the product of failing something it was never
+    asked to demonstrate.
+    """
+    if status == "passed":
+        return "Pass"
+    if status == "xfailed":
+        # Hard steps pass, a recommended one is a documented gap. Neither
+        # "Pass" nor "Fail" is true; the test-case doc has the reason.
+        return "Partial"
+    if status == "skipped":
+        return "Skipped"
+    return "Fail"
+
+
 def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str:
     """Render a single test-case markdown document from registry + optional report."""
     tc_key = f"test-case-{tc_id}"
@@ -160,14 +180,7 @@ def generate_vcrm(registry: dict, report: dict | None) -> str:
         tc_key = f"test-case-{tc_id}"
         if report and tc_key in report.get("test_cases", {}):
             status = report["test_cases"][tc_key]["status"]
-            if status == "passed":
-                verification_cells.append("Pass")
-            elif status == "xfailed":
-                # Hard steps pass, a recommended one is a documented gap. Neither
-                # "Pass" nor "Fail" is true; the test-case doc has the reason.
-                verification_cells.append("Partial")
-            else:
-                verification_cells.append("Fail")
+            verification_cells.append(_verification_cell(status))
         else:
             verification_cells.append("Pending")
     verification_row = "| **Verification** | | | " + " | ".join(verification_cells) + " |"
