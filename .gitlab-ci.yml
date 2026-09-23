@@ -986,6 +986,13 @@ publish:verification:
     - !reference [.nox, before_script]
     - uv pip install --system requests pyyaml
   script:
+    # TC-19.1 (NFR-6) attests the 90% coverage threshold by reading the coverage
+    # report. A tag pipeline runs no `test` job -- only the publish and release
+    # stages -- so there is nothing to inherit the report from, and the check
+    # skipped on every release, publishing a VCRM that could not evidence NFR-6.
+    # Measuring here rather than inheriting also means the number attested is the
+    # release's own. One interpreter (the global PYTHON_VERSION), not the matrix.
+    - uvx --with nox-uv nox -s test
     - uvx --with nox-uv nox -s verify
     - python3 .gitlab/scripts/push_verification.py $VERIFICATION_PUSH_ARGS
   artifacts:
