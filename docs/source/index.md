@@ -112,6 +112,7 @@ Overview <concepts/index>
 :hidden:
 
 Container Reference <reference/containers>
+JATIC Maturity <reference/maturity>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::
