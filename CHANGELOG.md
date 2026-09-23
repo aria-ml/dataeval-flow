@@ -5,11 +5,16 @@
 ### Changed
 
 - Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
+- Containers publish only `latest-<variant>` from the default branch and immutable `<version>-<variant>` at release
+- All variants build on `ubuntu:24.04` and the CUDA runtime and cuDNN install from Python wheels
 
 ### Fixed
 
-- Scope container floating tags by release line so patch releases do not overwrite newer builds from `main`
 - Prerelease tags (`vX.Y.Z-rcN`) publish as GitHub prereleases instead of replacing the latest stable release
+
+### Removed
+
+- Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
 
 ## v0.2.3
 
