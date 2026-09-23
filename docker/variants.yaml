@@ -2,14 +2,26 @@
 # Used by `nox -s docker-gen` to render Dockerfile.<variant> from Dockerfile.j2
 #
 # To add a new CUDA variant:
-#   1. Add the variant key below with build_base_image and prod_base_image
+#   1. Add the variant key below with its base_image
 #   2. Ensure pyproject.toml has the matching torch extra, the matching
 #      onnx-<variant> extra, and the pytorch index
 #   3. Run `nox -s docker-gen` to generate the Dockerfile
 #
-# For CUDA variants, builder uses devel (has compiler/headers for wheel builds)
-# and prod uses plain ubuntu (PyTorch/onnxruntime bundle their own CUDA libs).
-# Match the Ubuntu version to the devel image's base.
+# Every variant builds and ships on plain Ubuntu, including the CUDA ones. The
+# NVIDIA `cudnn-devel` images are not used, for two reasons checked against the
+# lockfile rather than assumed:
+#
+#   1. Nothing is compiled. All 281 packages in uv.lock resolve to prebuilt
+#      wheels, so `uv sync --frozen` never invokes a compiler and the devel
+#      toolchain (gcc, nvcc, CUDA headers) is dead weight in the build stage.
+#   2. cuDNN and the CUDA runtime arrive as wheels. The cu126 resolution pulls
+#      nvidia-cudnn-cu12 and friends from PyPI; cu130 pulls nvidia-cudnn-cu13.
+#      Nothing links against a system cuDNN, so no base image needs one.
+#
+# It also settles CS-1-S-2, which requires base images from Iron Bank or Docker
+# Hub Official Images. `nvidia/cuda` is neither, and the requirement's own
+# verification covers "images used to construct a final image", so a builder
+# stage counts even though prod was already plain Ubuntu.
 
 # Pinned tool versions (shared across all variants)
 uv_version: "0.10.12"
@@ -17,24 +29,21 @@ python_version: "3.12"
 
 variants:
   cpu:
-    build_base_image: "ubuntu:24.04"
-    prod_base_image: "ubuntu:24.04"
+    base_image: "ubuntu:24.04"
 
     extras: ["cpu", "onnx", "opencv", "app"]
     label_title: "DataEval-Flow (CPU)"
     label_description: "DataEval-Flow container - CPU variant"
 
   cu126:
-    build_base_image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04"
-    prod_base_image: "ubuntu:24.04"
+    base_image: "ubuntu:24.04"
 
     extras: ["cu126", "onnx-cu126", "opencv", "app"]
     label_title: "DataEval-Flow (CUDA 12.6)"
     label_description: "DataEval-Flow container - CUDA 12.6 variant"
 
   cu130:
-    build_base_image: "nvidia/cuda:13.0.3-cudnn-devel-ubuntu24.04"
-    prod_base_image: "ubuntu:24.04"
+    base_image: "ubuntu:24.04"
 
     extras: ["cu130", "onnx-cu130", "opencv", "app"]
     label_title: "DataEval-Flow (CUDA 13.0)"
