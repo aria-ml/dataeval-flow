@@ -48,6 +48,21 @@ def _result_char(status: str) -> str:
     return "F"
 
 
+def _verification_cell(status: str) -> str:
+    """Render a test case's overall status for the VCRM verification row.
+
+    A skipped test case is reported as "Skipped", never "Fail". Collapsing the
+    two reads as non-compliance against a requirement that was simply not
+    exercised in that job -- which is how NFR-6 came to show a coverage failure
+    against a product measured at 95.86%.
+    """
+    if status == "passed":
+        return "Pass"
+    if status == "skipped":
+        return "Skipped"
+    return "Fail"
+
+
 def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str:
     """Render a single test-case markdown document from registry + optional report."""
     tc_key = f"test-case-{tc_id}"
@@ -100,7 +115,7 @@ def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str
             r = _result_char(test["status"])
             lines.append(f"|{i:<10}|    {r}    |  [^{i}] |")
         overall = tc_report["status"]
-        confirm = "P" if overall == "passed" else "F"
+        confirm = _result_char(overall)
         n = len(tests) + 1
         lines.append(f"|{n:<10}|    {confirm}    |  [^{n}] |")
         lines.append("")
@@ -152,7 +167,7 @@ def generate_vcrm(registry: dict, report: dict | None) -> str:
         tc_key = f"test-case-{tc_id}"
         if report and tc_key in report.get("test_cases", {}):
             status = report["test_cases"][tc_key]["status"]
-            verification_cells.append("Pass" if status == "passed" else "Fail")
+            verification_cells.append(_verification_cell(status))
         else:
             verification_cells.append("Pending")
     verification_row = "| **Verification** | | | " + " | ".join(verification_cells) + " |"
