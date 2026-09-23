@@ -15,26 +15,22 @@
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
 - `crop_padding` and `crop_min_size` on `data-coverage`, with `dropped_detections` reporting omitted annotations
-- `DATAEVAL_CONFIG`, `DATAEVAL_VERBOSITY`, `DATAEVAL_TASKS`, `DATAEVAL_FAIL_ON_WARNING` and `DATAEVAL_LOG_FORMAT`, configuring every CLI parameter from the environment; CLI arguments take precedence
-- `--no-fail-on-warning`, disabling an environment-enabled `DATAEVAL_FAIL_ON_WARNING` for a single run
-- `--log-format {structured,plain}`
-- `scripts/release.py`, cutting and tagging a release from the branch you are standing on
+- `DATAEVAL_*` environment variables to configure CLI parameters; CLI arguments take precedence
+- `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
+- `--log-format {structured,plain}` flag selecting structured or plain log output
+- `scripts/release.py` script to cut and tag releases from the current branch
 
 ### Changed
 
-- **Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of
-  `harbor.jatic.net/aria/dataeval`.** Update any `docker pull` commands, Kubernetes
-  manifests, or CI jobs that reference the old path. Tags already published under the
-  old repository are unaffected. The OCI `image.title` label changed from
-  "DataEval Workflows" to "DataEval-Flow" to match.
-- Metadata cache key now includes the stats policy `factor_identity()`, recomputing metadata archives on upgrade
+- Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
+- Metadata cache key includes stats policy `factor_identity()`, recomputing metadata archives on upgrade
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
-- Console logs carry an ISO-8601 UTC timestamp and level; set `DATAEVAL_LOG_FORMAT=plain` or pass `--log-format plain` for bare messages
+- Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
 
 ### Fixed
 
 - Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
-- Include source views in cache keys, so editing one invalidates the embeddings, metadata, and statistics it produced
+- Include source views in cache keys, invalidating cached embeddings, metadata, and statistics on edit
 - Relative `ontology:` paths now resolve against the run's data root rather than the process root
 - Restrict outlier detection to configured `outlier_flags`, preventing shared caches from widening column checks
 - Restrict duplicate detection to configured `duplicate_flags`, preventing shared cache widening
@@ -43,10 +39,10 @@
 - Restrict cross-split label parity to shared classes, preventing chi-square errors on gapped label spaces
 - Exclude single-split classes from the parity test and report them in `label_overlap` instead
 - Restrict cross-split duplicate detection to common columns, preventing crashes on divergent stat caches
-- The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
-- The container image creates `/cache/.not_mounted`, matching `/dataeval` and `/output`; internal `/cache` is no longer exported as `DATAEVAL_CACHE` when no volume is mounted
-- Object-detection datasets are recognized consistently across supported Python versions; on 3.10 and 3.11 a dataset could be read as image classification, or fail outright
-- The GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
+- Container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
+- Container image creates `/cache/.not_mounted`; unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
+- Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
+- GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
 
 ### Removed
 
