@@ -229,6 +229,15 @@ verify:
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+  # TC-19.1 (NFR-6) re-reads the coverage report to attest the 90% threshold.
+  # Without the `test` artifacts there is no report to read, so the check
+  # skipped on every run and the generated VCRM recorded NFR-6 as a coverage
+  # failure against a product measured at 95.86%. Pulling the artifacts makes
+  # the attestation real; the cost is that verify starts after test rather
+  # than alongside it.
+  needs:
+    - job: test
+      artifacts: true
   script:
     - uvx --with nox-uv nox -s verify
   artifacts:
