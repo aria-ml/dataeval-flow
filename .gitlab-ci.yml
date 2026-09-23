@@ -46,6 +46,10 @@ variables:
   CI_APPLICATION_REPOSITORY: "${HARBOR_URL}/aria/dataeval-flow"
   # Separate cache repo for buildx registry cache (mode=max)
   CI_CACHE_REPOSITORY: "${HARBOR_URL}/aria/cache"
+  # CS-2-H-2 names Trivy v0.62.0+ as an approved scanner. Pinned rather than
+  # floating so a published image's report names a scanner version that was
+  # chosen, not whatever happened to be current the day it built.
+  TRIVY_VERSION: "0.74.0"
 
 # Shared variant list — edit once, used by all matrix jobs
 .variants: &variants
@@ -489,10 +493,16 @@ pages coverage:
 # Container — runs in parallel with documentation jobs
 # -----------------------------------------------------------------------------
 
-# Exactly two kinds of image are ever published:
+# Two images are ever built, and a third tag points at one of them:
 #
-#   :latest-<variant>    the newest build of the default branch
+#   :main-<variant>      the newest build of the default branch
 #   :<version>-<variant> a tagged release, immutable
+#   :latest-<variant>    a retag of the highest stable release
+#
+# `latest` is a pointer, not a build -- `imagetools create` repoints it at a
+# digest that is already published, scanned and signed, so it costs no storage
+# and inherits every guarantee the release carries. It follows releases rather
+# than the branch because that is what users assume it means.
 #
 # Nothing else reaches the registry. The previous design also pushed a
 # version-stamped tag from every default-branch and release-branch commit
@@ -549,12 +559,14 @@ resolve:version:
     # version verbatim and never overwrites it; the only other pipeline that
     # publishes is the default branch, which overwrites :latest in place.
     # DATAEVAL_FLOW_VERSION is unaffected — it is baked into the wheel and the
-    # OCI label, so a :latest image still reports its true version.
+    # OCI label, so a branch image still reports its true version.
+    # The branch build is named after the branch it came from, so the tag and
+    # its source stay 1:1 without anyone maintaining a second copy of the name.
     - |
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
         DATAEVAL_FLOW_PUBLISH_TAG="${DATAEVAL_FLOW_IMAGE_TAG}"
       else
-        DATAEVAL_FLOW_PUBLISH_TAG="latest"
+        DATAEVAL_FLOW_PUBLISH_TAG="${CI_DEFAULT_BRANCH}"
       fi
     - echo "DATAEVAL_FLOW_VERSION=${DATAEVAL_FLOW_VERSION}" > version.env
     - echo "DATAEVAL_FLOW_IMAGE_TAG=${DATAEVAL_FLOW_IMAGE_TAG}" >> version.env
@@ -578,7 +590,17 @@ resolve:version:
     - !reference [.container-setup, before_script]
     # `jq` is used downstream by release:sbom to extract the CycloneDX predicate
     # from the cosign attestation envelope; harmless to install everywhere.
-    - apk add --no-cache cosign jq
+    - apk add --no-cache cosign jq curl
+    # Trivy from its release tarball rather than apk: Alpine's package lags, and
+    # CS-2-H-2 sets a version floor the image's own report has to be able to name.
+    - >-
+      wget -qO- "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      | tar -xz -C /usr/local/bin trivy
+    - trivy --version
+    # syft generates the CycloneDX SBOM. Installed here rather than mid-job so a
+    # missing tool fails before anything is built.
+    - curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+    - syft --version
     # Set up buildx builder for registry cache support (docker-container driver required for type=registry)
     - docker buildx create --use --name ci-builder || true
 
@@ -611,10 +633,57 @@ push:docker:
       --cache-to type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT},mode=max,image-manifest=true
       -f docker/Dockerfile.${VARIANT} .
 
-    # Build + push. On the default branch this overwrites :latest-${VARIANT} in
-    # place; on a tag it writes :${VERSION}-${VARIANT}, never rewritten.
+    # Build `prod` to a local tarball rather than pushing it. The image has to
+    # exist before it can be scanned, and it must not exist *in the registry*
+    # before the scan has passed -- once the published tag is written there is
+    # no taking it back. `type=docker,dest=` avoids importing multiple GiB into
+    # the daemon just to hand it to trivy. The image is tagged even though it is
+    # not pushed: the tag rides along inside the tarball, so the report records
+    # `Metadata.RepoTags` naming the image it describes instead of describing an
+    # anonymous tarball nobody can trace back to a release.
     - >-
       docker buildx build --target prod
+      --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
+      --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT}
+      --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-${VARIANT}
+      -f docker/Dockerfile.${VARIANT}
+      -t ${CI_APPLICATION_REPOSITORY}:${PUBLISH_TAG}
+      --output type=docker,dest=prod-${VARIANT}.tar .
+
+    # Vulnerability scan report, written into the build context so the `scanned`
+    # stage can copy it into the published image [CS-2-H-3]. JSON is the
+    # machine-readable record; the table is what a human opens.
+    - mkdir -p docker/security
+    - >-
+      trivy image --input prod-${VARIANT}.tar --scanners vuln
+      --format json --output docker/security/vulnerability-scan.json
+    - >-
+      trivy image --input prod-${VARIANT}.tar --scanners vuln
+      --format table --output docker/security/vulnerability-scan.txt
+
+    # The publishing gate [CS-2-H-2]: exit 1 on any HIGH or CRITICAL finding,
+    # before the image reaches the registry. container_scanning re-scans the
+    # pushed image afterwards so findings land in GitLab's Vulnerability Report
+    # with its dismissal workflow, but that runs too late to stop a push -- this
+    # is what actually withholds a dirty image.
+    - trivy image --input prod-${VARIANT}.tar --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet
+
+    # SBOM, generated from the same tarball that was scanned and copied into the
+    # image beside the report [CS-2-H-4]. Generating it here rather than from the
+    # pushed image means one syft run instead of two, and the package list is
+    # identical either way: the only thing `scanned` adds to `prod` is the report
+    # layer, which installs nothing.
+    - syft scan docker-archive:prod-${VARIANT}.tar -o cyclonedx-json=docker/security/sbom.cdx.json
+    - cp docker/security/sbom.cdx.json sbom-${VARIANT}.json
+    - chmod 0644 docker/security/vulnerability-scan.* docker/security/sbom.cdx.json
+    - rm -f prod-${VARIANT}.tar
+
+    # Publish `scanned` -- `prod` plus the report layer. Rebuilt from the local
+    # cache the previous build just populated, so this adds one layer, not one
+    # build. On the default branch this overwrites :latest-${VARIANT} in place;
+    # on a tag it writes :${VERSION}-${VARIANT}, never rewritten.
+    - >-
+      docker buildx build --target scanned
       --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT}
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-${VARIANT}
@@ -628,14 +697,9 @@ push:docker:
     - DIGEST=$(docker buildx imagetools inspect "${CI_APPLICATION_REPOSITORY}:${PUBLISH_TAG}" --raw | sha256sum | awk '{print "sha256:"$1}')
     - cosign sign --key cosign.key --yes "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
 
-    # Per-image SBOM [CS-2-H-4]: generate from the actual pushed image (by
-    # digest) and attach to the registry as a CycloneDX cosign attestation.
-    # The same SBOM is also kept as a CI artifact for record-keeping and as
-    # the source the release:sbom job republishes with permanent retention.
-    - apk add --no-cache curl
-    - curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-    - unset DOCKER_AUTH_CONFIG
-    - syft "${CI_APPLICATION_REPOSITORY}@${DIGEST}" -o cyclonedx-json=sbom-${VARIANT}.json
+    # Attach the SBOM built above to the registry as a CycloneDX cosign
+    # attestation [CS-2-H-4]. The same file is kept as a CI artifact, and
+    # release:sbom republishes it on tags with permanent retention.
     - cosign attest --key cosign.key --type cyclonedx --predicate sbom-${VARIANT}.json --yes "${CI_APPLICATION_REPOSITORY}@${DIGEST}"
     - rm -f cosign.key
   artifacts:
@@ -689,7 +753,28 @@ verify:docker:
     # Smoke test: verify the container actually boots
     - docker run --rm "${CI_APPLICATION_REPOSITORY}:${PUBLISH_TAG}" --help
 
-# Container vulnerability scan [DSOR-3-H-1, DSOR-3-H-2, CS-2-H-2, CS-2-H-3]
+    # The published image must carry its own scan report [CS-2-H-3] and SBOM
+    # [CS-2-H-4]. Checked against the running artifact rather than the
+    # Dockerfile, because a COPY that silently produced an empty directory
+    # still looks correct in source, and an empty JSON file still parses.
+    # --entrypoint is overridden because the image entrypoint is the CLI.
+    - |
+      docker run --rm --entrypoint python "${CI_APPLICATION_REPOSITORY}:${PUBLISH_TAG}" -c "
+      import json
+      base = '/usr/share/dataeval-flow/security/'
+      scan = json.load(open(base + 'vulnerability-scan.json'))
+      tags = (scan.get('Metadata') or {}).get('RepoTags') or []
+      print('scan report: trivy', scan['Trivy']['Version'], '| repoTags', tags)
+      assert scan.get('SchemaVersion'), 'scan report has no SchemaVersion'
+      assert tags, 'scan report does not name the image it describes'
+      sbom = json.load(open(base + 'sbom.cdx.json'))
+      comps = sbom.get('components') or []
+      print('sbom:', sbom.get('bomFormat'), sbom.get('specVersion'), '|', len(comps), 'components')
+      assert sbom.get('bomFormat') == 'CycloneDX', 'in-image SBOM is not CycloneDX'
+      assert len(comps) > 50, f'in-image SBOM lists only {len(comps)} components'
+      "
+
+# Container vulnerability scan [DSOR-3-H-1, DSOR-3-H-2]
 # Uses the GitLab-managed Container-Scanning template (included above) rather
 # than a hand-rolled trivy job. Findings flow into the GitLab Vulnerability
 # Report; suppressions are managed through that UI (each dismissal must carry
@@ -795,6 +880,41 @@ sbom:
 # -----------------------------------------------------------------------------
 # Release Stage
 # -----------------------------------------------------------------------------
+
+# Point :latest-${VARIANT} at this release, if it is the newest one.
+#
+# A server-side retag via `imagetools create` — no pull, no rebuild, no new
+# storage. The digest is already cosign-signed and carries its own scan report
+# and SBOM attestation, so every guarantee follows the pointer.
+#
+# Gated on the scan: `needs` includes container_scanning, so a release that
+# fails its scan can never take the pointer users pull by default.
+promote:latest:
+  extends: .push-setup
+  stage: release
+  needs: [push:docker, verify:docker, container_scanning, "resolve:version"]
+  parallel:
+    matrix: *variants
+  variables:
+    # Full tag history: promote-latest.sh ranks this release against every
+    # other one to decide whether it may hold the pointer.
+    GIT_DEPTH: "0"
+  rules:
+    - *skip_publish_verification
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+  script:
+    - git fetch --tags --quiet
+    - PROMOTE=$(git tag -l 'v*' | ./docker/promote-latest.sh)
+    - |
+      if [ -z "$PROMOTE" ]; then
+        echo "${CI_COMMIT_TAG} is not the highest stable release; :latest-${VARIANT} left where it is."
+        exit 0
+      fi
+    - echo "Promoting ${DATAEVAL_FLOW_PUBLISH_TAG}-${VARIANT} → latest-${VARIANT}"
+    - >-
+      docker buildx imagetools create
+      -t ${CI_APPLICATION_REPOSITORY}:latest-${VARIANT}
+      ${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_PUBLISH_TAG}-${VARIANT}
 
 # Per-version SBOM release artifact [CS-2-H-4]
 # Downloads the CycloneDX cosign attestation written by push:docker (digest-

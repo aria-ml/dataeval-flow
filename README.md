@@ -125,7 +125,9 @@ Pre-built, cosign-signed images are published to Harbor for every merge to
 `main` and every release tag. Pull one of these instead of building from source
 if you don't need to modify the code.
 
-**Rolling channel** — tracks the latest commit on `main`. The tag is overwritten on every merge.
+**Release channel** — `latest-<variant>` points at the newest stable release. It
+is a retag of a version tag, not a separate build, so it carries that release's
+signature, scan report and SBOM.
 
 ```bash
 docker pull harbor.jatic.net/aria/dataeval-flow:latest-cu126   # cpu / cu126 / cu130
@@ -135,6 +137,13 @@ docker pull harbor.jatic.net/aria/dataeval-flow:latest-cu126   # cpu / cu126 / c
 
 ```bash
 docker pull harbor.jatic.net/aria/dataeval-flow:0.2.4-cu126
+```
+
+**Rolling channel** — `main-<variant>` tracks the latest commit on `main` and is
+overwritten on every merge. Unstable; it is not a release.
+
+```bash
+docker pull harbor.jatic.net/aria/dataeval-flow:main-cu126
 ```
 
 **Verifying the signature** — every published image is signed with
