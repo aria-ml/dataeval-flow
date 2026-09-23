@@ -73,7 +73,7 @@ variables:
   before_script:
     # `uv sync` installs the project, which runs hatch-vcs and needs git.
     - apt-get update -qq && apt-get install -y --no-install-recommends git
-    - git fetch --tags
+    - git fetch --tags --force
   after_script:
     - uv cache prune --ci
 
@@ -285,7 +285,7 @@ install:pip:
     GIT_DEPTH: "0"
   before_script:
     - apt-get update -qq && apt-get install -y --no-install-recommends git
-    - git fetch --tags
+    - git fetch --tags --force
   script:
     - python -m venv /tmp/venv-pip
     - /tmp/venv-pip/bin/pip install --upgrade pip
@@ -328,7 +328,7 @@ install:conda:
     - micromamba install -y -c conda-forge git
     # Workspace is owned by the GitLab runner UID, not mambauser → mark safe
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - git fetch --tags
+    - git fetch --tags --force
     # Install the project itself (conda manages base deps, but the package isn't on conda-forge)
     # Plus the cpu extra so torch is available for the smoke test
     - pip install --quiet -e ".[cpu]"
@@ -553,7 +553,7 @@ resolve:version:
   before_script:
     - apk add --no-cache bash git
   script:
-    - git fetch --tags
+    - git fetch --tags --force
     - eval "$(./docker/resolve-version.sh)"
     # The tag the image is published under. A release pipeline publishes the
     # version verbatim and never overwrites it; the only other pipeline that
@@ -903,7 +903,7 @@ promote:latest:
     - *skip_publish_verification
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   script:
-    - git fetch --tags --quiet
+    - git fetch --tags --force
     - PROMOTE=$(git tag -l 'v*' | ./docker/promote-latest.sh)
     - |
       if [ -z "$PROMOTE" ]; then
