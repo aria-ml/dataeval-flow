@@ -13,6 +13,10 @@
 .gitlab-ci.yml
 docker/
 !docker/entrypoint.sh
+# Scan report and SBOM, written here by CI between the `prod` and `scanned`
+# builds. Absent on a plain local build, which only targets `prod`.
+!docker/security
+!docker/security/**
 
 # Python artifacts
 .venv

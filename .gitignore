@@ -65,3 +65,9 @@ Thumbs.db
 docs/source/notebooks/**/
 /data/
 /output/
+
+# Scan report and SBOM, produced by CI between the `prod` and `scanned` image
+# builds and copied into the published image. Never committed: they describe
+# one build of one variant, and a stale copy in the tree would be baked into an
+# image it does not describe.
+docker/security/

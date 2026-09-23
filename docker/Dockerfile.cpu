@@ -130,3 +130,26 @@ ENV DATAEVAL_OUTPUT=/output
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "-m", "dataeval_flow"]
+
+
+# =============================================================================
+# Stage: scanned -- the image that actually gets published
+# =============================================================================
+# CS-2-H-3 requires a vulnerability scan report to ship *inside* the final
+# image, and CS-2-H-4 an SBOM for it. Neither can be produced in a single pass:
+# both describe the finished filesystem, so they exist only once `prod` is
+# built. CI builds `prod`, scans it, writes the report and SBOM into
+# docker/security/, and builds this stage -- `prod` plus one layer carrying
+# them.
+#
+# The scan is also the publishing gate [CS-2-H-2]: a HIGH or CRITICAL finding
+# fails the job before this stage is built, so nothing reaches the registry.
+#
+# ENTRYPOINT, CMD, USER and ENV all carry over from `prod`; this stage adds
+# files and nothing else, so the scan and the package list stay accurate.
+#
+# `--target prod` does not reference docker/security/, so a plain local build
+# still works without running a scan first.
+FROM prod AS scanned
+
+COPY --chown=root:root docker/security/ /usr/share/dataeval-flow/security/
