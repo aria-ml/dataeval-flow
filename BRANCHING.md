@@ -170,13 +170,13 @@ the version number makes.
 
 ### What the containers do
 
-The tag pipeline publishes `0.2.3-<variant>` as usual, and updates the series
-pointer `0.2-<variant>`. The bare `<variant>` pointer — "newest release" — moves
-**only** if the tag is the highest release in the repository, so a v0.2 patch cut
-after v0.3 has shipped will not drag `:cpu` backwards onto the older line.
+The tag pipeline publishes `0.2.3-<variant>` and nothing else. There are no
+series or "newest release" pointers to move, so cutting a v0.2 patch after v0.3
+has shipped cannot drag a shared tag backwards onto the older line — the only
+floating tag is `latest-<variant>`, and it follows `main` alone.
 
-That decision lives in [`docker/promote-tags.sh`](docker/promote-tags.sh), which
-is unit-tested in `tests/test_promote_tags.py`. See the
+Release branches build their images but never publish them: `validate:docker`
+runs the build through its test stage and stops. See the
 [Container Reference](docs/source/reference/containers.md#image-tags) for the
 full tag scheme.
 
