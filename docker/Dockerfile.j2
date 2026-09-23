@@ -27,6 +27,12 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/python
 ENV UV_LINK_MODE=copy
 RUN uv python install {{ python_version }}
 
+# Drop the pip bundled with the standalone interpreter
+RUN rm -rf /opt/python/*/lib/python{{ python_version }}/site-packages/pip \
+           /opt/python/*/lib/python{{ python_version }}/site-packages/pip-*.dist-info \
+           /opt/python/*/lib/python{{ python_version }}/ensurepip \
+           /opt/python/*/bin/pip*
+
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
