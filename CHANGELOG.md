@@ -4,43 +4,33 @@
 
 ### Changed
 
-- **Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of
-  `harbor.jatic.net/aria/dataeval`.** Update any `docker pull` commands, Kubernetes
-  manifests, or CI jobs that reference the old path. Tags already published under the
-  old repository are unaffected. The OCI `image.title` label changed from
-  "DataEval Workflows" to "DataEval-Flow" to match.
+- Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
 
 ### Fixed
 
-- Container floating tags are scoped by release line, so a v0.2 patch no longer moves
-  `:cpu`, `:cu126`, `:cu130` or `:edge` backwards over a newer build from `main`.
-- Prerelease tags (`vX.Y.Z-rcN`) are published as GitHub prereleases instead of replacing
-  the latest stable release.
+- Scope container floating tags by release line so patch releases do not overwrite newer builds from `main`
+- Prerelease tags (`vX.Y.Z-rcN`) publish as GitHub prereleases instead of replacing the latest stable release
 
 ## v0.2.3
 
 ### Changed
 
-- **Console logs now include an ISO-8601 UTC timestamp and log level by default.**
-  Set `DATAEVAL_LOG_FORMAT=plain` or pass `--log-format plain` to restore bare messages.
+- Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
 - Requires DataEval 1.1.1 or newer.
 
 ### Added
 
-- Supported configuring CLI parameters via environment variables: `DATAEVAL_CONFIG`,
-  `DATAEVAL_VERBOSITY`, `DATAEVAL_TASKS`, `DATAEVAL_FAIL_ON_WARNING`, and `DATAEVAL_LOG_FORMAT`.
-  CLI arguments take precedence over environment variables.
-- `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` per run.
-- `--log-format {structured,plain}` option.
+- `DATAEVAL_*` environment variables to configure CLI parameters; CLI arguments take precedence
+- `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
+- `--log-format {structured,plain}` flag selecting structured or plain log output
+- `scripts/release.py` script to cut and tag releases from the current branch
 
 ### Fixed
 
-- The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths.
-- The container image now creates `/cache/.not_mounted`, matching `/dataeval` and `/output`.
-  Internal `/cache` is no longer exported as `DATAEVAL_CACHE` when no volume is mounted.
-- Object-detection datasets are recognized consistently across supported Python versions.
-  On Python 3.10 and 3.11 a dataset could be read as image classification, or fail outright,
-  depending on how its targets exposed `boxes`, `labels` and `scores`.
+- Container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
+- Container image creates `/cache/.not_mounted`; unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
+- Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
+- GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
 
 ## v0.2.2
 
