@@ -2,10 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Published images carry their own vulnerability scan report and CycloneDX SBOM at `/usr/share/dataeval-flow/security/`
+
 ### Changed
 
 - Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
-- Containers publish only `latest-<variant>` from the default branch and immutable `<version>-<variant>` at release
+- `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
+- Images are scanned before publication, and a HIGH or CRITICAL finding fails the build instead of being reported after the push
 - All variants build on `ubuntu:24.04` and the CUDA runtime and cuDNN install from Python wheels
 
 ### Fixed
