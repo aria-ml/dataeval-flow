@@ -28,7 +28,7 @@
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
 - Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
 - `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
-- Images are scanned before publication, and a HIGH or CRITICAL finding fails the build instead of being reported after the push
+- Images are scanned before publication; a HIGH or CRITICAL finding fails the build before anything is pushed
 
 ### Fixed
 
