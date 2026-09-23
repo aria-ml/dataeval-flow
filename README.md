@@ -107,16 +107,16 @@ at least the minimum CPU/memory above; size memory to your largest dataset.
 
 ```bash
 # 1. Build CUDA 12.6 container
-docker build -f docker/Dockerfile.cu126 -t dataeval:cu126 .
+docker build -f docker/Dockerfile.cu126 -t dataeval-flow:cu126 .
 
 # 2. Show help
-docker run dataeval:cu126
+docker run dataeval-flow:cu126
 
 # 3. Run with data and output
 docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu126
+  dataeval-flow:cu126
 ```
 
 ## Pulling pre-built images
@@ -128,13 +128,13 @@ if you don't need to modify the code.
 **Rolling channel** — tracks the latest commit on `main`. The tag is overwritten on every merge.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:cu126   # cpu / cu126 / cu130
+docker pull harbor.jatic.net/aria/dataeval-flow:cu126   # cpu / cu126 / cu130
 ```
 
 **Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:0.2.1-cu126
+docker pull harbor.jatic.net/aria/dataeval-flow:0.2.1-cu126
 ```
 
 **Verifying the signature** — every published image is signed with
@@ -142,11 +142,11 @@ docker pull harbor.jatic.net/aria/dataeval:0.2.1-cu126
 [docker/cosign.pub](docker/cosign.pub).
 
 ```bash
-cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval:cu126
+cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval-flow:cu126
 ```
 
-Then drop the `dataeval:cu126` reference in the Quick Start `docker run`
-commands above with the fully-qualified `harbor.jatic.net/aria/dataeval:cu126`
+Then drop the `dataeval-flow:cu126` reference in the Quick Start `docker run`
+commands above with the fully-qualified `harbor.jatic.net/aria/dataeval-flow:cu126`
 (or pinned version) and skip step 1.
 
 > **Note on feature branches.** Containers are only built and published from
@@ -199,7 +199,7 @@ docker run --gpus all \
   --user "$(id -u):$(id -g)" \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu126
+  dataeval-flow:cu126
 ```
 
 #### Option 2: Open directory permissions
@@ -221,7 +221,7 @@ docker run --gpus all \
   -e DATAEVAL_DATA=/data \
   --mount type=bind,source=/path/to/data,target=/data,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu126
+  dataeval-flow:cu126
 ```
 
 ## Environment Variables
@@ -262,7 +262,7 @@ options, precedence, and examples — via its help command, which is also the
 default when the container runs with no pipeline arguments:
 
 ```bash
-docker run dataeval:cu126 --help
+docker run dataeval-flow:cu126 --help
 ```
 
 The library form exposes the same options via `python -m dataeval_flow --help`.
@@ -282,13 +282,13 @@ To specify a config path explicitly:
 docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu126 --config config/
+  dataeval-flow:cu126 --config config/
 
 # Single config file
 docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cu126 --config params.yaml
+  dataeval-flow:cu126 --config params.yaml
 ```
 
 Dataset and model paths in config files are resolved relative to the data root (`/dataeval` by default).
@@ -315,12 +315,12 @@ guide for the full field list of each format.
 For machines without NVIDIA GPU:
 
 ```bash
-docker build -f docker/Dockerfile.cpu -t dataeval:cpu .
-docker run dataeval:cpu  # Shows help
+docker build -f docker/Dockerfile.cpu -t dataeval-flow:cpu .
+docker run dataeval-flow:cpu  # Shows help
 docker run \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  dataeval:cpu
+  dataeval-flow:cpu
 ```
 
 ## CLI Modes

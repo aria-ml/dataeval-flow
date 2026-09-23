@@ -11,8 +11,8 @@ DATA_DIR="${DATAEVAL_DATA:-/dataeval}"
 OUTPUT_DIR="${DATAEVAL_OUTPUT:-/output}"
 CACHE_DIR="${DATAEVAL_CACHE:-/cache}"
 
-# Image tag for help text (e.g. dataeval:cpu, dataeval:cu130)
-IMAGE_TAG="dataeval:${UV_EXTRAS_OVERRIDE:-cpu}"
+# Image tag for help text (e.g. dataeval-flow:cpu, dataeval-flow:cu130)
+IMAGE_TAG="dataeval-flow:${UV_EXTRAS_OVERRIDE:-cpu}"
 
 # GPU flag for docker run examples
 if [[ "$CONTAINER_MODE" == "cpu" ]]; then
@@ -250,7 +250,7 @@ else
         echo "        --mount type=bind,source=/path/to/results,target=$OUTPUT_DIR \\"
         echo "        $IMAGE_TAG"
         echo ""
-        echo "For CPU-only machines, use: dataeval:cpu"
+        echo "For CPU-only machines, use: dataeval-flow:cpu"
         echo "Run with --help for full usage."
         exit 1
     fi

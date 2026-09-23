@@ -136,16 +136,16 @@ containerized workflow guide.
 ### CPU only
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval:cpu
-docker run --rm harbor.jatic.net/aria/dataeval:cpu
+docker pull harbor.jatic.net/aria/dataeval-flow:cpu
+docker run --rm harbor.jatic.net/aria/dataeval-flow:cpu
 ```
 
 ### GPU (CUDA)
 
 ```bash
 # CUDA 13.0 — recommended for modern GPUs
-docker pull harbor.jatic.net/aria/dataeval:cu130
-docker run --rm --gpus all harbor.jatic.net/aria/dataeval:cu130
+docker pull harbor.jatic.net/aria/dataeval-flow:cu130
+docker run --rm --gpus all harbor.jatic.net/aria/dataeval-flow:cu130
 ```
 
 | Tag | Base | Use case |

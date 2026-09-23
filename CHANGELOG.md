@@ -22,6 +22,11 @@
 
 ### Changed
 
+- **Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of
+  `harbor.jatic.net/aria/dataeval`.** Update any `docker pull` commands, Kubernetes
+  manifests, or CI jobs that reference the old path. Tags already published under the
+  old repository are unaffected. The OCI `image.title` label changed from
+  "DataEval Workflows" to "DataEval-Flow" to match.
 - Metadata cache key now includes the stats policy `factor_identity()`, recomputing metadata archives on upgrade
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
 - Console logs carry an ISO-8601 UTC timestamp and level; set `DATAEVAL_LOG_FORMAT=plain` or pass `--log-format plain` for bare messages

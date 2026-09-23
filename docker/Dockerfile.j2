@@ -11,7 +11,7 @@ ARG DATAEVAL_FLOW_VERSION="{{ version }}"
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
-FROM {{ build_base_image }} AS build
+FROM {{ base_image }} AS build
 
 # Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
@@ -87,7 +87,12 @@ RUN nox -s docker_smoke
 # =============================================================================
 # Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
-FROM {{ prod_base_image }} AS prod
+# Same base as the build stage, so the patched OS layer is reused rather than
+# rebuilt. CUDA variants stay on plain Ubuntu: cuDNN and the CUDA runtime come
+# from the nvidia-* wheels the lockfile pins, and nothing is compiled, so an
+# NVIDIA devel base would add a toolchain's worth of CVEs for no runtime
+# benefit, and is not a CS-1-S-2 trusted source. See docker/variants.yaml.
+FROM {{ base_image }} AS prod
 
 # Patch OS-level vulnerabilities from base image
 RUN apt-get update \

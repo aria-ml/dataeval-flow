@@ -1,7 +1,5 @@
 """Generate Dockerfile.<variant> files from docker/Dockerfile.j2 template."""
 
-import re
-import subprocess
 from pathlib import Path
 
 import yaml
@@ -11,36 +9,18 @@ root = Path(__file__).resolve().parent.parent
 config = yaml.safe_load((root / "docker" / "variants.yaml").read_text())
 
 
-def _default_version() -> str:
-    """Resolve the last published tag for the `DATAEVAL_FLOW_VERSION` build-arg default.
+# Fallback for the `DATAEVAL_FLOW_VERSION` build arg, used only by a local
+# `docker build` that omits `--build-arg`. CI always passes an explicit version
+# from docker/resolve-version.sh, and that is what a published image carries.
+#
+# A fixed string rather than the last git tag, so rendering is a pure function of
+# Dockerfile.j2 and variants.yaml. Deriving it from `git describe` made the
+# output depend on surrounding repository state: CI clones shallow and without
+# tags, so it rendered "unknown", which is not valid PEP 440; and the value
+# differed per branch, so cherry-picking container changes between main and a
+# release branch always carried a spurious diff.
+PLACEHOLDER_VERSION = "0.0.0.dev0"
 
-    `--abbrev=0` returns the most recent tag *without* the `-N-g<sha>[-dirty]`
-    suffix that `git describe` normally appends. Using the bare tag keeps the
-    committed Dockerfile.<variant> defaults stable across regenerations — the
-    rendered ARG only churns when an actual release tag lands, not when a
-    contributor regenerates from a dirty working tree.
-
-    This default is only consumed by local `docker build` invocations that omit
-    `--build-arg`; CI release builds always pass an explicit version derived
-    from `git describe`, which becomes the source of truth in the published
-    image. See README "Versioning" for details.
-    """
-    try:
-        tag = (
-            subprocess.check_output(
-                ["git", "describe", "--tags", "--abbrev=0"],  # noqa: S607
-                cwd=root,
-                stderr=subprocess.DEVNULL,
-            )
-            .decode()
-            .strip()
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "unknown"
-    return re.sub(r"^v", "", tag)
-
-
-version = _default_version()
 
 env = Environment(
     loader=FileSystemLoader(root / "docker"),
@@ -58,11 +38,7 @@ python_version = config["python_version"]
 base_env = Environment(autoescape=True)
 
 for name, variant in config["variants"].items():
-    build_base_image = base_env.from_string(variant["build_base_image"]).render(
-        uv_version=uv_version,
-        python_version=python_version,
-    )
-    prod_base_image = base_env.from_string(variant["prod_base_image"]).render(
+    base_image = base_env.from_string(variant["base_image"]).render(
         uv_version=uv_version,
         python_version=python_version,
     )
@@ -70,14 +46,13 @@ for name, variant in config["variants"].items():
 
     rendered = template.render(
         variant_name=name,
-        build_base_image=build_base_image,
-        prod_base_image=prod_base_image,
+        base_image=base_image,
         uv_version=uv_version,
         python_version=python_version,
         extras_flags=extras_flags,
         label_title=variant["label_title"],
         label_description=variant["label_description"],
-        version=version,
+        version=PLACEHOLDER_VERSION,
         security_patches=variant.get("security_patches", []),
     )
 

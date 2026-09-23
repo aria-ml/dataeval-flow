@@ -182,7 +182,7 @@ variables:
 
   # Target Image Path
   # Used for tagging and pushing to Harbor
-  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}/aria/dataeval"
+  CI_APPLICATION_REPOSITORY: "${HARBOR_URL}/aria/dataeval-flow"
   # Separate cache repo for buildx registry cache (mode=max)
   CI_CACHE_REPOSITORY: "${HARBOR_URL}/aria/cache"
 
@@ -584,7 +584,7 @@ container_scanning:
   # The Container-Scanning template hard-sets `dependencies: []`, which blocks
   # ALL artifact downloads — including resolve:version's dotenv — regardless of
   # `needs: artifacts: true`. Override it so DATAEVAL_FLOW_IMAGE_TAG is actually
-  # fetched; without this the image tag resolves empty (`dataeval:-cpu`).
+  # fetched; without this the image tag resolves empty (`dataeval-flow:-cpu`).
   dependencies: ["resolve:version"]
   parallel:
     matrix: *variants
@@ -594,7 +594,6 @@ container_scanning:
     # defaults to (which lagged a Trivy minor and emitted deprecation warnings).
     CS_ANALYZER_IMAGE: "$CI_TEMPLATE_REGISTRY_HOST/security-products/container-scanning:8"
     CS_SEVERITY_THRESHOLD: HIGH
-    CS_REGISTRY_USER: 'robot$aria+aria-bot'
     CS_REGISTRY_PASSWORD: $HARBOR_TOKEN
     # Check out the repo (template default is no clone) and point auto-remediation
     # at the per-variant Dockerfile so it stops warning that it can't find one.
@@ -604,10 +603,16 @@ container_scanning:
     # DATAEVAL_FLOW_IMAGE_TAG comes from resolve:version's dotenv. dotenv vars
     # are injected into the job environment at runtime but are NOT expanded
     # inside the `variables:` keyword — declaring CS_IMAGE there yields an empty
-    # tag (`dataeval:-cpu`) and the scan aborts with image-not-found. Assemble it
+    # tag (`dataeval-flow:-cpu`) and the scan aborts with image-not-found. Assemble it
     # here, where the dotenv var is present (same as push:docker does in script).
     - export CS_IMAGE="${CI_APPLICATION_REPOSITORY}:${DATAEVAL_FLOW_IMAGE_TAG}-${VARIANT}"
-    - echo "Scanning ${CS_IMAGE}"
+    # Exported here rather than declared under `variables:`, for the same reason
+    # the docker login spells the name inline: GitLab expands variable values, so
+    # the `$aria` in `robot$aria+aria-bot` resolves to nothing and the analyzer
+    # would authenticate as `robot+aria-bot`. These single quotes are the
+    # shell's, so the `$` survives.
+    - export CS_REGISTRY_USER='robot$aria+aria-bot'
+    - echo "Scanning ${CS_IMAGE} as ${CS_REGISTRY_USER}"
   allow_failure: false
   rules:
     - *skip_publish_verification

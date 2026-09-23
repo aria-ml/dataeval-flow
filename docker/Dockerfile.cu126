@@ -6,12 +6,12 @@
 # CI passes the resolved version via --build-arg DATAEVAL_FLOW_VERSION=...
 # Local `docker build` uses the default below, set to the last published tag
 # by docker/generate.py so the committed value is stable across regenerations.
-ARG DATAEVAL_FLOW_VERSION="0.2.2"
+ARG DATAEVAL_FLOW_VERSION="0.0.0.dev0"
 
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
-FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04 AS build
+FROM ubuntu:24.04 AS build
 
 # Security patching (layer is cached and reused by prod stage)
 RUN apt-get update \
@@ -87,6 +87,11 @@ RUN nox -s docker_smoke
 # =============================================================================
 # Stage 3: Production — clean image with only what's needed to run
 # =============================================================================
+# Same base as the build stage, so the patched OS layer is reused rather than
+# rebuilt. CUDA variants stay on plain Ubuntu: cuDNN and the CUDA runtime come
+# from the nvidia-* wheels the lockfile pins, and nothing is compiled, so an
+# NVIDIA devel base would add a toolchain's worth of CVEs for no runtime
+# benefit, and is not a CS-1-S-2 trusted source. See docker/variants.yaml.
 FROM ubuntu:24.04 AS prod
 
 # Patch OS-level vulnerabilities from base image
@@ -120,8 +125,8 @@ RUN echo "__version__ = '${DATAEVAL_FLOW_VERSION}'" > /app/src/dataeval_flow/_ve
     && chown dataeval:dataeval /app/src/dataeval_flow/_version.py
 
 # Container labels
-LABEL org.opencontainers.image.title="DataEval Workflows (CUDA 12.6)" \
-      org.opencontainers.image.description="DataEval Workflows container - CUDA 12.6 variant" \
+LABEL org.opencontainers.image.title="DataEval-Flow (CUDA 12.6)" \
+      org.opencontainers.image.description="DataEval-Flow container - CUDA 12.6 variant" \
       org.opencontainers.image.version="${DATAEVAL_FLOW_VERSION}" \
       org.opencontainers.image.source="https://gitlab.jatic.net/jatic/aria/dataeval-flow"
 
