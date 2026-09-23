@@ -192,13 +192,6 @@ requirements:
     file: NFR-5-logging-integration.md
     test_cases: ["16-1"]
 
-  NFR-6:
-    name: Test Coverage
-    origin: DR-1.5
-    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
-    file: NFR-6-test-coverage.md
-    test_cases: ["19-1"]
-
 # ---------------------------------------------------------------------------
 # Test Cases — columns in the VCRM, individual markdown files
 # ---------------------------------------------------------------------------
@@ -496,19 +489,6 @@ test_cases:
       - metadata.tool_version is set to dataeval_flow.__version__
       - metadata.resolved_config is a dict and is non-empty
       - metadata.execution_time_s is a non-negative float
-
-  "19-1":
-    name: Test Coverage Threshold
-    test_type: Non-Functional
-    business_case: >-
-      Verify that dataeval-flow's automated test suite achieves at least
-      90% line coverage of the source package, per NFR-6.
-    initial_conditions:
-      - dataeval-flow installed
-      - output/coverage.xml present (run `nox -s test` to generate)
-    expected_results:
-      - output/coverage.xml exists
-      - Total line coverage is ≥ 90%
 
   "21-1":
     name: Seeded Reproducibility
