@@ -128,7 +128,7 @@ if you don't need to modify the code.
 **Rolling channel** — tracks the latest commit on `main`. The tag is overwritten on every merge.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval-flow:cu126   # cpu / cu126 / cu130
+docker pull harbor.jatic.net/aria/dataeval-flow:latest-cu126   # cpu / cu126 / cu130
 ```
 
 **Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
@@ -142,12 +142,12 @@ docker pull harbor.jatic.net/aria/dataeval-flow:0.2.4-cu126
 [docker/cosign.pub](docker/cosign.pub).
 
 ```bash
-cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval-flow:cu126
+cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval-flow:latest-cu126
 ```
 
 Then replace the locally-built `dataeval-flow:cu126` reference in the Quick Start
 `docker run` commands above with the fully-qualified
-`harbor.jatic.net/aria/dataeval-flow:cu126` (or a pinned version) and skip step 1.
+`harbor.jatic.net/aria/dataeval-flow:latest-cu126` (or a pinned version) and skip step 1.
 
 > **Note on feature branches.** Containers are only built and published from
 > `main` and release tags — no image is produced for MRs or topic branches. If
