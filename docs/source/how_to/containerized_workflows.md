@@ -31,10 +31,10 @@ Pre-built images are published to the JATIC Harbor registry:
 
 ```bash
 # CPU-only
-docker pull harbor.jatic.net/aria/dataeval-flow:cpu
+docker pull harbor.jatic.net/aria/dataeval-flow:latest-cpu
 
 # GPU (CUDA 13.0 — recommended for modern GPUs)
-docker pull harbor.jatic.net/aria/dataeval-flow:cu130
+docker pull harbor.jatic.net/aria/dataeval-flow:latest-cu130
 ```
 
 Available variants:
@@ -442,7 +442,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     --mount type=bind,source="$(pwd)/workspace/cache",target=/cache \
-    harbor.jatic.net/aria/dataeval-flow:cpu
+    harbor.jatic.net/aria/dataeval-flow:latest-cpu
 ```
 
 ### GPU
@@ -455,7 +455,7 @@ docker run --rm --gpus all \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
     --mount type=bind,source="$(pwd)/workspace/cache",target=/cache \
-    harbor.jatic.net/aria/dataeval-flow:cu130
+    harbor.jatic.net/aria/dataeval-flow:latest-cu130
 ```
 
 ### Specifying a config file
@@ -467,7 +467,7 @@ docker run --rm \
     --user "$(id -u):$(id -g)" \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net/aria/dataeval-flow:cpu \
+    harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow --config config/params.yaml
 ```
 
@@ -480,7 +480,7 @@ docker run --rm \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/config",target=/config,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net/aria/dataeval-flow:cpu \
+    harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow --config /config/params.yaml
 ```
 
@@ -493,7 +493,7 @@ docker run --rm \
     --user "$(id -u):$(id -g)" \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net/aria/dataeval-flow:cpu \
+    harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow -v
 ```
 
@@ -514,7 +514,7 @@ docker run --rm \
     --user "$(id -u):$(id -g)" \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net/aria/dataeval-flow:cpu \
+    harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow --task clean_my_data
 ```
 
@@ -531,7 +531,7 @@ docker run --rm \
     --user "$(id -u):$(id -g)" \
     --mount type=bind,source="$(pwd)/data",target=/dataeval,readonly \
     --mount type=bind,source="$(pwd)/workspace/output",target=/output \
-    harbor.jatic.net/aria/dataeval-flow:cpu \
+    harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow --output /output --fail-on-warning
 ```
 
@@ -549,10 +549,10 @@ The image ships without the TUI extra, so `workflows` is how you ask it what it 
 and what a given workflow type accepts:
 
 ```bash
-docker run --rm harbor.jatic.net/aria/dataeval-flow:cpu \
+docker run --rm harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow workflows
 
-docker run --rm harbor.jatic.net/aria/dataeval-flow:cpu \
+docker run --rm harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow workflows data-cleaning
 ```
 
@@ -605,7 +605,7 @@ jq -r '.clean_my_data.report.findings[] | "\(.severity)\t\(.title)"' \
 Run the container with `--help` to see full usage:
 
 ```bash
-docker run harbor.jatic.net/aria/dataeval-flow:cpu python -m dataeval_flow --help
+docker run harbor.jatic.net/aria/dataeval-flow:latest-cpu python -m dataeval_flow --help
 ```
 
 Common issues:

@@ -46,7 +46,7 @@ the help command — which is also the default action when the container is run
 with no pipeline arguments:
 
 ```bash
-docker run harbor.jatic.net/aria/dataeval-flow:cu130 --help
+docker run harbor.jatic.net/aria/dataeval-flow:latest-cu130 --help
 ```
 
 The library form prints the same options with `python -m dataeval_flow --help`.
@@ -68,7 +68,7 @@ docker run --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
   --mount type=bind,source=/path/to/cache,target=/cache \
-  harbor.jatic.net/aria/dataeval-flow:cu130
+  harbor.jatic.net/aria/dataeval-flow:latest-cu130
 ```
 
 The data root can be relocated with `DATAEVAL_DATA` / `--data` (see below).

@@ -406,10 +406,10 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #
 # ```bash
 # # Pre-built (cpu / cu126 / cu130)
-# docker pull harbor.jatic.net/aria/dataeval-flow:cpu
+# docker pull harbor.jatic.net/aria/dataeval-flow:latest-cpu
 #
 # # Optional: verify the signature
-# cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval-flow:cpu
+# cosign verify --key docker/cosign.pub harbor.jatic.net/aria/dataeval-flow:latest-cpu
 #
 # # Or build locally from a checkout
 # docker build -f docker/Dockerfile.cpu -t dataeval-flow:cpu .
@@ -429,7 +429,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #     --mount type=bind,source="$PWD",target=/dataeval,readonly \
 #     --mount type=bind,source="$PWD/output",target=/output \
 #     --mount type=bind,source="$PWD/cache",target=/cache \
-#     harbor.jatic.net/aria/dataeval-flow:cpu \
+#     harbor.jatic.net/aria/dataeval-flow:latest-cpu \
 #     python -m dataeval_flow --config end_to_end.yaml -v
 # ```
 #
@@ -441,7 +441,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #     --mount type=bind,source="$PWD",target=/dataeval,readonly \
 #     --mount type=bind,source="$PWD/output",target=/output \
 #     --mount type=bind,source="$PWD/cache",target=/cache \
-#     harbor.jatic.net/aria/dataeval-flow:cu130 \
+#     harbor.jatic.net/aria/dataeval-flow:latest-cu130 \
 #     python -m dataeval_flow --config end_to_end.yaml -v
 # ```
 #
@@ -493,7 +493,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #     --mount type=bind,source="$PWD",target=/dataeval,readonly \
 #     --mount type=bind,source="$PWD/output",target=/output \
 #     --mount type=bind,source="$PWD/cache",target=/cache \
-#     harbor.jatic.net/aria/dataeval-flow:cpu \
+#     harbor.jatic.net/aria/dataeval-flow:latest-cpu \
 #     python -m dataeval_flow --config end_to_end.yaml -v
 # ```
 
