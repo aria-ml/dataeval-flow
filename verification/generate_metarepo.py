@@ -53,8 +53,9 @@ def _verification_cell(status: str) -> str:
 
     A skipped test case is reported as "Skipped", never "Fail". Collapsing the
     two reads as non-compliance against a requirement that was simply not
-    exercised in that job -- which is how NFR-6 came to show a coverage failure
-    against a product measured at 95.86%.
+    exercised in that job, which is the most damaging error a governance
+    artifact can make: it accuses the product of failing something it was never
+    asked to demonstrate.
     """
     if status == "passed":
         return "Pass"
