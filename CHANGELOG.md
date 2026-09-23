@@ -19,6 +19,7 @@
 - `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
 - `--log-format {structured,plain}` flag selecting structured or plain log output
 - `scripts/release.py` script to cut and tag releases from the current branch
+- Published images carry their own vulnerability scan report and CycloneDX SBOM at `/usr/share/dataeval-flow/security/`
 
 ### Changed
 
@@ -26,6 +27,8 @@
 - Metadata cache key includes stats policy `factor_identity()`, recomputing metadata archives on upgrade
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
 - Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
+- `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
+- Images are scanned before publication, and a HIGH or CRITICAL finding fails the build instead of being reported after the push
 
 ### Fixed
 
@@ -43,10 +46,12 @@
 - Container image creates `/cache/.not_mounted`; unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
 - Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
 - GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
+- Container images no longer ship the standalone interpreter's bundled `pip`, which nothing in the image used
 
 ### Removed
 
 - Poetry packaging support; install with uv, pip, or conda instead
+- Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
 
 ## v0.2.2
 
