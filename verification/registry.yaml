@@ -138,7 +138,7 @@ requirements:
 
   FR-18:
     name: Result Metadata Envelope
-    origin: IR-3-H-12
+    origin: IR-3-S-12
     origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/software/interoperability/#ir-3-model-and-data-interoperability
     file: FR-18-result-metadata-envelope.md
     test_cases: ["18-1"]
@@ -208,7 +208,7 @@ test_cases:
     test_type: Core Functionality
     business_case: >-
       Verify that dataeval-flow installs and functions correctly across all
-      supported Python versions (3.10–3.13).
+      supported Python versions (3.10–3.14).
     initial_conditions:
       - Clean Python environment for the target version
       - Network access for pip/uv package installation
@@ -222,13 +222,14 @@ test_cases:
     name: Optional Extras Resolution
     test_type: Core Functionality
     business_case: >-
-      Verify that optional dependency extras (cpu, onnx, opencv, app)
+      Verify that optional dependency extras (cpu, cu126, cu130, onnx,
+      onnx-cu126, onnx-cu130, opencv, app, ontology)
       install without conflicts and enable corresponding features.
     initial_conditions:
       - Clean Python environment with dataeval-flow installed
     expected_results:
-      - torch / torchvision importable when cpu/cu extras are installed
-      - onnxruntime importable when onnx extra is installed
+      - torch / torchvision importable when cpu/cu126/cu130 extras are installed
+      - onnx / onnxruntime importable when onnx/onnx-cu* extras are installed
       - opencv (cv2) importable when opencv extra is installed
       - textual importable when app extra is installed
 
@@ -476,15 +477,15 @@ test_cases:
       - Repo checkout with docker/ directory
     expected_results:
       - docker/Dockerfile.cpu exists and starts with FROM
-      - docker/Dockerfile.cu126 exists and starts with FROM
-      - Both Dockerfiles declare a non-root USER
+      - docker/Dockerfile.cu126 and docker/Dockerfile.cu130 exist and start with FROM
+      - All Dockerfiles declare a non-root USER
 
   "18-1":
     name: Result Metadata Envelope
     test_type: Core Functionality
     business_case: >-
       Verify that every WorkflowResult populates the JATIC-required
-      ResultMetadata envelope per IR-3-H-12.
+      ResultMetadata envelope per IR-3-S-12.
     initial_conditions:
       - dataeval-flow installed
       - A WorkflowResult from a synthetic-data workflow run
