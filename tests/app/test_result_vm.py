@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -31,7 +31,7 @@ class _FakeData:
 
 @dataclass
 class _FakeMetadata:
-    timestamp: datetime | None = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    timestamp: datetime | None = datetime(2025, 1, 1, tzinfo=UTC)
     execution_time_s: float | None = 1.23
     source_descriptions: list[str] = field(default_factory=lambda: ["src1 (ds1)"])
     model_id: str | None = "resnet (onnx)"

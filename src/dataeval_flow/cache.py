@@ -233,11 +233,8 @@ def _config_hash(config_data: str) -> str:
 def _file_content_hash(path: str | Path) -> str:
     """Return an 8-char hex hash of a file's contents, or 'missing' if unreadable."""
     try:
-        h = hashlib.sha256()
         with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-        return h.hexdigest()[:8]
+            return hashlib.file_digest(f, "sha256").hexdigest()[:8]
     except OSError:
         return "missing"
 
@@ -571,10 +568,8 @@ def missing_views(
     uncovered: dict[str | None, ImageStats] = {}
     for view, desired in request.items():
         missing = ImageStats.NONE
-        for flag in ImageStats:
-            # Only atomic flags name a column; the composites are convenience groups.
-            if not (flag.value and (flag.value & (flag.value - 1)) == 0 and flag in desired):
-                continue
+        # Iterating a flag yields only its atomic members, the ones that name a column.
+        for flag in desired:
             metric = FLAG_TO_METRIC.get(flag)
             if metric is None:
                 continue

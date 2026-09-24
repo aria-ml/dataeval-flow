@@ -76,12 +76,7 @@ class TestStatNames:
         assert stat_names_for(ImageStats.NONE) == set()
 
     def test_convenience_groups_name_no_column(self):
-        """``PIXEL_BASIC`` and ``NO_HASH`` are groups, so they contribute no name.
-
-        Only Python 3.10 can fail this: 3.11 dropped composite members from
-        ``iter(FlagClass)``, which hides them whether or not ``stat_names_for`` excludes
-        them. The 3.10 leg of the matrix is what holds the guard in place.
-        """
+        """``PIXEL_BASIC`` and ``NO_HASH`` are groups, so they contribute no name."""
         assert stat_names_for(ImageStats.ALL) & {"basic", "distribution", "duplicates_basic", "hash"} == set()
 
 

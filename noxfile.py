@@ -14,7 +14,7 @@ nox.options.reuse_venv = "always"
 nox.options.sessions = ["lint", "type", "test", "schema", "check"]  # Default sessions to run
 
 IS_CI = bool(os.environ.get("CI"))
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+PYTHON_VERSIONS = ["3.11", "3.12", "3.13", "3.14"]
 PYTHON_DEFAULT = "3.11"
 DEVICE_VARIANTS = ["cpu", "cu126", "cu130"]
 DEVICE_DEFAULT = "cpu"
@@ -54,7 +54,7 @@ DOCS_ENVS = {
 def python_version(session: nox.Session) -> str:
     """Return the ``major.minor`` version of the session's interpreter.
 
-    Test artifacts are suffixed with this. The CI matrix (3.10/3.11/3.12) merges
+    Test artifacts are suffixed with this. The CI matrix (3.11 through 3.14) merges
     every job's ``output/`` into one artifact set, so unsuffixed reports would
     overwrite each other and leave nothing for the `coverage` job to combine.
     """
@@ -229,7 +229,7 @@ def verify(session: nox.Session) -> None:
     session.run("python", "verification/generate_metarepo.py")
 
 
-@nox_uv.session(python="3.10", uv_only_groups=["base"], reuse_venv=False)
+@nox_uv.session(python=PYTHON_VERSIONS[0], uv_only_groups=["base"], reuse_venv=False)
 def deps(session: nox.Session) -> None:
     """Run unit tests against minimum supported Python with lowest declared dependencies and no optional extras.
 

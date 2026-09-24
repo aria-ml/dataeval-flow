@@ -73,16 +73,10 @@ def stat_names_for(flags: Flag) -> set[str]:
     lowercased second half.
 
     Only single-bit members are statistics; the multi-bit ones are the convenience groups
-    (``PIXEL_BASIC``, ``HASH_DUPLICATES_D4``, ``NO_HASH``), which name no column. The
-    ``bit_count`` test states that rather than relying on iteration to hide them: Python
-    3.11 excludes composite members from ``iter(FlagClass)``, but 3.10 yields them, so
-    without it the groups leak column names such as ``basic`` and ``hash`` on 3.10 alone.
+    (``PIXEL_BASIC``, ``HASH_DUPLICATES_D4``, ``NO_HASH``), which name no column. Iterating
+    *flags* yields only the single-bit members it holds, so the groups never appear.
     """
-    return {
-        member.name.split("_", 1)[1].lower()
-        for member in type(flags)
-        if member.name and "_" in member.name and member.value.bit_count() == 1 and member & flags
-    }
+    return {member.name.split("_", 1)[1].lower() for member in flags if member.name and "_" in member.name}
 
 
 def expand_declared_bins(

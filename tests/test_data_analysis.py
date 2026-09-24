@@ -2164,8 +2164,7 @@ class TestOnePolicyPerRun:
             rng = np.random.default_rng(seed)
             return Metadata.from_factors({"elevation": rng.normal(100.0, 25.0, n)}, **kwargs)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with warnings.catch_warnings(action="ignore"):
             train = build(0, 400)
             factors = _descriptor(train).factors
             follower = build(7, 60, **derive_from(ResolvedPolicy(), train, factors).metadata_kwargs())

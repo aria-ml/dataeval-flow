@@ -201,7 +201,7 @@ test_cases:
     test_type: Core Functionality
     business_case: >-
       Verify that dataeval-flow installs and functions correctly across all
-      supported Python versions (3.10–3.14).
+      supported Python versions (3.11–3.14).
     initial_conditions:
       - Clean Python environment for the target version
       - Network access for pip/uv package installation
@@ -236,7 +236,7 @@ test_cases:
       - dataeval-flow installed via pip/uv
     expected_results:
       - Package name is "dataeval-flow"
-      - Requires-Python matches >=3.10,<3.14
+      - Requires-Python matches >=3.11,<3.15
       - License is set to MIT
       - py.typed marker is present
       - No verification/ or tests/ directories in the installed package

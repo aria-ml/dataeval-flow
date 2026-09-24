@@ -66,7 +66,7 @@ def _declared_concepts(concepts: "Sequence[Mapping[str, Any] | Any]") -> "list[O
     for entry in concepts:
         try:
             built.append(_one_declared_concept(entry))
-        except Exception as exc:  # noqa: PERF203 - runs at config time over a handful of entries
+        except Exception as exc:
             name = entry.get("id", "<no id>") if isinstance(entry, Mapping) else getattr(entry, "id", "<no id>")
             raise OntologyLoadError(f"declared concept {name!r} is not valid: {exc}") from exc
     return built

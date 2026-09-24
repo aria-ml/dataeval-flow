@@ -188,7 +188,7 @@ which runs:
 - **Lint** — `ruff` + `codespell` (`nox -s lint`)
 - **Type check** — `pyright` over `src/` and `tests/` (`nox -s type`)
 - **Schema validation** — config schema consistency (`nox -s schema`)
-- **Tests** — pytest matrix across Python 3.10, 3.11, 3.12, 3.13, and 3.14 with
+- **Tests** — pytest matrix across Python 3.11, 3.12, 3.13, and 3.14 with
   90% coverage enforcement (`nox -s test`)
 - **Security scans** — Semgrep SAST, Gemnasium dependency scanning, secret
   detection, SBOM generation (Syft / CycloneDX)

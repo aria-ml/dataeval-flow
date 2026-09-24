@@ -1,6 +1,6 @@
 """Drift monitoring workflow outputs."""
 
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeAlias
 
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, TypeIs
@@ -43,17 +43,7 @@ class ChunkResultDict(TypedDict):
     drifted: bool
 
 
-class _DetectorResultRequired(TypedDict):
-    """Required fields for a detector result."""
-
-    method: str
-    drifted: bool
-    distance: float
-    threshold: float
-    metric_name: str
-
-
-class DetectorResultDict(_DetectorResultRequired, total=False):
+class DetectorResultDict(TypedDict):
     """Serialized result from a single drift detector.
 
     ``details`` contains detector-specific statistics (p-values, per-feature
@@ -61,8 +51,13 @@ class DetectorResultDict(_DetectorResultRequired, total=False):
     analysis is enabled.
     """
 
-    details: dict[str, Any]
-    chunks: list[ChunkResultDict]
+    method: str
+    drifted: bool
+    distance: float
+    threshold: float
+    metric_name: str
+    details: NotRequired[dict[str, Any]]
+    chunks: NotRequired[list[ChunkResultDict]]
 
 
 class ClasswiseDriftRowDict(TypedDict):

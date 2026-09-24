@@ -1337,8 +1337,7 @@ class TestTheDeprecatedRangeIsQuietWhenUnused:
         from dataeval_flow.workflow.base import effective_value_range
 
         dc = DatasetContext(name="default", dataset=MagicMock(), value_range=(0.0, 1.0))
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
+        with warnings.catch_warnings(action="error", category=DeprecationWarning):
             assert effective_value_range(dc, _make_params()) == (0.0, 1.0)
 
     def test_the_param_still_wins_when_the_dataset_declares_nothing(self):

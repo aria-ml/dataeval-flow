@@ -1,7 +1,7 @@
 """Metadata schemas: the policy a run is given, and the record it hands back."""
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -64,7 +64,7 @@ class ResultMetadata(BaseModel):
     """
 
     version: str = "1.0"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     dataset_id: str | Sequence[str] = ""
     label_source: str | Sequence[str] | None = None
     model_id: str | None = None

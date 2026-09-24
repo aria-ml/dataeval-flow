@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -455,7 +455,7 @@ class TestSnippetTaskWithExecution:
         exe = TaskExecution(
             task_name="t1",
             status="running",
-            started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            started_at=datetime(2025, 1, 1, tzinfo=UTC),
         )
         result = snippet_task_with_execution(self._make_task(), execution=exe)
         assert "running..." in result
@@ -467,8 +467,8 @@ class TestSnippetTaskWithExecution:
         exe = TaskExecution(
             task_name="t1",
             status="completed",
-            started_at=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
-            finished_at=datetime(2025, 1, 1, 0, 0, 12, 500000, tzinfo=timezone.utc),
+            started_at=datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC),
+            finished_at=datetime(2025, 1, 1, 0, 0, 12, 500000, tzinfo=UTC),
         )
         result = snippet_task_with_execution(self._make_task(), execution=exe)
         assert "\u2713" in result
@@ -480,7 +480,7 @@ class TestSnippetTaskWithExecution:
             task_name="t1",
             status="completed",
             started_at=None,
-            finished_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            finished_at=datetime(2025, 1, 1, tzinfo=UTC),
         )
         result = snippet_task_with_execution(self._make_task(), execution=exe)
         assert "\u2713" in result
@@ -494,8 +494,8 @@ class TestSnippetTaskWithExecution:
             task_name="t1",
             status="failed",
             error="something broke",
-            started_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
-            finished_at=datetime(2025, 1, 1, 0, 0, 5, tzinfo=timezone.utc),
+            started_at=datetime(2025, 1, 1, tzinfo=UTC),
+            finished_at=datetime(2025, 1, 1, 0, 0, 5, tzinfo=UTC),
         )
         result = snippet_task_with_execution(self._make_task(), execution=exe)
         assert "\u2717" in result

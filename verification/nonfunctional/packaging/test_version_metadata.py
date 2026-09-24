@@ -27,7 +27,7 @@ class TestVersionMetadata:
 
     def test_requires_python(self) -> None:
         meta = md.metadata(DIST)
-        assert ">=3.10" in meta["Requires-Python"].strip()
+        assert ">=3.11" in meta["Requires-Python"].strip()
 
     def test_license_set(self) -> None:
         meta = md.metadata(DIST)
