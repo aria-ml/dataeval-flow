@@ -326,3 +326,86 @@ class TestFindingTableData:
         assert result is not None
         _, rows = result
         assert rows[0][1] == ""
+
+
+# ---------------------------------------------------------------------------
+# Evaluator results — no findings, no health, no severity
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluatorResults:
+    def _result(self):
+        from dataeval_flow.evaluator.result import EvaluatorMetadata, EvaluatorResult
+
+        return EvaluatorResult(
+            name="quality.duplicates",
+            success=True,
+            output={
+                "shape": "table",
+                "columns": ["group_id", "item_indices"],
+                "rows": [{"group_id": 0, "item_indices": [0, 5]}],
+            },
+            metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
+        )
+
+    def test_it_is_recognized(self):
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        assert ResultViewModel(self._result()).is_evaluator
+
+    def test_the_summary_counts_rows_not_findings(self):
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        assert ResultViewModel(self._result()).summary_line() == "1 row, 1.2s"
+
+    def test_there_is_no_health_and_no_status_tag(self):
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        rvm = ResultViewModel(self._result())
+        assert rvm.health_line() == ""
+        assert rvm.status_tag() == ""
+        assert rvm.finding_count() == 0
+
+    def test_the_output_renders_as_text(self):
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        text = ResultViewModel(self._result()).output_text()
+        assert "group_id" in text
+        assert "item_indices" in text
+
+    def test_workflow_results_keep_their_tag(self):
+        from unittest.mock import MagicMock
+
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        result = MagicMock()
+        result.data.report.findings = []
+        rvm = ResultViewModel(result)
+        assert not rvm.is_evaluator
+        assert rvm.status_tag() == " [green][ok][/green]"
+
+    def _failed_result(self):
+        from dataeval_flow.evaluator.result import EvaluatorMetadata, EvaluatorResult
+
+        return EvaluatorResult(
+            name="quality.duplicates",
+            success=False,
+            output={},
+            metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
+            errors=["boom: bad params"],
+        )
+
+    def test_a_failed_run_shows_failed_not_a_health_verdict(self):
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        rvm = ResultViewModel(self._failed_result())
+        assert "failed" in rvm.status_tag()
+        assert rvm.summary_line().startswith("failed: boom")
+        text = rvm.output_text()
+        assert "FAILED" in text
+        assert "boom: bad params" in text
+
+    def test_report_summary_is_empty_for_an_evaluator(self):
+        from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+
+        assert ResultViewModel(self._result()).report_summary() == ""

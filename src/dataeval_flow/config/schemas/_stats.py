@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-__all__ = ["StatsMeasureConfig", "StatsPolicyConfig"]
+__all__ = ["StatsMeasureConfig", "StatsPolicyConfig", "StatsPolicyRef"]
 
 #: Families that can be measured over the background. Hash and dimension are computed for
 #: the image and its boxes as usual and skipped for the background, which has no meaningful
@@ -13,6 +13,23 @@ __all__ = ["StatsMeasureConfig", "StatsPolicyConfig"]
 _BACKGROUND_FAMILIES = frozenset({"pixel", "visual"})
 
 StatFamily = Literal["dimension", "pixel", "visual", "hash"]
+
+
+class StatsPolicyRef(BaseModel):
+    """A reference, by name, to a policy under the top-level ``stats:`` key.
+
+    Evaluators take this alone. Workflows take ``StatsConfigMixin``, which extends it with
+    the deprecated ``value_range``.
+    """
+
+    stats: str | None = Field(
+        default=None,
+        description=(
+            "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band "
+            "groups or the image background, and to name the views outlier detection reads. Leave unset to "
+            "measure the whole image."
+        ),
+    )
 
 
 def _render_view(view: str | None) -> str:

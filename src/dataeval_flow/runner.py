@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config.schemas import TaskConfig
-    from dataeval_flow.workflow import WorkflowResult
+    from dataeval_flow.result import Result
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class _Collected:
 
 def _collect_results(
     selected: Sequence[TaskConfig],
-    results: Sequence[WorkflowResult[Any, Any]],
+    results: Sequence[Result[Any]],
     *,
     verbosity: int,
 ) -> _Collected:
@@ -61,6 +61,7 @@ def _collect_results(
     is always paired with the result it produced.
     """
     from dataeval_flow._logging import flush_logs
+    from dataeval_flow.workflow import WorkflowResult
 
     collected = _Collected()
 
@@ -82,7 +83,8 @@ def _collect_results(
         if record := getattr(result.metadata, "metadata_binning", None):
             collected.binning[task.name] = record
 
-        if result.warning_count:
+        # Only a workflow judges health; an evaluator makes determinations, never a verdict.
+        if isinstance(result, WorkflowResult) and result.warning_count:
             collected.warned.append(task.name)
 
         _logger.info("  OK: %s", task.name)

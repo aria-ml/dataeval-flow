@@ -164,7 +164,9 @@ def _fake_result(*, warnings: int = 0):
     """A stand-in workflow result with a controllable warning count."""
     from unittest.mock import MagicMock
 
-    result = MagicMock()
+    from dataeval_flow.workflow import WorkflowResult
+
+    result = MagicMock(spec=WorkflowResult)
     result.success = True
     result.report.return_value = "report"
     result.to_dict.return_value = {"metadata": {}}
@@ -349,3 +351,41 @@ class TestRunnerExports:
             assert run(path, tmp_path / "out", data_dir=tmp_path) == 0
 
         write_exports.assert_called_once()
+
+
+def _fake_evaluator_result(*, success: bool = True):
+    """A real evaluator result: evaluators never warn, so there is nothing to stub."""
+    from dataeval_flow.evaluator.result import EvaluatorMetadata, EvaluatorResult
+
+    return EvaluatorResult(
+        name="quality.duplicates",
+        success=success,
+        output={"shape": "table", "columns": [], "rows": []},
+        metadata=EvaluatorMetadata(evaluator="quality.duplicates"),
+        errors=[] if success else ["Evaluator execution failed: boom"],
+    )
+
+
+class TestEvaluatorResultsCarryNoVerdict:
+    def test_fail_on_warning_passes_a_run_of_evaluators(self, tmp_path: Path):
+        """Review Focus 4: evaluators make determinations, never warnings."""
+        import json
+
+        import dataeval_flow.workflow.orchestrator as orch
+        from dataeval_flow.runner import run
+
+        config = _write_config(tmp_path)
+        with patch.object(orch, "_run_single_task", return_value=_fake_evaluator_result()):
+            assert run(config, tmp_path / "out", data_dir=tmp_path, fail_on_warning=True) == 0
+
+        merged = json.loads((tmp_path / "out" / "results" / "result.json").read_text())
+        assert {entry["kind"] for entry in merged.values()} == {"evaluator"}
+        assert not any("health" in entry for entry in merged.values())
+
+    def test_a_failed_evaluator_still_fails_the_run(self, tmp_path: Path):
+        import dataeval_flow.workflow.orchestrator as orch
+        from dataeval_flow.runner import run
+
+        config = _write_config(tmp_path)
+        with patch.object(orch, "_run_single_task", return_value=_fake_evaluator_result(success=False)):
+            assert run(config, tmp_path / "out", data_dir=tmp_path) == 1

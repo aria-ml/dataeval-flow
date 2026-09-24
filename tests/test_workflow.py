@@ -10,7 +10,8 @@ import pytest
 from pydantic import BaseModel
 
 from dataeval_flow.config import ResultMetadata, ViewOperation
-from dataeval_flow.workflow import DatasetContext, WorkflowResult, _source_lines, get_workflow, list_workflows
+from dataeval_flow.result import _source_lines
+from dataeval_flow.workflow import DatasetContext, WorkflowResult, get_workflow, list_workflows
 from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
 
 pytestmark = pytest.mark.required
@@ -132,10 +133,20 @@ class TestReportFormatDispatch:
 
 class TestReportText:
     def test_no_report_attribute(self):
-        """data without .report returns 'no report available'."""
+        """data without .report still renders the frame, titled by name, saying there is no report."""
         result = _make_result(data=_DummyOutputNoReport())
         out = result.report()
-        assert "no report available" in out
+        assert "No report available." in out
+        assert f"  {result.name.upper()}" in out
+
+    def test_a_failed_run_reports_its_errors(self):
+        """A failed workflow shows FAILED and each error, as a failed evaluator does."""
+        result = _make_result()
+        result.success = False
+        result.errors = ["boom"]
+        out = result.report()
+        assert "  FAILED\n    boom" in out
+        assert "No findings to report." not in out
 
     def test_empty_findings(self):
         """Empty findings list shows 'No findings to report.'."""

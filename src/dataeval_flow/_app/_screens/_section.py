@@ -185,6 +185,16 @@ class SectionModal(ComponentModal):
                 kw["allow_blank"] = True
                 kw["prompt"] = "(required — choose a value)"
             container.mount(Select(options, **kw))
+        elif desc.kind == FieldKind.BOOL and desc.tri_state:
+            container.mount(Label(f"{label_text}:"))
+            container.mount(
+                Select(
+                    [("true", "true"), ("false", "false")],
+                    id=wid,
+                    allow_blank=True,
+                    prompt="(unset — DataEval's default)",
+                )
+            )
         elif desc.kind == FieldKind.BOOL:
             default_val = desc.default if isinstance(desc.default, bool) else False
             container.mount(Checkbox(label_text, value=default_val, id=wid))
@@ -338,6 +348,17 @@ class SectionModal(ComponentModal):
             elif sub_desc.kind in (FieldKind.INT, FieldKind.FLOAT, FieldKind.STRING):
                 self.query_one(f"#{sub_wid}", Input).value = str(sub_val)
 
+    def _populate_bool_field(self, wid: str, desc: FieldDescriptor, val: Any) -> None:
+        """Populate a BOOL-kind field widget: a tri-state Select, or a plain Checkbox."""
+        if desc.tri_state:
+            select = self.query_one(f"#{wid}", Select)
+            if val is None:
+                select.clear()  # a loaded null is unset, so DataEval's own default still applies
+            else:
+                select.value = "true" if val else "false"
+        else:
+            self.query_one(f"#{wid}", Checkbox).value = bool(val)
+
     def _populate_one_field(self, desc: FieldDescriptor, val: Any) -> None:
         """Populate a single field widget from existing data."""
         wid = self._wid(desc.name)
@@ -349,7 +370,7 @@ class SectionModal(ComponentModal):
                 with contextlib.suppress(NoMatches):
                     self.query_one(f"#{self._wid(f'{desc.name}-{choice}')}", Checkbox).value = choice in selected
         elif desc.kind == FieldKind.BOOL:
-            self.query_one(f"#{wid}", Checkbox).value = bool(val)
+            self._populate_bool_field(wid, desc, val)
         elif desc.kind in (FieldKind.INT, FieldKind.FLOAT, FieldKind.STRING):
             self.query_one(f"#{wid}", Input).value = str(val)
         elif desc.kind == FieldKind.LIST and desc.union_variants and isinstance(val, list):
@@ -417,6 +438,8 @@ class SectionModal(ComponentModal):
             return _select_value(self.query_one(f"#{wid}", Select))
         if desc.kind == FieldKind.MULTI_SELECT:
             return [c for c in desc.choices if self.query_one(f"#{self._wid(f'{desc.name}-{c}')}", Checkbox).value]
+        if desc.kind == FieldKind.BOOL and desc.tri_state:
+            return _select_value(self.query_one(f"#{wid}", Select))
         if desc.kind == FieldKind.BOOL:
             return self.query_one(f"#{wid}", Checkbox).value
         if desc.kind in (FieldKind.INT, FieldKind.FLOAT, FieldKind.STRING):

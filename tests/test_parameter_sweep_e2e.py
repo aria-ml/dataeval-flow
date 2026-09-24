@@ -11,7 +11,7 @@ from dataeval_flow.config.schemas import (
     ParameterSweepTaskConfig,
     ParameterSweepWorkflowConfig,
 )
-from dataeval_flow.workflow import run_tasks
+from dataeval_flow.workflow import WorkflowResult, run_tasks
 
 pytestmark = pytest.mark.required
 
@@ -65,6 +65,7 @@ class TestParameterSweepE2E:
         # 5. Verify results
         assert len(results) == 1
         res = results[0]
+        assert isinstance(res, WorkflowResult)
         assert res.name == "parameter-sweep"
         assert res.success is True
         assert len(res.data.raw.results) == 4  # 2 methods * 2 thresholds

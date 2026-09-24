@@ -405,7 +405,16 @@ class TestItemToYamlSnippet:
         assert "value" in result
 
     def test_snippet_renderers_keys(self) -> None:
-        expected_keys = {"datasets", "preprocessors", "views", "sources", "extractors", "workflows", "tasks"}
+        expected_keys = {
+            "datasets",
+            "preprocessors",
+            "views",
+            "sources",
+            "extractors",
+            "workflows",
+            "evaluators",
+            "tasks",
+        }
         assert set(_SNIPPET_RENDERERS.keys()) == expected_keys
 
 

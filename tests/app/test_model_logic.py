@@ -18,6 +18,7 @@ from dataeval_flow._app._model._item import (
     collect_field_value,
     collect_json_value,
     collect_multi_select_value,
+    collect_tri_bool_value,
     diagnose_collect_failure,
 )
 from dataeval_flow._app._model._state import ConfigState, _strip_empty_params, _to_dict
@@ -128,6 +129,14 @@ class TestItemLogic:
         assert collect_bool_value(True, False) is True
         assert collect_bool_value(False, False) == SKIP
         assert collect_bool_value(True, "not-bool") is True  # resolved default False
+
+    def test_collect_tri_bool_value(self) -> None:
+        from dataeval_flow._app._model._item import SKIP
+
+        # Unset never depends on a default: an explicit `false` is never confused with it.
+        assert collect_tri_bool_value("") == SKIP
+        assert collect_tri_bool_value("true") is True
+        assert collect_tri_bool_value("false") is False
 
     def test_diagnose_collect_failure(self) -> None:
         assert diagnose_collect_failure("datasets", "", [], [], None) == "Name is required."

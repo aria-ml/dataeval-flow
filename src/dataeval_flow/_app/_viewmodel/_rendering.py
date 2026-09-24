@@ -79,22 +79,29 @@ def _snippet_workflow(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _task_target(item: dict[str, Any]) -> tuple[str, str]:
+    """The kind of target a task runs, and its name."""
+    if item.get("evaluator"):
+        return "evaluator", str(item["evaluator"])
+    return "workflow", str(item.get("workflow", "?"))
+
+
 def _snippet_task(item: dict[str, Any]) -> str:
     enabled = item.get("enabled", True)
     check = "[bold green]\u2713[/bold green]" if enabled else "[dim]\u2717[/dim]"
     name = item.get("name", "?")
-    wf = item.get("workflow", "?")
+    label, wf = _task_target(item)
     srcs = item.get("sources", "")
     if isinstance(srcs, list):
         srcs = ", ".join(srcs)
     lines = [f"{check} [bold]{name}[/bold]"]
-    lines.append(f"    workflow: {wf}  sources: {srcs}")
+    lines.append(f"    {label}: {wf}  sources: {srcs}")
     extractor = item.get("extractor", "")
     if extractor:
         lines.append(f"    extractor: {extractor}")
     text = "\n".join(lines)
     if not enabled:
-        text = f"{check} [dim strikethrough][bold]{name}[/bold]\n    workflow: {wf}  sources: {srcs}"
+        text = f"{check} [dim strikethrough][bold]{name}[/bold]\n    {label}: {wf}  sources: {srcs}"
         if extractor:
             text += f"\n    extractor: {extractor}"
         text += "[/dim strikethrough]"
@@ -112,6 +119,7 @@ _SNIPPET_RENDERERS: dict[str, Any] = {
     "sources": _snippet_source,
     "extractors": _snippet_extractor,
     "workflows": _snippet_workflow,
+    "evaluators": _snippet_workflow,
     "tasks": _snippet_task,
 }
 
@@ -143,7 +151,7 @@ def snippet_task_with_execution(task: dict[str, Any], execution: TaskExecution |
     enabled = task.get("enabled", True)
     check = "[bold green]\u2713[/bold green]" if enabled else "[dim]\u2717[/dim]"
     name = task.get("name", "?")
-    wf = task.get("workflow", "?")
+    _, wf = _task_target(task)
     srcs = task.get("sources", "")
     if isinstance(srcs, list):
         srcs = ", ".join(srcs)
@@ -177,7 +185,7 @@ def snippet_config_item(category: str, item: dict[str, Any]) -> str:
     if category == "extractors":
         model = item.get("model", "")
         return f"[bold]{name}[/bold] [dim]{model}[/dim]"
-    if category == "workflows":
+    if category in ("workflows", "evaluators"):
         wf_type = item.get("type", "")
         return f"[bold]{name}[/bold] [dim]{wf_type}[/dim]"
     if category == "sources":

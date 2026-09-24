@@ -18,6 +18,7 @@ from dataeval_flow.config.schemas._dataset import (
     ImageFolderDatasetConfig,
     YoloDatasetConfig,
 )
+from dataeval_flow.config.schemas._evaluator import DuplicatesEvaluatorConfig, OutliersEvaluatorConfig
 from dataeval_flow.config.schemas._export import ExportConfig
 from dataeval_flow.config.schemas._extractor import (
     BoVWExtractorConfig,
@@ -29,7 +30,7 @@ from dataeval_flow.config.schemas._extractor import (
 from dataeval_flow.config.schemas._metadata import LabelSpaceRecord, MetadataPolicyConfig, ResultMetadata
 from dataeval_flow.config.schemas._ontology import OntologyConceptConfig, OntologyConfig
 from dataeval_flow.config.schemas._preprocessor import PreprocessorConfig
-from dataeval_flow.config.schemas._stats import StatsMeasureConfig, StatsPolicyConfig
+from dataeval_flow.config.schemas._stats import StatsMeasureConfig, StatsPolicyConfig, StatsPolicyRef
 from dataeval_flow.config.schemas._task import (
     AutoBinMethod,
     DataAnalysisTaskConfig,
@@ -38,11 +39,13 @@ from dataeval_flow.config.schemas._task import (
     DataPrioritizationTaskConfig,
     DataSplittingTaskConfig,
     DriftMonitoringTaskConfig,
+    EvaluatorTaskConfig,
     FactorSource,
     MetadataTriageTaskConfig,
     OODDetectionTaskConfig,
     ParameterSweepTaskConfig,
     TaskConfig,
+    TaskKind,
 )
 from dataeval_flow.config.schemas._view import (
     SelectionConfig,
@@ -91,6 +94,11 @@ WorkflowConfig = Annotated[
     Field(discriminator="type"),
 ]
 
+EvaluatorConfig = Annotated[
+    DuplicatesEvaluatorConfig | OutliersEvaluatorConfig,
+    Field(discriminator="type"),
+]
+
 __all__ = [
     # Dataset
     "CocoDatasetConfig",
@@ -100,6 +108,10 @@ __all__ = [
     "HuggingFaceDatasetConfig",
     "ImageFolderDatasetConfig",
     "YoloDatasetConfig",
+    # Evaluator
+    "DuplicatesEvaluatorConfig",
+    "EvaluatorConfig",
+    "OutliersEvaluatorConfig",
     # Extractor
     "BoVWExtractorConfig",
     "ExtractorConfig",
@@ -130,10 +142,12 @@ __all__ = [
     "DataPrioritizationTaskConfig",
     "DataSplittingTaskConfig",
     "DriftMonitoringTaskConfig",
+    "EvaluatorTaskConfig",
     "MetadataTriageTaskConfig",
     "OODDetectionTaskConfig",
     "ParameterSweepTaskConfig",
     "TaskConfig",
+    "TaskKind",
     # Other
     "ExportConfig",
     "LabelSpaceRecord",
@@ -141,6 +155,7 @@ __all__ = [
     "ResultMetadata",
     "StatsMeasureConfig",
     "StatsPolicyConfig",
+    "StatsPolicyRef",
     "ViewConfig",
     "ViewOperation",
     # Deprecated aliases (use ViewConfig / ViewOperation)

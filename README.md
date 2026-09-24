@@ -23,7 +23,9 @@ interoperability requirements. It builds directly on the
 evaluators — outlier and duplicate detection, coverage and gap analysis, drift
 and OOD monitoring, dataset splitting, prioritization, and statistical analysis —
 are the same algorithms DataEval exposes, wrapped in a reproducible
-orchestration layer.
+orchestration layer. Each DataEval evaluator can also run on its own, as an
+*evaluator*: it reports what DataEval determined, with no health verdict — for
+example, duplicate detection without the rest of data cleaning.
 
 <!-- end needs -->
 

@@ -1496,6 +1496,17 @@ class TestValueRangeReachesTheRun:
         assert "255.0" in message
         assert "clean" in message
 
+    def test_disagreeing_datasets_name_an_evaluator_not_a_workflow(self):
+        """Item 5: the message must name the task's actual target kind."""
+        import pytest
+
+        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+
+        with pytest.raises(ValueError, match="Evaluator 'dupes' reads datasets") as exc:
+            _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), (0.0, 255.0)], "dupes", "evaluator")
+        assert "Workflow" not in str(exc.value)
+
     def test_a_declared_range_beside_undeclared_datasets_still_applies(self):
         from dataeval_flow.policy import ResolvedPolicy
         from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range

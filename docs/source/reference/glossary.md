@@ -51,6 +51,11 @@ DataEval
     detection, drift, OOD, and data-quality algorithms. DataEval Flow
     orchestrates these evaluators behind a declarative configuration.
 
+Determination
+    What an {term}`evaluator<Evaluator>` reports: a flag, a group or a p-value
+    that DataEval's threshold produced. A determination says what was found, not
+    whether it is a problem; that verdict belongs to a {term}`workflow<Workflow>`.
+
 Domain Classifier
     A drift/OOD method that trains a classifier to distinguish reference data
     from incoming data; the better it succeeds, the larger the distributional
@@ -75,6 +80,12 @@ Embeddings
     is a proxy for semantic similarity, and most embedding-space evaluators
     (drift, OOD, prioritization) operate on them. See the
     [DataEval Embeddings explanation](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html).
+
+Evaluator
+    One DataEval evaluator run by DataEval Flow, configured under `evaluators:`
+    and run by a {term}`task<Task>` that names `evaluator:`. It reports its
+    {term}`determinations<Determination>` with no health status. See
+    [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md).
 
 Extractor
     Also *feature extractor*. A component that turns images into
@@ -197,8 +208,8 @@ Stratified Split
 
 Task
     A single configured unit of work within a {term}`pipeline<Pipeline>` —
-    binding a {term}`source<Source>` (or sources) to a {term}`workflow<Workflow>`
-    and its parameters.
+    binding a {term}`source<Source>` (or sources) to exactly one
+    {term}`workflow<Workflow>` or {term}`evaluator<Evaluator>`.
 
 View
     A named, ordered pipeline of dataset operations (`Limit`, `ClassFilter`,
@@ -207,9 +218,11 @@ View
     The legacy key `selection` is a deprecated alias.
 
 Workflow
-    A built-in evaluator type DataEval Flow can run: Data Cleaning, Data
-    Analysis, Data Coverage, Dataset Splitting, Drift Detection, Classwise Drift,
-    OOD Detection, Prioritization, or Parameter Sweep. Each has its own
+    A built-in evaluation that combines DataEval evaluators and judges their
+    {term}`determinations<Determination>` against
+    {term}`health thresholds<Health Threshold>`: Data Cleaning, Data Analysis,
+    Data Coverage, Dataset Splitting, Drift Detection, Classwise Drift, OOD
+    Detection, Prioritization, or Parameter Sweep. Each has its own
     configuration schema, defaults, and {term}`caching<Caching>` contract.
 
 Workflow Configuration

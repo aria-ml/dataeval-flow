@@ -524,3 +524,63 @@ class TestWorkflowsCommand:
 
         assert exc_info.value.code == 0
         mock_list.assert_called_once_with("data-cleaning", as_json=False)
+
+
+class TestEvaluatorsCommand:
+    def test_lists_every_evaluator_with_what_it_consumes(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_evaluators
+
+        assert _list_evaluators(None, as_json=False) == 0
+        out = capsys.readouterr().out
+        assert "quality.duplicates" in out
+        assert "consumes: stats, clusters (optional); sources: 1+" in out
+
+    def test_json_listing_is_machine_readable(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_evaluators
+
+        assert _list_evaluators(None, as_json=True) == 0
+        entries = json.loads(capsys.readouterr().out)
+        assert {"name", "description", "consumes", "sources"} <= set(entries[0])
+        assert [e["name"] for e in entries] == sorted(e["name"] for e in entries)
+
+    def test_named_evaluator_prints_its_params_schema(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_evaluators
+
+        assert _list_evaluators("quality.duplicates", as_json=False) == 0
+        schema = json.loads(capsys.readouterr().out)
+        assert "merge_near_duplicates" in schema["properties"]
+
+    def test_unknown_evaluator_reports_and_exits_one(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_evaluators
+
+        assert _list_evaluators("nope", as_json=False) == 1
+        assert "Unknown evaluator" in capsys.readouterr().err
+
+    def test_the_workflows_listing_holds_no_evaluator(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_workflows
+
+        _list_workflows(None, as_json=True)
+        assert not any(e["name"].startswith("quality.") for e in json.loads(capsys.readouterr().out))
+
+    @patch("dataeval_flow.__main__._list_evaluators", return_value=0)
+    @patch("dataeval_flow.__main__.parse_args")
+    def test_main_dispatches_to_it(self, mock_parse: MagicMock, mock_list: MagicMock):
+        from dataeval_flow.__main__ import main
+
+        args = MagicMock()
+        args.command = "evaluators"
+        args.name = "quality.outliers"
+        args.json = True
+        mock_parse.return_value = args
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 0
+        mock_list.assert_called_once_with("quality.outliers", as_json=True)
+
+    def test_the_parser_accepts_the_command(self):
+        from dataeval_flow.__main__ import _build_parser
+
+        args = _build_parser().parse_args(["evaluators", "quality.duplicates", "--json"])
+        assert (args.command, args.name, args.json) == ("evaluators", "quality.duplicates", True)

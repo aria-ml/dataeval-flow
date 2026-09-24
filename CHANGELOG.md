@@ -4,6 +4,12 @@
 
 ### Added
 
+- Top-level `evaluators:` key running a single DataEval evaluator, `quality.duplicates` or `quality.outliers`
+- `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
+- `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
+- `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
+- `kind` on every result envelope, `workflow` or `evaluator`; evaluator results carry no `health`
+- `Result`, the base both result kinds share: `report()`, `to_dict()` and `export()`, with no health on it
 - Top-level `ontologies:` key defining named label spaces referenced by workflows
 - `concepts:` on ontology entries to add or override concepts by id without altering source artifacts
 - Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
@@ -23,6 +29,10 @@
 
 ### Changed
 
+- `PipelineConfig.tasks`, `select_tasks`, and `run_tasks` now carry evaluator tasks and results as well as workflow ones
+- `run_task` on a plain `TaskConfig` is typed to return a workflow or evaluator result; typed subclasses are unchanged
+- A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
+- `WorkflowResult` takes `metadata`, `errors`, `dataset` and `sources` by keyword only
 - Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
 - Metadata cache key includes stats policy `factor_identity()`, recomputing metadata archives on upgrade
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
@@ -32,6 +42,7 @@
 
 ### Fixed
 
+- Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with `quality.duplicates`
 - Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
 - Include source views in cache keys, invalidating cached embeddings, metadata, and statistics on edit
 - Relative `ontology:` paths now resolve against the run's data root rather than the process root

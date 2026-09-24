@@ -36,6 +36,11 @@ class OptionalFieldsModel(BaseModel):
     optional_field: str | None = Field(default=None, description="This is optional")
 
 
+class OptionalBoolModel(BaseModel):
+    plain_flag: bool = Field(default=True, description="A plain checkbox")
+    tri_flag: bool | None = Field(default=None, description="Unset, true, or false")
+
+
 def test_primitive_fields():
     descriptors = introspect_model(SimpleModel)
     by_name = {d.name: d for d in descriptors}
@@ -77,6 +82,19 @@ def test_optional_fields():
 
     assert by_name["required_field"].required is True
     assert by_name["optional_field"].required is False
+
+
+def test_optional_bool_is_tri_state_plain_bool_is_not():
+    """`bool | None = None` is a three-state control; a plain `bool` default keeps its checkbox."""
+    descriptors = introspect_model(OptionalBoolModel)
+    by_name = {d.name: d for d in descriptors}
+
+    assert by_name["plain_flag"].kind == FieldKind.BOOL
+    assert by_name["plain_flag"].tri_state is False
+
+    assert by_name["tri_flag"].kind == FieldKind.BOOL
+    assert by_name["tri_flag"].tri_state is True
+    assert by_name["tri_flag"].default is None
 
 
 def test_real_cleaning_params():

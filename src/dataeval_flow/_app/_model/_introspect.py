@@ -46,6 +46,7 @@ class FieldDescriptor:
     item_descriptors: list[FieldDescriptor] | None = None  # for lists of nested models
     discriminator: str | None = None  # for discriminated unions
     union_variants: dict[str, type[BaseModel]] | None = None  # discriminator value -> model
+    tri_state: bool = False  # `bool | None = None`: unset / true / false, not a plain checkbox
 
 
 def _unwrap_optional(annotation: Any) -> tuple[Any, bool]:
@@ -274,6 +275,7 @@ def introspect_model(model: type[BaseModel]) -> list[FieldDescriptor]:
                 required=required,
                 default=default,
                 constraints=constraints,
+                tri_state=kind is FieldKind.BOOL and is_optional and default is None,
             )
         )
 
