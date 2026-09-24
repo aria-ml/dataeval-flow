@@ -223,7 +223,7 @@ def verify(session: nox.Session) -> None:
         "--junitxml=output/verify.xml",
         *session.posargs,
     )
-    # Render the meta repo artifacts (test-case stubs + VCRM) from that report.
+    # Render the meta repo artifacts (test-case stubs, VCRM, test-results.log) from that report.
     # Runs on every verify, not just at publish time, so a registry.yaml that no
     # longer matches the test suite fails in the MR rather than at release.
     session.run("python", "verification/generate_metarepo.py")

@@ -26,6 +26,7 @@
 - `--log-format {structured,plain}` flag selecting structured or plain log output
 - `scripts/release.py` script to cut and tag releases from the current branch
 - Published images carry their own vulnerability scan report and CycloneDX SBOM at `/usr/share/dataeval-flow/security/`
+- `nox -s verify` writes `output/metarepo/test-results.log`, a per-test-case verification log for metarepo assessments
 
 ### Changed
 
