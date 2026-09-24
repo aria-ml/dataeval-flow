@@ -2,7 +2,7 @@
 
 import json
 import warnings
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -450,7 +450,7 @@ class TestReportText:
 class TestMetadataTextLines:
     def test_all_metadata_fields(self):
         """All metadata fields present (lines 132-140)."""
-        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
         meta = ResultMetadata(timestamp=ts, execution_time_s=1.23, dataset_id="ds-1")
         result = _make_result(metadata=meta)
         out = result.report()
@@ -614,8 +614,7 @@ class TestDatasetContextViewOperations:
 
     def test_view_operations_no_warning(self):
         """Passing view_operations directly stores them and fires no warning."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")  # any warning becomes a test failure
+        with warnings.catch_warnings(action="error"):  # any warning becomes a test failure
             ctx = DatasetContext(name="s", dataset=object(), view_operations=self._OPS)  # type: ignore
         assert ctx.view_operations == self._OPS
 
@@ -642,8 +641,7 @@ class TestDatasetContextViewOperations:
 
     def test_no_view_no_warning(self):
         """Omitting both leaves view_operations as None with no warning."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
+        with warnings.catch_warnings(action="error"):
             ctx = DatasetContext(name="s", dataset=object())  # type: ignore
         assert ctx.view_operations is None
 

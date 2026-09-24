@@ -52,6 +52,7 @@
 
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
+- Python 3.10 support; the minimum supported version is now 3.11
 
 ## v0.2.2
 

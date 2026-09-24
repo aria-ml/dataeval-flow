@@ -50,13 +50,13 @@ include:
       apt_packages: git
       git_depth: "0"
 
-  # [TR-1-H-4] Python 3.10 - 3.14.
+  # [TR-1-H-4] Python 3.11 - 3.14.
   - component: gitlab.jatic.net/jatic/aria/ci/python-matrix@0.8.0
     inputs:
       job_name: test
       session: test
       stage: test
-      python_versions: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      python_versions: ["3.11", "3.12", "3.13", "3.14"]
       image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
       apt_packages: git
       git_depth: "0"
@@ -75,7 +75,7 @@ include:
       job_name: verify
       session: verify
       stage: test
-      python_versions: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      python_versions: ["3.11", "3.12", "3.13", "3.14"]
       image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
       apt_packages: git
       git_depth: "0"
@@ -94,7 +94,7 @@ include:
       job_name: deps
       session: deps
       stage: test
-      image: ghcr.io/astral-sh/uv:python3.10-bookworm-slim
+      image: ghcr.io/astral-sh/uv:python3.11-bookworm-slim
       apt_packages: git
       git_depth: "0"
 

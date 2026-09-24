@@ -1,6 +1,6 @@
 """Data cleaning workflow outputs."""
 
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeAlias
 
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, TypeIs
@@ -34,22 +34,17 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-class _OutlierIssueRecordRequired(TypedDict):
-    """Required fields for an outlier issue record."""
-
-    item_index: int
-    metric_name: str
-    metric_value: float
-
-
-class OutlierIssueRecord(_OutlierIssueRecordRequired, total=False):
+class OutlierIssueRecord(TypedDict):
     """Single outlier issue from DataEval OutliersOutput.
 
     ``target_index`` is present for target-level outliers (object detection datasets)
     and absent or ``None`` for image-level outliers.
     """
 
-    target_index: int | None
+    item_index: int
+    metric_name: str
+    metric_value: float
+    target_index: NotRequired[int | None]
 
 
 class OutlierIssuesDict(TypedDict):

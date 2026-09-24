@@ -665,8 +665,7 @@ class TestDeprecatedIncludeImageStats:
         assert resolved.intrinsic_factors == ("visual", "pixel")
 
     def test_false_contributes_nothing_and_does_not_warn(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
+        with warnings.catch_warnings(action="error"):
             assert resolve_policy(self._params(include_image_stats=False)).intrinsic_factors == ()
 
     def test_set_alongside_a_disagreeing_policy_is_an_error(self):

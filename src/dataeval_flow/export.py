@@ -355,7 +355,7 @@ def export_provenance(
         Metadata whose ``info`` block holds the provenance. A COCO write round-trips it
         verbatim into the file's own ``info``.
     """
-    from datetime import datetime, timezone
+    from datetime import UTC, datetime
 
     from datamaite import DatasetMetadata
 
@@ -372,7 +372,7 @@ def export_provenance(
     info: dict[str, Any] = {
         "tool": "dataeval-flow",
         "tool_version": __version__,
-        "created": datetime.now(timezone.utc).isoformat(),
+        "created": datetime.now(UTC).isoformat(),
         "source": resolved.name,
         "ontology": name,
         "ontology_digest": digest,

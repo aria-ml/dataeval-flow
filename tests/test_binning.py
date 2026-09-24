@@ -448,8 +448,7 @@ class TestGapMiAgreesWithBalance:
 
         md = self._metadata_with_signal()
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with warnings.catch_warnings(action="ignore"):
             expected = {
                 row["factor_name"]: float(row["mi_value"])
                 for row in Balance(factor_source=factor_source).evaluate(md).balance.to_dicts()
@@ -471,8 +470,7 @@ class TestGapMiAgreesWithBalance:
         md = self._metadata_with_signal()
         names = list(md.factor_names)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with warnings.catch_warnings(action="ignore"):
             from dataeval.bias import Balance
 
             summary = {"balance": Balance().evaluate(md).balance.to_dicts()}

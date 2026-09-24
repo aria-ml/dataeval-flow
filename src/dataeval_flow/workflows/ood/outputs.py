@@ -1,6 +1,6 @@
 """OOD detection workflow outputs."""
 
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeAlias
 
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, TypeIs
@@ -37,24 +37,19 @@ class OODSampleDict(TypedDict):
     is_ood: bool
 
 
-class _DetectorOODResultRequired(TypedDict):
-    """Required fields for an OOD detector result."""
-
-    method: str
-    ood_count: int
-    total_count: int
-    ood_percentage: float
-    threshold_score: float
-
-
-class DetectorOODResultDict(_DetectorOODResultRequired, total=False):
+class DetectorOODResultDict(TypedDict):
     """Serialized result from a single OOD detector.
 
     ``samples`` contains per-sample scores and OOD flags for all test
     samples.
     """
 
-    samples: list[OODSampleDict]
+    method: str
+    ood_count: int
+    total_count: int
+    ood_percentage: float
+    threshold_score: float
+    samples: NotRequired[list[OODSampleDict]]
 
 
 class FactorDeviationDict(TypedDict):

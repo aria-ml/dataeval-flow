@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -80,7 +80,7 @@ def _verification_cell(status: str) -> str:
 def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str:
     """Render a single test-case markdown document from registry + optional report."""
     tc_key = f"test-case-{tc_id}"
-    today = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y")
+    today = datetime.now(tz=UTC).strftime("%m/%d/%Y")
     tc_report = None
     if report and tc_key in report.get("test_cases", {}):
         tc_report = report["test_cases"][tc_key]
@@ -153,7 +153,7 @@ def generate_vcrm(registry: dict, report: dict | None) -> str:
     """Render the VCRM markdown table from registry + optional report."""
     requirements = registry["requirements"]
     test_cases = registry["test_cases"]
-    today = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y")
+    today = datetime.now(tz=UTC).strftime("%m/%d/%Y")
     all_tc_ids = sorted(test_cases.keys(), key=_tc_sort_key)
 
     tc_headers = [f"[TC-{tc_id.replace('-', '.')}][{tc_id}]" for tc_id in all_tc_ids]

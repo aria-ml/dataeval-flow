@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ class ExecutionState:
             entry = TaskExecution(
                 task_name=name,
                 status="running",
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             self._tasks[name] = entry
             return entry
@@ -64,7 +64,7 @@ class ExecutionState:
             entry.status = "completed"
             entry.result = result
             entry.error = None
-            entry.finished_at = datetime.now(timezone.utc)
+            entry.finished_at = datetime.now(UTC)
             return entry
 
     def mark_failed(self, name: str, error: str) -> TaskExecution:
@@ -77,7 +77,7 @@ class ExecutionState:
             entry.status = "failed"
             entry.error = error
             entry.result = None
-            entry.finished_at = datetime.now(timezone.utc)
+            entry.finished_at = datetime.now(UTC)
             return entry
 
     def get(self, name: str) -> TaskExecution | None:

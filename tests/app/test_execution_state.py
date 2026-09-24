@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -45,22 +45,22 @@ class TestTaskExecution:
         assert entry.elapsed_s is None
 
     def test_elapsed_s_none_when_only_started(self) -> None:
-        entry = TaskExecution(task_name="t", started_at=datetime.now(timezone.utc))
+        entry = TaskExecution(task_name="t", started_at=datetime.now(UTC))
         assert entry.elapsed_s is None
 
     def test_elapsed_s_none_when_only_finished(self) -> None:
-        entry = TaskExecution(task_name="t", finished_at=datetime.now(timezone.utc))
+        entry = TaskExecution(task_name="t", finished_at=datetime.now(UTC))
         assert entry.elapsed_s is None
 
     def test_elapsed_s_calculated(self) -> None:
-        start = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-        end = datetime(2025, 1, 1, 0, 0, 5, tzinfo=timezone.utc)
+        start = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
+        end = datetime(2025, 1, 1, 0, 0, 5, tzinfo=UTC)
         entry = TaskExecution(task_name="t", started_at=start, finished_at=end)
         assert entry.elapsed_s == pytest.approx(5.0)
 
     def test_elapsed_s_sub_second(self) -> None:
-        start = datetime(2025, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
-        end = datetime(2025, 1, 1, 0, 0, 0, 500_000, tzinfo=timezone.utc)
+        start = datetime(2025, 1, 1, 0, 0, 0, 0, tzinfo=UTC)
+        end = datetime(2025, 1, 1, 0, 0, 0, 500_000, tzinfo=UTC)
         entry = TaskExecution(task_name="t", started_at=start, finished_at=end)
         assert entry.elapsed_s == pytest.approx(0.5)
 
@@ -109,9 +109,9 @@ class TestExecutionState:
 
     def test_mark_running_sets_utc_timestamp(self) -> None:
         state = ExecutionState()
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         entry = state.mark_running("t")
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         assert entry.started_at is not None
         assert before <= entry.started_at <= after
 
