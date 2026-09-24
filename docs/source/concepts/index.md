@@ -18,6 +18,8 @@ duplicate them.
 
 ## Cross-cutting concepts
 
+- [Workflows and Evaluators](WorkflowsAndEvaluators.md) — the two things DataEval
+  Flow runs: evaluators make determinations, workflows judge them
 - [Reproducibility](Reproducibility.md) — why the same evaluation on the same data
   must yield the same result, and how declarative configuration, validation, and
   config-keyed caching deliver it
@@ -66,6 +68,7 @@ science in depth. The most relevant explanation pages are:
 :::{toctree}
 :hidden:
 
+WorkflowsAndEvaluators
 Reproducibility
 Provenance
 PreprocessingAndExtraction

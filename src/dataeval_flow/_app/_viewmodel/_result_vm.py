@@ -33,19 +33,61 @@ class ResultViewModel:
     """Transforms a ``WorkflowResult`` into view-ready structures."""
 
     def __init__(self, result: Any) -> None:
+        from dataeval_flow.evaluator.result import EvaluatorResult
+
         self._result = result
+        self._is_evaluator = isinstance(result, EvaluatorResult)
         self._findings = self._extract_findings()
 
     def _extract_findings(self) -> list[Any]:
+        if self._is_evaluator:
+            return []
         report_obj = getattr(self._result.data, "report", None)
         if report_obj is None:
             return []
         return list(getattr(report_obj, "findings", []))
 
+    @property
+    def is_evaluator(self) -> bool:
+        """Whether this is an evaluator result: determinations only, with no findings or health."""
+        return self._is_evaluator
+
+    def output_text(self) -> str:
+        """An evaluator's output rendered as the text report renders it, every row included."""
+        from dataeval_flow.evaluator._report import render_result_body
+
+        if not self._is_evaluator:
+            return ""
+        return "\n".join(render_result_body(self._result, detailed=True))
+
+    def status_tag(self) -> str:
+        """The result card's status marker.
+
+        For a workflow this is the health verdict (``[ok]``/``[!!]``). An evaluator carries no
+        health verdict, so a successful one is empty; a failed one still shows a run-status
+        marker, since a failure is not a finding.
+        """
+        if self._is_evaluator:
+            return "" if self._result.success else " [bold red][failed][/bold red]"
+        return " [bold red][!!][/bold red]" if self.warning_count() else " [green][ok][/green]"
+
     # -- Summary -----------------------------------------------------------
 
     def summary_line(self) -> str:
         """One-line summary: finding count, warning count, duration."""
+        if self._is_evaluator:
+            if not self._result.success:
+                errors = self._result.errors
+                parts = [f"failed: {errors[0]}" if errors else "failed"]
+            else:
+                output = self._result.output
+                count = len(output.get("rows", output.get("data", [])))
+                noun = "row" if output.get("shape") == "table" else "value"
+                parts = [f"{count} {noun}{'s' if count != 1 else ''}"]
+            if self._result.metadata.execution_time_s is not None:
+                parts.append(f"{self._result.metadata.execution_time_s:.1f}s")
+            return ", ".join(parts)
+
         findings = self._findings
         n = len(findings)
         warnings = sum(1 for f in findings if getattr(f, "severity", "info") == "warning")
@@ -59,8 +101,8 @@ class ResultViewModel:
         return ", ".join(parts)
 
     def report_summary(self) -> str:
-        """The workflow's own summary string (e.g. 'Data Cleaning Report')."""
-        report_obj = getattr(self._result.data, "report", None)
+        """The workflow's own summary string (e.g. 'Data Cleaning Report'); empty for an evaluator."""
+        report_obj = getattr(getattr(self._result, "data", None), "report", None)
         if report_obj is None:
             return ""
         return getattr(report_obj, "summary", "")
@@ -149,6 +191,8 @@ class ResultViewModel:
 
     def health_line(self) -> str:
         """Health status string for the summary section."""
+        if self._is_evaluator:
+            return ""
         warnings = self.warning_count()
         if warnings:
             return f"Health: {warnings} warning(s) — review flagged findings"

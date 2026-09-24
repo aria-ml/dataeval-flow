@@ -22,6 +22,10 @@ Discovery helpers::
     >>> from dataeval_flow import list_workflows
     >>> list_workflows()
     [{'name': 'data-cleaning', ...}, {'name': 'drift-monitoring', ...}]
+
+    >>> from dataeval_flow import list_evaluators
+    >>> list_evaluators()
+    [{'name': 'quality.duplicates', ...}, {'name': 'quality.outliers', ...}]
 """
 
 from dataeval_flow.config import (
@@ -32,10 +36,14 @@ from dataeval_flow.config import (
     DatasetProtocolConfig,
     DriftMonitoringTaskConfig,
     DriftMonitoringWorkflowConfig,
+    DuplicatesEvaluatorConfig,
+    EvaluatorConfig,
+    EvaluatorTaskConfig,
     FlattenExtractorConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
     OnnxExtractorConfig,
+    OutliersEvaluatorConfig,
     PipelineConfig,
     PreprocessorConfig,
     SelectionConfig,
@@ -52,6 +60,10 @@ from dataeval_flow.config import (
     load_config_folder,
 )
 from dataeval_flow.dataset import load_dataset
+from dataeval_flow.evaluator import get_evaluator, list_evaluators
+from dataeval_flow.evaluator.result import EvaluatorResult
+from dataeval_flow.evaluators.quality import DuplicatesParameters, OutliersParameters
+from dataeval_flow.result import Result
 from dataeval_flow.workflow import WorkflowResult, get_workflow, list_workflows, run_tasks
 
 __all__ = [
@@ -60,10 +72,14 @@ __all__ = [
     "load_config_folder",
     "run_tasks",
     "PipelineConfig",
+    "Result",
     "WorkflowResult",
+    "EvaluatorResult",
     # --- Discovery ---
     "list_workflows",
     "get_workflow",
+    "list_evaluators",
+    "get_evaluator",
     # --- Dataset configs ---
     "HuggingFaceDatasetConfig",
     "ImageFolderDatasetConfig",
@@ -79,10 +95,17 @@ __all__ = [
     # --- Workflow configs ---
     "DataCleaningWorkflowConfig",
     "DriftMonitoringWorkflowConfig",
+    # --- Evaluator configs ---
+    "EvaluatorConfig",
+    "DuplicatesEvaluatorConfig",
+    "OutliersEvaluatorConfig",
+    "DuplicatesParameters",
+    "OutliersParameters",
     # --- Task configs ---
     "TaskConfig",
     "DataCleaningTaskConfig",
     "DriftMonitoringTaskConfig",
+    "EvaluatorTaskConfig",
     # --- Composition ---
     "SourceConfig",
     "PreprocessorConfig",

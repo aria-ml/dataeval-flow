@@ -22,6 +22,10 @@ The underlying science is explained authoritatively in DataEval's
 which covers how outliers, duplicates, and label issues are detected and what each
 signal means.
 
+To run only duplicate or outlier detection, without the rest of data cleaning or its
+health thresholds, use the `quality.duplicates` or `quality.outliers` evaluator — see
+[Run a single evaluator](../how_to/run_a_single_evaluator.md).
+
 ## When to use it
 
 Run data cleaning early — on freshly collected or freshly ingested data, before it

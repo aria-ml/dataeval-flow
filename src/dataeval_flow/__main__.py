@@ -125,6 +125,28 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Emit the listing as JSON rather than a table.",
     )
 
+    # --- evaluators (discovery) ---
+    evaluators_parser = subparsers.add_parser(
+        "evaluators",
+        help="List available evaluator types, or show one's parameter schema",
+        description=(
+            "List the evaluator types this build provides: single DataEval evaluators that report their "
+            "determinations, with no health status. Naming one prints the JSON Schema for its parameters — the "
+            "fields an `evaluators:` entry of that type accepts."
+        ),
+    )
+    evaluators_parser.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="Evaluator type to describe (e.g. quality.duplicates). Omit to list them all.",
+    )
+    evaluators_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the listing as JSON rather than a table.",
+    )
+
     # --- app (interactive TUI) ---
     app_parser = subparsers.add_parser(
         "app",
@@ -232,6 +254,38 @@ def _list_workflows(name: str | None, *, as_json: bool) -> int:
     return 0
 
 
+def _list_evaluators(name: str | None, *, as_json: bool) -> int:
+    """Print the available evaluator types, or one evaluator's parameter schema.
+
+    The evaluator counterpart of :func:`_list_workflows`. Each entry also says what the
+    evaluator consumes and how many sources its task names, because those decide what a
+    task must provide.
+    """
+    import json
+
+    from dataeval_flow.evaluator import get_evaluator, list_evaluators
+
+    if name is not None:
+        try:
+            evaluator = get_evaluator(name)
+        except ValueError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        print(json.dumps(evaluator.params_schema.model_json_schema(), indent=2))
+        return 0
+
+    entries = sorted(list_evaluators(), key=lambda e: e["name"])
+    if as_json:
+        print(json.dumps(entries, indent=2))
+        return 0
+
+    width = max(len(e["name"]) for e in entries)
+    for entry in entries:
+        print(f"  {entry['name']:<{width}}  {entry['description']}")
+        print(f"  {'':<{width}}  consumes: {entry['consumes']}; sources: {entry['sources']}")
+    return 0
+
+
 def apply_env_defaults(args: argparse.Namespace) -> argparse.Namespace:
     """Apply environment variable defaults that cannot be handled by argparse defaults.
 
@@ -294,6 +348,9 @@ def main() -> NoReturn:
 
     if args.command == "workflows":
         sys.exit(_list_workflows(args.name, as_json=args.json))
+
+    if args.command == "evaluators":
+        sys.exit(_list_evaluators(args.name, as_json=args.json))
 
     if args.command == "config":
         from dataeval_flow._app.cli import run_cli_builder

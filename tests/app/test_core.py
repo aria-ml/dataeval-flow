@@ -474,6 +474,7 @@ class TestConstants:
             "ontologies",
             "stats",
             "workflows",
+            "evaluators",
             "tasks",
             "exports",
         }
@@ -491,7 +492,7 @@ class TestConstants:
         assert set(SECTION_MODELS) | set(VARIANT_REGISTRY) == set(SECTION_KEYS)
 
     def test_variant_registry_keys(self):
-        assert set(VARIANT_REGISTRY) == {"datasets", "extractors", "workflows"}
+        assert set(VARIANT_REGISTRY) == {"datasets", "extractors", "workflows", "evaluators"}
 
     def test_cross_refs(self):
         assert "sources" in CROSS_REFS

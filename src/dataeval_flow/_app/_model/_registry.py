@@ -7,9 +7,9 @@ so that new schema variants (e.g. a new workflow type) are picked up automatical
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Any, Literal, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, Self, Union, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from dataeval_flow._app._model._introspect import (
     FieldDescriptor,
@@ -25,6 +25,7 @@ __all__ = [
     "SECTION_MODELS",
     "SECTIONS",
     "STEP_BUILDER_SECTIONS",
+    "TaskFormModel",
     "VARIANT_REGISTRY",
     "WORKFLOW_SKIP_FIELDS",
     "get_discriminator_field",
@@ -47,6 +48,7 @@ SECTIONS: list[tuple[str, str]] = [
     ("ontologies", "Ontologies"),
     ("stats", "Stats Policies"),
     ("workflows", "Workflows"),
+    ("evaluators", "Evaluators"),
     ("tasks", "Tasks"),
     ("exports", "Exports"),
 ]
@@ -109,6 +111,27 @@ def _extract_discriminated_variants(inner: Any) -> tuple[str, dict[str, type[Bas
     return (disc, variants) if variants else None
 
 
+class TaskFormModel(BaseModel):
+    """The TUI's task form, one form for both kinds of task.
+
+    ``PipelineConfig.tasks`` is a union told apart by which key is present, which a form
+    cannot introspect, so the form carries both references and requires exactly one.
+    """
+
+    name: str
+    workflow: str | None = None
+    evaluator: str | None = None
+    enabled: bool = True
+    sources: str | Sequence[str]
+    extractor: str | None = None
+
+    @model_validator(mode="after")
+    def _one_target(self) -> Self:
+        if (self.workflow is None) == (self.evaluator is None):
+            raise ValueError("A task names exactly one of `workflow` or `evaluator`.")
+        return self
+
+
 def _build_registries() -> tuple[dict[str, tuple[str, dict[str, type[BaseModel]]]], dict[str, type[BaseModel]]]:
     """Introspect :class:`PipelineConfig` to derive the variant and section-model registries."""
     variant_registry: dict[str, tuple[str, dict[str, type[BaseModel]]]] = {}
@@ -124,6 +147,9 @@ def _build_registries() -> tuple[dict[str, tuple[str, dict[str, type[BaseModel]]
         elif isinstance(inner, type) and issubclass(inner, BaseModel):
             section_models[name] = inner
 
+    # `tasks` is a union told apart by key, which the loop above cannot introspect.
+    section_models["tasks"] = TaskFormModel
+
     return variant_registry, section_models
 
 
@@ -135,7 +161,7 @@ VARIANT_REGISTRY, SECTION_MODELS = _build_registries()
 
 CROSS_REFS: dict[str, dict[str, str]] = {
     "sources": {"dataset": "datasets", "view": "views"},
-    "tasks": {"workflow": "workflows", "extractor": "extractors"},
+    "tasks": {"workflow": "workflows", "evaluator": "evaluators", "extractor": "extractors"},
     "extractors": {"preprocessor": "preprocessors"},
     "exports": {"source": "sources"},
 }

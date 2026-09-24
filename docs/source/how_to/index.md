@@ -85,6 +85,7 @@ configure_metadata_binning
 ```{toctree}
 :hidden:
 
+run_a_single_evaluator
 read_evaluation_outputs
 export_a_dataset
 reuse_results_with_cache
@@ -95,6 +96,8 @@ containerized_workflows
 :widths: 35 65
 :header-rows: 0
 
+- - {doc}`Run a single evaluator <run_a_single_evaluator>`
+  - Run one DataEval evaluator, such as finding duplicates, and read its output with no health verdict.
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
 - - {doc}`Export a dataset <export_a_dataset>`

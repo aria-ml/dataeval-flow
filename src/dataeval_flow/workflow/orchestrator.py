@@ -18,7 +18,7 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dataeval_flow.config import PipelineConfig, TaskConfig
-    from dataeval_flow.config.schemas import WorkflowConfig
+    from dataeval_flow.config.schemas import EvaluatorConfig, EvaluatorTaskConfig, WorkflowConfig
     from dataeval_flow.config.schemas._task import (
         DataAnalysisTaskConfig,
         DataCleaningTaskConfig,
@@ -28,7 +28,9 @@ if TYPE_CHECKING:
         OODDetectionTaskConfig,
         ParameterSweepTaskConfig,
     )
+    from dataeval_flow.evaluator.result import EvaluatorResult
     from dataeval_flow.policy import ResolvedPolicy
+    from dataeval_flow.result import Result
     from dataeval_flow.sources import ResolvedSource, SourceOperand
     from dataeval_flow.stats import ResolvedStatsPolicy
     from dataeval_flow.workflow import DatasetContext, ResolvedOntology, WorkflowResult
@@ -88,8 +90,21 @@ def _resolve_workflow(
     return _resolve_by_name(config.workflows, workflow_name, "workflow")
 
 
+def _resolve_evaluator(
+    evaluator_name: str,
+    config: "PipelineConfig",
+) -> "EvaluatorConfig":
+    """Resolve an evaluator by name from ``config.evaluators``."""
+    return _resolve_by_name(config.evaluators, evaluator_name, "evaluator")
+
+
+def _target_of(task: "TaskConfig") -> str:
+    """What a task runs, as log lines name it: the way its config file does."""
+    return f"{task.kind}: {task.workflow}"
+
+
 def _resolve_metadata_policy(
-    instance: "WorkflowConfig",
+    instance: "BaseModel",
     config: "PipelineConfig",
     data_dir: Path | None,
 ) -> "ResolvedPolicy | None":
@@ -110,7 +125,8 @@ def _resolve_metadata_policy(
 def _apply_dataset_value_range(
     policy: "ResolvedPolicy | None",
     ranges: "Sequence[tuple[float, float] | None]",
-    workflow_name: str,
+    target_name: str,
+    target_kind: str = "workflow",
 ) -> "ResolvedPolicy | None":
     """Stamp the datasets' declared value range onto the resolved policy.
 
@@ -119,20 +135,26 @@ def _apply_dataset_value_range(
     ``policy_key``, without which two runs over different ranges would share one metadata
     archive holding different numbers.
 
+    Parameters
+    ----------
+    target_kind : str
+        What *target_name* names — ``"workflow"`` or ``"evaluator"`` — so the error names the
+        task's actual target instead of always calling it a workflow.
+
     Raises
     ------
     ValueError
-        When two datasets in one workflow declare different ranges.  Statistics compared
+        When two datasets in one task declare different ranges.  Statistics compared
         across incompatible pixel scales are not comparable, and refusing here costs a
         config error rather than an hour of walking images.
     """
     declared = sorted({value for value in ranges if value is not None})
     if len(declared) > 1:
         raise ValueError(
-            f"Workflow {workflow_name!r} reads datasets declaring different `value_range`s "
+            f"{target_kind.capitalize()} {target_name!r} reads datasets declaring different `value_range`s "
             f"({declared[0]} and {declared[1]}). Statistics measured on different pixel "
             "scales are not comparable, so there is no right answer to pick — give the "
-            "datasets one range, or run them as separate workflows.",
+            "datasets one range, or run them as separate tasks.",
         )
     if not declared or policy is None:
         return policy
@@ -211,7 +233,7 @@ def _channel_groups_for(
 
 
 def _resolve_stats_policy(
-    instance: Any,
+    instance: BaseModel,
     config: "PipelineConfig",
     dataset_contexts: "Mapping[str, DatasetContext]",
 ) -> "ResolvedStatsPolicy | None":
@@ -222,9 +244,9 @@ def _resolve_stats_policy(
     is worth running before the dataset is walked.
     """
     from dataeval_flow.stats import resolve_stats_policy
-    from dataeval_flow.workflow.base import StatsConfigMixin
+    from dataeval_flow.workflow.base import StatsPolicyRef
 
-    if not isinstance(instance, StatsConfigMixin):
+    if not isinstance(instance, StatsPolicyRef):
         return None
     return resolve_stats_policy(instance, config, _channel_groups_for(dataset_contexts))
 
@@ -246,7 +268,7 @@ def _label_source_of(label_sources: "Sequence[str | None]") -> "str | Sequence[s
 
 
 def _resolve_ontology(
-    instance: Any,
+    instance: "BaseModel",
     config: "PipelineConfig | None",
     data_dir: Path | None,
 ) -> "ResolvedOntology | None":
@@ -319,12 +341,12 @@ def _run_single_task(
     config: "PipelineConfig",
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
-) -> "WorkflowResult[Any, Any]":
+) -> "Result[Any]":
     """Run a single resolved task against a pipeline config.
 
     This is the internal workhorse — resolves all references (sources,
     extractor) against ``PipelineConfig``, builds contexts, and executes
-    the workflow.
+    the workflow or evaluator.
     """
     from dataeval_flow.cache import DatasetCache
     from dataeval_flow.config.schemas import ExtractorConfig, PreprocessorConfig
@@ -332,7 +354,7 @@ def _run_single_task(
     from dataeval_flow.sources import resolve_source
     from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
 
-    _logger.info("Task '%s': starting (workflow_instance=%s)", task.name, task.workflow)
+    _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
     # 0. Seed every stochastic component [CR-7-S-1]. Applied per task rather than
     #    once per pipeline so a task's result does not depend on what ran before it.
@@ -390,9 +412,22 @@ def _run_single_task(
 
     _logger.debug("Task '%s': resolved %d source(s): %s", task.name, len(source_names), source_names)
 
-    # 4. Resolve workflow → type + params
-    instance = _resolve_workflow(task.workflow, config)
-    workflow = get_workflow(instance.type)
+    # 4. Resolve the target → type + params. A task runs a workflow or an evaluator; the
+    #    context, policies, timing and envelope below serve both.
+    from dataeval_flow.evaluator import get_evaluator, task_problem
+
+    instance: WorkflowConfig | EvaluatorConfig
+    if task.kind == "evaluator":
+        instance = _resolve_evaluator(task.workflow, config)
+        runner: Any = get_evaluator(instance.type)
+        # `PipelineConfig` only checks the tasks it holds, so a task run directly (not out of
+        # `config.tasks`) would otherwise skip this and fail later, deep inside the evaluator.
+        problem = task_problem(instance, source_count=len(source_names), has_extractor=task.extractor is not None)
+        if problem is not None:
+            raise ValueError(f"Task '{task.name}' runs evaluator '{instance.name}' ({instance.type}), which {problem}")
+    else:
+        instance = _resolve_workflow(task.workflow, config)
+        runner = get_workflow(instance.type)
 
     # 5. Resolve the metadata policy before anything reads the dataset, so a misspelled
     #    factor or a descriptor that does not exist costs a config error rather than an
@@ -405,6 +440,7 @@ def _run_single_task(
         policy,
         [ctx.value_range for ctx in dataset_contexts.values()],
         instance.name,
+        task.kind,
     )
 
     # Resolved after the datasets, because a policy's band groups are taken from them, and
@@ -426,13 +462,13 @@ def _run_single_task(
     )
 
     # 7. Run workflow with timing
-    _logger.debug("Task '%s': executing workflow", task.name)
+    _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()
     # Library diagnostics are captured here rather than left to the log file:
     # they name the binning and value_range decisions this run made, and the
     # envelope has to be able to answer for them on its own.
     with capture_diagnostics() as diagnostics:
-        result = workflow.execute(context, instance)
+        result = runner.execute(context, instance)
     elapsed = time.monotonic() - start
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
@@ -458,7 +494,7 @@ def _run_single_task(
 
 
 def _ensure_result_datasets(
-    result: "WorkflowResult[Any, Any]",
+    result: "Result[Any]",
     dataset_contexts: "Mapping[str, DatasetContext]",
 ) -> None:
     """Fill in ``result.dataset`` / ``result.sources`` when the workflow did not.
@@ -497,11 +533,11 @@ def _ensure_result_datasets(
 
 
 def _populate_result_metadata(
-    result: "WorkflowResult[Any, Any]",
+    result: "Result[Any]",
     resolved_sources: "Sequence[ResolvedSource]",
     extractor_cfg: Any,
     elapsed: float,
-    workflow_instance: "WorkflowConfig | None" = None,
+    workflow_instance: "WorkflowConfig | EvaluatorConfig | None" = None,
     pipeline_config: "PipelineConfig | None" = None,
     data_dir: Path | None = None,
     ontology: "ResolvedOntology | None" = None,
@@ -574,7 +610,7 @@ def _source_description(resolved: "ResolvedSource") -> str:
 
 def _build_resolved_config(
     resolved_sources: "Sequence[ResolvedSource]",
-    workflow_instance: "WorkflowConfig | None",
+    workflow_instance: "WorkflowConfig | EvaluatorConfig | None",
     extractor_cfg: Any,
     pipeline_config: "PipelineConfig | None",
     data_dir: Path | None = None,
@@ -583,7 +619,10 @@ def _build_resolved_config(
     cfg: dict[str, Any] = {"sources": [_source_entry(rs) for rs in resolved_sources]}
 
     if workflow_instance is not None:
-        cfg["workflow"] = workflow_instance.model_dump(mode="json")
+        from dataeval_flow.evaluator.base import EvaluatorParametersBase
+
+        key = "evaluator" if isinstance(workflow_instance, EvaluatorParametersBase) else "workflow"
+        cfg[key] = workflow_instance.model_dump(mode="json")
 
     if extractor_cfg is not None:
         cfg["extractor"] = extractor_cfg.model_dump(mode="json")
@@ -716,7 +755,7 @@ def run_tasks(
     tasks: str | Sequence[str] | None = None,
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
-) -> "list[WorkflowResult[Any, Any]]":
+) -> "list[Result[Any]]":
     """Run tasks from a pipeline configuration.
 
     Parameters
@@ -737,7 +776,7 @@ def run_tasks(
 
     Returns
     -------
-    list[WorkflowResult]
+    list[Result]
         One result per task executed, in execution order.
 
     Raises
@@ -749,9 +788,9 @@ def run_tasks(
     to_run = select_tasks(config, tasks)
 
     _logger.info("Running %d task(s)", len(to_run))
-    results: list[WorkflowResult[Any, Any]] = []
+    results: list[Result[Any]] = []
     for task in to_run:
-        _logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
+        _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
         results.append(_run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir))
     return results
 
@@ -807,11 +846,21 @@ def run_task(
 ) -> "WorkflowResult[DataCoverageMetadata, DataCoverageOutputs]": ...
 @overload
 def run_task(
-    task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None
-) -> "WorkflowResult[Any, Any]": ...
+    task: "EvaluatorTaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "EvaluatorResult": ...
+@overload
 def run_task(
     task: "TaskConfig", config: "PipelineConfig", data_dir: Path | None = None, cache_dir: Path | None = None
-) -> "WorkflowResult[Any, Any]":
+) -> "Result[Any]": ...
+def run_task(
+    task: "TaskConfig",
+    config: "PipelineConfig",
+    data_dir: Path | None = None,
+    cache_dir: Path | None = None,
+) -> "Result[Any]":
     """Run a single task, returning a narrowly typed result based on the task type.
 
     Unlike :func:`run_tasks`, this function accepts the task config object
@@ -823,9 +872,9 @@ def run_task(
     task : TaskConfig
         The task configuration to execute.
     config : PipelineConfig
-        Pipeline configuration supplying datasets, sources, extractors, and
-        workflow definitions.  The task does **not** need to appear in
-        ``config.tasks``.
+        Pipeline configuration supplying datasets, sources, extractors,
+        workflow, and evaluator definitions.  The task does **not** need to
+        appear in ``config.tasks``.
     data_dir : Path | None
         Root directory for resolving relative paths in configs.
     cache_dir : Path | None
@@ -833,12 +882,16 @@ def run_task(
 
     Returns
     -------
-    WorkflowResult
+    Result
         A result typed to the specific workflow — e.g.
         ``WorkflowResult[OODDetectionMetadata, OODDetectionOutputs]`` when
-        *task* is an :class:`~dataeval_flow.config.OODDetectionTaskConfig`.
+        *task* is an :class:`~dataeval_flow.config.OODDetectionTaskConfig` —
+        or an :class:`~dataeval_flow.evaluator.result.EvaluatorResult` when
+        *task* is an :class:`~dataeval_flow.config.EvaluatorTaskConfig`.  A plain
+        :class:`~dataeval_flow.config.TaskConfig` may run either kind, so its result
+        is typed as either.
     """
-    _logger.info("--- Task: %s (workflow: %s) ---", task.name, task.workflow)
+    _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
     # One scope per task, so every source a task compares is described by the same
     # stateful extractor rather than one fitted per source.
     with shared_extractor_scope():

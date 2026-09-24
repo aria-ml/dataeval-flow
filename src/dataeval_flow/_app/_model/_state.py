@@ -231,8 +231,10 @@ class ConfigState:
         "sources": "sources",
         "extractors": "extractor",
         "workflows": "workflow",
+        "evaluators": "evaluator",
     }
-    _REQUIRED_TASK_KEYS = frozenset({"sources", "workflow"})
+    # A task runs exactly one target, so losing whichever one it names removes the task.
+    _REQUIRED_TASK_KEYS = frozenset({"sources", "workflow", "evaluator"})
 
     def _scrub_references(self, section: str, removed_name: str) -> list[str]:
         """Remove stale references after a deletion. Returns warnings."""

@@ -29,6 +29,7 @@ __all__ = [
     "coerce_step_params",
     "collect_field_value",
     "collect_multi_select_value",
+    "collect_tri_bool_value",
     "diagnose_collect_failure",
     "finalize_item",
     "validate_step_params",
@@ -52,10 +53,14 @@ DELETE_SENTINEL = "__DELETE__"
 def finalize_item(section: str, item: dict[str, Any]) -> dict[str, Any]:
     """Apply section-specific defaults to an assembled item dict.
 
-    Currently handles tasks defaulting to ``enabled=True``.
+    Handles tasks defaulting to ``enabled=True`` and dropping the empty target reference.
     """
     if section == "tasks":
         item.setdefault("enabled", True)
+        # The form carries both targets; a saved task names only the one it runs.
+        for key in ("workflow", "evaluator"):
+            if not item.get(key):
+                item.pop(key, None)
     return item
 
 
@@ -185,6 +190,20 @@ def collect_bool_value(value: bool, default: Any) -> Any:
     """Return *value* if it differs from *default*, otherwise :data:`SKIP`."""
     resolved_default = default if isinstance(default, bool) else False
     return value if value != resolved_default else SKIP
+
+
+def collect_tri_bool_value(raw: str) -> Any:
+    """Resolve a three-state selection (``""``, ``"true"``, ``"false"``) to a real bool.
+
+    For a ``bool | None = None`` field, unset must stay unset (:data:`SKIP`, so DataEval's
+    own default applies) and an explicit ``false`` must survive, so unlike
+    :func:`collect_bool_value` this never compares against a default.
+    """
+    if raw == "true":
+        return True
+    if raw == "false":
+        return False
+    return SKIP
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ from dataeval_flow._app._model._item import (
     collect_field_value,
     collect_json_value,
     collect_multi_select_value,
+    collect_tri_bool_value,
     diagnose_collect_failure,
 )
 from dataeval_flow._app._model._registry import (
@@ -165,6 +166,13 @@ class SectionViewModel:
 
     # -- Collection (pure logic, takes raw values from view) ---------------
 
+    @staticmethod
+    def _collect_bool_field(desc: FieldDescriptor, raw_value: Any) -> Any:
+        """Coerce a BOOL-kind field's raw value: tri-state (unset/true/false) or a plain checkbox."""
+        if desc.tri_state:
+            return collect_tri_bool_value(raw_value or "")
+        return collect_bool_value(raw_value, desc.default)
+
     def collect_field(self, desc: FieldDescriptor, raw_value: Any) -> Any:
         """Coerce a raw widget value for a single field. Returns SKIP if empty."""
         if desc.kind == FieldKind.SELECT or (desc.kind == FieldKind.NESTED and desc.union_variants):
@@ -172,7 +180,7 @@ class SectionViewModel:
         if desc.kind == FieldKind.MULTI_SELECT:
             return collect_multi_select_value(raw_value or [], self.section, desc.name)
         if desc.kind == FieldKind.BOOL:
-            return collect_bool_value(raw_value, desc.default)
+            return self._collect_bool_field(desc, raw_value)
         if desc.kind in (FieldKind.INT, FieldKind.FLOAT, FieldKind.STRING):
             return collect_field_value(desc, raw_value or "")
         if desc.kind == FieldKind.LIST and desc.union_variants:

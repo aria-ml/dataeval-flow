@@ -150,6 +150,11 @@ class ResultDetailModal(ModalScreen[None]):
 
         yield Static("", classes="rd-separator")
 
+        if self._rvm.is_evaluator:
+            # Determinations only: no SUMMARY, no health, no severity markers.
+            yield Static(self._rvm.output_text(), classes="rd-finding-detail", markup=False)
+            return
+
         # Summary
         yield Static("[bold]SUMMARY[/bold]", markup=True)
         summaries = self._rvm.finding_summaries()

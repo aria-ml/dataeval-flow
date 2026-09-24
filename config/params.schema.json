@@ -2379,6 +2379,159 @@
       "title": "DriftMonitoringWorkflowConfig",
       "type": "object"
     },
+    "DuplicatesEvaluatorConfig": {
+      "additionalProperties": false,
+      "description": "Typed evaluator configuration for ``quality.duplicates``.\n\nExample YAML::\n\n    evaluators:\n      - name: dupes\n        type: quality.duplicates\n        flags: [hash_basic, hash_d4]",
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clustering algorithm for cluster mode. Unset uses DataEval's default (`hdbscan`).",
+          "title": "Cluster Algorithm"
+        },
+        "n_clusters": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters for cluster mode. Unset lets DataEval choose.",
+          "title": "N Clusters"
+        },
+        "per_image": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Passed to `from_stats`: evaluate whole images. Unset uses DataEval's default.",
+          "title": "Per Image"
+        },
+        "per_target": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Passed to `from_stats`: evaluate individual targets (detections). Unset uses DataEval's default.",
+          "title": "Per Target"
+        },
+        "flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash families to compare. Unset uses DataEval's default (`hash_basic`).",
+          "title": "Flags"
+        },
+        "merge_near_duplicates": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Merge overlapping near-duplicate groups found by different methods. Unset uses DataEval's default.",
+          "title": "Merge Near Duplicates"
+        },
+        "hash_radius": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. Unset uses DataEval's default (0, documented to change in a future major release).",
+          "title": "Hash Radius"
+        },
+        "cluster_sensitivity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enables cluster mode: embedding-space near duplicates at this sensitivity, merged with the hash groups. Needs an extractor on the task, and reads one source.",
+          "title": "Cluster Sensitivity"
+        },
+        "name": {
+          "description": "Identifier for this evaluator",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "quality.duplicates",
+          "default": "quality.duplicates",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DuplicatesEvaluatorConfig",
+      "type": "object"
+    },
     "ExportConfig": {
       "additionalProperties": false,
       "description": "A named dataset to write, and the format to write it in.\n\nDeclare an export to take a conformed corpus out of the tool. It is written to\n``output/datasets/<name>/`` when the run has an output directory, beside\n``output/results/``. An export names a source, not a task, so it writes whether or\nnot any task reads that source.\n\nYAML example::\n\n    exports:\n      - name: conformed_corpus\n        source: merged\n        format: coco",
@@ -3561,6 +3714,822 @@
       "title": "OntologyConfig",
       "type": "object"
     },
+    "OutliersEvaluatorConfig": {
+      "additionalProperties": false,
+      "description": "Typed evaluator configuration for ``quality.outliers``.\n\nExample YAML::\n\n    evaluators:\n      - name: outliers\n        type: quality.outliers\n        flags: [pixel, visual]\n        outlier_threshold: [zscore, 3.0]",
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clustering algorithm for cluster mode. Unset uses DataEval's default (`hdbscan`).",
+          "title": "Cluster Algorithm"
+        },
+        "n_clusters": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters for cluster mode. Unset lets DataEval choose.",
+          "title": "N Clusters"
+        },
+        "per_image": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Passed to `from_stats`: evaluate whole images. Unset uses DataEval's default.",
+          "title": "Per Image"
+        },
+        "per_target": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Passed to `from_stats`: evaluate individual targets (detections). Unset uses DataEval's default.",
+          "title": "Per Target"
+        },
+        "flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "dimension",
+                  "pixel",
+                  "visual"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Statistics families to test. Unset uses DataEval's default.",
+          "title": "Flags"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "maxItems": 2,
+                        "minItems": 2,
+                        "prefixItems": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        ],
+                        "type": "array"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "maxItems": 2,
+                        "minItems": 2,
+                        "prefixItems": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        ],
+                        "type": "array"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far a statistic must sit from the rest to be an outlier: a method (`zscore`, `modzscore`, `iqr`, `adaptive`, `constant`), `[method, bounds]`, or a mapping from metric name to either. Unset uses DataEval's default.",
+          "title": "Outlier Threshold"
+        },
+        "cluster_threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enables cluster mode: embedding-space outliers at this threshold, merged with the statistical ones. Needs an extractor on the task, and reads one source.",
+          "title": "Cluster Threshold"
+        },
+        "name": {
+          "description": "Identifier for this evaluator",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "quality.outliers",
+          "default": "quality.outliers",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "OutliersEvaluatorConfig",
+      "type": "object"
+    },
     "ParameterSweepWorkflowConfig": {
       "description": "Typed workflow configuration for ``parameter-sweep``.\n\nInherits all fields from :class:`ParameterSweepParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: sweep_outlier_threshold\n        type: parameter-sweep\n        outlier_method: [adaptive]\n        outlier_threshold: [null, 1.0, 2.0, 3.0]",
       "properties": {
@@ -4523,13 +5492,26 @@
       "type": "object"
     },
     "TaskConfig": {
-      "description": "Task/workflow configuration schema.\n\nTasks reference sources (dataset+selection bundles) and an optional\nextractor (model+preprocessor+batch_size bundle) by name.",
+      "description": "Task/workflow configuration schema.\n\nTasks reference sources (dataset+selection bundles) and an optional\nextractor (model+preprocessor+batch_size bundle) by name.\n\nA config file names what a task runs under ``workflow:`` or ``evaluator:``, so the\nfile says which kind of task it is. Loaded, either lands in ``workflow``, and ``kind``\nrecords which key the file used. Running a task reads ``kind`` only to look the name\nup in ``workflows:`` or ``evaluators:``; saved, the task is written back under its key.",
+      "oneOf": [
+        {
+          "required": [
+            "workflow"
+          ]
+        },
+        {
+          "required": [
+            "evaluator"
+          ]
+        }
+      ],
       "properties": {
         "name": {
           "title": "Name",
           "type": "string"
         },
         "workflow": {
+          "description": "The workflow this task runs, by its name in `workflows:`.",
           "title": "Workflow",
           "type": "string"
         },
@@ -4564,11 +5546,15 @@
           ],
           "default": null,
           "title": "Extractor"
+        },
+        "evaluator": {
+          "description": "The evaluator this task runs, by its name in `evaluators:`. Set this or `workflow`.",
+          "title": "Evaluator",
+          "type": "string"
         }
       },
       "required": [
         "name",
-        "workflow",
         "sources"
       ],
       "title": "TaskConfig",
@@ -5247,6 +6233,36 @@
       "default": null,
       "description": "Named workflow configurations (type + params), referenced by tasks",
       "title": "Workflows"
+    },
+    "evaluators": {
+      "anyOf": [
+        {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "quality.duplicates": "#/$defs/DuplicatesEvaluatorConfig",
+                "quality.outliers": "#/$defs/OutliersEvaluatorConfig"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DuplicatesEvaluatorConfig"
+              },
+              {
+                "$ref": "#/$defs/OutliersEvaluatorConfig"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named evaluator configurations (type + params), referenced by tasks. An evaluator runs one DataEval evaluator and reports its determinations, with no health status.",
+      "title": "Evaluators"
     },
     "tasks": {
       "anyOf": [

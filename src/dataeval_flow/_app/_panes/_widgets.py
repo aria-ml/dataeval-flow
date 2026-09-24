@@ -16,6 +16,7 @@ _CONFIG_SECTIONS = [
     ("preprocessors", "Preprocessors"),
     ("extractors", "Extractors"),
     ("workflows", "Workflows"),
+    ("evaluators", "Evaluators"),
 ]
 
 SECTION_TITLES: dict[str, str] = dict(_CONFIG_SECTIONS)

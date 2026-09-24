@@ -5,11 +5,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow.config.schemas import AutoBinMethod, FactorSource
+from dataeval_flow.config.schemas import AutoBinMethod, FactorSource, StatsPolicyRef
 
 __all__ = [
     "MetadataConfigMixin",
     "Reportable",
+    "StatsPolicyRef",
     "StatsConfigMixin",
     "WorkflowOutputsBase",
     "WorkflowParametersBase",
@@ -58,7 +59,7 @@ class MetadataConfigMixin(BaseModel):
     )
 
 
-class StatsConfigMixin(BaseModel):
+class StatsConfigMixin(StatsPolicyRef):
     """Mixin for workflows that compute image statistics.
 
     Mix into workflow parameter classes that call ``compute_stats``.

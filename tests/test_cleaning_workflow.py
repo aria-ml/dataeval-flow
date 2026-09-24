@@ -1054,6 +1054,24 @@ class TestMergeDuplicateResults:
 
     @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
     @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
+    def test_cluster_duplicates_pass_merge_near_duplicates(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
+        """`duplicate_merge_near` must reach the cluster-mode `Duplicates`, not just the hash-mode one."""
+        mock_dup_instance = MagicMock()
+        mock_dup_instance.from_clusters.return_value = MagicMock(data=lambda: pl.DataFrame({"group_id": []}))
+        mock_dup_cls.return_value = mock_dup_instance
+        mock_cluster.return_value = MagicMock()
+
+        hash_result = MagicMock()
+        hash_result.data.return_value = pl.DataFrame({"group_id": []})
+
+        params = _make_params(duplicate_cluster_sensitivity=0.5, duplicate_merge_near=False)
+        embeddings = np.zeros((10, 64), dtype=np.float32)
+        _merge_duplicate_results(hash_result, embeddings, params, _run_ctx=None)
+
+        mock_dup_cls.assert_called_once_with(cluster_sensitivity=0.5, merge_near_duplicates=False)
+
+    @patch("dataeval_flow.workflows.cleaning._internal.get_or_compute_cluster_result")
+    @patch("dataeval_flow.workflows.cleaning._internal.Duplicates")
     def test_empty_cluster_returns_hash(self, mock_dup_cls: MagicMock, mock_cluster: MagicMock):
         """Empty cluster result returns hash result as-is."""
         hash_result = MagicMock()

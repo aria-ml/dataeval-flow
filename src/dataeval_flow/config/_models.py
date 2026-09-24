@@ -14,6 +14,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 from dataeval_flow.config.schemas import (
     DatasetConfig,
     DatasetProtocolConfig,
+    EvaluatorConfig,
     ExportConfig,
     ExtractorConfig,
     MetadataPolicyConfig,
@@ -24,6 +25,7 @@ from dataeval_flow.config.schemas import (
     ViewConfig,
     WorkflowConfig,
 )
+from dataeval_flow.evaluator.base import task_problem
 
 # ---------------------------------------------------------------------------
 # Source — dataset + optional view
@@ -195,6 +197,13 @@ class PipelineConfig(BaseModel):
         default=None,
         description="Named workflow configurations (type + params), referenced by tasks",
     )
+    evaluators: Sequence[EvaluatorConfig] | None = Field(
+        default=None,
+        description=(
+            "Named evaluator configurations (type + params), referenced by tasks. An evaluator runs one DataEval "
+            "evaluator and reports its determinations, with no health status."
+        ),
+    )
     tasks: Sequence[TaskConfig] | None = None
 
     @model_validator(mode="before")
@@ -216,6 +225,28 @@ class PipelineConfig(BaseModel):
                         stacklevel=2,
                     )
         return data
+
+    @model_validator(mode="after")
+    def _check_evaluator_tasks(self) -> "PipelineConfig":
+        """Refuse an evaluator task its evaluator cannot run, before any data is read."""
+        evaluators = {evaluator.name: evaluator for evaluator in self.evaluators or ()}
+        for task in self.tasks or ():
+            if task.kind != "evaluator":
+                continue
+            evaluator = evaluators.get(task.workflow)
+            if evaluator is None:
+                raise ValueError(
+                    f"Task '{task.name}' names evaluator '{task.workflow}', which `evaluators:` does not define. "
+                    f"Defined: {sorted(evaluators)}"
+                )
+            problem = task_problem(
+                evaluator, source_count=len(task.source_names), has_extractor=task.extractor is not None
+            )
+            if problem is not None:
+                raise ValueError(
+                    f"Task '{task.name}' runs evaluator '{evaluator.name}' ({evaluator.type}), which {problem}"
+                )
+        return self
 
     @model_validator(mode="after")
     def _check_unique_names(self) -> "PipelineConfig":

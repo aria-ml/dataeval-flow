@@ -84,10 +84,11 @@ dataeval-flow --config params.yaml --data . --output ./results
 
 ### Envelope shape
 
-The serialized envelope has three top-level keys:
+The serialized envelope has five top-level keys, and a `kind` of `"workflow"`:
 
 ```json
 {
+  "kind":     "workflow",
   "metadata": { "timestamp": "...", "tool": "dataeval-flow", "resolved_config": {} },
   "health":   { "status": "ok", "warnings": 0, "findings": 7 },
   "raw":      { },
@@ -97,7 +98,7 @@ The serialized envelope has three top-level keys:
 
 `metadata` is the provenance envelope, `health` the roll-up of the findings' severities, `raw` the typed numeric
 outputs, and `report` the same findings the text report renders — summary string plus a list of findings, each
-with a `title`, `severity`, and `data`.
+with a `title`, `severity`, and `data`. `kind` distinguishes this from an evaluator's envelope, covered next.
 
 `health.status` is `"warning"` where any finding breached its threshold and `"ok"` otherwise. It answers a
 different question from whether the workflow *ran*: a task that failed produces errors, not warnings.
@@ -128,6 +129,24 @@ Workflows extend this envelope with their own fields, so `metadata` carries more
 `data-cleaning` result, for example, also records `mode`, `evaluators`, `flagged_indices`, `clean_indices`, and
 `removed_count`. Treat the table as the guaranteed floor, not the full set — the
 {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` lists each workflow's metadata model.
+
+## Evaluator results
+
+An evaluator's `result.json` entry has a different shape: `"kind": "evaluator"`, and no findings, severities, or
+`health` at all. DataEval's own output sits under `output`, as a table, mapping, or array — whatever shape that
+evaluator produces:
+
+```json
+{
+  "kind": "evaluator",
+  "metadata": { "evaluator": "quality.duplicates", "dataeval": { "version": "1.1.1" } },
+  "output": { "shape": "table", "columns": ["group_id", "..."], "rows": [] }
+}
+```
+
+From Python, `result.raw` is DataEval's own output object rather than a JSON-ready dict. See
+[Run a single evaluator](run_a_single_evaluator.md) and the [Evaluator Catalog](../reference/evaluators.md) for what
+each evaluator returns.
 
 ## Getting at the raw numbers
 

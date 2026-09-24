@@ -63,8 +63,7 @@ class ResultPaneMixin(App):
         if entry.status == "completed" and entry.result is not None:
             rvm = ResultViewModel(entry.result)
             summary = rvm.summary_line()
-            warnings = rvm.warning_count()
-            severity_tag = " [bold red][!!][/bold red]" if warnings else " [green][ok][/green]"
+            severity_tag = rvm.status_tag()
             lines = [f"[bold]{entry.task_name}[/bold] — {summary}{severity_tag}"]
             for fi in range(rvm.finding_count()):
                 fline = _colorize_marker(rvm.finding_summary_markup(fi))

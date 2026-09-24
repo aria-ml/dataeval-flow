@@ -113,6 +113,7 @@ Overview <concepts/index>
 
 Container Reference <reference/containers>
 JATIC Maturity <reference/maturity>
+Evaluator Catalog <reference/evaluators>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::
