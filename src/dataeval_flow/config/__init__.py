@@ -1,114 +1,85 @@
-"""Config layer — single public API for all configuration types.
+"""Config layer — everything a pipeline file describes besides its workflows and evaluators.
 
-Import everything from here::
+The plain sections' types are imported from here::
 
-    from dataeval_flow.config import PipelineConfig, OnnxExtractorConfig, ...
+    from dataeval_flow.config import SourceConfig, TaskConfig, ...
+
+A section whose entries are plugins has a subpackage of its own: ``dataeval_flow.config.extractors`` for
+``extractors:``, and ``dataeval_flow.config.transforms`` for what a preprocessor's ``step:`` names.
+
+``PipelineConfig`` and ``load_config`` are imported from ``dataeval_flow``; a workflow's or evaluator's config from
+its type's package under ``dataeval_flow.workflows`` or ``dataeval_flow.evaluators``.
 """
 
 __all__ = [
     # Dataset configs
     "CocoDatasetConfig",
+    "DatasetConfig",
     "DatasetProtocolConfig",
     "DemoDatasetConfig",
     "HuggingFaceDatasetConfig",
     "ImageFolderDatasetConfig",
     "YoloDatasetConfig",
-    # Evaluator configs
-    "DuplicatesEvaluatorConfig",
-    "EvaluatorConfig",
-    "OutliersEvaluatorConfig",
-    # Extractor configs
-    "BoVWExtractorConfig",
-    "FlattenExtractorConfig",
-    "OnnxExtractorConfig",
-    "TorchExtractorConfig",
-    "UncertaintyExtractorConfig",
-    # Workflow configs
-    "DataAnalysisWorkflowConfig",
-    "DataCleaningWorkflowConfig",
-    "DataCoverageWorkflowConfig",
-    "DataPrioritizationWorkflowConfig",
-    "DataSplittingWorkflowConfig",
-    "DriftMonitoringWorkflowConfig",
-    "MetadataTriageWorkflowConfig",
-    "OODDetectionWorkflowConfig",
-    "ParameterSweepWorkflowConfig",
     # Task configs
-    "DataAnalysisTaskConfig",
-    "DataCleaningTaskConfig",
-    "DataCoverageTaskConfig",
-    "DataPrioritizationTaskConfig",
-    "DataSplittingTaskConfig",
-    "DriftMonitoringTaskConfig",
-    "EvaluatorTaskConfig",
-    "MetadataTriageTaskConfig",
-    "OODDetectionTaskConfig",
-    "ParameterSweepTaskConfig",
     "TaskConfig",
     "TaskKind",
-    # Composition / pipeline
-    "PipelineConfig",
+    # Composition
     "SourceConfig",
+    # Logging
+    "LoggingConfig",
+    # Metadata policy — corrections and aggregation
+    "AggregatorConfig",
+    "MetadataPolicyConfig",
+    "ParseDateTimeCorrectionConfig",
+    "ParseValueCorrectionConfig",
+    "ReductionOptionsConfig",
+    "RemapCorrectionConfig",
+    "RemapRuleConfig",
+    "RescaleCorrectionConfig",
+    # Ontology
+    "OntologyConceptConfig",
+    "OntologyConfig",
+    # Export / stats
+    "ExportConfig",
+    "StatsMeasureConfig",
+    "StatsPolicyConfig",
+    # Config mixins
+    "MetadataConfigMixin",
+    "StatsConfigMixin",
     # Other schemas
+    "PreprocessingStep",
     "PreprocessorConfig",
-    "ResultMetadata",
     "ViewConfig",
     "ViewOperation",
-    # Deprecated aliases (use ViewConfig / ViewOperation)
-    "SelectionConfig",
-    "SelectionStep",
-    # Loader functions
-    "export_params_schema",
-    "load_config",
-    "load_config_folder",
 ]
 
-from dataeval_flow.config._loader import (
-    export_params_schema,
-    load_config,
-    load_config_folder,
-)
-from dataeval_flow.config._models import PipelineConfig, SourceConfig
-from dataeval_flow.config.schemas import (
-    BoVWExtractorConfig,
+from dataeval_flow.config._models import LoggingConfig, SourceConfig
+from dataeval_flow.config._schemas import (
+    AggregatorConfig,
     CocoDatasetConfig,
-    DataAnalysisTaskConfig,
-    DataAnalysisWorkflowConfig,
-    DataCleaningTaskConfig,
-    DataCleaningWorkflowConfig,
-    DataCoverageTaskConfig,
-    DataCoverageWorkflowConfig,
-    DataPrioritizationTaskConfig,
-    DataPrioritizationWorkflowConfig,
+    DatasetConfig,
     DatasetProtocolConfig,
-    DataSplittingTaskConfig,
-    DataSplittingWorkflowConfig,
     DemoDatasetConfig,
-    DriftMonitoringTaskConfig,
-    DriftMonitoringWorkflowConfig,
-    DuplicatesEvaluatorConfig,
-    EvaluatorConfig,
-    EvaluatorTaskConfig,
-    FlattenExtractorConfig,
+    ExportConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
-    MetadataTriageTaskConfig,
-    MetadataTriageWorkflowConfig,
-    OnnxExtractorConfig,
-    OODDetectionTaskConfig,
-    OODDetectionWorkflowConfig,
-    OutliersEvaluatorConfig,
-    ParameterSweepTaskConfig,
-    ParameterSweepWorkflowConfig,
+    MetadataPolicyConfig,
+    OntologyConceptConfig,
+    OntologyConfig,
+    ParseDateTimeCorrectionConfig,
+    ParseValueCorrectionConfig,
+    PreprocessingStep,
     PreprocessorConfig,
-    ResultMetadata,
-    SelectionConfig,
-    SelectionStep,
+    ReductionOptionsConfig,
+    RemapCorrectionConfig,
+    RemapRuleConfig,
+    RescaleCorrectionConfig,
+    StatsMeasureConfig,
+    StatsPolicyConfig,
     TaskConfig,
     TaskKind,
-    TorchExtractorConfig,
-    UncertaintyExtractorConfig,
     ViewConfig,
     ViewOperation,
     YoloDatasetConfig,
 )
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin

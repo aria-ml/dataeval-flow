@@ -24,7 +24,7 @@
 # thresholds before selecting operational settings.
 #
 # **Workflow role**: You can run a parameter sweep during the data-quality stage
-# of your T&E workflow. Instead of guessing thresholds for [data cleaning](data_cleaning),
+# of your T&E workflow. Instead of guessing thresholds for {doc}`data cleaning <data_cleaning>`,
 # you can sweep a range, inspect sensitivity tables, and select defensible parameters.
 # See [Reproducibility](../concepts/Reproducibility.md) for details on config-keyed
 # caching across runs.
@@ -106,20 +106,19 @@ print(f"Reading from {data_path}")
 # You can use Bag of Visual Words (BoVW) embeddings for cluster-based detection.
 
 # %%
+from dataeval_flow import PipelineConfig, run_task
 from dataeval_flow.config import (
-    BoVWExtractorConfig,
     HuggingFaceDatasetConfig,
-    ParameterSweepTaskConfig,
-    ParameterSweepWorkflowConfig,
-    PipelineConfig,
     SourceConfig,
+    TaskConfig,
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.workflow import run_task
+from dataeval_flow.config.extractors import BoVWExtractorConfig
+from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 
 # Define the sweep workflow
-sweep_workflow = ParameterSweepWorkflowConfig(
+sweep_workflow = ParameterSweepConfig(
     name="mv_sensitivity_sweep",
     # Outlier parameters: sweep thresholds
     outlier_method=["adaptive"],
@@ -132,9 +131,7 @@ sweep_workflow = ParameterSweepWorkflowConfig(
 )
 
 # Define the task referencing the sweep workflow
-task = ParameterSweepTaskConfig(
-    name="mv_param_sweep", workflow="mv_sensitivity_sweep", sources="mv_src", extractor="bovw_ext"
-)
+task = TaskConfig(name="mv_param_sweep", workflow="mv_sensitivity_sweep", sources="mv_src", extractor="bovw_ext")
 
 # Build the full pipeline config
 config = PipelineConfig(
@@ -183,7 +180,7 @@ result = run_task(task, config, cache_dir=Path("./cache"))
 # - **Near Duplicates Sweep**: Shows counts across `duplicate_cluster_sensitivity`.
 #
 # Exact duplicates do not depend on swept inputs and appear in
-# `result.data.raw.results`.
+# `result.output.raw.results`.
 
 # %%
 print(result.report())
@@ -231,15 +228,15 @@ print(result.report())
 # %% [markdown]
 # ## Next steps
 #
-# - **Data cleaning**: Apply chosen threshold parameters in an operational [Clean a dataset](data_cleaning) run.
-# - **Drift tuning**: Sweep detection parameters for [Monitor incoming data for drift](drift_monitoring).
+# - **Data cleaning**: Apply chosen threshold parameters in an operational {doc}`Clean a dataset <data_cleaning>` run.
+# - **Drift tuning**: Sweep detection parameters for {doc}`Monitor incoming data for drift <drift_monitoring>`.
 
 # %% [markdown]
 # ## Related guides
 #
 # - **Concept**: [Reproducibility](../concepts/Reproducibility.md) explains how
 #   config-keyed caching reuses embeddings and statistics across runs.
-# - **Tutorial**: [Clean a dataset](data_cleaning) shows how to apply chosen
+# - **Tutorial**: {doc}`Clean a dataset <data_cleaning>` shows how to apply chosen
 #   parameters in an operational `data-cleaning` run.
 # - **How-to**: [Configure outlier detection](../how_to/configure_outlier_detection.md)
 #   explains outlier parameters and selection strategies.

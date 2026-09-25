@@ -22,13 +22,12 @@ for both the container and the Python-library forms.
 pip install dataeval-flow --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-PyTorch lives on a separate wheel index, and that flag is what gets you the CPU build — without it you get the much
-larger CUDA-bundled build from PyPI.
+PyTorch lives on a separate wheel index; that flag selects the CPU build. Without it, pip resolves the much larger
+CUDA-bundled build from PyPI.
 
-For a **CUDA** build, install `torch` from its index first and then DataEval Flow; `--extra-index-url` is not reliable
-for the CUDA variants. And note that the `cpu` / `cu126` / `cu130` extras do *not* select a PyTorch variant under pip —
-they exist for uv source installs. See {doc}`installation` for both points in full, plus the uv, conda, source,
-and Docker paths.
+For a **CUDA** build, install `torch` from its index first, then DataEval Flow; `--extra-index-url` is not reliable
+for the CUDA variants. The `cpu` / `cu126` / `cu130` extras do *not* select a PyTorch variant under pip — they exist
+for uv source installs. See {doc}`installation` for both points in full, plus the uv, conda, source, and Docker paths.
 
 ## Step 3: Describe a pipeline
 
@@ -84,17 +83,17 @@ from pathlib import Path
 
 from dataeval_flow import load_config, run_tasks
 
-config = load_config(Path("params.yaml"))
-results = run_tasks(config, data_dir=Path("."))
+config = load_config(Path("params.yaml"))  # a file, or a folder of config files
+results = run_tasks(config, data_dir=Path("."))  # keyed by task name
 
-result = results[0]
+result = results["check_my_data"]
 print(result.report())  # human-readable text report
 result.export("./results")  # machine-readable result envelope (JSON)
 ```
 
 `report()` prints the findings, their severities, and an overall health line. `export()` writes the JSON **result
-envelope** — the findings plus the provenance metadata (timestamp, tool version, dataset and model identifiers, and the
-fully resolved configuration) that makes the finding auditable and interoperable with other JATIC tools.
+envelope**: the findings plus provenance metadata (timestamp, tool version, dataset and model identifiers, fully
+resolved configuration) that makes each finding auditable and interoperable with other JATIC tools.
 
 To build a config without writing YAML by hand, `dataeval-flow config` walks you through it on the command line and
 `dataeval-flow app` opens an interactive TUI dashboard (needs the `app` extra).
@@ -103,8 +102,8 @@ To build a config without writing YAML by hand, `dataeval-flow config` walks you
 
 - {doc}`Tutorials <../tutorials/index>` — end-to-end walkthroughs of each T&E task, from cleaning a dataset to
   monitoring a deployed model for drift.
-- {doc}`How-to Guides <../how_to/index>` — targeted answers to specific problems: tuning outlier detection, reading
+- {doc}`How-to Guides <../how_to/index>` — focused answers to specific problems: tuning outlier detection, reading
   evaluation outputs, using your own model for embeddings, running in a container.
-- {doc}`Explanations <../concepts/index>` — the concepts behind the workflows, and why reproducibility and provenance
+- {doc}`Explanations <../concepts/index>` — the concepts behind the workflows, and how reproducibility and provenance
   are built into every result.
 - {doc}`Glossary <../reference/glossary>` — the vocabulary used throughout the documentation.

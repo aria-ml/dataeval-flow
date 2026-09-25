@@ -5,9 +5,12 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from dataeval_flow._env import env_bool, env_choice, env_int, env_list, env_path
+
+if TYPE_CHECKING:
+    from dataeval_flow.evaluators._evaluator import Evaluator
 
 _logger = logging.getLogger(__name__)
 
@@ -21,8 +24,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description="DataEval Flow - Data evaluation and monitoring pipelines",
     )
 
-    # Long form only: -v is --verbose, and a container asking which build it is running
-    # is a different question from how loudly it should report.
+    # Long form only: -v is --verbose.
     parser.add_argument(
         "--version",
         action="version",
@@ -222,13 +224,12 @@ def _build_parser() -> argparse.ArgumentParser:
 def _list_workflows(name: str | None, *, as_json: bool) -> int:
     """Print the available workflow types, or one workflow's parameter schema.
 
-    Discovery without a TUI: the container image ships no browser and no Python REPL
-    worth the name, so the question "what can this build run, and what does it take?"
-    needs an answer from the command line.
+    Container images ship no browser or REPL, so type discovery is available from
+    the command line.
     """
     import json
 
-    from dataeval_flow.workflow import get_workflow, list_workflows
+    from dataeval_flow.workflows._registry import get_workflow, list_workflows
 
     if name is not None:
         try:
@@ -236,14 +237,10 @@ def _list_workflows(name: str | None, *, as_json: bool) -> int:
         except ValueError as e:
             print(f"ERROR: {e}", file=sys.stderr)
             return 1
-        schema = workflow.params_schema
-        if schema is None:
-            print(f"{workflow.name} takes no parameters.")
-            return 0
-        print(json.dumps(schema.model_json_schema(), indent=2))
+        print(json.dumps(workflow.config_type.model_json_schema(), indent=2))
         return 0
 
-    entries = sorted(list_workflows(), key=lambda w: w["name"])
+    entries = [{"name": cls.name, "description": cls.description} for cls in list_workflows()]
     if as_json:
         print(json.dumps(entries, indent=2))
         return 0
@@ -257,13 +254,12 @@ def _list_workflows(name: str | None, *, as_json: bool) -> int:
 def _list_evaluators(name: str | None, *, as_json: bool) -> int:
     """Print the available evaluator types, or one evaluator's parameter schema.
 
-    The evaluator counterpart of :func:`_list_workflows`. Each entry also says what the
-    evaluator consumes and how many sources its task names, because those decide what a
-    task must provide.
+    The evaluator counterpart of :func:`_list_workflows`. Each entry also states the
+    consumed inputs and the source count, which decide what a task must provide.
     """
     import json
 
-    from dataeval_flow.evaluator import get_evaluator, list_evaluators
+    from dataeval_flow.evaluators._registry import get_evaluator, list_evaluators
 
     if name is not None:
         try:
@@ -271,10 +267,10 @@ def _list_evaluators(name: str | None, *, as_json: bool) -> int:
         except ValueError as e:
             print(f"ERROR: {e}", file=sys.stderr)
             return 1
-        print(json.dumps(evaluator.params_schema.model_json_schema(), indent=2))
+        print(json.dumps(evaluator.config_type.model_json_schema(), indent=2))
         return 0
 
-    entries = sorted(list_evaluators(), key=lambda e: e["name"])
+    entries = [_evaluator_entry(cls) for cls in list_evaluators()]
     if as_json:
         print(json.dumps(entries, indent=2))
         return 0
@@ -284,6 +280,18 @@ def _list_evaluators(name: str | None, *, as_json: bool) -> int:
         print(f"  {entry['name']:<{width}}  {entry['description']}")
         print(f"  {'':<{width}}  consumes: {entry['consumes']}; sources: {entry['sources']}")
     return 0
+
+
+def _evaluator_entry(cls: "type[Evaluator[Any, Any]]") -> dict[str, str]:
+    """An evaluator's listing: its name and description, what it consumes, and how many sources it reads."""
+    spec = cls.config_type.inputs
+    consumes = [*sorted(spec.required), *(f"{kind} (optional)" for kind in sorted(spec.optional))]
+    return {
+        "name": cls.name,
+        "description": cls.description,
+        "consumes": ", ".join(consumes),
+        "sources": spec.sources.value,
+    }
 
 
 def apply_env_defaults(args: argparse.Namespace) -> argparse.Namespace:
@@ -339,10 +347,9 @@ def main() -> NoReturn:
         from dataeval_flow._logging import setup_logging
 
         # Console logging first: the package attaches a NullHandler to its own logger, so
-        # without this every message this command emits — the error explaining why it
-        # refused, and the "commit it" hand-off when it succeeds — is dropped and the user
-        # is left with a bare exit code. At INFO because this command's whole output is
-        # one artifact and one sentence saying where it went.
+        # without this this command's messages are dropped and the caller gets a bare exit
+        # code. At INFO: this command's output is one artifact and one line saying where
+        # it went.
         setup_logging(verbosity=max(args.verbose, 2), log_format=args.log_format)
         sys.exit(write_encoding(args.result, args.output, args.task))
 
@@ -365,7 +372,7 @@ def main() -> NoReturn:
 
     setup_logging(verbosity=args.verbose, log_format=args.log_format)
     try:
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         sys.exit(
             run(

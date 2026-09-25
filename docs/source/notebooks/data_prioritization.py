@@ -79,7 +79,7 @@ from dataeval.data import ClassFilter, Indices, Limit, Shuffle, View
 from datamaite import load_ic
 from maite_datasets.image_classification import MilitaryVehicles
 
-from dataeval_flow.preprocessing import PreprocessingStep
+from dataeval_flow.config import PreprocessingStep
 
 data_root = Path("./data")
 MilitaryVehicles(root=data_root, image_set="base", download=True)
@@ -306,30 +306,28 @@ print(f"Model saved to {model_path}")
 # - **Mode**: `preparatory` mode to output explicit clean and flagged index lists.
 
 # %%
+from dataeval_flow import PipelineConfig
 from dataeval_flow.config import (
     DatasetProtocolConfig,
-    PipelineConfig,
     PreprocessorConfig,
     SourceConfig,
+    TaskConfig,
 )
-from dataeval_flow.config.schemas import (
-    DataPrioritizationTaskConfig,
-    DataPrioritizationWorkflowConfig,
-    TorchExtractorConfig,
-)
+from dataeval_flow.config.extractors import TorchExtractorConfig
+from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 
 ref_dataset = labeled_dataset
 
-from dataeval_flow.workflows.prioritization.params import CleaningConfig
+from dataeval_flow.workflows.data_prioritization import DataPrioritizationCleaningConfig
 
-workflow = DataPrioritizationWorkflowConfig(
+workflow = DataPrioritizationConfig(
     name="vehicles_prioritize",
     method="knn",
     k=5,
     order="hard_first",
     policy="difficulty",
     mode="preparatory",
-    cleaning=CleaningConfig(
+    cleaning=DataPrioritizationCleaningConfig(
         outlier_method="adaptive",
         outlier_flags=["dimension", "pixel", "visual"],
         outlier_threshold=3.0,  # lower than default 3.5 to catch subtler corruptions
@@ -337,7 +335,7 @@ workflow = DataPrioritizationWorkflowConfig(
     ),
 )
 
-task = DataPrioritizationTaskConfig(
+task = TaskConfig(
     name="prioritize_pool",
     workflow="vehicles_prioritize",
     sources=["ref_src", "test_src"],
@@ -397,7 +395,7 @@ config = PipelineConfig(
 # Execute `run_task()` to prune outliers and rank unlabeled samples.
 
 # %%
-from dataeval_flow.workflow import run_task
+from dataeval_flow import run_task
 
 result = run_task(task, config, cache_dir=Path("./cache"))
 
@@ -422,7 +420,7 @@ print(result.report())
 # sample counts. You can verify whether pruning removed the injected corrupted samples.
 
 # %%
-raw = result.data.raw
+raw = result.output.raw
 meta = result.metadata
 
 print(f"Pruning enabled: {meta.cleaning_enabled}")
@@ -474,7 +472,7 @@ if other_pruned:
 
 
 # %%
-prioritized = result.data.raw.prioritizations[0]
+prioritized = result.output.raw.prioritizations[0]
 top_indices = prioritized["prioritized_indices"]
 
 # `pool_labels` was read straight off the view; the corruption wrapper alters pixels only,

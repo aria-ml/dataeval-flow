@@ -268,7 +268,7 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
         try:
             self.call_from_thread(loading.update_message, "Loading workflows...")
-            from dataeval_flow.workflow import list_workflows
+            from dataeval_flow.workflows._registry import list_workflows
 
             list_workflows()
 
@@ -532,7 +532,7 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
     def _execute_task_worker(self, task_name: str, config: Any) -> None:
         """Worker thread: run a single task and update state."""
-        from dataeval_flow.workflow.orchestrator import _run_single_task
+        from dataeval_flow._orchestrator import _run_single_task
 
         try:
             task_cfg = next(t for t in config.tasks if t.name == task_name)
@@ -560,7 +560,7 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
     def _execute_all_worker(self, task_names: list[str], config: Any) -> None:
         """Worker thread: run multiple tasks sequentially."""
-        from dataeval_flow.workflow.orchestrator import _run_single_task
+        from dataeval_flow._orchestrator import _run_single_task
 
         for task_name in task_names:
 

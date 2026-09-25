@@ -4,32 +4,31 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
-from dataeval_flow.workflows.parameter_sweep.workflow import ParameterSweepWorkflow
+from dataeval_flow.workflows import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig, ParameterSweepWorkflow
 
 pytestmark = pytest.mark.required
 
 
-def _make_params(**overrides: object) -> ParameterSweepParameters:
-    """Build ParameterSweepParameters with defaults for testing."""
+def _make_params(**overrides: object) -> ParameterSweepConfig:
+    """Build ParameterSweepConfig with defaults for testing."""
     defaults: dict[str, object] = {
         "outlier_method": ["adaptive", "zscore"],
         "outlier_threshold": [None, 2.0],
     }
     defaults.update(overrides)
-    return ParameterSweepParameters(**defaults)  # type: ignore[arg-type]
+    return ParameterSweepConfig(**defaults)  # type: ignore[arg-type]
 
 
 class TestParameterSweepWorkflow:
     def test_workflow_properties(self):
         wf = ParameterSweepWorkflow()
         assert wf.name == "parameter-sweep"
-        assert wf.params_schema == ParameterSweepParameters
+        assert wf.config_type is ParameterSweepConfig
 
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.get_or_compute_stats")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Outliers")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Duplicates")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Outliers")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Duplicates")
     def test_execute_basic(self, mock_dup_cls, mock_outliers_cls, mock_stats):
         wf = ParameterSweepWorkflow()
         params = _make_params(outlier_method=["adaptive"], outlier_threshold=[None, 3.0])
@@ -55,29 +54,30 @@ class TestParameterSweepWorkflow:
         mock_dup_output.data.return_value = pl.DataFrame({"dup_type": ["exact", "near"], "level": ["item", "item"]})
         mock_dup_eval.from_stats.return_value = mock_dup_output
 
-        result = wf.execute(context, params)
+        result = wf.run(params, context)
 
         assert result.success is True
-        assert len(result.data.raw.results) == 2  # 1 method * 2 thresholds
-        assert result.data.raw.results[0].outlier_count == 2
-        assert result.data.raw.results[0].exact_duplicate_groups == 1
-        assert result.data.raw.results[0].near_duplicate_groups == 1
+        assert len(result.output.raw.results) == 2  # 1 method * 2 thresholds
+        assert result.output.raw.results[0].outlier_count == 2
+        assert result.output.raw.results[0].exact_duplicate_groups == 1
+        assert result.output.raw.results[0].near_duplicate_groups == 1
 
         # Only outlier_threshold is swept here; Near Duplicates table is omitted.
-        assert len(result.data.report.findings) == 1
-        finding = result.data.report.findings[0]
+        assert len(result.output.report.findings) == 1
+        finding = result.output.report.findings[0]
         assert finding.title == "Outliers Sweep"
+        assert isinstance(finding.data, dict)
         assert finding.data["table_headers"] == ["outlier_threshold", "Outliers"]
         assert len(finding.data["table_data"]) == 2
         assert "Exact Duplicates" not in finding.data["table_headers"]
 
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.get_or_compute_stats")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Outliers")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Duplicates")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.build_extractor")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow._compute_embeddings")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow._merge_outlier_outputs")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow._merge_duplicate_results")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Outliers")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Duplicates")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.build_extractor")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow._compute_embeddings")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow._merge_outlier_outputs")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow._merge_duplicate_results")
     def test_execute_cluster(
         self,
         mock_merge_dup,
@@ -116,22 +116,22 @@ class TestParameterSweepWorkflow:
         # No duplicate cluster params in this test call, so _merge_duplicate_results NOT called here
         # (params defines outlier cluster only)
 
-        result = wf.execute(context, params)
+        result = wf.run(params, context)
 
         assert result.success is True
         # 1 method * 2 thresholds * 1 cluster_threshold * 1 cluster_algo = 4 runs
         # wait, _make_params has outlier_method=["adaptive", "zscore"], outlier_threshold=[None, 2.0]
         # so total combinations = 2 * 2 * 1 * 1 = 4
-        assert len(result.data.raw.results) == 4
+        assert len(result.output.raw.results) == 4
         assert mock_merge_outlier.call_count == 4
         assert mock_merge_dup.call_count == 0
 
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.get_or_compute_stats")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Outliers")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Duplicates")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.build_extractor")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow._compute_embeddings")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow._merge_duplicate_results")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Outliers")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Duplicates")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.build_extractor")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow._compute_embeddings")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow._merge_duplicate_results")
     def test_findings_split_by_outcome(
         self,
         mock_merge_dup,
@@ -143,7 +143,7 @@ class TestParameterSweepWorkflow:
     ):
         """Both outlier and near-duplicate inputs swept → two outcome tables."""
         wf = ParameterSweepWorkflow()
-        params = ParameterSweepParameters(  # type: ignore[arg-type]
+        params = ParameterSweepConfig(  # type: ignore[arg-type]
             outlier_method=["adaptive"],
             outlier_threshold=[2.0, 3.0],
             duplicate_cluster_sensitivity=[0.5, 1.5, 2.5],
@@ -170,34 +170,23 @@ class TestParameterSweepWorkflow:
         mock_dup_eval.from_stats.return_value = mock_dup_output
         mock_merge_dup.return_value = mock_dup_output
 
-        result = wf.execute(context, params)
+        result = wf.run(params, context)
 
         assert result.success is True
         # 1 method * 2 thresholds * 3 sensitivities * 1 algo = 6 raw runs
-        assert len(result.data.raw.results) == 6
+        assert len(result.output.raw.results) == 6
 
-        findings = result.data.report.findings
+        findings = result.output.report.findings
         assert len(findings) == 2
         titles = [f.title for f in findings]
         assert titles == ["Outliers Sweep", "Near Duplicates Sweep"]
 
         outliers_finding = findings[0]
+        assert isinstance(outliers_finding.data, dict)
         assert outliers_finding.data["table_headers"] == ["outlier_threshold", "Outliers"]
         assert len(outliers_finding.data["table_data"]) == 2  # deduped on threshold
 
         near_finding = findings[1]
+        assert isinstance(near_finding.data, dict)
         assert near_finding.data["table_headers"] == ["duplicate_cluster_sensitivity", "Near Duplicates"]
         assert len(near_finding.data["table_data"]) == 3  # deduped on sensitivity
-
-    def test_execute_validation_errors(self):
-        wf = ParameterSweepWorkflow()
-        # Missing context
-        result = wf.execute(None)  # type: ignore
-        assert result.success is False
-        assert "Expected WorkflowContext" in result.errors[0]
-
-        # Missing params
-        context = WorkflowContext()
-        result = wf.execute(context, None)
-        assert result.success is False
-        assert "ParameterSweepParameters required" in result.errors[0]

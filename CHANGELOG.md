@@ -27,22 +27,58 @@
 - `scripts/release.py` script to cut and tag releases from the current branch
 - Published images carry their own vulnerability scan report and CycloneDX SBOM at `/usr/share/dataeval-flow/security/`
 - `nox -s verify` writes `output/metarepo/test-results.log`, a per-test-case verification log for metarepo assessments
+- Plug-in workflows and evaluators, registered as `dataeval_flow.workflows` / `dataeval_flow.evaluators` entry points
+- Every workflow declares its inputs; each task is checked against its workflow or evaluator when the config loads
+- `WorkflowContext` methods for a workflow's inputs: `dataset`, `stats`, `embeddings`, `clusters`, `metadata`, `labels`
+- Plug-in extractors and transforms, under the `dataeval_flow.extractors` / `dataeval_flow.transforms` entry points
+- `run(config, data)` runs one workflow or evaluator on datasets in memory, typed to the config's result
+- An extractor config without a `name` is named after its `model`, as workflow and evaluator configs are
+- Extension bases document how to subclass and register a plugin; a test pins the public API
+- Each `<X>Result`'s API page lists the `output.raw` and `metadata` fields its type adds, pinned by a test
+- `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 
 ### Changed
 
-- `PipelineConfig.tasks`, `select_tasks`, and `run_tasks` now carry evaluator tasks and results as well as workflow ones
-- `run_task` on a plain `TaskConfig` is typed to return a workflow or evaluator result; typed subclasses are unchanged
+- `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
+- `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
-- `WorkflowResult` takes `metadata`, `errors`, `dataset` and `sources` by keyword only
+- `WorkflowResult` takes every argument by keyword only: `type`, `success`, `output`, `metadata`, …
 - Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
 - Metadata cache key includes stats policy `factor_identity()`, recomputing metadata archives on upgrade
 - Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
 - Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
 - `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
 - Images are scanned before publication; a HIGH or CRITICAL finding fails the build before anything is pushed
+- Internal modules (`cache`, `stats`, `policy`, …) are private; import config types from `dataeval_flow.config`
+- `dataeval_flow.workflow` and `dataeval_flow.evaluator` merge into `dataeval_flow.workflows` / `.evaluators`
+- Workflow packages are named after their type: `workflows.data_cleaning`, `workflows.drift_monitoring`, …
+- Each workflow and evaluator has one `<X>Config` (was `<X>Parameters` plus `<X>WorkflowConfig`) in its own package
+- Each type has a real `<X>Result` class; `isinstance` narrows, and the `is_*_result` guards are gone
+- `result.output` replaces `result.data` and an evaluator's `raw`; reading it on a failed run raises
+- `Result.type` replaces `Result.name`; the framework, not each workflow, turns exceptions into failed results
+- `WorkflowProtocol` is the `Workflow` base class: subclass `Workflow[Config, Result]`, as its docstring shows
+- A workflow's `run(config, context)` replaces `execute(context, params)`; `config_type` replaces `params_schema`
+- A workflow declares `name` and `description` as class variables, not properties
+- `WorkflowParametersBase` becomes `WorkflowConfig`, the base of every workflow config, no longer their union
+- `Reportable` is `Finding`; `WorkflowOutputsBase` / `WorkflowReportBase` are `WorkflowRawOutput` / `WorkflowReport`
+- `DriftHealthThresholds` / `OODHealthThresholds` are `DriftMonitoringHealthThresholds` / `OODDetectionHealthThresholds`
+- Data-prioritization's `CleaningConfig` is `DataPrioritizationCleaningConfig`
+- A workflow package's modules (`params`, `outputs`, `workflow`, `report`) are private; import from the package
+- `list_workflows()` / `list_evaluators()` return the classes; `get_*` return the class, not an instance
+- Extractor configs are imported from `dataeval_flow.config.extractors`; `ToRGB` from `dataeval_flow.config.transforms`
+- `run_tasks` returns results keyed by task name; `load_config` reads a file or a folder
+- `run_task` and `run_tasks` take `data_dir` and `cache_dir` by keyword only; a task named twice runs once
+- `PipelineConfig` and `load_config` are imported from `dataeval_flow` only, not `dataeval_flow.config`
+- `WorkflowResult`, `list_workflows` and `get_workflow` are imported from `dataeval_flow.workflows`, not the top level
+- Dataset, source, view, preprocessor and task configs are imported from `dataeval_flow.config`, not the top level
+- `run_task` is imported from `dataeval_flow`; the `maite.tasks` entry point is `dataeval_flow:run_tasks`
+- `ResultMetadata` is imported from `dataeval_flow`; the config mixins from `dataeval_flow.config`
+- A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
 
 ### Fixed
 
+- `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
+- Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
 - Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with `quality.duplicates`
 - Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
 - Include source views in cache keys, invalidating cached embeddings, metadata, and statistics on edit
@@ -65,6 +101,16 @@
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
 - Python 3.10 support; the minimum supported version is now 3.11
+- `dataeval_flow.config.schemas`; most of its types are imported from `dataeval_flow.config`
+- Deprecated `SelectionConfig`, `SelectionStep`, `build_selection` and `DatasetContext(selection_steps=)`
+- Typed task configs (`DataCleaningTaskConfig`, `EvaluatorTaskConfig`, …); use `TaskConfig`
+- `load_config_folder` and `export_params_schema`
+- Public per-type output, report and metadata models (`DataCleaningOutputs`, …); narrow to `<X>Result` instead
+- The nested output models and TypedDicts those models held (`CoverageAssessment`, `OutlierIssuesDict`, …)
+- `select_tasks`; `run_tasks` keys its results by task name, so nothing needs pairing
+- A workflow's `output_schema`; its `<X>Result` type argument names the output
+- The `DriftDetectorConfig` and `OODDetectorConfig` unions; annotate with the detector classes
+- The `AutoBinMethod` and `FactorSource` aliases; their fields take the same strings
 
 ## v0.2.2
 

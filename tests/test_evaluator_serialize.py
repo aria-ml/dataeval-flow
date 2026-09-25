@@ -11,7 +11,7 @@ import polars as pl
 import pytest
 from dataeval.types import DataFrameOutput, DictOutput, Output
 
-from dataeval_flow.evaluator._serialize import serialize_output
+from dataeval_flow.evaluators._serialize import serialize_output
 
 
 class _Dict(DictOutput):

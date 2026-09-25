@@ -25,15 +25,10 @@ class TestPipInstall:
     def test_core_modules_importable(self) -> None:
         for name in (
             "dataeval_flow.config",
-            "dataeval_flow.dataset",
-            "dataeval_flow.workflow",
             "dataeval_flow.workflows",
-            "dataeval_flow.runner",
-            "dataeval_flow.cache",
-            "dataeval_flow.preprocessing",
-            "dataeval_flow.embeddings",
-            "dataeval_flow.metadata",
-            "dataeval_flow.view",
+            "dataeval_flow.evaluators",
+            "dataeval_flow.config.extractors",
+            "dataeval_flow.config.transforms",
         ):
             assert importlib.import_module(name) is not None
 

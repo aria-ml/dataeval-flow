@@ -23,14 +23,14 @@ class TestResultMetadataEnvelope:
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         assert result.metadata.version
 
     def test_timestamp_is_timezone_aware(
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         ts = result.metadata.timestamp
         assert isinstance(ts, datetime)
         assert ts.tzinfo is not None
@@ -39,21 +39,21 @@ class TestResultMetadataEnvelope:
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         assert result.metadata.tool == "dataeval-flow"
 
     def test_tool_version_matches_package(
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         assert result.metadata.tool_version == dataeval_flow.__version__
 
     def test_resolved_config_is_dict_and_nonempty(
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         assert isinstance(result.metadata.resolved_config, dict)
         assert result.metadata.resolved_config
 
@@ -61,6 +61,6 @@ class TestResultMetadataEnvelope:
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         assert result.metadata.execution_time_s is not None
         assert result.metadata.execution_time_s >= 0

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dataeval_flow.workflow._text_report import (
+from dataeval_flow._text_report import (
     _BAR_MAX,
     _MAX_ENUMERATED,
     _SHAPE_CELLS,
@@ -32,7 +32,7 @@ from dataeval_flow.workflow._text_report import (
     _shape_cells,
     _summary_line,
 )
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflows import Finding
 
 pytestmark = pytest.mark.required
 
@@ -43,19 +43,19 @@ pytestmark = pytest.mark.required
 
 class TestBriefValue:
     def test_returns_brief_from_dict(self):
-        finding = Reportable(report_type="text", title="T", data={"brief": "42%"})
+        finding = Finding(report_type="text", title="T", data={"brief": "42%"})
         assert _brief_value(finding) == "42%"
 
     def test_returns_empty_when_no_brief(self):
-        finding = Reportable(report_type="text", title="T", data={"other": 1})
+        finding = Finding(report_type="text", title="T", data={"other": 1})
         assert _brief_value(finding) == ""
 
     def test_returns_empty_for_non_dict(self):
-        finding = Reportable(report_type="text", title="T", data="plain text")
+        finding = Finding(report_type="text", title="T", data="plain text")
         assert _brief_value(finding) == ""
 
     def test_returns_empty_for_brief_none(self):
-        finding = Reportable(report_type="text", title="T", data={"brief": None})
+        finding = Finding(report_type="text", title="T", data={"brief": None})
         assert _brief_value(finding) == ""
 
 
@@ -66,18 +66,18 @@ class TestBriefValue:
 
 class TestSummaryLine:
     def test_basic_line(self):
-        finding = Reportable(report_type="text", title="Duplicates", data={"brief": "3"})
+        finding = Finding(report_type="text", title="Duplicates", data={"brief": "3"})
         line = _summary_line(finding)
         assert "Duplicates" in line
         assert "3" in line
 
     def test_warning_marker(self):
-        finding = Reportable(report_type="text", severity="warning", title="Issue", data={"brief": "5"})
+        finding = Finding(report_type="text", severity="warning", title="Issue", data={"brief": "5"})
         line = _summary_line(finding)
         assert "[!!]" in line
 
     def test_no_marker_for_ok(self):
-        finding = Reportable(report_type="text", severity="ok", title="Good", data={"brief": "0"})
+        finding = Finding(report_type="text", severity="ok", title="Good", data={"brief": "0"})
         line = _summary_line(finding)
         assert "[!!]" not in line
 
@@ -106,29 +106,29 @@ class TestSectionHeader:
 
 class TestRenderDetailSection:
     def test_text_data_string(self):
-        finding = Reportable(report_type="text", title="Note", data="hello world")
+        finding = Finding(report_type="text", title="Note", data="hello world")
         lines = _render_detail_section(finding)
         assert any("hello world" in li for li in lines)
 
     def test_non_dict_empty_string(self):
-        finding = Reportable(report_type="text", title="Note", data="")
+        finding = Finding(report_type="text", title="Note", data="")
         lines = _render_detail_section(finding)
         # Should not crash, just header
         assert any("NOTE" in li for li in lines)
 
     def test_with_description(self):
-        finding = Reportable(report_type="text", title="T", data={}, description="A description")
+        finding = Finding(report_type="text", title="T", data={}, description="A description")
         lines = _render_detail_section(finding)
         assert any("A description" in li for li in lines)
 
     def test_unknown_report_type_passthrough(self):
-        finding = Reportable(report_type="image", title="Img", data={"some": "data"})
+        finding = Finding(report_type="image", title="Img", data={"some": "data"})
         lines = _render_detail_section(finding)
         # Should not crash — just returns header
         assert any("IMG" in li for li in lines)
 
     def test_pivot_table_dispatch(self):
-        finding = Reportable(
+        finding = Finding(
             report_type="pivot_table",
             title="Classes",
             data={
@@ -145,7 +145,7 @@ class TestRenderDetailSection:
         assert "dog" in text
 
     def test_table_dispatch(self):
-        finding = Reportable(
+        finding = Finding(
             report_type="table",
             title="Dist",
             data={"table_data": {"cat": 10, "dog": 5}},
@@ -155,7 +155,7 @@ class TestRenderDetailSection:
         assert "cat" in text
 
     def test_key_value_dispatch(self):
-        finding = Reportable(
+        finding = Finding(
             report_type="key_value",
             title="Outliers",
             data={"per_metric": {"brightness": 5, "contrast": 3}},
@@ -165,7 +165,7 @@ class TestRenderDetailSection:
         assert "brightness" in text
 
     def test_classwise_table_dispatch(self):
-        finding = Reportable(
+        finding = Finding(
             report_type="classwise_table",
             title="Classwise Drift",
             data={
@@ -342,7 +342,7 @@ class TestRenderChunkTable:
 
     def test_dispatch_from_detail_section(self):
         data = self._make_data({2, 3})
-        finding = Reportable(
+        finding = Finding(
             report_type="chunk_table",
             title="MMD — Chunks",
             data=data,
@@ -949,10 +949,10 @@ class TestRenderFactorLineLevels:
 
 class TestRenderFactorLineBins:
     def test_names_bins_from_the_record_not_from_their_contents(self):
-        """The defect this replaces: a declared cutoff never reached its own label.
+        """Regression: a declared cutoff never reached its own label.
 
-        `{"temp_c": [-inf, 0.0, inf]}` used to render as `[-40, -0.3]` — a fact about the
-        sample, printed where the decision belonged.
+        `{"temp_c": [-inf, 0.0, inf]}` used to render as `[-40, -0.3]`: a fact about the
+        sample, printed where the declared edges belonged.
         """
         info = _binned(["-inf", 0.0, "inf"], {1: (30, -40.0, -0.3), 2: (30, 0.1, 25.0)}, "edges", None)
         lines = _render_factor_line("temp_c", info)
@@ -1035,9 +1035,9 @@ class TestShapeCells:
         assert drawn.count("\u2588") == 1
 
     def test_a_flat_record_draws_flat_at_any_width(self):
-        """Integer grouping gives one cell two source cells and its neighbour one, so a
-        column of identical counts draws ragged — a distortion a reader has no way to tell
-        from the data.  Every drawn cell has to cover the same slice of the record."""
+        """Integer grouping gives one cell two source cells and its neighbour one. A
+        column of identical counts then draws ragged, and a reader cannot tell from the
+        data. Every drawn cell has to cover the same slice of the record."""
         flat = [10] * 40
         for cells in (17, 26, 33, 37):
             assert len(set(_shape_cells(flat, cells))) == 1, f"ragged at {cells}: {_shape_cells(flat, cells)}"
@@ -1047,7 +1047,7 @@ class TestShapeCells:
         assert _shape_cells([]) == " " * _SHAPE_CELLS
 
     def test_every_populated_cell_keeps_a_mark_however_thin(self):
-        """One row beside a thousand is the reason anyone reads the column."""
+        """The column exists for sparse cells: one populated cell among a thousand must keep its mark."""
         assert _shape_cells([1000, *([1] * 19)], cells=20) == "\u2588" + "\u2581" * 19
 
 
@@ -1087,8 +1087,8 @@ class TestFactorTable:
 
     def test_a_declared_edge_list_is_printed_because_the_row_cannot_imply_it(self):
         """A bin *count* places edges uniformly across the span, so bins and range recover
-        them.  A verbatim edge list is arbitrary by construction and nothing else says where
-        it fell — which is exactly the decision the policy exists to make visible."""
+        them. A verbatim edge list is arbitrary by construction, and nothing else says where
+        it fell. The policy exists to make that decision visible."""
         info = _binned(
             ["-inf", 0.0, 10.0, "inf"],
             {1: (5, -3.0, -1.0), 2: (60, 1.0, 9.0), 3: (5, 11.0, 20.0)},
@@ -1128,8 +1128,8 @@ class TestFactorTable:
 
     def test_the_shape_column_gives_up_cells_before_the_table_gives_up_its_width(self):
         """A span like `1.145e-06 – 0.07204` is nineteen characters beside a nineteen
-        character factor name.  The shape is the one column that can shrink without the
-        table losing a fact, and it stays one width across every row while it does."""
+        character factor name. The shape is the one column that can shrink without the
+        table losing a fact. While it does, it stays one width across every row."""
         record = _record(
             instance_brightness=self._height(),
             unit_zeros=_binned(
@@ -1181,8 +1181,8 @@ class TestBinningRecordDetail:
         assert lines[lines.index("  [test]") - 1] == ""
 
     def test_every_split_table_shares_one_column_layout(self):
-        """Splits drawn at two resolutions cannot be read against each other, which is the one
-        thing this section promises about them when they share an encoding — and two tables
+        """Splits drawn at two resolutions cannot be read against each other. That is the
+        one thing this section promises about them when they share an encoding. Two tables
         whose columns land in different places do not stack into something readable."""
         narrow = _binned(["-inf", 5.0, "inf"], {1: (4, 1.0, 4.0), 2: (1234, 6.0, 9.0)}, "count", hist=[1] * 40)
         wide = _binned(
@@ -1213,9 +1213,9 @@ class TestDiagnostics:
     """Library prose printed into a report that has a width."""
 
     def test_a_long_diagnostic_wraps_to_the_report_width(self):
-        """A diagnostic has no length contract, and the report around it does. Left
-        unwrapped, one sentence drags the whole block sideways — and in the documentation,
-        where the block scrolls rather than wraps, it takes the factor table with it."""
+        """A diagnostic has no length contract; the report around it does. Left unwrapped,
+        one sentence drags the whole block sideways. In the documentation the block scrolls,
+        so it takes the factor table with it."""
         message = "dataeval: Declared cuts left bins unused: " + ", ".join(
             f"factor_{i} ({i} of 40 bins hold rows)" for i in range(10)
         )
@@ -1254,8 +1254,7 @@ class TestSplitComparability:
         """Append-only growth leaves every shared code meaning what it meant.
 
         Reporting this as a disagreement would flag the ordinary case of one split holding
-        a level another lacks, which is the false alarm that teaches people to ignore the
-        true ones.
+        a level another lacks. That false alarm teaches people to ignore the true ones.
         """
         lines = _render_split_comparability(
             {
@@ -1296,11 +1295,11 @@ class TestSplitComparability:
         assert "sensor" not in verdict
 
     def test_three_splits_that_each_extend_a_third_are_not_comparable(self):
-        """Append-only agreement is not transitive, and comparing only to the first misses it.
+        """Append-only agreement is not transitive. Comparing only to the first misses it.
 
         `test` and `val` each merely extend `train`, so pairwise-against-the-first says
-        comparable — while code 1 means `b` in one and `c` in the other, which is the exact
-        false reassurance this section exists to prevent.
+        comparable. Code 1 means `b` in one and `c` in the other. That is the false
+        reassurance this section exists to prevent.
         """
         lines = _render_split_comparability(
             {
@@ -1314,7 +1313,7 @@ class TestSplitComparability:
     def test_a_grown_vocabulary_does_not_claim_one_shared_digest(self):
         """The line must not contradict the `encoding_digest` printed above it.
 
-        Growth appends, so the codes still agree — but the digests differ and the envelope's
+        Growth appends, so the codes still agree. The digests differ, so the envelope's
         `encoding_digest` is then None. Saying "share one encoding" over that is a report
         disagreeing with its own record.
         """
@@ -1373,9 +1372,9 @@ class TestReviewState:
 def _binned_counts(counts: list[int], empty: list[int] | None = None) -> dict:
     """A factor entry whose fit holds the given per-bin counts.
 
-    Named distinctly from the module-level ``_binned`` fixture above (which builds a
-    factor from explicit edges and per-bucket spans): both live at module scope, and
-    reusing a name would silently rebind it out from under the earlier tests.
+    Named distinctly from the module-level ``_binned`` fixture, which builds a factor
+    from explicit edges and per-bucket spans. Both live at module scope; reusing the
+    name would silently rebind it out from under the earlier tests.
     """
     bins = [{"code": i + 1, "count": c, "min": i * 10, "max": i * 10 + 9} for i, c in enumerate(counts) if c]
     edges = [i * 10 for i in range(len(counts) + 1)]
@@ -1388,11 +1387,11 @@ def _binned_counts(counts: list[int], empty: list[int] | None = None) -> dict:
 
 
 def test_a_nonzero_bucket_is_never_blank():
-    """ "Empty" against "one sample landed here" is exactly what a bin count is argued from.
+    """ "Empty" against "one sample landed here" is what a bin count is argued from.
 
     A bar that rounds the second down to the first argues for the wrong answer. This
-    isolates the bar cell itself rather than asserting on the whole row — the row's label
-    alone would read non-blank regardless of what the bar drew.
+    isolates the bar cell itself. The row's label alone would read non-blank regardless
+    of what the bar drew.
     """
     lines = _render_distribution(_binned_counts([1000, 1]))
     # Row layout is `{label:>w}  {bar:<_BAR_MAX}  {count:>5}{note}`. The bucket with
@@ -1505,8 +1504,8 @@ def test_a_skewed_box_never_collapses_to_bare_whiskers():
     """p25 and p75 within a fraction of a cell still leave a visible box."""
     q = {"0.0": 110.0, "0.25": 900.0, "0.5": 1806.0, "0.75": 5508.0, "1.0": 680264.0}
     lines = _render_distribution(_shaped(q, [80, 5, 2, 1, 0, 0, 0, 1]))
-    # Where the box collapses onto the median, the median mark is the box. What must not
-    # happen is a line of bare whiskers, which reads as broken rather than as skewed.
+    # Where the box collapses onto the median, the median mark is the box. A line of
+    # bare whiskers must not remain, which reads as broken.
     assert not lines[1].startswith("├" + "─" * 6 + "┤"), f"the box vanished: {lines[1]!r}"
     assert "│" in lines[1]
 

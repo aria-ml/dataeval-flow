@@ -3,9 +3,9 @@
 A dataset can be perfectly clean and still be the wrong dataset. Cleaning asks
 whether the samples you collected are *sound*; **coverage** asks whether they are
 *complete* — whether the collection actually spans the conditions the model will
-meet in operation. The failure mode is quiet: a class that was never collected
-produces no outlier, no duplicate, and no bad label. It simply is not there, and
-nothing in the data announces its absence.
+meet in operation. The failure mode is silent: a class that was never collected
+produces no outlier, no duplicate, and no bad label; nothing in the data signals
+its absence.
 
 Coverage is measured along two orthogonal axes.
 
@@ -43,9 +43,8 @@ operations performed over one.
 
 Run coverage assessment *before* training and *before* fixing a reference set —
 early enough that a gap can still be closed by collecting more data, which is the
-only real remedy. It is worth re-running whenever the operational scope changes,
-since coverage is defined relative to the conditions you expect to face, not to the
-data you happen to hold.
+only real remedy. Re-run it whenever the operational scope changes; coverage is
+defined relative to the conditions you expect to face.
 
 Coverage also bounds what downstream monitoring can tell you. A drift or OOD
 baseline is fit on a reference dataset, so a blind spot in that reference is a blind

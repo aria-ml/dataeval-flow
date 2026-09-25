@@ -20,8 +20,8 @@ from dataeval_flow._app._viewmodel._rendering import _item_to_yaml_snippet, _sni
 from dataeval_flow._app._viewmodel._section_vm import SectionViewModel
 
 if TYPE_CHECKING:
+    from dataeval_flow._result import Result
     from dataeval_flow.config._models import PipelineConfig
-    from dataeval_flow.result import Result
 
 __all__ = ["BuilderViewModel"]
 
@@ -233,7 +233,7 @@ class BuilderViewModel:
         """Mark a task as running."""
         return self._execution.mark_running(name)
 
-    def mark_task_completed(self, name: str, result: Result[Any]) -> TaskExecution:
+    def mark_task_completed(self, name: str, result: Result[Any, Any]) -> TaskExecution:
         """Mark a task as completed with its result."""
         return self._execution.mark_completed(name, result)
 
@@ -249,7 +249,7 @@ class BuilderViewModel:
         """Return all execution entries."""
         return self._execution.entries()
 
-    def completed_results(self) -> list[tuple[str, Result[Any]]]:
+    def completed_results(self) -> list[tuple[str, Result[Any, Any]]]:
         """Return ``(name, result)`` for all completed tasks."""
         return self._execution.completed_results()
 

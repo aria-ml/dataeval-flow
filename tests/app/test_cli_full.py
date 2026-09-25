@@ -745,11 +745,7 @@ class TestPromptItem:
     def test_task_defaults_enabled(self, mock_prompt: MagicMock, mock_fields: MagicMock) -> None:
         vm = BuilderViewModel()
         result = _prompt_item("tasks", vm)
-        # Tasks do not have a discriminator in VARIANT_REGISTRY... let me check
-        # Actually tasks are not in VARIANT_REGISTRY but workflows are
-        # tasks are non-discriminated, so no variant prompt
-        # Wait, let me re-check: get_variant_choices("tasks") returns None
-        # So only name is prompted, then fields
+        # Tasks are non-discriminated: no variant prompt, only name and fields.
         assert result is not None
         assert result.get("enabled") is True
 

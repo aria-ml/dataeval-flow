@@ -9,7 +9,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config, load_config_folder
+from dataeval_flow import PipelineConfig, load_config
 
 pytestmark = pytest.mark.required
 
@@ -38,12 +38,14 @@ class TestConfigLoading:
         cfg = load_config(cfg_path)
         assert isinstance(cfg, PipelineConfig)
 
-    def test_load_config_folder_merges_files(self, tmp_path: Path) -> None:
+    def test_load_config_merges_a_folder(self, tmp_path: Path) -> None:
         (tmp_path / "datasets.yaml").write_text(yaml.safe_dump({"datasets": MINIMAL_CONFIG["datasets"]}))
         (tmp_path / "sources.yaml").write_text(yaml.safe_dump({"sources": MINIMAL_CONFIG["sources"]}))
         (tmp_path / "tasks.yaml").write_text(yaml.safe_dump({"tasks": []}))
-        cfg = load_config_folder(tmp_path)
+        cfg = load_config(tmp_path)
         assert isinstance(cfg, PipelineConfig)
+        assert cfg.datasets is not None
+        assert cfg.sources is not None
 
     def test_invalid_config_raises_validation_error(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / "bad.yaml"

@@ -6,16 +6,20 @@ from typing import Any
 
 import dataeval
 
-from dataeval_flow.evaluator._report import ROW_LIMIT, render_result_body, render_rows
-from dataeval_flow.evaluator.result import DataEvalExecution, EvaluatorMetadata, EvaluatorResult
-from dataeval_flow.workflow._text_report import _WIDTH
+from dataeval_flow._text_report import _WIDTH
+from dataeval_flow.evaluators import EvaluatorResult
+from dataeval_flow.evaluators._report import ROW_LIMIT, render_result_body, render_rows
+from dataeval_flow.evaluators._result import DataEvalExecution, EvaluatorMetadata
 
 
-def _result(output: dict[str, Any], *, success: bool = True, errors: tuple[str, ...] = ()) -> EvaluatorResult:
+def _result(
+    serialized: dict[str, Any], *, success: bool = True, errors: tuple[str, ...] = ()
+) -> EvaluatorResult[object]:
     return EvaluatorResult(
-        name="quality.duplicates",
+        type="quality.duplicates",
         success=success,
-        output=output,
+        output=object() if success else None,
+        serialized=serialized if success else None,
         metadata=EvaluatorMetadata(evaluator="quality.duplicates", dataeval=DataEvalExecution(version="1.1.1")),
         errors=list(errors),
     )
@@ -69,7 +73,7 @@ class TestReport:
         assert "more rows" not in text
 
     def test_a_failure_lists_its_errors(self):
-        text = _result({}, success=False, errors=("Evaluator execution failed: boom",)).report()
+        text = _result({}, success=False, errors=("RuntimeError: boom",)).report()
         assert "FAILED" in text
         assert "boom" in text
 
@@ -93,9 +97,7 @@ class TestRenderResultBody:
         assert any("group_id" in line for line in lines)
 
     def test_a_failure_renders_failed_plus_its_errors(self):
-        lines = render_result_body(
-            _result({}, success=False, errors=("Evaluator execution failed: boom",)), detailed=True
-        )
+        lines = render_result_body(_result({}, success=False, errors=("RuntimeError: boom",)), detailed=True)
         assert lines[0] == "  FAILED"
         assert any("boom" in line for line in lines)
 
@@ -111,8 +113,8 @@ class TestRenderRows:
         assert render_rows(["a"], [], limit=None)[-1] == "  (no rows)"
 
     def test_a_contiguous_int_list_cell_is_not_compacted_to_a_range(self):
-        """Item 9: `_flow_repr`'s `range(...)` shorthand is for the workflow report, not a
-        table cell — `dataset_indices: [0, 1]` must print as written, not `range(0, 2)`."""
+        """`_flow_repr`'s `range(...)` shorthand is for the workflow report. A table cell
+        such as `dataset_indices: [0, 1]` must print as written."""
         rows = [{"dataset_indices": [0, 1]}]
         lines = render_rows(["dataset_indices"], rows, limit=None)
         assert "[0, 1]" in lines[-1]
@@ -135,10 +137,10 @@ class TestDataEvalExecution:
 def test_workflow_results_say_what_they_are():
     from unittest.mock import MagicMock
 
-    from dataeval_flow.config.schemas import ResultMetadata
-    from dataeval_flow.workflow import WorkflowResult
+    from dataeval_flow import ResultMetadata
+    from dataeval_flow.workflows import WorkflowResult
 
-    data = MagicMock()
-    data.model_dump.return_value = {}
-    result = WorkflowResult(name="data-cleaning", success=True, data=data, metadata=ResultMetadata())
+    output = MagicMock()
+    output.model_dump.return_value = {}
+    result = WorkflowResult(type="data-cleaning", success=True, output=output, metadata=ResultMetadata())
     assert result.to_dict()["kind"] == "workflow"

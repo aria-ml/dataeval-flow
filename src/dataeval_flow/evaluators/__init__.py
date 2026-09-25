@@ -1,10 +1,21 @@
-"""Concrete evaluators, one package per DataEval family.
+"""Evaluators: the framework for writing one, and the built-in evaluators.
 
-Each package's ``__init__`` may re-export its ``params`` module: light, and already
-imported by ``config.schemas``. It never re-exports its evaluator module, which imports
-DataEval and would pull the orchestration layer into config loading.
+An evaluator runs one DataEval evaluator and reports its determinations under DataEval's thresholds. It makes
+no verdict: health, readiness and ``--fail-on-warning`` belong to workflows. Built-ins live in subpackages such
+as ``quality``.
 """
 
-__all__ = ["quality"]
+from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.evaluators._evaluator import Evaluator
+from dataeval_flow.evaluators._inputs import EvaluatorInputs
+from dataeval_flow.evaluators._registry import get_evaluator, list_evaluators
+from dataeval_flow.evaluators._result import EvaluatorResult
 
-from dataeval_flow.evaluators import quality
+__all__ = [
+    "Evaluator",
+    "EvaluatorConfig",
+    "EvaluatorInputs",
+    "EvaluatorResult",
+    "get_evaluator",
+    "list_evaluators",
+]

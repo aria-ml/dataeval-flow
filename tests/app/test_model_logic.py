@@ -312,7 +312,7 @@ class TestConfigState:
         assert state3.count("datasets") == 1
 
     def test_load_file_directory(self, tmp_path: Path) -> None:
-        # Mock load_config_folder implicitly by using tmp_path as dir
+        # A folder: load_config merges the config files in it
         config_dir = tmp_path / "configs"
         config_dir.mkdir()
         (config_dir / "ds.yaml").write_text(

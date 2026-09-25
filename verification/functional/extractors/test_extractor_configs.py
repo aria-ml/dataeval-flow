@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dataeval_flow import (
+from dataeval_flow.config.extractors import (
     BoVWExtractorConfig,
     FlattenExtractorConfig,
     OnnxExtractorConfig,
@@ -38,7 +38,7 @@ class TestExtractorConfigs:
         assert cfg.model == "uncertainty"
 
     def test_all_extractor_configs_exported(self) -> None:
-        import dataeval_flow
+        import dataeval_flow.config.extractors
 
         for name in (
             "FlattenExtractorConfig",
@@ -47,4 +47,4 @@ class TestExtractorConfigs:
             "BoVWExtractorConfig",
             "UncertaintyExtractorConfig",
         ):
-            assert name in dataeval_flow.__all__
+            assert name in dataeval_flow.config.extractors.__all__

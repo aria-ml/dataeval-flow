@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from dataeval.flags import ImageStats
 
-from dataeval_flow.stats import (
+from dataeval_flow._stats import (
     ResolvedStatsPolicy,
     check_consumers,
     columns_for,
@@ -173,17 +173,16 @@ class TestNarrowedTo:
 @pytest.mark.required
 class TestResolveStatsPolicy:
     def _config(self, **policy):
-        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow import PipelineConfig
 
         base = {"name": "p", "measure": [{"bands": None, "families": ["visual", "hash"]}]}
         return PipelineConfig(stats=[{**base, **policy}])  # type: ignore[arg-type]
 
     def _params(self, name):
-        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
-        return DataCleaningParameters(
-            name="c",  # type: ignore[call-arg]
-            type="data-cleaning",  # type: ignore[call-arg]
+        return DataCleaningConfig(
+            name="c",
             outlier_method="modzscore",
             outlier_flags=["visual"],
             stats=name,

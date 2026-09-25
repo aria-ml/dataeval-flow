@@ -1,10 +1,9 @@
 """Pin every ``dataeval`` symbol ``src/`` imports, so a rename fails here.
 
-Flow reaches into dataeval from module scope *and* from inside functions. A
-function-local import is invisible until the function runs, which is how
-``dataeval.utils._internal`` moving to ``dataeval.utils._array`` took out 46
-tests at call time — including ``dataset_fingerprint``, on the path of every run
-that resolves a dataset — rather than at collection.
+Flow reaches into dataeval from module scope and from inside functions. A
+function-local import is invisible until the function runs: ``dataeval.utils._internal``
+moving to ``dataeval.utils._array`` failed 46 tests at call time, including
+``dataset_fingerprint`` on the path of every run that resolves a dataset.
 
 These tests resolve each import statically swept from the source, so an upstream
 rename surfaces as one legible failure naming the symbol.
@@ -67,43 +66,41 @@ def test_import_resolves(module: str, name: str, origin: str):
 class TestPinnedVocabulariesStayInStep:
     """Config Literals hardcode value sets that live in private dataeval modules.
 
-    Pinning them is what makes a misspelled period a config error rather than a failure
-    after the dataset walk. The cost is that an upstream addition would otherwise appear as
-    a value flow silently refuses, with nothing to say why — so it fails here instead,
-    naming what moved.
+    Pinning them makes a misspelled period a config error. An upstream addition
+    appears as a value flow refuses with no explanation; the test here names
+    what moved.
 
-    They read the public vocabularies rather than the registries behind them. DataEval
-    proves those two agree at import — a mismatch raises there rather than waiting for a
-    test — so what is left to check here is only that flow's own Literals have kept up.
+    They read the public vocabularies, not the private registries. DataEval proves
+    those two agree at import; what remains is that flow's own Literals kept up.
     """
 
     def test_the_datetime_periods_match_the_vocabulary(self):
         from dataeval.types import DATETIME_GRANULARITIES
 
-        from dataeval_flow.config.schemas._metadata import DateTimeGranularity
+        from dataeval_flow.config._schemas._metadata import DateTimeGranularity
 
         assert set(get_args(DateTimeGranularity)) == set(DATETIME_GRANULARITIES)
 
     def test_the_epoch_units_match_the_vocabulary(self):
         from dataeval.types import EPOCH_UNITS
 
-        from dataeval_flow.config.schemas._metadata import EpochUnit
+        from dataeval_flow.config._schemas._metadata import EpochUnit
 
         assert set(get_args(EpochUnit)) == set(EPOCH_UNITS)
 
     def test_the_reductions_match_the_vocabulary(self):
         from dataeval.types import REDUCTION_NAMES
 
-        from dataeval_flow.config.schemas._metadata import Reduction
+        from dataeval_flow.config._schemas._metadata import Reduction
 
         assert set(get_args(Reduction)) == set(REDUCTION_NAMES)
 
     def test_every_pinned_period_is_one_parse_datetime_accepts(self):
         """Set equality would still pass if both sides drifted together onto a value the
-        type itself refuses, which is the failure a user would actually hit."""
+        type itself refuses."""
         from dataeval.types import ParseDateTime
 
-        from dataeval_flow.config.schemas._metadata import DateTimeGranularity
+        from dataeval_flow.config._schemas._metadata import DateTimeGranularity
 
         for period in get_args(DateTimeGranularity):
             ParseDateTime("f", every=period)
@@ -111,7 +108,7 @@ class TestPinnedVocabulariesStayInStep:
     def test_every_pinned_epoch_unit_is_one_parse_datetime_accepts(self):
         from dataeval.types import ParseDateTime
 
-        from dataeval_flow.config.schemas._metadata import EpochUnit
+        from dataeval_flow.config._schemas._metadata import EpochUnit
 
         for unit in get_args(EpochUnit):
             ParseDateTime("f", epoch=unit)

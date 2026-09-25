@@ -3,8 +3,8 @@
 import pytest
 from dataeval.quality import Duplicates, Outliers
 
-from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
-from dataeval_flow.workflows.cleaning.workflow import (
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.data_cleaning._workflow import (
     _build_duplicates,
     _build_outliers,
 )
@@ -12,15 +12,15 @@ from dataeval_flow.workflows.cleaning.workflow import (
 pytestmark = pytest.mark.required
 
 
-def _make_params(**overrides: object) -> DataCleaningParameters:
-    """Build DataCleaningParameters with defaults for testing."""
+def _make_params(**overrides: object) -> DataCleaningConfig:
+    """Build DataCleaningConfig with defaults for testing."""
     defaults: dict[str, object] = {
         "outlier_method": "adaptive",
         "outlier_flags": ["dimension", "pixel", "visual"],
         "outlier_threshold": None,
     }
     defaults.update(overrides)
-    return DataCleaningParameters(**defaults)  # type: ignore[arg-type]
+    return DataCleaningConfig(**defaults)  # type: ignore[arg-type]
 
 
 class TestBuildOutliers:
@@ -50,18 +50,15 @@ class TestBuildOutliers:
         evaluator = _build_outliers(params)
         assert isinstance(evaluator, Outliers)
 
-    def test_cluster_without_extractor_raises(self):
-        """Cluster params without extractor raises ValueError."""
-        params = _make_params(outlier_cluster_threshold=2.5)
-        with pytest.raises(ValueError, match="requires an extractor"):
-            _build_outliers(params)
+    # A cluster param without an extractor is refused when the task's config loads (see
+    # test_workflow_inputs.py); the builder itself no longer guards against it.
 
 
 class TestBuildOutliersFromParams:
-    """Test building Outliers from DataCleaningParameters."""
+    """Test building Outliers from DataCleaningConfig."""
 
     def test_from_params(self):
-        """Outliers created from DataCleaningParameters."""
+        """Outliers created from DataCleaningConfig."""
         params = _make_params()
         evaluator = _build_outliers(params)
         assert isinstance(evaluator, Outliers)
@@ -88,8 +85,5 @@ class TestBuildDuplicates:
         evaluator = _build_duplicates(params)
         assert isinstance(evaluator, Duplicates)
 
-    def test_cluster_without_extractor_raises(self):
-        """Cluster params without extractor raises ValueError."""
-        params = _make_params(duplicate_cluster_sensitivity=2.5)
-        with pytest.raises(ValueError, match="requires an extractor"):
-            _build_duplicates(params)
+    # A cluster param without an extractor is refused when the task's config loads (see
+    # test_workflow_inputs.py); the builder itself no longer guards against it.

@@ -22,7 +22,7 @@ class TestReporting:
     def test_report_returns_nonempty_string(self, synthetic_pipeline_config: tuple[PipelineConfig, Path]) -> None:
         cfg, data_dir = synthetic_pipeline_config
         results = run_tasks(cfg, data_dir=data_dir)
-        text = results[0].report()
+        text = results["clean_task"].report()
         assert isinstance(text, str)
         assert len(text.splitlines()) > 5
 
@@ -33,7 +33,7 @@ class TestReporting:
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
         results = run_tasks(cfg, data_dir=data_dir)
-        out = results[0].export(tmp_path / "result.json", fmt="json")
+        out = results["clean_task"].export(tmp_path / "result.json", fmt="json")
         assert out.exists()
         parsed = json.loads(out.read_text())
         assert "metadata" in parsed
@@ -45,7 +45,7 @@ class TestReporting:
     ) -> None:
         cfg, data_dir = synthetic_pipeline_config
         results = run_tasks(cfg, data_dir=data_dir)
-        out = results[0].export(tmp_path / "result.yaml", fmt="yaml")
+        out = results["clean_task"].export(tmp_path / "result.yaml", fmt="yaml")
         assert out.exists()
         parsed = yaml.safe_load(out.read_text())
         assert "metadata" in parsed
@@ -53,5 +53,5 @@ class TestReporting:
     def test_to_dict_includes_metadata_and_data(self, synthetic_pipeline_config: tuple[PipelineConfig, Path]) -> None:
         cfg, data_dir = synthetic_pipeline_config
         results = run_tasks(cfg, data_dir=data_dir)
-        d = results[0].to_dict()
+        d = results["clean_task"].to_dict()
         assert "metadata" in d

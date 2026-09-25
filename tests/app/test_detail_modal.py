@@ -167,12 +167,11 @@ def _make_fake_result(
     meta.source_descriptions = []
     result.metadata = meta
 
-    # data.report.findings
+    # output.report.findings
     report = MagicMock()
     report.findings = findings or []
     report.summary = "Test report summary"
-    result.data = MagicMock()
-    result.data.report = report
+    result.output.report = report
 
     return result
 

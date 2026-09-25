@@ -71,7 +71,7 @@ dataeval_flow_HFImageClassificationDataset = "datamaite:ImageClassificationDatas
 dataeval_flow_HFObjectDetectionDataset = "datamaite:ObjectDetectionDataset"
 
 [project.entry-points."maite.tasks"]
-dataeval_flow_run_tasks = "dataeval_flow.workflow:run_tasks"
+dataeval_flow_run_tasks = "dataeval_flow:run_tasks"
 dataeval_flow_load_dataset = "dataeval_flow:load_dataset"
 
 [dependency-groups]

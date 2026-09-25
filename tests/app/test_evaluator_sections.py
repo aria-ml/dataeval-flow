@@ -69,7 +69,7 @@ def test_snippets_name_the_evaluator():
 
 
 class TestTriStateBoolFields:
-    """Item 1: a `bool | None = None` evaluator field is unset / true / false, not a checkbox."""
+    """Item 1: a `bool | None = None` evaluator field renders as a three-state selection: unset, true, false."""
 
     async def test_an_explicit_false_survives_editing_another_field(self) -> None:
         app = _MinimalApp()
@@ -88,13 +88,12 @@ class TestTriStateBoolFields:
             )
             await app.push_screen(modal)
             await pilot.pause()
-            # `on_mount` sets `#md-disc` programmatically, which (like any Select value
-            # change) queues a `Select.Changed` that rebuilds the fields again once the
-            # message pump runs; repopulate so the assertions below see the settled form,
-            # the same data a user editing this evaluator would see.
+            # on_mount sets #md-disc, which queues a Select.Changed that rebuilds the
+            # fields once the message pump runs. Repopulate so the assertions see the
+            # settled form.
             modal._populate_fields()
 
-            # The loaded `false` renders as a real "false" selection, not a blank/unset one.
+            # The loaded `false` renders as the explicit "false" selection.
             select = modal.query_one(f"#{modal._wid('merge_near_duplicates')}", Select)
             assert select.value == "false"
 
@@ -119,7 +118,7 @@ class TestTriStateBoolFields:
             await pilot.pause()
 
             select = modal.query_one(f"#{modal._wid('merge_near_duplicates')}", Select)
-            assert _select_value(select) == ""  # starts unset, not false
+            assert _select_value(select) == ""  # starts unset
 
             select.value = "false"
             result = modal._collect_raw()

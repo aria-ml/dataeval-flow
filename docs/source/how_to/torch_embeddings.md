@@ -1,8 +1,8 @@
 # Use a PyTorch model for embeddings
 
 You have a trained PyTorch model — often the very model under test — and want the evaluators to measure in *its*
-representation space rather than a generic one. This guide covers configuring the `torch` extractor, choosing which
-layer to read, and the device and container implications.
+representation space. This guide covers configuring the `torch` extractor, choosing which layer to read, and the
+device and container implications.
 
 ## Used in these tutorials
 
@@ -25,9 +25,9 @@ stays portable between a laptop and a container.
 
 ## Choose the layer to read
 
-By default the extractor takes the model's final output. That is rarely what you want for an embedding: the last layer
-of a classifier is a vector of class scores, which throws away exactly the representational detail that drift, OOD, and
-prioritization depend on. Use `layer_name` to install a forward hook on an intermediate layer instead:
+By default the extractor takes the model's final output. The last layer of a classifier is a vector of class scores,
+which throws away the representational detail that drift, OOD, and prioritization depend on. Use `layer_name` to
+install a forward hook on an intermediate layer:
 
 ```yaml
 extractors:
@@ -48,8 +48,8 @@ for name, _ in model.named_modules():
     print(name)
 ```
 
-`use_output: false` captures what was fed *into* the named layer instead of what came out. That is the easier way to
-grab the input to a classifier head when the head itself is what you want to bypass.
+`use_output: false` captures what was fed *into* the named layer. That is the easier way to grab the input to a
+classifier head when the head itself is what you want to bypass.
 
 ## Select a device
 
@@ -58,7 +58,7 @@ grab the input to a classifier head when the head itself is what you want to byp
 ```
 
 Setting `device: cuda:0` requires a CUDA image variant (`cu126` / `cu130`) run with `--gpus all`. On the `cpu` image
-the model runs on CPU regardless of this field. A GPU is never required — it only speeds up extraction, and matters
+the model runs on CPU regardless of this field. A GPU is not required — it only speeds up extraction, and matters
 most on embedding-heavy workflows over large datasets.
 
 ## Add preprocessing
@@ -88,8 +88,8 @@ extractors:
     preprocessor: resnet_preprocess
 ```
 
-A `preprocessor` reference must name a preprocessor defined in the same configuration. Getting normalization wrong is
-the most common cause of embeddings that look plausible but produce nonsense distances — see
+A `preprocessor` reference must name a preprocessor defined in the same configuration. Getting normalization wrong
+is the most common cause of embeddings that look plausible but produce nonsense distances — see
 [Preprocessing and Feature Extraction](../concepts/PreprocessingAndExtraction.md).
 
 ## PyTorch, ONNX, or BoVW?

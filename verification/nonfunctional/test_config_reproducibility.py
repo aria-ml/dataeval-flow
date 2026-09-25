@@ -13,13 +13,9 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow import (
-    ImageFolderDatasetConfig,
-    PipelineConfig,
-    SourceConfig,
-    run_tasks,
-)
-from dataeval_flow.config.schemas import DataSplittingTaskConfig, DataSplittingWorkflowConfig
+from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 from verification.fixtures import write_image_folder
 
 pytestmark = pytest.mark.required
@@ -39,7 +35,7 @@ def _build_split_cfg(data_root: Path, test_frac: float, seed: int | None = 42) -
         ],
         sources=[SourceConfig(name="main", dataset="main_ds")],
         workflows=[
-            DataSplittingWorkflowConfig(
+            DataSplittingConfig(
                 name="split_main",
                 type="data-splitting",
                 test_frac=test_frac,
@@ -49,7 +45,7 @@ def _build_split_cfg(data_root: Path, test_frac: float, seed: int | None = 42) -
             ),
         ],
         tasks=[
-            DataSplittingTaskConfig(
+            TaskConfig(
                 name="split_task",
                 workflow="split_main",
                 sources="main",
@@ -77,7 +73,7 @@ def _run(data_root: Path, test_frac: float) -> dict[str, Any]:
     DataEval directly, so this test exercises the product's own reproducibility
     mechanism.
     """
-    result = run_tasks(_build_split_cfg(data_root, test_frac=test_frac), data_dir=data_root)[0]
+    result = run_tasks(_build_split_cfg(data_root, test_frac=test_frac), data_dir=data_root)["split_task"]
     return _strip_volatile_metadata(result.to_dict())
 
 

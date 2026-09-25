@@ -146,12 +146,12 @@ class TestListFunctions:
         names = list_transforms()
         assert "Resize" in names
 
-    def test_list_transforms_includes_custom_preprocessors(self):
-        from dataeval_flow.preprocessors import CUSTOM_PREPROCESSORS
+    def test_list_transforms_includes_registered_transforms(self):
+        from dataeval_flow.config.transforms import list_transforms as list_registered_transforms
 
         names = list_transforms()
-        for custom in CUSTOM_PREPROCESSORS:
-            assert custom in names
+        for registered in list_registered_transforms():
+            assert registered.name in names
 
     def test_list_view_operations_sorted_nonempty(self):
         names = list_view_operations()
@@ -181,7 +181,7 @@ class TestGetParams:
         assert get_transform_params("NonExistentTransform") == []
 
     def test_transform_params_custom_preprocessor(self):
-        # ToRGB resolves via the custom registry (not torchvision) and takes no
+        # ToRGB resolves via the transform registry (not torchvision) and takes no
         # params, so introspection returns an empty list rather than failing.
         assert get_transform_params("ToRGB") == []
 

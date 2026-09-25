@@ -4,8 +4,8 @@ These pages explain the concepts behind DataEval Flow's workflows — what each 
 for, why it works the way it does, and how the pieces fit together.
 
 DataEval Flow is an orchestration layer over the
-[DataEval](https://dataeval.readthedocs.io/) library. Accordingly, these
-explanations divide into two kinds. The **cross-cutting concepts** — what makes a
+[DataEval](https://dataeval.readthedocs.io/) library. These explanations
+divide into two kinds. The **cross-cutting concepts** — what makes a
 DataEval Flow evaluation trustworthy: reproducibility, provenance, and the
 representation it measures in — are unique to DataEval Flow and are explained here
 in full. The **task-framing concepts** — data cleaning, distribution shift,
@@ -13,8 +13,7 @@ splitting, prioritization — frame each evaluation at the orchestration level a
 then defer to DataEval for the underlying science, which is covered authoritatively
 in the
 [DataEval explanation library](https://dataeval.readthedocs.io/en/latest/concepts/index.html)
-and linked from each page. We reference those authoritative sources rather than
-duplicate them.
+and linked from each page.
 
 ## Cross-cutting concepts
 

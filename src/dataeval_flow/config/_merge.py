@@ -58,7 +58,7 @@ def merge_config_folder(config_path: Path) -> dict[str, Any]:
     Files are loaded in sorted order (00-base.yaml before 01-datasets.yaml).
     Later files override earlier ones for duplicate keys.
 
-    Returns raw dict - use load_config_folder() for validated PipelineConfig.
+    Returns raw dict - use load_config() for validated PipelineConfig.
     """
     config: dict[str, Any] = {}
 

@@ -505,9 +505,9 @@ docker run --rm \
 
 ### Running a subset of the tasks
 
-`--task` runs one task by name; repeat it to run several, in the order given. A named
-task runs whether or not its config entry sets `enabled: false`, so you can keep a task
-defined but dormant and still reach for it when you need it:
+`--task` runs one task by name. Repeat it to run several, in the order given. A named
+task runs whether its config entry sets `enabled: false`, so you can keep a task
+defined but dormant.
 
 ```bash
 docker run --rm \
@@ -522,9 +522,9 @@ With no `--task`, every task the config marks `enabled` runs.
 
 ### Failing the pipeline on health warnings
 
-By default the run exits `0` whenever every task *ran*, whatever its findings say — a
+By default the run exits `0` whenever every task *ran*, whatever its findings say. A
 warning is a prompt to look, not a failure. `--fail-on-warning` makes findings that
-breached their health thresholds fatal instead, so a CI job can gate on data quality:
+breached their health thresholds fatal, so a CI job can gate on data quality:
 
 ```bash
 docker run --rm \
@@ -571,9 +571,9 @@ find workspace/output -type f
 ```
 
 `result.json` is keyed by task name — each entry holds that task's `metadata`, `health`,
-`raw`, and `report` sections, the same data you'd get from `result.to_dict()` in the Python
-API. `health` is the roll-up `--fail-on-warning` gates on, so a pipeline can read it
-directly rather than parsing the text report:
+`raw`, and `report` sections, the same data `result.to_dict()` returns in the Python
+API. `health` is the roll-up `--fail-on-warning` gates on. A pipeline can read it
+directly:
 
 ```bash
 jq -r 'to_entries[] | "\(.key)\t\(.value.health.status)\t\(.value.health.warnings)"' \

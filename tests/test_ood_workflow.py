@@ -10,23 +10,23 @@ import pytest
 from numpy.typing import NDArray
 from pydantic import ValidationError
 
-from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowResult
-from dataeval_flow.workflows.ood.outputs import (
-    DetectorOODResultDict,
-    OODDetectionMetadata,
-    OODDetectionOutputs,
-    OODDetectionRawOutputs,
-    OODDetectionReport,
-    is_ood_result,
-)
-from dataeval_flow.workflows.ood.params import (
-    OODDetectionParameters,
+from dataeval_flow._orchestrator import _run_target
+from dataeval_flow.workflows import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.ood_detection import (
+    OODDetectionConfig,
+    OODDetectionHealthThresholds,
+    OODDetectionWorkflow,
     OODDetectorDomainClassifier,
     OODDetectorKNeighbors,
-    OODHealthThresholds,
 )
-from dataeval_flow.workflows.ood.workflow import (
-    OODDetectionWorkflow,
+from dataeval_flow.workflows.ood_detection._outputs import (
+    DetectorOODResultDict,
+    OODDetectionMetadata,
+    OODDetectionOutput,
+    OODDetectionRawOutput,
+    OODDetectionReport,
+)
+from dataeval_flow.workflows.ood_detection._workflow import (
     _build_ood_detector,
     _intersect_numeric_factors,
     _merge_factor_parts,
@@ -41,13 +41,13 @@ pytestmark = pytest.mark.required
 # ---------------------------------------------------------------------------
 
 
-def _make_params(**overrides: object) -> OODDetectionParameters:
-    """Build OODDetectionParameters with minimal defaults for testing."""
+def _make_params(**overrides: object) -> OODDetectionConfig:
+    """Build OODDetectionConfig with minimal defaults for testing."""
     defaults: dict[str, object] = {
         "detectors": [{"method": "kneighbors"}],
     }
     defaults.update(overrides)
-    return OODDetectionParameters.model_validate(defaults)
+    return OODDetectionConfig.model_validate(defaults)
 
 
 def _make_embeddings(n: int, d: int = 10, seed: int = 42) -> NDArray[np.float32]:
@@ -297,9 +297,9 @@ class TestIntersectNumericFactors:
 
 
 class TestExtractMetadataFactors:
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_metadata")
     def test_basic_extraction(self, mock_metadata: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_metadata_factors
 
         # Factors are read off the rows at the view — the label-level rows,
         # which are the ones that align with class_labels.
@@ -321,14 +321,14 @@ class TestExtractMetadataFactors:
         assert "brightness" in result
         assert "class_label" in result
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_metadata")
     def test_reads_rows_at_the_view_not_the_full_frame(self, mock_metadata: MagicMock):
         """``dataframe`` interleaves every level and is longer than the labels.
 
         Reading factors off it would misalign the values against class_labels
         on any object detection dataset.
         """
-        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_metadata_factors
 
         mock_rows = MagicMock()
         mock_rows.columns = ["brightness"]
@@ -346,9 +346,9 @@ class TestExtractMetadataFactors:
 
         mock_meta.rows_at.assert_called_once_with("instance")
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_metadata")
     def test_binning_config_reaches_metadata(self, mock_metadata: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_metadata_factors
 
         mock_rows = MagicMock()
         mock_rows.columns = []
@@ -374,9 +374,9 @@ class TestExtractMetadataFactors:
         assert policy.continuous_factor_bins == {"temp_c": [-1.0, 0.0, 1.0]}
         assert policy.metadata_kwargs()["auto_bin_method"] == "clusters"
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_metadata")
     def test_returns_none_on_exception(self, mock_metadata: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_metadata_factors
 
         mock_metadata.side_effect = RuntimeError("fail")
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
@@ -385,9 +385,9 @@ class TestExtractMetadataFactors:
 
 
 class TestExtractStatsFactors:
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_stats")
     def test_basic_extraction(self, mock_stats: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_stats_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_stats_factors
 
         mock_stats.return_value = {
             "stats": {"mean": np.array([0.1, 0.2, 0.3]), "std": np.array([0.01, 0.02, 0.03])},
@@ -401,27 +401,27 @@ class TestExtractStatsFactors:
         assert "f_std" in result
         assert len(result["f_mean"]) == 3
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_stats")
     def test_empty_stats_returns_none(self, mock_stats: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_stats_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_stats_factors
 
         mock_stats.return_value = {"stats": {}, "image_count": 0}
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
         result = _extract_stats_factors(dc, dc.dataset)
         assert result is None
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_stats")
     def test_returns_none_on_exception(self, mock_stats: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_stats_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_stats_factors
 
         mock_stats.side_effect = RuntimeError("fail")
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
         result = _extract_stats_factors(dc, dc.dataset)
         assert result is None
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_stats")
     def test_filters_wrong_length(self, mock_stats: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _extract_stats_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_stats_factors
 
         mock_stats.return_value = {
             "stats": {"mean": np.array([0.1, 0.2, 0.3]), "bad": np.array([0.1])},
@@ -433,7 +433,7 @@ class TestExtractStatsFactors:
         assert "f_mean" in result
         assert "f_bad" not in result
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_stats")
     def test_a_declared_band_group_policy_is_not_discarded(self, mock_stats: MagicMock):
         """A band-group policy used to be checked against `ImageStats.ALL` and refused.
 
@@ -444,9 +444,9 @@ class TestExtractStatsFactors:
         """
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
-        from dataeval_flow.workflow import WorkflowContext
-        from dataeval_flow.workflows.ood.workflow import _extract_stats_factors
+        from dataeval_flow._stats import ResolvedStatsPolicy
+        from dataeval_flow.workflows import WorkflowContext
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_stats_factors
 
         mock_stats.return_value = {
             "stats": {"rgb_mean": np.array([0.1, 0.2, 0.3])},
@@ -467,10 +467,10 @@ class TestExtractStatsFactors:
 
 
 class TestCollectNumericFactors:
-    @patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors")
-    @patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._extract_stats_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._extract_metadata_factors")
     def test_returns_none_when_no_ref_factors(self, mock_meta: MagicMock, mock_stats: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _collect_numeric_factors
 
         mock_meta.return_value = None
         mock_stats.return_value = None
@@ -479,10 +479,10 @@ class TestCollectNumericFactors:
         result = _collect_numeric_factors(ref_dc, ref_dc.dataset, [], _make_params())
         assert result is None
 
-    @patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors")
-    @patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._extract_stats_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._extract_metadata_factors")
     def test_returns_none_when_no_test_factors(self, mock_meta: MagicMock, mock_stats: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _collect_numeric_factors
 
         mock_meta.side_effect = [{"a": np.array([1.0])}, None]
         mock_stats.side_effect = [None, None]
@@ -495,16 +495,16 @@ class TestCollectNumericFactors:
 
 class TestComputeMetadataInsights:
     def test_returns_none_when_no_ood(self):
-        from dataeval_flow.workflows.ood.workflow import _compute_metadata_insights
+        from dataeval_flow.workflows.ood_detection._workflow import _compute_metadata_insights
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
         devs, preds, _binning = _compute_metadata_insights(dc, dc.dataset, [], [], 50, _make_params())
         assert devs is None
         assert preds is None
 
-    @patch("dataeval_flow.workflows.ood.workflow._collect_numeric_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._collect_numeric_factors")
     def test_returns_none_when_no_factors(self, mock_collect: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _compute_metadata_insights
+        from dataeval_flow.workflows.ood_detection._workflow import _compute_metadata_insights
 
         mock_collect.return_value = None
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
@@ -512,11 +512,11 @@ class TestComputeMetadataInsights:
         assert devs is None
         assert preds is None
 
-    @patch("dataeval_flow.workflows.ood.workflow.factor_predictors")
-    @patch("dataeval_flow.workflows.ood.workflow.factor_deviation")
-    @patch("dataeval_flow.workflows.ood.workflow._collect_numeric_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.factor_predictors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.factor_deviation")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._collect_numeric_factors")
     def test_handles_deviation_exception(self, mock_collect: MagicMock, mock_dev: MagicMock, mock_pred: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _compute_metadata_insights
+        from dataeval_flow.workflows.ood_detection._workflow import _compute_metadata_insights
 
         ref = {"a": np.array([1.0, 2.0, 3.0])}
         test = {"a": np.array([4.0, 5.0, 6.0])}
@@ -529,11 +529,11 @@ class TestComputeMetadataInsights:
         assert devs is None  # failed
         assert preds is not None  # still succeeded
 
-    @patch("dataeval_flow.workflows.ood.workflow.factor_predictors")
-    @patch("dataeval_flow.workflows.ood.workflow.factor_deviation")
-    @patch("dataeval_flow.workflows.ood.workflow._collect_numeric_factors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.factor_predictors")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.factor_deviation")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._collect_numeric_factors")
     def test_handles_predictors_exception(self, mock_collect: MagicMock, mock_dev: MagicMock, mock_pred: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _compute_metadata_insights
+        from dataeval_flow.workflows.ood_detection._workflow import _compute_metadata_insights
 
         ref = {"a": np.array([1.0, 2.0, 3.0])}
         test = {"a": np.array([4.0, 5.0, 6.0])}
@@ -554,16 +554,16 @@ class TestComputeMetadataInsights:
 
 class TestGetEmbeddingsForContext:
     def test_raises_without_extractor(self):
-        from dataeval_flow.workflows.ood.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.ood_detection._workflow import _get_embeddings_for_context
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
         with pytest.raises(ValueError, match="requires a model/extractor"):
             _get_embeddings_for_context(dc, MagicMock())
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_embeddings")
-    @patch("dataeval_flow.workflows.ood.workflow.selection_repr", return_value="sel:all")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.selection_repr", return_value="sel:all")
     def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):
-        from dataeval_flow.workflows.ood.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.ood_detection._workflow import _get_embeddings_for_context
 
         expected = _make_embeddings(10)
         mock_emb.return_value = expected
@@ -577,16 +577,16 @@ class TestGetEmbeddingsForContext:
         np.testing.assert_array_equal(result, expected)
         mock_emb.assert_called_once()
 
-    @patch("dataeval_flow.workflows.ood.workflow.get_or_compute_embeddings")
-    @patch("dataeval_flow.workflows.ood.workflow.active_cache")
-    @patch("dataeval_flow.workflows.ood.workflow.selection_repr", return_value="sel:all")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.active_cache")
+    @patch("dataeval_flow.workflows.ood_detection._workflow.selection_repr", return_value="sel:all")
     def test_uses_cache_when_available(
         self,
         mock_sel: MagicMock,
         mock_cache: MagicMock,
         mock_emb: MagicMock,
     ):
-        from dataeval_flow.workflows.ood.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.ood_detection._workflow import _get_embeddings_for_context
 
         expected = _make_embeddings(10)
         mock_emb.return_value = expected
@@ -607,9 +607,9 @@ class TestGetEmbeddingsForContext:
 # ---------------------------------------------------------------------------
 
 
-class TestOODDetectionOutputs:
+class TestOODDetectionOutput:
     def test_raw_defaults(self):
-        raw = OODDetectionRawOutputs(dataset_size=0)
+        raw = OODDetectionRawOutput(dataset_size=0)
         assert raw.reference_size == 0
         assert raw.test_size == 0
         assert raw.detectors == {}
@@ -623,24 +623,8 @@ class TestOODDetectionOutputs:
         assert meta.metadata_insights_enabled is False
         assert meta.mode == "advisory"
 
-    def test_is_ood_result_guard(self):
-        meta = OODDetectionMetadata()
-        data = OODDetectionOutputs(
-            raw=OODDetectionRawOutputs(dataset_size=0),
-            report=OODDetectionReport(summary="test", findings=[]),
-        )
-        result = WorkflowResult(name="ood-detection", success=True, data=data, metadata=meta)
-        assert is_ood_result(result)
-
-    def test_is_ood_result_false_for_other(self):
-        from dataeval_flow.workflows.drift.outputs import DriftMonitoringMetadata
-
-        meta = DriftMonitoringMetadata()
-        result = WorkflowResult(name="drift-monitoring", success=True, data=MagicMock(), metadata=meta)
-        assert not is_ood_result(result)
-
     def test_json_serialization(self):
-        raw = OODDetectionRawOutputs(
+        raw = OODDetectionRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -648,7 +632,7 @@ class TestOODDetectionOutputs:
             ood_indices=[2, 5, 8],
         )
         report = OODDetectionReport(summary="test", findings=[])
-        outputs = OODDetectionOutputs(raw=raw, report=report)
+        outputs = OODDetectionOutput(raw=raw, report=report)
         data = outputs.model_dump(mode="json")
         assert data["raw"]["reference_size"] == 200
         assert data["raw"]["ood_indices"] == [2, 5, 8]
@@ -686,36 +670,19 @@ class TestOODDetectionWorkflowExecute:
     def test_properties(self):
         wf = self._make_workflow()
         assert wf.name == "ood-detection"
-        assert wf.params_schema is OODDetectionParameters
-        assert wf.output_schema is OODDetectionOutputs
+        assert wf.config_type is OODDetectionConfig
         assert "ood" in wf.description.lower() or "out-of-distribution" in wf.description.lower()
-
-    def test_rejects_non_workflow_context(self):
-        wf = self._make_workflow()
-        result = wf.execute("not_a_context", _make_params())  # type: ignore[arg-type]
-        assert not result.success
-        assert "WorkflowContext" in result.errors[0]
-
-    def test_rejects_none_params(self):
-        wf = self._make_workflow()
-        result = wf.execute(self._make_context(), None)
-        assert not result.success
-        assert "required" in result.errors[0].lower()
 
     def test_rejects_wrong_params_type(self):
         wf = self._make_workflow()
-        result = wf.execute(self._make_context(), MagicMock(spec=[]))
+        result = _run_target(wf, MagicMock(spec=[]), self._make_context())
         assert not result.success
-        assert "OODDetectionParameters" in result.errors[0]
+        assert "OODDetectionConfig" in result.errors[0]
 
-    def test_rejects_single_dataset(self):
-        wf = self._make_workflow()
-        ctx = self._make_context(n_datasets=1)
-        result = wf.execute(ctx, _make_params())
-        assert not result.success
-        assert "at least 2" in result.errors[0]
+    # A single-source task is refused when the config loads (see test_workflow_inputs.py);
+    # the workflow itself no longer guards against it.
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_successful_execution(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -727,17 +694,17 @@ class TestOODDetectionWorkflowExecute:
             detectors=[{"method": "kneighbors", "k": 5}],
             metadata_insights=False,
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert isinstance(result.data, OODDetectionOutputs)
-        assert result.data.raw.reference_size == 100
-        assert result.data.raw.test_size == 50
-        assert "kneighbors" in result.data.raw.detectors
+        assert isinstance(result.output, OODDetectionOutput)
+        assert result.output.raw.reference_size == 100
+        assert result.output.raw.test_size == 50
+        assert "kneighbors" in result.output.raw.detectors
         assert isinstance(result.metadata, OODDetectionMetadata)
         assert result.metadata.detectors_used == ["kneighbors"]
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_multiple_test_datasets_concatenated(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb1 = _make_embeddings(30, seed=2)
@@ -747,13 +714,13 @@ class TestOODDetectionWorkflowExecute:
         wf = self._make_workflow()
         ctx = self._make_context(n_datasets=3)
         params = _make_params(metadata_insights=False)
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert result.data.raw.reference_size == 100
-        assert result.data.raw.test_size == 50  # 30 + 20
+        assert result.output.raw.reference_size == 100
+        assert result.output.raw.test_size == 50  # 30 + 20
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_detects_ood_with_shifted_data(self, mock_get_emb: MagicMock):
         """Test that OOD samples are detected when test data is shifted."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -768,25 +735,25 @@ class TestOODDetectionWorkflowExecute:
             detectors=[{"method": "kneighbors", "k": 5, "threshold_perc": 95.0}],
             metadata_insights=False,
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert len(result.data.raw.ood_indices) > 0
+        assert len(result.output.raw.ood_indices) > 0
         # The shifted samples should be detected
-        det = result.data.raw.detectors["kneighbors"]
+        det = result.output.raw.detectors["kneighbors"]
         assert det["ood_count"] > 0
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_exception_in_run_returns_error_result(self, mock_get_emb: MagicMock):
         mock_get_emb.side_effect = RuntimeError("unexpected")
 
         wf = self._make_workflow()
         ctx = self._make_context()
-        result = wf.execute(ctx, _make_params(metadata_insights=False))
+        result = _run_target(wf, _make_params(metadata_insights=False), ctx)
         assert not result.success
         assert "unexpected" in result.errors[0]
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_detector_error_isolation(self, mock_get_emb: MagicMock):
         """One detector failing should not prevent others from running."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -803,7 +770,7 @@ class TestOODDetectionWorkflowExecute:
             metadata_insights=False,
         )
 
-        with patch("dataeval_flow.workflows.ood.workflow._build_ood_detector") as mock_build:
+        with patch("dataeval_flow.workflows.ood_detection._workflow._build_ood_detector") as mock_build:
             good_detector = MagicMock()
             good_detector.fit.return_value = good_detector
             good_detector.predict.return_value = _make_ood_output(50, ood_indices=set())
@@ -813,19 +780,13 @@ class TestOODDetectionWorkflowExecute:
 
             mock_build.side_effect = [bad_detector, good_detector]
 
-            result = wf.execute(ctx, params)
+            result = wf.run(params, ctx)
 
         assert result.success
-        assert len(result.data.raw.detectors) == 1
+        assert len(result.output.raw.detectors) == 1
         assert len(result.errors) == 1
 
-    def test_empty_outputs(self):
-        wf = self._make_workflow()
-        outputs = wf._empty_outputs()
-        assert outputs.raw.dataset_size == 0
-        assert outputs.report.summary == "Workflow failed"
-
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_summary_includes_counts(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -834,14 +795,14 @@ class TestOODDetectionWorkflowExecute:
         wf = self._make_workflow()
         ctx = self._make_context()
         params = _make_params(metadata_insights=False)
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert "Reference: 100" in result.data.report.summary
-        assert "Test: 50" in result.data.report.summary
+        assert "Reference: 100" in result.output.report.summary
+        assert "Test: 50" in result.output.report.summary
 
-    @patch("dataeval_flow.workflows.ood.workflow._compute_metadata_insights")
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._compute_metadata_insights")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_ood_union_across_detectors(self, mock_get_emb: MagicMock, mock_insights: MagicMock):
         """Union of OOD indices is computed across all detectors."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -859,14 +820,14 @@ class TestOODDetectionWorkflowExecute:
             ],
             metadata_insights=True,
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert len(result.data.raw.ood_indices) > 0
+        assert len(result.output.raw.ood_indices) > 0
         # metadata insights should have been called since we have OOD indices
         mock_insights.assert_called_once()
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_no_ood_skips_metadata_insights(self, mock_get_emb: MagicMock):
         """When no OOD samples detected, metadata insights are skipped."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -880,12 +841,12 @@ class TestOODDetectionWorkflowExecute:
             metadata_insights=True,
         )
 
-        with patch("dataeval_flow.workflows.ood.workflow._compute_metadata_insights") as mock_insights:
-            result = wf.execute(ctx, params)
-            if len(result.data.raw.ood_indices) == 0:
+        with patch("dataeval_flow.workflows.ood_detection._workflow._compute_metadata_insights") as mock_insights:
+            result = wf.run(params, ctx)
+            if len(result.output.raw.ood_indices) == 0:
                 mock_insights.assert_not_called()
 
-    @patch("dataeval_flow.workflows.ood.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.ood_detection._workflow._get_embeddings_for_context")
     def test_metadata_insights_disabled(self, mock_get_emb: MagicMock):
         """When metadata_insights=False, insights are not computed."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -899,11 +860,11 @@ class TestOODDetectionWorkflowExecute:
             detectors=[{"method": "kneighbors", "k": 5, "threshold_perc": 95.0}],
             metadata_insights=False,
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert result.data.raw.factor_deviations is None
-        assert result.data.raw.factor_predictors is None
+        assert result.output.raw.factor_deviations is None
+        assert result.output.raw.factor_predictors is None
         assert result.metadata.metadata_insights_enabled is False
 
 
@@ -914,15 +875,15 @@ class TestOODDetectionWorkflowExecute:
 
 class TestOODWorkflowRegistration:
     def test_get_workflow_returns_ood(self):
-        from dataeval_flow.workflow import get_workflow
+        from dataeval_flow.workflows import get_workflow
 
         wf = get_workflow("ood-detection")
         assert wf.name == "ood-detection"
 
     def test_list_workflows_includes_ood(self):
-        from dataeval_flow.workflow import list_workflows
+        from dataeval_flow.workflows import list_workflows
 
-        names = [w["name"] for w in list_workflows()]
+        names = [w.name for w in list_workflows()]
         assert "ood-detection" in names
 
 
@@ -948,16 +909,16 @@ class TestOODParams:
         assert cfg.threshold_perc == 95.0
 
     def test_health_thresholds_defaults(self):
-        t = OODHealthThresholds()
+        t = OODDetectionHealthThresholds()
         assert t.ood_pct_warning == 10.0
         assert t.ood_pct_info == 1.0
 
     def test_parameters_requires_detectors(self):
         with pytest.raises(ValidationError):
-            OODDetectionParameters.model_validate({"detectors": []})
+            OODDetectionConfig.model_validate({"detectors": []})
 
     def test_parameters_discriminated_union(self):
-        params = OODDetectionParameters.model_validate(
+        params = OODDetectionConfig.model_validate(
             {
                 "detectors": [
                     {"method": "kneighbors", "k": 20},
@@ -981,9 +942,9 @@ class TestOODParams:
 
 class TestOODConfigSchema:
     def test_workflow_config_parses(self):
-        from dataeval_flow.config.schemas import OODDetectionWorkflowConfig
+        from dataeval_flow.workflows.ood_detection import OODDetectionConfig
 
-        cfg = OODDetectionWorkflowConfig.model_validate(
+        cfg = OODDetectionConfig.model_validate(
             {
                 "name": "ood_knn",
                 "type": "ood-detection",
@@ -993,20 +954,16 @@ class TestOODConfigSchema:
         assert cfg.name == "ood_knn"
         assert cfg.type == "ood-detection"
 
-    def test_workflow_config_in_discriminated_union(self):
-        from pydantic import TypeAdapter
+    def test_a_workflows_entry_validates_by_its_type(self):
+        from dataeval_flow import PipelineConfig
+        from dataeval_flow.workflows.ood_detection import OODDetectionConfig
 
-        from dataeval_flow.config.schemas import WorkflowConfig
-
-        adapter = TypeAdapter(WorkflowConfig)
-        cfg = adapter.validate_python(
-            {
-                "name": "ood_test",
-                "type": "ood-detection",
-                "detectors": [{"method": "kneighbors"}],
-            }
+        pipeline = PipelineConfig.model_validate(
+            {"workflows": [{"name": "ood_test", "type": "ood-detection", "detectors": [{"method": "kneighbors"}]}]}
         )
-        assert cfg.type == "ood-detection"
+        assert pipeline.workflows is not None
+        (cfg,) = pipeline.workflows
+        assert isinstance(cfg, OODDetectionConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -1017,7 +974,7 @@ class TestOODConfigSchema:
 class TestExtractMetadataFactorsBranches:
     def test_factors_populated_from_df_columns(self):
         """Lines 244-245, 253->252: factors populated from df columns, missing ones skipped."""
-        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_metadata_factors
 
         dc = DatasetContext(name="ds", dataset=MagicMock())
         ds = MagicMock()
@@ -1034,7 +991,7 @@ class TestExtractMetadataFactorsBranches:
         mock_meta.rows_at = MagicMock(return_value=rows)
         mock_meta.class_labels = None
 
-        with patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata", return_value=mock_meta):
+        with patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_metadata", return_value=mock_meta):
             result = _extract_metadata_factors(dc, ds, _make_params())
 
         assert result is not None
@@ -1043,7 +1000,7 @@ class TestExtractMetadataFactorsBranches:
 
     def test_class_labels_added_as_factor(self):
         """Lines 260->265, 262->265: numeric class_labels added as 'class_label' factor."""
-        from dataeval_flow.workflows.ood.workflow import _extract_metadata_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _extract_metadata_factors
 
         dc = DatasetContext(name="ds", dataset=MagicMock())
         ds = MagicMock()
@@ -1060,7 +1017,7 @@ class TestExtractMetadataFactorsBranches:
         mock_meta.rows_at = MagicMock(return_value=rows)
         mock_meta.class_labels = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
 
-        with patch("dataeval_flow.workflows.ood.workflow.get_or_compute_metadata", return_value=mock_meta):
+        with patch("dataeval_flow.workflows.ood_detection._workflow.get_or_compute_metadata", return_value=mock_meta):
             result = _extract_metadata_factors(dc, ds, _make_params())
 
         assert result is not None
@@ -1076,7 +1033,7 @@ class TestExtractMetadataFactorsBranches:
 class TestCollectNumericFactorsBranches:
     def test_ref_meta_and_stats_merged(self):
         """Lines 411, 420, 424-427: both ref_meta and ref_stats get merged."""
-        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _collect_numeric_factors
 
         ref_dc = DatasetContext(name="ref", dataset=MagicMock())
         test_dc = DatasetContext(name="test", dataset=MagicMock())
@@ -1088,8 +1045,14 @@ class TestCollectNumericFactorsBranches:
         test_stats = {"contrast": np.arange(10, dtype=float)}
 
         with (
-            patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", side_effect=[ref_meta, test_meta]),
-            patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", side_effect=[ref_stats, test_stats]),
+            patch(
+                "dataeval_flow.workflows.ood_detection._workflow._extract_metadata_factors",
+                side_effect=[ref_meta, test_meta],
+            ),
+            patch(
+                "dataeval_flow.workflows.ood_detection._workflow._extract_stats_factors",
+                side_effect=[ref_stats, test_stats],
+            ),
         ):
             result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets, _make_params())  # type: ignore[arg-type]
 
@@ -1097,15 +1060,15 @@ class TestCollectNumericFactorsBranches:
 
     def test_empty_ref_factors_returns_none(self):
         """Line 427: returns None when ref has no factors."""
-        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _collect_numeric_factors
 
         ref_dc = DatasetContext(name="ref", dataset=MagicMock())
         test_dc = DatasetContext(name="test", dataset=MagicMock())
         test_datasets = [("test", test_dc, MagicMock())]
 
         with (
-            patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", return_value=None),
-            patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", return_value=None),
+            patch("dataeval_flow.workflows.ood_detection._workflow._extract_metadata_factors", return_value=None),
+            patch("dataeval_flow.workflows.ood_detection._workflow._extract_stats_factors", return_value=None),
         ):
             result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets, _make_params())  # type: ignore[arg-type]
 
@@ -1113,7 +1076,7 @@ class TestCollectNumericFactorsBranches:
 
     def test_empty_test_factors_returns_none(self):
         """Line 440: returns None when test has no factors."""
-        from dataeval_flow.workflows.ood.workflow import _collect_numeric_factors
+        from dataeval_flow.workflows.ood_detection._workflow import _collect_numeric_factors
 
         ref_dc = DatasetContext(name="ref", dataset=MagicMock())
         test_dc = DatasetContext(name="test", dataset=MagicMock())
@@ -1122,8 +1085,11 @@ class TestCollectNumericFactorsBranches:
         ref_stats = {"contrast": np.arange(10, dtype=float)}
 
         with (
-            patch("dataeval_flow.workflows.ood.workflow._extract_metadata_factors", return_value=None),
-            patch("dataeval_flow.workflows.ood.workflow._extract_stats_factors", side_effect=[ref_stats, None]),
+            patch("dataeval_flow.workflows.ood_detection._workflow._extract_metadata_factors", return_value=None),
+            patch(
+                "dataeval_flow.workflows.ood_detection._workflow._extract_stats_factors",
+                side_effect=[ref_stats, None],
+            ),
         ):
             result = _collect_numeric_factors(ref_dc, MagicMock(), test_datasets, _make_params())  # type: ignore[arg-type]
 
@@ -1136,9 +1102,9 @@ class TestCollectNumericFactorsBranches:
 
 
 class TestOODExecuteSelections:
-    @patch("dataeval_flow.view.build_view")
+    @patch("dataeval_flow._view.build_view")
     def test_selection_applied_to_ref_and_test(self, mock_build_sel):
-        """Lines 938, 945: build_selection called for ref and test datasets."""
+        """Lines 938, 945: build_view called for ref and test datasets."""
         mock_build_sel.side_effect = lambda ds, _steps: ds
 
         wf = OODDetectionWorkflow()
@@ -1174,10 +1140,16 @@ class TestOODExecuteSelections:
                     [("test", test_dc, test_emb)],
                 ),
             ),
-            patch("dataeval_flow.workflows.ood.workflow._run_all_ood_detectors", return_value=({}, {}, [], [])),
-            patch("dataeval_flow.workflows.ood.workflow._compute_metadata_insights", return_value=(None, None, None)),
+            patch(
+                "dataeval_flow.workflows.ood_detection._workflow._run_all_ood_detectors",
+                return_value=({}, {}, [], []),
+            ),
+            patch(
+                "dataeval_flow.workflows.ood_detection._workflow._compute_metadata_insights",
+                return_value=(None, None, None),
+            ),
         ):
-            result = wf.execute(ctx, params)
+            result = wf.run(params, ctx)
 
         assert result.success
         assert mock_build_sel.call_count == 2
@@ -1190,7 +1162,7 @@ class TestOODRecordsItsEncoding:
         """`metadata.encoding_digest` is on every result envelope, this one included."""
         import numpy as np
 
-        from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
+        from dataeval_flow.workflows.ood_detection import OODDetectionWorkflow
 
         params = _make_params()
         embeddings = np.zeros((4, 3), dtype=np.float32)
@@ -1211,7 +1183,7 @@ class TestOODRecordsItsEncoding:
     def test_no_binning_record_leaves_no_digest(self):
         import numpy as np
 
-        from dataeval_flow.workflows.ood.workflow import OODDetectionWorkflow
+        from dataeval_flow.workflows.ood_detection import OODDetectionWorkflow
 
         params = _make_params()
         embeddings = np.zeros((4, 3), dtype=np.float32)
@@ -1248,15 +1220,15 @@ class TestValueRangeComesFromTheDataset:
                 return_value=(_make_embeddings(50), _make_embeddings(50, seed=1)),
             ),
             patch(
-                "dataeval_flow.workflows.ood.workflow._run_all_ood_detectors",
+                "dataeval_flow.workflows.ood_detection._workflow._run_all_ood_detectors",
                 return_value=({}, {}, [], [is_ood]),
             ),
             patch(
-                "dataeval_flow.workflows.ood.workflow._compute_metadata_insights",
+                "dataeval_flow.workflows.ood_detection._workflow._compute_metadata_insights",
                 return_value=(None, None, None),
             ) as mock_insights,
         ):
-            result = wf.execute(ctx, _make_params())
+            result = wf.run(_make_params(), ctx)
 
         assert result.success
         mock_insights.assert_called_once()

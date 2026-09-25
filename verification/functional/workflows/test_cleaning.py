@@ -6,11 +6,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from dataeval_flow import (
-    DataCleaningWorkflowConfig,
-    TaskConfig,
-    run_tasks,
-)
+from dataeval_flow import run_tasks
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 pytestmark = pytest.mark.required
 
@@ -30,7 +28,7 @@ class TestDataCleaningWorkflow:
         cfg, data_dir = image_folder_pipeline_builder(
             extractor_batch_size=None,
             workflows=[
-                DataCleaningWorkflowConfig(
+                DataCleaningConfig(
                     name="clean_main",
                     type="data-cleaning",
                     outlier_method="zscore",
@@ -46,10 +44,10 @@ class TestDataCleaningWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
         # Typed output check: exposes outlier and duplicate findings on the data payload
-        assert len(result.data.report.findings) > 0
+        assert len(result.output.report.findings) > 0

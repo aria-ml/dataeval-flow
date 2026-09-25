@@ -209,6 +209,8 @@ test_cases:
       - Package imports without errors on the current Python version
       - Version string is set and valid (not "unknown")
       - All public symbols listed in __all__ are importable
+      - The top-level __all__ is exactly the front door (load_config, load_dataset, run, run_task,
+        run_tasks, PipelineConfig, Result, ResultMetadata, InputSpec, InputKind, SourceCount, __version__)
       - py.typed marker is present
 
   "1-2":
@@ -245,15 +247,15 @@ test_cases:
     name: Configuration Loading
     test_type: Core Functionality
     business_case: >-
-      Verify that YAML/JSON configs load via load_config and load_config_folder
-      and produce validated PipelineConfig instances.
+      Verify that YAML/JSON configs load via load_config, from a file or a
+      folder, and produce validated PipelineConfig instances.
     initial_conditions:
       - dataeval-flow installed
       - Temporary directory with a minimal params.yaml
     expected_results:
       - load_config parses a single YAML file into PipelineConfig
       - load_config parses a single JSON file into PipelineConfig
-      - load_config_folder merges multiple YAML/JSON files at folder root
+      - load_config merges multiple YAML/JSON files at a folder's root
       - Invalid configs raise pydantic ValidationError
 
   "3-1":
@@ -288,7 +290,7 @@ test_cases:
       - OnnxExtractorConfig constructs with a model path
       - BoVWExtractorConfig constructs with default params
       - UncertaintyExtractorConfig constructs with default params
-      - All extractor configs are exported from dataeval_flow.__all__
+      - All extractor configs are exported from dataeval_flow.config.extractors.__all__
 
   "5-1":
     name: Preprocessing & Selection Pipeline
@@ -309,13 +311,13 @@ test_cases:
     test_type: Core Functionality
     business_case: >-
       Verify that the workflow registry exposes every registered workflow and
-      that run_tasks executes them in sequence and returns WorkflowResult objects.
+      that run_tasks executes them in sequence and returns WorkflowResult objects keyed by task name.
     initial_conditions:
       - dataeval-flow installed
     expected_results:
-      - list_workflows() returns every registered workflow with name + description
-      - get_workflow("data-cleaning") returns a WorkflowProtocol
-      - run_tasks on a synthetic pipeline returns a list of WorkflowResult
+      - list_workflows() returns every registered workflow class, sorted by name, each with a name and description
+      - get_workflow("data-cleaning") returns the Workflow subclass registered under that name
+      - run_tasks on a synthetic pipeline returns a dict of WorkflowResult keyed by task name
       - Each WorkflowResult has populated metadata.timestamp and tool fields
 
   "7-1":
@@ -328,8 +330,8 @@ test_cases:
       - dataeval-flow installed
       - Synthetic dataset and FlattenExtractor configured
     expected_results:
-      - DataCleaningWorkflow.execute returns success=True
-      - result.data exposes outlier and duplicate findings
+      - DataCleaningWorkflow.run returns success=True
+      - result.output exposes outlier and duplicate findings
       - result.report() returns a non-empty string
 
   "8-1":
@@ -342,8 +344,8 @@ test_cases:
       - dataeval-flow installed
       - Two synthetic datasets (reference, test) configured as sources
     expected_results:
-      - DriftMonitoringWorkflow.execute returns success=True
-      - result.data exposes drift findings
+      - DriftMonitoringWorkflow.run returns success=True
+      - result.output exposes drift findings
       - result.report() returns a non-empty string
 
   "9-1":
@@ -356,7 +358,7 @@ test_cases:
       - dataeval-flow installed
       - Two synthetic datasets configured as sources
     expected_results:
-      - OODDetectionWorkflow.execute returns success=True
+      - OODDetectionWorkflow.run returns success=True
       - OOD detector exposes per-sample scores and is_ood flags
       - result.report() returns a non-empty string
 
@@ -370,8 +372,8 @@ test_cases:
       - dataeval-flow installed
       - Synthetic dataset configured
     expected_results:
-      - DataAnalysisWorkflow.execute returns success=True
-      - result.data exposes analysis outputs (bias, quality, etc.)
+      - DataAnalysisWorkflow.run returns success=True
+      - result.output exposes analysis outputs (bias, quality, etc.)
       - py.typed marker is present in the installed package
       - dataeval_flow.__all__ is defined and non-empty
 
@@ -385,7 +387,7 @@ test_cases:
       - dataeval-flow installed
       - Synthetic dataset configured with a fixed seed
     expected_results:
-      - DataSplittingWorkflow.execute returns success=True
+      - DataSplittingWorkflow.run returns success=True
       - Two runs with the same seed produce identical splits
       - Two runs with different seeds produce different splits
 
@@ -399,22 +401,22 @@ test_cases:
       - dataeval-flow installed
       - Synthetic dataset configured
     expected_results:
-      - DataPrioritizationWorkflow.execute returns success=True
-      - result.data exposes ranked indices
+      - DataPrioritizationWorkflow.run returns success=True
+      - result.output exposes ranked indices
 
   "13-1":
     name: Parameter Sweep Workflow
     test_type: Core Functionality
     business_case: >-
       Verify that ParameterSweepWorkflow runs a small parameter grid and
-      produces one WorkflowResult per parameter combination.
+      produces a WorkflowResult with one entry per parameter combination.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic dataset configured
       - Sweep grid with 2 parameter combinations
     expected_results:
-      - ParameterSweepWorkflow.execute returns success=True
-      - result.data exposes per-combination outputs
+      - ParameterSweepWorkflow.run returns success=True
+      - result.output exposes per-combination outputs
 
   "14-1":
     name: Reporting & Export
@@ -429,7 +431,7 @@ test_cases:
       - WorkflowResult.report() returns a non-empty multi-line string
       - WorkflowResult.export(path, fmt="json") writes a valid JSON file
       - WorkflowResult.export(path, fmt="yaml") writes a valid YAML file
-      - WorkflowResult.to_dict() includes metadata + data fields
+      - WorkflowResult.to_dict() includes metadata + output fields
 
   "15-1":
     name: Caching

@@ -1,6 +1,6 @@
 """Runtime discovery of available transforms and view operation classes.
 
-Introspects dataeval_flow.preprocessors, torchvision.transforms.v2, and
+Introspects the registered transforms, torchvision.transforms.v2, and
 dataeval.data to provide dropdown options and parameter schemas for the
 builder TUI.
 """
@@ -105,13 +105,13 @@ def _introspect_params(cls: type) -> list[ParamInfo]:
 def list_transforms() -> list[str]:
     """Return sorted names of available transforms.
 
-    Includes the custom named preprocessors (``dataeval_flow.preprocessors``)
+    Includes the registered transforms (``dataeval_flow.config.transforms``, plugins included)
     alongside ``torchvision.transforms.v2`` classes, mirroring how
     ``build_preprocessing`` resolves step names.
     """
     from torchvision.transforms import v2
 
-    from dataeval_flow.preprocessors import CUSTOM_PREPROCESSORS
+    from dataeval_flow.config.transforms._registry import list_transforms as list_registered_transforms
 
     skip = {
         "Transform",
@@ -124,7 +124,7 @@ def list_transforms() -> list[str]:
         "InterpolationMode",
         "Lambda",
     }
-    names = list(CUSTOM_PREPROCESSORS)
+    names = [cls.name for cls in list_registered_transforms()]
     for name, obj in inspect.getmembers(v2):
         if (
             inspect.isclass(obj)
@@ -158,15 +158,14 @@ list_selection_classes = list_view_operations
 def get_transform_params(name: str) -> list[ParamInfo]:
     """Get parameter info for a transform.
 
-    Resolves custom preprocessors first, then ``torchvision.transforms.v2``,
-    matching ``build_preprocessing``'s resolution order.
+    Resolves the name as ``build_preprocessing`` does; a name that resolves to nothing,
+    or to a plugin that failed to load, has no params to show.
     """
-    from torchvision.transforms import v2
+    from dataeval_flow.config.transforms._registry import resolve_step
 
-    from dataeval_flow.preprocessors import resolve_custom
-
-    cls = resolve_custom(name) or getattr(v2, name, None)
-    if cls is None:
+    try:
+        cls = resolve_step(name)
+    except ValueError:
         return []
     return _introspect_params(cls)
 

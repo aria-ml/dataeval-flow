@@ -26,7 +26,7 @@
 #
 # You can reference this guide from:
 #
-# - [Clean a dataset](data_cleaning): Feed a `torchvision` classification or
+# - {doc}`Clean a dataset <data_cleaning>`: Feed a `torchvision` classification or
 #   detection dataset directly into the `data-cleaning` workflow.
 
 # %% [markdown]
@@ -35,17 +35,16 @@
 # %% tags=["remove_output"]
 from torchvision.datasets import FashionMNIST
 
+from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow.config import (
-    BoVWExtractorConfig,
-    DataCleaningWorkflowConfig,
     DatasetProtocolConfig,
-    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.workflow import run_tasks
+from dataeval_flow.config.extractors import BoVWExtractorConfig
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 # 1. Create the torchvision dataset without transforms. The adapter handles conversion.
 tv_dataset = FashionMNIST(root="./data", train=True, download=True)
@@ -68,7 +67,7 @@ sources = [SourceConfig(name="fmnist-src", dataset="fmnist-train", view="sample5
 extractors = [BoVWExtractorConfig(name="bovw", vocab_size=512, batch_size=64)]
 
 workflows = [
-    DataCleaningWorkflowConfig(
+    DataCleaningConfig(
         name="adaptive_clean",
         outlier_method="adaptive",
         outlier_threshold=3.5,
@@ -96,7 +95,7 @@ config = PipelineConfig(
 # %%
 # 3. Run
 results = run_tasks(config)
-print(results[0].report())
+print(results["fmnist-clean"].report())
 
 # %% [markdown]
 # ### What happens under the hood

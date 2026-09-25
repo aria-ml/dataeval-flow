@@ -10,11 +10,11 @@ import pytest
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
+from dataeval_flow import ResultMetadata
+from dataeval_flow._binning import attach_binning, describe_binning
 from dataeval_flow._logging import capture_diagnostics
-from dataeval_flow.binning import attach_binning, describe_binning
-from dataeval_flow.config.schemas._metadata import ResultMetadata
-from dataeval_flow.policy import ResolvedPolicy
-from dataeval_flow.workflow.base import MetadataConfigMixin
+from dataeval_flow._policy import ResolvedPolicy
+from dataeval_flow.config import MetadataConfigMixin
 
 
 def _metadata(n: int = 60, **kwargs: Any) -> Metadata:
@@ -48,7 +48,7 @@ class TestDescribeBinning:
         assert record["factors"]["elevation"]["level"] == "unit"
 
     def test_records_the_cut_a_count_request_resolved_to(self):
-        """A count says how many, not where. Where used to be derived and discarded."""
+        """A count says how many; the record also records where the cut landed."""
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": 4}))
         entry = record["factors"]["elevation"]
 
@@ -76,7 +76,7 @@ class TestDescribeBinning:
         assert entry["encoding"]["method"] is None
 
     def test_reports_declared_bins_nothing_reached(self):
-        """Occupancy is a question about fit, and an empty declared bin is the answer."""
+        """A declared bin nothing reached reports zero occupancy."""
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, 1.0, np.inf]}))
         fit = record["factors"]["elevation"]["fit"]
 
@@ -96,16 +96,15 @@ class TestDescribeBinning:
     def test_records_the_names_dataeval_gives_each_code(self):
         """Names travel with the record so an archived result re-renders identically.
 
-        Asked of DataEval rather than derived from the edges, because these are the strings
-        its own outputs use — `ParityOutput.insufficient_data` keys and `label=` axis
-        groups — and a second renderer would disagree with them.
+        They are the strings DataEval's own outputs use — `ParityOutput.insufficient_data`
+        keys and `label=` axis groups — and a second renderer would disagree with them.
         """
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}))
         assert record["factors"]["elevation"]["names"] == {"1": "< 0", "2": ">= 0"}
         assert record["factors"]["sensor"]["names"] == {"0": "a", "1": "b", "2": "c"}
 
     def test_names_cover_declared_bins_nothing_reached(self):
-        """An empty bin is a finding, and reporting one means naming it."""
+        """An empty bin is a finding, and the record names it."""
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, 1.0, np.inf]}))
         entry = record["factors"]["elevation"]
 
@@ -148,13 +147,12 @@ class TestDescribeBinning:
         assert json.loads(json.dumps(record)) == record
 
     def test_missing_companion_column_costs_the_fit_and_keeps_the_policy(self, monkeypatch: pytest.MonkeyPatch):
-        """An upstream rename costs the observation, not the decision.
+        """A rename of the private suffixes costs the fit, not the policy.
 
-        The suffixes are mirrored from a private module. They used to carry the record
-        itself, so a rename lost it; now only occupancy reads them, and the policy comes
-        from the public record.
+        The suffixes are mirrored from a private module. Occupancy reads them; the
+        policy comes from the public record.
         """
-        monkeypatch.setattr("dataeval_flow.binning._BINNED_SUFFIX", "~renamed~")
+        monkeypatch.setattr("dataeval_flow._binning._BINNED_SUFFIX", "~renamed~")
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": 4}))
         entry = record["factors"]["elevation"]
 
@@ -263,7 +261,7 @@ class TestEncodingDigest:
         assert meta.encoding_digest
 
     def test_splits_encoded_differently_stamp_nothing(self):
-        """There is no single encoding to name, and saying one would be a lie."""
+        """There is no single encoding to name."""
         meta = ResultMetadata()
         attach_binning(
             meta,
@@ -336,7 +334,7 @@ class TestCapturesLibraryWarnings:
         assert any("left bins unused" in m for m in messages), messages
 
     def test_survives_the_warn_once_registry(self):
-        """Two workflows through one call site must each be told, not just the first.
+        """Both workflows through one call site must be recorded.
 
         ``warnings.warn`` keys its bookkeeping on the frame ``stacklevel`` selects, and
         DataEval points that at its caller — this package. Without an "always" filter the
@@ -415,10 +413,9 @@ class TestAttributingWarnings:
 class TestGapMiAgreesWithBalance:
     """Gap analysis compares against `gap_mi_threshold`, so its MI must be Balance's.
 
-    A boolean `discrete_features` used to be able to imitate Balance. It cannot any more:
     `factor_source` decides per factor whether the codes or the measured values are read,
-    consulting the encoding record's provenance, and that is two estimators chosen per
-    column rather than one flag per column.
+    consulting the encoding record's provenance; that is two estimators chosen per
+    column.
     """
 
     @staticmethod
@@ -444,7 +441,7 @@ class TestGapMiAgreesWithBalance:
 
         from dataeval.bias import Balance
 
-        from dataeval_flow.workflows.coverage.workflow import _balance_class_to_factor
+        from dataeval_flow.workflows.data_coverage._workflow import _balance_class_to_factor
 
         md = self._metadata_with_signal()
 
@@ -465,7 +462,7 @@ class TestGapMiAgreesWithBalance:
         """The precomputed path and the computed path must agree, or reuse changes numbers."""
         import warnings
 
-        from dataeval_flow.workflows.coverage.workflow import _balance_class_to_factor, _mi_from_balance
+        from dataeval_flow.workflows.data_coverage._workflow import _balance_class_to_factor, _mi_from_balance
 
         md = self._metadata_with_signal()
         names = list(md.factor_names)
@@ -508,10 +505,10 @@ class TestEnvelopeRecordsInjection:
     """A reader must be able to tell a carried factor from a synthesised one."""
 
     def _record(self):
-        from dataeval_flow.binning import attach_binning
-        from dataeval_flow.config.schemas._metadata import ResultMetadata
-        from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow import ResultMetadata
+        from dataeval_flow._binning import attach_binning
+        from dataeval_flow._metadata import build_metadata
+        from dataeval_flow._policy import ResolvedPolicy
         from tests.test_metadata_injection import _ODDataset
 
         policy = ResolvedPolicy(
@@ -551,10 +548,10 @@ class TestEnvelopeRecordsInjection:
         assert "weather" not in injected  # carried by the dataset
 
     def test_a_run_without_injection_records_neither_key(self):
-        from dataeval_flow.binning import attach_binning
-        from dataeval_flow.config.schemas._metadata import ResultMetadata
-        from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow import ResultMetadata
+        from dataeval_flow._binning import attach_binning
+        from dataeval_flow._metadata import build_metadata
+        from dataeval_flow._policy import ResolvedPolicy
         from tests.test_metadata_injection import _ODDataset
 
         policy = ResolvedPolicy(continuous_factor_bins={"brightness": 4})
@@ -588,7 +585,7 @@ class TestEnvelopeRecordsInjection:
 
     def test_multi_split_records_expansion_and_injection_per_split(self):
         """`data-analysis` binds per split; each split's record must be its own, not shared."""
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
         from tests.test_metadata_injection import _ODDataset
 
         policy = ResolvedPolicy(
@@ -622,7 +619,7 @@ class TestInjectedFactorsCoverBandViews:
     def _policy(factors_from):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.VISUAL)),
@@ -637,7 +634,7 @@ class TestInjectedFactorsCoverBandViews:
 
     def test_band_factors_are_marked_as_injected(self, toy_multiband_dataset):
         """A band view's columns come from the policy, so the record has to name them."""
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy([None, "rgb"])
         result_metadata = ResultMetadata()
@@ -650,7 +647,7 @@ class TestInjectedFactorsCoverBandViews:
 
     def test_a_view_the_policy_does_not_read_is_not_marked(self, toy_multiband_dataset):
         """`factors_from` is the whole statement. A measured view it omits is not injected."""
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy([None])
         result_metadata = ResultMetadata()
@@ -665,9 +662,9 @@ class TestInjectedFactorsCoverBandViews:
 class _MixedDataset:
     """One classification item per index, with a column recorded two different ways.
 
-    A walk, not ``from_factors``: that constructor *refuses* a mixed column outright
-    (``reject_mixed_values``), so the held-back path only exists for metadata read off a
-    dataset — which is every real run.
+    The metadata comes from a walk because ``from_factors`` refuses a mixed column
+    (``reject_mixed_values``). The held-back path only exists for metadata read off a
+    dataset, which covers every real run.
     """
 
     def __init__(self, n: int = 20) -> None:
@@ -692,11 +689,10 @@ class _MixedDataset:
 
 
 class TestUnusableIsReportedBesideDropped:
-    """`dropped` says a factor could not be read. `unusable` says what it would take.
+    """`dropped` says a factor could not be read. `unusable` says what a repair needs.
 
-    Without it a reader sees `mixed_types` and has no next step: writing the repair needs
-    the counts and the distinct values as the dataset spelled them, which is exactly what
-    is held back.
+    A reader who sees `mixed_types` needs the counts and the distinct values as the
+    dataset spelled them to write the repair, and the held-back metadata holds both.
     """
 
     @staticmethod
@@ -704,7 +700,7 @@ class TestUnusableIsReportedBesideDropped:
         return Metadata(_MixedDataset())
 
     def test_the_column_is_held_back_rather_than_promoted(self):
-        """The premise. Were it promoted to text it would be an ordinary categorical and
+        """The premise: promoted to text the column would be an ordinary categorical, and
         there would be nothing to report."""
         md = self._mixed()
         assert "weight" not in md.factor_names
@@ -738,8 +734,8 @@ class TestUnusableIsReportedBesideDropped:
         json.dumps(describe_binning(self._mixed())["unusable"])
 
     def test_the_factor_summary_says_a_drop_can_be_repaired(self):
-        """The workflow-facing surface, not just the binning envelope: a reader looking at
-        a dropped factor there needs the same next step."""
+        """The workflow-facing surface carries the same repair information the binning
+        envelope does."""
         from dataeval_flow.workflows._common import compute_metadata_summary
 
         entry = compute_metadata_summary(self._mixed())["weight"]
@@ -747,8 +743,8 @@ class TestUnusableIsReportedBesideDropped:
         assert entry["repairable"] is True
 
     def test_an_unrepairable_drop_says_so(self):
-        """A vector-valued statistic has no single-column form however it is read, so
-        reporting it as repairable would send someone after a rule that cannot exist."""
+        """A vector-valued statistic has no single-column form however it is read, so it
+        is never repairable."""
         from dataeval_flow.workflows._common import compute_metadata_summary
 
         md = self._mixed()
@@ -759,22 +755,22 @@ class TestUnusableIsReportedBesideDropped:
 
 
 class TestADeclaredRepairReachesTheRun:
-    """The step that closes the loop: a correction declared in YAML is applied to the
-    metadata a workflow reads, and survives the cache."""
+    """A correction declared in YAML is applied to the metadata a workflow reads, and
+    survives the cache."""
 
     @staticmethod
     def _policy(*corrections):
-        from dataeval_flow.config._models import PipelineConfig
-        from dataeval_flow.policy import resolve_policy
-        from dataeval_flow.workflow.base import MetadataConfigMixin
+        from dataeval_flow import PipelineConfig
+        from dataeval_flow._policy import resolve_policy
+        from dataeval_flow.config import MetadataConfigMixin
 
         config = PipelineConfig.model_validate({"metadata": [{"name": "standard", "corrections": list(corrections)}]})
         return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
 
     def test_the_held_back_column_becomes_a_factor(self):
-        """`_MixedDataset` writes "absent" where no weight was taken, which is exactly the
-        sentinel `unusable` reports and a remap retires."""
-        from dataeval_flow.metadata import build_metadata
+        """`_MixedDataset` writes "absent" where no weight was taken: the sentinel
+        `unusable` reports and a remap retires."""
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
         md = build_metadata(_MixedDataset(), policy)
@@ -784,20 +780,20 @@ class TestADeclaredRepairReachesTheRun:
 
     def test_without_the_repair_it_stays_held_back(self):
         """The premise: the factor is absent until something says how to read it."""
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         assert "weight" not in build_metadata(_MixedDataset()).factor_names
 
     def test_the_repair_is_reported_as_declared(self):
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
         assert len(build_metadata(_MixedDataset(), policy).repairs) == 1
 
     def test_they_apply_in_the_order_declared(self):
-        """A rescale reading a column a remap has just made numeric only works one way
-        round, which is why the list is ordered rather than a mapping."""
-        from dataeval_flow.metadata import build_metadata
+        """A rescale reading a column a remap has just made numeric only works in one
+        order, so corrections are an ordered list."""
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy(
             {"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": 0.0}]},
@@ -813,7 +809,7 @@ class TestADeclaredRepairReachesTheRun:
         """Hit and miss have to agree, or the numbers change on the second run."""
         from dataeval import Metadata
 
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
         miss = build_metadata(_MixedDataset(), policy)
@@ -825,8 +821,8 @@ class TestADeclaredRepairReachesTheRun:
         assert hit.repairs == miss.repairs
 
     def test_the_binning_record_stops_calling_it_unusable(self):
-        """What the reader sees close: the factor moves out of `unusable` into `factors`."""
-        from dataeval_flow.metadata import build_metadata
+        """The factor moves out of `unusable` into `factors`."""
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"kind": "remap", "factor": "weight", "rules": [{"match": "absent", "to": -1.0}]})
         record = describe_binning(build_metadata(_MixedDataset(), policy))
@@ -843,8 +839,8 @@ class _Target:
 class _DetectionDataset:
     """Two levels, so a roll-up has somewhere to move a factor from and to.
 
-    Each detection carries its own `area`, which is what makes an instance-to-unit mean a
-    different number from the unit-level factor beside it.
+    Each detection carries its own `area`, making the instance-to-unit mean a different
+    number from the unit-level factor.
     """
 
     def __init__(self, n: int = 12) -> None:
@@ -875,17 +871,17 @@ class _DetectionDataset:
 class TestADeclaredRollUpReachesTheRun:
     @staticmethod
     def _policy(*aggs):
-        from dataeval_flow.config._models import PipelineConfig
-        from dataeval_flow.policy import resolve_policy
-        from dataeval_flow.workflow.base import MetadataConfigMixin
+        from dataeval_flow import PipelineConfig
+        from dataeval_flow._policy import resolve_policy
+        from dataeval_flow.config import MetadataConfigMixin
 
         config = PipelineConfig.model_validate({"metadata": [{"name": "standard", "aggregations": list(aggs)}]})
         return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
 
     def test_the_roll_up_produces_the_name_the_config_implies(self):
-        """The point of refusing collisions: the output name is derivable from what was
-        written, so `exclude` and bin declarations can bind to it."""
-        from dataeval_flow.metadata import build_metadata
+        """The output name is derivable from the declaration, so `exclude` and bin
+        declarations can bind to it."""
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"how": "mean", "source": "instance", "target": "unit", "factors": ["area"]})
         md = build_metadata(_DetectionDataset(), policy)
@@ -894,12 +890,12 @@ class TestADeclaredRollUpReachesTheRun:
         assert policy.aggregation_specs[0].name_for("area") == "area_mean"
 
     def test_without_the_declaration_no_rolled_factor_appears(self):
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         assert "area_mean" not in build_metadata(_DetectionDataset()).factor_names
 
     def test_a_suffix_names_the_output(self):
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy(
             {"how": "mean", "source": "instance", "target": "unit", "factors": ["area"], "suffix": "_avg"}
@@ -907,16 +903,16 @@ class TestADeclaredRollUpReachesTheRun:
         assert "area_avg" in build_metadata(_DetectionDataset(), policy).factor_names
 
     def test_the_copy_aggregate_returns_is_the_one_carried_forward(self):
-        """`aggregate` copies where `repair` mutates. Discarding the copy would leave the
-        roll-up computed and thrown away, with nothing to say so."""
-        from dataeval_flow.metadata import build_metadata
+        """`aggregate` copies where `repair` mutates. Discarding the copy leaves the
+        roll-up computed and thrown away."""
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"how": "count", "source": "instance", "target": "unit", "factors": ["area"]})
         md = build_metadata(_DetectionDataset(), policy)
         assert "area_count" in md.factor_names
 
     def test_the_rolled_factor_is_reported_in_the_binning_record(self):
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         policy = self._policy({"how": "mean", "source": "instance", "target": "unit", "factors": ["area"]})
         record = describe_binning(build_metadata(_DetectionDataset(), policy))
@@ -926,8 +922,7 @@ class TestADeclaredRollUpReachesTheRun:
 def test_a_distribution_survives_a_column_holding_nan():
     """`remap`-to-missing writes NaN, which polars does not treat as null.
 
-    Left in the column it poisons the extremes and the histogram arithmetic — so a run
-    corrected the way this record's own findings recommend crashed where the first run passed.
+    Left in the column it poisons the extremes and the histogram arithmetic.
     """
     md = Metadata.from_factors({"alt": np.array([1.0, 2.0, np.nan, 4.0] * 15), "x": np.arange(60)})
     record = describe_binning(md)

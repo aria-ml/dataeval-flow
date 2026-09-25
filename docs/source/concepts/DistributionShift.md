@@ -1,11 +1,10 @@
 # Distribution Shift
 
-A model is trained on one distribution and deployed into a world that does not
-hold still. Sensors degrade, seasons change, target populations evolve — and as
-the data a model sees in operation diverges from the data it was trained on, its
-performance degrades. **Distribution shift** is the gap between the training
-distribution and the operational one, and detecting it is a core part of keeping a
-fielded model trustworthy.
+A model is trained on one distribution and deployed into a changing one. Sensors
+degrade, seasons change, target populations evolve — and as the data a model sees
+in operation diverges from the data it was trained on, its performance degrades.
+**Distribution shift** is the gap between the training distribution and the operational
+one, and detecting it is a core part of keeping a fielded model trustworthy.
 
 DataEval Flow frames shift detection as workflows over a reference and the data
 under test, and addresses it at two complementary levels:
@@ -32,9 +31,9 @@ and concept shift are DataEval's. They are explained authoritatively in DataEval
 Begin drift monitoring as soon as a model enters operation; every batch it
 processes is a candidate for monitoring. Use OOD detection during data ingestion,
 to flag anomalous samples before they reach a model, and in operation, to flag
-individual predictions whose inputs fall outside the training distribution. Reach
-for classwise drift when aggregate monitoring hides a problem concentrated in a
-few classes.
+individual predictions whose inputs fall outside the training distribution. Use
+classwise drift when aggregate monitoring hides a problem concentrated in a few
+classes.
 
 ## Related concept pages
 

@@ -23,9 +23,9 @@ from fontTools import subset
 SOURCE = pathlib.Path("/usr/share/fonts/truetype/dejavu")
 OUT = pathlib.Path(__file__).parent / "source" / "_static" / "fonts"
 
-#: Everything the report renderers can emit, plus the block each character sits in so a new
-#: glyph from the same block needs no rebuild.  `src/dataeval_flow/workflow/_text_report.py`
-#: and the triage report are the writers; keep this in step with them.
+# Everything the report renderers can emit, plus the block each character sits in so a new
+# glyph from the same block needs no rebuild.  `src/dataeval_flow/_text_report.py`
+# and the triage report are the writers; keep this in step with them.
 RANGES = ",".join(  # noqa: FLY002
     [
         "U+0020-007E",  # ASCII

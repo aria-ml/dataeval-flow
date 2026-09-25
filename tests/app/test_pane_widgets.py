@@ -447,7 +447,8 @@ class TestResultPaneCoverage:
             mock_result.metadata.model_id = None
             mock_result.metadata.preprocessor_id = None
             mock_result.metadata.source_descriptions = []
-            mock_result.data.report = None
+            mock_result.output.report.findings = []
+            mock_result.output.report.summary = ""
             mock_result.to_dict.return_value = {}
             mock_result.report.return_value = ""
             app._vm.mark_task_completed("t1", mock_result)

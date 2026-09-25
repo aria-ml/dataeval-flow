@@ -124,8 +124,7 @@ docker run --gpus all \
 ## Pulling pre-built images
 
 Pre-built, cosign-signed images are published to Harbor for every merge to
-`main` and every release tag. Pull one of these instead of building from source
-if you don't need to modify the code.
+`main` and every release tag. Pull one of these if you don't need to modify the code.
 
 **Release channel** — `latest-<variant>` points at the newest stable release. It
 is a retag of a version tag, not a separate build, so it carries that release's
@@ -346,7 +345,7 @@ DataEval Flow has four modes:
 | `dataeval-flow encoding`  | Write the metadata encoding descriptor a result was computed under  |
 | `dataeval-flow workflows` | List the available workflow types, or print one's parameter schema  |
 
-`dataeval-flow --version` reports the installed build — useful for pinning down
+`dataeval-flow --version` reports the installed build — useful for identifying
 which image produced a result.
 
 ### Headless execution
@@ -561,9 +560,10 @@ python -m dataeval_flow --data /path/to/data --output /path/to/output
 from pathlib import Path
 from dataeval_flow import load_config, run_tasks
 
-config = load_config(Path("/path/to/data/config.yaml"))
-results = run_tasks(config, data_dir=Path("/path/to/data"))
-print(results[0].report())
+config = load_config(Path("/path/to/data/config.yaml"))  # a file, or a folder of config files
+results = run_tasks(config, data_dir=Path("/path/to/data"))  # keyed by task name
+for name, result in results.items():
+    print(result.report())
 ```
 
 **Development:**

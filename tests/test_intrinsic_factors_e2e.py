@@ -1,9 +1,8 @@
 """Per-workflow reachability of policy-declared intrinsic factors.
 
-The bar these set is the one D4 cleared: flow's own tests passed through the whole life of
-the defect, because each half worked and nothing asserted that a policy's declaration
-reached a given workflow's result.  So each assertion here runs a real workflow over a real
-dataset and reads the envelope a user would read.
+Flow's own tests passed through the whole life of the D4 defect: each half worked, and
+nothing asserted that a policy's declaration reached a workflow's result. Each test here
+runs a real workflow over a real dataset and reads the envelope a user would read.
 """
 
 import pytest
@@ -24,19 +23,17 @@ _PARAMS = {
 
 
 def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0), cache=None):
-    """Execute *workflow_type* over *dataset* under a policy, returning its ResultMetadata.
+    """Run *workflow_type* over *dataset* under a policy, returning its ResultMetadata.
 
-    Goes through ``WorkflowContext`` + ``execute`` rather than the orchestrator, which is
-    how every other workflow test in this suite runs a workflow.  The policy is placed on
-    the context directly, standing in for the stamping the orchestrator does — the workflow
-    reads it through ``policy_for`` either way.
+    Goes through ``WorkflowContext`` + ``run``, the same path every other workflow test in
+    this suite uses. The policy is placed on the context directly, standing in for the
+    orchestrator's stamping; the workflow reads it through ``policy_for`` either way.
     """
-    from dataeval_flow.policy import ResolvedPolicy
-    from dataeval_flow.workflow import DatasetContext, WorkflowContext, get_workflow
+    from dataeval_flow._policy import ResolvedPolicy
+    from dataeval_flow.workflows import DatasetContext, WorkflowContext, get_workflow
 
-    workflow = get_workflow(workflow_type)
-    assert workflow.params_schema
-    params = workflow.params_schema(**_PARAMS[workflow_type])
+    workflow = get_workflow(workflow_type)()
+    params = workflow.config_type(**_PARAMS[workflow_type])
 
     context = WorkflowContext(
         dataset_contexts={
@@ -44,7 +41,7 @@ def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0
         },
         metadata_policy=ResolvedPolicy(value_range=value_range, **policy_fields),
     )
-    result = workflow.execute(context, params)
+    result = workflow.run(params, context)
     assert result.success, f"{workflow_type} failed: {result}"
     return result.metadata
 
@@ -52,10 +49,9 @@ def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0
 def _binning(result_metadata, split: str = "default") -> dict:
     """The binning record, whichever envelope shape the workflow reports.
 
-    `data-analysis` is the one multi-split workflow of the three, so it reports a record
-    per split; cleaning and coverage report one dataset's record flat.  Unwrapping here
-    rather than asserting only the flat shape is what makes the parametrisation honest —
-    the point is that every workflow carries the record, not that they carry it alike.
+    `data-analysis` is the one multi-split workflow of the three; it reports a record per
+    split. Cleaning and coverage report one dataset's record flat. Unwrapping here makes
+    the parametrisation assert record presence for every workflow.
     """
     record = result_metadata.metadata_binning
     per_split = record.get("per_split")
@@ -119,13 +115,13 @@ def test_a_misspelled_factor_stays_unmatched(workflow_type):
 def test_no_statistic_is_computed_twice(monkeypatch, tmp_path):
     """The Cost section's promise, which nothing else checks.
 
-    Measured with a cache active and on the flags themselves, not on a call count: the
-    claim is that a workflow computing statistics anyway pays for one pass over each
-    statistic, and `load_or_compute_stats` is entitled to a second *call* for the metrics
-    the first did not cover.  What it may not do is compute the same metric twice.
+    Measured with a cache active, on the flags themselves, not on a call count. A workflow
+    computing statistics anyway pays for one pass over each statistic; `load_or_compute_stats`
+    may make a second *call* for metrics the first did not cover. It may not compute the
+    same metric twice.
     """
-    from dataeval_flow import cache as cache_module
-    from dataeval_flow.cache import DatasetCache
+    from dataeval_flow import _cache as cache_module
+    from dataeval_flow._cache import DatasetCache
 
     calls = []
     original = cache_module._do_compute_stats
@@ -157,8 +153,8 @@ def test_injection_and_no_injection_do_not_share_a_cache_entry():
 def test_value_range_keys_the_metadata_cache():
     """Two ranges produce different injected values, so they must not share an entry.
 
-    Asserted on the values rather than on `policy_key`'s output: a key string that differs
-    proves the mechanism, not that the mechanism is wired to the cache.
+    Asserted on the values, not on `policy_key`'s output: a differing key string proves the
+    mechanism, not that the mechanism is wired to the cache.
     """
     policy_fields = {"intrinsic_factors": ("visual",), "continuous_factor_bins": {"brightness": 4}}
     unit = _run("data-cleaning", _ICDataset(), policy_fields, value_range=(0.0, 1.0))

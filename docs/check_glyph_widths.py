@@ -22,7 +22,7 @@ from __future__ import annotations
 import sys
 import unicodedata
 
-#: Drawn this many times per row.  Wide enough that a half-cell error is unmistakable.
+# Drawn this many times per row.  Wide enough that a half-cell error is unmistakable.
 RUN = 24
 
 GROUPS: list[tuple[str, str]] = [

@@ -26,7 +26,7 @@
 # **Workflow role**: You should run drift monitoring during operational deployment.
 # Drift monitoring tracks distribution shifts over time that can degrade model
 # performance. See [Distribution shift](../concepts/DistributionShift.md) for
-# background on drift detection, [Detect out-of-distribution samples](ood_detection),
+# background on drift detection, {doc}`Detect out-of-distribution samples <ood_detection>`,
 # and [Detect classwise drift](classwise_drift).
 
 # %% [markdown]
@@ -160,14 +160,14 @@ plt.show()
 # uniform keypoint extraction density.
 
 # %%
+from dataeval_flow import PipelineConfig
 from dataeval_flow.config import (
-    BoVWExtractorConfig,
     CocoDatasetConfig,
-    PipelineConfig,
+    PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
 )
-from dataeval_flow.preprocessing import PreprocessingStep
+from dataeval_flow.config.extractors import BoVWExtractorConfig
 
 preprocessor_config = PreprocessorConfig(
     name="sonar",
@@ -208,17 +208,18 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # operational frames yields windows that align with chronological collection campaigns.
 
 # %%
-from dataeval_flow.config import DriftMonitoringTaskConfig, DriftMonitoringWorkflowConfig
-from dataeval_flow.workflow import run_task
-from dataeval_flow.workflows.drift.params import (
+from dataeval_flow import run_task
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.drift_monitoring import (
     ChunkingConfig,
     DriftDetectorKNeighbors,
     DriftDetectorMMD,
     DriftDetectorUnivariate,
-    DriftHealthThresholds,
+    DriftMonitoringConfig,
+    DriftMonitoringHealthThresholds,
 )
 
-drift_task = DriftMonitoringTaskConfig(
+drift_task = TaskConfig(
     name="milco-drift-overall",
     workflow="milco-drift",
     sources=["ref_src", "ops_src"],
@@ -234,14 +235,14 @@ config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        DriftMonitoringWorkflowConfig(
+        DriftMonitoringConfig(
             name="milco-drift",
             detectors=[
                 DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
                 DriftDetectorMMD(n_permutations=100, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
                 DriftDetectorUnivariate(test="cvm"),  # non-chunked overall test
             ],
-            health_thresholds=DriftHealthThresholds(
+            health_thresholds=DriftMonitoringHealthThresholds(
                 chunk_drift_pct_warning=15.0,  # warn if >15% of chunks drift
                 consecutive_chunks_warning=2,  # warn on 2+ consecutive drifted chunks
             ),
@@ -296,7 +297,7 @@ print(result.report())
 # %%
 from dataeval_flow.config import ViewConfig, ViewOperation
 
-control_task = DriftMonitoringTaskConfig(
+control_task = TaskConfig(
     name="milco-drift-control",
     workflow="milco-drift-control",
     sources=["y2015_src", "y2017_2021_src"],
@@ -321,7 +322,7 @@ control_config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        DriftMonitoringWorkflowConfig(
+        DriftMonitoringConfig(
             name="milco-drift-control",
             # No chunking: 141 incoming frames forms a single window to test baseline variation.
             detectors=[
@@ -365,14 +366,14 @@ print(control_result.report())
 # %% [markdown]
 # ### Inspect chunk-level details programmatically
 #
-# You can query per-detector and per-chunk metrics directly from `result.data.raw`:
+# You can query per-detector and per-chunk metrics directly from `result.output.raw`:
 
 # %%
 import polars as pl
 
 pl.Config.set_tbl_hide_dataframe_shape(True)
 
-raw = result.data.raw
+raw = result.output.raw
 print(f"Reference size: {raw.reference_size}")
 print(f"Test size:      {raw.test_size}")
 print()

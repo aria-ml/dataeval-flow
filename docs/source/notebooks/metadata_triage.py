@@ -24,8 +24,8 @@
 # dataset metadata before computing coverage, drift, or bias metrics.
 #
 # **Workflow role**: You should run triage before downstream evaluation workflows.
-# Downstream workflows such as [Analyze dataset quality across splits](data_analysis),
-# [Assess dataset coverage](data_coverage), and [Split a dataset](dataset_splitting)
+# Downstream workflows such as {doc}`Analyze dataset quality across splits <data_analysis>`,
+# {doc}`Assess dataset coverage <data_coverage>`, and [Split a dataset](dataset_splitting)
 # silently drop unparseable metadata columns, mixed-type fields, or high-cardinality
 # values without raising errors. Triage surfaces these issues so you can configure
 # remediations.
@@ -88,25 +88,16 @@ print(f"{len(seadrone)} images")
 # You should use a shuffled sample of 200 frames to represent multiple capture sequences across flights.
 
 # %%
-from dataeval_flow.config import (
-    DatasetProtocolConfig,
-    PipelineConfig,
-    SourceConfig,
-    ViewConfig,
-    ViewOperation,
-)
-from dataeval_flow.config.schemas import (
-    MetadataTriageTaskConfig,
-    MetadataTriageWorkflowConfig,
-)
-from dataeval_flow.workflow import run_task
+from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig, ViewConfig, ViewOperation
+from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
-triage_workflow = MetadataTriageWorkflowConfig(
+triage_workflow = MetadataTriageConfig(
     name="triage",
     max_examples=6,  # distinct values shown per column in the report
 )
 
-task = MetadataTriageTaskConfig(
+task = TaskConfig(
     name="triage_seadrone",
     workflow="triage",
     sources="seadrone_val",
@@ -168,10 +159,10 @@ print(result.report())
 # `latitude` contains the string `'N'`. Because automated triage cannot determine what `'N'` represents,
 # it generates a remap rule with a `null` target and sets `complete=False`.
 #
-# You can inspect individual findings in `result.data.raw.findings`:
+# You can inspect individual findings in `result.output.raw.findings`:
 
 # %%
-latitude = next(f for f in result.data.raw.findings if f.factor == "latitude")
+latitude = next(f for f in result.output.raw.findings if f.factor == "latitude")
 
 print("category :", latitude.category)
 print("severity :", latitude.severity)
@@ -222,7 +213,7 @@ print("runnable :", latitude.suggestion.complete)
 # You can inspect this policy directly.
 
 # %%
-print(result.data.raw.suggested_policy_yaml)
+print(result.output.raw.suggested_policy_yaml)
 
 # %% [markdown]
 # You can review the suggested policy sections:
@@ -254,7 +245,7 @@ print(result.data.raw.suggested_policy_yaml)
 # You can now apply the policy to your pipeline configuration and re-run the task.
 
 # %%
-from dataeval_flow.config.schemas import MetadataPolicyConfig
+from dataeval_flow.config import MetadataPolicyConfig
 
 policy = MetadataPolicyConfig.model_validate(
     {
@@ -272,7 +263,7 @@ policy = MetadataPolicyConfig.model_validate(
         ],
         # Exclude object identifier
         "exclude": ["object_id"],
-        "continuous_factor_bins": result.data.raw.suggested_policy["continuous_factor_bins"],
+        "continuous_factor_bins": result.output.raw.suggested_policy["continuous_factor_bins"],
     }
 )
 
@@ -286,8 +277,8 @@ result2 = run_task(task, corrected)
 print(f"success={result2.success}  health={result2.health['status']}")
 
 # %%
-before = result.data.raw
-after = result2.data.raw
+before = result.output.raw
+after = result2.output.raw
 print(f"factors : {before.factor_count} -> {after.factor_count}")
 print(f"findings: {len(before.findings)} -> {len(after.findings)}")
 print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
@@ -376,8 +367,8 @@ print(f"JSON output: {len(json_str)} characters")
 # %% [markdown]
 # ## Next steps
 #
-# - [Analyze dataset quality across splits](data_analysis): Evaluate factors across dataset splits.
-# - [Assess dataset coverage](data_coverage): Measure representation across factor combinations.
+# - {doc}`Analyze dataset quality across splits <data_analysis>`: Evaluate factors across dataset splits.
+# - {doc}`Assess dataset coverage <data_coverage>`: Measure representation across factor combinations.
 # - [Run a full evaluation pipeline end to end](end_to_end): Execute complete evaluation pipelines.
 
 # %% [markdown]

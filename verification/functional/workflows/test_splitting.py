@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.config.schemas import DataSplittingTaskConfig, DataSplittingWorkflowConfig
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 
 pytestmark = pytest.mark.required
 
@@ -28,7 +29,7 @@ class TestDataSplittingWorkflow:
             n_per_class=8,
             include_extractor=False,
             workflows=[
-                DataSplittingWorkflowConfig(
+                DataSplittingConfig(
                     name="split_main",
                     type="data-splitting",
                     test_frac=0.25,
@@ -38,20 +39,20 @@ class TestDataSplittingWorkflow:
                 ),
             ],
             tasks=[
-                DataSplittingTaskConfig(
+                TaskConfig(
                     name="split_task",
                     workflow="split_main",
                     sources="main",
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["split_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
         # Typed output check: splits (folds + test set) exposed on the data payload
-        raw = result.data.raw
+        raw = result.output.raw
         assert len(raw.folds) > 0
         fold = raw.folds[0]
         assert len(fold.train_indices) > 0

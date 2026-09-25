@@ -24,7 +24,7 @@
 #
 # **Workflow role**: You should run data cleaning as the initial stage of preparing
 # an operational dataset. You can flag and remove outliers and duplicates before
-# [Split a dataset](dataset_splitting), [Monitor incoming data for drift](drift_monitoring),
+# [Split a dataset](dataset_splitting), {doc}`Monitor incoming data for drift <drift_monitoring>`,
 # or model training. See [Data quality and cleaning](../concepts/DataQualityAndCleaning.md)
 # for detection concepts.
 
@@ -103,25 +103,23 @@ data_path = Path("./data/skysealand_datamaite_base")
 # %%
 from dataeval.config import set_max_processes
 
+from dataeval_flow import PipelineConfig, run_task
 from dataeval_flow.config import (
-    BoVWExtractorConfig,
     CocoDatasetConfig,
-    DataCleaningTaskConfig,
-    DataCleaningWorkflowConfig,
-    PipelineConfig,
     SourceConfig,
+    TaskConfig,
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.workflow import run_task
-from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
+from dataeval_flow.config.extractors import BoVWExtractorConfig
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningHealthThresholds
 
 # Each worker decodes its own images, so peak memory is roughly workers x batch x image
 # size. Four keeps a 300-frame pass comfortable on a 16 GB machine; raise it if you have
 # the headroom.
 set_max_processes(4)
 
-advisory_workflow = DataCleaningWorkflowConfig(
+advisory_workflow = DataCleaningConfig(
     name="skysealand_advisory_clean",
     mode="advisory",
     outlier_method="adaptive",  # Use adaptive thresholding for outliers
@@ -143,7 +141,7 @@ advisory_workflow = DataCleaningWorkflowConfig(
     ),
 )
 
-task = DataCleaningTaskConfig(
+task = TaskConfig(
     name="skysealand_clean",
     workflow="skysealand_advisory_clean",
     sources="skysealand_src",
@@ -216,7 +214,7 @@ print(result.report())
 # To apply stricter thresholds, specify tighter tolerances:
 #
 # ```python
-# from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
+# from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
 #
 # strict = DataCleaningHealthThresholds(
 #     exact_duplicates=0.0,
@@ -245,7 +243,7 @@ ds = result.dataset
 # entropy, or dimensions) and display a sample.
 
 # %%
-raw = result.data.raw
+raw = result.output.raw
 
 # Collect unique outlier image indices, grouped by image
 outlier_issues = raw.img_outliers["issues"]
@@ -312,7 +310,7 @@ prep_workflow = advisory_workflow.model_copy(
     update={"name": "skysealand_prep_clean", "mode": "preparatory"},
 )
 
-task_prep = DataCleaningTaskConfig(
+task_prep = TaskConfig(
     name="skysealand-clean-prep",
     workflow="skysealand_prep_clean",
     sources="skysealand_src",

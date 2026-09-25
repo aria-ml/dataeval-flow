@@ -110,8 +110,8 @@ def _tc_status(tests: list[dict]) -> str:
         return "failed"
     if statuses == {"skipped"}:
         return "skipped"
-    # One xfail keeps the whole case off a clean pass, so a known gap cannot be
-    # laundered out of the VCRM by the passing tests sitting next to it.
+    # One xfail keeps the whole case off a clean pass, so a known gap is not
+    # hidden in the VCRM by the passing tests beside it.
     if "xfailed" in statuses:
         return "xfailed"
     return "passed"
@@ -218,17 +218,12 @@ def synthetic_pipeline_config(tmp_path: Path) -> tuple[object, Path]:
     The fixture writes a tiny synthetic ImageFolder to ``tmp_path/imgs`` and
     composes a single ``data-cleaning`` task referencing it.  Field names follow
     the actual pydantic schemas (``datasets``/``sources``/``workflows``/``tasks``
-    as lists of named items) rather than the dict-of-config shape sketched in
-    the plan.
+    as lists of named items).
     """
-    from dataeval_flow import (
-        DataCleaningWorkflowConfig,
-        FlattenExtractorConfig,
-        ImageFolderDatasetConfig,
-        PipelineConfig,
-        SourceConfig,
-        TaskConfig,
-    )
+    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config.extractors import FlattenExtractorConfig
+    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
     from verification.fixtures import write_image_folder
 
     write_image_folder(tmp_path / "imgs", n_per_class=4, n_classes=2)
@@ -248,7 +243,7 @@ def synthetic_pipeline_config(tmp_path: Path) -> tuple[object, Path]:
             FlattenExtractorConfig(name="flat", model="flatten"),
         ],
         workflows=[
-            DataCleaningWorkflowConfig(
+            DataCleaningConfig(
                 name="clean_main",
                 type="data-cleaning",
                 outlier_method="zscore",
@@ -282,13 +277,9 @@ def image_folder_pipeline_builder(
     """
     from collections.abc import Iterable, Sequence
 
-    from dataeval_flow import (
-        FlattenExtractorConfig,
-        ImageFolderDatasetConfig,
-        PipelineConfig,
-        SourceConfig,
-        TaskConfig,
-    )
+    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config.extractors import FlattenExtractorConfig
     from verification.fixtures import write_image_folder
 
     def _build(

@@ -106,18 +106,11 @@ print(f"Reading from {data_path}")
 # metadata rather than embeddings.
 
 # %%
-from dataeval_flow.config import (
-    HuggingFaceDatasetConfig,
-    PipelineConfig,
-    SourceConfig,
-)
-from dataeval_flow.config.schemas import (
-    DataSplittingTaskConfig,
-    DataSplittingWorkflowConfig,
-)
-from dataeval_flow.workflow import run_task
+from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow.config import HuggingFaceDatasetConfig, SourceConfig, TaskConfig
+from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 
-workflow = DataSplittingWorkflowConfig(
+workflow = DataSplittingConfig(
     name="mv_split",
     test_frac=0.2,  # 20% of full dataset held out for test
     val_frac=0.0,  # Must be 0 when num_folds > 1; validation is 1/num_folds
@@ -125,7 +118,7 @@ workflow = DataSplittingWorkflowConfig(
     stratify=True,  # Preserve class distribution in each partition
 )
 
-task = DataSplittingTaskConfig(
+task = TaskConfig(
     name="split_military_vehicles",
     workflow="mv_split",
     sources="mv_src",
@@ -183,11 +176,11 @@ print(result.report())
 # %% [markdown]
 # ### Split indices
 #
-# You can retrieve raw split index lists from `result.data.raw` to build filtered
+# You can retrieve raw split index lists from `result.output.raw` to build filtered
 # datasets for training or evaluation.
 
 # %%
-raw = result.data.raw
+raw = result.output.raw
 
 print(f"Dataset size: {raw.dataset_size}")
 print(f"Test indices: {len(raw.test_indices)}")

@@ -10,25 +10,25 @@ import polars as pl
 import pytest
 from numpy.typing import NDArray
 
-from dataeval_flow.workflow import DatasetContext, WorkflowContext, WorkflowResult
-from dataeval_flow.workflows.drift.outputs import (
-    ChunkResultDict,
-    DetectorResultDict,
-    DriftMonitoringMetadata,
-    DriftMonitoringOutputs,
-    DriftMonitoringRawOutputs,
-    DriftMonitoringReport,
-    is_drift_result,
-)
-from dataeval_flow.workflows.drift.params import (
+from dataeval_flow._orchestrator import _run_target
+from dataeval_flow.workflows import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.drift_monitoring import (
     DriftDetectorDomainClassifier,
     DriftDetectorKNeighbors,
     DriftDetectorMMD,
     DriftDetectorUnivariate,
-    DriftMonitoringParameters,
-)
-from dataeval_flow.workflows.drift.workflow import (
+    DriftMonitoringConfig,
     DriftMonitoringWorkflow,
+)
+from dataeval_flow.workflows.drift_monitoring._outputs import (
+    ChunkResultDict,
+    DetectorResultDict,
+    DriftMonitoringMetadata,
+    DriftMonitoringOutput,
+    DriftMonitoringRawOutput,
+    DriftMonitoringReport,
+)
+from dataeval_flow.workflows.drift_monitoring._workflow import (
     _build_detector,
     _detector_display_name,
     _extract_labels,
@@ -45,13 +45,13 @@ pytestmark = pytest.mark.required
 # ---------------------------------------------------------------------------
 
 
-def _make_params(**overrides: object) -> DriftMonitoringParameters:
-    """Build DriftMonitoringParameters with minimal defaults for testing."""
+def _make_params(**overrides: object) -> DriftMonitoringConfig:
+    """Build DriftMonitoringConfig with minimal defaults for testing."""
     defaults: dict[str, object] = {
         "detectors": [{"method": "univariate"}],
     }
     defaults.update(overrides)
-    return DriftMonitoringParameters.model_validate(defaults)
+    return DriftMonitoringConfig.model_validate(defaults)
 
 
 def _make_embeddings(n: int, d: int = 10, seed: int = 42) -> NDArray[np.float32]:
@@ -368,16 +368,16 @@ class TestRunClasswiseDrift:
 
 class TestGetEmbeddingsForContext:
     def test_raises_without_extractor(self):
-        from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.drift_monitoring._workflow import _get_embeddings_for_context
 
         dc = DatasetContext(name="test", dataset=MagicMock(), extractor=None)
         with pytest.raises(ValueError, match="requires a model/extractor"):
             _get_embeddings_for_context(dc, MagicMock())
 
-    @patch("dataeval_flow.workflows.drift.workflow.get_or_compute_embeddings")
-    @patch("dataeval_flow.workflows.drift.workflow.selection_repr", return_value="sel:all")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow.selection_repr", return_value="sel:all")
     def test_calls_get_or_compute(self, mock_sel: MagicMock, mock_emb: MagicMock):
-        from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.drift_monitoring._workflow import _get_embeddings_for_context
 
         expected = _make_embeddings(10)
         mock_emb.return_value = expected
@@ -398,8 +398,8 @@ class TestGetEmbeddingsForContext:
 
 
 class TestDriftWorkflowExecuteEdgeCases:
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
-    @patch("dataeval_flow.workflows.drift.workflow._extract_labels")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._extract_labels")
     def test_classwise_skipped_when_no_labels(self, mock_labels: MagicMock, mock_get_emb: MagicMock):
         """Cover the 'labels not available' warning branch."""
         mock_get_emb.side_effect = [_make_embeddings(100, seed=1), _make_embeddings(50, seed=2)]
@@ -414,11 +414,11 @@ class TestDriftWorkflowExecuteEdgeCases:
             }
         )
         params = _make_params(detectors=[{"method": "univariate", "classwise": True}])
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
         assert result.success
-        assert result.data.raw.classwise is None
+        assert result.output.raw.classwise is None
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_exception_in_run_returns_error_result(self, mock_get_emb: MagicMock):
         """Cover the top-level except in execute()."""
         mock_get_emb.side_effect = RuntimeError("unexpected")
@@ -431,7 +431,7 @@ class TestDriftWorkflowExecuteEdgeCases:
                 "test": DatasetContext(name="test", dataset=ds, extractor=MagicMock(), batch_size=32),  # type: ignore[call-arg]
             }
         )
-        result = wf.execute(ctx, _make_params())
+        result = _run_target(wf, _make_params(), ctx)
         assert not result.success
         assert "unexpected" in result.errors[0]
 
@@ -441,9 +441,9 @@ class TestDriftWorkflowExecuteEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestDriftMonitoringOutputs:
+class TestDriftMonitoringOutput:
     def test_raw_defaults(self):
-        raw = DriftMonitoringRawOutputs(dataset_size=0)
+        raw = DriftMonitoringRawOutput(dataset_size=0)
         assert raw.reference_size == 0
         assert raw.test_size == 0
         assert raw.detectors == {}
@@ -456,24 +456,8 @@ class TestDriftMonitoringOutputs:
         assert meta.classwise_enabled is False
         assert meta.mode == "advisory"
 
-    def test_is_drift_result_guard(self):
-        meta = DriftMonitoringMetadata()
-        data = DriftMonitoringOutputs(
-            raw=DriftMonitoringRawOutputs(dataset_size=0),
-            report=DriftMonitoringReport(summary="test", findings=[]),
-        )
-        result = WorkflowResult(name="drift-monitoring", success=True, data=data, metadata=meta)
-        assert is_drift_result(result)
-
-    def test_is_drift_result_false_for_other(self):
-        from dataeval_flow.workflows.cleaning.outputs import DataCleaningMetadata
-
-        meta = DataCleaningMetadata()
-        result = WorkflowResult(name="data-cleaning", success=True, data=MagicMock(), metadata=meta)
-        assert not is_drift_result(result)
-
     def test_json_serialization(self):
-        raw = DriftMonitoringRawOutputs(
+        raw = DriftMonitoringRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -482,7 +466,7 @@ class TestDriftMonitoringOutputs:
             },
         )
         report = DriftMonitoringReport(summary="test", findings=[])
-        outputs = DriftMonitoringOutputs(raw=raw, report=report)
+        outputs = DriftMonitoringOutput(raw=raw, report=report)
         data = outputs.model_dump(mode="json")
         assert data["raw"]["reference_size"] == 200
         assert data["raw"]["detectors"]["univariate"]["drifted"] is True
@@ -520,36 +504,19 @@ class TestDriftMonitoringWorkflowExecute:
     def test_properties(self):
         wf = self._make_workflow()
         assert wf.name == "drift-monitoring"
-        assert wf.params_schema is DriftMonitoringParameters
-        assert wf.output_schema is DriftMonitoringOutputs
+        assert wf.config_type is DriftMonitoringConfig
         assert "drift" in wf.description.lower()
-
-    def test_rejects_non_workflow_context(self):
-        wf = self._make_workflow()
-        result = wf.execute("not_a_context", _make_params())  # type: ignore[arg-type]
-        assert not result.success
-        assert "WorkflowContext" in result.errors[0]
-
-    def test_rejects_none_params(self):
-        wf = self._make_workflow()
-        result = wf.execute(self._make_context(), None)
-        assert not result.success
-        assert "required" in result.errors[0].lower()
 
     def test_rejects_wrong_params_type(self):
         wf = self._make_workflow()
-        result = wf.execute(self._make_context(), MagicMock(spec=[]))
+        result = _run_target(wf, MagicMock(spec=[]), self._make_context())
         assert not result.success
-        assert "DriftMonitoringParameters" in result.errors[0]
+        assert "DriftMonitoringConfig" in result.errors[0]
 
-    def test_rejects_single_dataset(self):
-        wf = self._make_workflow()
-        ctx = self._make_context(n_datasets=1)
-        result = wf.execute(ctx, _make_params())
-        assert not result.success
-        assert "at least 2" in result.errors[0]
+    # A single-source task is refused when the config loads (see test_workflow_inputs.py);
+    # the workflow itself no longer guards against it.
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_successful_execution(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -558,17 +525,17 @@ class TestDriftMonitoringWorkflowExecute:
         wf = self._make_workflow()
         ctx = self._make_context(n_datasets=2)
         params = _make_params(detectors=[{"method": "univariate", "test": "ks"}])
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert isinstance(result.data, DriftMonitoringOutputs)
-        assert result.data.raw.reference_size == 100
-        assert result.data.raw.test_size == 50
-        assert "univariate" in result.data.raw.detectors
+        assert isinstance(result.output, DriftMonitoringOutput)
+        assert result.output.raw.reference_size == 100
+        assert result.output.raw.test_size == 50
+        assert "univariate" in result.output.raw.detectors
         assert isinstance(result.metadata, DriftMonitoringMetadata)
         assert result.metadata.detectors_used == ["univariate"]
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_multiple_test_datasets_concatenated(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb1 = _make_embeddings(30, seed=2)
@@ -577,13 +544,13 @@ class TestDriftMonitoringWorkflowExecute:
 
         wf = self._make_workflow()
         ctx = self._make_context(n_datasets=3)
-        result = wf.execute(ctx, _make_params())
+        result = wf.run(_make_params(), ctx)
 
         assert result.success
-        assert result.data.raw.reference_size == 100
-        assert result.data.raw.test_size == 50  # 30 + 20
+        assert result.output.raw.reference_size == 100
+        assert result.output.raw.test_size == 50  # 30 + 20
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_chunked_execution(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(200, seed=1)
         test_emb = _make_embeddings(100, seed=2)
@@ -594,16 +561,16 @@ class TestDriftMonitoringWorkflowExecute:
         params = _make_params(
             detectors=[{"method": "univariate", "chunking": {"chunk_size": 25}}],
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
         assert result.metadata.chunking_enabled is True
-        det_result = result.data.raw.detectors["univariate"]
+        det_result = result.output.raw.detectors["univariate"]
         assert "chunks" in det_result
         assert len(det_result["chunks"]) == 4  # type: ignore[reportTypedDictNotRequiredAccess]  # 100 / 25
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
-    @patch("dataeval_flow.workflows.drift.workflow._extract_labels")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._extract_labels")
     def test_classwise_execution(self, mock_labels: MagicMock, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -618,14 +585,14 @@ class TestDriftMonitoringWorkflowExecute:
         params = _make_params(
             detectors=[{"method": "kneighbors", "k": 5, "classwise": True}],
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
         assert result.metadata.classwise_enabled is True
-        assert result.data.raw.classwise is not None
-        assert len(result.data.raw.classwise) == 1
+        assert result.output.raw.classwise is not None
+        assert len(result.output.raw.classwise) == 1
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_detector_error_isolation(self, mock_get_emb: MagicMock):
         """One detector failing should not prevent others from running."""
         ref_emb = _make_embeddings(100, seed=1)
@@ -643,7 +610,7 @@ class TestDriftMonitoringWorkflowExecute:
             ]
         )
 
-        with patch("dataeval_flow.workflows.drift.workflow._build_detector") as mock_build:
+        with patch("dataeval_flow.workflows.drift_monitoring._workflow._build_detector") as mock_build:
             good_detector = MagicMock()
             good_detector.fit.return_value = good_detector
             from dataeval.shift import DriftOutput
@@ -661,15 +628,15 @@ class TestDriftMonitoringWorkflowExecute:
 
             mock_build.side_effect = [bad_detector, good_detector]
 
-            result = wf.execute(ctx, params)
+            result = wf.run(params, ctx)
 
         assert result.success
         # One detector failed, one succeeded
-        assert len(result.data.raw.detectors) == 1
+        assert len(result.output.raw.detectors) == 1
         assert result.errors is not None
         assert len(result.errors) == 1
 
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_update_strategy_logged_but_ignored(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2)
@@ -681,16 +648,10 @@ class TestDriftMonitoringWorkflowExecute:
             detectors=[{"method": "univariate"}],
             update_strategy={"type": "last_seen", "n": 500},
         )
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
         assert result.success  # should succeed despite stubbed strategy
 
-    def test_empty_outputs(self):
-        wf = self._make_workflow()
-        outputs = wf._empty_outputs()
-        assert outputs.raw.dataset_size == 0
-        assert outputs.report.summary == "Workflow failed"
-
-    @patch("dataeval_flow.workflows.drift.workflow._get_embeddings_for_context")
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     def test_summary_line(self, mock_get_emb: MagicMock):
         ref_emb = _make_embeddings(100, seed=1)
         test_emb = _make_embeddings(50, seed=2) + 5.0  # large shift
@@ -699,11 +660,11 @@ class TestDriftMonitoringWorkflowExecute:
         wf = self._make_workflow()
         ctx = self._make_context()
         params = _make_params(detectors=[{"method": "univariate"}])
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
 
         assert result.success
-        assert "Reference: 100" in result.data.report.summary
-        assert "Test: 50" in result.data.report.summary
+        assert "Reference: 100" in result.output.report.summary
+        assert "Test: 50" in result.output.report.summary
 
 
 # ---------------------------------------------------------------------------
@@ -713,19 +674,19 @@ class TestDriftMonitoringWorkflowExecute:
 
 class TestWorkflowRegistration:
     def test_get_workflow_returns_drift(self):
-        from dataeval_flow.workflow import get_workflow
+        from dataeval_flow.workflows import get_workflow
 
         wf = get_workflow("drift-monitoring")
         assert wf.name == "drift-monitoring"
 
     def test_list_workflows_includes_drift(self):
-        from dataeval_flow.workflow import list_workflows
+        from dataeval_flow.workflows import list_workflows
 
-        names = [w["name"] for w in list_workflows()]
+        names = [w.name for w in list_workflows()]
         assert "drift-monitoring" in names
 
     def test_unknown_workflow_raises(self):
-        from dataeval_flow.workflow import get_workflow
+        from dataeval_flow.workflows import get_workflow
 
         with pytest.raises(ValueError, match="Unknown workflow"):
             get_workflow("nonexistent")
@@ -772,7 +733,7 @@ class TestRunClasswiseDriftBranches:
         ref_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
         test_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
 
-        with patch("dataeval_flow.workflows.drift.workflow._build_detector") as mock_build:
+        with patch("dataeval_flow.workflows.drift_monitoring._workflow._build_detector") as mock_build:
             mock_det = MagicMock()
             mock_det.predict.return_value = MagicMock(drifted=False, distance=0.1, details={"p_val": 0.5})
             mock_build.return_value = mock_det
@@ -804,7 +765,9 @@ class TestRunClasswiseDriftBranches:
                 det.predict.return_value = MagicMock(drifted=False, distance=0.1, details={"p_val": 0.5})
             return det
 
-        with patch("dataeval_flow.workflows.drift.workflow._build_detector", side_effect=mock_build_side_effect):
+        with patch(
+            "dataeval_flow.workflows.drift_monitoring._workflow._build_detector", side_effect=mock_build_side_effect
+        ):
             results = _run_classwise_drift(ref_emb, test_emb, ref_labels, test_labels, params, {"mmd": "MMD"})
 
         # One class failed, one succeeded — should still have 1 row
@@ -819,7 +782,7 @@ class TestRunClasswiseDriftBranches:
         ref_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
         test_labels = np.array([0] * 10 + [1] * 10, dtype=np.intp)
 
-        with patch("dataeval_flow.workflows.drift.workflow._build_detector") as mock_build:
+        with patch("dataeval_flow.workflows.drift_monitoring._workflow._build_detector") as mock_build:
             mock_det = MagicMock()
             mock_det.predict.return_value = MagicMock(drifted=True, distance=0.8, details={"p_val": 0.002})
             mock_build.return_value = mock_det
@@ -838,15 +801,18 @@ class TestRunClasswiseDriftBranches:
 class TestGetEmbeddingsWithCache:
     def test_cache_context_entered(self):
         """Line 220: active_cache context manager is entered when cache is present."""
-        from dataeval_flow.workflows.drift.workflow import _get_embeddings_for_context
+        from dataeval_flow.workflows.drift_monitoring._workflow import _get_embeddings_for_context
 
         ds = MagicMock()
         dc = DatasetContext(name="ref", dataset=ds, extractor=MagicMock(), cache=MagicMock())
 
         with (
-            patch("dataeval_flow.workflows.drift.workflow.selection_repr", return_value="sel_all"),
-            patch("dataeval_flow.workflows.drift.workflow.active_cache") as mock_active,
-            patch("dataeval_flow.workflows.drift.workflow.get_or_compute_embeddings", return_value=np.zeros((5, 3))),
+            patch("dataeval_flow.workflows.drift_monitoring._workflow.selection_repr", return_value="sel_all"),
+            patch("dataeval_flow.workflows.drift_monitoring._workflow.active_cache") as mock_active,
+            patch(
+                "dataeval_flow.workflows.drift_monitoring._workflow.get_or_compute_embeddings",
+                return_value=np.zeros((5, 3)),
+            ),
         ):
             mock_active.return_value.__enter__ = MagicMock()
             mock_active.return_value.__exit__ = MagicMock(return_value=False)
@@ -861,9 +827,9 @@ class TestGetEmbeddingsWithCache:
 
 
 class TestDriftExecuteSelections:
-    @patch("dataeval_flow.view.build_view")
+    @patch("dataeval_flow._view.build_view")
     def test_selection_applied_to_ref_and_test(self, mock_build_sel):
-        """Lines 737, 744: build_selection called for ref and test datasets."""
+        """Lines 737, 744: build_view called for ref and test datasets."""
         mock_build_sel.side_effect = lambda ds, _steps: ds  # passthrough
 
         wf = DriftMonitoringWorkflow()
@@ -901,10 +867,10 @@ class TestDriftExecuteSelections:
                     [],
                 ),
             ),
-            patch("dataeval_flow.workflows.drift.workflow._run_all_detectors", return_value=({}, {}, [])),
-            patch("dataeval_flow.workflows.drift.workflow._handle_classwise", return_value=[]),
+            patch("dataeval_flow.workflows.drift_monitoring._workflow._run_all_detectors", return_value=({}, {}, [])),
+            patch("dataeval_flow.workflows.drift_monitoring._workflow._handle_classwise", return_value=[]),
         ):
-            result = wf.execute(ctx, params)
+            result = wf.run(params, ctx)
 
         assert result.success
         assert mock_build_sel.call_count == 2

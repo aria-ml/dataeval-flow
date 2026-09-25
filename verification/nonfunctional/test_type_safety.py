@@ -23,8 +23,8 @@ class TestTypeSafety:
         assert isinstance(dataeval_flow.__all__, list)
         assert len(dataeval_flow.__all__) > 0
 
-    def test_workflow_protocol_runtime_checkable(self) -> None:
-        from dataeval_flow.workflow import WorkflowProtocol, get_workflow
+    def test_get_workflow_returns_a_workflow_subclass(self) -> None:
+        from dataeval_flow.workflows import Workflow, get_workflow
 
         wf = get_workflow("data-cleaning")
-        assert isinstance(wf, WorkflowProtocol)
+        assert issubclass(wf, Workflow)

@@ -2,9 +2,9 @@
 
 import pytest
 
-from dataeval_flow.workflows.ood.outputs import FactorDeviationDict, OODDetectionRawOutputs, OODSampleDict
-from dataeval_flow.workflows.ood.params import OODHealthThresholds
-from dataeval_flow.workflows.ood.report import (
+from dataeval_flow.workflows.ood_detection import OODDetectionHealthThresholds
+from dataeval_flow.workflows.ood_detection._outputs import FactorDeviationDict, OODDetectionRawOutput, OODSampleDict
+from dataeval_flow.workflows.ood_detection._report import (
     _build_aggregate_finding,
     _build_detector_finding,
     _build_factor_deviations_finding,
@@ -26,27 +26,27 @@ pytestmark = pytest.mark.required
 
 class TestSeverityForOOD:
     def test_above_warning_threshold(self):
-        t = OODHealthThresholds(ood_pct_warning=10.0, ood_pct_info=1.0)
+        t = OODDetectionHealthThresholds(ood_pct_warning=10.0, ood_pct_info=1.0)
         assert _severity_for_ood(15.0, t) == "warning"
 
     def test_between_info_and_warning(self):
-        t = OODHealthThresholds(ood_pct_warning=10.0, ood_pct_info=1.0)
+        t = OODDetectionHealthThresholds(ood_pct_warning=10.0, ood_pct_info=1.0)
         assert _severity_for_ood(5.0, t) == "info"
 
     def test_below_info_threshold(self):
-        t = OODHealthThresholds(ood_pct_warning=10.0, ood_pct_info=1.0)
+        t = OODDetectionHealthThresholds(ood_pct_warning=10.0, ood_pct_info=1.0)
         assert _severity_for_ood(0.5, t) == "ok"
 
     def test_zero_ood(self):
-        t = OODHealthThresholds()
+        t = OODDetectionHealthThresholds()
         assert _severity_for_ood(0.0, t) == "ok"
 
     def test_exactly_at_warning(self):
-        t = OODHealthThresholds(ood_pct_warning=10.0)
+        t = OODDetectionHealthThresholds(ood_pct_warning=10.0)
         assert _severity_for_ood(10.0, t) == "warning"
 
     def test_exactly_at_info(self):
-        t = OODHealthThresholds(ood_pct_info=1.0)
+        t = OODDetectionHealthThresholds(ood_pct_info=1.0)
         assert _severity_for_ood(1.0, t) == "info"
 
 
@@ -58,7 +58,7 @@ class TestSeverityForOOD:
 class TestBuildDetectorFinding:
     def test_ood_finding(self):
         result = _make_detector_result(ood_count=15, total_count=100)
-        t = OODHealthThresholds()
+        t = OODDetectionHealthThresholds()
         finding = _build_detector_finding("K-Neighbors", result, t)
 
         assert finding.title == "K-Neighbors"
@@ -69,7 +69,7 @@ class TestBuildDetectorFinding:
 
     def test_no_ood_finding(self):
         result = _make_detector_result(ood_count=0, total_count=100)
-        t = OODHealthThresholds()
+        t = OODDetectionHealthThresholds()
         finding = _build_detector_finding("K-Neighbors", result, t)
 
         assert finding.severity == "ok"
@@ -86,7 +86,7 @@ class TestBuildDetectorFinding:
                 OODSampleDict(index=4, score=0.9, is_ood=True),
             ],
         )
-        t = OODHealthThresholds()
+        t = OODDetectionHealthThresholds()
         finding = _build_detector_finding("K-Neighbors", result, t)
         assert isinstance(finding.data, dict)
         assert len(finding.data["detail_lines"]) > 0
@@ -216,7 +216,7 @@ class TestBuildAggregateFinding:
     def test_basic(self):
         mutual_ood = {0, 1, 2}
         normalized_scores = {0: 2.0, 1: 1.5, 2: 1.2}
-        thresholds = OODHealthThresholds(ood_pct_warning=5.0)
+        thresholds = OODDetectionHealthThresholds(ood_pct_warning=5.0)
         finding = _build_aggregate_finding(mutual_ood, normalized_scores, 5, 100, thresholds)
         assert finding.title == "Aggregate OOD (all detectors agree)"
         assert finding.severity == "info"  # 3% between 1% info and 5% warning
@@ -229,7 +229,7 @@ class TestBuildAggregateFinding:
     def test_warning_severity(self):
         mutual_ood = {0, 1}
         normalized_scores = {0: 2.0, 1: 1.5}
-        thresholds = OODHealthThresholds(ood_pct_warning=1.0)
+        thresholds = OODDetectionHealthThresholds(ood_pct_warning=1.0)
         finding = _build_aggregate_finding(mutual_ood, normalized_scores, 2, 10, thresholds)
         assert finding.severity == "warning"  # 20% > 1%
 
@@ -263,7 +263,7 @@ class TestBuildUniqueOODFinding:
 
 class TestBuildFindings:
     def test_basic_findings(self):
-        raw = OODDetectionRawOutputs(
+        raw = OODDetectionRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -281,7 +281,7 @@ class TestBuildFindings:
         assert any(f.title == "K-Neighbors" for f in findings)
 
     def test_with_metadata_insights(self):
-        raw = OODDetectionRawOutputs(
+        raw = OODDetectionRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -300,7 +300,7 @@ class TestBuildFindings:
         assert len(findings) == 3
 
     def test_no_ood_no_samples_finding(self):
-        raw = OODDetectionRawOutputs(
+        raw = OODDetectionRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -316,7 +316,7 @@ class TestBuildFindings:
 
     def test_multi_detector_includes_aggregate_and_unique(self):
         """Multi-detector should produce aggregate + unique findings."""
-        raw = OODDetectionRawOutputs(
+        raw = OODDetectionRawOutput(
             dataset_size=400,
             reference_size=200,
             test_size=200,
@@ -358,7 +358,7 @@ class TestBuildFindings:
 
     def test_multi_detector_no_unique_omits_finding(self):
         """When all OOD samples are mutual, unique finding is omitted."""
-        raw = OODDetectionRawOutputs(
+        raw = OODDetectionRawOutput(
             dataset_size=400,
             reference_size=200,
             test_size=200,

@@ -205,7 +205,7 @@ green pipeline and approval before merging.
 2. **Update CHANGELOG.md** as part of the MR when shipping user-visible changes
 3. **Write clear MR descriptions** — they are the canonical record of the change
 4. **Run `nox` locally** before pushing to catch issues fast
-5. **Test thoroughly** — the 90% coverage gate is a floor, not a target
+5. **Test thoroughly** — the 90% coverage gate is a floor
 
 ### For Maintainers
 

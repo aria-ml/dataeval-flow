@@ -1,21 +1,11 @@
 """Metadata triage workflow."""
 
 __all__ = [
-    "MetadataTriageMetadata",
-    "MetadataTriageOutputs",
-    "MetadataTriageParameters",
-    "MetadataTriageRawOutputs",
-    "MetadataTriageReport",
+    "MetadataTriageConfig",
+    "MetadataTriageResult",
     "MetadataTriageWorkflow",
-    "VerificationEntry",
 ]
 
-from dataeval_flow.workflows.metadata_triage.outputs import (
-    MetadataTriageMetadata,
-    MetadataTriageOutputs,
-    MetadataTriageRawOutputs,
-    MetadataTriageReport,
-    VerificationEntry,
-)
-from dataeval_flow.workflows.metadata_triage.params import MetadataTriageParameters
-from dataeval_flow.workflows.metadata_triage.workflow import MetadataTriageWorkflow
+from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
+from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageResult
+from dataeval_flow.workflows.metadata_triage._workflow import MetadataTriageWorkflow

@@ -188,7 +188,7 @@ class TestMain:
 
         with (
             patch.object(sys, "argv", ["prog", "--output", "/out"]),
-            patch("dataeval_flow.runner.run", return_value=0) as mock_run,
+            patch("dataeval_flow._runner.run", return_value=0) as mock_run,
             pytest.raises(SystemExit, match="0"),
         ):
             main()
@@ -199,7 +199,7 @@ class TestMain:
 
         with (
             patch.object(sys, "argv", ["prog", "--output", "/out"]),
-            patch("dataeval_flow.runner.run", side_effect=FileNotFoundError("not found")),
+            patch("dataeval_flow._runner.run", side_effect=FileNotFoundError("not found")),
             pytest.raises(SystemExit, match="1"),
         ):
             main()

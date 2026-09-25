@@ -3,14 +3,14 @@
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow.workflows.drift.params import (
+from dataeval_flow.workflows.drift_monitoring import (
     ChunkingConfig,
     DriftDetectorDomainClassifier,
     DriftDetectorKNeighbors,
     DriftDetectorMMD,
     DriftDetectorUnivariate,
-    DriftHealthThresholds,
-    DriftMonitoringParameters,
+    DriftMonitoringConfig,
+    DriftMonitoringHealthThresholds,
     UpdateStrategyConfig,
 )
 
@@ -157,29 +157,29 @@ class TestDriftDetectorKNeighbors:
 
 class TestDriftDetectorConfigUnion:
     def test_univariate_dispatched(self):
-        params = DriftMonitoringParameters.model_validate({"detectors": [{"method": "univariate", "test": "cvm"}]})
+        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "univariate", "test": "cvm"}]})
         assert isinstance(params.detectors[0], DriftDetectorUnivariate)
         assert params.detectors[0].test == "cvm"
 
     def test_mmd_dispatched(self):
-        params = DriftMonitoringParameters.model_validate({"detectors": [{"method": "mmd", "n_permutations": 50}]})
+        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "mmd", "n_permutations": 50}]})
         assert isinstance(params.detectors[0], DriftDetectorMMD)
         assert params.detectors[0].n_permutations == 50
 
     def test_domain_classifier_dispatched(self):
-        params = DriftMonitoringParameters.model_validate(
+        params = DriftMonitoringConfig.model_validate(
             {"detectors": [{"method": "domain_classifier", "threshold": 0.6}]}
         )
         assert isinstance(params.detectors[0], DriftDetectorDomainClassifier)
         assert params.detectors[0].threshold == 0.6
 
     def test_kneighbors_dispatched(self):
-        params = DriftMonitoringParameters.model_validate({"detectors": [{"method": "kneighbors", "k": 20}]})
+        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "kneighbors", "k": 20}]})
         assert isinstance(params.detectors[0], DriftDetectorKNeighbors)
         assert params.detectors[0].k == 20
 
     def test_multiple_detectors(self):
-        params = DriftMonitoringParameters.model_validate(
+        params = DriftMonitoringConfig.model_validate(
             {
                 "detectors": [
                     {"method": "univariate"},
@@ -200,15 +200,15 @@ class TestDriftDetectorConfigUnion:
 
     def test_invalid_method_rejected(self):
         with pytest.raises(ValidationError, match="method"):
-            DriftMonitoringParameters.model_validate({"detectors": [{"method": "invalid_method"}]})
+            DriftMonitoringConfig.model_validate({"detectors": [{"method": "invalid_method"}]})
 
     def test_wrong_params_for_method_rejected(self):
         with pytest.raises(ValidationError):
-            DriftMonitoringParameters.model_validate({"detectors": [{"method": "univariate", "k": 10}]})
+            DriftMonitoringConfig.model_validate({"detectors": [{"method": "univariate", "k": 10}]})
 
     def test_empty_detectors_rejected(self):
         with pytest.raises(ValidationError, match="detectors"):
-            DriftMonitoringParameters.model_validate({"detectors": []})
+            DriftMonitoringConfig.model_validate({"detectors": []})
 
 
 # ---------------------------------------------------------------------------
@@ -276,20 +276,20 @@ class TestUpdateStrategyConfig:
 
 
 # ---------------------------------------------------------------------------
-# DriftHealthThresholds
+# DriftMonitoringHealthThresholds
 # ---------------------------------------------------------------------------
 
 
-class TestDriftHealthThresholds:
+class TestDriftMonitoringHealthThresholds:
     def test_defaults(self):
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         assert t.any_drift_is_warning is True
         assert t.chunk_drift_pct_warning == 10.0
         assert t.consecutive_chunks_warning == 3
         assert t.classwise_any_drift_is_warning is True
 
     def test_custom_values(self):
-        t = DriftHealthThresholds(
+        t = DriftMonitoringHealthThresholds(
             any_drift_is_warning=False,
             chunk_drift_pct_warning=25.0,
             consecutive_chunks_warning=5,
@@ -300,23 +300,23 @@ class TestDriftHealthThresholds:
 
     def test_chunk_pct_bounds(self):
         with pytest.raises(ValidationError):
-            DriftHealthThresholds(chunk_drift_pct_warning=-1.0)
+            DriftMonitoringHealthThresholds(chunk_drift_pct_warning=-1.0)
         with pytest.raises(ValidationError):
-            DriftHealthThresholds(chunk_drift_pct_warning=101.0)
+            DriftMonitoringHealthThresholds(chunk_drift_pct_warning=101.0)
 
     def test_consecutive_minimum(self):
         with pytest.raises(ValidationError):
-            DriftHealthThresholds(consecutive_chunks_warning=0)
+            DriftMonitoringHealthThresholds(consecutive_chunks_warning=0)
 
 
 # ---------------------------------------------------------------------------
-# DriftMonitoringParameters (top-level)
+# DriftMonitoringConfig (top-level)
 # ---------------------------------------------------------------------------
 
 
-class TestDriftMonitoringParameters:
+class TestDriftMonitoringConfig:
     def test_minimal_valid(self):
-        params = DriftMonitoringParameters.model_validate({"detectors": [{"method": "mmd"}]})
+        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "mmd"}]})
         assert len(params.detectors) == 1
         assert params.detectors[0].chunking is None
         assert params.detectors[0].classwise is False
@@ -324,7 +324,7 @@ class TestDriftMonitoringParameters:
         assert params.mode == "advisory"
 
     def test_full_config(self):
-        params = DriftMonitoringParameters.model_validate(
+        params = DriftMonitoringConfig.model_validate(
             {
                 "mode": "preparatory",
                 "detectors": [
@@ -356,8 +356,8 @@ class TestDriftMonitoringParameters:
 
     def test_no_detectors_fails(self):
         with pytest.raises(ValidationError):
-            DriftMonitoringParameters.model_validate({"detectors": []})
+            DriftMonitoringConfig.model_validate({"detectors": []})
 
     def test_defaults_for_optional_fields(self):
-        params = DriftMonitoringParameters.model_validate({"detectors": [{"method": "kneighbors"}]})
-        assert isinstance(params.health_thresholds, DriftHealthThresholds)
+        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "kneighbors"}]})
+        assert isinstance(params.health_thresholds, DriftMonitoringHealthThresholds)

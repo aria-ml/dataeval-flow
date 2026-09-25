@@ -1,5 +1,11 @@
-"""Parameter Sweep Workflow — analyze cleaning result sensitivity."""
+"""Parameter sweep workflow — analyze cleaning result sensitivity."""
 
-__all__ = ["ParameterSweepWorkflow"]
+__all__ = [
+    "ParameterSweepConfig",
+    "ParameterSweepResult",
+    "ParameterSweepWorkflow",
+]
 
-from dataeval_flow.workflows.parameter_sweep.workflow import ParameterSweepWorkflow
+from dataeval_flow.workflows.parameter_sweep._config import ParameterSweepConfig
+from dataeval_flow.workflows.parameter_sweep._outputs import ParameterSweepResult
+from dataeval_flow.workflows.parameter_sweep._workflow import ParameterSweepWorkflow

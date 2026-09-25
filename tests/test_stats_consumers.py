@@ -4,14 +4,16 @@ Every test here is an invariant that fails on the release before this change: a 
 or a second workflow over one source widened what each consumer read.
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 from dataeval.flags import ImageStats
 
-from dataeval_flow.cache import DatasetCache, active_cache, get_or_compute_stats
-from dataeval_flow.stats import ResolvedStatsPolicy, columns_for, restrict_columns
+from dataeval_flow._cache import DatasetCache, active_cache, get_or_compute_stats
+from dataeval_flow._stats import ResolvedStatsPolicy, columns_for, restrict_columns
 
-# `toy_images` and `toy_multiband_dataset` come from `tests/conftest.py` (Task 5).
+# `toy_images` and `toy_multiband_dataset` come from `tests/conftest.py`.
 
 
 def _in_fresh_cache(work):
@@ -35,9 +37,9 @@ def _in_warmed_cache(warm, work):
         return widened, work()
 
 
-#: `duplicate_flags` spellings, keyed by the flags they resolve to. `_run_cleaning` takes
-#: the config spelling; the tests reason in flags.
-_DUPLICATE_FLAG_NAMES = {
+# `duplicate_flags` spellings, keyed by the flags they resolve to. `_run_cleaning` takes
+# the config spelling; the tests reason in flags.
+_DUPLICATE_FLAG_NAMES: dict[ImageStats, list[Literal["hash_basic", "hash_d4"]]] = {
     ImageStats.HASH_XXHASH: ["hash_basic"],
     ImageStats.HASH_DUPLICATES_D4: ["hash_d4"],
 }
@@ -46,9 +48,9 @@ _DUPLICATE_FLAG_NAMES = {
 def _duplicate_group_counts(outputs):
     """Return (exact, near) group counts from a cleaning run's raw outputs.
 
-    `DataCleaningRawOutputs.duplicates` is a plain `{"items": {...}, "targets": {...}}`
+    `DataCleaningRawOutput.duplicates` is a plain `{"items": {...}, "targets": {...}}`
     dict (see `_serialize_duplicates` in `workflows/cleaning/outputs.py`), not an object
-    carrying `.items.exact` — hence the dict indexing here rather than attribute access.
+    with `.items.exact`. Hence the dict indexing here.
     """
     items = outputs.duplicates["items"]
     return len(items.get("exact") or []), len(items.get("near") or [])
@@ -59,27 +61,26 @@ class TestOutlierColumnsAreDeclared:
     """What flags an outlier is what `outlier_flags` and `outliers_from` name.
 
     The cold/warm tests and `test_only_the_declared_families_flag` run `_run_cleaning`,
-    the production call site this task fixes, with `context=None` — the derived-policy
-    path a config with no `stats:` block takes, which is the case the regression this
-    task fixes was measured on. `test_a_band_group_does_not_flag_unless_outliers_from_names_it`
-    and `test_background_fraction_does_not_flag_by_default`, below, are different: they
-    assert on `restrict_columns` directly and do not exercise a workflow.
+    the production call site, with `context=None` — the derived-policy path a config with
+    no `stats:` block takes. The regression was measured there.
+    `test_a_band_group_does_not_flag_unless_outliers_from_names_it` and
+    `test_background_fraction_does_not_flag_by_default` assert on `restrict_columns`
+    directly and do not exercise a workflow.
     """
 
     def _params(self):
         """`outlier_flags: [visual]`, no `stats:` policy named."""
-        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
-        return DataCleaningParameters(
-            name="c",  # type: ignore[call-arg]
-            type="data-cleaning",  # type: ignore[call-arg]
+        return DataCleaningConfig(
+            name="c",
             outlier_method="modzscore",
             outlier_flags=["visual"],
         )
 
     def _issues(self, dataset):
         """Run outlier detection exactly as `_run_cleaning` does."""
-        from dataeval_flow.workflows.cleaning.workflow import _run_cleaning
+        from dataeval_flow.workflows.data_cleaning._workflow import _run_cleaning
 
         raw = _run_cleaning(dataset, self._params(), context=None)
         return raw.img_outliers["issues"]
@@ -143,12 +144,12 @@ class TestDuplicateColumnsAreDeclared:
         """A dataset holding one exact duplicate pair and one near-duplicate pair.
 
         The near pair is a 90-degree rotation of one base image, not a small pixel-value
-        tweak. A tweak (tried first; see the task report) is absorbed identically by every
-        hash family regardless of restriction, so cold and warm always agree for the wrong
-        reason. A rotation genuinely separates the families: `phash`/`dhash` (regular) do
-        not recognize a rotated image as similar, while `phash_d4`/`dhash_d4`
-        (rotation/flip-invariant) do — so which family a config restricts to changes the
-        answer, which is exactly what this class needs to catch a defect.
+        tweak. A tweak is absorbed identically by every hash family regardless of
+        restriction, so cold and warm always agree for the wrong reason. A rotation
+        separates the families: `phash`/`dhash` (regular) do not recognize a rotated image
+        as similar, while `phash_d4`/`dhash_d4` (rotation/flip-invariant) do. Which family
+        a config restricts to changes the answer, which is what this class needs to catch
+        a defect.
         """
         rng = np.random.default_rng(1)
 
@@ -171,18 +172,18 @@ class TestDuplicateColumnsAreDeclared:
         """Run the duplicate path through production code.
 
         Call `_run_cleaning`, not a local reimplementation of the filter. A helper that
-        calls `restrict_columns` itself tests Task 3's machinery and passes whether or not
-        the workflow was ever fixed — that defect reached review once on Task 6 already.
+        calls `restrict_columns` itself tests the machinery only, and passes whether or
+        not the workflow was fixed; that defect reached review once already.
 
-        `context=None` is deliberate: it exercises the derived-policy path, which is what a
-        config with no `stats:` block does, and that is the case this regression is about.
+        `context=None` is deliberate: it exercises the derived-policy path, which is what
+        a config with no `stats:` block does, and that is the case this regression is
+        about.
         """
-        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
-        from dataeval_flow.workflows.cleaning.workflow import _run_cleaning
+        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+        from dataeval_flow.workflows.data_cleaning._workflow import _run_cleaning
 
-        params = DataCleaningParameters(
-            name="c",  # type: ignore[call-arg]
-            type="data-cleaning",  # type: ignore[call-arg]
+        params = DataCleaningConfig(
+            name="c",
             outlier_method="modzscore",
             outlier_flags=["visual"],
             duplicate_flags=_DUPLICATE_FLAG_NAMES[duplicate_flags],
@@ -193,9 +194,9 @@ class TestDuplicateColumnsAreDeclared:
     def test_a_warm_cache_finds_the_same_groups_as_a_cold_one(self, paired_images):
         """Same config, different cache state, same answer.
 
-        Warm the entry through the same scope `_run_cleaning` uses, or the two calls land in
-        different entries and this proves nothing. Assert the widening actually happened
-        before trusting the comparison.
+        Warm the entry through the same scope `_run_cleaning` uses, or the two calls land
+        in different entries and the comparison proves nothing. Assert the widening
+        happened before trusting the comparison.
         """
 
         def warm():
@@ -219,32 +220,31 @@ class TestDuplicateColumnsAreDeclared:
 class TestAnalysisDuplicateColumnsAreDeclared:
     """The analysis workflow's duplicate-side entry points restrict too.
 
-    `_assess_redundancy` restricts to `columns_for([None], ImageStats.HASH)` — already the
-    full hash family superset, since the analysis workflow always asks for every hash family
-    (there is no per-config `duplicate_flags` knob here). That makes the restriction a
-    no-op for `_assess_redundancy`'s own near/exact group counts: nothing can widen a cache
-    entry past the ceiling it already requested, and `Duplicates.from_stats` only ever reads
-    the five hash columns by bare name, ignoring anything else regardless of restriction. A
-    cold/warm group-count comparison through `_assess_redundancy` alone cannot fail at HEAD;
-    see the task report for the empirical check.
+    `_assess_redundancy` restricts to `columns_for([None], ImageStats.HASH)`, already the
+    full hash family superset: the analysis workflow always asks for every hash family, and
+    there is no per-config `duplicate_flags` knob here. The restriction is a no-op for
+    `_assess_redundancy`'s own near/exact group counts. Nothing can widen a cache entry
+    past the ceiling it already requested, and `Duplicates.from_stats` only reads the five
+    hash columns by bare name. A cold/warm group-count comparison through
+    `_assess_redundancy` alone cannot fail at HEAD; the task report records the empirical
+    check.
 
     `_assess_cross_redundancy` is where the defect is real: it combines two stats results
     before detecting, and `dataeval`'s combine step refuses two results computed over
-    different statistics. Two splits share one dataset but not necessarily one cache scope,
-    so nothing stops an unrelated consumer from widening one split's entry with a family the
-    other split's entry never got — at which point the unrestricted call raises instead of
-    running, and restricting both operands to the same declared set is what keeps them
-    combinable regardless of what else shares either scope.
+    different statistics. Two splits share one dataset but not necessarily one cache
+    scope, so an unrelated consumer can widen one split's entry with a family the other
+    split's entry never got. The unrestricted call then raises instead of running.
+    Restricting both operands to the same declared set keeps them combinable regardless of
+    what else shares either scope.
 
-    Two tests below cover this, one per operand: each widens only *one* split's scope and
-    leaves the other untouched, so each is sensitive to a revert of exactly one of the two
-    `restrict_columns` calls in `_assess_cross_redundancy` and blind to a revert of the
-    other. A single test that widened both splits together would not tell the two calls
-    apart — reverting either one alone could still pass it.
+    The two tests below cover one operand each: each widens only *one* split's scope, so
+    each is sensitive to a revert of exactly one of the two `restrict_columns` calls in
+    `_assess_cross_redundancy` and blind to a revert of the other. A test that widened both
+    splits together would not tell the two calls apart.
     """
 
     def _leakage(self, calc_a, calc_b):
-        from dataeval_flow.workflows.analysis.workflow import _assess_cross_redundancy
+        from dataeval_flow.workflows.data_analysis._workflow import _assess_cross_redundancy
 
         result = _assess_cross_redundancy(calc_a, calc_b, "train", "test")
         return result.duplicate_leakage["exact_count"], result.duplicate_leakage["near_count"]
@@ -252,7 +252,7 @@ class TestAnalysisDuplicateColumnsAreDeclared:
     def _calc_pair(self, dataset):
         """A fresh (calc_a, calc_b) pair, each computed under its own scope.
 
-        `toy_images` stands in for both splits under different `sel_key`s — the point is
+        `toy_images` stands in for both splits under different `sel_key`s. The point is
         column-set consistency between the two calc results, not realistic cross-split
         duplicate content.
         """
@@ -304,7 +304,7 @@ class TestFactorColumnsAreDeclared:
     """The injected factor set is what `intrinsic_factors` and `factors_from` name."""
 
     def _factors(self, dataset, policy):
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         return sorted(build_metadata(dataset, policy).factor_names)
 
@@ -316,7 +316,7 @@ class TestFactorColumnsAreDeclared:
         )
 
     def test_a_warm_cache_injects_the_same_factors_as_a_cold_one(self, toy_images):
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._policy import ResolvedPolicy
 
         policy = ResolvedPolicy(intrinsic_factors=("visual",))
         cold = _in_fresh_cache(lambda: self._factors(toy_images, policy))
@@ -325,14 +325,14 @@ class TestFactorColumnsAreDeclared:
         assert cold == warm
 
     def test_only_the_declared_family_is_injected(self, toy_images):
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._policy import ResolvedPolicy
 
         factors = _in_fresh_cache(lambda: self._factors(toy_images, ResolvedPolicy(intrinsic_factors=("visual",))))
         assert "mean" not in factors
         assert "brightness" in factors
 
     def test_a_band_group_is_injected_only_when_factors_from_names_it(self, toy_multiband_dataset):
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._policy import ResolvedPolicy
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
@@ -344,7 +344,7 @@ class TestFactorColumnsAreDeclared:
         assert not any(name.endswith("ir_brightness") for name in factors)
 
     def test_naming_the_group_injects_it(self, toy_multiband_dataset):
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._policy import ResolvedPolicy
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),

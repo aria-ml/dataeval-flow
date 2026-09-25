@@ -1,7 +1,8 @@
 """Variant registry, section constants, cross-reference overlays, and field descriptor helpers.
 
-Auto-built by introspecting :class:`~dataeval_flow.config._models.PipelineConfig`
-so that new schema variants (e.g. a new workflow type) are picked up automatically.
+Auto-built by introspecting :class:`~dataeval_flow.PipelineConfig`, with the workflow,
+evaluator and extractor variants read from their registries, so that new schema variants (e.g. a
+plugin workflow type) are picked up automatically.
 """
 
 from __future__ import annotations
@@ -17,6 +18,9 @@ from dataeval_flow._app._model._introspect import (
     introspect_model,
 )
 from dataeval_flow.config._models import PipelineConfig
+from dataeval_flow.config.extractors._registry import list_extractors
+from dataeval_flow.evaluators._registry import list_evaluators
+from dataeval_flow.workflows._registry import list_workflows
 
 __all__ = [
     "CROSS_REFS",
@@ -147,6 +151,11 @@ def _build_registries() -> tuple[dict[str, tuple[str, dict[str, type[BaseModel]]
         elif isinstance(inner, type) and issubclass(inner, BaseModel):
             section_models[name] = inner
 
+    # Workflows, evaluators and extractors are validated through their registries, not a fixed union, so their
+    # variants are every registered type, plugins included.
+    variant_registry["workflows"] = ("type", {cls.name: cls.config_type for cls in list_workflows()})
+    variant_registry["evaluators"] = ("type", {cls.name: cls.config_type for cls in list_evaluators()})
+    variant_registry["extractors"] = ("model", {cls.name: cls.config_type for cls in list_extractors()})
     # `tasks` is a union told apart by key, which the loop above cannot introspect.
     section_models["tasks"] = TaskFormModel
 

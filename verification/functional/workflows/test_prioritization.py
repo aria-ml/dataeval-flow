@@ -7,10 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.config.schemas import (
-    DataPrioritizationTaskConfig,
-    DataPrioritizationWorkflowConfig,
-)
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 
 pytestmark = pytest.mark.required
 
@@ -31,7 +29,7 @@ class TestDataPrioritizationWorkflow:
             sources=(("ref", 0), ("pool", 11)),
             n_per_class=8,
             workflows=[
-                DataPrioritizationWorkflowConfig(
+                DataPrioritizationConfig(
                     name="prio_main",
                     type="data-prioritization",
                     method="knn",
@@ -41,7 +39,7 @@ class TestDataPrioritizationWorkflow:
                 ),
             ],
             tasks=[
-                DataPrioritizationTaskConfig(
+                TaskConfig(
                     name="prio_task",
                     workflow="prio_main",
                     sources=["ref", "pool"],
@@ -49,14 +47,14 @@ class TestDataPrioritizationWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["prio_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
         # Typed output check: ranked indices exposed for the non-reference source
         # (ref is the reference; pool is the source ranked against it).
-        prioritizations = result.data.raw.prioritizations
+        prioritizations = result.output.raw.prioritizations
         assert len(prioritizations) == 1
         (pool_result,) = prioritizations
         assert pool_result["source_name"] == "pool"

@@ -25,11 +25,11 @@
 # model training or certification.
 #
 # **Workflow role**: You should run coverage assessment during early data preparation
-# alongside [Clean a dataset](data_cleaning). While data cleaning checks data quality,
+# alongside {doc}`Clean a dataset <data_cleaning>`. While data cleaning checks data quality,
 # coverage evaluates completeness across classes, metadata factors, and feature spaces.
 # Gaps identified here inform data collection and establish trustworthy baselines for
-# [Monitor incoming data for drift](drift_monitoring) and
-# [Detect out-of-distribution samples](ood_detection). See [Dataset coverage](../concepts/Coverage.md)
+# {doc}`Monitor incoming data for drift <drift_monitoring>` and
+# {doc}`Detect out-of-distribution samples <ood_detection>`. See [Dataset coverage](../concepts/Coverage.md)
 # for background.
 
 # %% [markdown]
@@ -150,15 +150,9 @@ plt.show()
 # limited operational conditions.
 
 # %%
-from dataeval_flow.config import PipelineConfig, SourceConfig
-from dataeval_flow.config.schemas import (
-    DataCoverageTaskConfig,
-    DataCoverageWorkflowConfig,
-    DatasetProtocolConfig,
-    MetadataPolicyConfig,
-)
-from dataeval_flow.workflow import run_task
-from dataeval_flow.workflows.coverage.params import DataCoverageHealthThresholds
+from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow.config import DatasetProtocolConfig, MetadataPolicyConfig, SourceConfig, TaskConfig
+from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageHealthThresholds
 
 vehicle_factors = MetadataPolicyConfig(
     name="vehicle_factors",
@@ -183,7 +177,7 @@ vehicle_factors = MetadataPolicyConfig(
     },
 )
 
-metadata_only_workflow = DataCoverageWorkflowConfig(
+metadata_only_workflow = DataCoverageConfig(
     name="coverage-metadata-only",
     metadata="vehicle_factors",
     run_gap_analysis=True,
@@ -196,7 +190,7 @@ metadata_only_workflow = DataCoverageWorkflowConfig(
     ),
 )
 
-task_metadata = DataCoverageTaskConfig(
+task_metadata = TaskConfig(
     name="vehicles-coverage-metadata",
     workflow="coverage-metadata-only",
     sources="vehicles_src",
@@ -231,11 +225,11 @@ print(result_metadata.report())
 # %% [markdown]
 # ### Drill into raw results
 #
-# The `result.data.raw` object provides machine-readable access to every
+# The `result.output.raw` object provides machine-readable access to every
 # metric for programmatic inspection.
 
 # %%
-raw = result_metadata.data.raw
+raw = result_metadata.output.raw
 
 ld = raw.label_distribution
 print(f"Number of classes: {ld.num_classes}")
@@ -303,7 +297,7 @@ ontology_workflow = metadata_only_workflow.model_copy(
     update={"name": "coverage-ontology", "ontology": vehicle_ontology},
 )
 
-task_ontology = DataCoverageTaskConfig(
+task_ontology = TaskConfig(
     name="vehicles-coverage-ontology",
     workflow="coverage-ontology",
     sources="vehicles_src",
@@ -321,7 +315,7 @@ result_ontology = run_task(task_ontology, config_ontology, cache_dir=Path("./cac
 print(result_ontology.report())
 
 # %%
-onto = result_ontology.data.raw.ontology
+onto = result_ontology.output.raw.ontology
 print(f"source: {onto.source} (synthesized={onto.synthesized})")
 print(f"leaf coverage: {onto.representation.leaf_coverage:.0%}")
 print(f"total deficit: {onto.representation.total_deficit} labels\n")
@@ -416,11 +410,11 @@ print("unmatched:", list(check["unmatched"]))
 # %%
 from dataeval.config import set_max_processes
 
-from dataeval_flow.config import BoVWExtractorConfig
+from dataeval_flow.config.extractors import BoVWExtractorConfig
 
 set_max_processes(8)
 
-full_workflow = DataCoverageWorkflowConfig(
+full_workflow = DataCoverageConfig(
     name="coverage-full",
     metadata="vehicle_factors",
     ontology=vehicle_ontology,  # carry the label space forward
@@ -439,7 +433,7 @@ full_workflow = DataCoverageWorkflowConfig(
     ),
 )
 
-task_full = DataCoverageTaskConfig(
+task_full = TaskConfig(
     name="vehicles-coverage-full",
     workflow="coverage-full",
     sources="vehicles_src",
@@ -487,7 +481,7 @@ print(result_full.report())
 # ### Inspect embedding results
 
 # %%
-raw_full = result_full.data.raw
+raw_full = result_full.output.raw
 
 if raw_full.coverage:
     cov = raw_full.coverage
@@ -562,7 +556,7 @@ strict_workflow = full_workflow.model_copy(
     update={"name": "coverage-strict", "health_thresholds": strict_thresholds},
 )
 
-task_strict = DataCoverageTaskConfig(
+task_strict = TaskConfig(
     name="vehicles-coverage-strict",
     workflow="coverage-strict",
     sources="vehicles_src",
@@ -615,10 +609,10 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## Next steps
 #
-# - **Data cleaning**: Use [Clean a dataset](data_cleaning) to detect outliers and duplicates.
-# - **Drift monitoring**: Use [Monitor incoming data for drift](drift_monitoring) to track
+# - **Data cleaning**: Use {doc}`Clean a dataset <data_cleaning>` to detect outliers and duplicates.
+# - **Drift monitoring**: Use {doc}`Monitor incoming data for drift <drift_monitoring>` to track
 #   operational distribution shifts.
-# - **Targeted prioritization**: Feed coverage gap targets into [Prioritize unlabeled data](data_prioritization)
+# - **Targeted prioritization**: Feed coverage gap targets into {doc}`Prioritize unlabeled data <data_prioritization>`
 #   to prioritize acquisition of missing concepts.
 
 # %% [markdown]

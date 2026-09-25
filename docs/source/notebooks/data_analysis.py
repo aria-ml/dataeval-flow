@@ -27,7 +27,7 @@
 # **Workflow role**: You should use dataset analysis to audit splits before model
 # training. Dataset analysis verifies that your partitions are free from cross-split
 # leakage, excessive class imbalance, and distribution shifts. This workflow builds
-# on [Clean a dataset](data_cleaning) and guides [Split a dataset](dataset_splitting).
+# on {doc}`Clean a dataset <data_cleaning>` and guides [Split a dataset](dataset_splitting).
 # See [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) for background.
 
 # %% [markdown]
@@ -111,23 +111,21 @@ print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 # %%
 from dataeval.config import set_max_processes
 
+from dataeval_flow import PipelineConfig, run_task
 from dataeval_flow.config import (
     CocoDatasetConfig,
-    DataAnalysisTaskConfig,
-    DataAnalysisWorkflowConfig,
-    PipelineConfig,
+    MetadataPolicyConfig,
     SourceConfig,
+    TaskConfig,
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.config.schemas import MetadataPolicyConfig
-from dataeval_flow.workflow import run_task
-from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds
+from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisHealthThresholds
 
 # Limit concurrency to 4 processes for memory management during image decoding.
 set_max_processes(4)
 
-analysis_workflow = DataAnalysisWorkflowConfig(
+analysis_workflow = DataAnalysisConfig(
     name="skysealand_analysis",
     outlier_method="adaptive",
     outlier_flags=["dimension", "pixel", "visual"],
@@ -144,7 +142,7 @@ analysis_workflow = DataAnalysisWorkflowConfig(
     ),
 )
 
-task = DataAnalysisTaskConfig(
+task = TaskConfig(
     name="skysealand-quality-check",
     workflow="skysealand_analysis",
     sources=["train", "val", "test"],
@@ -201,7 +199,7 @@ result = run_task(task, config, cache_dir=Path("./cache"))
 # dropped because unique per-row values cannot serve as categorical factors.
 #
 # Continuous factors are binned automatically when no explicit cuts are provided.
-# You can use [Metadata triage](metadata_triage) to establish explicit factor binning
+# You can use {doc}`Metadata triage <metadata_triage>` to establish explicit factor binning
 # policies.
 # :::
 
@@ -261,7 +259,7 @@ print(result.report())
 # To apply stricter thresholds, specify custom limits:
 #
 # ```python
-# from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds
+# from dataeval_flow.workflows.data_analysis import DataAnalysisHealthThresholds
 #
 # strict = DataAnalysisHealthThresholds(
 #     image_outliers=1.0,
@@ -280,7 +278,7 @@ print(result.report())
 # %%
 import polars as pl
 
-raw = result.data.raw
+raw = result.output.raw
 
 for pair_name, comparison in raw.cross_split.items():
     overlap = comparison.label_health.label_overlap
@@ -452,7 +450,7 @@ print(json_str[:500] + "\n...")
 #
 # - **Dataset splitting**: Use [Split a dataset](dataset_splitting) to generate balanced,
 #   stratified partitions when published splits diverge.
-# - **Data cleaning**: Use [Clean a dataset](data_cleaning) to detect and remove flagged
+# - **Data cleaning**: Use {doc}`Clean a dataset <data_cleaning>` to detect and remove flagged
 #   outliers and duplicates.
 # - **ONNX embeddings**: Configure an ONNX model to enable embedding-based distribution shift analysis.
 
@@ -469,5 +467,5 @@ print(json_str[:500] + "\n...")
 #   how to execute workflows in Docker.
 # - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) shows how to configure
 #   pretrained extractors for cross-split shift analysis.
-# - **Tutorial**: [Triage a dataset's metadata](metadata_triage) explains how to define
+# - **Tutorial**: {doc}`Triage a dataset's metadata <metadata_triage>` explains how to define
 #   explicit metadata binning policies.

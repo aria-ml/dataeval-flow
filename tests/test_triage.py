@@ -3,9 +3,8 @@
 import math
 from typing import Any
 
-from dataeval_flow.config.schemas import MetadataPolicyConfig
-from dataeval_flow.triage import (
-    Finding,
+from dataeval_flow._triage import (
+    TriageFinding,
     _numeric_drop,
     find_issues,
     incomplete_factors,
@@ -13,6 +12,7 @@ from dataeval_flow.triage import (
     suggest,
     to_policy_stanza,
 )
+from dataeval_flow.config import MetadataPolicyConfig
 
 
 def _record(**over: Any) -> dict[str, Any]:
@@ -408,8 +408,8 @@ def test_a_no_encoding_categorical_factor_needs_a_vocabulary_not_bins():
 
 
 def test_a_no_encoding_continuous_factor_gets_a_default_bin_suggestion():
-    # The sharpest `unbinned` case -- reached the evaluators as raw values -- must still
-    # reach the stanza. There is no `fit` to read a populated count from, so this is the one
+    # The `unbinned` case that reaches the evaluators as raw values must still reach
+    # the stanza. There is no `fit` to read a populated count from, so this is the
     # live path `default_bins` exists for.
     record = _record(factors={"raw": {"type": "continuous", "level": "unit"}})
     (finding,) = find_issues(record, default_bins=6)
@@ -423,7 +423,7 @@ def test_a_no_encoding_continuous_factor_gets_a_default_bin_suggestion():
 def test_suggest_honours_its_contract_for_a_hand_built_unbinned_finding():
     # `suggest` is documented as "the config change that would address one finding" -- it
     # must not be an identity function that only echoes a suggestion built elsewhere.
-    finding = Finding(
+    finding = TriageFinding(
         factor="raw",
         category="unbinned",
         severity="blocking",
@@ -615,11 +615,11 @@ def test_values_containing_null_colon_dont_break_marking():
 
 
 def test_a_file_extension_is_not_stripped_to_make_a_number():
-    """Dropping `jpg` from `1001.jpg` leaves `1001.`, which `float` accepts and nobody wrote.
+    """Dropping `jpg` from `1001.jpg` leaves `1001.`, which `float` accepts.
 
     The recognizer is for a number wearing decoration — `6,000`, `12 kg` — not for an
-    identifier with a numeric stem. Reading a filename as a number is the domain guess the
-    design refuses, and it arrives marked complete, so verification would apply it.
+    identifier with a numeric stem. Reading a filename as a number is a domain guess; the
+    result arrives marked complete, so verification would apply it.
     """
     assert _numeric_drop(["1001.jpg", "1002.jpg", "1015.jpg"]) is None
 
@@ -668,9 +668,9 @@ def _derived(kind: str, ftype: str, **fit: Any) -> dict[str, Any]:
 def test_a_binned_discrete_factor_needs_a_cut_not_a_descriptor():
     """SeaDrone's `altitude` comes back `discrete` yet is binned by `uniform_width`.
 
-    Partitioning on `factor_type` filed every real numeric column under `unreviewed` and told
-    it to export a descriptor, so `continuous_factor_bins` was never suggested for anything.
-    The encoding's kind is what the remedy actually turns on.
+    Partitioning on `factor_type` filed every numeric column under `unreviewed` and told it
+    to export a descriptor, so `continuous_factor_bins` was never suggested. The remedy
+    turns on the encoding's kind.
     """
     record = _record(
         factors={
@@ -698,8 +698,8 @@ def test_a_digitized_factor_still_wants_a_descriptor():
 def test_a_sentinel_does_not_veto_a_timestamp_reading():
     """SeaDrone's `date_time` is timestamps plus one empty string, and got no suggestion.
 
-    A sentinel means "no reading", so it cannot be evidence against how the real values
-    read. `ParseDateTime` tolerates it, giving the unrecorded rows a level of their own.
+    A sentinel means "no reading", so it is not evidence against how the real values
+    read. `ParseDateTime` tolerates it, so the unrecorded rows get a level of their own.
     """
     stamps = [f"2020-08-{d:02d}T10:00:00" for d in range(1, 9)]
     record = _record(
@@ -746,11 +746,11 @@ def test_an_iso_timestamp_with_microseconds_is_read_without_pinning_a_format():
 
 
 def test_a_sentinel_maps_to_not_a_number_rather_than_to_null():
-    """`None` is not how a reading is marked unrecorded — it leaves the column mixed.
+    """`None` leaves the column mixed when it marks a reading unrecorded.
 
-    `Remap`'s `None` is the *key* catch-all; as a target it is simply a non-numeric value, so
-    a column of 198 numbers and two nulls stays unusable and the correction that claimed to
-    be complete recovers nothing. NaN is the marker that takes: it makes the column numeric
+    `Remap`'s `None` is the *key* catch-all. As a target it is a non-numeric value, so a
+    column of 198 numbers and two nulls stays unusable and the correction that claimed to
+    be complete recovers nothing. NaN is the marker that works: it makes the column numeric
     and lands the row on the reserved missing code.
     """
     record = _record(unusable=_unusable(distinct={"text": ["N/A", "unknown"]}))
@@ -813,7 +813,7 @@ def test_an_integer_column_that_never_repeats_is_an_identifier():
 
     Upstream drops this shape when the values are text; a numeric one is binned and kept, so
     an arbitrary label reaches the bias evaluators as a factor. Suggesting a bin count for it
-    is the one recommendation that actively makes things worse.
+    makes things worse.
     """
     record = _record(factors=_numeric("object_id", 988, 113566, rows=1305, distinct=1305))
     findings = find_issues(record)
@@ -845,9 +845,8 @@ def test_a_repeating_integer_column_is_not_an_identifier():
 def test_a_quarter_of_the_rows_on_one_extreme_is_reported():
     """SeaDrone's `-1`: `min == p25`, so a quarter of the column sits on its lowest value.
 
-    Judged from the order statistics, not from the cut — the whole point. `-1` is a quarter of
-    `altitude` while landing inside a single bin of its two-bin cut, where a chart drawn at
-    that cut cannot show it at all.
+    Judged from the order statistics, not from the cut. `-1` is a quarter of `altitude` and
+    lands inside a single bin of its two-bin cut; a chart drawn at that cut cannot show it.
     """
     factors: dict[str, Any] = {}
     for name in ("altitude", "compass_heading", "speed"):

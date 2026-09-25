@@ -205,7 +205,7 @@ class TestDataRoot:
 class TestResolveOntology:
     @staticmethod
     def _pool() -> list[Any]:
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         return [
             OntologyConfig(
@@ -279,7 +279,7 @@ class TestResolveOntology:
         assert "ontologies" not in str(exc.value)
 
     def test_a_pool_entry_carries_its_concepts(self) -> None:
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
         from dataeval_flow.workflows._ontology import resolve_ontology
 
         pool = [

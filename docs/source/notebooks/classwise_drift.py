@@ -27,7 +27,7 @@
 # retraining.
 #
 # **Workflow role**: Classwise drift provides a diagnostic follow-up to
-# [Monitor incoming data for drift](drift_monitoring). Once an initial check
+# {doc}`Monitor incoming data for drift <drift_monitoring>`. Once an initial check
 # detects drift, you can evaluate per-class drift to identify affected categories.
 # See [Distribution shift](../concepts/DistributionShift.md) for conceptual background.
 
@@ -247,20 +247,23 @@ if not model_path.exists():
 print(f"Extractor model: {model_path}")
 
 # %%
+from dataeval_flow import PipelineConfig, run_task
 from dataeval_flow.config import (
     DatasetProtocolConfig,
-    DriftMonitoringTaskConfig,
-    DriftMonitoringWorkflowConfig,
-    PipelineConfig,
+    PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
-    TorchExtractorConfig,
+    TaskConfig,
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.preprocessing import PreprocessingStep
-from dataeval_flow.workflow import run_task
-from dataeval_flow.workflows.drift.params import ChunkingConfig, DriftDetectorKNeighbors, DriftHealthThresholds
+from dataeval_flow.config.extractors import TorchExtractorConfig
+from dataeval_flow.workflows.drift_monitoring import (
+    ChunkingConfig,
+    DriftDetectorKNeighbors,
+    DriftMonitoringConfig,
+    DriftMonitoringHealthThresholds,
+)
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
 ref_config = DatasetProtocolConfig(
@@ -308,19 +311,19 @@ extractor_config = TorchExtractorConfig(
 )
 
 # --- Workflows ---
-drift_workflow_config = DriftMonitoringWorkflowConfig(
+drift_workflow_config = DriftMonitoringConfig(
     name="overall-drift",
     detectors=[
         DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_count=5, threshold_multiplier=1.5)),
     ],
-    health_thresholds=DriftHealthThresholds(
+    health_thresholds=DriftMonitoringHealthThresholds(
         chunk_drift_pct_warning=15.0,
         consecutive_chunks_warning=2,
     ),
 )
 
 # --- Phase 1: Overall drift with chunking (no classwise) ---
-overall_task = DriftMonitoringTaskConfig(
+overall_task = TaskConfig(
     name="vehicles-overall-drift",
     workflow="overall-drift",
     sources=["reference_2k", "incoming_2k"],
@@ -364,9 +367,9 @@ print(overall_result.report())
 # - **Univariate CVM**: Runs Cramer-von Mises tests on individual embedding dimensions.
 
 # %%
-from dataeval_flow.workflows.drift.params import DriftDetectorMMD, DriftDetectorUnivariate
+from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftDetectorUnivariate
 
-classwise_task = DriftMonitoringTaskConfig(
+classwise_task = TaskConfig(
     name="vehicles-classwise-drift",
     workflow="classwise-drift",
     sources=["reference_2k", "incoming_2k"],
@@ -380,13 +383,13 @@ classwise_config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        DriftMonitoringWorkflowConfig(
+        DriftMonitoringConfig(
             name="classwise-drift",
             detectors=[
                 DriftDetectorMMD(n_permutations=100, classwise=True),
                 DriftDetectorUnivariate(test="cvm", classwise=True),
             ],
-            health_thresholds=DriftHealthThresholds(
+            health_thresholds=DriftMonitoringHealthThresholds(
                 classwise_any_drift_is_warning=True,
             ),
         ),
@@ -418,7 +421,7 @@ import polars as pl
 
 pl.Config.set_tbl_hide_dataframe_shape(True)
 
-raw = classwise_result.data.raw
+raw = classwise_result.output.raw
 
 # Overall results (from the classwise run)
 print("── Overall Drift ──")
@@ -503,7 +506,7 @@ plt.show()
 #
 # - **Concept**: [Distribution shift](../concepts/DistributionShift.md) explains
 #   drift monitoring methodologies and detector algorithms.
-# - **Tutorial**: [Monitor incoming data for drift](drift_monitoring) covers full
+# - **Tutorial**: {doc}`Monitor incoming data for drift <drift_monitoring>` covers full
 #   dataset drift monitoring.
 # - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
 #   how to run drift pipelines in containers.

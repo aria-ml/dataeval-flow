@@ -7,14 +7,18 @@ duplicates run finds a near group as well.
 """
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from dataeval_flow.config import DatasetProtocolConfig, FlattenExtractorConfig, PipelineConfig, SourceConfig
+from dataeval_flow import PipelineConfig
+from dataeval_flow.config import DatasetProtocolConfig, SourceConfig
+from dataeval_flow.config.extractors import FlattenExtractorConfig
 
 if TYPE_CHECKING:
     from dataeval.protocols import DatasetMetadata
+
+    from dataeval_flow import Result
 
 
 class ToyImages:
@@ -65,3 +69,8 @@ def toy_pipeline(
 def exact_groups(rows: Sequence[dict[str, Any]]) -> set[tuple[int, ...]]:
     """The item-level exact-duplicate groups in a ``quality.duplicates`` table, as sorted index tuples."""
     return {tuple(sorted(row["item_indices"])) for row in rows if row["dup_type"] == "exact" and row["level"] == "item"}
+
+
+def output_json(result: "Result[Any, Any]") -> dict[str, Any]:
+    """An evaluator result's output as JSON, the form ``to_dict()`` and ``export()`` write."""
+    return cast("dict[str, Any]", result.to_dict()["output"])

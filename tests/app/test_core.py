@@ -60,7 +60,7 @@ class TestVariantRegistry:
         assert get_discriminator_field("sources") is None
 
     def test_get_model_for_variant(self):
-        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+        from dataeval_flow.config import HuggingFaceDatasetConfig
 
         model = get_model_for_variant("datasets", "huggingface")
         assert model is HuggingFaceDatasetConfig
@@ -69,7 +69,7 @@ class TestVariantRegistry:
         assert get_model_for_variant("datasets", "nonexistent") is None
 
     def test_get_model_for_non_variant_section(self):
-        from dataeval_flow.config._models import SourceConfig
+        from dataeval_flow.config import SourceConfig
 
         model = get_model_for_variant("sources", "anything")
         assert model is SourceConfig
@@ -481,11 +481,11 @@ class TestConstants:
         assert len(SECTIONS) == len(SECTION_KEYS)
 
     def test_sections_cover_every_named_pool(self):
-        """Every named pool PipelineConfig declares has a section, or the builder drops it.
+        """Every named pool PipelineConfig declares has a section.
 
-        Derived rather than listed: the builder round-trips a config through SECTION_KEYS,
-        so a pool missing here is silently deleted on save while the workflows referencing
-        it keep their references — a config that no longer loads, with nothing said.
+        Derived rather than listed: the builder round-trips config through SECTION_KEYS,
+        so a pool missing here is silently dropped on save while the workflows referencing
+        it keep their references; the saved config no longer loads.
         """
         from dataeval_flow._app._model._registry import SECTION_MODELS, VARIANT_REGISTRY
 

@@ -29,7 +29,7 @@ single declarative configuration format and both headless and interactive CLIs.
 ::::
 
 DataEval Flow lets T&E engineers compose and run multi-stage data evaluation
-pipelines without writing Python glue code. Pipelines are described in YAML or
+pipelines without Python glue code. Pipelines are described in YAML or
 JSON, executed locally or in a CUDA-enabled container, and produce both
 human-readable reports and machine-readable result envelopes that satisfy JATIC
 interoperability requirements. It is part of the JATIC suite of tools and builds
@@ -68,7 +68,7 @@ See the [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the
 - **Batch execution** — the container runs a pipeline to completion and exits; it
   is not a long-running service.
 
-New here? The [Quickstart](home/quickstart.md) installs the package and runs a first
+Starting here? The [Quickstart](home/quickstart.md) installs the package and runs a first
 evaluation end to end. See the [Installation guide](home/installation.md) for every
 supported install path, and the [Container Reference](reference/containers.md) for
 hardware, architecture, and network requirements.

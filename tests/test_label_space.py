@@ -2,7 +2,7 @@
 
 import pytest
 
-from dataeval_flow.label_space import label_space_digest, ontology_digest
+from dataeval_flow._label_space import label_space_digest, ontology_digest
 
 
 @pytest.mark.required

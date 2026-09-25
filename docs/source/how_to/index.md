@@ -1,15 +1,14 @@
 # How-to Guides
 
-Task-oriented guides for accomplishing specific goals with DataEval Flow. Each one takes a problem you are likely to
-hit once you know the basics and walks through the solution. If you are new to DataEval Flow, start with the
-{doc}`Quickstart <../home/quickstart>` and the {doc}`Tutorials <../tutorials/index>` instead — these guides assume you
-have run a workflow before.
+Task-oriented guides for specific goals with DataEval Flow. Each takes one problem and walks through the solution.
+New to DataEval Flow? Start with the {doc}`Quickstart <../home/quickstart>` and the
+{doc}`Tutorials <../tutorials/index>`. These guides assume you have run a workflow before.
 
 The guides are grouped by the part of a pipeline they address.
 
 ## Configuring the data
 
-Getting the right data, in the right representation, in front of a workflow.
+Getting the right data in the right representation in front of a workflow.
 
 ```{toctree}
 :hidden:

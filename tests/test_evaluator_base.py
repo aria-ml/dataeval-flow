@@ -5,10 +5,13 @@ from typing import ClassVar
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow.evaluator.base import EvaluatorParametersBase, InputKind, InputSpec, SourceCount, task_problem
+from dataeval_flow import InputKind, InputSpec, SourceCount
+from dataeval_flow._kind import input_problem
+from dataeval_flow.evaluators import EvaluatorConfig
 
 
-class _StatsParams(EvaluatorParametersBase):
+class _StatsParams(EvaluatorConfig):
+    type: str = "test.stats"
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.STATS}),
         optional=frozenset({InputKind.CLUSTERS}),
@@ -20,7 +23,8 @@ class _StatsParams(EvaluatorParametersBase):
         return self.inputs.required | (frozenset({InputKind.CLUSTERS}) if self.cluster else frozenset())
 
 
-class _MetadataParams(EvaluatorParametersBase):
+class _MetadataParams(EvaluatorConfig):
+    type: str = "test.metadata"
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
 
 
@@ -67,7 +71,7 @@ class TestInputSpec:
         assert _StatsParams.inputs.kinds == {InputKind.STATS, InputKind.CLUSTERS}
 
 
-class TestParametersBase:
+class TestConfigBase:
     def test_unknown_keys_are_rejected(self):
         with pytest.raises(ValidationError, match="clustr"):
             _StatsParams.model_validate({"clustr": True})
@@ -81,32 +85,32 @@ class TestParametersBase:
         assert not _StatsParams().requires_extractor()
 
     def test_no_source_rule_beyond_the_spec_by_default(self):
-        assert _StatsParams().source_problem(3) is None
+        assert _StatsParams().check_inputs(3) is None
 
 
-class TestTaskProblem:
+class TestInputProblem:
     def test_a_runnable_task_has_none(self):
-        assert task_problem(_StatsParams(), source_count=2, has_extractor=False) is None
+        assert input_problem(_StatsParams(), source_count=2, has_extractor=False) is None
 
     def test_the_source_count_is_checked(self):
-        problem = task_problem(_MetadataParams(), source_count=2, has_extractor=False)
+        problem = input_problem(_MetadataParams(), source_count=2, has_extractor=False)
         assert problem == "takes exactly one source, but the task names 2."
 
     def test_a_missing_extractor_names_the_kind_that_needs_it(self):
-        problem = task_problem(_StatsParams(cluster=True), source_count=1, has_extractor=False)
+        problem = input_problem(_StatsParams(cluster=True), source_count=1, has_extractor=False)
         assert problem == "needs an extractor to produce clusters; name one with `extractor:`."
 
     def test_an_extractor_nothing_uses_is_refused(self):
-        problem = task_problem(_MetadataParams(), source_count=1, has_extractor=True)
+        problem = input_problem(_MetadataParams(), source_count=1, has_extractor=True)
         assert problem == "does not use an extractor; remove `extractor:` from the task."
 
     def test_an_unused_optional_kind_still_admits_an_extractor(self):
-        assert task_problem(_StatsParams(), source_count=1, has_extractor=True) is None
+        assert input_problem(_StatsParams(), source_count=1, has_extractor=True) is None
 
     def test_the_params_can_add_a_source_rule(self):
         class _OneWhenClustering(_StatsParams):
-            def source_problem(self, count: int) -> str | None:
+            def check_inputs(self, count: int) -> str | None:
                 return "reads exactly one source in cluster mode." if self.cluster and count > 1 else None
 
-        problem = task_problem(_OneWhenClustering(cluster=True), source_count=2, has_extractor=True)
+        problem = input_problem(_OneWhenClustering(cluster=True), source_count=2, has_extractor=True)
         assert problem == "reads exactly one source in cluster mode."

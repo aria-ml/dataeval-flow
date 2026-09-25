@@ -2,7 +2,7 @@
 
 A workflow run produces two things: a human-readable report and a machine-readable {term}`result envelope
 <Result Envelope>`. This guide covers what each contains, how to get at the raw numbers behind a finding, and what the
-provenance fields mean when you have to defend a result later.
+provenance fields mean when you have to defend a result.
 
 ## Used in these tutorials
 
@@ -122,13 +122,15 @@ The `metadata` block is what makes a finding auditable and interoperable with ot
 | `metadata_binning` | How each factor was typed and discretized — see below |
 | `diagnostics` | Library warnings raised during the run |
 
-`resolved_config` is the field that makes a run repeatable: it is the configuration as actually executed, not as
-written. Keep the envelope and you can reproduce the run without the original config file.
+`resolved_config` is the field that makes a run repeatable. It is the configuration as actually executed. Keep the
+envelope and you can reproduce the run without the original config file.
 
 Workflows extend this envelope with their own fields, so `metadata` carries more than the table above. A
 `data-cleaning` result, for example, also records `mode`, `evaluators`, `flagged_indices`, `clean_indices`, and
-`removed_count`. Treat the table as the guaranteed floor, not the full set — the
-{doc}`API Reference <../reference/autoapi/dataeval_flow/index>` lists each workflow's metadata model.
+`removed_count`. Treat the table as the guaranteed floor, not the full set: each workflow's result class in the
+{doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
+{py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningResult`, lists the `metadata` fields it adds under
+**Fields**.
 
 ## Evaluator results
 
@@ -144,27 +146,29 @@ evaluator produces:
 }
 ```
 
-From Python, `result.raw` is DataEval's own output object rather than a JSON-ready dict. See
+From Python, an evaluator's `result.output` is DataEval's own output object rather than a JSON-ready dict. See
 [Run a single evaluator](run_a_single_evaluator.md) and the [Evaluator Catalog](../reference/evaluators.md) for what
 each evaluator returns.
 
 ## Getting at the raw numbers
 
-The report is a rendering; the numbers behind it live on the result object. `result.data.raw` holds the typed,
+The report is a rendering; the numbers behind it live on the result object. `result.output.raw` holds the typed,
 workflow-specific outputs:
 
 ```python
 result = run_task(task, config)
 
 # data-cleaning
-flagged = result.data.raw.img_outliers
+flagged = result.output.raw.img_outliers
 
 # data-coverage
-onto_findings = result.data.raw.ontology
+onto_findings = result.output.raw.ontology
 ```
 
-Each workflow declares its own raw output model, so field names differ by workflow — the
-{doc}`API Reference <../reference/autoapi/dataeval_flow/index>` lists them per workflow.
+Each workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the
+{doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
+{py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningResult`, lists every `output.raw` field and what it holds
+under **Fields**. Narrow a result to that class with `isinstance`, and your editor and type checker know the fields too.
 
 ### How metadata factors were treated
 
@@ -177,8 +181,8 @@ binned at, whether it was binned or digitized, and the observed range and popula
 
 Per-factor summaries in `raw` carry the same shape of information alongside the values: `level` and `is_binned` per
 factor, plus `dropped_factors` naming vector-valued statistics (`histogram`, `percentiles`, `center`) that have no
-single-column form and so never became factors at all. `invalid_box` is carried through as a factor rather than
-discarded with the hash columns.
+single-column form and so never became factors at all. `invalid_box` is carried through as a factor; the other hash
+columns are discarded.
 
 {doc}`configure_metadata_binning` covers how to control any of this.
 
@@ -197,8 +201,8 @@ Two more fields are useful for follow-up work and are deliberately *not* seriali
 - `result.sources` — for multi-split workflows such as `data-analysis`, a mapping of source name to resolved dataset.
 
 ```python
-for idx in result.data.raw.img_outliers:
-    image, target, meta = result.dataset[idx]
+for issue in result.output.raw.img_outliers["issues"]:
+    image, target, meta = result.dataset[issue["item_index"]]
 ```
 
 ## Checking whether a run succeeded

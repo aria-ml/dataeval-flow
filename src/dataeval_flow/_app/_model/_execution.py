@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from dataeval_flow.result import Result
+    from dataeval_flow._result import Result
 
 __all__ = ["ExecutionState", "TaskExecution"]
 
@@ -23,7 +23,7 @@ class TaskExecution:
 
     task_name: str
     status: Literal["idle", "running", "completed", "failed"] = "idle"
-    result: Result[Any] | None = None
+    result: Result[Any, Any] | None = None
     error: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -54,7 +54,7 @@ class ExecutionState:
             self._tasks[name] = entry
             return entry
 
-    def mark_completed(self, name: str, result: Result[Any]) -> TaskExecution:
+    def mark_completed(self, name: str, result: Result[Any, Any]) -> TaskExecution:
         """Set task to completed with its result."""
         with self._lock:
             entry = self._tasks.get(name)
@@ -98,7 +98,7 @@ class ExecutionState:
         with self._lock:
             return list(self._tasks.values())
 
-    def completed_results(self) -> list[tuple[str, Result[Any]]]:
+    def completed_results(self) -> list[tuple[str, Result[Any, Any]]]:
         """Return ``(name, result)`` pairs for all completed tasks."""
         with self._lock:
             return [

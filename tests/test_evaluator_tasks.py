@@ -7,13 +7,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow.config import (
-    DataCleaningTaskConfig,
-    EvaluatorTaskConfig,
-    PipelineConfig,
-    TaskConfig,
-    load_config_folder,
-)
+from dataeval_flow import PipelineConfig, load_config
+from dataeval_flow.config import TaskConfig
 
 
 def _config(tasks: list[Any]) -> dict[str, Any]:
@@ -70,28 +65,9 @@ class TestTaskKinds:
         with pytest.raises(ValidationError, match="names an evaluator, so its kind cannot be 'workflow'"):
             TaskConfig.model_validate({"name": "t", "evaluator": "dupes", "kind": "workflow", "sources": "a"})
 
-    def test_typed_workflow_tasks_keep_their_type(self):
-        task = DataCleaningTaskConfig(name="t", workflow="clean", sources="a")
-        config = PipelineConfig.model_validate(_config([task]))
-        assert config.tasks is not None
-        assert isinstance(config.tasks[0], DataCleaningTaskConfig)
-
     def test_source_names_are_always_a_list(self):
-        assert EvaluatorTaskConfig(name="t", workflow="e", sources="a").source_names == ["a"]
-        assert EvaluatorTaskConfig(name="t", workflow="e", sources=["a", "b"]).source_names == ["a", "b"]
-
-
-class TestEvaluatorTaskConfig:
-    def test_its_kind_is_always_evaluator(self):
-        assert EvaluatorTaskConfig(name="t", workflow="dupes", sources="a").kind == "evaluator"
-
-    def test_the_file_key_works_too(self):
-        task = EvaluatorTaskConfig.model_validate({"name": "t", "evaluator": "dupes", "sources": "a"})
-        assert (task.kind, task.workflow) == ("evaluator", "dupes")
-
-    def test_a_workflow_kind_is_refused(self):
-        with pytest.raises(ValidationError, match="its kind cannot be 'workflow'"):
-            EvaluatorTaskConfig(name="t", workflow="dupes", kind="workflow", sources="a")
+        assert TaskConfig(name="t", workflow="e", sources="a", kind="evaluator").source_names == ["a"]
+        assert TaskConfig(name="t", workflow="e", sources=["a", "b"], kind="evaluator").source_names == ["a", "b"]
 
 
 class TestTheFileShape:
@@ -156,7 +132,7 @@ class TestEvaluatorTaskValidation:
         assert config.tasks[0].kind == "evaluator"
 
     def test_a_config_split_across_files_validates_once_merged(self, tmp_path: Path):
-        """Review Focus 2: the evaluator and the task that runs it may live in different files."""
+        """The evaluator and the task that runs it may live in different files."""
         (tmp_path / "00-data.yaml").write_text(
             "datasets:\n"
             "  - name: ds\n"
@@ -172,6 +148,6 @@ class TestEvaluatorTaskValidation:
             "    sources: a\n"
         )
         (tmp_path / "01-evaluators.yaml").write_text("evaluators:\n  - name: dupes\n    type: quality.duplicates\n")
-        config = load_config_folder(tmp_path)
+        config = load_config(tmp_path)
         assert config.tasks is not None
         assert config.tasks[0].kind == "evaluator"

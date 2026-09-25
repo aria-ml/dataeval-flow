@@ -1,10 +1,9 @@
 # Tutorials
 
-Learning-oriented guides that walk you through a complete T&E task with DataEval Flow, step by step. Each one states
-who it is for, where the task fits in a larger workflow, and ends with links to the how-to guides for its component
-steps.
+Guides that walk through a complete T&E task with DataEval Flow. Each states who it is for, where the task fits in a
+larger workflow, and ends with links to the how-to guides for its component steps.
 
-New to DataEval Flow? Run the {doc}`Quickstart <../home/quickstart>` first — it installs the package and gets one
+New to DataEval Flow, start with the {doc}`Quickstart <../home/quickstart>` — it installs the package and gets one
 evaluation working end to end.
 
 The tutorials are grouped by where the task falls in the data lifecycle.
