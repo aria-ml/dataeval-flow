@@ -13,13 +13,13 @@ pytestmark = pytest.mark.required
 @pytest.mark.test_case("15-1")
 class TestCache:
     def test_cache_module_importable(self) -> None:
-        from dataeval_flow import cache
+        from dataeval_flow import _cache
 
-        assert cache is not None
+        assert _cache is not None
 
     def test_dataset_cache_roundtrip(self, tmp_path: Path) -> None:
         """Disk-backed DatasetCache writes an entry and reads it back."""
-        from dataeval_flow.cache import DatasetCache
+        from dataeval_flow._cache import DatasetCache
 
         c = DatasetCache(tmp_path, "ds_verify")
         selection_repr = "sel:all"
@@ -37,7 +37,7 @@ class TestCache:
 
     def test_cache_key_stable_across_instances(self, tmp_path: Path) -> None:
         """Two DatasetCache instances pointing at the same root resolve to the same on-disk entry."""
-        from dataeval_flow.cache import DatasetCache
+        from dataeval_flow._cache import DatasetCache
 
         selection_repr = "sel:all"
         config_json = '{"name": "flat", "model": "flatten"}'
@@ -55,7 +55,7 @@ class TestCache:
 
     def test_cache_miss_returns_none(self, tmp_path: Path) -> None:
         """Loading a never-saved key returns None (documented miss behavior)."""
-        from dataeval_flow.cache import DatasetCache
+        from dataeval_flow._cache import DatasetCache
 
         c = DatasetCache(tmp_path, "ds_verify")
         assert c.load_embeddings("sel:never", "nonexistent-config", "none") is None

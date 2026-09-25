@@ -7,12 +7,20 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
-from pydantic import BaseModel
 
-from dataeval_flow.config import ResultMetadata, ViewOperation
-from dataeval_flow.result import _source_lines
-from dataeval_flow.workflow import DatasetContext, WorkflowResult, get_workflow, list_workflows
-from dataeval_flow.workflow.base import Reportable, WorkflowReportBase
+from dataeval_flow import ResultMetadata
+from dataeval_flow._result import _source_lines
+from dataeval_flow.config import ViewOperation
+from dataeval_flow.workflows import (
+    DatasetContext,
+    Finding,
+    WorkflowOutput,
+    WorkflowRawOutput,
+    WorkflowReport,
+    WorkflowResult,
+    get_workflow,
+    list_workflows,
+)
 
 pytestmark = pytest.mark.required
 
@@ -21,31 +29,34 @@ pytestmark = pytest.mark.required
 # ---------------------------------------------------------------------------
 
 
-class _DummyReport(WorkflowReportBase):
-    summary: str = "Test Summary"
-    findings: list[Reportable] = []
-
-
-class _DummyOutputWithReport(BaseModel):
+class _DummyRawOutput(WorkflowRawOutput):
+    dataset_size: int = 1
     value: int = 42
-    report: _DummyReport = _DummyReport()
 
 
-class _DummyOutputNoReport(BaseModel):
-    value: int = 99
+class _DummyReport(WorkflowReport):
+    summary: str = "Test Summary"
+
+
+def _output(report: _DummyReport | None = None) -> WorkflowOutput[_DummyRawOutput, _DummyReport]:
+    return WorkflowOutput[_DummyRawOutput, _DummyReport](raw=_DummyRawOutput(), report=report or _DummyReport())
 
 
 def _make_result(
     *,
-    data: BaseModel | None = None,
+    output: WorkflowOutput[_DummyRawOutput, _DummyReport] | None = None,
     metadata: ResultMetadata | None = None,
 ) -> WorkflowResult:
     return WorkflowResult(
-        name="test-workflow",
+        type="test-workflow",
         success=True,
-        data=data or _DummyOutputWithReport(),
+        output=output or _output(),
         metadata=metadata or ResultMetadata(),
     )
+
+
+def _make_failed() -> WorkflowResult:
+    return WorkflowResult(type="test-workflow", success=False, metadata=ResultMetadata(), errors=["boom"])
 
 
 # ---------------------------------------------------------------------------
@@ -56,10 +67,9 @@ def _make_result(
 class TestResultHealth:
     def _result(self, *severities: Literal["ok", "info", "warning"]) -> WorkflowResult:
         findings = [
-            Reportable(report_type="text", severity=sev, title=f"f{i}", data="detail")
-            for i, sev in enumerate(severities)
+            Finding(report_type="text", severity=sev, title=f"f{i}", data="detail") for i, sev in enumerate(severities)
         ]
-        return _make_result(data=_DummyOutputWithReport(report=_DummyReport(findings=findings)))
+        return _make_result(output=_output(_DummyReport(findings=findings)))
 
     def test_warning_count_counts_only_warnings(self):
         assert self._result("warning", "info", "warning", "ok").warning_count == 2
@@ -67,12 +77,12 @@ class TestResultHealth:
     def test_warning_count_is_zero_without_findings(self):
         assert _make_result().warning_count == 0
 
-    def test_warning_count_is_zero_without_a_report(self):
-        """A workflow that produced no report has nothing to gate on."""
-        assert _make_result(data=_DummyOutputNoReport()).warning_count == 0
+    def test_warning_count_is_zero_for_a_failed_run(self):
+        """A run that did not complete has nothing to gate on."""
+        assert _make_failed().warning_count == 0
 
-    def test_findings_property_is_empty_without_a_report(self):
-        assert _make_result(data=_DummyOutputNoReport()).findings == []
+    def test_findings_property_is_empty_for_a_failed_run(self):
+        assert _make_failed().findings == []
 
     def test_health_status_is_warning_when_any_finding_warns(self):
         assert self._result("info", "warning").health == {"status": "warning", "warnings": 1, "findings": 2}
@@ -93,7 +103,7 @@ class TestResultHealth:
         """health is additive — it must not displace what the envelope already held."""
         payload = _make_result().to_dict()
         assert "metadata" in payload
-        assert payload["value"] == 42
+        assert payload["raw"] == {"dataset_size": 1, "value": 42}
 
 
 # ---------------------------------------------------------------------------
@@ -132,19 +142,10 @@ class TestReportFormatDispatch:
 
 
 class TestReportText:
-    def test_no_report_attribute(self):
-        """data without .report still renders the frame, titled by name, saying there is no report."""
-        result = _make_result(data=_DummyOutputNoReport())
-        out = result.report()
-        assert "No report available." in out
-        assert f"  {result.name.upper()}" in out
-
     def test_a_failed_run_reports_its_errors(self):
-        """A failed workflow shows FAILED and each error, as a failed evaluator does."""
-        result = _make_result()
-        result.success = False
-        result.errors = ["boom"]
-        out = result.report()
+        """A failed workflow is titled by its type and shows FAILED and each error, as a failed evaluator does."""
+        out = _make_failed().report()
+        assert "  TEST-WORKFLOW" in out
         assert "  FAILED\n    boom" in out
         assert "No findings to report." not in out
 
@@ -158,13 +159,12 @@ class TestReportText:
     def test_findings_with_warnings(self):
         """Findings with warnings show count in health line."""
         findings = [
-            Reportable(report_type="text", severity="warning", title="Bad Image", data="detail", description="desc1"),
-            Reportable(report_type="text", severity="warning", title="Corrupt File", data="detail", description=None),
-            Reportable(report_type="text", severity="ok", title="All Good", data="detail", description="ok desc"),
+            Finding(report_type="text", severity="warning", title="Bad Image", data="detail", description="desc1"),
+            Finding(report_type="text", severity="warning", title="Corrupt File", data="detail", description=None),
+            Finding(report_type="text", severity="ok", title="All Good", data="detail", description="ok desc"),
         ]
         report = _DummyReport(summary="Findings Test", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "2 warning(s)" in out
         assert "FINDINGS TEST" in out
@@ -172,23 +172,21 @@ class TestReportText:
     def test_findings_no_warnings(self):
         """Findings with no warnings show 'All checks passed' in health line."""
         findings = [
-            Reportable(report_type="text", severity="ok", title="All Good", data="detail", description="fine"),
+            Finding(report_type="text", severity="ok", title="All Good", data="detail", description="fine"),
         ]
         report = _DummyReport(summary="Clean Report", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "All checks passed [ok]" in out
 
     def test_summary_section_present(self):
         """Report includes a SUMMARY section with dotted lines."""
         findings = [
-            Reportable(report_type="text", severity="info", title="Check A", data="d", description="desc a"),
-            Reportable(report_type="text", severity="info", title="Check B", data="d", description="desc b"),
+            Finding(report_type="text", severity="info", title="Check A", data="d", description="desc a"),
+            Finding(report_type="text", severity="info", title="Check B", data="d", description="desc b"),
         ]
         report = _DummyReport(summary="Summary Test", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "SUMMARY" in out
         assert "Check A" in out
@@ -197,11 +195,10 @@ class TestReportText:
     def test_detail_sections_present(self):
         """Each finding gets a detail section with uppercased title."""
         findings = [
-            Reportable(report_type="text", severity="info", title="My Finding", data="d", description="some detail"),
+            Finding(report_type="text", severity="info", title="My Finding", data="d", description="some detail"),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "MY FINDING" in out
         assert "some detail" in out
@@ -209,18 +206,17 @@ class TestReportText:
     def test_finding_without_description(self):
         """Finding with no description still renders its detail section."""
         findings = [
-            Reportable(report_type="text", severity="info", title="NoDesc", data="d", description=None),
+            Finding(report_type="text", severity="info", title="NoDesc", data="d", description=None),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "NODESC" in out
 
     def test_outlier_per_metric_breakdown(self):
         """Image Outliers finding renders per-metric table in detail section."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="key_value",
                 severity="warning",
                 title="Image Outliers",
@@ -237,8 +233,7 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "IMAGE OUTLIERS" in out
         assert "brightness" in out
@@ -248,7 +243,7 @@ class TestReportText:
     def test_duplicate_detail_renders(self):
         """Duplicate finding renders group details, methods, orientations."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="key_value",
                 severity="info",
                 title="Duplicates",
@@ -271,8 +266,7 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "DUPLICATES" in out
         assert "2 exact-duplicate groups (6 images)" in out
@@ -283,7 +277,7 @@ class TestReportText:
     def test_label_distribution_bar_chart(self):
         """Label Distribution finding renders bar chart with block characters."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="table",
                 severity="info",
                 title="Label Distribution",
@@ -301,8 +295,7 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "LABEL DISTRIBUTION" in out
         assert "cat" in out
@@ -313,40 +306,37 @@ class TestReportText:
     def test_health_line_with_warnings(self):
         """Health line shows warning count when warnings exist."""
         findings = [
-            Reportable(report_type="text", severity="warning", title="Issue", data="d", description="bad"),
+            Finding(report_type="text", severity="warning", title="Issue", data="d", description="bad"),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "1 warning(s)" in out
 
     def test_health_line_without_warnings(self):
         """Health line shows 'No issues detected' when no warnings."""
         findings = [
-            Reportable(report_type="text", severity="info", title="Info", data="d", description="ok"),
+            Finding(report_type="text", severity="info", title="Info", data="d", description="ok"),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "Health: All checks passed [ok]" in out
 
     def test_warning_marker_in_summary(self):
         """Warning findings get [!!] marker in summary line."""
         findings = [
-            Reportable(report_type="text", severity="warning", title="Bad Thing", data="d", description="bad"),
+            Finding(report_type="text", severity="warning", title="Bad Thing", data="d", description="bad"),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "[!!]" in out
 
     def test_duplicate_exact_only_no_methods_line(self):
         """Exact-only duplicates don't render Methods/Orientations lines."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="key_value",
                 severity="info",
                 title="Duplicates",
@@ -366,8 +356,7 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "1 exact-duplicate groups (3 images)" in out
         # No Methods/Orientations lines when near_groups=0
@@ -377,7 +366,7 @@ class TestReportText:
     def test_label_distribution_balanced_no_imbalance_line(self):
         """Balanced labels (imbalance_ratio=1.0) suppress the imbalance line."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="table",
                 severity="info",
                 title="Label Distribution",
@@ -395,15 +384,14 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "Imbalance" not in out
 
     def test_target_outlier_multiple_metrics_message(self):
         """Target outlier detail says 'targets' not 'images' in multiple-metrics message."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="key_value",
                 severity="warning",
                 title="Target Outliers",
@@ -418,8 +406,7 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         assert "Some targets trigger multiple metrics" in out
         assert "Some images" not in out
@@ -427,7 +414,7 @@ class TestReportText:
     def test_bar_chart_uses_left_filling_blocks(self):
         """Bar chart uses left-filling fractional blocks, not bottom-filling."""
         findings = [
-            Reportable(
+            Finding(
                 report_type="table",
                 severity="info",
                 title="Label Distribution",
@@ -445,8 +432,7 @@ class TestReportText:
             ),
         ]
         report = _DummyReport(summary="S", findings=findings)
-        data = _DummyOutputWithReport(report=report)
-        result = _make_result(data=data)
+        result = _make_result(output=_output(report))
         out = result.report()
         # Ensure no bottom-filling blocks are present (U+2581-U+2587)
         bottom_blocks = set("\u2581\u2582\u2583\u2584\u2585\u2586\u2587")
@@ -608,15 +594,15 @@ class TestWorkflowDiscovery:
         workflows = list_workflows()
         assert isinstance(workflows, list)
         assert len(workflows) >= 1
-        names = [w["name"] for w in workflows]
+        names = [w.name for w in workflows]
         assert "data-cleaning" in names
+        assert names == sorted(names)
         for w in workflows:
-            assert "name" in w
-            assert "description" in w
+            assert w.description
 
 
 # ---------------------------------------------------------------------------
-# DatasetContext — deprecated selection_steps → view_operations migration
+# DatasetContext — view_operations
 # ---------------------------------------------------------------------------
 
 
@@ -629,29 +615,8 @@ class TestDatasetContextViewOperations:
             ctx = DatasetContext(name="s", dataset=object(), view_operations=self._OPS)  # type: ignore
         assert ctx.view_operations == self._OPS
 
-    def test_selection_steps_warns_and_populates(self):
-        """Deprecated selection_steps warns and is copied into view_operations."""
-        with pytest.warns(DeprecationWarning, match="selection_steps.*deprecated"):
-            ctx = DatasetContext(name="s", dataset=object(), selection_steps=self._OPS)  # type: ignore
-        assert ctx.view_operations == self._OPS
-        # InitVar is not stored on the instance — the passed value lives only in
-        # view_operations, so the two can never drift.
-        assert "selection_steps" not in vars(ctx)
-
-    def test_view_operations_wins_when_both_given(self):
-        """view_operations takes precedence; selection_steps is ignored but still warns."""
-        new_ops = [ViewOperation(type="Shuffle", params={})]
-        with pytest.warns(DeprecationWarning, match="selection_steps.*deprecated"):
-            ctx = DatasetContext(
-                name="s",
-                dataset=object(),  # type: ignore
-                view_operations=new_ops,
-                selection_steps=self._OPS,
-            )
-        assert ctx.view_operations == new_ops
-
     def test_no_view_no_warning(self):
-        """Omitting both leaves view_operations as None with no warning."""
+        """Omitting view_operations leaves it as None with no warning."""
         with warnings.catch_warnings(action="error"):
             ctx = DatasetContext(name="s", dataset=object())  # type: ignore
         assert ctx.view_operations is None

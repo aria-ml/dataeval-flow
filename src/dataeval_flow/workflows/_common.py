@@ -19,7 +19,7 @@ __all__ = [
     "to_serializable",
 ]
 
-#: Maximum number of most-frequent values reported per discrete factor.
+# Maximum number of most-frequent values reported per discrete factor.
 _TOP_VALUES = 10
 
 
@@ -111,7 +111,7 @@ def compute_metadata_summary(metadata: "Metadata") -> dict[str, dict[str, Any]]:
 
     # Vector-valued statistics (histogram, percentiles, center) have no
     # single-column form and never became factors.  Without this they are
-    # simply absent, which reads as "not measured" rather than "measured and
+    # absent, which reads as "not measured" rather than "measured and
     # not representable".
     # `repairable` beside the reasons, because a reason on its own is a dead end: it says
     # a factor could not be read and leaves whether anything can be done about it unstated.

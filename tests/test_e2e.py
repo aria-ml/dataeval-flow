@@ -15,10 +15,11 @@ import polars as pl
 import pytest
 
 # Ensure target modules are in sys.modules for @patch with xdist
-import dataeval_flow.dataset
-import dataeval_flow.metadata
-import dataeval_flow.workflows.cleaning.workflow  # noqa: F401
-from dataeval_flow.config import HuggingFaceDatasetConfig, load_config_folder
+import dataeval_flow._dataset
+import dataeval_flow._metadata
+import dataeval_flow.workflows.data_cleaning._workflow  # noqa: F401
+from dataeval_flow import load_config
+from dataeval_flow.config import HuggingFaceDatasetConfig
 
 pytestmark = pytest.mark.required
 
@@ -67,7 +68,7 @@ class TestConfigToFactoryIntegration:
             "    extractor: flat_ext\n"
         )
 
-        config = load_config_folder(config_dir)
+        config = load_config(config_dir)
 
         # Verify all sections loaded
         assert config.datasets is not None
@@ -140,6 +141,10 @@ class TestConfigToFactoryIntegration:
             "  - name: ext_x\n"
             "    model: flatten\n"
             "    preprocessor: preproc_x\n"
+            "workflows:\n"
+            "  - type: data-cleaning\n"
+            "    outlier_method: zscore\n"
+            "    outlier_flags: [pixel]\n"
             "tasks:\n"
             "  - name: task1\n"
             "    workflow: data-cleaning\n"
@@ -150,7 +155,7 @@ class TestConfigToFactoryIntegration:
             "    sources: src_b\n"
         )
 
-        config = load_config_folder(config_dir)
+        config = load_config(config_dir)
 
         # Build lookup dicts
         datasets_by_name = {d.name: d for d in config.datasets or []}
@@ -205,7 +210,7 @@ class TestConfigToFactoryIntegration:
             "    sources: shared_src\n"
         )
 
-        config = load_config_folder(config_dir)
+        config = load_config(config_dir)
 
         assert config.tasks is not None
         assert len(config.tasks) == 3
@@ -272,7 +277,7 @@ class TestConfigMergeBehavior:
         # Second file defines dataset B
         (config_dir / "01-second.yaml").write_text("datasets:\n  - name: dataset_b\n    format: coco\n    path: ./b\n")
 
-        config = load_config_folder(config_dir)
+        config = load_config(config_dir)
 
         # Both datasets should be present (extended, not replaced)
         assert config.datasets is not None
@@ -288,9 +293,12 @@ class TestConfigMergeBehavior:
 
         task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    sources: x\n"
         (config_dir / "02-second.yaml").write_text(task_yaml.format(name="task_second"))
-        (config_dir / "01-first.yaml").write_text(task_yaml.format(name="task_first"))
+        (config_dir / "01-first.yaml").write_text(
+            "workflows:\n  - type: data-cleaning\n    outlier_method: zscore\n    outlier_flags: [pixel]\n"
+            + task_yaml.format(name="task_first")
+        )
 
-        config = load_config_folder(config_dir)
+        config = load_config(config_dir)
 
         assert config.tasks is not None
         # First file (01-) processed first, so task_first is first in list
@@ -301,10 +309,10 @@ class TestConfigMergeBehavior:
 class TestEndToEndCleaningWorkflow:
     """Full pipeline: config YAML → _run_single_task() → dataset → evaluators → output files."""
 
-    @patch("dataeval_flow.workflows.cleaning.workflow.Duplicates")
-    @patch("dataeval_flow.workflows.cleaning.workflow.Outliers")
-    @patch("dataeval_flow.cache.get_or_compute_stats")
-    @patch("dataeval_flow.metadata.Metadata")
+    @patch("dataeval_flow.workflows.data_cleaning._workflow.Duplicates")
+    @patch("dataeval_flow.workflows.data_cleaning._workflow.Outliers")
+    @patch("dataeval_flow._cache.get_or_compute_stats")
+    @patch("dataeval_flow._metadata.Metadata")
     @patch("datamaite.load_ic")
     def test_config_to_output(
         self,
@@ -316,7 +324,7 @@ class TestEndToEndCleaningWorkflow:
         tmp_path: Path,
     ):
         """Config YAML → _run_single_task() produces results.json + metadata.json."""
-        from dataeval_flow.workflow.orchestrator import _run_single_task
+        from dataeval_flow._orchestrator import _run_single_task
 
         # ── 1. Write config YAML ──────────────────────────────────────
         config_dir = tmp_path / "config"
@@ -411,7 +419,7 @@ class TestEndToEndCleaningWorkflow:
         mock_duplicates_cls.return_value = mock_dup_instance
 
         # ── 5. Load config and run task ───────────────────────────────
-        config = load_config_folder(config_dir)
+        config = load_config(config_dir)
         assert config.tasks is not None
         task = config.tasks[0]
 
@@ -419,7 +427,7 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 6. Assert result ──────────────────────────────────────────
         assert result.success is True
-        assert result.name == "data-cleaning"
+        assert result.type == "data-cleaning"
         meta_dump = result.metadata.model_dump()
         assert meta_dump["mode"] == "advisory"
         assert "outliers" in meta_dump["evaluators"]

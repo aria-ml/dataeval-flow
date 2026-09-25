@@ -1,8 +1,9 @@
 """Config path validation and relativization utilities.
 
 These are separated from ``_loader`` to avoid circular imports — the
-schema modules (``_dataset``, ``_extractor``) need them at import time,
-while ``_loader`` depends on ``_models`` which depends on schemas.
+schema modules (``_dataset``, and the built-in extractor configs) need them
+at import time, while ``_loader`` depends on ``_models`` which depends on
+schemas.
 """
 
 import os

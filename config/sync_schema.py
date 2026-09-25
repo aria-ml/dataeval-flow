@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """Regenerate or verify config/params.schema.json against PipelineConfig.
 
+The checked-in schema covers the built-in workflows, evaluators and extractors alone, whatever plugins are
+installed where it is generated. ``PipelineConfig.model_json_schema()`` includes installed plugins; this does not.
+
 Usage:
   python config/sync_schema.py          # Check only (CI-friendly)
   python config/sync_schema.py --fix    # Regenerate the file
@@ -10,14 +13,19 @@ import json
 import sys
 from pathlib import Path
 
-from dataeval_flow.config import PipelineConfig
+from dataeval_flow.config._json_schema import registry_twin
 
 SCHEMA_PATH = Path(__file__).parent / "params.schema.json"
 
 
+def render() -> str:
+    """The schema text to check in: ``PipelineConfig``'s, over the built-in types alone."""
+    return json.dumps(registry_twin(plugins=False).model_json_schema(), indent=2) + "\n"
+
+
 def main() -> None:
     """Entry point for JSON schema sync script."""
-    new_schema = json.dumps(PipelineConfig.model_json_schema(), indent=2) + "\n"
+    new_schema = render()
 
     if "--fix" in sys.argv:
         SCHEMA_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -1,9 +1,9 @@
 # Measure band groups
 
-m3fd pairs a visible-light frame with a thermal one in the same record — four channels: three visible, one
-infrared. Left alone, every statistic reduces over all four channels together, so a color statistic and a
-thermal one are the same number. Declare `channel_groups:` to measure each one on its own, and a `stats:` policy to
-say which statistic families each group gets, whether the image background is measured too, and which views drive
+m3fd pairs a visible-light frame with a thermal one in the same record: four channels, three visible and one
+infrared. Every statistic reduces over all four channels together, so a color statistic and a
+thermal one are the same number. `channel_groups:` measures each channel on its own. A `stats:` policy names which
+statistic families each group gets, whether the image background is measured too, and which views drive
 outlier detection and metadata factors.
 
 ## Declare channel_groups on the dataset
@@ -20,9 +20,9 @@ datasets:
 A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed whole-image ones — `rgb_brightness`
 beside `brightness`. Write one band as a bare index (`ir: 3`) or several as a list (`rgb: [0, 1, 2]`).
 
-Declare it on the dataset, not on a workflow, because that channel 3 is infrared is a fact about the sensor and not
-a decision any one workflow makes. Every workflow reading m3fd then sees the same groups. `value_range` and an
-ontology belong on the dataset for the same reason — see {doc}`configure_metadata_binning` and
+Declare it on the dataset: that channel 3 is infrared is a fact about the sensor. Every workflow reading m3fd then
+sees the same groups. `value_range` and an ontology belong on the dataset for the same reason — see
+{doc}`configure_metadata_binning` and
 {doc}`declare_an_ontology`.
 
 `channel_groups:` alone measures nothing. It only makes the groups available to name from a `stats:` policy.
@@ -54,16 +54,14 @@ workflows naming the same policy measure the same things, so their results are c
 
 ### measure is a complete statement
 
-`measure` lists every view that gets computed, and nothing else. A view with no entry is not measured — nothing is
-inferred for a missing whole-image entry, even though every workflow measured the whole image before band groups
-existed. Write out `{bands: ~, ...}` if you want it.
+`measure` lists every view that gets computed, and nothing else. A view with no entry is not measured. Nothing is
+inferred for a missing whole-image entry. Write out `{bands: ~, ...}` if you want it.
 
 `bands: ~` names the whole image. `bands: rgb` and `bands: ir` name groups the dataset declares under
 `channel_groups`; naming a group the dataset does not declare is refused before the dataset is read.
 
 Geometry does not vary with a band subset, so `rgb_width` is never produced. A `measure` entry asking only
-`dimension` of a band group is refused, because it would compute nothing — ask `dimension` of the whole image
-instead.
+`dimension` of a band group is refused, because it would compute nothing. Ask `dimension` of the whole image.
 
 ### Measure the background
 
@@ -88,19 +86,19 @@ read from.
 
 ### Every view a consumer reads must measure what it needs
 
-Naming a view in `outliers_from` or `factors_from` does not pull in extra families for that view — it only says a
+Naming a view in `outliers_from` or `factors_from` does not pull in extra families for that view. It says a
 consumer reads whatever `measure`'s own entry for it already provides. Every view a consumer's list names must
 measure, in its own `measure` entry, every family that consumer reads, or the run is refused before the dataset is
 walked, naming the missing families and the view to add them to.
 
-This is why measuring band groups *instead of* the whole image is a config error unless you also narrow the
-consumer lists. `outliers_from` and `factors_from` both default to `[~]`, so dropping the whole-image entry from
-`measure` — to measure only `rgb` and `ir`, say — leaves both lists pointing at a view that measures nothing at
-all. Narrow them to the groups you actually measure, or keep a `{bands: ~, ...}` entry naming what they need.
+Measuring band groups without the whole image is a config error unless you also narrow the
+consumer lists. `outliers_from` and `factors_from` both default to `[~]`. Dropping the whole-image entry from
+`measure` — to measure only `rgb` and `ir`, say — leaves both lists pointing at a view that measures nothing.
+Narrow them to the groups you actually measure, or keep a `{bands: ~, ...}` entry naming what they need.
 
 `data-analysis` is the sharpest version of this rule. It always runs duplicate detection over the whole image,
-whatever `stats:` policy is named — there is no field to turn it off, and no view list to narrow it with. A policy
-used by `data-analysis` must give `~` the full `hash` family for that reason alone, on top of whatever
+whatever `stats:` policy is named. There is no field to turn it off and no view list to narrow it. A policy
+used by `data-analysis` must give `~` the full `hash` family, on top of whatever
 `outliers_from` and `factors_from` need there. The `multispectral` policy above does, which is what
 `data-analysis`'s unconditional duplicate detection needs regardless of its `outlier_flags` — those still have to
 name families `~` measures, exactly as they do for `data-cleaning`.
@@ -119,10 +117,10 @@ plus `background: true`, the full naming vocabulary has `2n + 2` forms. m3fd's t
 | `background_rgb` | the scene behind every box, of the rgb group | `background_rgb_brightness` |
 | `background_ir` | the scene behind every box, of the ir group | `background_ir_mean` |
 
-Two band groups plus a background already reach this six-view vocabulary, and each view can carry more than one
-statistic family, so the columns a `measure` block computes multiply far past what any one consumer reads. Call
-`produced_views()` on your own policy to see which views it actually produces, rather than assuming a count. Ask
-for what each consumer in `outliers_from` and `factors_from` actually reads, not more.
+Two band groups plus a background reach this six-view vocabulary. Each view can carry more than one statistic
+family, so the columns a `measure` block computes multiply past what any one consumer reads. Call
+`produced_views()` on your own policy to see which views it produces. Ask for what each consumer in
+`outliers_from` and `factors_from` actually reads.
 
 `measure` is a complete statement, so a policy only produces the views its entries ask for. The `multispectral`
 policy above produces all six: every entry asks for `visual`, and `visual` is one of the two families the
@@ -130,7 +128,7 @@ background is measured for, so `background`, `background_rgb`, and `background_i
 `~`, `rgb`, and `ir`.
 
 The general rule: the background carries only `pixel` and `visual` (see the section above), so a view whose entry
-names neither produces no `background_<view>`. A group measuring only `hash`, say, gets no background variant —
+names neither produces no `background_<view>`. A group measuring only `hash` gets no background variant.
 `background: true` does not add a family its own entry never asked for:
 
 ```yaml
@@ -146,13 +144,13 @@ background carries.
 ## Enabling a band group moves nothing until you name it
 
 Adding a channel group to a dataset, or a new entry to `measure`, changes nothing `data-cleaning` flags and nothing
-`Balance` or `Diversity` reads. `outliers_from` and `factors_from` both default to `[~]`, so until a view appears in
-one of them, its columns are computed and cached but nothing downstream reads them.
+`Balance` or `Diversity` reads. `outliers_from` and `factors_from` both default to `[~]`. Until a view appears in
+one of them, its columns are computed and cached, and nothing downstream reads them.
 
 That is deliberate. A group appearing in `channel_groups:` must not move a cleaning result or a bias number until a
 config names it. In the `multispectral` policy above, `outliers_from: [~]` keeps `data-cleaning`'s outlier
 detection exactly what it flagged before band groups existed. `factors_from: [~, rgb, ir]` opts the two groups in
-for bias analysis instead. Drop them from `factors_from` and `Balance` and `Diversity` go back to reading the
+for bias analysis. Drop them from `factors_from` and `Balance` and `Diversity` read the
 whole-image factors alone, whatever `measure` computes.
 
 ## Duplicate detection reads the unprefixed hashes only
@@ -161,7 +159,7 @@ DataEval's duplicate detector looks up `xxhash`, `phash`, `dhash`, `phash_d4`, a
 A `hash` family measured on a band group produces `rgb_phash`, not `phash` — a column the detector never looks at.
 
 Ask `hash` of a group and it is measured and reported: the column is computed, cached, and available to
-`factors_from` like any other. It detects no duplicate, because nothing reads a prefixed name as a hash. There is
+`factors_from` like any other. It detects no duplicate. Nothing reads a prefixed name as a hash, and there is
 no `duplicates_from` field. Duplicate detection is always checked against the whole image alone, so a field naming
 views for it could only ever say `[~]`.
 
@@ -175,8 +173,8 @@ over a few percent of an image is noise.
 `pixel` or `visual`. The `multispectral` policy above does — its whole-image entry asks for `visual` — so
 `background` is already among the views it produces.
 
-Producing it is not the same as reading it, though: `factors_from: [~, rgb, ir]` leaves `background` out, exactly
-as the section above describes. Name it to have `Balance` and `Diversity` see it:
+Producing it is not the same as reading it: `factors_from: [~, rgb, ir]` leaves `background` out. Name it to have
+`Balance` and `Diversity` see it:
 
 ```yaml
 factors_from: [~, rgb, ir, background]

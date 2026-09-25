@@ -1,39 +1,50 @@
 """Tests for workflow orchestrator — _run_single_task, _resolve_by_name."""
 
+import inspect
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import BaseModel
 
-from dataeval_flow.config import (
-    CocoDatasetConfig,
-    DataCleaningWorkflowConfig,
-    DataCoverageWorkflowConfig,
-    HuggingFaceDatasetConfig,
-    ImageFolderDatasetConfig,
-    OnnxExtractorConfig,
-    SourceConfig,
-    TaskConfig,
-    YoloDatasetConfig,
-)
-from dataeval_flow.config.schemas import ResultMetadata
-from dataeval_flow.workflow.orchestrator import (
+from dataeval_flow import ResultMetadata, run_task, run_tasks
+from dataeval_flow._orchestrator import (
     _relativize_paths,
     _resolve_by_name,
     _resolve_extractor_paths,
     _run_single_task,
-    run_task,
-    run_tasks,
     select_tasks,
 )
+from dataeval_flow.config import (
+    CocoDatasetConfig,
+    HuggingFaceDatasetConfig,
+    ImageFolderDatasetConfig,
+    SourceConfig,
+    TaskConfig,
+    YoloDatasetConfig,
+)
+from dataeval_flow.config.extractors import OnnxExtractorConfig
+from dataeval_flow.workflows import WorkflowResult
+from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
 pytestmark = pytest.mark.required
 
 # Shared workflow instance used across tests
-_CLEAN_INSTANCE = DataCleaningWorkflowConfig(
-    name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"]
-)
+_CLEAN_INSTANCE = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
+
+# data-cleaning only ever reads its first source, so it declares `SourceCount.ONE`. These
+# orchestrator-mechanics tests exercise multi-source resolution independent of any one
+# workflow's semantics; data-analysis's `SourceCount.ONE_OR_MORE` accepts what they pass.
+_MULTI_SOURCE_INSTANCE = DataAnalysisConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
+
+
+def _stub_result(metadata: ResultMetadata | None = None, result_type: type[WorkflowResult] = WorkflowResult) -> Any:
+    """A successful result for a stub workflow to return: the orchestrator refuses any other class than its config's."""
+    return result_type(type="stub", success=True, output=MagicMock(), metadata=metadata or result_type.metadata_type())
+
 
 # ---------------------------------------------------------------------------
 # _resolve_by_name
@@ -77,7 +88,7 @@ class TestRunTask:
     """Tests for _run_single_task().
 
     Note: _run_single_task() uses lazy imports inside the function body, so we
-    patch at the source module level (e.g. dataeval_flow.dataset.load_dataset)
+    patch at the source module level (e.g. dataeval_flow._dataset.load_dataset)
     rather than on orchestrator.
     """
 
@@ -98,16 +109,15 @@ class TestRunTask:
 
         return config, task_config
 
-    def _mock_workflow(self, params_schema: Any = None) -> MagicMock:
-        """Build a mock workflow that returns a mock result."""
-        mock_result = MagicMock()
-        mock_result.success = True
+    def _mock_workflow(self, config_type: Any = BaseModel) -> MagicMock:
+        """Build a mock workflow that returns a stub result of the class its config names."""
+        mock_result = _stub_result(result_type=getattr(config_type, "result_type", WorkflowResult))
         mock_workflow = MagicMock()
-        mock_workflow.params_schema = params_schema
-        mock_workflow.execute.return_value = mock_result
+        mock_workflow.config_type = config_type
+        mock_workflow.run.return_value = mock_result
         return mock_workflow
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_basic(self, mock_load_ds: MagicMock):
         """_run_single_task resolves config, runs workflow, returns result."""
         config, task = self._build_config_and_task()
@@ -115,19 +125,18 @@ class TestRunTask:
 
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         mock_load_ds.assert_called_once()
-        mock_wf.execute.assert_called_once()
+        mock_wf.run.assert_called_once()
 
-    @patch("dataeval_flow.dataset.load_dataset")
-    @patch("dataeval_flow.preprocessing.build_preprocessing")
+    @patch("dataeval_flow._dataset.load_dataset")
+    @patch("dataeval_flow._preprocessing.build_preprocessing")
     def test_run_task_with_preprocessor(self, mock_build_pre: MagicMock, mock_load_ds: MagicMock):
         """_run_single_task resolves preprocessor via extractor config."""
-        from dataeval_flow.config import PreprocessorConfig
-        from dataeval_flow.preprocessing import PreprocessingStep
+        from dataeval_flow.config import PreprocessingStep, PreprocessorConfig
 
         config, _ = self._build_config_and_task()
         config.preprocessors = [
@@ -143,13 +152,13 @@ class TestRunTask:
         mock_build_pre.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         mock_build_pre.assert_called_once()
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_with_extractor(self, mock_load_ds: MagicMock):
         """_run_single_task resolves extractor when task references one."""
         config, _ = self._build_config_and_task()
@@ -162,19 +171,19 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         # Verify extractor config was passed into DatasetContext
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         dc = context.dataset_contexts["src_test"]
         assert dc.extractor is not None
         # _resolve_extractor_paths joins relative path against data_dir (default ".")
         assert dc.extractor.model_path == "model.onnx"
         assert dc.extractor.output_name == "layer4"
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_with_view(self, mock_load_ds: MagicMock):
         """_run_single_task resolves view config from source."""
         from dataeval_flow.config import ViewConfig, ViewOperation
@@ -197,36 +206,36 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         # Verify selection steps were passed into DatasetContext
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         dc = context.dataset_contexts["src_test"]
         assert len(dc.view_operations) == 1
         assert dc.view_operations[0].type == "Limit"
         assert dc.view_operations[0].params == {"size": 100}
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_validates_params(self, mock_load_ds: MagicMock):
-        """_run_single_task validates workflow instance params against workflow.params_schema."""
-        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+        """_run_single_task hands the workflow its config, an instance of the workflow's config_type."""
+        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
         config, task = self._build_config_and_task()
         mock_load_ds.return_value = MagicMock()
 
-        mock_wf = self._mock_workflow(params_schema=DataCleaningParameters)
+        mock_wf = self._mock_workflow(config_type=DataCleaningConfig)
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         # Verify the instance params were validated against the schema
-        mock_wf.execute.assert_called_once()
-        call_args = mock_wf.execute.call_args
-        params = call_args[0][1]
-        assert isinstance(params, DataCleaningParameters)
+        mock_wf.run.assert_called_once()
+        call_args = mock_wf.run.call_args
+        params = call_args[0][0]
+        assert isinstance(params, DataCleaningConfig)
         assert params.outlier_method == "zscore"
 
     def test_run_task_raises_on_missing_source(self):
@@ -240,7 +249,7 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown source"):
             _run_single_task(task, config)
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_raises_on_missing_extractor(self, mock_load_ds: MagicMock):
         """_run_single_task raises ValueError when extractor not found."""
         config, _ = self._build_config_and_task()
@@ -252,7 +261,7 @@ class TestRunTask:
         with pytest.raises(ValueError, match="Unknown extractor"):
             _run_single_task(task, config)
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_passes_format_and_image_folder_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes dataset_format, recursive, and infer_labels to load_dataset."""
 
@@ -271,7 +280,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
         mock_load_ds.assert_called_once_with(
@@ -281,7 +290,7 @@ class TestRunTask:
             infer_labels=True,
         )
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_passes_coco_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes COCO-specific config fields to load_dataset."""
 
@@ -305,7 +314,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
         mock_load_ds.assert_called_once_with(
@@ -315,7 +324,7 @@ class TestRunTask:
             images_dir="train2017",
         )
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_passes_yolo_params(self, mock_load_ds: MagicMock):
         """_run_single_task passes YOLO-specific config fields to load_dataset."""
 
@@ -334,7 +343,7 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
         mock_load_ds.assert_called_once_with(
@@ -345,7 +354,7 @@ class TestRunTask:
             ann_dir="annotations",
         )
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_coco_sets_label_source(self, mock_load_ds: MagicMock):
         """_run_single_task sets label_source='annotations' for COCO datasets."""
 
@@ -364,14 +373,14 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         dc = context.dataset_contexts["src_coco"]
         assert dc.label_source == "annotations"
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_yolo_sets_label_source(self, mock_load_ds: MagicMock):
         """_run_single_task sets label_source='annotations' for YOLO datasets."""
 
@@ -390,10 +399,10 @@ class TestRunTask:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         dc = context.dataset_contexts["src_yolo"]
         assert dc.label_source == "annotations"
 
@@ -407,28 +416,28 @@ class TestLabelSourceResolution:
     """Tests for label_source resolution via _LABEL_SOURCE and resolve_dataset."""
 
     def test_label_source_table_huggingface(self) -> None:
-        from dataeval_flow.dataset import _LABEL_SOURCE
+        from dataeval_flow._dataset import _LABEL_SOURCE
 
         assert _LABEL_SOURCE["huggingface"] == "huggingface"
 
     def test_label_source_table_coco(self) -> None:
-        from dataeval_flow.dataset import _LABEL_SOURCE
+        from dataeval_flow._dataset import _LABEL_SOURCE
 
         assert _LABEL_SOURCE["coco"] == "annotations"
 
     def test_label_source_table_yolo(self) -> None:
-        from dataeval_flow.dataset import _LABEL_SOURCE
+        from dataeval_flow._dataset import _LABEL_SOURCE
 
         assert _LABEL_SOURCE["yolo"] == "annotations"
 
     def test_label_source_table_image_folder_absent(self) -> None:
-        from dataeval_flow.dataset import _LABEL_SOURCE
+        from dataeval_flow._dataset import _LABEL_SOURCE
 
         assert "image_folder" not in _LABEL_SOURCE
 
     def test_protocol_config_returns_protocol(self) -> None:
+        from dataeval_flow._dataset import resolve_dataset
         from dataeval_flow.config import DatasetProtocolConfig
-        from dataeval_flow.dataset import resolve_dataset
 
         cfg = DatasetProtocolConfig(name="ds", dataset=[1, 2, 3])
         resolved = resolve_dataset(cfg)
@@ -456,22 +465,22 @@ class TestLabelSourceResolution:
 
 class TestWorkflowDiscovery:
     def test_get_workflow_returns_registered(self):
-        from dataeval_flow.workflow import WorkflowProtocol, get_workflow
+        from dataeval_flow.workflows import Workflow, get_workflow
 
         wf = get_workflow("data-cleaning")
-        assert isinstance(wf, WorkflowProtocol)
+        assert issubclass(wf, Workflow)
 
     def test_get_workflow_unknown_raises(self):
-        from dataeval_flow.workflow import get_workflow
+        from dataeval_flow.workflows import get_workflow
 
         with pytest.raises(ValueError, match="Unknown workflow: 'nope'"):
             get_workflow("nope")
 
     def test_list_workflows(self):
-        from dataeval_flow.workflow import list_workflows
+        from dataeval_flow.workflows import list_workflows
 
         workflows = list_workflows()
-        names = [w["name"] for w in workflows]
+        names = [w.name for w in workflows]
         assert "data-cleaning" in names
 
 
@@ -495,18 +504,17 @@ class TestRunTaskMultiSource:
         config.extractors = None
         config.preprocessors = None
         config.selections = None
-        config.workflows = [_CLEAN_INSTANCE]
+        config.workflows = [_MULTI_SOURCE_INSTANCE]
         return config
 
     def _mock_workflow(self) -> MagicMock:
-        mock_result = MagicMock()
-        mock_result.success = True
+        mock_result = _stub_result()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = mock_result
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = mock_result
         return mock_wf
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_sources_string_single(self, mock_load_ds: MagicMock):
         """sources as a plain string works (single source)."""
         config = self._make_config(["ds"])
@@ -514,13 +522,13 @@ class TestRunTaskMultiSource:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         mock_load_ds.assert_called_once()
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_sources_list_loads_multiple(self, mock_load_ds: MagicMock):
         """sources as a list loads each dataset."""
         config = self._make_config(["ds_a", "ds_b"])
@@ -528,13 +536,13 @@ class TestRunTaskMultiSource:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
         assert mock_load_ds.call_count == 2
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_shared_extractor_applies_to_all(self, mock_load_ds: MagicMock):
         """An extractor specified on the task is shared across all sources."""
         config = self._make_config(["ds_a", "ds_b"])
@@ -545,17 +553,17 @@ class TestRunTaskMultiSource:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         # Both datasets should have the same extractor
         for dc in context.dataset_contexts.values():
             assert dc.extractor is not None
             assert dc.extractor.model_path == "m.onnx"
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_no_extractor_gives_none(self, mock_load_ds: MagicMock):
         """When no extractor is specified, datasets get None extractor."""
         config = self._make_config(["ds_a", "ds_b"])
@@ -563,15 +571,15 @@ class TestRunTaskMultiSource:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.success
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         for dc in context.dataset_contexts.values():
             assert dc.extractor is None
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_single_source_context_fields(self, mock_load_ds: MagicMock):
         """Single-source WorkflowContext populates dataset_contexts correctly."""
         config = self._make_config(["ds"])
@@ -580,16 +588,16 @@ class TestRunTaskMultiSource:
         mock_load_ds.return_value = mock_dataset
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         # dataset_contexts should have exactly one entry with the dataset object
         assert len(context.dataset_contexts) == 1
         assert "src_ds" in context.dataset_contexts
         assert context.dataset_contexts["src_ds"].dataset is mock_dataset
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_multi_source_metadata_has_comma_joined_id(self, mock_load_ds: MagicMock):
         """_run_single_task populates metadata.dataset_id with comma-joined names for multi-source."""
         config = self._make_config(["ds_a", "ds_b"])
@@ -597,31 +605,10 @@ class TestRunTaskMultiSource:
         mock_load_ds.return_value = MagicMock()
         mock_wf = self._mock_workflow()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.metadata.dataset_id == "ds_a,ds_b"
-
-
-# ---------------------------------------------------------------------------
-# DriftMonitoringTaskConfig validation
-# ---------------------------------------------------------------------------
-
-
-class TestDriftMonitoringTaskConfig:
-    """Tests for DriftMonitoringTaskConfig source validation."""
-
-    def test_requires_at_least_two_sources(self):
-        from dataeval_flow.config import DriftMonitoringTaskConfig
-
-        with pytest.raises(ValueError, match="at least 2 sources"):
-            DriftMonitoringTaskConfig(name="drift_task", workflow="drift", sources="single_source")
-
-    def test_accepts_two_sources(self):
-        from dataeval_flow.config import DriftMonitoringTaskConfig
-
-        task = DriftMonitoringTaskConfig(name="drift_task", workflow="drift", sources=["src_ref", "src_test"])
-        assert task.sources == ["src_ref", "src_test"]
 
 
 # ---------------------------------------------------------------------------
@@ -650,47 +637,47 @@ class TestRunTasks:
         ]
         return config
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_all_enabled_tasks(self, mock_load_ds: MagicMock):
         """run_tasks(config) runs only enabled tasks."""
         config = self._build_pipeline_config()
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             results = run_tasks(config)
 
-        assert len(results) == 2  # task_disabled skipped
+        assert list(results) == ["task_a", "task_b"]  # task_disabled skipped
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_tasks_by_name_string(self, mock_load_ds: MagicMock):
         """run_tasks(config, 'task_b') runs only task_b."""
         config = self._build_pipeline_config()
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             results = run_tasks(config, "task_b")
 
-        assert len(results) == 1
+        assert list(results) == ["task_b"]
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_tasks_by_name_list(self, mock_load_ds: MagicMock):
-        """run_tasks(config, ['task_a', 'task_b']) runs both in order."""
+        """run_tasks(config, ['task_b', 'task_a']) runs both, keyed in the order given."""
         config = self._build_pipeline_config()
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
-            results = run_tasks(config, ["task_a", "task_b"])
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
+            results = run_tasks(config, ["task_b", "task_a"])
 
-        assert len(results) == 2
+        assert list(results) == ["task_b", "task_a"]
 
     def test_run_tasks_all_disabled_raises(self):
         """run_tasks raises ValueError when all tasks are disabled."""
@@ -715,6 +702,12 @@ class TestRunTasks:
         with pytest.raises(ValueError, match="No tasks defined"):
             run_tasks(config)
 
+    @pytest.mark.parametrize("function", [run_task, run_tasks])
+    def test_data_dir_and_cache_dir_are_keyword_only(self, function):
+        parameters = inspect.signature(function).parameters
+        assert parameters["data_dir"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert parameters["cache_dir"].kind is inspect.Parameter.KEYWORD_ONLY
+
     def test_run_tasks_unknown_name_raises(self):
         """run_tasks raises ValueError for unknown task name."""
         config = MagicMock()
@@ -725,12 +718,12 @@ class TestRunTasks:
 
 
 # ---------------------------------------------------------------------------
-# select_tasks — the selection run_tasks executes, exposed for result pairing
+# select_tasks — the selection run_tasks executes and keys its results by
 # ---------------------------------------------------------------------------
 
 
 class TestSelectTasks:
-    """Tests for select_tasks(), which callers use to pair results back to tasks."""
+    """Tests for select_tasks(), the selection run_tasks executes."""
 
     def _config(self) -> MagicMock:
         config = MagicMock()
@@ -752,8 +745,26 @@ class TestSelectTasks:
         selected = select_tasks(self._config(), ["task_c", "task_a"])
         assert [t.name for t in selected] == ["task_c", "task_a"]
 
+    def test_a_task_named_twice_is_selected_once_where_it_first_appears(self):
+        selected = select_tasks(self._config(), ["task_c", "task_a", "task_c"])
+        assert [t.name for t in selected] == ["task_c", "task_a"]
+
+    def test_a_task_named_twice_runs_once(self, monkeypatch: pytest.MonkeyPatch):
+        """Results are keyed by task name, so a second run could only overwrite the first."""
+        executed: list[str] = []
+
+        def _fake(task, cfg, data_dir=None, cache_dir=None):  # noqa: ARG001
+            executed.append(task.name)
+            return MagicMock(success=True)
+
+        monkeypatch.setattr("dataeval_flow._orchestrator._run_single_task", _fake)
+        results = run_tasks(self._config(), ["task_a", "task_c", "task_a"])
+
+        assert executed == ["task_a", "task_c"]
+        assert list(results) == ["task_a", "task_c"]
+
     def test_matches_what_run_tasks_executes(self, monkeypatch: pytest.MonkeyPatch):
-        """The pairing contract: one selected task per result, in the same order."""
+        """run_tasks keys one result per selected task, in the same order."""
         config = self._config()
         executed: list[str] = []
 
@@ -761,11 +772,11 @@ class TestSelectTasks:
             executed.append(task.name)
             return MagicMock(success=True)
 
-        monkeypatch.setattr("dataeval_flow.workflow.orchestrator._run_single_task", _fake)
+        monkeypatch.setattr("dataeval_flow._orchestrator._run_single_task", _fake)
         results = run_tasks(config)
 
         assert executed == [t.name for t in select_tasks(config)]
-        assert len(results) == len(select_tasks(config))
+        assert list(results) == executed
 
     def test_all_disabled_raises(self):
         config = MagicMock()
@@ -792,7 +803,7 @@ class TestSelectTasks:
 class TestSourceNameKeying:
     """Tests that dataset_contexts uses source name, not dataset name, as key."""
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_two_sources_same_dataset_different_keys(self, mock_load_ds: MagicMock):
         """Two sources referencing the same dataset get distinct context entries."""
         from dataeval_flow.config import ViewConfig, ViewOperation
@@ -810,17 +821,17 @@ class TestSourceNameKeying:
         config.extractors = None
         config.preprocessors = None
         config.views = [view]
-        config.workflows = [_CLEAN_INSTANCE]
+        config.workflows = [_MULTI_SOURCE_INSTANCE]
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         assert "cifar_full" in context.dataset_contexts
         assert "cifar_sub" in context.dataset_contexts
         assert len(context.dataset_contexts) == 2
@@ -862,7 +873,7 @@ class TestResolveExtractorPaths:
 
 
 class TestRunTasksDisabledSkip:
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_skipped_disabled_tasks_logged(self, mock_load_ds, caplog):
         import logging
 
@@ -880,12 +891,12 @@ class TestRunTasksDisabledSkip:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
         with (
-            patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf),
-            caplog.at_level(logging.INFO, logger="dataeval_flow.workflow.orchestrator"),
+            patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf),
+            caplog.at_level(logging.INFO, logger="dataeval_flow._orchestrator"),
         ):
             run_tasks(config)
 
@@ -898,7 +909,7 @@ class TestRunTasksDisabledSkip:
 
 
 class TestRunTaskWrapper:
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_delegates(self, mock_load_ds):
         ds = HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")
         source = SourceConfig(name="src", dataset="ds")
@@ -914,16 +925,16 @@ class TestRunTaskWrapper:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = run_task(task, config)
 
         assert result.success
-        mock_wf.execute.assert_called_once()
+        mock_wf.run.assert_called_once()
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_logs_task_header(self, mock_load_ds, caplog):
         import logging
 
@@ -939,12 +950,12 @@ class TestRunTaskWrapper:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
         with (
-            patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf),
-            caplog.at_level(logging.INFO, logger="dataeval_flow.workflow.orchestrator"),
+            patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf),
+            caplog.at_level(logging.INFO, logger="dataeval_flow._orchestrator"),
         ):
             run_task(task, config)
 
@@ -957,7 +968,7 @@ class TestRunTaskWrapper:
 
 
 class TestCacheDirAndLabelSource:
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_cache_dir_logs_info(self, mock_load_ds, caplog, tmp_path):
         import logging
 
@@ -972,18 +983,18 @@ class TestCacheDirAndLabelSource:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
         with (
-            patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf),
-            caplog.at_level(logging.INFO, logger="dataeval_flow.workflow.orchestrator"),
+            patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf),
+            caplog.at_level(logging.INFO, logger="dataeval_flow._orchestrator"),
         ):
             _run_single_task(task, config, cache_dir=tmp_path / "cache")
 
         assert any("Cache enabled" in r.message for r in caplog.records)
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_label_source_propagated(self, mock_load_ds):
         ds = YoloDatasetConfig(name="yolo_ds", path="data/yolo")
         source = SourceConfig(name="src", dataset="yolo_ds")
@@ -999,10 +1010,10 @@ class TestCacheDirAndLabelSource:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
 
         assert result.metadata.label_source == "annotations"
@@ -1019,7 +1030,7 @@ class TestBuildResolvedConfig:
     @staticmethod
     def _single(dataset_config: Any, view_config: Any = None, dataset: str = "ds"):
         """One ResolvedSource wrapping one operand, for exercising _operand_entry."""
-        from dataeval_flow.sources import ResolvedSource, SourceOperand
+        from dataeval_flow._sources import ResolvedSource, SourceOperand
 
         operand = SourceOperand(
             source=SourceConfig(name="src", dataset=dataset),
@@ -1040,8 +1051,8 @@ class TestBuildResolvedConfig:
 
     def test_non_serializable_dataset_protocol_config(self):
         """A non-serializable dataset (DatasetProtocolConfig) writes a protocol entry."""
+        from dataeval_flow._orchestrator import _build_resolved_config
         from dataeval_flow.config import DatasetProtocolConfig
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         runtime_ds = MagicMock()
         runtime_ds.metadata = {"id": "my-dataset-id"}
@@ -1060,8 +1071,8 @@ class TestBuildResolvedConfig:
 
     def test_non_serializable_dataset_none_runtime_obj(self):
         """A non-serializable dataset with no runtime object records 'unknown'."""
+        from dataeval_flow._orchestrator import _build_resolved_config
         from dataeval_flow.config import DatasetProtocolConfig
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         ds_cfg = DatasetProtocolConfig(name="proto_ds", dataset=None)
 
@@ -1078,7 +1089,7 @@ class TestBuildResolvedConfig:
     def test_serializable_dataset_uses_model_dump(self):
         """A serializable dataset config is dumped as-is."""
         ds_cfg = ImageFolderDatasetConfig(name="photos", path="./data")
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+        from dataeval_flow._orchestrator import _build_resolved_config
 
         cfg = _build_resolved_config(
             resolved_sources=[self._single(ds_cfg, dataset="photos")],
@@ -1091,8 +1102,8 @@ class TestBuildResolvedConfig:
 
     def test_source_with_view_writes_view_config(self):
         """An operand's view is resolved inline as `view` and `view_config`."""
+        from dataeval_flow._orchestrator import _build_resolved_config
         from dataeval_flow.config import ViewConfig, ViewOperation
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         view = ViewConfig(name="sub", operations=[ViewOperation(type="Limit", params={"size": 100})])
@@ -1110,7 +1121,7 @@ class TestBuildResolvedConfig:
 
     def test_source_with_no_view_omits_view_keys(self):
         """An operand naming no view writes no `view` or `view_config` key."""
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+        from dataeval_flow._orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         cfg = _build_resolved_config(
@@ -1126,7 +1137,7 @@ class TestBuildResolvedConfig:
 
     def test_workflow_instance_included(self):
         """Workflow instance is included when not None."""
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+        from dataeval_flow._orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         cfg = _build_resolved_config(
@@ -1142,7 +1153,7 @@ class TestBuildResolvedConfig:
 
     def test_extractor_included(self):
         """Extractor config is included when not None."""
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+        from dataeval_flow._orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         ext = OnnxExtractorConfig(name="ext", model_path="./m.onnx", batch_size=32)
@@ -1158,7 +1169,7 @@ class TestBuildResolvedConfig:
 
     def test_no_workflow_no_extractor(self):
         """No workflow or extractor omits those keys."""
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+        from dataeval_flow._orchestrator import _build_resolved_config
 
         ds_cfg = ImageFolderDatasetConfig(name="ds", path="./data")
         cfg = _build_resolved_config(
@@ -1173,9 +1184,9 @@ class TestBuildResolvedConfig:
 
     def test_merge_recurses_into_operands(self):
         """A merged source's entry lists `merge` operands and keeps its own view separate."""
+        from dataeval_flow._orchestrator import _build_resolved_config
+        from dataeval_flow._sources import ResolvedSource, SourceOperand
         from dataeval_flow.config import ViewConfig, ViewOperation
-        from dataeval_flow.sources import ResolvedSource, SourceOperand
-        from dataeval_flow.workflow.orchestrator import _build_resolved_config
 
         ds_a = ImageFolderDatasetConfig(name="ds_a", path="./a")
         ds_b = ImageFolderDatasetConfig(name="ds_b", path="./b")
@@ -1228,12 +1239,12 @@ class TestPopulateResultMetadataLabelSource:
     """label_source is left unset when no operand of any source reports one."""
 
     def test_no_label_source_skips_annotation(self):
+        from dataeval_flow._orchestrator import _populate_result_metadata
+        from dataeval_flow._sources import ResolvedSource, SourceOperand
         from dataeval_flow.config import SourceConfig
-        from dataeval_flow.sources import ResolvedSource, SourceOperand
-        from dataeval_flow.workflow import WorkflowResult
-        from dataeval_flow.workflow.orchestrator import _populate_result_metadata
+        from dataeval_flow.workflows import WorkflowResult
 
-        result = WorkflowResult(name="t", success=True, data=MagicMock(), metadata=ResultMetadata())
+        result = WorkflowResult(type="t", success=True, output=MagicMock(), metadata=ResultMetadata())
         operand = SourceOperand(
             source=SourceConfig(name="src", dataset="ds"),
             dataset_config=MagicMock(),
@@ -1267,7 +1278,7 @@ class TestPopulateResultMetadataLabelSource:
 
 
 class TestRunTasksAllEnabled:
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_run_tasks_none_disabled(self, mock_load_ds: MagicMock):
         """run_tasks with all tasks enabled skips the 'Skipping' log (line 353->355)."""
         config = MagicMock()
@@ -1284,13 +1295,13 @@ class TestRunTasksAllEnabled:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             results = run_tasks(config)
 
-        assert len(results) == 2
+        assert list(results) == ["t1", "t2"]
 
 
 # ===========================================================================
@@ -1351,23 +1362,25 @@ class _TinyDataset:
 
 
 def _real_result(*, success: bool, **kwargs: Any):
-    """A genuine WorkflowResult — MagicMock would mask the None we care about."""
-    from dataeval_flow.workflow import WorkflowResult
-    from dataeval_flow.workflows.cleaning.outputs import (
+    """A genuine DataCleaningResult — MagicMock would mask the None we care about."""
+    from dataeval_flow.workflows.data_cleaning import DataCleaningResult
+    from dataeval_flow.workflows.data_cleaning._outputs import (
         DataCleaningMetadata,
-        DataCleaningOutputs,
-        DataCleaningRawOutputs,
+        DataCleaningOutput,
+        DataCleaningRawOutput,
         DataCleaningReport,
     )
 
-    return WorkflowResult(
-        name="data-cleaning",
+    output = DataCleaningOutput(
+        raw=DataCleaningRawOutput(dataset_size=0),
+        report=DataCleaningReport(summary="", findings=[]),
+    )
+    return DataCleaningResult(
+        type="data-cleaning",
         success=success,
-        data=DataCleaningOutputs(
-            raw=DataCleaningRawOutputs(dataset_size=0),
-            report=DataCleaningReport(summary="", findings=[]),
-        ),
+        output=output if success else None,
         metadata=DataCleaningMetadata(),
+        errors=[] if success else ["boom"],
         **kwargs,
     )
 
@@ -1376,9 +1389,9 @@ class TestResolvedDatasetBackfill:
     """Regression: a result must carry the dataset it ran on, failure included.
 
     Workflows attach ``dataset`` on their success path only, so a failed run
-    used to come back with ``result.dataset is None`` — leaving callers (and
-    notebooks doing ``assert result.dataset is not None``) with no handle on
-    the inputs that produced the failure.
+    used to come back with ``result.dataset is None``. Callers had no handle
+    on the inputs that produced the failure, including notebooks asserting
+    ``result.dataset is not None``.
     """
 
     def _config(self, ds_names: list[str], views: Any = None) -> MagicMock:
@@ -1396,24 +1409,26 @@ class TestResolvedDatasetBackfill:
 
     def _workflow(self, result: Any) -> MagicMock:
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = result
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = result
         return mock_wf
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_failed_result_carries_dataset(self, mock_load_ds: MagicMock):
         dataset = _TinyDataset()
         mock_load_ds.return_value = dataset
         config = self._config(["ds"])
         task = TaskConfig(name="t", workflow="clean", sources="src_ds")
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):
+        with patch(
+            "dataeval_flow._orchestrator._implementation", return_value=self._workflow(_real_result(success=False))
+        ):
             result = _run_single_task(task, config)
 
         assert not result.success
         assert result.dataset is dataset
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_backfilled_dataset_is_post_view(self, mock_load_ds: MagicMock):
         """The backfill reapplies the source's view, as the workflow would."""
         from dataeval_flow.config import ViewConfig, ViewOperation
@@ -1425,13 +1440,15 @@ class TestResolvedDatasetBackfill:
         config.sources = [SourceConfig(name="src_ds", dataset="ds", view="lim")]
         task = TaskConfig(name="t", workflow="clean", sources="src_ds")
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):
+        with patch(
+            "dataeval_flow._orchestrator._implementation", return_value=self._workflow(_real_result(success=False))
+        ):
             result = _run_single_task(task, config)
 
         assert result.dataset is not None
         assert len(result.dataset) == 2
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_workflow_supplied_dataset_is_not_replaced(self, mock_load_ds: MagicMock):
         """A successful workflow's own post-selection dataset wins."""
         mock_load_ds.return_value = _TinyDataset()
@@ -1440,20 +1457,23 @@ class TestResolvedDatasetBackfill:
         task = TaskConfig(name="t", workflow="clean", sources="src_ds")
 
         workflow = self._workflow(_real_result(success=True, dataset=own))
-        with patch("dataeval_flow.workflow.get_workflow", return_value=workflow):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=workflow):
             result = _run_single_task(task, config)
 
         assert result.dataset is own
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_multi_source_failure_backfills_sources(self, mock_load_ds: MagicMock):
         """Multi-source workflows report per-source datasets, not a single one."""
         datasets = [_TinyDataset(), _TinyDataset()]
         mock_load_ds.side_effect = datasets
         config = self._config(["ds_a", "ds_b"])
+        config.workflows = [_MULTI_SOURCE_INSTANCE]
         task = TaskConfig(name="t", workflow="clean", sources=["src_ds_a", "src_ds_b"])
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=self._workflow(_real_result(success=False))):
+        with patch(
+            "dataeval_flow._orchestrator._implementation", return_value=self._workflow(_real_result(success=False))
+        ):
             result = _run_single_task(task, config)
 
         assert result.dataset is None
@@ -1466,8 +1486,8 @@ class TestValueRangeReachesTheRun:
     """One value per dataset, so the injection pass and a workflow's own cannot disagree."""
 
     def test_stamped_onto_the_resolved_policy(self):
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+        from dataeval_flow._orchestrator import _apply_dataset_value_range
+        from dataeval_flow._policy import ResolvedPolicy
 
         policy = ResolvedPolicy()
         stamped = _apply_dataset_value_range(policy, [(0.0, 1.0), (0.0, 1.0)], "clean")
@@ -1475,8 +1495,8 @@ class TestValueRangeReachesTheRun:
         assert stamped.value_range == (0.0, 1.0)
 
     def test_absent_leaves_the_policy_alone(self):
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+        from dataeval_flow._orchestrator import _apply_dataset_value_range
+        from dataeval_flow._policy import ResolvedPolicy
 
         policy = ResolvedPolicy()
         stamped = _apply_dataset_value_range(policy, [None, None], "clean")
@@ -1486,8 +1506,8 @@ class TestValueRangeReachesTheRun:
     def test_disagreeing_datasets_are_refused_before_the_data_is_read(self):
         import pytest
 
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+        from dataeval_flow._orchestrator import _apply_dataset_value_range
+        from dataeval_flow._policy import ResolvedPolicy
 
         with pytest.raises(ValueError, match="value_range") as exc:
             _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), (0.0, 255.0)], "clean")
@@ -1500,22 +1520,22 @@ class TestValueRangeReachesTheRun:
         """Item 5: the message must name the task's actual target kind."""
         import pytest
 
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+        from dataeval_flow._orchestrator import _apply_dataset_value_range
+        from dataeval_flow._policy import ResolvedPolicy
 
         with pytest.raises(ValueError, match="Evaluator 'dupes' reads datasets") as exc:
             _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), (0.0, 255.0)], "dupes", "evaluator")
         assert "Workflow" not in str(exc.value)
 
     def test_a_declared_range_beside_undeclared_datasets_still_applies(self):
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.workflow.orchestrator import _apply_dataset_value_range
+        from dataeval_flow._orchestrator import _apply_dataset_value_range
+        from dataeval_flow._policy import ResolvedPolicy
 
         stamped = _apply_dataset_value_range(ResolvedPolicy(), [(0.0, 1.0), None], "clean")
         assert stamped
         assert stamped.value_range == (0.0, 1.0)
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_declared_on_the_dataset_reaches_the_stamped_policy(self, mock_load_ds: MagicMock):
         """The real seam: ds_config.value_range -> DatasetContext -> the run's metadata_policy."""
         ds = ImageFolderDatasetConfig(name="images", path="data/images", value_range=(0.0, 1.0))
@@ -1532,13 +1552,13 @@ class TestValueRangeReachesTheRun:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         dc = context.dataset_contexts["src"]
         assert dc.value_range == (0.0, 1.0)
         assert context.metadata_policy.value_range == (0.0, 1.0)
@@ -1547,15 +1567,15 @@ class TestValueRangeReachesTheRun:
 class TestOntologyReachesTheContext:
     """The real seam: config.ontologies -> _resolve_ontology -> WorkflowContext.ontology."""
 
-    @patch("dataeval_flow.dataset.load_dataset")
+    @patch("dataeval_flow._dataset.load_dataset")
     def test_a_named_pool_entry_reaches_the_context(self, mock_load_ds: MagicMock):
         """A workflow naming a pool entry gets a resolved ontology whose source is that name."""
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         ds = ImageFolderDatasetConfig(name="images", path="data/images")
         source = SourceConfig(name="src", dataset="images")
         task = TaskConfig(name="t", workflow="coverage", sources="src")
-        coverage_instance = DataCoverageWorkflowConfig(name="coverage", ontology="animals")
+        coverage_instance = DataCoverageConfig(name="coverage", ontology="animals")
 
         config = MagicMock()
         config.datasets = [ds]
@@ -1576,13 +1596,13 @@ class TestOntologyReachesTheContext:
 
         mock_load_ds.return_value = MagicMock()
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = MagicMock(success=True)
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(task, config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         assert context.ontology is not None
         assert context.ontology.error is None
         assert context.ontology.source == "animals"
@@ -1598,45 +1618,41 @@ class TestMergedSourceTask:
     """A task naming a merged source reads one corpus."""
 
     def test_workflow_receives_one_merged_context(self):
+        from dataeval_flow._orchestrator import _run_single_task
         from dataeval_flow.config import TaskConfig
-        from dataeval_flow.workflow.orchestrator import _run_single_task
         from tests.test_sources import _merge_config
 
         config = _merge_config()
         config.workflows = [_CLEAN_INSTANCE]
         config.tasks = [TaskConfig(name="t", workflow="clean", sources="merged")]
 
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.metadata = ResultMetadata()
+        mock_result = _stub_result(ResultMetadata())
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = mock_result
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = mock_result
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             _run_single_task(config.tasks[0], config)
 
-        context = mock_wf.execute.call_args[0][0]
+        context = mock_wf.run.call_args[0][1]
         assert list(context.dataset_contexts) == ["merged"]
         assert len(context.dataset_contexts["merged"].dataset) == 4
 
     def test_dataset_id_names_every_operand(self):
+        from dataeval_flow._orchestrator import _run_single_task
         from dataeval_flow.config import TaskConfig
-        from dataeval_flow.workflow.orchestrator import _run_single_task
         from tests.test_sources import _merge_config
 
         config = _merge_config()
         config.workflows = [_CLEAN_INSTANCE]
         config.tasks = [TaskConfig(name="t", workflow="clean", sources="merged")]
 
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.metadata = ResultMetadata()
+        mock_result = _stub_result(ResultMetadata())
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = mock_result
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = mock_result
 
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(config.tasks[0], config)
 
         assert result.metadata.dataset_id == "ds_a,ds_b"
@@ -1660,15 +1676,13 @@ def _envelope_config():
 
 def _run_envelope(config):
     """Run the config's one task against a stub workflow and return the result."""
-    from dataeval_flow.workflow.orchestrator import _run_single_task
+    from dataeval_flow._orchestrator import _run_single_task
 
-    mock_result = MagicMock()
-    mock_result.success = True
-    mock_result.metadata = ResultMetadata()
+    mock_result = _stub_result(ResultMetadata())
     mock_wf = MagicMock()
-    mock_wf.params_schema = None
-    mock_wf.execute.return_value = mock_result
-    with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+    mock_wf.config_type = BaseModel
+    mock_wf.run.return_value = mock_result
+    with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
         return _run_single_task(config.tasks[0], config)
 
 
@@ -1764,19 +1778,19 @@ class TestLabelSpaceRecords:
 
     def test_target_defaults_to_the_remap_values_in_first_seen_order(self):
         """Relabel derives the vocabulary from the remap when `target` is omitted."""
-        from dataeval_flow.sources import label_space_records
+        from dataeval_flow._sources import label_space_records
 
         config = _envelope_config()
         assert config.views is not None
         config.views[0].operations[0].params = {"class_remap": {"car": "Car", "van": "Car", "x": "Bus"}}
-        from dataeval_flow.sources import resolve_source
+        from dataeval_flow._sources import resolve_source
 
         records = label_space_records([resolve_source("a", config)], None)
         assert list(records[0].target) == ["Car", "Bus"]
 
     def test_digest_matches_the_coverage_audit(self):
         """A run conformed by an audit's stanza carries the audit's own digest."""
-        from dataeval_flow.label_space import label_space_digest, ontology_digest
+        from dataeval_flow._label_space import label_space_digest, ontology_digest
 
         config = _envelope_config()
         assert config.tasks is not None
@@ -1795,21 +1809,19 @@ class TestLabelSpaceRecords:
         assert config.tasks is not None
         config.tasks[0].sources = "a"
 
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.metadata = ResultMetadata(label_space_digest="already-stamped")
+        mock_result = _stub_result(ResultMetadata(label_space_digest="already-stamped"))
         mock_wf = MagicMock()
-        mock_wf.params_schema = None
-        mock_wf.execute.return_value = mock_result
-        with patch("dataeval_flow.workflow.get_workflow", return_value=mock_wf):
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = mock_result
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(config.tasks[0], config)
 
         assert result.metadata.label_space_digest == "already-stamped"
 
     def test_merged_sources_own_relabel_is_recorded_too(self):
         """A merged source's own view can carry a further Relabel, coarsening the shared target."""
+        from dataeval_flow._sources import label_space_records, resolve_source
         from dataeval_flow.config import SourceConfig, ViewConfig, ViewOperation
-        from dataeval_flow.sources import label_space_records, resolve_source
         from tests.test_sources import _merge_config
 
         config = _merge_config()
@@ -1838,7 +1850,7 @@ class TestLabelSpaceRecords:
 
     def test_a_plain_sources_view_is_not_recorded_twice(self):
         """A non-merged source's view_config is the same object as its one operand's."""
-        from dataeval_flow.sources import label_space_records, resolve_source
+        from dataeval_flow._sources import label_space_records, resolve_source
 
         config = _envelope_config()
         records = label_space_records([resolve_source("a", config)], None)
@@ -1847,8 +1859,8 @@ class TestLabelSpaceRecords:
     def test_failed_ontology_leaves_the_label_and_digest_unset(self):
         """A failed load leaves `source` set and `ontology` None — recording the label would
         claim a vocabulary nothing was conformed to."""
-        from dataeval_flow.sources import label_space_records, resolve_source
-        from dataeval_flow.workflow import ResolvedOntology
+        from dataeval_flow._sources import label_space_records, resolve_source
+        from dataeval_flow.workflows import ResolvedOntology
 
         config = _envelope_config()
         ontology = ResolvedOntology(ontology=None, source="vehicles", error="ontology file not found")
@@ -1858,7 +1870,7 @@ class TestLabelSpaceRecords:
 
     def test_explicit_empty_target_is_recorded_as_empty(self):
         """An explicit `target: []` is a real, empty vocabulary — not an omitted one."""
-        from dataeval_flow.sources import label_space_records, resolve_source
+        from dataeval_flow._sources import label_space_records, resolve_source
 
         config = _envelope_config()
         assert config.views is not None
@@ -1868,7 +1880,7 @@ class TestLabelSpaceRecords:
 
     def test_mapping_target_sorts_numerically_not_lexicographically(self):
         """A JSON config's mapping keys are strings; "10" must not sort before "2"."""
-        from dataeval_flow.sources import label_space_records, resolve_source
+        from dataeval_flow._sources import label_space_records, resolve_source
 
         config = _envelope_config()
         assert config.views is not None
@@ -1883,7 +1895,7 @@ class TestLabelSpaceRecords:
 
     def test_mapping_target_pads_gaps_so_sparse_cannot_collide_with_dense(self):
         """A sparse mapping's gaps become "", so it cannot hash the same as a dense one."""
-        from dataeval_flow.sources import label_space_records, resolve_source
+        from dataeval_flow._sources import label_space_records, resolve_source
 
         config = _envelope_config()
         assert config.views is not None
@@ -1903,10 +1915,10 @@ class TestAuditToRunJoin:
         """Run the audit, conform a source by what it emitted, and compare digests."""
         from dataeval import Ontology
 
+        from dataeval_flow._sources import label_space_records, resolve_source
         from dataeval_flow.config import ViewConfig, ViewOperation
-        from dataeval_flow.sources import label_space_records, resolve_source
-        from dataeval_flow.workflow import ResolvedOntology
-        from dataeval_flow.workflows.coverage.ontology import _alignment
+        from dataeval_flow.workflows import ResolvedOntology
+        from dataeval_flow.workflows.data_coverage._ontology import _alignment
 
         ontology = Ontology.from_hierarchy({"Vehicle": ["Car", "Truck"], "Person": []})
         alignment = _alignment(ontology, ["car", "van"])
@@ -1937,9 +1949,9 @@ class TestAuditToRunJoin:
 
     def test_any_workflow_can_declare_an_ontology(self):
         """Not only data-coverage. A conformed run of any type must be able to join."""
-        from dataeval_flow.config import DataAnalysisWorkflowConfig
+        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 
-        instance = DataAnalysisWorkflowConfig(
+        instance = DataAnalysisConfig(
             name="a", outlier_method="zscore", outlier_flags=["dimension"], ontology="vehicles"
         )
         assert instance.ontology == "vehicles"
@@ -1950,32 +1962,32 @@ class TestRelabelTarget:
     """`_relabel_target` in isolation — the vocabulary-derivation rules `Relabel` itself applies."""
 
     def test_sequence_is_taken_as_given(self):
-        from dataeval_flow.sources import _relabel_target
+        from dataeval_flow._sources import _relabel_target
 
         assert _relabel_target(["Person", "Car"], {}) == ["Person", "Car"]
 
     def test_explicit_empty_sequence_stays_empty(self):
-        from dataeval_flow.sources import _relabel_target
+        from dataeval_flow._sources import _relabel_target
 
         assert _relabel_target([], {"car": "Car"}) == []
 
     def test_omitted_derives_from_the_remap_values_first_seen_first(self):
-        from dataeval_flow.sources import _relabel_target
+        from dataeval_flow._sources import _relabel_target
 
         assert _relabel_target(None, {"car": "Car", "van": "Car", "x": "Bus"}) == ["Car", "Bus"]
 
     def test_dense_mapping_is_ordered_by_index(self):
-        from dataeval_flow.sources import _relabel_target
+        from dataeval_flow._sources import _relabel_target
 
         assert _relabel_target({1: "Car", 0: "Person"}, {}) == ["Person", "Car"]
 
     def test_mapping_keys_sort_numerically(self):
-        from dataeval_flow.sources import _relabel_target
+        from dataeval_flow._sources import _relabel_target
 
         assert _relabel_target({"10": "X", "2": "Y", "0": "Z"}, {}) == ["Z", "", "Y", "", "", "", "", "", "", "", "X"]
 
     def test_sparse_mapping_pads_with_empty_string(self):
-        from dataeval_flow.sources import _relabel_target
+        from dataeval_flow._sources import _relabel_target
 
         assert _relabel_target({0: "Person", 5: "Car"}, {}) == ["Person", "", "", "", "", "Car"]
 
@@ -1986,7 +1998,7 @@ class TestValueRangeOf:
 
     @staticmethod
     def _resolved(*ranges: tuple[float, float] | None):
-        from dataeval_flow.sources import ResolvedSource, SourceOperand
+        from dataeval_flow._sources import ResolvedSource, SourceOperand
 
         operands = []
         for value_range in ranges:
@@ -2012,22 +2024,22 @@ class TestValueRangeOf:
         )
 
     def test_one_operand_reports_its_own_range(self):
-        from dataeval_flow.workflow.orchestrator import _value_range_of
+        from dataeval_flow._orchestrator import _value_range_of
 
         assert _value_range_of(self._resolved((0.0, 1.0))) == (0.0, 1.0)
 
     def test_agreeing_operands_report_the_shared_range(self):
-        from dataeval_flow.workflow.orchestrator import _value_range_of
+        from dataeval_flow._orchestrator import _value_range_of
 
         assert _value_range_of(self._resolved((0.0, 1.0), (0.0, 1.0))) == (0.0, 1.0)
 
     def test_undeclared_operands_report_none(self):
-        from dataeval_flow.workflow.orchestrator import _value_range_of
+        from dataeval_flow._orchestrator import _value_range_of
 
         assert _value_range_of(self._resolved(None, None)) is None
 
     def test_disagreeing_operands_are_refused(self):
-        from dataeval_flow.workflow.orchestrator import _value_range_of
+        from dataeval_flow._orchestrator import _value_range_of
 
         with pytest.raises(ValueError, match=r"merges datasets declaring different"):
             _value_range_of(self._resolved((0.0, 1.0), (0.0, 255.0)))
@@ -2038,22 +2050,22 @@ class TestLabelSourceOf:
     """_label_source_of reports one provenance only where every operand shares it."""
 
     def test_agreeing_operands_report_the_shared_value(self):
-        from dataeval_flow.workflow.orchestrator import _label_source_of
+        from dataeval_flow._orchestrator import _label_source_of
 
         assert _label_source_of(["protocol", "protocol"]) == "protocol"
 
     def test_all_unknown_reports_none(self):
-        from dataeval_flow.workflow.orchestrator import _label_source_of
+        from dataeval_flow._orchestrator import _label_source_of
 
         assert _label_source_of([None, None]) is None
 
     def test_differing_operands_report_each(self):
-        from dataeval_flow.workflow.orchestrator import _label_source_of
+        from dataeval_flow._orchestrator import _label_source_of
 
         assert _label_source_of(["protocol", "filepath"]) == ["protocol", "filepath"]
 
     def test_one_unknown_operand_is_named_unknown(self):
-        from dataeval_flow.workflow.orchestrator import _label_source_of
+        from dataeval_flow._orchestrator import _label_source_of
 
         assert _label_source_of(["protocol", None]) == ["protocol", "unknown"]
 
@@ -2067,7 +2079,7 @@ def _resolved_source_with(*, channel_groups):
     from types import SimpleNamespace
     from typing import cast
 
-    from dataeval_flow.sources import ResolvedSource
+    from dataeval_flow._sources import ResolvedSource
 
     operands = tuple(
         SimpleNamespace(
@@ -2084,25 +2096,25 @@ class TestChannelGroupsOnContext:
     """A merged source's operands must agree about what its bands are."""
 
     def test_carries_the_declared_groups(self):
-        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+        from dataeval_flow._orchestrator import _channel_groups_of
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2], "ir": 3}])
         assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}
 
     def test_none_when_nothing_declares_groups(self):
-        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+        from dataeval_flow._orchestrator import _channel_groups_of
 
         assert _channel_groups_of(_resolved_source_with(channel_groups=[None, None])) is None
 
     def test_refuses_operands_defining_one_name_differently(self):
-        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+        from dataeval_flow._orchestrator import _channel_groups_of
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"rgb": [0, 1]}])
         with pytest.raises(ValueError, match="different bands for channel group 'rgb'"):
             _channel_groups_of(resolved)
 
     def test_unions_groups_the_operands_do_not_share(self):
-        from dataeval_flow.workflow.orchestrator import _channel_groups_of
+        from dataeval_flow._orchestrator import _channel_groups_of
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"ir": 3}])
         assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}
@@ -2113,7 +2125,7 @@ class TestResolveStatsPolicy:
     """A named stats policy is resolved before the dataset is walked."""
 
     def _contexts(self, *groups):
-        from dataeval_flow.workflow import DatasetContext
+        from dataeval_flow.workflows import DatasetContext
 
         return {
             f"s{i}": DatasetContext(name=f"s{i}", dataset=[], channel_groups=g)  # type: ignore[arg-type]
@@ -2121,21 +2133,21 @@ class TestResolveStatsPolicy:
         }
 
     def test_unions_groups_across_the_datasets_a_workflow_reads(self):
-        from dataeval_flow.workflow.orchestrator import _channel_groups_for
+        from dataeval_flow._orchestrator import _channel_groups_for
 
         merged = _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"ir": (3,)}))
         assert merged == {"rgb": (0, 1, 2), "ir": (3,)}
 
     def test_refuses_two_datasets_defining_one_group_differently(self):
-        from dataeval_flow.workflow.orchestrator import _channel_groups_for
+        from dataeval_flow._orchestrator import _channel_groups_for
 
         with pytest.raises(ValueError, match="different bands for channel group 'rgb'"):
             _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"rgb": (0, 1)}))
 
     def test_none_for_a_workflow_that_computes_no_statistics(self):
-        from dataeval_flow.config import PipelineConfig
-        from dataeval_flow.workflow.orchestrator import _resolve_stats_policy
-        from dataeval_flow.workflows.splitting.params import DataSplittingParameters
+        from dataeval_flow import PipelineConfig
+        from dataeval_flow._orchestrator import _resolve_stats_policy
+        from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 
-        instance = DataSplittingParameters(name="s", type="data-splitting")  # type: ignore[call-arg]
+        instance = DataSplittingConfig(name="s", type="data-splitting")
         assert _resolve_stats_policy(instance, PipelineConfig(), {}) is None

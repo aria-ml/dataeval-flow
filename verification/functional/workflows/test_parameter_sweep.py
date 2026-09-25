@@ -7,10 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.config.schemas import (
-    ParameterSweepTaskConfig,
-    ParameterSweepWorkflowConfig,
-)
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 
 pytestmark = pytest.mark.required
 
@@ -29,7 +27,7 @@ class TestParameterSweepWorkflow:
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
             workflows=[
-                ParameterSweepWorkflowConfig(
+                ParameterSweepConfig(
                     name="sweep_main",
                     type="parameter-sweep",
                     outlier_flags=["dimension", "pixel"],
@@ -37,7 +35,7 @@ class TestParameterSweepWorkflow:
                 ),
             ],
             tasks=[
-                ParameterSweepTaskConfig(
+                TaskConfig(
                     name="sweep_task",
                     workflow="sweep_main",
                     sources="main",
@@ -45,11 +43,11 @@ class TestParameterSweepWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["sweep_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
         # Typed output check: one result entry per swept parameter combination
         # (two outlier_method values × one outlier_flags combo = 2 sweep cells)
-        assert len(result.data.raw.results) == 2
+        assert len(result.output.raw.results) == 2

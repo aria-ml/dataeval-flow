@@ -32,7 +32,7 @@ and their classes are documented in the
 ### `quality.duplicates`
 
 Which images are exact or near duplicates of each other, across every source the
-task names. Configured by {py:class}`~dataeval_flow.config.DuplicatesEvaluatorConfig`;
+task names. Configured by {py:class}`~dataeval_flow.evaluators.quality.DuplicatesConfig`;
 runs `dataeval.quality.Duplicates`.
 
 | Parameter | DataEval argument | Left unset |
@@ -53,7 +53,7 @@ Output: a table with one row per duplicate group (`group_id`, `level`, `dup_type
 ### `quality.outliers`
 
 Which images' statistics sit outside the threshold, across every source the task
-names. Configured by {py:class}`~dataeval_flow.config.OutliersEvaluatorConfig`; runs
+names. Configured by {py:class}`~dataeval_flow.evaluators.quality.OutliersConfig`; runs
 `dataeval.quality.Outliers`.
 
 | Parameter | DataEval argument | Left unset |

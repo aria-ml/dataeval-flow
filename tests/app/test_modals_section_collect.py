@@ -319,16 +319,10 @@ class TestSectionModalCollectValidation:
     async def test_collect_missing_required_fields_notifies(self) -> None:
         """Covers lines 833-836 (required fields notification).
 
-        For this to trigger, _collect_raw must return None AND disc_field must be None
-        AND we're not in a step-builder section AND the name is non-empty.
-        The only way for this to happen in a non-disc, non-step section is if
-        _collect_raw returns None despite having a name, which can't happen for sources.
-
-        Actually, _collect_raw returns None only if name is empty or disc is blank.
-        For sources (no disc), if name is set, _collect_raw always returns non-None.
-        So _collect checks the result of _collect_raw. If non-None, it returns it directly.
-        The required-fields notification is dead code for non-disc sections.
-        We test the code path by forcing _collect_raw to return None via monkey-patching.
+        The path requires _collect_raw to return None with a non-empty name in a
+        non-discriminated, non-step-builder section. For sources that cannot happen
+        naturally: _collect_raw returns None only when the name is empty or the
+        discriminator is blank. Patch _collect_raw to force it.
         """
         app = _MinimalApp()
         state = _state_with_datasets()

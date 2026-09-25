@@ -2,9 +2,9 @@
 
 import pytest
 
-from dataeval_flow.workflows.cleaning.outputs import DataCleaningRawOutputs
-from dataeval_flow.workflows.cleaning.params import DataCleaningHealthThresholds
-from dataeval_flow.workflows.cleaning.report import (
+from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
+from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningRawOutput
+from dataeval_flow.workflows.data_cleaning._report import (
     _classwise_finding,
     _duplicate_finding,
     _item_id_of,
@@ -38,7 +38,7 @@ class TestItemIdOf:
 
 class TestBuildFindings:
     def test_outlier_finding(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={
                 "count": 5,
@@ -51,7 +51,7 @@ class TestBuildFindings:
 
     def test_outlier_finding_counts_distinct_images(self):
         """Finding counts distinct images, not total flags (one image can trigger multiple metrics)."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=29,
             img_outliers={
                 "count": 6,
@@ -84,7 +84,7 @@ class TestBuildFindings:
         assert data["multi_metric_subject"] == "images"
 
     def test_target_outlier_finding(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             target_outliers={  # type: ignore[typeddict-item]  # target records include target_id
@@ -115,7 +115,7 @@ class TestBuildFindings:
         assert data["multi_metric_subject"] == "targets"
 
     def test_duplicate_finding(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             duplicates={
@@ -144,7 +144,7 @@ class TestBuildFindings:
 
     def test_duplicate_finding_exact_only(self):
         """Exact-only duplicates: near fields are empty."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             duplicates={"items": {"exact": [[0, 1, 2]], "near": []}, "targets": {}},
@@ -165,7 +165,7 @@ class TestBuildFindings:
 
     def test_duplicate_finding_null_orientation_skipped(self):
         """Near groups with orientation=None are not counted in orientations."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             duplicates={
@@ -189,7 +189,7 @@ class TestBuildFindings:
         assert any("near-duplicate" in line for line in data["detail_lines"])
 
     def test_label_stats_finding(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             label_stats={
@@ -216,7 +216,7 @@ class TestBuildFindings:
 
     def test_label_stats_finding_imbalanced(self):
         """Imbalanced labels produce non-empty footer_lines."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             label_stats={
@@ -234,7 +234,7 @@ class TestBuildFindings:
 
     def test_label_distribution_suppressed_when_no_classes(self):
         """Label distribution finding is suppressed when class_count == 0 (unlabeled dataset)."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             label_stats={
@@ -250,7 +250,7 @@ class TestBuildFindings:
 
     def test_label_distribution_warning_when_empty_class(self):
         """A class with zero items triggers a warning even if imbalance_ratio is 0."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             label_stats={
@@ -266,7 +266,7 @@ class TestBuildFindings:
 
     def test_label_title_with_inferred_directory_labels(self):
         """image_folder with inferred labels uses 'Label/Directory_Name Distribution' title."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={"count": 0, "issues": []},
             label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
@@ -277,7 +277,7 @@ class TestBuildFindings:
 
     def test_label_title_with_annotation_labels(self):
         """COCO/YOLO annotation labels use 'Label Distribution' title (not directory-name variant)."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={"count": 0, "issues": []},
             label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
@@ -290,7 +290,7 @@ class TestBuildFindings:
 
     def test_clean_data_shows_ok_findings(self):
         """Clean data still produces Image Outliers and Classwise Outliers with severity='ok'."""
-        raw = DataCleaningRawOutputs(dataset_size=100, img_outliers={"count": 0, "issues": []})
+        raw = DataCleaningRawOutput(dataset_size=100, img_outliers={"count": 0, "issues": []})
         findings = build_findings(raw, None, DataCleaningHealthThresholds())
         titles = [f.title for f in findings]
         assert "Image Outliers" in titles
@@ -309,7 +309,7 @@ class TestHealthThresholdSeverity:
 
     def test_image_outliers_info_within_threshold(self):
         """3% outliers with 5% threshold → info."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={
                 "count": 3,
@@ -322,7 +322,7 @@ class TestHealthThresholdSeverity:
 
     def test_image_outliers_warning_exceeds_threshold(self):
         """10% outliers with 5% threshold → warning."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={
                 "count": 10,
@@ -335,7 +335,7 @@ class TestHealthThresholdSeverity:
 
     def test_target_outliers_warning_exceeds_threshold(self):
         """Target outlier % exceeds threshold → warning."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             target_outliers={
                 "count": 6,
@@ -351,7 +351,7 @@ class TestHealthThresholdSeverity:
 
     def test_exact_duplicates_warning_at_zero_threshold(self):
         """Any exact duplicates with 0% threshold → warning."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             duplicates={
                 "items": {"exact": [[0, 1]], "near": []},
@@ -364,7 +364,7 @@ class TestHealthThresholdSeverity:
 
     def test_near_duplicates_info_within_threshold(self):
         """2% near duplicates with 5% threshold → info."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             duplicates={
                 "items": {
@@ -380,7 +380,7 @@ class TestHealthThresholdSeverity:
 
     def test_near_duplicates_warning_exceeds_threshold(self):
         """10% near duplicates with 5% threshold → warning."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             duplicates={
                 "items": {
@@ -398,7 +398,7 @@ class TestHealthThresholdSeverity:
 
     def test_label_imbalance_info_within_threshold(self):
         """Imbalance ratio 2.0 with threshold 10.0 → info."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             label_stats={"item_count": 30, "class_count": 2, "label_counts_per_class": {"a": 20, "b": 10}},
         )
@@ -408,7 +408,7 @@ class TestHealthThresholdSeverity:
 
     def test_label_imbalance_warning_exceeds_threshold(self):
         """Imbalance ratio 10.0 with threshold 5.0 → warning."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             label_stats={"item_count": 110, "class_count": 2, "label_counts_per_class": {"a": 100, "b": 10}},
         )
@@ -418,7 +418,7 @@ class TestHealthThresholdSeverity:
 
     def test_default_thresholds_exact_dup_always_warns(self):
         """Default exact_duplicates=0.0 means any exact duplicates trigger warning."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=1000,
             duplicates={
                 "items": {"exact": [[0, 1]], "near": []},
@@ -431,7 +431,7 @@ class TestHealthThresholdSeverity:
 
     def test_relaxed_thresholds_all_info(self):
         """Very high thresholds → everything stays info."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={
                 "count": 50,
@@ -462,7 +462,7 @@ class TestHealthThresholdSeverity:
 
 class TestCollectFlaggedIndices:
     def test_outlier_indices(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={
                 "issues": [
@@ -476,7 +476,7 @@ class TestCollectFlaggedIndices:
         assert flagged == {2, 5}
 
     def test_exact_duplicate_indices(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={"issues": [], "count": 0},
             duplicates={"items": {"exact": [[0, 1, 2]], "near": []}, "targets": {}},
@@ -486,7 +486,7 @@ class TestCollectFlaggedIndices:
         assert flagged == {1, 2}
 
     def test_near_duplicate_indices(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={"issues": [], "count": 0},
             duplicates={
@@ -501,7 +501,7 @@ class TestCollectFlaggedIndices:
         assert flagged == {4, 5}
 
     def test_combined_indices(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={
                 "issues": [{"item_index": 0, "metric_name": "m", "metric_value": 0.0}],
@@ -527,7 +527,7 @@ class TestCollectFlaggedIndices:
 class TestClasswiseFinding:
     def test_with_rows(self):
         """Classwise finding with rows produces worst-class summary."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
@@ -546,7 +546,7 @@ class TestClasswiseFinding:
         assert finding.data["count_basis"] == "image"  # type: ignore[index]
 
     def test_warning_when_total_exceeds_threshold(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
@@ -570,7 +570,7 @@ class TestClasswiseFinding:
 class TestCollectFlaggedIndicesTargetDups:
     def test_target_exact_duplicates(self):
         """Target-level exact duplicates with SourceIndexDict entries."""
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=10,
             img_outliers={"issues": [], "count": 0},
             duplicates={
@@ -593,7 +593,7 @@ class TestCollectFlaggedIndicesTargetDups:
 
 class TestDuplicateFindingDetailLines:
     def test_near_groups_methods_and_orientations(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             duplicates={
@@ -621,7 +621,7 @@ class TestDuplicateFindingDetailLines:
 
 class TestLabelDistributionFindingImbalanceFooter:
     def test_imbalance_ratio_nonzero_not_one(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             label_stats={
@@ -643,7 +643,7 @@ class TestLabelDistributionFindingImbalanceFooter:
 
 class TestClasswiseFindingThresholdAndBrief:
     def test_total_pct_exceeds_threshold_warning(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={
@@ -659,7 +659,7 @@ class TestClasswiseFindingThresholdAndBrief:
         assert finding.severity == "warning"
 
     def test_classes_over_zero_all_within_brief(self):
-        raw = DataCleaningRawOutputs(
+        raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
             classwise_outliers={

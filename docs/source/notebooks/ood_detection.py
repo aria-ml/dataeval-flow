@@ -23,7 +23,7 @@
 # **Target audience**: You are a T&E engineer who needs to flag individual incoming
 # samples that fall outside the operational reference distribution.
 #
-# **Workflow role**: OOD detection complements [Monitor incoming data for drift](drift_monitoring).
+# **Workflow role**: OOD detection complements {doc}`Monitor incoming data for drift <drift_monitoring>`.
 # While drift monitoring evaluates aggregate distribution shift, OOD detection
 # identifies anomalous individual samples for quarantine or routing before model
 # inference. See [Distribution shift](../concepts/DistributionShift.md) for conceptual
@@ -206,14 +206,14 @@ plt.show()
 import torch
 import torchvision
 
+from dataeval_flow import PipelineConfig
 from dataeval_flow.config import (
     DatasetProtocolConfig,
-    PipelineConfig,
+    PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
-    TorchExtractorConfig,
 )
-from dataeval_flow.preprocessing import PreprocessingStep
+from dataeval_flow.config.extractors import TorchExtractorConfig
 
 # Cache weights locally for TorchExtractorConfig
 model_dir = Path("./models")
@@ -270,15 +270,16 @@ extractor_config = TorchExtractorConfig(
 # that correlate with flagged OOD samples.
 
 # %%
-from dataeval_flow.config import OODDetectionTaskConfig, OODDetectionWorkflowConfig
-from dataeval_flow.workflow import run_task
-from dataeval_flow.workflows.ood.params import (
+from dataeval_flow import run_task
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.ood_detection import (
+    OODDetectionConfig,
+    OODDetectionHealthThresholds,
     OODDetectorDomainClassifier,
     OODDetectorKNeighbors,
-    OODHealthThresholds,
 )
 
-task = OODDetectionTaskConfig(
+task = TaskConfig(
     name="vehicles-ood-check",
     workflow="vehicles-ood",
     sources=["ref_src", "inc_src"],
@@ -294,7 +295,7 @@ config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        OODDetectionWorkflowConfig(
+        OODDetectionConfig(
             name="vehicles-ood",
             detectors=[
                 OODDetectorKNeighbors(
@@ -308,7 +309,7 @@ config = PipelineConfig(
                     threshold_perc=99.0,
                 ),
             ],
-            health_thresholds=OODHealthThresholds(
+            health_thresholds=OODDetectionHealthThresholds(
                 ood_pct_warning=5.0,  # warn if >5% of samples are OOD
                 ood_pct_info=1.0,  # info if >1% of samples are OOD
             ),
@@ -346,7 +347,7 @@ print(result.report())
 # exceeding reference thresholds are flagged as OOD.
 
 # %%
-raw = result.data.raw
+raw = result.output.raw
 
 print(f"Reference size:  {raw.reference_size}")
 print(f"Test size:       {raw.test_size}")
@@ -519,7 +520,7 @@ class NoisyClasses:
 noisy_dataset = NoisyClasses(View(vehicles_raw, [Indices(_order[2000:2500])]), NOISY_CLASSES)
 print(f"Corrupting: {[index2label[c] for c in NOISY_CLASSES]}")
 
-noisy_task = OODDetectionTaskConfig(
+noisy_task = TaskConfig(
     name="vehicles-ood-noise",
     workflow="vehicles-ood",
     sources=["ref_src", "noisy_src"],
@@ -542,7 +543,7 @@ noisy_result = run_task(noisy_task, noisy_config, cache_dir=Path("./cache"))
 noisy_truth = [noisy_dataset.corrupted(i) for i in range(len(noisy_dataset))]
 noisy_planted = sum(noisy_truth)
 
-for method, det_result in noisy_result.data.raw.detectors.items():
+for method, det_result in noisy_result.output.raw.detectors.items():
     flagged = [sample["index"] for sample in det_result.get("samples", []) if sample.get("is_ood")]
     hits = sum(1 for i in flagged if noisy_truth[i])
     recall = hits / noisy_planted * 100 if noisy_planted else 0.0

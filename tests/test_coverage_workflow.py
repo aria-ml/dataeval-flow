@@ -10,21 +10,21 @@ import yaml
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import BaseModel, ValidationError
 
-from dataeval_flow.policy import ResolvedPolicy
-from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflow._text_report import _render_detail_section
-from dataeval_flow.workflow.base import MetadataConfigMixin, WorkflowParametersBase
+from dataeval_flow._orchestrator import _run_target
+from dataeval_flow._policy import ResolvedPolicy
+from dataeval_flow._text_report import _render_detail_section
+from dataeval_flow.config import MetadataConfigMixin
+from dataeval_flow.workflows import DatasetContext, WorkflowConfig, WorkflowContext
 from dataeval_flow.workflows._common import serialize_coverage as _serialize_coverage
-from dataeval_flow.workflows.coverage.outputs import (
+from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageHealthThresholds, DataCoverageWorkflow
+from dataeval_flow.workflows.data_coverage._outputs import (
     ClassCoverageRow,
     ClassMetadataGap,
     CompletenessAssessment,
     CoverageAssessment,
     DarkBranch,
     DataCoverageMetadata,
-    DataCoverageOutputs,
-    DataCoverageRawOutputs,
-    DataCoverageReport,
+    DataCoverageRawOutput,
     LabelConformance,
     LabelDistributionResult,
     LabelSpaceCoverage,
@@ -34,12 +34,9 @@ from dataeval_flow.workflows.coverage.outputs import (
     OntologyStructure,
     RepresentationRow,
     RepresentationViolation,
-    is_coverage_result,
 )
-from dataeval_flow.workflows.coverage.params import DataCoverageHealthThresholds, DataCoverageParameters
-from dataeval_flow.workflows.coverage.report import build_findings
-from dataeval_flow.workflows.coverage.workflow import (
-    DataCoverageWorkflow,
+from dataeval_flow.workflows.data_coverage._report import build_findings
+from dataeval_flow.workflows.data_coverage._workflow import (
     _crop_view,
     _is_object_detection,
     _mi_from_balance,
@@ -56,10 +53,10 @@ pytestmark = pytest.mark.required
 # ---------------------------------------------------------------------------
 
 
-def _make_params(**overrides: Any) -> DataCoverageParameters:
+def _make_params(**overrides: Any) -> DataCoverageConfig:
     defaults: dict[str, Any] = {}
     defaults.update(overrides)
-    return DataCoverageParameters(**defaults)
+    return DataCoverageConfig(**defaults)
 
 
 def _make_dataset(n: int = 100) -> MagicMock:
@@ -199,13 +196,13 @@ class _ODDataset:
 
 
 # ---------------------------------------------------------------------------
-# TestDataCoverageParameters
+# TestDataCoverageConfig
 # ---------------------------------------------------------------------------
 
 
-class TestDataCoverageParameters:
+class TestDataCoverageConfig:
     def test_defaults(self) -> None:
-        p = DataCoverageParameters()
+        p = DataCoverageConfig()
         assert p.coverage_method == "adaptive"
         assert p.coverage_percent == 0.01
         assert p.num_observations == 50
@@ -220,10 +217,10 @@ class TestDataCoverageParameters:
         assert p.gap_min_representation == 5
 
     def test_inherits_workflow_params_base(self) -> None:
-        assert issubclass(DataCoverageParameters, WorkflowParametersBase)
+        assert issubclass(DataCoverageConfig, WorkflowConfig)
 
     def test_inherits_metadata_config_mixin(self) -> None:
-        assert issubclass(DataCoverageParameters, MetadataConfigMixin)
+        assert issubclass(DataCoverageConfig, MetadataConfigMixin)
 
     def test_custom_values(self) -> None:
         p = _make_params(
@@ -244,9 +241,8 @@ class TestDataCoverageParameters:
         assert p.run_gap_analysis is False
 
     def test_ontology_expected_rejects_out_of_range_share(self) -> None:
-        """ontology_expected values are documented as fractions in [0, 1] — a value
-        like 5.0 or -1 would silently produce a nonsense target and, prior to this
-        fix, was the most likely trigger for an unguarded crash in analysis."""
+        """ontology_expected values are documented as fractions in [0, 1]. A value
+        like 5.0 or -1 produces a nonsense target."""
         import pytest
 
         with pytest.raises(ValidationError):
@@ -450,24 +446,24 @@ class TestCropParameters:
     """Padding and min_size change which detections survive and what each embedding sees."""
 
     def test_defaults_match_the_dataeval_defaults(self):
-        params = DataCoverageParameters(name="c", type="data-coverage")  # type: ignore[call-arg]
+        params = DataCoverageConfig(name="c", type="data-coverage")  # type: ignore[call-arg]
         assert params.crop_padding == 0.0
         assert params.crop_min_size == 1
 
     def test_padding_must_not_be_negative(self):
         with pytest.raises(ValidationError):
-            DataCoverageParameters(name="c", type="data-coverage", crop_padding=-0.1)  # type: ignore[call-arg]
+            DataCoverageConfig(name="c", type="data-coverage", crop_padding=-0.1)  # type: ignore[call-arg]
 
     def test_min_size_must_be_at_least_one(self):
         with pytest.raises(ValidationError):
-            DataCoverageParameters(name="c", type="data-coverage", crop_min_size=0)  # type: ignore[call-arg]
+            DataCoverageConfig(name="c", type="data-coverage", crop_min_size=0)  # type: ignore[call-arg]
 
     def test_padding_changes_the_cache_key(self, toy_detection_dataset):
         from dataeval import Metadata
 
         metadata = Metadata(toy_detection_dataset)
-        base_params = DataCoverageParameters(name="c", type="data-coverage")  # type: ignore[call-arg]
-        padded_params = DataCoverageParameters(
+        base_params = DataCoverageConfig(name="c", type="data-coverage")  # type: ignore[call-arg]
+        padded_params = DataCoverageConfig(
             name="c",  # type: ignore[call-arg]
             type="data-coverage",  # type: ignore[call-arg]
             crop_padding=0.1,
@@ -489,7 +485,7 @@ class TestCropParameters:
         # keeps the 8x8 ones; min_size >= 9 drops both, leaving zero crops and firing an
         # "empty dataset" warning instead — the degenerate case this test must not regress
         # into, which is why it also asserts survivors remain.
-        params = DataCoverageParameters(name="c", type="data-coverage", crop_min_size=6)  # type: ignore[call-arg]
+        params = DataCoverageConfig(name="c", type="data-coverage", crop_min_size=6)  # type: ignore[call-arg]
         crops, _metadata, _key, _unit, dropped = _crop_view(toy_detection_dataset, metadata, "sel", params)
         assert dropped > 0
         assert len(crops) > 0
@@ -497,7 +493,7 @@ class TestCropParameters:
     def test_an_image_classification_dataset_drops_nothing(self, toy_images):
         from dataeval import Metadata
 
-        params = DataCoverageParameters(name="c", type="data-coverage")  # type: ignore[call-arg]
+        params = DataCoverageConfig(name="c", type="data-coverage")  # type: ignore[call-arg]
         result = _crop_view(toy_images, Metadata(toy_images), "sel", params)
         assert result[4] == 0
         assert result[3] == "image"
@@ -590,7 +586,7 @@ class TestRunCompleteness:
 
 
 class TestRunGapAnalysis:
-    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
+    @patch("dataeval_flow.workflows.data_coverage._workflow._balance_class_to_factor")
     def test_identifies_gaps(self, mock_mi: MagicMock) -> None:
         """Test that gap analysis identifies under-represented class-factor combinations."""
         mock_mi.return_value = {"time_of_day": 0.5, "weather": 0.02}
@@ -625,7 +621,7 @@ class TestRunGapAnalysis:
         assert gap.expected_count == 4.4
         assert gap.deficit == 1.0
 
-    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
+    @patch("dataeval_flow.workflows.data_coverage._workflow._balance_class_to_factor")
     def test_object_detection_uses_target_rows(self, mock_mi: MagicMock) -> None:
         """Gap analysis reads target-level rows, which always align with class_labels.
 
@@ -659,7 +655,7 @@ class TestRunGapAnalysis:
         assert result.gaps[0].class_count == 0
         assert result.gaps[0].expected_count == 3.3
 
-    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
+    @patch("dataeval_flow.workflows.data_coverage._workflow._balance_class_to_factor")
     def test_no_factors(self, mock_mi: MagicMock) -> None:
         meta = MagicMock()
         meta.factor_names = []
@@ -668,9 +664,9 @@ class TestRunGapAnalysis:
         assert result.gaps == []
         mock_mi.assert_not_called()
 
-    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
+    @patch("dataeval_flow.workflows.data_coverage._workflow._balance_class_to_factor")
     def test_precomputed_mi_skips_second_pass(self, mock_mi: MagicMock) -> None:
-        """Balance already computed this MI — do not pay for it twice."""
+        """Balance already computed this MI."""
         weather = [0] * 10 + [1] * 10 + [0] * 10
         meta = MagicMock()
         meta.class_labels = np.array([0] * 20 + [1] * 10, dtype=np.intp)
@@ -725,7 +721,7 @@ class TestMiFromBalance:
 
 class TestBuildFindings:
     def test_without_extractor(self) -> None:
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             coverage=None,
             completeness=None,
@@ -749,7 +745,7 @@ class TestBuildFindings:
         assert "Metadata Distribution" in titles
 
     def test_with_extractor(self) -> None:
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             coverage=CoverageAssessment(
                 method="adaptive",
@@ -795,7 +791,7 @@ class TestBuildFindings:
         assert len(findings) == 5
 
     def test_coverage_warning_severity(self) -> None:
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             coverage=CoverageAssessment(
                 method="naive",
@@ -816,7 +812,7 @@ class TestBuildFindings:
 
     def test_adaptive_rate_is_not_health_checked(self) -> None:
         """An adaptive rate over the threshold must not warn — it is set by config."""
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             coverage=CoverageAssessment(
                 method="adaptive",
@@ -834,7 +830,7 @@ class TestBuildFindings:
 
     def test_no_dropped_detections_is_not_mentioned(self) -> None:
         """dropped_detections=0 must not add a sentence about uncovered detections."""
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             coverage=CoverageAssessment(
                 method="adaptive",
@@ -852,7 +848,7 @@ class TestBuildFindings:
 
     def test_dropped_detections_reported_when_nonzero(self) -> None:
         """dropped_detections > 0 must surface as annotations the coverage numbers don't cover."""
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             coverage=CoverageAssessment(
                 method="adaptive",
@@ -872,7 +868,7 @@ class TestBuildFindings:
         assert "not covered" in description
 
     def test_completeness_warning_severity(self) -> None:
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             completeness=CompletenessAssessment(
                 completeness_score=0.3,
@@ -901,7 +897,7 @@ class TestBuildFindings:
             )
             for i in range(5)
         ]
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             metadata_gaps=MetadataGapResult(
@@ -920,7 +916,7 @@ class TestBuildFindings:
 
     def test_missing_class_warns_despite_balanced_present_classes(self) -> None:
         """A declared class with zero samples must warn even when the rest are balanced."""
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(
@@ -940,7 +936,7 @@ class TestBuildFindings:
         assert "zero samples: c" in (label_finding.description or "")
 
     def test_no_missing_classes_stays_ok(self) -> None:
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(
@@ -959,7 +955,7 @@ class TestBuildFindings:
 
         Dividing label counts by the image count made the column sum well past 100%.
         """
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=50,  # 50 images carrying 100 labels
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(
@@ -978,10 +974,9 @@ class TestBuildFindings:
     def test_all_null_continuous_factor_renders(self) -> None:
         """A continuous factor whose column is all-null summarizes to a null mean.
 
-        Rounding that None raised TypeError, failing report building — and with it
-        the whole run.
+        Rounding that None raised TypeError, failing report building and the run.
         """
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             metadata_distribution=MetadataDistributionResult(
                 metadata_factors=["altitude"],
@@ -998,8 +993,8 @@ class TestBuildFindings:
         assert md_finding.data["table_data"][0]["Nulls"] == 100
 
     def test_ontology_skip_reason_is_reported(self) -> None:
-        """A failed ontology must explain itself, not silently drop its sections."""
-        raw = DataCoverageRawOutputs(
+        """A failed ontology explains the failure in its output."""
+        raw = DataCoverageRawOutput(
             dataset_size=100,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=1, class_distribution={"a": 100}),
@@ -1045,7 +1040,7 @@ class TestBuildFindings:
         cov = next(f for f in findings if f.title == "Embedding Coverage")
         assert cov.severity != "warning"
 
-    def _raw_with_ontology(self, *, synthesized: bool) -> DataCoverageRawOutputs:
+    def _raw_with_ontology(self, *, synthesized: bool) -> DataCoverageRawOutput:
         raw = _populated_raw()
         raw.ontology = OntologyAssessment(
             source="index2label" if synthesized else "inline",
@@ -1147,9 +1142,9 @@ class TestBuildFindings:
 # ---------------------------------------------------------------------------
 
 
-def _populated_raw() -> DataCoverageRawOutputs:
+def _populated_raw() -> DataCoverageRawOutput:
     """Raw outputs with every optional section present, for render coverage."""
-    return DataCoverageRawOutputs(
+    return DataCoverageRawOutput(
         dataset_size=100,
         coverage=CoverageAssessment(
             method="naive",
@@ -1267,21 +1262,7 @@ class TestDataCoverageWorkflow:
         wf = DataCoverageWorkflow()
         assert wf.name == "data-coverage"
         assert "coverage" in wf.description.lower()
-        assert wf.params_schema is DataCoverageParameters
-        assert wf.output_schema is DataCoverageOutputs
-
-    def test_rejects_non_context(self) -> None:
-        wf = DataCoverageWorkflow()
-        result = wf.execute("not a context")  # type: ignore[arg-type]
-        assert result.success is False
-        assert any("WorkflowContext" in e for e in result.errors)
-
-    def test_rejects_no_params(self) -> None:
-        wf = DataCoverageWorkflow()
-        ctx = WorkflowContext()
-        result = wf.execute(ctx, params=None)
-        assert result.success is False
-        assert any("required" in e.lower() for e in result.errors)
+        assert wf.config_type is DataCoverageConfig
 
     def test_rejects_wrong_params(self) -> None:
         class OtherParams(BaseModel):
@@ -1289,18 +1270,15 @@ class TestDataCoverageWorkflow:
 
         wf = DataCoverageWorkflow()
         ctx = WorkflowContext()
-        result = wf.execute(ctx, params=OtherParams())
+        result = _run_target(wf, OtherParams(), ctx)
         assert result.success is False
-        assert any("DataCoverageParameters" in e for e in result.errors)
+        assert any("DataCoverageConfig" in e for e in result.errors)
 
-    def test_empty_context_returns_failed(self) -> None:
-        wf = DataCoverageWorkflow()
-        ctx = WorkflowContext()
-        result = wf.execute(ctx, _make_params())
-        assert result.success is False
+    # An empty task (no sources) is refused when the config loads (see
+    # test_workflow_inputs.py); the workflow itself no longer guards against it.
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_without_extractor(
@@ -1333,18 +1311,18 @@ class TestDataCoverageWorkflow:
         ctx = _make_context(dataset)
 
         wf = DataCoverageWorkflow()
-        result = wf.execute(ctx, _make_params(run_gap_analysis=False))
+        result = wf.run(_make_params(run_gap_analysis=False), ctx)
 
         assert result.success is True
-        assert result.data.raw.coverage is None
-        assert result.data.raw.completeness is None
-        assert result.data.raw.metadata_distribution.metadata_factors == ["brightness", "contrast"]
-        assert result.data.raw.label_distribution.num_classes == 3
-        assert result.data.raw.label_distribution.missing_classes == []
+        assert result.output.raw.coverage is None
+        assert result.output.raw.completeness is None
+        assert result.output.raw.metadata_distribution.metadata_factors == ["brightness", "contrast"]
+        assert result.output.raw.label_distribution.num_classes == 3
+        assert result.output.raw.label_distribution.missing_classes == []
         assert result.metadata.has_extractor is False
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_declared_class_with_no_samples_is_reported(
@@ -1365,20 +1343,20 @@ class TestDataCoverageWorkflow:
         mock_label_stats.return_value = _make_label_stats()  # only classes 0-2 observed
 
         ctx = _make_context(dataset)
-        result = DataCoverageWorkflow().execute(ctx, _make_params(run_gap_analysis=False, balance=False))
+        result = DataCoverageWorkflow().run(_make_params(run_gap_analysis=False, balance=False), ctx)
 
         assert result.success is True
-        ld = result.data.raw.label_distribution
+        ld = result.output.raw.label_distribution
         assert ld.missing_classes == ["fish"]
         assert ld.class_distribution["fish"] == 0
         assert ld.num_classes == 3  # observed classes only
 
-        label_finding = next(f for f in result.data.report.findings if f.title == "Label Distribution")
+        label_finding = next(f for f in result.output.report.findings if f.title == "Label Distribution")
         assert label_finding.severity == "warning"
 
-    @patch("dataeval_flow.embeddings.build_embeddings")
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow._embeddings.build_embeddings")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     @patch("dataeval.core.completeness")
@@ -1427,27 +1405,26 @@ class TestDataCoverageWorkflow:
         wf = DataCoverageWorkflow()
         # num_observations must be strictly less than the sample count, otherwise
         # dataeval's coverage functions reject the input (see the test below).
-        result = wf.execute(ctx, _make_params(run_gap_analysis=False, coverage_method="adaptive", num_observations=20))
+        result = wf.run(_make_params(run_gap_analysis=False, coverage_method="adaptive", num_observations=20), ctx)
 
         assert result.success is True
-        assert result.data.raw.coverage is not None
+        assert result.output.raw.coverage is not None
         # Real coverage math now runs (no module-level function left to mock) — assert
         # structure rather than an exact count, which TestRunCoverage already covers.
-        assert result.data.raw.coverage.uncovered_count >= 0
-        assert len(result.data.raw.coverage.per_class) == 3
-        assert result.data.raw.coverage_skipped_reason is None
-        assert result.data.raw.completeness is not None
-        assert result.data.raw.completeness.completeness_score == 0.85
+        assert result.output.raw.coverage.uncovered_count >= 0
+        assert len(result.output.raw.coverage.per_class) == 3
+        assert result.output.raw.coverage_skipped_reason is None
+        assert result.output.raw.completeness is not None
+        assert result.output.raw.completeness.completeness_score == 0.85
         assert result.metadata.has_extractor is True
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_embeddings")
     def test_object_detection_embeds_detection_crops(self, mock_emb: MagicMock) -> None:
         """An OD dataset with an extractor must not abort the whole workflow.
 
         Coverage assumes one embedding per label; whole-image embeddings against
-        per-detection labels raise ShapeMismatchError, which used to take label,
-        metadata and gap analysis down with it. Real ``Metadata``, ``label_stats``
-        and ``scope.Coverage`` run here — only extraction is stubbed.
+        per-detection labels raise ShapeMismatchError. Real ``Metadata``,
+        ``label_stats`` and ``scope.Coverage`` run here; only extraction is stubbed.
         """
         from dataeval.data import DetectionCrops
 
@@ -1467,7 +1444,7 @@ class TestDataCoverageWorkflow:
             balance=False,
             diversity_method=None,
         )
-        result = DataCoverageWorkflow().execute(ctx, params)
+        result = DataCoverageWorkflow().run(params, ctx)
 
         assert result.errors == []
         assert result.success is True
@@ -1477,20 +1454,20 @@ class TestDataCoverageWorkflow:
         assert isinstance(embedded, DetectionCrops)
         assert len(embedded) == n_crops
 
-        cov = result.data.raw.coverage
+        cov = result.output.raw.coverage
         assert cov is not None
-        assert result.data.raw.coverage_skipped_reason is None
+        assert result.output.raw.coverage_skipped_reason is None
         assert cov.observation_count == n_crops
         assert cov.observation_unit == "detection crop"
         assert sum(row.count for row in cov.per_class) == n_crops
         assert {row.class_name for row in cov.per_class} == {"cat", "dog"}
 
-        cov_finding = next(f for f in result.data.report.findings if f.title == "Embedding Coverage")
+        cov_finding = next(f for f in result.output.report.findings if f.title == "Embedding Coverage")
         assert f"of {n_crops} detection crops" in (cov_finding.description or "")
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_embeddings")
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_embeddings")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.core.completeness")
     def test_embeddings_go_through_the_cache(
         self,
@@ -1526,14 +1503,14 @@ class TestDataCoverageWorkflow:
             },
         )
         params = _make_params(run_gap_analysis=False, balance=False, diversity_method=None, num_observations=20)
-        result = DataCoverageWorkflow().execute(ctx, params)
+        result = DataCoverageWorkflow().run(params, ctx)
 
         assert result.success is True
         mock_get_or_compute_emb.assert_called_once_with(dataset, extractor, transforms, 16)
 
-    @patch("dataeval_flow.workflows.coverage.workflow._balance_class_to_factor")
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow._balance_class_to_factor")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_gap_analysis_reuses_balance_mi(
@@ -1571,30 +1548,30 @@ class TestDataCoverageWorkflow:
         )
 
         ctx = _make_context()
-        result = DataCoverageWorkflow().execute(ctx, _make_params(balance=True, run_gap_analysis=True))
+        result = DataCoverageWorkflow().run(_make_params(balance=True, run_gap_analysis=True), ctx)
 
         assert result.success is True
         # Balance's internal mutual_info is inside the mocked evaluate; the workflow's
         # own direct call must not happen at all.
         mock_mi.assert_not_called()
-        gaps = result.data.raw.metadata_gaps
+        gaps = result.output.raw.metadata_gaps
         assert gaps is not None
         assert gaps.mutual_info_class_to_factor == {"brightness": 0.4, "contrast": 0.05}
 
-    @patch("dataeval_flow.embeddings.build_embeddings")
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow._embeddings.build_embeddings")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     def test_dataset_smaller_than_num_observations_skips_only_coverage(
         self,
         mock_label_stats: MagicMock,
         mock_get_metadata: MagicMock,
         mock_build_emb: MagicMock,
     ) -> None:
-        """A too-small dataset must not cost us the metadata and label analysis.
+        """A too-small dataset must not lose the metadata and label analysis.
 
         ``coverage_naive``/``coverage_adaptive`` raise ValueError when
-        ``len(embeddings) <= num_observations``. The real functions run here — no
-        coverage mock — so the precondition is genuinely exercised.
+        ``len(embeddings) <= num_observations``. The real functions run here with
+        no coverage mock, so the precondition is genuinely exercised.
         """
         dataset = _make_dataset(40)
         mock_get_metadata.return_value = _make_metadata(40)
@@ -1605,18 +1582,18 @@ class TestDataCoverageWorkflow:
             dataset_contexts={"ds": DatasetContext(name="ds", dataset=dataset, extractor=MagicMock())},
         )
         params = _make_params(run_gap_analysis=False, balance=False, diversity_method=None, num_observations=50)
-        result = DataCoverageWorkflow().execute(ctx, params)
+        result = DataCoverageWorkflow().run(params, ctx)
 
         assert result.success is True
         assert result.errors == []
-        assert result.data.raw.coverage is None
-        assert result.data.raw.coverage_skipped_reason is not None
-        assert "num_observations=50" in result.data.raw.coverage_skipped_reason
+        assert result.output.raw.coverage is None
+        assert result.output.raw.coverage_skipped_reason is not None
+        assert "num_observations=50" in result.output.raw.coverage_skipped_reason
         # The rest of the analysis survived.
-        assert result.data.raw.label_distribution.num_classes == 3
-        assert result.data.raw.metadata_distribution.metadata_factors == ["brightness", "contrast"]
+        assert result.output.raw.label_distribution.num_classes == 3
+        assert result.output.raw.metadata_distribution.metadata_factors == ["brightness", "contrast"]
 
-        cov_finding = next(f for f in result.data.report.findings if f.title == "Embedding Coverage")
+        cov_finding = next(f for f in result.output.report.findings if f.title == "Embedding Coverage")
         assert isinstance(cov_finding.data, dict)
         assert cov_finding.data["brief"] == "skipped"
 
@@ -1627,24 +1604,6 @@ class TestDataCoverageWorkflow:
 
 
 class TestOutputModels:
-    def test_is_coverage_result_guard(self) -> None:
-        from dataeval_flow.workflow import WorkflowResult
-
-        result = WorkflowResult(
-            name="data-coverage",
-            success=True,
-            data=DataCoverageOutputs(
-                raw=DataCoverageRawOutputs(
-                    dataset_size=0,
-                    metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
-                    label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
-                ),
-                report=DataCoverageReport(summary="test", findings=[]),
-            ),
-            metadata=DataCoverageMetadata(),
-        )
-        assert is_coverage_result(result)
-
     def test_class_metadata_gap_model(self) -> None:
         gap = ClassMetadataGap(
             class_name="car",
@@ -1727,14 +1686,14 @@ class TestOutputModels:
 
 class TestWorkflowRegistration:
     def test_registered_in_discovery(self) -> None:
-        from dataeval_flow.workflow import list_workflows
+        from dataeval_flow.workflows import list_workflows
 
         workflows = list_workflows()
-        names = [w["name"] for w in workflows]
+        names = [w.name for w in workflows]
         assert "data-coverage" in names
 
     def test_get_workflow(self) -> None:
-        from dataeval_flow.workflow import get_workflow
+        from dataeval_flow.workflows import get_workflow
 
         wf = get_workflow("data-coverage")
         assert wf.name == "data-coverage"
@@ -1747,17 +1706,17 @@ class TestWorkflowRegistration:
 
 class TestConfigSchemas:
     def test_workflow_config(self) -> None:
-        from dataeval_flow.config.schemas import DataCoverageWorkflowConfig
+        from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
-        cfg = DataCoverageWorkflowConfig(name="test_coverage")
+        cfg = DataCoverageConfig(name="test_coverage")
         assert cfg.type == "data-coverage"
         assert cfg.name == "test_coverage"
         assert cfg.coverage_method == "adaptive"
 
     def test_task_config(self) -> None:
-        from dataeval_flow.config.schemas import DataCoverageTaskConfig
+        from dataeval_flow.config import TaskConfig
 
-        cfg = DataCoverageTaskConfig(
+        cfg = TaskConfig(
             name="cov_task",
             workflow="test_coverage",
             sources="my_source",
@@ -1771,7 +1730,7 @@ class TestConfigSchemas:
 
 
 def _fixture_ontology() -> Any:
-    """Vehicles and animals, with a whole amphibian branch nothing will populate."""
+    """Vehicles and animals, including an amphibian branch no data populates."""
     from dataeval import Ontology
 
     return Ontology.from_hierarchy(
@@ -1786,7 +1745,7 @@ def _fixture_ontology() -> Any:
 
 class TestRunOntologyAnalysis:
     def test_acquire_and_augment(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         # 5 leaves, 200 samples -> uniform target 40 each.
         counts = {"car": 100, "truck": 60, "cat": 30, "dog": 10}
@@ -1803,14 +1762,14 @@ class TestRunOntologyAnalysis:
         assert result.representation.total_deficit == sum(r.deficit for r in result.representation.worklist)
 
     def test_dark_branch_rolls_up(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         counts = {"car": 100, "truck": 60, "cat": 30, "dog": 10}
         result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts=counts)
         assert [b.concept for b in result.representation.dark_branches] == ["amphibian"]
 
     def test_violations_and_ignored_expected(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         counts = {"car": 100, "truck": 60, "cat": 30, "dog": 10}
         result = run_ontology_analysis(
@@ -1826,7 +1785,7 @@ class TestRunOntologyAnalysis:
         assert result.representation.ignored_expected == ["nonexistent"]
 
     def test_unmatched_class_name(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         counts = {"car": 100, "kitteh": 30}
         result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts=counts)
@@ -1836,7 +1795,7 @@ class TestRunOntologyAnalysis:
         assert result.conformance.matched["car"] == "car"
 
     def test_structure_reported(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         result = run_ontology_analysis(
             _fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 10}
@@ -1854,7 +1813,7 @@ class TestRunOntologyAnalysis:
     def test_label_pattern_flags_nonconforming(self) -> None:
         from dataeval import Ontology
 
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         onto = Ontology.from_hierarchy({"Vehicle": ["car"]})
         result = run_ontology_analysis(
@@ -1869,7 +1828,7 @@ class TestRunOntologyAnalysis:
 
     def test_synthesized_skips_conformance_and_structure(self) -> None:
         from dataeval_flow.workflows._ontology import synthesize_ontology
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         onto, source = synthesize_ontology({0: "cat", 1: "dog"})
         result = run_ontology_analysis(onto, source=source, synthesized=True, class_counts={"cat": 90, "dog": 10})
@@ -1891,8 +1850,8 @@ class TestRunOntologyAnalysis:
 
 
 class TestOntologyWiring:
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_synthesized_by_default(
@@ -1908,16 +1867,16 @@ class TestOntologyWiring:
 
         workflow = DataCoverageWorkflow()
         context = _make_context()
-        result = workflow.execute(context, _make_params(run_gap_analysis=False))
+        result = workflow.run(_make_params(run_gap_analysis=False), context)
 
         assert result.success
-        assert result.data.raw.ontology is not None
-        assert result.data.raw.ontology.synthesized is True
-        assert result.data.raw.ontology.source == "index2label"
-        assert result.data.raw.ontology.conformance is None
+        assert result.output.raw.ontology is not None
+        assert result.output.raw.ontology.synthesized is True
+        assert result.output.raw.ontology.source == "index2label"
+        assert result.output.raw.ontology.conformance is None
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_configured_ontology_is_used(
@@ -1936,9 +1895,9 @@ class TestOntologyWiring:
             run_gap_analysis=False,
             ontology={"animal": {"mammal": ["cat", "dog"], "avian": ["bird"], "reptile": ["snake"]}},
         )
-        result = workflow.execute(context, params)
+        result = workflow.run(params, context)
 
-        onto = result.data.raw.ontology
+        onto = result.output.raw.ontology
         assert onto is not None
         assert onto.synthesized is False
         assert onto.source == "inline"
@@ -1946,8 +1905,8 @@ class TestOntologyWiring:
         assert any(row.concept == "snake" and row.action == "acquire" for row in onto.representation.worklist)
         assert [b.concept for b in onto.representation.dark_branches] == ["reptile"]
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_bad_ontology_skips_without_failing(
@@ -1962,16 +1921,16 @@ class TestOntologyWiring:
 
         workflow = DataCoverageWorkflow()
         context = _make_context()
-        result = workflow.execute(context, _make_params(run_gap_analysis=False, ontology="does/not/exist.ttl"))
+        result = workflow.run(_make_params(run_gap_analysis=False, ontology="does/not/exist.ttl"), context)
 
         assert result.success is True
-        assert result.data.raw.ontology is None
-        assert result.data.raw.ontology_skipped_reason is not None
-        assert "does/not/exist.ttl" in result.data.raw.ontology_skipped_reason
+        assert result.output.raw.ontology is None
+        assert result.output.raw.ontology_skipped_reason is not None
+        assert "does/not/exist.ttl" in result.output.raw.ontology_skipped_reason
 
-    @patch("dataeval_flow.workflows.coverage.ontology.run_ontology_analysis")
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._ontology.run_ontology_analysis")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_analysis_exception_skips_without_failing(
@@ -1992,15 +1951,15 @@ class TestOntologyWiring:
 
         workflow = DataCoverageWorkflow()
         context = _make_context()
-        result = workflow.execute(context, _make_params(run_gap_analysis=False))
+        result = workflow.run(_make_params(run_gap_analysis=False), context)
 
         assert result.success is True
-        assert result.data.raw.ontology is None
-        assert result.data.raw.ontology_skipped_reason is not None
-        assert "boom" in result.data.raw.ontology_skipped_reason
+        assert result.output.raw.ontology is None
+        assert result.output.raw.ontology_skipped_reason is not None
+        assert "boom" in result.output.raw.ontology_skipped_reason
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_no_index2label_skips(
@@ -2016,17 +1975,17 @@ class TestOntologyWiring:
         workflow = DataCoverageWorkflow()
         context = _make_context()
         next(iter(context.dataset_contexts.values())).dataset.metadata = {}  # type: ignore
-        result = workflow.execute(context, _make_params(run_gap_analysis=False))
+        result = workflow.run(_make_params(run_gap_analysis=False), context)
 
         assert result.success is True
-        assert result.data.raw.ontology is None
-        assert "index2label" in (result.data.raw.ontology_skipped_reason or "")
+        assert result.output.raw.ontology is None
+        assert "index2label" in (result.output.raw.ontology_skipped_reason or "")
 
 
 @pytest.mark.required
 class TestLabelAlignmentModel:
     def test_defaults_are_empty(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         al = LabelAlignment(mergeability="lossless")
         assert al.correspondences == []
@@ -2037,7 +1996,7 @@ class TestLabelAlignmentModel:
         assert al.label_space_digest == ""
 
     def test_rejects_an_unknown_mergeability(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         with pytest.raises(ValidationError):
             LabelAlignment(mergeability="mostly")  # type: ignore[arg-type]
@@ -2051,7 +2010,7 @@ class TestLabelAlignmentModel:
         assert assessment.alignment is None
 
     def test_correspondence_rejects_an_unknown_relation(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import AlignmentCorrespondence
+        from dataeval_flow.workflows.data_coverage._outputs import AlignmentCorrespondence
 
         with pytest.raises(ValidationError):
             AlignmentCorrespondence(
@@ -2072,7 +2031,7 @@ class TestLabelAlignmentModel:
 @pytest.mark.required
 class TestAlignment:
     def test_exact_names_align_losslessly(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         result = run_ontology_analysis(
             _fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 5, "truck": 5}
@@ -2083,7 +2042,7 @@ class TestAlignment:
         assert result.alignment.unaligned_source == []
 
     def test_an_unknown_class_is_partial(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         result = run_ontology_analysis(
             _fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 5, "lamp": 2}
@@ -2094,7 +2053,7 @@ class TestAlignment:
         assert "lamp" not in result.alignment.class_remap
 
     def test_target_vocabulary_is_every_concept_in_order(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 1})
         assert result.alignment is not None
@@ -2116,15 +2075,15 @@ class TestAlignment:
         ]
 
     def test_uncovered_concepts_are_reported_as_labels(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         result = run_ontology_analysis(_fixture_ontology(), source="inline", synthesized=False, class_counts={"car": 1})
         assert result.alignment is not None
         assert "frog" in result.alignment.unaligned_target
 
     def test_digest_is_stamped_and_matches_the_helper(self) -> None:
-        from dataeval_flow.label_space import label_space_digest, ontology_digest
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow._label_space import label_space_digest, ontology_digest
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         onto = _fixture_ontology()
         result = run_ontology_analysis(onto, source="inline", synthesized=False, class_counts={"car": 1})
@@ -2138,7 +2097,7 @@ class TestAlignment:
         )
 
     def test_synthesized_ontology_gets_no_alignment(self) -> None:
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         result = run_ontology_analysis(
             _fixture_ontology(), source="index2label", synthesized=True, class_counts={"car": 1}
@@ -2153,8 +2112,8 @@ class TestAlignment:
         from dataeval import Ontology
         from dataeval.types import OntologyConcept
 
-        from dataeval_flow.label_space import label_space_digest, ontology_digest
-        from dataeval_flow.workflows.coverage.ontology import run_ontology_analysis
+        from dataeval_flow._label_space import label_space_digest, ontology_digest
+        from dataeval_flow.workflows.data_coverage._ontology import run_ontology_analysis
 
         onto = Ontology(
             [
@@ -2184,8 +2143,8 @@ class TestAlignment:
 @pytest.mark.required
 class TestAlignmentFinding:
     @staticmethod
-    def _raw_with(alignment: Any) -> DataCoverageRawOutputs:
-        raw = DataCoverageRawOutputs(
+    def _raw_with(alignment: Any) -> DataCoverageRawOutput:
+        raw = DataCoverageRawOutput(
             dataset_size=10,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
@@ -2203,7 +2162,7 @@ class TestAlignmentFinding:
         return next((f for f in findings if f.title == "Label Alignment"), None)
 
     def test_absent_without_an_alignment(self) -> None:
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=10,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
@@ -2211,7 +2170,7 @@ class TestAlignmentFinding:
         assert self._find(build_findings(raw, DataCoverageHealthThresholds())) is None
 
     def test_lossless_is_ok(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         raw = self._raw_with(
             LabelAlignment(
@@ -2226,7 +2185,7 @@ class TestAlignmentFinding:
         assert finding.severity == "ok"
 
     def test_partial_warns_and_names_the_dropped_class(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         raw = self._raw_with(
             LabelAlignment(
@@ -2243,7 +2202,7 @@ class TestAlignmentFinding:
         assert "lamp" in (finding.description or "")
 
     def test_lossy_is_info(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         raw = self._raw_with(
             LabelAlignment(
@@ -2258,7 +2217,7 @@ class TestAlignmentFinding:
         assert finding.severity == "info"
 
     def test_ambiguous_labels_force_a_warning(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         raw = self._raw_with(
             LabelAlignment(
@@ -2277,7 +2236,7 @@ class TestAlignmentFinding:
         assert "type: Relabel" in (finding.description or "")
 
     def test_description_carries_a_paste_ready_block(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         raw = self._raw_with(
             LabelAlignment(
@@ -2299,7 +2258,7 @@ class TestAlignmentFinding:
         assert "Label space: deadbeefcafe" in description
 
     def test_correspondences_become_table_rows(self) -> None:
-        from dataeval_flow.workflows.coverage.outputs import AlignmentCorrespondence, LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import AlignmentCorrespondence, LabelAlignment
 
         raw = self._raw_with(
             LabelAlignment(
@@ -2333,7 +2292,7 @@ class TestAlignmentFinding:
         # length or shape — and that list's length and order ARE the integer label
         # indexing, so this is not cosmetic. Parse the emitted block back and compare the
         # list exactly, rather than just checking that quotes appear somewhere.
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         class_remap = {"bathtub, bathing tub": "bathtub, bathing tub", "car": "Vehicle: Land"}
         target_vocabulary = ["Car", "bathtub, bathing tub", "Vehicle: Land"]
@@ -2362,7 +2321,7 @@ class TestAlignmentFinding:
         # despite that: int 0 came from str "0" only if quoting held, but a naive test
         # that skips the type check would not notice the value round-tripped to the
         # wrong type. Assert types explicitly, and the full entry count, not just values.
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
 
         vocabulary = ["0", "1", "on", "no", "2026-09-06"]
         class_remap = {label: label for label in vocabulary}
@@ -2393,7 +2352,7 @@ class TestAlignmentFinding:
 @pytest.mark.required
 class TestLabelSpaceOnEnvelope:
     def test_field_exists_and_defaults_to_none(self) -> None:
-        from dataeval_flow.config.schemas import ResultMetadata
+        from dataeval_flow import ResultMetadata
 
         assert ResultMetadata().label_space_digest is None
 
@@ -2403,10 +2362,10 @@ class TestLabelSpaceOnEnvelope:
     def test_stamped_from_the_alignment(self) -> None:
         # The stamping rule in isolation: whatever the alignment computed is what the
         # envelope carries, so a downstream result matching it has found this audit.
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
-        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._workflow import _label_space_digest_of
 
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=10,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
@@ -2420,9 +2379,9 @@ class TestLabelSpaceOnEnvelope:
         assert _label_space_digest_of(raw) == "abc123abc123"
 
     def test_absent_without_an_ontology(self) -> None:
-        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+        from dataeval_flow.workflows.data_coverage._workflow import _label_space_digest_of
 
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=10,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
@@ -2430,9 +2389,9 @@ class TestLabelSpaceOnEnvelope:
         assert _label_space_digest_of(raw) is None
 
     def test_absent_for_a_synthesized_ontology(self) -> None:
-        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+        from dataeval_flow.workflows.data_coverage._workflow import _label_space_digest_of
 
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=10,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
@@ -2448,10 +2407,10 @@ class TestLabelSpaceOnEnvelope:
         # LabelAlignment.label_space_digest defaults to "", so an alignment can carry an
         # empty one. An empty string is not a vocabulary identity — it must read as absent
         # rather than travel onto the envelope as a falsy digest.
-        from dataeval_flow.workflows.coverage.outputs import LabelAlignment
-        from dataeval_flow.workflows.coverage.workflow import _label_space_digest_of
+        from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
+        from dataeval_flow.workflows.data_coverage._workflow import _label_space_digest_of
 
-        raw = DataCoverageRawOutputs(
+        raw = DataCoverageRawOutput(
             dataset_size=10,
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
@@ -2469,14 +2428,13 @@ class TestLabelSpaceOnEnvelope:
 class TestAlignmentEndToEnd:
     """Run the real workflow through its own ontology path.
 
-    Tasks 1-5 each unit-tested one piece in isolation. This is the only test that
-    exercises the actual ``DataCoverageMetadata(..., label_space_digest=...)``
+    Exercises the actual ``DataCoverageMetadata(..., label_space_digest=...)``
     construction site, proving the report and the envelope agree on what the
     alignment computed.
     """
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_report_and_envelope_agree(
@@ -2491,17 +2449,17 @@ class TestAlignmentEndToEnd:
         mock_label_stats.return_value = _make_label_stats()
 
         workflow = DataCoverageWorkflow()
-        result = workflow.execute(
-            _make_context(),
+        result = workflow.run(
             _make_params(
                 run_gap_analysis=False,
                 ontology={"animal": ["cat", "dog", "bird"]},
             ),
+            _make_context(),
         )
 
         assert result.success is True
-        assert result.data.raw.ontology is not None
-        alignment = result.data.raw.ontology.alignment
+        assert result.output.raw.ontology is not None
+        alignment = result.output.raw.ontology.alignment
         assert alignment is not None
         # Every declared class is a concept in this ontology, so nothing is dropped.
         assert alignment.mergeability == "lossless"
@@ -2511,7 +2469,7 @@ class TestAlignmentEndToEnd:
         # join key a downstream result matches on.
         assert result.metadata.label_space_digest == alignment.label_space_digest
 
-        finding = next(f for f in result.data.report.findings if f.title == "Label Alignment")
+        finding = next(f for f in result.output.report.findings if f.title == "Label Alignment")
         assert "type: Relabel" in (finding.description or "")
         assert finding.severity == "ok"
 
@@ -2520,7 +2478,7 @@ class TestAlignmentEndToEnd:
 class TestOntologyOnContext:
     @staticmethod
     def _pool() -> list[Any]:
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         return [
             OntologyConfig(
@@ -2535,13 +2493,13 @@ class TestOntologyOnContext:
         ]
 
     def test_resolved_ontology_carries_its_source(self) -> None:
-        from dataeval_flow.workflow import ResolvedOntology
+        from dataeval_flow.workflows import ResolvedOntology
 
         resolved = ResolvedOntology(ontology=None, source="animals", error="boom")
         assert resolved.error == "boom"
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_workflow_reads_the_context_ontology(
@@ -2551,7 +2509,7 @@ class TestOntologyOnContext:
         mock_label_stats: MagicMock,
         mock_get_metadata: MagicMock,
     ) -> None:
-        from dataeval_flow.workflow import ResolvedOntology
+        from dataeval_flow.workflows import ResolvedOntology
         from dataeval_flow.workflows._ontology import resolve_ontology
 
         mock_get_metadata.return_value = _make_metadata(100)
@@ -2561,16 +2519,16 @@ class TestOntologyOnContext:
         context = _make_context()
         context.ontology = ResolvedOntology(ontology=ontology, source=source, error=None)
 
-        result = DataCoverageWorkflow().execute(context, _make_params(run_gap_analysis=False))
+        result = DataCoverageWorkflow().run(_make_params(run_gap_analysis=False), context)
 
         assert result.success is True
-        assert result.data.raw.ontology is not None
+        assert result.output.raw.ontology is not None
         # The pool entry's name is what the envelope records, not "inline".
-        assert result.data.raw.ontology.source == "animals"
-        assert result.data.raw.ontology.synthesized is False
+        assert result.output.raw.ontology.source == "animals"
+        assert result.output.raw.ontology.synthesized is False
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_a_carried_error_degrades_rather_than_aborting(
@@ -2581,7 +2539,7 @@ class TestOntologyOnContext:
         mock_get_metadata: MagicMock,
     ) -> None:
         # The degradation contract: an ontology problem must never abort the run.
-        from dataeval_flow.workflow import ResolvedOntology
+        from dataeval_flow.workflows import ResolvedOntology
 
         mock_get_metadata.return_value = _make_metadata(100)
         mock_label_stats.return_value = _make_label_stats()
@@ -2589,14 +2547,14 @@ class TestOntologyOnContext:
         context = _make_context()
         context.ontology = ResolvedOntology(ontology=None, source="broken", error="could not read it")
 
-        result = DataCoverageWorkflow().execute(context, _make_params(run_gap_analysis=False))
+        result = DataCoverageWorkflow().run(_make_params(run_gap_analysis=False), context)
 
         assert result.success is True
-        assert result.data.raw.ontology is None
-        assert "could not read it" in (result.data.raw.ontology_skipped_reason or "")
+        assert result.output.raw.ontology is None
+        assert "could not read it" in (result.output.raw.ontology_skipped_reason or "")
 
-    @patch("dataeval_flow.workflows.coverage.workflow.get_or_compute_metadata")
-    @patch("dataeval_flow.workflows.coverage.workflow.label_stats")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
+    @patch("dataeval_flow.workflows.data_coverage._workflow.label_stats")
     @patch("dataeval.bias.Balance")
     @patch("dataeval.bias.Diversity")
     def test_params_still_work_without_a_context_ontology(
@@ -2611,11 +2569,10 @@ class TestOntologyOnContext:
         mock_get_metadata.return_value = _make_metadata(100)
         mock_label_stats.return_value = _make_label_stats()
 
-        result = DataCoverageWorkflow().execute(
-            _make_context(),
-            _make_params(run_gap_analysis=False, ontology={"animal": ["cat", "dog", "bird"]}),
+        result = DataCoverageWorkflow().run(
+            _make_params(run_gap_analysis=False, ontology={"animal": ["cat", "dog", "bird"]}), _make_context()
         )
 
         assert result.success is True
-        assert result.data.raw.ontology is not None
-        assert result.data.raw.ontology.source == "inline"
+        assert result.output.raw.ontology is not None
+        assert result.output.raw.ontology.source == "inline"

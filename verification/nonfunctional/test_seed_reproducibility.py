@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import PipelineConfig, run_tasks
-from dataeval_flow.config import DataCleaningTaskConfig, DataCleaningWorkflowConfig
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 pytestmark = pytest.mark.required
 
@@ -24,7 +25,7 @@ def _seeded_cleaning_pipeline(
     """A cleaning pipeline whose cluster-based detection is stochastic."""
     cfg, data_dir = builder(
         workflows=[
-            DataCleaningWorkflowConfig(
+            DataCleaningConfig(
                 name="clean",
                 type="data-cleaning",
                 outlier_method="zscore",
@@ -36,7 +37,7 @@ def _seeded_cleaning_pipeline(
             ),
         ],
         tasks=[
-            DataCleaningTaskConfig(
+            TaskConfig(
                 name="clean_task",
                 workflow="clean",
                 sources="main",
@@ -65,7 +66,7 @@ class TestSeedConfiguration:
         assert get_seed() is None
 
         cfg, data_dir = _seeded_cleaning_pipeline(image_folder_pipeline_builder, seed=1234)
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
 
         assert result.success
         assert get_seed() == 1234
@@ -76,7 +77,7 @@ class TestSeedConfiguration:
     ) -> None:
         """The seed is part of the provenance, so the envelope alone can repeat the run."""
         cfg, data_dir = _seeded_cleaning_pipeline(image_folder_pipeline_builder, seed=7)
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
 
         resolved = result.metadata.resolved_config
         assert resolved["seed"] == 7
@@ -88,7 +89,7 @@ class TestSeedConfiguration:
     ) -> None:
         """An unseeded run must not claim a seed it never applied."""
         cfg, data_dir = _seeded_cleaning_pipeline(image_folder_pipeline_builder, seed=None)
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["clean_task"]
 
         assert "seed" not in result.metadata.resolved_config
 
@@ -100,9 +101,9 @@ class TestSeedConfiguration:
         first_cfg, first_dir = _seeded_cleaning_pipeline(image_folder_pipeline_builder, seed=99)
         second_cfg, second_dir = _seeded_cleaning_pipeline(image_folder_pipeline_builder, seed=99)
 
-        first = run_tasks(first_cfg, data_dir=first_dir)[0]
-        second = run_tasks(second_cfg, data_dir=second_dir)[0]
+        first = run_tasks(first_cfg, data_dir=first_dir)["clean_task"]
+        second = run_tasks(second_cfg, data_dir=second_dir)["clean_task"]
 
         assert first.success
         assert second.success
-        assert first.data.raw.model_dump(mode="json") == second.data.raw.model_dump(mode="json")
+        assert first.output.raw.model_dump(mode="json") == second.output.raw.model_dump(mode="json")

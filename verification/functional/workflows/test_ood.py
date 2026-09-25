@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.config import OODDetectionTaskConfig, OODDetectionWorkflowConfig
-from dataeval_flow.workflows.ood.params import OODDetectorKNeighbors
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectorKNeighbors
 
 pytestmark = pytest.mark.required
 
@@ -28,7 +28,7 @@ class TestOODWorkflow:
         cfg, data_dir = image_folder_pipeline_builder(
             sources=(("ref", 0), ("test", 99)),
             workflows=[
-                OODDetectionWorkflowConfig(
+                OODDetectionConfig(
                     name="ood_main",
                     type="ood-detection",
                     detectors=[OODDetectorKNeighbors(method="kneighbors", k=3)],
@@ -36,7 +36,7 @@ class TestOODWorkflow:
                 ),
             ],
             tasks=[
-                OODDetectionTaskConfig(
+                TaskConfig(
                     name="ood_task",
                     workflow="ood_main",
                     sources=["ref", "test"],
@@ -44,13 +44,13 @@ class TestOODWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["ood_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
         # Typed output check: exposes OOD per-sample scores for the test dataset
-        detectors = result.data.raw.detectors
+        detectors = result.output.raw.detectors
         assert len(detectors) > 0
         (detector_result,) = detectors.values()
         # ``samples`` carries the per-sample (instance_score, is_ood) array; length

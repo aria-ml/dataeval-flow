@@ -1,9 +1,9 @@
 """The metadata policy: resolved from the config, and checked before the data is read.
 
-Every check here exists to fail early.  A descriptor that does not exist, a factor declared
-through two channels, a vocabulary closed over levels nobody reviewed — each of them either
-fails halfway through a run or, worse, succeeds while doing something other than what was
-asked.  Catching them at config time costs a message instead of an hour.
+Every check here fails early. A missing descriptor, a factor declared through two
+channels, a vocabulary closed over levels nobody reviewed: each of these fails a
+run partway through, or worse, succeeds while doing something other than what was
+asked. Catching them at config time costs a message instead of an hour.
 """
 
 import json
@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow.config._models import PipelineConfig
-from dataeval_flow.policy import ResolvedPolicy, policy_for, policy_key, resolve_policy
-from dataeval_flow.workflow.base import MetadataConfigMixin
+from dataeval_flow import PipelineConfig
+from dataeval_flow._policy import ResolvedPolicy, policy_for, policy_key, resolve_policy
+from dataeval_flow.config import MetadataConfigMixin
 
 
 def _descriptor(tmp_path: Path, factors: dict, name: str = "policy.json", corrections: Any = None) -> Path:
@@ -107,8 +107,8 @@ class TestApplyingADescriptor:
         assert policy.metadata_kwargs()["encoding"] == path
 
     def test_reads_the_corrections_beside_the_factors(self, tmp_path: Path):
-        """They decide what the values are, so a policy that ignored them would apply a
-        descriptor without the half that says how to read it."""
+        """They decide what the values are. A policy that ignores them would apply a
+        descriptor missing how to read it."""
         path = _descriptor(tmp_path, _DECLARED_BINS, corrections=_PARSE_COMMA)
         policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
 
@@ -126,7 +126,7 @@ class TestApplyingADescriptor:
             resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
 
     def test_a_correction_missing_its_kind_is_refused(self, tmp_path: Path):
-        """Caught here rather than after the walk, which is what the other checks buy."""
+        """Caught at policy resolve, not after the dataset walk."""
         path = _descriptor(tmp_path, _DECLARED_BINS, corrections=[{"factor": "count"}])
         with pytest.raises(ValueError, match="names no 'kind'"):
             resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
@@ -137,7 +137,7 @@ class TestApplyingADescriptor:
             resolve_policy(MetadataConfigMixin(metadata="standard"), _config(encoding=path.name), tmp_path)
 
     def test_a_missing_descriptor_is_refused(self, tmp_path: Path):
-        """A descriptor that matches nothing is not a no-op — it is silent drift."""
+        """A descriptor matching nothing silently drifts later reads."""
         config = _config(encoding="absent.json")
         with pytest.raises(ValueError, match="does not exist"):
             resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
@@ -202,8 +202,8 @@ class TestStrictMustBeEarned:
         """The same rule as a derived descriptor, for the spelling that names no descriptor.
 
         With neither channel set, every vocabulary strict closes is one DataEval cut from
-        this draw — the state `_check_strict_is_earned` exists to refuse. Left alone, it
-        fails the run on the first category the sample happened to miss.
+        this draw; `_check_strict_is_earned` refuses it. Without the check it fails the
+        run on the first category the sample happened to miss.
         """
         with pytest.raises(ValueError, match="declares no vocabulary"):
             resolve_policy(MetadataConfigMixin(metadata="standard"), _config(strict=True))
@@ -219,7 +219,7 @@ class TestDoubleDeclaration:
             resolve_policy(MetadataConfigMixin(metadata="standard"), config, tmp_path)
 
     def test_encoding_and_factor_levels_conflict(self, tmp_path: Path):
-        """DataEval refuses this too, halfway through a run. Refused here instead."""
+        """Refused at policy resolve; the same conflict is refused by DataEval only at run time."""
         _descriptor(tmp_path, _REVIEWED_LEVELS)
         config = _config(encoding="policy.json", factor_levels={"weather": ["clear", "rain"]})
         with pytest.raises(ValueError, match="both `encoding` and `factor_levels`"):
@@ -232,18 +232,17 @@ class TestDoubleDeclaration:
             resolve_policy(MetadataConfigMixin(metadata="standard"), config)
 
     def test_encoding_and_bins_conflict_through_a_level_prefix(self, tmp_path: Path):
-        """The same collision, spelled the way injection actually produces it.
+        """The same collision, spelled the way injection produces it.
 
         A committed `unit_brightness` record and a bare `continuous_factor_bins:
         {"brightness": ...}` look unrelated by name, but `expand_declared_bins` carries the
-        bare declaration onto the level-prefixed name before `Metadata` sees it — so this is
-        the same factor declared twice, not two different ones, and must be refused exactly
-        like the exact-name collision above rather than letting the bare declaration
-        silently overwrite the committed record. `intrinsic_factors` must be declared for
-        the collision to exist at all: `brightness` is a VISUAL statistic, so injection can
-        only produce `unit_brightness` from it when `visual` is one of the families asked
-        for — see `test_prefix_collision_does_not_fire_without_injection_declared` for the
-        other half of that gate.
+        bare declaration onto the level-prefixed name before `Metadata` sees it. The same
+        factor is declared twice; it must be refused like the exact-name collision, so the
+        bare declaration does not silently overwrite the committed record. The collision
+        needs `intrinsic_factors` declared: `brightness` is a VISUAL statistic, so injection
+        produces `unit_brightness` from it only when `visual` is among the requested
+        families — see `test_prefix_collision_does_not_fire_without_injection_declared` for
+        the other half of that gate.
         """
         _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
         config = _config(
@@ -269,11 +268,11 @@ class TestDoubleDeclaration:
         assert policy.continuous_factor_bins == {"contrast": 4}
 
     def test_prefix_collision_does_not_fire_without_injection_declared(self, tmp_path: Path):
-        """The collision depends on injection actually being on, not just on the spelling.
+        """The collision depends on injection being on, not just on the spelling.
 
         With no `intrinsic_factors` declared, nothing can produce `unit_brightness` from a
-        bare `brightness` declaration — so the two are just two differently-spelled,
-        unrelated names, and the same setup that raises in
+        bare `brightness` declaration. The two are differently-spelled, unrelated names,
+        and the setup that raises in
         `test_encoding_and_bins_conflict_through_a_level_prefix` must not raise here.
         """
         _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
@@ -282,11 +281,11 @@ class TestDoubleDeclaration:
         assert policy.continuous_factor_bins == {"brightness": 4}
 
     def test_unrelated_level_prefixed_column_is_not_a_conflict(self, tmp_path: Path):
-        """A dataset-native column that merely looks level-prefixed is not a collision.
+        """A dataset-native column that looks level-prefixed is not a collision.
 
-        `unit_price` is an ordinary column name, not something `add_factors` ever produces
-        by splitting a statistic — no family injects a `price` statistic, `visual` included
-        — so a bare `continuous_factor_bins: {"price": ...}` declaration is unrelated to it
+        `unit_price` is an ordinary column name. No family injects a `price` statistic,
+        `visual` included, so `add_factors` never produces it. A bare
+        `continuous_factor_bins: {"price": ...}` declaration is therefore unrelated to it,
         even though the two spellings share the `unit_` prefix.
         """
         _descriptor(tmp_path, {"unit_price": _DECLARED_BINS["temp_c"]})
@@ -299,11 +298,11 @@ class TestDoubleDeclaration:
         assert policy.continuous_factor_bins == {"price": 4}
 
     def test_prefix_collision_is_scoped_to_the_declared_family(self, tmp_path: Path):
-        """A name only collides if the *declared* families could actually produce it.
+        """A name only collides if the declared families could produce it.
 
-        `brightness` is a VISUAL statistic, not a DIMENSION one, so declaring only
-        `dimension` cannot make injection produce `unit_brightness` — the collision must not
-        fire just because *some* family somewhere injects `brightness`.
+        `brightness` is a VISUAL statistic, so declaring only `dimension` cannot make
+        injection produce `unit_brightness`; the collision must not fire because some
+        family injects `brightness`.
         """
         _descriptor(tmp_path, {"unit_brightness": _DECLARED_BINS["temp_c"]})
         config = _config(
@@ -329,9 +328,9 @@ class TestPartialFactors:
         assert ResolvedPolicy(partial_factors=True).metadata_kwargs()["partial_factors"] is True
 
     def test_it_reaches_load_too(self):
-        """It was withheld while `load` was the one constructor of the three that did not
-        take it — a TypeError the cache read as a permanent miss. DataEval accepts it on
-        all three now, so both paths pass it and the archive applies it underneath."""
+        """It was withheld while `load` was the only constructor of the three that did
+        not take it: a TypeError the cache read as a permanent miss. DataEval now accepts
+        it on all three; both paths pass it and the archive applies it."""
         assert ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)["partial_factors"] is True
 
     def test_the_default_is_omitted_rather_than_passed(self):
@@ -345,8 +344,8 @@ class TestPartialFactors:
 
         accepted = set(inspect.signature(Metadata.load).parameters)
         assert set(ResolvedPolicy(partial_factors=True).metadata_kwargs(for_load=True)) <= accepted
-        # What the gate above used to exist for. Left as an assertion rather than deleted:
-        # it is what would say so if the parameter were ever withdrawn again.
+        # The gate above existed for this. Kept as an assertion so it fails if the
+        # parameter is ever withdrawn again.
         assert "partial_factors" in accepted
 
 
@@ -380,8 +379,8 @@ class TestPolicyKey:
         assert policy_key(a) != policy_key(b)
 
     def test_the_corrections_are_in_the_key(self):
-        """Higher stakes than a cut: a repair changes what the values *are*, so a stale hit
-        would serve numbers computed from differently-read data under the same digest."""
+        """A repair changes what the values *are*, so a stale cache hit would serve
+        numbers computed from differently-read data under the same digest."""
         a = ResolvedPolicy(corrections=tuple(_PARSE_COMMA))
         b = ResolvedPolicy(corrections=tuple(_PARSE_SPACE))
         assert policy_key(a) != policy_key(b)
@@ -429,8 +428,8 @@ class TestDeriveFrom:
         )
 
     def _derived(self, reference):
-        from dataeval_flow.binning import _descriptor
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._binning import _descriptor
+        from dataeval_flow._policy import derive_from
 
         factors = _descriptor(reference).factors
         return derive_from(ResolvedPolicy(), reference, factors)
@@ -476,8 +475,8 @@ class TestDeriveFrom:
     def test_declaration_inputs_are_dropped_once_resolved(self):
         """The records already say where every declared cut fell; passing both is refused."""
         reference = self._metadata(0, 400, continuous_factor_bins={"elevation": 4})
-        from dataeval_flow.binning import _descriptor
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._binning import _descriptor
+        from dataeval_flow._policy import derive_from
 
         factors = _descriptor(reference).factors
         derived = derive_from(ResolvedPolicy(continuous_factor_bins={"elevation": 4}), reference, factors)
@@ -528,17 +527,17 @@ class TestDerivedPolicyDoesNotCloseUnreviewedVocabularies:
         import numpy as np
         from dataeval import Metadata
 
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._policy import derive_from
 
         rng = np.random.default_rng(0)
         reference = Metadata.from_factors(
             {"sensor": rng.choice(["a", "b"], 40), "temp_c": rng.normal(0.0, 1.0, 40)},
         )
-        with caplog.at_level(_logging.WARNING, logger="dataeval_flow.policy"):
+        with caplog.at_level(_logging.WARNING, logger="dataeval_flow._policy"):
             derived = derive_from(ResolvedPolicy(strict=True), reference, None)
 
         assert derived.strict is False
-        explained = next(r.getMessage() for r in caplog.records if r.name == "dataeval_flow.policy")
+        explained = next(r.getMessage() for r in caplog.records if r.name == "dataeval_flow._policy")
         assert "'sensor'" in explained  # the vocabulary nobody reviewed
         assert "temp_c" not in explained  # a cut, not a vocabulary
 
@@ -546,7 +545,7 @@ class TestDerivedPolicyDoesNotCloseUnreviewedVocabularies:
         import numpy as np
         from dataeval import Metadata
 
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._policy import derive_from
 
         rng = np.random.default_rng(0)
         reference = Metadata.from_factors(
@@ -613,31 +612,31 @@ class TestStatsPolicyInPolicyKey:
     def _policy(self, **kwargs):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._policy import ResolvedPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         base = {"name": "p", "measure": ((None, ImageStats.VISUAL),)}
         return ResolvedPolicy(intrinsic_factors=("visual",), stats=ResolvedStatsPolicy(**{**base, **kwargs}))
 
     def test_a_policy_with_stats_keys_differently_from_one_without(self):
-        from dataeval_flow.policy import ResolvedPolicy, policy_key
+        from dataeval_flow._policy import ResolvedPolicy, policy_key
 
         assert policy_key(self._policy()) != policy_key(ResolvedPolicy(intrinsic_factors=("visual",)))
 
     def test_factors_from_changes_the_key(self):
-        from dataeval_flow.policy import policy_key
+        from dataeval_flow._policy import policy_key
 
         assert policy_key(self._policy(factors_from=(None,))) != policy_key(self._policy(factors_from=(None, "ir")))
 
     def test_outliers_from_does_not_change_the_key(self):
-        from dataeval_flow.policy import policy_key
+        from dataeval_flow._policy import policy_key
 
         assert policy_key(self._policy(outliers_from=(None,))) == policy_key(self._policy(outliers_from=(None, "ir")))
 
     def test_the_key_stays_json(self):
         import json
 
-        from dataeval_flow.policy import policy_key
+        from dataeval_flow._policy import policy_key
 
         assert json.loads(policy_key(self._policy()))["stats"]["background"] is False
 
@@ -647,17 +646,17 @@ class TestDeprecatedIncludeImageStats:
 
     @staticmethod
     def _params(**overrides):
-        """The analysis params, which are where `include_image_stats` actually lives.
+        """The analysis params, where `include_image_stats` lives.
 
-        `MetadataConfigMixin` cannot carry it — pydantic refuses an undeclared attribute —
-        and `DataAnalysisParameters` is a `MetadataConfigMixin`, so `resolve_policy` takes
-        it unchanged.
+        `MetadataConfigMixin` cannot carry it: pydantic refuses an undeclared attribute.
+        `DataAnalysisConfig` is a `MetadataConfigMixin`, so `resolve_policy` takes the
+        value unchanged.
         """
-        from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
+        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 
         base = {"outlier_method": "adaptive", "outlier_flags": ["pixel"]}
         base.update(overrides)
-        return DataAnalysisParameters(**base)
+        return DataAnalysisConfig(**base)
 
     def test_true_contributes_visual_and_pixel(self):
         with pytest.warns(DeprecationWarning, match="intrinsic_factors"):
@@ -676,17 +675,15 @@ class TestDeprecatedIncludeImageStats:
 
     def test_the_field_is_marked_deprecated_for_config_authors(self):
         """The schema marker is what reaches docs and editors; it must not be dropped."""
-        from dataeval_flow.workflows.analysis.params import DataAnalysisParameters
+        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 
-        schema = DataAnalysisParameters.model_json_schema()
+        schema = DataAnalysisConfig.model_json_schema()
         assert schema["properties"]["include_image_stats"].get("deprecated") is True
 
 
 class TestDeclaringCorrectionsInYaml:
-    """The authoring surface: what `unusable` reports, written down.
-
-    DataEval's own types validate themselves on construction, so `resolve_policy` builds
-    them and a mistake carries DataEval's wording rather than a second, drifting copy of it.
+    """DataEval's own types validate themselves on construction, so `resolve_policy`
+    builds them. A mistake carries DataEval's wording.
     """
 
     @staticmethod
@@ -746,7 +743,7 @@ class TestDeclaringCorrectionsInYaml:
 
 
 class TestCorrectionMistakesAreConfigErrors:
-    """Caught at resolve, not after the dataset walk — which is what a policy is for."""
+    """Caught at resolve, before the dataset walk."""
 
     @staticmethod
     def _resolve(*corrections):
@@ -794,8 +791,9 @@ class TestCorrectionMistakesAreConfigErrors:
 
 
 class TestCorrectionsFromTwoSources:
-    """A descriptor can carry corrections too, and one factor described twice has no
-    good resolution — the rule `encoding` x `continuous_factor_bins` already follows."""
+    """A descriptor can carry corrections too. One factor described twice has no
+    good resolution. The `encoding` x `continuous_factor_bins` check follows the
+    same rule."""
 
     def test_the_same_factor_from_both_is_refused(self, tmp_path: Path):
         path = _descriptor(tmp_path, _DECLARED_BINS, corrections=_PARSE_COMMA)
@@ -817,9 +815,9 @@ class TestCorrectionsFromTwoSources:
 
 
 class TestYamlAndADescriptorKeyAlike:
-    """A run declaring a repair in YAML and a later run referencing the descriptor exported
-    from it describe one reading of the data, so they have to key identically or the second
-    rebuilds for nothing."""
+    """A run declaring a repair in YAML and a later run referencing the descriptor
+    exported from it describe one reading of the data. They must key identically,
+    or the second run rebuilds for nothing."""
 
     def test_the_rendering_matches_what_dataeval_writes(self, tmp_path: Path):
         import json as _json
@@ -996,9 +994,9 @@ class TestCorrectionsFromBothSourcesBothApply:
         assert [c.factor for c in kwargs["corrections"]] == ["altitude"]
 
     def test_the_metadata_ends_up_declaring_both(self, tmp_path: Path):
-        """The behaviour that matters. Applying one after the other kept only the second,
-        because `repair` replaces rather than accumulates — so both go to the constructor,
-        which merges them."""
+        """Applying one after the other kept only the second, because `repair`
+        replaces rather than accumulates. Both go to the constructor, which merges
+        them."""
         import numpy as np
         from dataeval import Metadata
 
@@ -1045,10 +1043,10 @@ class TestTheSpecsReachTheConstructor:
 
 
 class TestDeriveFromCarriesTheReading:
-    """A derived split is handed records instead of a descriptor path, and a descriptor's
-    corrections travel by that path — so without carrying them the next split read its
-    values differently from the one whose encoding it was given. Which is the cross-split
-    drift `derive_from` exists to prevent, on the half that decides what the values *are*."""
+    """A derived split is handed records, not a descriptor path, and a descriptor's
+    corrections travel by that path. Without carrying them the next split reads its
+    values differently from the one whose encoding it was given. That is the
+    cross-split drift `derive_from` exists to prevent."""
 
     @staticmethod
     def _reference():
@@ -1056,14 +1054,14 @@ class TestDeriveFromCarriesTheReading:
         from dataeval import Metadata
         from dataeval.types import ParseValue
 
-        from dataeval_flow.binning import _descriptor as descriptor_of
+        from dataeval_flow._binning import _descriptor as descriptor_of
 
         seed = Metadata.from_factors({"count": ["1,000"] * 4}, class_labels=np.zeros(4, dtype=int))
         seed = seed.repair([ParseValue("count", drop=[","])])
         return seed, descriptor_of(seed).factors
 
     def test_the_derived_policy_carries_the_reference_repairs(self, tmp_path: Path):
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._policy import derive_from
 
         reference, descriptor = self._reference()
         derived = derive_from(ResolvedPolicy(), reference, descriptor)
@@ -1074,7 +1072,7 @@ class TestDeriveFromCarriesTheReading:
         import numpy as np
         from dataeval import Metadata
 
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._policy import derive_from
 
         reference, descriptor = self._reference()
         derived = derive_from(ResolvedPolicy(), reference, descriptor)
@@ -1088,7 +1086,7 @@ class TestDeriveFromCarriesTheReading:
         import numpy as np
         from dataeval import Metadata
 
-        from dataeval_flow.policy import derive_from
+        from dataeval_flow._policy import derive_from
 
         plain = Metadata.from_factors({"w": ["a", "b"] * 4}, class_labels=np.zeros(8, dtype=int))
         assert derive_from(ResolvedPolicy(), plain, {}).correction_specs == ()

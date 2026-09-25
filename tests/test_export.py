@@ -18,18 +18,21 @@ from datamaite import (
     Taxonomy,
 )
 
-from dataeval_flow import export as export_module
-from dataeval_flow.config import PipelineConfig, SourceConfig, ViewConfig, ViewOperation
-from dataeval_flow.config.schemas import (
+from dataeval_flow import PipelineConfig
+from dataeval_flow import _export as export_module
+from dataeval_flow._export import build_od_dataset, export_provenance, write_export, write_exports
+from dataeval_flow._sources import label_space_records, resolve_source
+from dataeval_flow.config import (
     DatasetProtocolConfig,
     ExportConfig,
     OntologyConceptConfig,
     OntologyConfig,
+    SourceConfig,
+    ViewConfig,
+    ViewOperation,
 )
-from dataeval_flow.config.schemas._workflow import DataCoverageWorkflowConfig
-from dataeval_flow.export import build_od_dataset, export_provenance, write_export, write_exports
-from dataeval_flow.sources import label_space_records, resolve_source
-from dataeval_flow.workflow import ResolvedOntology
+from dataeval_flow.workflows import ResolvedOntology
+from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 from tests.test_sources import _PNG, _merge_config, _od_dataset
 
 _CAR = ObjectDetectionAnnotation(bbox=(1.0, 2.0, 3.0, 4.0), category_id=0, category_name="Car")
@@ -315,7 +318,7 @@ class TestImageReference:
         assert decoded.shape == (8, 8)
 
     def test_imagery_cv2_cannot_encode_is_refused(self, tmp_path):
-        """A two-channel PNG raises inside OpenCV, so name the count rather than pass it on."""
+        """A two-channel PNG raises inside OpenCV; the error names the channel count."""
         operations = [ViewOperation(type="SelectChannels", params={"channels": [0, 1]})]
         with pytest.raises(ValueError, match="2 channels"):
             _built_from_disk(tmp_path, operations=operations)
@@ -484,7 +487,7 @@ class TestWriteExport:
         assert info["label_space"][0]["ontology_digest"] == info["ontology_digest"]
 
     def test_an_unreadable_ontology_leaves_the_export_written(self):
-        """The orchestrator's resolver degrades to no ontology rather than losing the export."""
+        """The orchestrator's resolver degrades to no ontology; the export stays written."""
         config = _merge_config()
         info = export_provenance(
             resolve_source("merged", config),
@@ -580,7 +583,7 @@ class TestProvenanceSidecar:
         assert [run["source"] for run in self._runs(tmp_path)] == ["merged", "a"]
 
     def test_an_unreadable_sidecar_is_replaced_with_a_warning(self, tmp_path: Path, caplog):
-        """Do not fail the export over the sidecar, and do not drop history in silence."""
+        """The sidecar is replaced with a warning; the export does not fail."""
         write_export(ExportConfig(name="corpus", source="merged"), _merge_config(), tmp_path)
         (tmp_path / "corpus" / "provenance.json").write_text("not json")
         with caplog.at_level(logging.WARNING):
@@ -653,7 +656,7 @@ class TestOccupiedDestination:
     """A destination that cannot be written to is refused before the corpus is built."""
 
     def test_the_refusal_comes_before_the_corpus_is_built(self, tmp_path: Path):
-        """Refuse up front rather than after decoding every image the write throws away."""
+        """The check runs before decoding; the write would throw the decoded images away."""
         (tmp_path / "corpus").mkdir()
         (tmp_path / "corpus" / "stale.json").write_text("{}")
         with (
@@ -681,7 +684,7 @@ class TestOntologyDivergenceWarning:
     def _config_with_workflow_ontology(self) -> PipelineConfig:
         config = _merge_config()
         config.ontologies = [OntologyConfig(name="vehicles", concepts=[OntologyConceptConfig(id="Car", label="Car")])]
-        config.workflows = [DataCoverageWorkflowConfig(name="audit", ontology="vehicles")]
+        config.workflows = [DataCoverageConfig(name="audit", ontology="vehicles")]
         return config
 
     def test_it_warns_and_names_the_workflow(self, tmp_path: Path, caplog):
@@ -698,7 +701,7 @@ class TestOntologyDivergenceWarning:
 
     def test_it_is_silent_when_no_workflow_declares_one(self, tmp_path: Path, caplog):
         config = _merge_config()
-        config.workflows = [DataCoverageWorkflowConfig(name="plain")]
+        config.workflows = [DataCoverageConfig(name="plain")]
         with caplog.at_level(logging.WARNING):
             write_export(ExportConfig(name="corpus", source="merged"), config, tmp_path)
         assert "declares no ontology" not in caplog.text

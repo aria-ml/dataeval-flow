@@ -5,11 +5,11 @@ from and the data it is judged on. **Dataset splitting** partitions a dataset in
 training, validation, and test sets — and how that partition is drawn determines
 whether the resulting metrics can be trusted. Two concerns dominate.
 
-The first is **representativeness**. A purely **random** split is simple but can,
-by chance, leave the test set with too few examples of a rare class to measure
-performance on it. A **stratified** split instead preserves the class distribution
-across every partition, so each split reflects the dataset as a whole and per-class
-metrics remain meaningful.
+The first is **representativeness**. A purely **random** split can, by chance,
+leave the test set with too few examples of a rare class to measure performance
+on it. A **stratified** split preserves the class distribution across every
+partition, so each split reflects the dataset as a whole and per-class metrics
+remain meaningful.
 
 The second, and more dangerous, is **leakage**: information from the test set
 bleeding into training, which inflates measured performance and hides the model's

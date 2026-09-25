@@ -96,25 +96,40 @@ evaluator, though an evaluator that fails to run still fails it.
 
 The same run from Python returns an `EvaluatorResult`. Like a workflow's
 `WorkflowResult`, it is a `Result`: `report()`, `to_dict()` and `export()` work the
-same way on both, while `output` and `raw` belong to the evaluator result alone:
+same way on both, and `output` holds what the run produced. `run_tasks` returns
+each task's result keyed by the task's name:
 
 ```python
 from pathlib import Path
 
 from dataeval_flow import load_config, run_tasks
+from dataeval_flow.evaluators.quality import DuplicatesResult
 
 config = load_config(Path("config.yaml"))
-(result,) = run_tasks(config, tasks="find_dupes", data_dir=Path("."))
+result = run_tasks(config, tasks="find_dupes", data_dir=Path("."))["find_dupes"]
 
 print(result.report())  # the text the CLI prints
-rows = result.output["rows"]  # the JSON-ready table
-native = result.raw  # DataEval's own DuplicatesOutput
+rows = result.to_dict()["output"]["rows"]  # the JSON-ready table
+assert isinstance(result, DuplicatesResult)
+native = result.output  # DataEval's own DuplicatesOutput
 ```
 
-`result.raw` is the object DataEval returned, so its own methods work as DataEval
-documents them — for Duplicates, `native.aggregate_by_image()` groups the rows by
-image. The [Evaluator Catalog](../reference/evaluators.md) links each evaluator to its
-DataEval reference page.
+`run` runs an evaluator on a dataset already in memory, with no config file, and
+returns the config's own result class:
+
+```python
+from dataeval_flow import run
+from dataeval_flow.evaluators.quality import DuplicatesConfig
+
+result = run(DuplicatesConfig(), dataset)  # a DuplicatesResult; `dataset` is any AnnotatedDataset
+```
+
+`result.output` is the object DataEval returned, so its own methods work as DataEval
+documents them — for Duplicates, `native.aggregate_by_image()` groups the rows by image.
+`isinstance(result, DuplicatesResult)` types it. Reading `output` on a failed run raises an error naming
+what went wrong. Check `result.success` first. The
+[Evaluator Catalog](../reference/evaluators.md) links each evaluator to its DataEval
+reference page.
 
 ## See also
 

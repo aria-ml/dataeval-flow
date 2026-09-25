@@ -78,7 +78,7 @@ file. Reach for an RDF artifact when the label space is authored or reviewed out
 
 ## Option 3: a shared `ontologies:` block
 
-A label space is a decision, not a per-workflow setting: two workflows reading different ontologies produce
+A label space is a decision, not a per-workflow setting. Two workflows reading different ontologies produce
 worklists you cannot compare. Define it once under `ontologies:` and reference it by name, the same way `datasets`,
 `views`, `sources`, `extractors`, and `metadata` work:
 
@@ -102,12 +102,12 @@ workflows:
 ```
 
 Use `concepts:` to add concepts on top of `source`, or omit `source` and declare the whole label space in config.
-Declare a concept to keep a dataset class the artifact omits, without editing an artifact you may not own. Give
-each declared concept the dataset's own spelling under `synonyms`: alignment matches on labels and synonyms, and a
-concept without the dataset's spelling will not match that class.
+Declare a concept to keep a dataset class the artifact omits. Give each declared concept the dataset's own spelling
+under `synonyms`: alignment matches on labels and synonyms, and a concept without the dataset's spelling will not
+match that class.
 
 A declared concept replaces one the artifact defines under the same id. Replacement is total: restate `parents` on
-it too, or the concept becomes a root and detaches from the rest of the hierarchy.
+it, or the concept becomes a root and detaches from the hierarchy.
 
 A workflow's `ontology:` value is read as a name in the pool first, and as a path second, so a config that already
 names a file keeps working unchanged. A string that matches both a pool entry and a readable file is refused.
@@ -117,7 +117,7 @@ Rename one of them.
 
 By default every sanctioned class is held to a uniform share of the dataset. When some classes are legitimately rarer
 than others, give them explicit floors with `ontology_expected` — a mapping of class name to its minimum expected
-share, as a fraction in `[0, 1]`:
+share as a fraction in `[0, 1]`:
 
 ```yaml
     ontology_expected:
@@ -130,8 +130,8 @@ reported as a violation. Classes not named keep the uniform target.
 
 ## Lint the label names
 
-`ontology_label_pattern` is a regex every concept label must match — useful for catching a vocabulary that has drifted
-into mixed conventions:
+`ontology_label_pattern` is a regex every concept label must match. It catches a vocabulary that has drifted into
+mixed conventions:
 
 ```yaml
     ontology_label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
@@ -168,5 +168,5 @@ someone added without updating the taxonomy.
 - [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `DataCoverageParameters` and
+- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `DataCoverageConfig` and
   `DataCoverageHealthThresholds`

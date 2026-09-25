@@ -1,9 +1,7 @@
-"""Extract the encoding descriptor a result was computed under.
+"""Extract the encoding descriptor a result was computed under, for review and commit.
 
-Stage six of the lifecycle — lock the encoding in and commit it — reached from a result
-somebody already has.  The record lives in the envelope, so the artifact is obtainable from
-an archived ``result.json`` weeks later, which is the case where pinning an encoding
-actually matters and the one where re-running to get it is what you are trying to avoid.
+The record lives in the result's metadata envelope, so the artifact can be written out
+from an archived ``result.json`` without re-running the task.
 """
 
 __all__ = ["write_encoding"]
@@ -20,7 +18,7 @@ def _binning_records(document: Any) -> dict[str, Any]:
     """Every task's binning record in a result file, keyed by task name.
 
     ``result.json`` is a mapping of task name to that task's result, so a file may hold
-    several runs over one dataset.  Tasks that built no metadata simply have nothing here.
+    several runs over one dataset.  Tasks that built no metadata have no record here.
     """
     if not isinstance(document, dict):
         return {}
@@ -47,7 +45,7 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     if len(records) == 1:
         return next(iter(records.values()))
 
-    from dataeval_flow.binning import descriptor_from_record
+    from dataeval_flow._binning import descriptor_from_record
 
     def _rendered(name: str, record: Any) -> str | None:
         """One task's descriptor as bytes, or None where it has none to write."""
@@ -57,9 +55,9 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
             _logger.debug("Task %r records no descriptor", name, exc_info=True)
             return None
 
-    # A task whose record yields no descriptor is skipped rather than fatal: it says
-    # nothing about whether the rest agree, and refusing on it would make one task without
-    # an encoding hide every task that has one.
+    # Tasks whose record yields no descriptor are skipped: they give no information about
+    # whether the rest agree, and refusing on them would hide every task that has an
+    # encoding.
     rendered = {name: text for name, record in records.items() if (text := _rendered(name, record)) is not None}
     if not rendered:
         raise ValueError(
@@ -82,8 +80,7 @@ def write_encoding(result: Path, output: Path | None = None, task: str | None = 
     result : Path
         A ``result.json`` written by a run.
     output : Path | None
-        Where to write the descriptor.  Printed to stdout when omitted, so the command
-        composes with a pipe as readily as it writes a file.
+        Where to write the descriptor.  Printed to stdout when omitted.
     task : str | None
         Which task's encoding to take, where a result holds several that differ.
 
@@ -92,7 +89,7 @@ def write_encoding(result: Path, output: Path | None = None, task: str | None = 
     int
         Process exit status: 0 on success, 1 with a message on any failure.
     """
-    from dataeval_flow.binning import descriptor_from_record
+    from dataeval_flow._binning import descriptor_from_record
 
     try:
         document = json.loads(Path(result).read_text(encoding="utf-8"))

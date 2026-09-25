@@ -129,8 +129,8 @@ pip install -e .
 
 ## Docker
 
-Pre-built images are available from the JATIC Harbor registry and bundle the matching
-PyTorch build already. See {doc}`../how_to/containerized_workflows` for the full
+Pre-built images are available from the JATIC Harbor registry, each bundling its matching
+PyTorch build. See {doc}`../how_to/containerized_workflows` for the full
 containerized workflow guide.
 
 ### CPU only

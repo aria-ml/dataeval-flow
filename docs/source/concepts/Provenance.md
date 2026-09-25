@@ -8,13 +8,14 @@ recorded lineage — the context that travels with a result so it can be
 interpreted, audited, compared to other runs, and handed to another tool without
 out-of-band knowledge.
 
-In test and evaluation this is not a nicety. An assessment archives results and
-revisits them later; a program compares an operational dataset against a baseline
-collected months earlier; a downstream stage in a pipeline consumes findings it
-did not produce. Each of these needs the result to be **self-describing**. A
-findings document without provenance is a number stripped of the context that
-makes it meaningful. DataEval Flow's output architecture exists to attach that
-context automatically — the architecture is the *how*; provenance is the *why*.
+In test and evaluation, provenance is a requirement. An assessment archives
+results and revisits them later; a program compares an operational dataset
+against a baseline collected months earlier; a downstream stage in a pipeline
+consumes findings it did not produce. Each of these needs the result to be
+**self-describing**. A findings document without provenance is a number stripped
+of the context that makes it meaningful. DataEval Flow's output architecture
+exists to attach that context automatically — the architecture is the *how*;
+provenance is the *why*.
 
 ## Every result is an envelope
 
@@ -86,17 +87,16 @@ record carries the source whose view applied the rewrite, the ontology and its
 digest, the class remapping, the target vocabulary in index order, and a digest
 over the three.
 
-One record per operand, rather than one per result, because a merge applies a
-different remapping per operand against one shared target. A single record would
-have to union those mappings, and a union hashes to a value no audit ever
-produced.
+There is one record per operand: a merge applies a different remapping per
+operand against one shared target. A single record would have to union those
+mappings, and a union hashes to a value no audit ever produced.
 
 Any workflow can declare an ontology, not only `data-coverage`. That is the
 join. A coverage audit computes the digest from its own alignment; any other
 workflow computes the same digest from the `Relabel` parameters in its source's
 view. Declare the same ontology on both and the downstream result's digest
 equals the digest of the audit that justified its vocabulary, so matching the
-two is a comparison of one value rather than an argument about intent. An
+two is a comparison of one value. An
 exported dataset carries the same digest in its provenance sidecar, which
 extends the join to the corpus itself.
 
@@ -114,11 +114,11 @@ of a run:
   interoperability comes from MAITE-compliant inputs.
 - **At the output**, the metadata envelope carries the JATIC-required provenance
   fields in a versioned structure, so a result is a well-formed artifact other
-  JATIC tools can ingest. Findings produced in one stage compose with the rest of a
-  MAITE-conforming pipeline rather than living in an isolated report.
+  JATIC tools can ingest. Findings produced in one stage compose with the rest of
+  a MAITE-conforming pipeline.
 
-The net effect is that a result is never a dead end: its provenance makes it both
-readable by people and traceable by the tools downstream of it.
+Provenance makes a result readable by people and traceable by the tools
+downstream of it.
 
 ## Provenance and reproducibility
 
@@ -137,7 +137,7 @@ re-run (reproducibility).
 - **Comparison over time** — versioned, self-describing envelopes can be archived
   and compared run-to-run.
 - **Downstream composition** — other JATIC/MAITE tools ingest a result with its
-  provenance intact, rather than reverse-engineering what it measured.
+  provenance intact.
 
 ## Related concept pages
 

@@ -6,12 +6,14 @@ import pytest
 from maite.protocols import DatasetMetadata
 
 from dataeval_flow.config import (
+    ViewOperation,
+)
+from dataeval_flow.config.extractors import (
     BoVWExtractorConfig,
     FlattenExtractorConfig,
     OnnxExtractorConfig,
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
-    ViewOperation,
 )
 
 pytestmark = pytest.mark.required
@@ -22,10 +24,10 @@ pytestmark = pytest.mark.required
 
 
 class TestBuildEmbeddings:
-    @patch("dataeval_flow.embeddings.Embeddings")
-    @patch("dataeval_flow.embeddings.OnnxExtractor")
+    @patch("dataeval_flow._embeddings.Embeddings")
+    @patch("dataeval_flow.config.extractors._builtins.OnnxExtractor")
     def test_basic(self, mock_extractor_cls: MagicMock, mock_embed_cls: MagicMock):
-        from dataeval_flow.embeddings import build_embeddings
+        from dataeval_flow._embeddings import build_embeddings
 
         mock_dataset = MagicMock()
         mock_extractor = MagicMock()
@@ -40,10 +42,10 @@ class TestBuildEmbeddings:
         mock_embed_cls.assert_called_once_with(mock_dataset, extractor=mock_extractor, batch_size=None)
         assert result is mock_embeddings
 
-    @patch("dataeval_flow.embeddings.Embeddings")
-    @patch("dataeval_flow.embeddings.OnnxExtractor")
+    @patch("dataeval_flow._embeddings.Embeddings")
+    @patch("dataeval_flow.config.extractors._builtins.OnnxExtractor")
     def test_with_transforms(self, mock_extractor_cls: MagicMock, mock_embed_cls: MagicMock):
-        from dataeval_flow.embeddings import build_embeddings
+        from dataeval_flow._embeddings import build_embeddings
 
         mock_transforms = MagicMock()
         config = OnnxExtractorConfig(name="test", model_path="./model.onnx")
@@ -52,11 +54,11 @@ class TestBuildEmbeddings:
         call_kwargs = mock_extractor_cls.call_args[1]
         assert call_kwargs["transforms"] is mock_transforms
 
-    @patch("dataeval_flow.embeddings.Embeddings")
-    @patch("dataeval_flow.embeddings.FlattenExtractor")
+    @patch("dataeval_flow._embeddings.Embeddings")
+    @patch("dataeval_flow.config.extractors._builtins.FlattenExtractor")
     def test_flatten_extractor(self, mock_flatten_cls: MagicMock, mock_embed_cls: MagicMock):
         """FlattenExtractorConfig creates FlattenExtractor."""
-        from dataeval_flow.embeddings import build_embeddings
+        from dataeval_flow._embeddings import build_embeddings
 
         mock_flatten = MagicMock()
         mock_flatten_cls.return_value = mock_flatten
@@ -67,11 +69,11 @@ class TestBuildEmbeddings:
         mock_flatten_cls.assert_called_once_with()
         mock_embed_cls.assert_called_once()
 
-    @patch("dataeval_flow.embeddings.Embeddings")
-    @patch("dataeval_flow.embeddings.BoVWExtractor")
+    @patch("dataeval_flow._embeddings.Embeddings")
+    @patch("dataeval_flow.config.extractors._builtins.BoVWExtractor")
     def test_bovw_extractor(self, mock_bovw_cls: MagicMock, mock_embed_cls: MagicMock):
         """BoVWExtractorConfig creates BoVWExtractor and calls fit()."""
-        from dataeval_flow.embeddings import build_embeddings
+        from dataeval_flow._embeddings import build_embeddings
 
         mock_bovw = MagicMock()
         mock_bovw_cls.return_value = mock_bovw
@@ -83,12 +85,12 @@ class TestBuildEmbeddings:
         mock_bovw_cls.assert_called_once_with(vocab_size=1024)
         mock_embed_cls.assert_called_once()
 
-    @patch("dataeval_flow.embeddings.Embeddings")
-    @patch("dataeval_flow.embeddings.TorchExtractor")
+    @patch("dataeval_flow._embeddings.Embeddings")
+    @patch("dataeval_flow.config.extractors._builtins.TorchExtractor")
     @patch("torch.load")
     def test_torch_extractor(self, mock_load: MagicMock, mock_torch_cls: MagicMock, mock_embed_cls: MagicMock):
         """TorchExtractorConfig loads the model and creates TorchExtractor."""
-        from dataeval_flow.embeddings import build_embeddings
+        from dataeval_flow._embeddings import build_embeddings
 
         mock_model = MagicMock()
         mock_load.return_value = mock_model
@@ -102,7 +104,7 @@ class TestBuildEmbeddings:
 
     def test_unsupported_extractor_raises(self):
         """Unsupported extractor type raises ValueError."""
-        from dataeval_flow.embeddings import build_embeddings
+        from dataeval_flow._embeddings import build_embeddings
 
         config = UncertaintyExtractorConfig(name="test", model_path="./model.pt")
         with pytest.raises(ValueError, match="not yet implemented"):
@@ -115,9 +117,9 @@ class TestBuildEmbeddings:
 
 
 class TestBuildMetadata:
-    @patch("dataeval_flow.metadata.Metadata")
+    @patch("dataeval_flow._metadata.Metadata")
     def test_basic(self, mock_meta_cls: MagicMock):
-        from dataeval_flow.metadata import build_metadata
+        from dataeval_flow._metadata import build_metadata
 
         mock_dataset = MagicMock()
         mock_metadata = MagicMock()
@@ -128,10 +130,10 @@ class TestBuildMetadata:
         mock_meta_cls.assert_called_once_with(mock_dataset)
         assert result is mock_metadata
 
-    @patch("dataeval_flow.metadata.Metadata")
+    @patch("dataeval_flow._metadata.Metadata")
     def test_passes_every_policy_setting(self, mock_meta_cls: MagicMock):
-        from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._metadata import build_metadata
+        from dataeval_flow._policy import ResolvedPolicy
 
         build_metadata(
             MagicMock(),
@@ -149,11 +151,11 @@ class TestBuildMetadata:
         assert call_kwargs["continuous_factor_bins"] == {"col_b": [0.0, 0.5, 1.0]}
         assert call_kwargs["strict"] is True
 
-    @patch("dataeval_flow.metadata.Metadata")
+    @patch("dataeval_flow._metadata.Metadata")
     def test_omits_what_the_policy_leaves_unset(self, mock_meta_cls: MagicMock):
         """Omitted rather than passed as None, so DataEval's own defaults apply."""
-        from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._metadata import build_metadata
+        from dataeval_flow._policy import ResolvedPolicy
 
         build_metadata(MagicMock(), ResolvedPolicy())
 
@@ -173,7 +175,7 @@ class TestOperationsRequiringTuplesAreReachableFromConfig:
     """
 
     def test_resize_accepts_a_two_element_list_as_an_exact_size(self):
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         view = build_view(
             _ImageDataset(count=4),
@@ -183,7 +185,7 @@ class TestOperationsRequiringTuplesAreReachableFromConfig:
         assert view[0][0].shape[-2:] == (8, 12)
 
     def test_crop_accepts_a_four_element_list_as_a_region(self):
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         view = build_view(
             _ImageDataset(count=4),
@@ -194,7 +196,7 @@ class TestOperationsRequiringTuplesAreReachableFromConfig:
 
     def test_a_list_param_that_is_not_a_tuple_is_left_alone(self):
         """`ClassFilter` takes a sequence; coercion must not change what it receives."""
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         view = build_view(
             _ImageDataset(count=6, labels=[0, 1, 0, 1, 0, 1]),
@@ -227,10 +229,10 @@ class _ImageDataset:
 
 
 class TestBuildView:
-    @patch("dataeval_flow.view.View")
-    @patch("dataeval_flow.view.ddata")
+    @patch("dataeval_flow._view.View")
+    @patch("dataeval_flow._view.ddata")
     def test_single_operation(self, mock_data_module: MagicMock, mock_view_cls: MagicMock):
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         mock_limit_cls = MagicMock()
         mock_limit_instance = MagicMock()
@@ -245,10 +247,10 @@ class TestBuildView:
         mock_limit_cls.assert_called_once_with(size=100)
         mock_view_cls.assert_called_once_with(mock_dataset, operations=[mock_limit_instance])
 
-    @patch("dataeval_flow.view.View")
-    @patch("dataeval_flow.view.ddata")
+    @patch("dataeval_flow._view.View")
+    @patch("dataeval_flow._view.ddata")
     def test_multiple_operations(self, mock_data_module: MagicMock, mock_view_cls: MagicMock):
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         mock_limit = MagicMock()
         mock_shuffle = MagicMock()
@@ -265,10 +267,10 @@ class TestBuildView:
         ops = mock_view_cls.call_args[1]["operations"]
         assert len(ops) == 2
 
-    @patch("dataeval_flow.view.View")
-    @patch("dataeval_flow.view.ddata")
+    @patch("dataeval_flow._view.View")
+    @patch("dataeval_flow._view.ddata")
     def test_operation_without_params(self, mock_data_module: MagicMock, mock_view_cls: MagicMock):
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         mock_reverse = MagicMock()
         mock_data_module.Reverse.return_value = mock_reverse
@@ -281,7 +283,7 @@ class TestBuildView:
     def test_invalid_operation_type_raises(self):
         import pytest
 
-        from dataeval_flow.view import build_view
+        from dataeval_flow._view import build_view
 
         operations = [ViewOperation(type="NonexistentOperation")]
         with pytest.raises(ValueError, match="Unknown view operation type"):

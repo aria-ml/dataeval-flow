@@ -1,9 +1,9 @@
 # Configure metadata binning
 
-Bias, balance, diversity, and parity do not read your metadata factors as measured. They read them as **codes** — a
-continuous factor is cut into intervals first, and a categorical one is mapped to ordinals. Where those cuts fall
-changes the numbers those evaluators report, so binning is a parameter of the evaluation, not an implementation
-detail. This guide covers choosing the binning, excluding factors, and reading back what the run actually did.
+Bias, balance, diversity, and parity read your metadata factors as **codes** — a continuous factor cut into
+intervals, a categorical one mapped to ordinals. Where the cuts fall changes the numbers those evaluators report.
+Binning is a parameter of the evaluation. This guide covers choosing the binning, excluding factors, and reading
+back what the run did.
 
 ## Used in these tutorials
 
@@ -23,7 +23,7 @@ The three `metadata_*` settings are accepted by every workflow that builds metad
 
 ## Define the policy once and share it
 
-The encoding is a decision, not a per-workflow setting: two workflows over one dataset that cut it differently
+The encoding is a decision, not a per-workflow setting. Two workflows over one dataset that cut it differently
 produce numbers that land in the same result file and cannot be compared. Define it once under `metadata:` and
 reference it by name, the same way `datasets`, `views`, `sources` and `extractors` work:
 
@@ -54,7 +54,7 @@ The older per-workflow `metadata_*` fields still work and mean the same things. 
 them on the same workflow is an error rather than a merge — two sources disagreeing about one factor has no good
 resolution.
 
-Everything a policy says is checked before the dataset is read, so a mistake costs a message rather than a run:
+Everything a policy says is checked before the dataset is read, and a mistake costs only a message:
 
 | The config says | What happens |
 | --- | --- |
@@ -68,8 +68,8 @@ Everything a policy says is checked before the dataset is read, so a mistake cos
 
 ### Get a descriptor out of a run
 
-The descriptor is not something to write by hand. Every run records the encoding it used, and a run with `-o` writes
-it beside the results:
+The descriptor is not written by hand. Every run records the encoding it used, and a run with `-o` writes it
+beside the results:
 
 ```text
 output/results/
@@ -78,8 +78,8 @@ output/results/
   encoding.json    # the same record, as the artifact you commit
 ```
 
-Any archived `result.json` yields one too, which matters because the case where pinning an encoding is worth doing is
-usually noticed weeks after the run:
+Any archived `result.json` yields one too. The value of pinning an encoding is usually noticed weeks after
+the run:
 
 ```console
 dataeval-flow encoding output/results/result.json -o policy/factor_bins.json
@@ -94,9 +94,9 @@ metadata:
     encoding: policy/factor_bins.json
 ```
 
-Review it before committing. `provenance` is the field to read — an entry still saying `derived` is one nobody has
-looked at, and pinning it locks in a cut DataEval chose from one sample. Editing `provenance` to `accepted` is how
-you say you read it and it is right, and it is what lets `strict` be set later.
+Review it before committing. `provenance` is the field to read. An entry still saying `derived` is one nobody has
+looked at, and pinning it locks in a cut DataEval chose from one sample. Editing `provenance` to `accepted` records
+that you read it and it is right. That is what lets `strict` be set later.
 
 A run whose tasks encoded the dataset differently writes no `encoding.json`, because no single descriptor describes
 it; pass `--task <name>` to take one. Splits work the same way — see `reference_split`.
@@ -104,8 +104,8 @@ it; pass `--task <name>` to take one. Splits work the same way — see `referenc
 ### Apply a committed encoding
 
 `encoding` points at a descriptor — the artifact `dataeval-flow encoding` writes — held under the data root and
-committed alongside the config. It applies the recorded cuts and vocabularies rather than deriving them from this
-run's own draw, which is what makes two runs over different data comparable:
+committed alongside the config. It applies the recorded cuts and vocabularies. That is what makes two runs over
+different data comparable:
 
 ```yaml
 metadata:
@@ -118,11 +118,11 @@ category the descriptor never saw takes the next free code, so codes already ass
 
 ### Close a vocabulary you have reviewed
 
-`strict: true` makes a value outside a declared vocabulary an error instead of an append — for a fixed taxonomy that
-should report the data leaving it rather than be widened to fit.
+`strict: true` makes a value outside a declared vocabulary an error. Use it for a fixed taxonomy: the vocabulary
+stays closed, and new data is reported.
 
-It is refused over a descriptor whose vocabularies still read `provenance: "derived"`, which is what a descriptor
-exported from an exploratory run contains. `strict` does not consult provenance, so allowing it there would enforce a
+It is refused over a descriptor whose vocabularies still read `provenance: "derived"` — what a descriptor
+exported from an exploratory run contains. `strict` does not consult provenance. Allowing it there would enforce a
 taxonomy **nobody decided on** and fail the run on the first new category:
 
 ```text
@@ -131,12 +131,12 @@ Metadata policy 'locked' sets strict, which closes every vocabulary in its descr
 descriptor (set provenance to "accepted" or "declared"), or drop strict.
 ```
 
-Ratify the entries you have actually looked at by editing `provenance` to `accepted` in the committed descriptor —
-which is a pull request, and the point.
+Ratify the entries you have actually looked at by editing `provenance` to `accepted` in the committed descriptor.
+The pull request is the point.
 
 ## Let the method choose the cuts
 
-`metadata_auto_bin_method` picks how a continuous factor is discretized when you have not said otherwise.
+`metadata_auto_bin_method` picks how an un-pinned continuous factor is discretized.
 
 ```yaml
 workflows:
@@ -154,8 +154,8 @@ workflows:
 Leave it unset to take DataEval's default (`uniform_width`).
 
 :::{important}
-The bin **count** an automatic method lands on is derived from the data, not taken as a setting. Two runs over
-different samples of the same population can therefore produce different bin counts for the same factor — which is
+The bin **count** an automatic method lands on is derived from the data. Two runs over
+different samples of the same population can therefore produce different bin counts for the same factor. That is
 enough to move a `Balance` score. Pin the count with `metadata_continuous_factor_bins` for any factor whose numbers
 you intend to compare across runs.
 :::
@@ -171,9 +171,9 @@ you intend to compare across runs.
       temperature: [-40, 0, 20, 40, 60]     # explicit edges — four bins
 ```
 
-Explicit edges are the stronger choice for anything comparative: they are a property of your configuration rather
-than of the sample, so the same edges apply to every run and every split. Naming a factor the dataset does not carry
-is not an error — DataEval ignores it and warns — and the run records it as an unmatched request (see below).
+Explicit edges are the stronger choice for anything comparative. They are a property of the configuration, and
+the same edges apply to every run and every split. Naming a factor the dataset does not carry is not an error.
+DataEval ignores it and warns, and the run records it as an unmatched request (see below).
 
 ## Drop factors that are not evidence
 
@@ -187,8 +187,8 @@ The usual candidates are identifiers and bookkeeping columns. An `id` is unique 
 perfectly with everything and reports as maximally informative while telling you nothing. Image geometry is worth
 excluding when it is a property of your pipeline rather than of the scene.
 
-Exclusion is recorded in the result, because an excluded factor otherwise leaves no trace — it is simply absent, and
-absent-because-excluded looks identical to absent-because-never-collected.
+Exclusion is recorded in the result. Without the record, an excluded factor is indistinguishable from one never
+collected.
 
 ## Measure factors off the imagery itself
 
@@ -222,13 +222,12 @@ them `unit_brightness` and `instance_brightness`. Declare the bin on the **bare*
       brightness: 4          # binds unit_brightness and instance_brightness alike
 ```
 
-Declaring `unit_brightness` directly also works, and binds only that one. What is not allowed is pinning the same
-statistic from both channels — a level-prefixed entry in a committed `encoding` alongside a bare
-`continuous_factor_bins` declaration is an error, because the two disagree and neither is the obvious winner.
+Declaring `unit_brightness` directly also works, and binds only that one. Pinning the same statistic from both
+channels is an error — a level-prefixed entry in a committed `encoding` alongside a bare
+`continuous_factor_bins` declaration. The two disagree, and neither is the obvious winner.
 
 A declared bin that matches nothing is not silently dropped. The result envelope records it under
-`unmatched_bin_requests`, which is how a typo — `brightnes` — shows up as a fact in the output rather than as a
-factor that quietly went unbinned.
+`unmatched_bin_requests`. That is how a typo — `brightnes` — shows up as a fact in the output.
 
 ## Declare the range of float image data
 
@@ -236,8 +235,8 @@ factor that quietly went unbinned.
 here.
 
 Integer encodings state the interval their values occupy. Float data does not. As of DataEval v1.1 the statistics
-that need one answer `NaN` rather than inferring it. Declare it on the **dataset**, because it is a fact about the
-imagery rather than a setting of any one workflow:
+that need one answer `NaN`. Declare it on the **dataset**: it is a fact about the imagery, not a setting of any one
+workflow:
 
 ```yaml
 datasets:
@@ -254,12 +253,12 @@ workflows:
     outlier_flags: [dimension, pixel, visual]
 ```
 
-Every workflow reading that dataset then measures against the same interval — including the `intrinsic_factors`
-pass above, which is what keeps a declared range from meaning one thing to the injection and another to the
-workflow's own statistics.
+Every workflow reading that dataset then measures against the same interval, including the `intrinsic_factors`
+pass above. A declared range then means the same thing to the injection and to the workflow's own
+statistics.
 
 Affected without a declared range: the whole `visual` group, pixel histogram and entropy, and dimension depth.
-`PIXEL_MISSING` always answers, because it measures the presence of data rather than the data. Leave `value_range`
+`PIXEL_MISSING` always answers, because it measures the presence of data. Leave `value_range`
 unset for ordinary integer imagery — the `[0, 1]` and `0–255` float conventions are still detected automatically.
 
 `value_range` participates in the cache key, so two runs declaring different ranges never share a cached entry.
@@ -273,9 +272,8 @@ a disagreeing one on the dataset is an error rather than a merge.
 
 ## Read back what the run did
 
-Every result records its binning decisions, so you do not have to reason about them from the configuration. The
-record appears in the text report under **METADATA FACTORS** and in the result envelope at
-`metadata.metadata_binning`:
+Every result records its binning decisions. The record appears in the text report under **METADATA FACTORS** and in
+the result envelope at `metadata.metadata_binning`:
 
 ```text
 --------------------------------------------------------------------------------
@@ -304,21 +302,20 @@ Each factor carries two things, and the distinction is the point:
 
 `encoding` — **the policy.** The cut points or the vocabulary, who chose them, and how they were placed. `provenance`
 is the field to read: `edges declared` means you said where to cut, `count declared` means you said how many and
-DataEval placed them, and `derived` means nobody decided — DataEval chose both, from this sample. A factor still
+DataEval placed them, and `derived` means nobody decided: DataEval chose both from this sample. A factor still
 reading `derived` is one nobody has reviewed.
 
 `fit` — **the observation.** How many rows reached each bin in this run, the span they occupied, and which declared
 bins nothing reached at all. `2 empty` above says the freezing and cold bins are unpopulated: the cut still applies
 and the codes are unchanged, but the data has moved out from under the policy.
 
-Bins are named from their edges rather than from their contents. That is what lets a declared cutoff survive into its
-own label — `{"temp_c": [-inf, 0.0, 10.0, inf]}` reads as `< 0`, not as whatever the coldest sample happened to be —
-and it means the same policy prints the same names over a different draw.
+Bins are named from their edges. A declared cutoff survives into its own label:
+`{"temp_c": [-inf, 0.0, 10.0, inf]}` reads as `< 0>`. The same policy prints the same names over a different draw.
 
 The text report shows per-bucket detail only for a factor with 12 or fewer bins or levels. Above that it gives the
 count and how the buckets were populated — `40 levels, derived, n=3–19 per level`, or the occupied span for a binned
-factor — so one high-cardinality factor cannot bury the rest. A factor holding exactly one level per sample is an
-identifier rather than a grouping, and is labeled `(one per sample)`; it contributes nothing to balance or
+factor — so one high-cardinality factor does not bury the rest. A factor holding exactly one level per sample is an
+identifier, not a grouping, and is labeled `(one per sample)`. It contributes nothing to balance or
 diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffected by the cap.
 
 From Python:
@@ -340,9 +337,9 @@ For `data-analysis` the record is nested one level deeper, under `binning["per_s
 
 ### Give every split the same cuts
 
-`data-analysis` reads several splits. Encoded independently they land on different cuts for the same factor — an
-automatic bin count comes from each split's own draw — and their per-factor statistics then sit side by side in one
-report under different alphabets. So the **reference split** is encoded first and every other split takes its
+`data-analysis` reads several splits. Encoded independently they land on different cuts for the same factor, because
+an automatic bin count comes from each split's own draw. The per-factor statistics then sit side by side in one
+report under different alphabets. The **reference split** is encoded first, and every other split takes its
 encoding:
 
 ```yaml
@@ -359,14 +356,13 @@ The report says which split set the policy and whether the result holds:
 
 A vocabulary still grows: a category the reference never saw takes the next free code in the split that has it, so
 shared codes keep meaning what they meant and the splits stay comparable. Only a genuinely different cut, or a
-reordered vocabulary, makes them not — and the report then names the factors responsible rather than condemning the
-whole record.
+reordered vocabulary, makes them not. The report then names the factors responsible.
 
 ### Tell whether two results are comparable
 
-Every result carries `metadata.encoding_digest`, a fingerprint of the encoding every factor was read under. It is what
-makes comparing two runs sound: a `Balance` score that moved between them is otherwise unattributable between *my
-override worked* and *the data changed*, which are the two readings you are trying to tell apart.
+Every result carries `metadata.encoding_digest`, a fingerprint of the encoding every factor was read under. It makes
+comparing two runs sound: a `Balance` score that moved between them is otherwise unattributable — between *my
+override worked* and *the data changed*.
 
 ```python
 before.metadata.encoding_digest == after.metadata.encoding_digest
@@ -374,32 +370,31 @@ before.metadata.encoding_digest == after.metadata.encoding_digest
 # False -> different cuts; the numbers are not measuring the same thing
 ```
 
-The digest covers the policy, not the rows, so it stays put when only the data changes and moves when a cutoff is
+The digest covers the policy, not the rows: it stays put when only the data changes, and moves when a cutoff is
 declared or a vocabulary grows.
 
-For a multi-split workflow it is set only where **every split shares one encoding**, and is `None` otherwise — there
-is no single encoding to name when the splits did not share one, and the per-split digests under
-`binning["per_split"]` say which differed. The text report states it either way:
+For a multi-split workflow it is set only where **every split shares one encoding**, and is `None` otherwise. The
+per-split digests under `binning["per_split"]` say which differed. The text report states it either way:
 
 ```text
   Splits were encoded differently — factor statistics are NOT comparable across them.
   Declare cutoffs, or apply one committed encoding to every split.
 ```
 
-That is the common case with automatic binning, because the bin count is derived from each split's own draw. Pinning
+That is the common case with automatic binning: the bin count is derived from each split's own draw. Pinning
 the cuts with `metadata_continuous_factor_bins` makes the splits share one encoding and the message change.
 
 ### Diagnostics
 
 `metadata.diagnostics` carries the warnings DataEval raised during the run: the ranges it could not resolve, bin
-requests it ignored, and factors it dropped. These used to reach only the console and `result.log`; they are now part
-of the envelope, so an archived result can answer for itself why a statistic came back `NaN`.
+requests it ignored, and factors it dropped. These used to reach only the console and `result.log`. They are now
+part of the envelope, so an archived result records why a statistic came back `NaN`.
 
 ## Why this matters for comparison
 
 Binning is the reason two evaluations of "the same" data can disagree. A `Balance` score is an association between a
-factor's codes and the class labels, and a factor's codes depend on where its cuts fell. Change the sample, and an
-automatic method may place different cuts; change the bin count, and the entropy the association is normalized
+factor's codes and the class labels, and a factor's codes depend on where its cuts fell. Change the sample and an
+automatic method may place different cuts. Change the bin count and the entropy the association is normalized
 against changes with it.
 
 Two rules keep runs comparable:

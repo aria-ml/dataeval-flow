@@ -69,11 +69,9 @@ def _footnote(i: int, test: dict) -> str:
 def _verification_cell(status: str) -> str:
     """Render a test case's overall status for the VCRM verification row.
 
-    A skipped test case is reported as "Skipped", never "Fail". Collapsing the
-    two reads as non-compliance against a requirement that was simply not
-    exercised in that job, which is the most damaging error a governance
-    artifact can make: it accuses the product of failing something it was never
-    asked to demonstrate.
+    A skipped test case is reported as "Skipped", never "Fail". Collapsing the two
+    reads as non-compliance for a requirement that was not exercised in that job,
+    reporting a failure the product was never asked to demonstrate.
     """
     if status == "passed":
         return "Pass"

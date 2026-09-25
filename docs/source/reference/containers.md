@@ -1,14 +1,13 @@
 # Container Reference
 
-This page is the reference for running **DataEval Flow** as a container. It
-documents every input the container accepts, their defaults and precedence, the
-volume mounts and environment variables, dependencies between configuration
-parameters, and the hardware, architecture, and network requirements for both
-the container and the Python-library forms.
+Reference for running **DataEval Flow** as a container: every input the
+container accepts, their defaults and precedence, volume mounts, environment
+variables, dependencies between configuration parameters, and the hardware,
+architecture, and network requirements for both the container and the
+Python-library forms.
 
 The container is a **batch** application: it runs a configured pipeline to
-completion, writes its artifacts, and exits. It is not a long-running web
-service, so there is no health-check endpoint.
+completion, writes its artifacts, and exits. There is no health-check endpoint.
 
 ## Image tags
 
@@ -26,11 +25,11 @@ Every image is published to `harbor.jatic.net/aria/dataeval-flow` in three varia
 that never moves, and it is the tag the cosign signature and SBOM attestation are
 bound to.
 
-The series tag exists because supported release lines receive patches
-independently. Once `release/v0.2` is carrying fixes and v0.3 has shipped,
-`0.2-cpu` follows the v0.2 line while `cpu` tracks v0.3 — so a v0.2 patch never
-moves `cpu` backwards onto an older release. Track `0.2-cpu` to stay on a line
-and receive its fixes; track `cpu` to follow the newest release wherever it goes.
+Series tags exist because release lines receive patches independently. Once
+`release/v0.2` carries fixes and v0.3 has shipped, `0.2-cpu` follows the v0.2
+line while `cpu` tracks v0.3, so a v0.2 patch never moves `cpu` backwards.
+Track `0.2-cpu` to stay on a release line and receive its fixes; track `cpu` to
+follow the newest release.
 
 Prereleases (`0.4.0-rc0-cpu`) are published under their exact version tag only.
 No floating tag ever points at one, so following `cpu` or `0.4-cpu` will not hand
@@ -41,9 +40,9 @@ for how release lines are cut and maintained.
 
 ## Obtaining the interface documentation
 
-The container ships its own authoritative interface description. Print it with
-the help command — which is also the default action when the container is run
-with no pipeline arguments:
+The container ships its own interface description. Print it with the help
+command, which is also the default action when the container runs with no
+pipeline arguments:
 
 ```bash
 docker run harbor.jatic.net/aria/dataeval-flow:latest-cu130 --help
@@ -76,8 +75,7 @@ The data root can be relocated with `DATAEVAL_DATA` / `--data` (see below).
 ## Secrets
 
 DataEval Flow uses **no API keys, tokens, or passwords**, so **no secret mounts
-or secret-management mechanism are required**. Nothing needs to be injected as a
-secret to run any workflow.
+or secret-management mechanism are required**.
 
 ## Environment variables
 
@@ -90,12 +88,11 @@ All runtime environment variables are optional.
 | `DATAEVAL_CACHE`  | Disk-backed computation cache directory     | Auto-set to `/cache` when that mount is present and writable (see below)  |
 
 `DATAEVAL_DATA` and `DATAEVAL_OUTPUT` are baked into the image as `/dataeval` and
-`/output`. `DATAEVAL_CACHE` is **not** — the entrypoint sets it to `/cache` only when
-you have not already set it *and* `/cache` exists, is writable, and is a real mount
-rather than the image's unmounted placeholder. If any of those is false the variable
-stays unset and caching falls back to in-memory only, which is silent: the run
-succeeds but nothing persists between runs. Pass `--cache` explicitly if you need to
-be certain.
+`/output`. `DATAEVAL_CACHE` is **not**. The entrypoint sets it to `/cache`
+only when you have not set it and `/cache` exists, is writable, and is a real
+mount, not the image's unmounted placeholder. If any check fails, the variable
+stays unset and caching falls back to in-memory only: the run succeeds but
+nothing persists between runs. Pass `--cache` explicitly to be sure.
 
 `HF_HUB_OFFLINE` / `HF_DATASETS_OFFLINE` are standard HuggingFace variables you
 may set to force fully offline operation (see [Internet access](#internet-access)).
@@ -104,8 +101,8 @@ The following are **build-time only** and are not read at run time:
 `DATAEVAL_FLOW_VERSION` (stamps the wheel/image version) and
 `DATAEVAL_NOX_UV_EXTRAS_OVERRIDE` (selects extras during the image build).
 
-Two more are set by the build and *are* read at run time, but only by the
-entrypoint and not by the application: `UV_EXTRAS_OVERRIDE` (names the variant in
+Two more are set by the build and read at run time, but only by the entrypoint
+and not by the application: `UV_EXTRAS_OVERRIDE` (names the variant in
 the help text) and `CONTAINER_MODE` (decides whether the GPU check runs).
 Overriding either changes only what the container prints and whether it insists on
 a GPU; neither is intended as a caller-facing knob.
@@ -232,7 +229,6 @@ dependencies (PyTorch, NumPy, SciPy) provide x86-64 wheels.
 
 ## Health checks
 
-DataEval Flow is a batch container, not a long-running service, so it exposes
-**no health-check endpoint** (IR-2.3 monitoring requirements are not applicable).
-Success or failure is reported through the process exit code and the logs/reports
-written to the output directory.
+The container exposes **no health-check endpoint** (IR-2.3 monitoring
+requirements are not applicable). Success or failure is reported through the
+process exit code and the logs/reports written to the output directory.

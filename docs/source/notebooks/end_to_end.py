@@ -124,13 +124,20 @@ print(f"Classes:     {train_ds.metadata['index2label']}")
 # ```{seealso}
 # This section only covers the operational checkpoint: run triage, act on its findings, move on.
 # For a full walkthrough of reading triage findings, distribution charts, and remediation
-# policies, see [Triage a dataset's metadata](metadata_triage).
+# policies, see {doc}`Triage a dataset's metadata <metadata_triage>`.
 # ```
 
 # %% tags=["remove_output"]
-from dataeval_flow.config import CocoDatasetConfig, PipelineConfig, SourceConfig, ViewConfig, ViewOperation
-from dataeval_flow.config.schemas import MetadataPolicyConfig, MetadataTriageTaskConfig, MetadataTriageWorkflowConfig
-from dataeval_flow.workflow import run_task
+from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow.config import (
+    CocoDatasetConfig,
+    MetadataPolicyConfig,
+    SourceConfig,
+    TaskConfig,
+    ViewConfig,
+    ViewOperation,
+)
+from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
 triage_config = PipelineConfig(
     metadata=[MetadataPolicyConfig(name="skysealand_factors", intrinsic_factors=["visual", "pixel"])],
@@ -145,18 +152,18 @@ triage_config = PipelineConfig(
         )
     ],
     sources=[SourceConfig(name="train_src", dataset="skysealand_train", view="sample300")],
-    workflows=[MetadataTriageWorkflowConfig(name="triage", metadata="skysealand_factors")],
-    tasks=[MetadataTriageTaskConfig(name="triage_train", workflow="triage", sources="train_src")],
+    workflows=[MetadataTriageConfig(name="triage", metadata="skysealand_factors")],
+    tasks=[TaskConfig(name="triage_train", workflow="triage", sources="train_src")],
 )
 
 triage_result = run_task(triage_config.tasks[0], triage_config, data_dir=Path("."), cache_dir=Path("./cache"))
 
 # %%
-findings = triage_result.data.raw.findings
+findings = triage_result.output.raw.findings
 degenerate = sorted({f.factor for f in findings if f.category == "degenerate"})
 unbinned = sorted({f.factor for f in findings if f.category == "unbinned"})
 
-print(f"Factors:              {triage_result.data.raw.factor_count}")
+print(f"Factors:              {triage_result.output.raw.factor_count}")
 print(f"Findings:             {len(findings)} ({triage_result.metadata.blocking} blocking)")
 print(f"Degenerate (exclude): {degenerate}")
 print(f"Need explicit bins:   {len(unbinned)} factors")
@@ -165,7 +172,7 @@ print(f"Need explicit bins:   {len(unbinned)} factors")
 # `metadata-triage` flags `label_file_exists`, `instance_missing`, and `unit_missing` as
 # degenerate: every frame holds the same value, so the factor separates nothing. It also flags
 # `instance_zeros` for a sentinel-value remap before it can be binned — that judgment call is
-# exactly what the [metadata triage tutorial](metadata_triage) covers, so this pipeline excludes
+# exactly what the {doc}`metadata triage tutorial <metadata_triage>` covers, so this pipeline excludes
 # it instead. The remaining continuous pixel and visual factors need explicit bin counts, or
 # `data-analysis` would derive them silently from whatever sample happens to run.
 #
@@ -214,7 +221,8 @@ print(f"Tasks:      {[(t.name, t.workflow, t.sources) for t in config.tasks]}")
 # %% [markdown]
 # ## Step 4: Run the pipeline
 #
-# You can execute all enabled tasks using `run_tasks()`:
+# You can execute all enabled tasks using `run_tasks()`. It returns each task's result keyed by
+# task name, in execution order. Two arguments matter here:
 #
 # - `data_dir`: Base directory for resolving relative paths in configuration.
 # - `cache_dir`: Directory for caching embeddings, image statistics, and metadata
@@ -228,19 +236,19 @@ from dataeval_flow import run_tasks
 results = run_tasks(config, data_dir=Path("."), cache_dir=Path("./cache"))
 
 # %%
-for task, result in zip(config.tasks, results, strict=True):
+for name, result in results.items():
     status = "OK " if result.success else "FAIL"
-    warnings = sum(1 for f in result.data.report.findings if f.severity == "warning")
+    warnings = sum(1 for f in result.output.report.findings if f.severity == "warning") if result.success else 0
     elapsed = result.metadata.execution_time_s or 0.0
-    print(f"[{status}] {task.name:<16} {result.name:<16} {elapsed:>6.1f}s  {warnings} warning(s)")
+    print(f"[{status}] {name:<16} {result.type:<16} {elapsed:>6.1f}s  {warnings} warning(s)")
     for error in result.errors:
         print(f"         {error}")
 
 # %% tags=["remove_cell"]
-assert all(r.success for r in results), [r.errors for r in results if not r.success]
+assert all(r.success for r in results.values()), [r.errors for r in results.values() if not r.success]
 
 # %%
-clean_result, profile_result, split_result = results
+clean_result, profile_result, split_result = results["clean_train"], results["profile_splits"], results["split_train"]
 
 # %% [markdown]
 # ## Step 5: Display the results
@@ -248,8 +256,8 @@ clean_result, profile_result, split_result = results
 # Each task result exposes three primary interfaces:
 #
 # - `result.report()`: Formatted text summary.
-# - `result.data.report.findings`: Structured finding objects.
-# - `result.data.raw`: Workflow-specific raw numerical metrics.
+# - `result.output.report.findings`: Structured finding objects.
+# - `result.output.raw`: Workflow-specific raw numerical metrics.
 #
 # You can call `report(detailed=False)` for high-level summaries, or `report(detailed=True)`
 # for per-finding breakdowns.
@@ -258,7 +266,7 @@ clean_result, profile_result, split_result = results
 # ### 5a. Summary reports
 
 # %%
-for result in results:
+for result in results.values():
     print(result.report(detailed=False))
 
 # %% [markdown]
@@ -268,9 +276,9 @@ for result in results:
 # You can query these programmatically in automated CI/CD gates.
 
 # %%
-for result in results:
-    print(f"\n{result.name}")
-    for finding in result.data.report.findings:
+for result in results.values():
+    print(f"\n{result.type}")
+    for finding in result.output.report.findings:
         marker = {"warning": "[!!]", "ok": "[ok]"}.get(finding.severity, "[..]")
         headline = (finding.description or "").splitlines()
         print(f"  {marker} {finding.title:<34} {headline[0][:60] if headline else ''}")
@@ -279,10 +287,10 @@ for result in results:
 # ### 5c. Data cleaning: Inspect flagged images
 #
 # The cleaning report summarizes the count of flagged images. You can retrieve specific
-# sample indices from `result.data.raw` and slice `result.dataset` directly without reloading data.
+# sample indices from `result.output.raw` and slice `result.dataset` directly without reloading data.
 
 # %%
-raw = clean_result.data.raw
+raw = clean_result.output.raw
 
 outlier_issues = raw.img_outliers["issues"]
 outlier_indices = sorted({issue["item_index"] for issue in outlier_issues})
@@ -314,7 +322,7 @@ if outlier_indices:
 # %%
 print(f"Splits analyzed: {profile_result.metadata.split_names}")
 
-for pair, section in profile_result.data.raw.cross_split.items():
+for pair, section in profile_result.output.raw.cross_split.items():
     cs = section.model_dump()
     leakage = cs["redundancy"]["duplicate_leakage"]
     overlap = cs["label_health"]["label_overlap"]
@@ -338,13 +346,13 @@ for pair, section in profile_result.data.raw.cross_split.items():
 # these indices to construct PyTorch `Subset` or `DataLoader` instances.
 
 # %%
-fold = split_result.data.raw.folds[0]
+fold = split_result.output.raw.folds[0]
 
 print(f"Split sizes: {split_result.metadata.split_sizes}")
 print(f"Stratified:  {split_result.metadata.stratified}")
 print(f"Train indices (first 10): {fold.train_indices[:10]}")
 print(f"Val   indices (first 10): {fold.val_indices[:10]}")
-print(f"Test  indices (first 10): {split_result.data.raw.test_indices[:10]}")
+print(f"Test  indices (first 10): {split_result.output.raw.test_indices[:10]}")
 
 # %% [markdown]
 # ## Step 6: Export the results
@@ -356,8 +364,8 @@ print(f"Test  indices (first 10): {split_result.data.raw.test_indices[:10]}")
 # %%
 output_dir = Path("./output/end_to_end")
 
-for task, result in zip(config.tasks, results, strict=True):
-    written = result.export(output_dir / f"{task.name}.json")
+for name, result in results.items():
+    written = result.export(output_dir / f"{name}.json")
     print(f"{written}  ({written.stat().st_size:,} bytes)")
 
 # %%
@@ -513,9 +521,9 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Next steps
 #
-# - [Triage a dataset's metadata](metadata_triage): Deep dive into reading triage findings, distribution charts, and remediation policies.
-# - [Clean a dataset](data_cleaning): Deep dive into outlier and duplicate detection.
-# - [Analyze dataset quality across splits](data_analysis): Multi-split quality profiling and distribution shift.
+# - {doc}`Triage a dataset's metadata <metadata_triage>`: Deep dive into reading triage findings, distribution charts, and remediation policies.
+# - {doc}`Clean a dataset <data_cleaning>`: Deep dive into outlier and duplicate detection.
+# - {doc}`Analyze dataset quality across splits <data_analysis>`: Multi-split quality profiling and distribution shift.
 # - [Split a dataset](dataset_splitting): Stratification, cross-validation folds, and group-aware splitting.
 
 # %% [markdown]

@@ -38,11 +38,11 @@
 #
 # You can reference this guide to configure higher-fidelity embeddings in:
 #
-# - [Clean a dataset](data_cleaning)
-# - [Analyze dataset quality across splits](data_analysis)
-# - [Assess dataset coverage](data_coverage)
-# - [Monitor incoming data for drift](drift_monitoring)
-# - [Detect out-of-distribution samples](ood_detection)
+# - {doc}`Clean a dataset <data_cleaning>`
+# - {doc}`Analyze dataset quality across splits <data_analysis>`
+# - {doc}`Assess dataset coverage <data_coverage>`
+# - {doc}`Monitor incoming data for drift <drift_monitoring>`
+# - {doc}`Detect out-of-distribution samples <ood_detection>`
 
 # %% [markdown]
 # ## YAML
@@ -75,8 +75,8 @@
 # ## Python
 
 # %% tags=["remove_output"]
-from dataeval_flow.config import OnnxExtractorConfig, PreprocessorConfig
-from dataeval_flow.preprocessing import PreprocessingStep
+from dataeval_flow.config import PreprocessingStep, PreprocessorConfig
+from dataeval_flow.config.extractors import OnnxExtractorConfig
 
 onnx_extractor = OnnxExtractorConfig(
     name="resnet50_ext",
@@ -120,5 +120,5 @@ resnet_preprocess = PreprocessorConfig(
 # | Setup complexity | Higher | Minimal |
 #
 # Use ONNX when your tasks require rich feature representations from pretrained
-# models. Use BoVW (see [Clean a dataset](data_cleaning)) when you need a lightweight
+# models. Use BoVW (see {doc}`Clean a dataset <data_cleaning>`) when you need a lightweight
 # setup without external model files.

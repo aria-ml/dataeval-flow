@@ -1,13 +1,13 @@
 # Contributing
 
 Thank you for your interest in DataEval Flow! Contributions, bug reports, and
-suggestions for improvement are welcome.
+suggestions for improvement are always welcome.
 
 ## Development Setup
 
 DataEval Flow uses [uv](https://docs.astral.sh/uv/) for environment management and
-[nox](https://nox.thea.codes/) as its task runner. `uv` is the only thing you need
-installed up front — it fetches everything else on demand.
+[nox](https://nox.thea.codes/) as its task runner. Install only `uv` up front; it
+fetches everything else on demand.
 
 ### Bootstrapping an environment
 
@@ -17,8 +17,8 @@ cd dataeval-flow
 uvx --with nox-uv nox -s dev
 ```
 
-That builds `.venv` with DataEval Flow and every development dependency. Run with
-no arguments it prompts for the Python version and the device variant; pass them as
+This builds `.venv` with DataEval Flow and all development dependencies. With no
+arguments it prompts for the Python version and device variant; pass them as
 arguments to skip the prompts:
 
 ```bash
@@ -36,18 +36,17 @@ Alongside the device variant it installs the matching `onnx` extra (`onnx` for
 `type` sessions build against. The chosen device is written to `.cuda-version`,
 which the other sessions read so they build against the same PyTorch variant.
 
-Activate the result and you are ready to work:
+Activate the environment:
 
 ```bash
 source .venv/bin/activate
 ```
 
 :warning: **Bootstrap with `uvx`, not `uv run`.** `uv run nox -s dev` would run nox
-out of the very environment the session is about to delete and rebuild; the session
-detects this and refuses to start. `uvx` fetches a throwaway nox instead, so there
-is nothing to pull out from under. `--with nox-uv` is not optional for the other
-sessions — `noxfile.py` imports `nox_uv` at module scope, so a bare `uvx nox` cannot
-even load it.
+from the environment the session deletes and rebuilds; the session detects this and
+refuses to start. `uvx` fetches a throwaway nox. `--with nox-uv` is required for the
+other sessions: `noxfile.py` imports `nox_uv` at module scope, so a bare `uvx nox`
+cannot load it.
 
 ### Running checks
 
@@ -65,20 +64,45 @@ uv run nox -s verify    # FR/NFR requirements verification suite
 ```
 
 Once `.venv` exists, `uv run nox ...` is the convenient form for everything except
-`dev` itself; `uvx --with nox-uv nox ...` works from anywhere and needs no project
-environment at all.
+`dev` itself; `uvx --with nox-uv nox ...` works from anywhere without a project
+environment.
+
+### Where code lives
+
+Every public name has one home. Take the first rule that fits:
+
+1. **The front door → `dataeval_flow`.** What you call to load and run anything, and
+   what workflows and evaluators both share: `run`, `run_task`, `run_tasks`,
+   `load_config`, `load_dataset`, `PipelineConfig`, `Result`, `ResultMetadata`,
+   `InputSpec`, `InputKind`, `SourceCount`.
+2. **A doer → `dataeval_flow.workflows` or `dataeval_flow.evaluators`.** The package
+   holds its kind's framework: the base class, config and result bases, context,
+   `get_*` and `list_*`. Each built-in type has a subpackage named after its type id
+   (`data-cleaning` → `.data_cleaning`, `quality.*` → `.quality`) exporting what typed
+   code names: its config, its result and the models inside them.
+3. **Anything else a pipeline file describes → `dataeval_flow.config`.** The plain
+   sections share one flat list: datasets, sources, views, preprocessors, metadata,
+   stats, ontologies, tasks, exports and logging. A section whose entries are plugins
+   has a subpackage: `config.extractors`, and `config.transforms` for what a
+   preprocessor's `step:` names.
+4. **Anything else is private:** an underscore somewhere in its import path.
+
+A plugin registers under the entry-point group `dataeval_flow.<kind>`: `workflows`,
+`evaluators`, `extractors` or `transforms`. The group names the kind, not the module.
+
+`tests/public_api.txt` pins the result, and `tests/test_public_surface.py` checks that
+each public name has one import path and every other module is private. When the
+public surface changes, regenerate the snapshot deliberately and review its diff.
 
 ## How Can I Contribute?
 
 ### Reporting Bugs
 
-Bug reports can be submitted in several ways. The guidelines below help us
-investigate and resolve issues quickly.
+The guidelines below help maintainers investigate and resolve issues quickly.
 
 #### Crafting a Bug Report
 
-The bug report should be in the following format and contain as much detail as
-possible.
+Use the following format and include as much detail as possible.
 
 ```text
 Steps to Reproduce:
@@ -108,8 +132,7 @@ issues created in GitHub, please follow the bug report template above.
 
 #### Making it Good(tm)
 
-Bugs can be notoriously difficult to pin down and eliminate, but following the
-tips below can help the maintainers do the best they can.
+The tips below help maintainers:
 
 - Use a clear and descriptive title
 - Describe the exact steps (before and during) which led to the issue
@@ -121,11 +144,8 @@ tips below can help the maintainers do the best they can.
 
 ### Suggestions for Improvement
 
-We are always excited to hear ideas for new workflows, extractors, or
-improvements to existing features.
-
-Feel free to reach out to <dataeval-flow@ariacoustics.com> — we would love to
-hear from you.
+Ideas for new workflows, extractors, or improvements are welcome. Reach out to
+<dataeval-flow@ariacoustics.com>.
 
 ## Branching Strategy
 

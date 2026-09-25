@@ -1,9 +1,8 @@
 # Narrow a dataset with views
 
-You do not always want to evaluate a whole dataset. A first pass over 500 images, a run restricted to two classes, a
-reproducible random sample — all of these are {term}`views <View>`: named, ordered pipelines of dataset operations
-applied before a workflow sees the data. A view also conforms a dataset to a shared vocabulary, which is what lets two
-datasets be merged into one corpus.
+A first pass over 500 images, a run restricted to two classes, a reproducible random sample — all of these are
+{term}`views <View>`: named, ordered pipelines of dataset operations applied before a workflow sees the data. A view
+also conforms a dataset to a shared vocabulary, which lets two datasets be merged into one corpus.
 
 ## Used in these tutorials
 
@@ -34,16 +33,15 @@ sources:
     view: first500
 ```
 
-Operations run in the order listed, each consuming the output of the last. A `source` without a `view` uses the whole
-dataset.
+Operations run in the order listed. Each consumes the output of the previous one. A `source` without a `view` uses
+the whole dataset.
 
 :::{warning}
-**`Limit` on its own samples the storage order, not the dataset.** Collections are often written grouped — by capture
-site, by class, by acquisition date — and a bare `Limit` keeps whatever happens to be at the front. On SkySeaLand, the
-first 500 frames put `ship` at 11% of annotations against 20% for the whole split, which is enough to move every
-statistic computed afterward.
+**`Limit` on its own samples the storage order, not the dataset.** Collections are often written grouped, by capture
+site, class, or acquisition date. A bare `Limit` keeps whatever is at the front. On SkySeaLand, the first 500 frames
+put `ship` at 11% of annotations against 20% for the whole split — enough to move every statistic computed after.
 
-Put a seeded `Shuffle` in front of the `Limit` unless you specifically want the head of the dataset:
+Put a seeded `Shuffle` in front of the `Limit`:
 
 ```yaml
 views:
@@ -80,18 +78,17 @@ Operations are pass-throughs to `dataeval.data`, so the type names and parameter
 | `SelectChannels` | Keep a chosen subset of channels |
 | `TorchvisionTransform` | Apply a `torchvision` transform as a view operation |
 
-The `type` is resolved by name against `dataeval.data` rather than checked against a fixed list, so **anything that
-module exports is usable** — including operations added by a DataEval release newer than this table. `ClassBalance`
-in particular had a counting bug fixed in DataEval v1.1, so a view using it can select differently than it did
-under v0.1.
+The `type` is resolved by name against `dataeval.data`, not checked against a fixed list. **Anything that module
+exports is usable**, including operations added by a DataEval release newer than this table. `ClassBalance` had a
+counting bug fixed in DataEval v1.1, so a view using it can select differently than under v0.1.
 
 See the [DataEval `dataeval.data` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html)
 for the full parameter list of each.
 
 ## Combine operations
 
-Order matters. Filtering before limiting gives you 500 items *of the classes you care about*; limiting first gives you
-whatever 500 came out of the front of the file.
+Order matters. Filtering before limiting gives 500 items *of the classes you care about*. Limiting first gives
+whatever 500 is at the front of the file.
 
 ```yaml
 views:
@@ -108,8 +105,8 @@ views:
           size: 500
 ```
 
-Always pass a `seed` to `Shuffle`. Without one the view differs between runs, which makes the result
-non-reproducible — and, because the cache key includes the view, defeats caching as well.
+Always pass a `seed` to `Shuffle`. Without one the view differs between runs. The result is non-reproducible, and
+caching is defeated as well, because the cache key includes the view.
 
 A `Shuffle` seed pins only that operation's ordering. To pin every stochastic component of the run — clustering,
 random splits, sampling — set the pipeline-level `seed` as well:
@@ -126,7 +123,7 @@ See [Reproducibility](../concepts/Reproducibility.md) for how the two interact.
 
 ## Select an index range without enumerating it
 
-`Indices` accepts a range shorthand so a contiguous span does not have to be written out:
+`Indices` accepts a range shorthand:
 
 ```yaml
       - type: Indices
@@ -139,12 +136,13 @@ See [Reproducibility](../concepts/Reproducibility.md) for how the two interact.
 ```
 
 The keys match Python's `range()`: `start` and `stop` are required, `step` is optional. The explicit list form is
-still accepted. A range that expands past 1,000,000 elements is rejected — load those indices from a file instead.
+still accepted. A range that expands past 1,000,000 elements is rejected. Load those indices from a file.
 
 ## Build a view in Python
 
 ```python
-from dataeval_flow.config import PipelineConfig, SourceConfig, ViewConfig, ViewOperation
+from dataeval_flow import PipelineConfig
+from dataeval_flow.config import SourceConfig, ViewConfig, ViewOperation
 
 view = ViewConfig(
     name="sample500",
@@ -159,8 +157,8 @@ source = SourceConfig(name="skysealand_src", dataset="skysealand_train", view="s
 ## Merge sources into one corpus
 
 Merging composes sources, not datasets, because each operand needs its own `Relabel`. Two datasets almost never
-number their classes the same way, so each one is conformed to a shared vocabulary before anything concatenates them,
-and the `Relabel` that conforms it lives in a view a source references.
+number their classes the same way. Each is conformed to a shared vocabulary before concatenation, and the `Relabel`
+lives in a view the source references.
 
 Name the operands under `merge:` on a source. A source names either `dataset:` or `merge:`, never both, and a `merge:`
 names at least two sources:
@@ -202,13 +200,13 @@ sources:
     merge: [m3fd_conformed, drone_conformed]
 ```
 
-An operand's view is applied before the merge, so it is part of the corpus rather than something the workflow applies
-later. Everything else a view can do applies to an operand too: filter it, limit it, crop it.
+An operand's view is applied before the merge, so it is part of the corpus. Everything else a view can do applies to
+an operand too: filter, limit, crop.
 
 ### Give every operand the identical target
 
 `target` is the integer indexing of the merged label space. Operands conformed against differently ordered targets
-carry labels that denote different classes, so the merge is refused:
+carry labels that denote different classes. The merge is refused:
 
 ```text
 merge_datasets requires all datasets to share the same 'index2label'.
@@ -260,8 +258,7 @@ invalidates that corpus and nothing else.
 ## A note on the legacy vocabulary
 
 Older configs used `selections` / `selection` / `steps` where current ones use `views` / `view` / `operations`. The old
-keys are still accepted and emit a `DeprecationWarning`; `SelectionConfig` and `SelectionStep` remain importable as
-aliases of `ViewConfig` and `ViewOperation`. New configs should use the current names.
+keys are still accepted and emit a `DeprecationWarning`. New configs should use the current names.
 
 ## Related material
 

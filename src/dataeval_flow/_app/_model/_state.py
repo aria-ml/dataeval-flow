@@ -144,16 +144,14 @@ class ConfigState:
 
     def load_file(self, path: Path) -> str | None:
         """Load config from *path*. Returns a warning string or ``None``."""
+        from dataeval_flow.config._loader import load_config
+
         fallback = False
         if path.is_dir():
-            from dataeval_flow.config import load_config_folder
-
-            config = load_config_folder(path)
+            config = load_config(path)
             self.load_dict(config)
         else:
             try:
-                from dataeval_flow.config import load_config
-
                 config = load_config(path)
                 self.load_dict(config)
             except (ValueError, TypeError, KeyError, OSError):

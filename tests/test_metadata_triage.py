@@ -6,21 +6,20 @@ import numpy as np
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
-from dataeval_flow.config.schemas._metadata import ParseValueCorrectionConfig
-from dataeval_flow.policy import ResolvedPolicy, build_correction
-from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.metadata_triage import (
-    MetadataTriageOutputs,
-    MetadataTriageParameters,
-    MetadataTriageRawOutputs,
+from dataeval_flow._policy import ResolvedPolicy, build_correction
+from dataeval_flow.config import ParseValueCorrectionConfig
+from dataeval_flow.workflows import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
+from dataeval_flow.workflows.metadata_triage._outputs import (
+    MetadataTriageOutput,
+    MetadataTriageRawOutput,
     MetadataTriageReport,
     VerificationEntry,
 )
-from dataeval_flow.workflows.metadata_triage.workflow import MetadataTriageWorkflow
 
 
 def test_parameters_default_to_verifying():
-    params = MetadataTriageParameters()
+    params = MetadataTriageConfig()
     assert params.verify is True
     assert params.max_examples == 20
     assert params.default_bins == 10
@@ -29,12 +28,12 @@ def test_parameters_default_to_verifying():
 
 def test_parameters_accept_a_named_policy():
     # MetadataConfigMixin is what makes `metadata: standard` resolve.
-    assert MetadataTriageParameters(metadata="standard").metadata == "standard"
+    assert MetadataTriageConfig(metadata="standard").metadata == "standard"
 
 
 def test_outputs_round_trip_as_json():
-    raw = MetadataTriageRawOutputs(dataset_size=10)
-    outputs = MetadataTriageOutputs(raw=raw, report=MetadataTriageReport(summary="none"))
+    raw = MetadataTriageRawOutput(dataset_size=10)
+    outputs = MetadataTriageOutput(raw=raw, report=MetadataTriageReport(summary="none"))
     assert outputs.model_dump(mode="json")["raw"]["findings"] == []
 
 
@@ -42,9 +41,9 @@ class _MixedWeightDataset:
     """Classification items whose ``weight`` reading mixes numerals with numerals wearing
     commas.
 
-    A walk, not ``Metadata.from_factors``: that constructor refuses a mixed-dtype column
-    outright (``reject_mixed_values``), so the held-back path this fixture needs only
-    exists for metadata read off a dataset — see ``tests/test_binning.py::_MixedDataset``,
+    Built by walking the dataset; ``Metadata.from_factors`` refuses a mixed-dtype column
+    outright (``reject_mixed_values``). The held-back path this fixture needs exists only
+    for metadata read off a dataset — see ``tests/test_binning.py::_MixedDataset``,
     which this mirrors.
     """
 
@@ -79,9 +78,9 @@ def _mixed_metadata(n: int = 60) -> Metadata:
 class _AltitudeDataset:
     """Classification items with a continuous ``altitude`` factor nobody pinned.
 
-    All-numeric, unlike ``_MixedWeightDataset``: the point is a column that reads cleanly
-    and lands as ``unbinned`` (a cut DataEval derived from this draw) rather than
-    ``unreadable``, so its suggestion is a bin count rather than a correction.
+    All-numeric: the point is a column that reads cleanly and lands as ``unbinned``
+    (a cut DataEval derived from this draw), so its suggestion is a bin count,
+    not a correction.
     """
 
     def __init__(self, n: int = 60) -> None:
@@ -110,7 +109,7 @@ def _altitude_metadata(n: int = 60) -> Metadata:
 
 
 def _describe(metadata: Metadata) -> dict:
-    from dataeval_flow.binning import describe_binning
+    from dataeval_flow._binning import describe_binning
 
     return describe_binning(metadata)
 
@@ -120,7 +119,7 @@ def test_the_workflow_reports_its_name():
 
 
 def test_a_mixed_column_is_found_and_a_correction_suggested():
-    from dataeval_flow.triage import find_issues, to_policy_stanza
+    from dataeval_flow._triage import find_issues, to_policy_stanza
 
     findings = find_issues(_describe(_mixed_metadata()))
     weight = [f for f in findings if f.factor == "weight"]
@@ -129,31 +128,20 @@ def test_a_mixed_column_is_found_and_a_correction_suggested():
     assert to_policy_stanza(findings)["corrections"][0]["kind"] == "parse_value"
 
 
-def test_execute_refuses_a_context_of_the_wrong_type():
-    result = MetadataTriageWorkflow().execute(object(), MetadataTriageParameters())  # type: ignore[arg-type]
-    assert result.success is False
-    assert "WorkflowContext" in result.errors[0]
-
-
-def test_execute_refuses_missing_parameters():
-    result = MetadataTriageWorkflow().execute(WorkflowContext(), None)
-    assert result.success is False
-
-
 def test_execute_runs_end_to_end_on_a_real_dataset():
     context = WorkflowContext(
         dataset_contexts={"default": DatasetContext(name="default", dataset=_MixedWeightDataset())},
     )
-    result = MetadataTriageWorkflow().execute(context, MetadataTriageParameters())
+    result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
 
     assert result.success is True
-    assert any(f.factor == "weight" for f in result.data.raw.findings)
-    assert result.data.raw.suggested_policy_yaml
-    assert "parse_value" in result.data.raw.suggested_policy_yaml
-    weight = [v for v in result.data.raw.verification if v.factor == "weight"]
+    assert any(f.factor == "weight" for f in result.output.raw.findings)
+    assert result.output.raw.suggested_policy_yaml
+    assert "parse_value" in result.output.raw.suggested_policy_yaml
+    weight = [v for v in result.output.raw.verification if v.factor == "weight"]
     assert weight
     assert weight[0].recovered is True
-    assert result.data.report.findings
+    assert result.output.report.findings
     assert result.metadata.blocking >= 1
 
 
@@ -163,7 +151,7 @@ def test_build_correction_is_public():
 
 
 def test_verification_recovers_a_mixed_column():
-    from dataeval_flow.triage import find_issues
+    from dataeval_flow._triage import find_issues
 
     workflow = MetadataTriageWorkflow()
     metadata = _mixed_metadata()
@@ -177,9 +165,9 @@ def test_verification_recovers_a_mixed_column():
 
 
 def test_an_incomplete_suggestion_is_never_applied():
-    from dataeval_flow.triage import Finding, Suggestion
+    from dataeval_flow._triage import Suggestion, TriageFinding
 
-    finding = Finding(
+    finding = TriageFinding(
         factor="direction",
         category="unreadable",
         severity="blocking",
@@ -200,12 +188,12 @@ def test_verification_pins_a_derived_bin_suggestion():
     """A bin suggestion's claim is different from a correction's: check it separately.
 
     ``altitude`` is already a factor before the suggestion runs — it is continuous and
-    reads cleanly — so a check reusing the correction test (present in ``factors``, absent
-    from ``unusable``) would say ``recovered`` no matter what the suggested count did. This
-    proves the real check instead: applying the suggested count actually turns the
-    encoding's ``provenance`` from ``"derived"`` into something pinned.
+    reads cleanly. A check reusing the correction test (present in ``factors``, absent
+    from ``unusable``) would say ``recovered`` no matter what the suggested count did.
+    The real check: applying the suggested count turns the encoding's ``provenance``
+    from ``"derived"`` into a pinned value.
     """
-    from dataeval_flow.triage import find_issues
+    from dataeval_flow._triage import find_issues
 
     workflow = MetadataTriageWorkflow()
     metadata = _altitude_metadata()
@@ -226,20 +214,18 @@ def test_verification_pins_a_derived_bin_suggestion():
 
 
 def test_a_bin_suggestion_that_stays_derived_is_not_recovered():
-    """The bin-recovery check can say no — proven at the predicate, not through a live run.
+    """The bin-recovery check can say no; this proves it at the predicate.
 
-    Explicitly assigning ``Metadata.continuous_factor_bins`` always routes through
-    DataEval's ``digitize_data`` rather than its auto-cut ``bin_data``, and the two are
-    exactly what set ``provenance`` to something other than ``"derived"`` versus
-    ``"derived"`` (see ``dataeval.core._bin``). So a *complete*, correctly-shaped bin
-    suggestion cannot come back still ``"derived"`` through the real ``Metadata`` API: the
-    one honest attempt at constructing that case (assigning the suggested count and reading
-    the record back) always pins it. What can still fail this check is a suggestion whose
-    factor never bound — a stale name, or a run where the assignment did not stick — which
-    is exactly what a hand-built ``after`` record captures without needing to fight
-    ``Metadata`` into an inconsistent state.
+    Assigning ``Metadata.continuous_factor_bins`` routes through DataEval's
+    ``digitize_data``, not its auto-cut ``bin_data``; the two set ``provenance`` to
+    pinned versus ``"derived"`` respectively (see ``dataeval.core._bin``). A complete,
+    correctly shaped bin suggestion therefore cannot come back ``"derived"`` through the
+    real ``Metadata`` API: assigning the suggested count and reading the record back
+    always pins it. The failure case is a suggestion whose factor never bound — a stale
+    name, or a run where the assignment did not stick. The hand-built ``after`` record
+    captures that case directly.
     """
-    from dataeval_flow.workflows.metadata_triage.workflow import _factor_recovered
+    from dataeval_flow.workflows.metadata_triage._workflow import _factor_recovered
 
     still_derived = {"unreviewed": ["altitude"], "factors": {"altitude": {}}, "unusable": {}}
     assert _factor_recovered(still_derived, "altitude", pinned=True) is False
@@ -251,34 +237,33 @@ def test_a_bin_suggestion_that_stays_derived_is_not_recovered():
 def test_a_vanished_factor_is_not_recovered_even_when_absent_from_unreviewed():
     """Absence must not read as success.
 
-    A factor missing from the re-described record's `factors` at all is absent from
-    `unreviewed` too -- trivially, since `unreviewed` only ever names factors that exist.
-    The pinned check must not mistake that disappearance for having been pinned: recovery
-    requires the factor to still be *present*, not merely un-listed as unreviewed.
+    A factor missing from the re-described record's `factors` is absent from `unreviewed`
+    as well: `unreviewed` only names factors that exist. Recovery requires the factor to
+    be present. Being un-listed as unreviewed is not being pinned.
     """
-    from dataeval_flow.workflows.metadata_triage.workflow import _factor_recovered
+    from dataeval_flow.workflows.metadata_triage._workflow import _factor_recovered
 
     vanished = {"unreviewed": [], "factors": {}, "unusable": {}}
     assert _factor_recovered(vanished, "altitude", pinned=True) is False
 
 
 def test_the_workflow_is_discoverable():
-    from dataeval_flow.workflow import get_workflow, list_workflows
+    from dataeval_flow.workflows import get_workflow, list_workflows
 
     assert get_workflow("metadata-triage").name == "metadata-triage"
-    assert any(w["name"] == "metadata-triage" for w in list_workflows())
+    assert any(w.name == "metadata-triage" for w in list_workflows())
 
 
 def test_the_workflow_config_parses():
-    from dataeval_flow.config.schemas import MetadataTriageWorkflowConfig
+    from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
-    cfg = MetadataTriageWorkflowConfig(name="triage", metadata="standard")
+    cfg = MetadataTriageConfig(name="triage", metadata="standard")
     assert cfg.type == "metadata-triage"
     assert cfg.verify is True
 
 
 def test_a_pipeline_config_accepts_a_triage_workflow():
-    from dataeval_flow.config._models import PipelineConfig
+    from dataeval_flow import PipelineConfig
 
     PipelineConfig.model_validate(
         {
@@ -290,15 +275,14 @@ def test_a_pipeline_config_accepts_a_triage_workflow():
 def test_findings_render_a_stanza_and_a_report():
     """What `render_stanza` and `build_findings` add beyond the executed run.
 
-    ``test_execute_runs_end_to_end_on_a_real_dataset`` already drives a real
-    ``WorkflowContext`` through ``execute`` and checks that the rendered YAML contains
-    "parse_value" and that verification recovers ``weight``. What it does not pin down is
-    the exact stanza shape ``to_policy_stanza`` produces, or that ``build_findings`` groups
-    an unreadable factor under a title naming it — both checked directly here instead of a
-    second full ``execute`` run.
+    ``test_execute_runs_end_to_end_on_a_real_dataset`` drives ``execute`` and checks that
+    the rendered YAML contains "parse_value" and that verification recovers ``weight``.
+    It does not pin the exact stanza shape ``to_policy_stanza`` produces, or that
+    ``build_findings`` groups an unreadable factor under a title naming it. Both are
+    checked here, directly.
     """
-    from dataeval_flow.triage import find_issues, incomplete_factors, render_stanza, to_policy_stanza
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    from dataeval_flow._triage import find_issues, incomplete_factors, render_stanza, to_policy_stanza
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
     metadata = _mixed_metadata()
     findings = find_issues(_describe(metadata))
@@ -307,7 +291,7 @@ def test_findings_render_a_stanza_and_a_report():
     assert stanza["corrections"][0] == {"kind": "parse_value", "factor": "weight", "drop": [","]}
     assert "kind: parse_value" in render_stanza(stanza, incomplete=incomplete_factors(findings))
 
-    raw = MetadataTriageRawOutputs(dataset_size=60, findings=findings)
+    raw = MetadataTriageRawOutput(dataset_size=60, findings=findings)
     reportables = build_findings(raw, max_examples=20)
     assert any("Unreadable" in r.title for r in reportables)
 
@@ -318,16 +302,16 @@ def test_findings_render_a_stanza_and_a_report():
 
 
 def _bare_finding(category: str, severity: str, factor: str = "weight") -> Any:
-    from dataeval_flow.triage import Finding
+    from dataeval_flow._triage import TriageFinding
 
-    return Finding(factor=factor, category=category, severity=severity, remedy="do something")  # type: ignore[arg-type]
+    return TriageFinding(factor=factor, category=category, severity=severity, remedy="do something")  # type: ignore[arg-type]
 
 
 def test_a_category_with_a_blocking_finding_is_a_warning_reportable():
     """`WorkflowResult.health` counts exactly the categories this marks `"warning"`."""
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
-    raw = MetadataTriageRawOutputs(
+    raw = MetadataTriageRawOutput(
         dataset_size=10,
         findings=[
             _bare_finding("unreadable", "blocking"),
@@ -339,11 +323,11 @@ def test_a_category_with_a_blocking_finding_is_a_warning_reportable():
 
 
 def test_a_category_with_only_warning_and_note_findings_is_an_info_reportable():
-    # Hard-coding this branch to "info" would still pass this half -- see the blocking test
-    # above for the half that would catch it.
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    # Hard-coding this branch to "info" would still pass; the blocking test above
+    # catches that half.
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
-    raw = MetadataTriageRawOutputs(
+    raw = MetadataTriageRawOutput(
         dataset_size=10,
         findings=[
             _bare_finding("unreviewed", "warning"),
@@ -355,18 +339,18 @@ def test_a_category_with_only_warning_and_note_findings_is_an_info_reportable():
 
 
 def test_a_suggested_policy_yaml_becomes_a_reportable():
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
-    raw = MetadataTriageRawOutputs(dataset_size=10, suggested_policy_yaml="metadata:\n  - name: standard\n")
+    raw = MetadataTriageRawOutput(dataset_size=10, suggested_policy_yaml="metadata:\n  - name: standard\n")
     (reportable,) = build_findings(raw, max_examples=20)
     assert reportable.title == "Suggested policy"
     assert reportable.data["detail_lines"] == ["metadata:", "  - name: standard"]  # type: ignore[index]
 
 
 def test_a_verification_entry_becomes_a_reportable():
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
-    raw = MetadataTriageRawOutputs(
+    raw = MetadataTriageRawOutput(
         dataset_size=10,
         verification=[VerificationEntry(factor="weight", applied=True, recovered=True, detail="8 bins, 0 unread")],
     )
@@ -377,9 +361,9 @@ def test_a_verification_entry_becomes_a_reportable():
 
 
 def test_summarize_counts_by_category_and_by_severity():
-    from dataeval_flow.workflows.metadata_triage.report import summarize
+    from dataeval_flow.workflows.metadata_triage._report import summarize
 
-    raw = MetadataTriageRawOutputs(
+    raw = MetadataTriageRawOutput(
         dataset_size=10,
         findings=[
             _bare_finding("unreadable", "blocking"),
@@ -398,10 +382,10 @@ def test_summarize_counts_by_category_and_by_severity():
 
 def test_a_verification_error_becomes_a_reportable_when_the_list_is_empty():
     # Distinct from `verify: false` and "nothing to verify", both of which also leave
-    # `verification` empty but set no error -- and so add no Reportable at all.
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    # `verification` empty but set no error -- and so add no Finding at all.
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
-    raw = MetadataTriageRawOutputs(dataset_size=10, verification_error="boom")
+    raw = MetadataTriageRawOutput(dataset_size=10, verification_error="boom")
     (reportable,) = build_findings(raw, max_examples=20)
     assert reportable.title == "Verification failed"
     assert reportable.severity == "warning"
@@ -409,18 +393,18 @@ def test_a_verification_error_becomes_a_reportable_when_the_list_is_empty():
 
 
 def test_no_verification_and_no_error_adds_no_reportable():
-    from dataeval_flow.workflows.metadata_triage.report import build_findings
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
 
-    raw = MetadataTriageRawOutputs(dataset_size=10)
+    raw = MetadataTriageRawOutput(dataset_size=10)
     assert build_findings(raw, max_examples=20) == []
 
 
 def test_verification_failure_is_surfaced_not_silent():
     """A verification exception is reported as unverified, not swallowed.
 
-    Upstream: 'reported as unverified, not as a failed run' -- reporting *nothing* is not
-    reporting unverified, so a reader must be able to see that verification was attempted
-    and blew up, distinct from `verify: false` or having nothing to verify.
+    Upstream: 'reported as unverified, not as a failed run'. A reader must see that
+    verification was attempted and failed, distinct from `verify: false` or having
+    nothing to verify.
     """
     from unittest.mock import patch
 
@@ -428,9 +412,9 @@ def test_verification_failure_is_surfaced_not_silent():
         dataset_contexts={"default": DatasetContext(name="default", dataset=_MixedWeightDataset())},
     )
     with patch.object(MetadataTriageWorkflow, "_verify", side_effect=RuntimeError("boom")):
-        result = MetadataTriageWorkflow().execute(context, MetadataTriageParameters())
+        result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
 
     assert result.success is True  # the findings are worth having without verification
-    assert result.data.raw.verification == []
-    assert result.data.raw.verification_error == "boom"
-    assert any(f.title == "Verification failed" for f in result.data.report.findings)
+    assert result.output.raw.verification == []
+    assert result.output.raw.verification_error == "boom"
+    assert any(f.title == "Verification failed" for f in result.output.report.findings)

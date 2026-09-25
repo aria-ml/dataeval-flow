@@ -10,7 +10,7 @@ import pytest
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
-from dataeval_flow.cache import (
+from dataeval_flow._cache import (
     CACHE_VERSION,
     FLAG_TO_METRIC,
     METRIC_TO_FLAG,
@@ -29,7 +29,7 @@ from dataeval_flow.cache import (
     scope_key,
     selection_repr,
 )
-from dataeval_flow.policy import ResolvedPolicy
+from dataeval_flow._policy import ResolvedPolicy
 
 pytestmark = pytest.mark.required
 
@@ -164,8 +164,8 @@ class TestDatasetFingerprint:
     def test_a_target_built_per_read_is_still_the_same_fingerprint(self):
         """A class with no `__repr__` renders as its address, which is new every read.
 
-        Hashing that gave the dataset a different key on every call, so nothing it
-        produced was ever reused and each run recomputed from scratch.
+        Hashing that gave the dataset a different key on every call, so no
+        cached result was ever reused.
         """
 
         class _Target:  # no __repr__, so Python describes it by address
@@ -530,10 +530,11 @@ class TestEmbeddingsCache:
 
 
 class TestLoadOrComputeEmbeddings:
-    _BUILD_EMBEDDINGS_PATH = "dataeval_flow.embeddings.build_embeddings"
+    _BUILD_EMBEDDINGS_PATH = "dataeval_flow._embeddings.build_embeddings"
 
     def _mock_extractor_config(self) -> MagicMock:
         cfg = MagicMock()
+        cfg.model = "onnx"  # a registered, stateless extractor: no fitting source joins the key
         cfg.model_dump_json.return_value = '{"type":"onnx","model_path":"model.onnx"}'
         cfg.model_path = None  # no file to hash — keeps cache key = model_dump_json()
         return cfg
@@ -593,10 +594,11 @@ class TestLoadOrComputeEmbeddings:
 
 
 class TestGetOrComputeEmbeddings:
-    _BUILD_EMBEDDINGS_PATH = "dataeval_flow.embeddings.build_embeddings"
+    _BUILD_EMBEDDINGS_PATH = "dataeval_flow._embeddings.build_embeddings"
 
     def _mock_extractor_config(self) -> MagicMock:
         cfg = MagicMock()
+        cfg.model = "onnx"  # a registered, stateless extractor: no fitting source joins the key
         cfg.model_dump_json.return_value = '{"type":"onnx","model_path":"model.onnx"}'
         cfg.model_path = None  # no file to hash — keeps cache key = model_dump_json()
         return cfg
@@ -870,8 +872,8 @@ class TestComputeStatsArguments:
     def _call(self) -> Any:
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import _do_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import _do_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         with patch(self._CALC_STATS_PATH, return_value=_make_calc_result(3)) as mock_calc:
             _do_compute_stats(MagicMock(), ResolvedStatsPolicy.of_flags(ImageStats.PIXEL_MEAN))
@@ -881,8 +883,7 @@ class TestComputeStatsArguments:
     def test_normalize_pixel_values_pinned_false(self):
         """Pixel statistics are reported in the units the data is stored in.
 
-        Passed explicitly rather than left to the default so the scale is a
-        property of this project, not of the installed dataeval.
+        Passed explicitly so the scale is a property of this project.
         """
         assert self._call()["normalize_pixel_values"] is False
 
@@ -897,7 +898,7 @@ class TestLoadOrComputeStats:
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
@@ -915,7 +916,7 @@ class TestLoadOrComputeStats:
     def test_full_hit_returns_cached(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
@@ -932,7 +933,7 @@ class TestLoadOrComputeStats:
     def test_partial_hit_computes_missing_only(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Pre-populate cache with "mean" only
@@ -961,7 +962,7 @@ class TestLoadOrComputeStats:
     def test_merged_result_persisted(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         # Pre-populate with "mean"
@@ -992,7 +993,7 @@ class TestGetOrComputeStats:
     def test_without_cache_computes_directly(self):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         mock_result = _make_calc_result(3)
 
@@ -1005,7 +1006,7 @@ class TestGetOrComputeStats:
     def test_with_cache_delegates_to_workflow_cache(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         mock_result = _make_calc_result(3)
@@ -1022,7 +1023,7 @@ class TestGetOrComputeStats:
     def test_with_cache_full_hit_skips_compute(self, tmp_path: Path):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         stats = _make_calc_result(3)
@@ -1038,7 +1039,7 @@ class TestGetOrComputeStats:
         """When no active_cache context is set, computes directly without caching."""
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         mock_result = _make_calc_result(3)
 
@@ -1506,7 +1507,7 @@ class TestMetadataMemoryCache:
         dataset = _FakeICDataset()
 
         with patch(
-            "dataeval_flow.metadata.build_metadata",
+            "dataeval_flow._metadata.build_metadata",
             side_effect=lambda ds, policy=None: _make_metadata(ds, **(policy or _policy()).metadata_kwargs()),
         ) as mock_build:
             cache.load_or_compute_metadata("sel:all", dataset)  # type: ignore
@@ -1523,7 +1524,7 @@ class TestMetadataMemoryCache:
 
 
 class TestLoadOrComputeMetadata:
-    _BUILD_METADATA_PATH = "dataeval_flow.metadata.build_metadata"
+    _BUILD_METADATA_PATH = "dataeval_flow._metadata.build_metadata"
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
@@ -1597,7 +1598,7 @@ class TestLoadOrComputeMetadata:
 
 
 class TestGetOrComputeMetadata:
-    _BUILD_METADATA_PATH = "dataeval_flow.metadata.build_metadata"
+    _BUILD_METADATA_PATH = "dataeval_flow._metadata.build_metadata"
 
     def test_without_cache_computes_directly(self):
         meta = _make_metadata()
@@ -1711,7 +1712,7 @@ class TestCacheVersioning:
 
     def test_different_versions_are_isolated(self, tmp_path: Path, monkeypatch: Any):
         """Bumping CACHE_VERSION produces a separate directory."""
-        import dataeval_flow.cache as cache_mod
+        import dataeval_flow._cache as cache_mod
 
         # Save with current version
         monkeypatch.setattr(cache_mod, "CACHE_VERSION", "1")
@@ -1743,7 +1744,7 @@ class TestCacheVersioning:
 
     def test_version_miss_after_bump(self, tmp_path: Path, monkeypatch: Any):
         """After a version bump, old data is not returned."""
-        import dataeval_flow.cache as cache_mod
+        import dataeval_flow._cache as cache_mod
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         cache.save_embeddings("sel:all", "cfg", "none", np.ones((2, 3)))
@@ -1763,7 +1764,7 @@ class TestConfigIntegration:
     def test_dataset_context_accepts_cache(self, tmp_path: Path):
         from unittest.mock import MagicMock
 
-        from dataeval_flow.workflow import DatasetContext
+        from dataeval_flow.workflows import DatasetContext
 
         cache = DatasetCache(cache_dir=tmp_path, dataset_name="ds")
         dc = DatasetContext(name="ds", dataset=MagicMock(), cache=cache)
@@ -1772,7 +1773,7 @@ class TestConfigIntegration:
     def test_dataset_context_cache_defaults_none(self):
         from unittest.mock import MagicMock
 
-        from dataeval_flow.workflow import DatasetContext
+        from dataeval_flow.workflows import DatasetContext
 
         dc = DatasetContext(name="ds", dataset=MagicMock())
         assert dc.cache is None
@@ -1822,6 +1823,7 @@ class TestGetOrComputeClusterResult:
         mock_result = _MockClusterResult()
 
         ext_cfg = MagicMock()
+        ext_cfg.model = "onnx"  # a registered, stateless extractor: no fitter joins the key
         ext_cfg.model_dump_json.return_value = '{"type":"onnx"}'
         transforms = MagicMock()
         transforms.__repr__ = MagicMock(return_value="my_transforms")
@@ -2269,9 +2271,9 @@ class TestCachedMetadataKeepsTheExpansion:
     """A cache hit has to answer with the same bins the build path produced."""
 
     def test_reloaded_metadata_carries_the_expanded_bins(self, tmp_path):
-        from dataeval_flow.cache import DatasetCache
-        from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.policy import ResolvedPolicy
+        from dataeval_flow._cache import DatasetCache
+        from dataeval_flow._metadata import build_metadata
+        from dataeval_flow._policy import ResolvedPolicy
         from tests.test_metadata_injection import _ODDataset
 
         dataset = _ODDataset()
@@ -2298,31 +2300,31 @@ class TestScopeKeyWithBands:
     def _policy(self, **kwargs):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         return ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), **kwargs)
 
     def test_unchanged_for_a_policy_declaring_no_bands_or_background(self):
-        from dataeval_flow.cache import scope_key
+        from dataeval_flow._cache import scope_key
 
         assert scope_key(True, True, None, self._policy()) == scope_key(True, True, None)
 
     def test_two_definitions_of_one_group_do_not_share_an_entry(self):
-        from dataeval_flow.cache import scope_key
+        from dataeval_flow._cache import scope_key
 
         a = self._policy(channels=(("rgb", (0, 1, 2)),))
         b = self._policy(channels=(("rgb", (0, 1)),))
         assert scope_key(True, True, None, a) != scope_key(True, True, None, b)
 
     def test_background_separates_entries(self):
-        from dataeval_flow.cache import scope_key
+        from dataeval_flow._cache import scope_key
 
         assert scope_key(True, True, None, self._policy(background=True)) != scope_key(
             True, True, None, self._policy(background=False)
         )
 
     def test_the_consumer_view_sets_do_not_separate_entries(self):
-        from dataeval_flow.cache import scope_key
+        from dataeval_flow._cache import scope_key
 
         a = self._policy(channels=(("rgb", (0, 1, 2)),), outliers_from=(None,))
         b = self._policy(channels=(("rgb", (0, 1, 2)),), outliers_from=(None, "rgb"))
@@ -2336,7 +2338,7 @@ class TestMissingViews:
     def test_nothing_missing_when_every_column_is_cached(self):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import missing_views
+        from dataeval_flow._cache import missing_views
 
         cached = {"brightness", "contrast", "darkness", "sharpness", "percentiles"}
         assert missing_views(cached, {None: ImageStats.VISUAL}) == {}
@@ -2344,7 +2346,7 @@ class TestMissingViews:
     def test_a_prefixed_column_is_not_covered_by_the_bare_one(self):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import missing_views
+        from dataeval_flow._cache import missing_views
 
         cached = {"brightness", "contrast", "darkness", "sharpness", "percentiles"}
         missing = missing_views(cached, {"rgb": ImageStats.VISUAL_BRIGHTNESS})
@@ -2353,7 +2355,7 @@ class TestMissingViews:
     def test_reports_only_the_uncovered_views(self):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import missing_views
+        from dataeval_flow._cache import missing_views
 
         cached = {"brightness", "rgb_mean"}
         missing = missing_views(
@@ -2365,7 +2367,7 @@ class TestMissingViews:
     def test_an_empty_cache_asks_for_everything(self):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import missing_views
+        from dataeval_flow._cache import missing_views
 
         request = {None: ImageStats.VISUAL_BRIGHTNESS, "ir": ImageStats.PIXEL_MEAN}
         assert missing_views(set(), request) == request
@@ -2378,8 +2380,8 @@ class TestBandAwareCompute:
     def test_a_group_produces_its_prefixed_columns(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.DIMENSION), ("ir", ImageStats.PIXEL_MEAN)),
@@ -2393,8 +2395,8 @@ class TestBandAwareCompute:
     def test_background_produces_the_fraction(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         policy = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), background=True)
         result = get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)
@@ -2404,8 +2406,8 @@ class TestBandAwareCompute:
         """A config with no stats policy must not change what compute_stats is asked."""
         from dataeval.flags import ImageStats
 
-        import dataeval_flow.cache as cache_mod
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        import dataeval_flow._cache as cache_mod
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         seen = {}
 
@@ -2437,8 +2439,8 @@ class TestUnsatisfiableGroup:
         """`toy_images` is three-band, so band 7 exists in no datum."""
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("swir", ImageStats.PIXEL_MEAN)),
@@ -2451,8 +2453,8 @@ class TestUnsatisfiableGroup:
         from dataeval.flags import ImageStats
         from dataeval.quality import Outliers
 
-        from dataeval_flow.cache import get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy, columns_for, restrict_columns
+        from dataeval_flow._cache import get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy, columns_for, restrict_columns
 
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("swir", ImageStats.PIXEL_MEAN)),
@@ -2471,9 +2473,9 @@ class TestPrefixedFactorsSplitByLevel:
     def test_a_group_measured_at_both_levels_yields_unit_and_instance_factors(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.metadata import build_metadata
-        from dataeval_flow.policy import ResolvedPolicy
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._metadata import build_metadata
+        from dataeval_flow._policy import ResolvedPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
@@ -2498,8 +2500,8 @@ class TestPartialHitNarrowsChannelsToMatch:
     def test_a_group_cached_first_then_the_bare_view_is_added(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import DatasetCache, active_cache, get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import DatasetCache, active_cache, get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache.get_or_create(None, name="toy", cache_key="group-first")
 
@@ -2520,8 +2522,8 @@ class TestPartialHitNarrowsChannelsToMatch:
     def test_the_bare_view_cached_first_then_the_group_is_added(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import DatasetCache, active_cache, get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import DatasetCache, active_cache, get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         cache = DatasetCache.get_or_create(None, name="toy", cache_key="bare-first")
 
@@ -2556,8 +2558,8 @@ class TestUncachedNarrowsChannelsToMatch:
     def test_a_mismatched_policy_works_with_no_cache_active(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import get_or_compute_stats
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._cache import get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         # `channels` names `rgb`, but `measure` never asks for it — `resolve_stats_policy`
         # cannot build this shape, but nothing stops a test, or a hand-built context, from
@@ -2601,18 +2603,16 @@ class TestAViewEditIsNotServedFromTheOldCache:
         import numpy as np
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.cache import (
+        from dataeval_flow import PipelineConfig
+        from dataeval_flow._cache import (
             DatasetCache,
             active_cache,
             get_or_compute_stats,
             selection_repr,
         )
-        from dataeval_flow.config import PipelineConfig
-        from dataeval_flow.config._models import SourceConfig
-        from dataeval_flow.config.schemas import DatasetProtocolConfig, ViewOperation
-        from dataeval_flow.config.schemas._view import ViewConfig
-        from dataeval_flow.sources import resolve_source
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._sources import resolve_source
+        from dataeval_flow._stats import ResolvedStatsPolicy
+        from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, ViewConfig, ViewOperation
 
         config = PipelineConfig(
             datasets=[DatasetProtocolConfig(name="toy", dataset=dataset)],

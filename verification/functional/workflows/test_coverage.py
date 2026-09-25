@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.config import DataCoverageTaskConfig, DataCoverageWorkflowConfig
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
 pytestmark = pytest.mark.required
 
@@ -26,13 +27,13 @@ class TestDataCoverageWorkflow:
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
             workflows=[
-                DataCoverageWorkflowConfig(
+                DataCoverageConfig(
                     name="coverage_main",
                     type="data-coverage",
                 ),
             ],
             tasks=[
-                DataCoverageTaskConfig(
+                TaskConfig(
                     name="coverage_task",
                     workflow="coverage_main",
                     sources="main",
@@ -40,12 +41,12 @@ class TestDataCoverageWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["coverage_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
-        raw = result.data.raw
+        raw = result.output.raw
         # Metadata- and label-based analyses always run.
         assert raw.label_distribution is not None
         assert raw.metadata_distribution is not None
@@ -58,22 +59,22 @@ class TestDataCoverageWorkflow:
         cfg, data_dir = image_folder_pipeline_builder(
             include_extractor=False,
             workflows=[
-                DataCoverageWorkflowConfig(
+                DataCoverageConfig(
                     name="coverage_no_ext",
                     type="data-coverage",
                 ),
             ],
             tasks=[
-                DataCoverageTaskConfig(
+                TaskConfig(
                     name="coverage_no_ext_task",
                     workflow="coverage_no_ext",
                     sources="main",
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["coverage_no_ext_task"]
         assert result.success
-        raw = result.data.raw
+        raw = result.output.raw
         assert raw.coverage is None
         assert raw.completeness is None
         assert raw.label_distribution is not None
@@ -86,14 +87,14 @@ class TestDataCoverageWorkflow:
         cfg, data_dir = image_folder_pipeline_builder(
             n_classes=2,
             workflows=[
-                DataCoverageWorkflowConfig(
+                DataCoverageConfig(
                     name="coverage_onto",
                     type="data-coverage",
                     ontology={"root": {"class_0": [], "class_1": [], "class_2": []}},
                 ),
             ],
             tasks=[
-                DataCoverageTaskConfig(
+                TaskConfig(
                     name="coverage_onto_task",
                     workflow="coverage_onto",
                     sources="main",
@@ -101,8 +102,8 @@ class TestDataCoverageWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["coverage_onto_task"]
         assert result.success
-        raw = result.data.raw
+        raw = result.output.raw
         # The ontology either produced an assessment or recorded why it could not.
         assert raw.ontology is not None or raw.ontology_skipped_reason is not None

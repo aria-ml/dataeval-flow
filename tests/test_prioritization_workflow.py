@@ -5,33 +5,37 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.prioritization.params import CleaningConfig, DataPrioritizationParameters
-from dataeval_flow.workflows.prioritization.workflow import DataPrioritizationWorkflow
+from dataeval_flow._orchestrator import _run_target
+from dataeval_flow.workflows import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.data_prioritization import (
+    DataPrioritizationCleaningConfig,
+    DataPrioritizationConfig,
+    DataPrioritizationWorkflow,
+)
 
 pytestmark = pytest.mark.required
 
 
-def _prioritization_params(**overrides: object) -> DataPrioritizationParameters:
-    """Build DataPrioritizationParameters with defaults for testing.
+def _prioritization_params(**overrides: object) -> DataPrioritizationConfig:
+    """Build DataPrioritizationConfig with defaults for testing.
 
-    Every field on ``DataPrioritizationParameters`` has a default (see
-    ``DataPrioritizationParameters.model_fields``), so nothing is strictly required — except
+    Every field on ``DataPrioritizationConfig`` has a default (see
+    ``DataPrioritizationConfig.model_fields``), so nothing is strictly required — except
     that ``get_or_compute_stats`` is only reached when ``cleaning`` is configured, so tests
     that need the stats pass to run must set it.
     """
     defaults: dict[str, object] = {
-        "cleaning": CleaningConfig(outlier_method="adaptive", outlier_flags=["dimension", "pixel"]),
+        "cleaning": DataPrioritizationCleaningConfig(outlier_method="adaptive", outlier_flags=["dimension", "pixel"]),
     }
     defaults.update(overrides)
-    return DataPrioritizationParameters(**defaults)  # type: ignore[arg-type]
+    return DataPrioritizationConfig(**defaults)  # type: ignore[arg-type]
 
 
 class TestValueRangeReachesPrioritization:
     """The workflow with no metadata policy still gets the dataset's declared range."""
 
     def test_the_dataset_range_reaches_compute_stats(self, monkeypatch):
-        from dataeval_flow import cache as cache_module
+        from dataeval_flow import _cache as cache_module
 
         seen: list[tuple[float, float] | None] = []
         original = cache_module._do_compute_stats
@@ -45,7 +49,7 @@ class TestValueRangeReachesPrioritization:
         # Embedding extraction is unrelated to value_range but runs unconditionally before
         # the optional cleaning step that calls get_or_compute_stats — stub it out so the
         # run reaches cleaning without a real extractor/model.
-        from dataeval_flow.workflows.prioritization import workflow as prioritization_workflow
+        from dataeval_flow.workflows.data_prioritization import _workflow as prioritization_workflow
 
         monkeypatch.setattr(
             prioritization_workflow,
@@ -55,9 +59,8 @@ class TestValueRangeReachesPrioritization:
 
         from tests.test_metadata_injection import _ICDataset
 
-        # DataPrioritizationWorkflow requires at least 2 dataset contexts (reference +
-        # data to prioritize) — a single context never reaches _run_cleaning because the
-        # workflow's own validation guard returns early first.
+        # DataPrioritizationConfig declares `SourceCount.TWO_OR_MORE`, checked when a task's
+        # config loads — this context needs two entries only to match a real run's shape.
         context = WorkflowContext(
             dataset_contexts={
                 "default": DatasetContext(
@@ -74,7 +77,8 @@ class TestValueRangeReachesPrioritization:
                 ),
             },
         )
-        DataPrioritizationWorkflow().execute(context, _prioritization_params())
+        # The mocked extractor fails the run after cleaning; only the stats pass before it matters here.
+        _run_target(DataPrioritizationWorkflow(), _prioritization_params(), context)
 
         assert seen, "no stats pass ran"
         assert all(entry == (0.0, 1.0) for entry in seen), seen

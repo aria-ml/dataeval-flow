@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.config import DataAnalysisTaskConfig, DataAnalysisWorkflowConfig
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 
 pytestmark = pytest.mark.required
 
@@ -26,7 +27,7 @@ class TestDataAnalysisWorkflow:
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
             workflows=[
-                DataAnalysisWorkflowConfig(
+                DataAnalysisConfig(
                     name="analyze_main",
                     type="data-analysis",
                     outlier_method="zscore",
@@ -34,7 +35,7 @@ class TestDataAnalysisWorkflow:
                 ),
             ],
             tasks=[
-                DataAnalysisTaskConfig(
+                TaskConfig(
                     name="analyze_task",
                     workflow="analyze_main",
                     sources="main",
@@ -42,14 +43,14 @@ class TestDataAnalysisWorkflow:
                 ),
             ],
         )
-        result = run_tasks(cfg, data_dir=data_dir)[0]
+        result = run_tasks(cfg, data_dir=data_dir)["analyze_task"]
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
         # Typed output check: exposes analysis sub-outputs (image_quality, redundancy,
         # label_health, bias) per split on the data payload
-        splits = result.data.raw.splits
+        splits = result.output.raw.splits
         assert len(splits) > 0
         (split_result,) = splits.values()
         assert split_result.bias is not None

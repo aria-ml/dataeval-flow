@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from dataeval_flow._app._viewmodel._result_vm import FindingSummary, ResultViewModel
-from dataeval_flow.workflow.base import Reportable
+from dataeval_flow.workflows import Finding
 
 pytestmark = pytest.mark.optional
 
@@ -21,12 +21,12 @@ pytestmark = pytest.mark.optional
 @dataclass
 class _FakeReport:
     summary: str = "Test Report"
-    findings: list[Reportable] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
 
 
 @dataclass
-class _FakeData:
-    report: _FakeReport | None = None
+class _FakeOutput:
+    report: _FakeReport = field(default_factory=_FakeReport)
 
 
 @dataclass
@@ -46,15 +46,15 @@ class _FakeMetadata:
 
 @dataclass
 class _FakeResult:
-    name: str = "test_task"
+    type: str = "test_task"
     success: bool = True
-    data: Any = None
+    output: Any = None
     metadata: Any = None
     errors: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.data is None:
-            self.data = _FakeData()
+        if self.output is None and self.success:
+            self.output = _FakeOutput()
         if self.metadata is None:
             self.metadata = _FakeMetadata()
 
@@ -65,8 +65,8 @@ def _make_finding(
     report_type: str = "key_value",
     data: dict[str, Any] | str | None = None,
     description: str | None = None,
-) -> Reportable:
-    return Reportable(
+) -> Finding:
+    return Finding(
         report_type=report_type,  # type: ignore[arg-type]
         severity=severity,  # type: ignore[arg-type]
         title=title,
@@ -75,10 +75,9 @@ def _make_finding(
     )
 
 
-def _make_result(*findings: Reportable) -> _FakeResult:
+def _make_result(*findings: Finding) -> _FakeResult:
     report = _FakeReport(findings=list(findings))
-    data = _FakeData(report=report)
-    return _FakeResult(data=data)
+    return _FakeResult(output=_FakeOutput(report=report))
 
 
 # ---------------------------------------------------------------------------
@@ -93,11 +92,11 @@ class TestResultViewModelBasics:
         assert rvm.warning_count() == 0
         assert "0 findings" in rvm.summary_line()
 
-    def test_no_report(self) -> None:
-        result = _FakeResult(data=_FakeData(report=None))
-        rvm = ResultViewModel(result)
+    def test_a_failed_run_has_no_findings_and_shows_failed(self) -> None:
+        rvm = ResultViewModel(_FakeResult(success=False, errors=["boom"]))
         assert rvm.finding_count() == 0
         assert rvm.report_summary() == ""
+        assert rvm.status_tag() == " [bold red][failed][/bold red]"
 
     def test_report_summary(self) -> None:
         rvm = ResultViewModel(_make_result())
@@ -335,12 +334,14 @@ class TestFindingTableData:
 
 class TestEvaluatorResults:
     def _result(self):
-        from dataeval_flow.evaluator.result import EvaluatorMetadata, EvaluatorResult
+        from dataeval_flow.evaluators import EvaluatorResult
+        from dataeval_flow.evaluators._result import EvaluatorMetadata
 
         return EvaluatorResult(
-            name="quality.duplicates",
+            type="quality.duplicates",
             success=True,
-            output={
+            output=object(),
+            serialized={
                 "shape": "table",
                 "columns": ["group_id", "item_indices"],
                 "rows": [{"group_id": 0, "item_indices": [0, 5]}],
@@ -379,18 +380,18 @@ class TestEvaluatorResults:
         from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
 
         result = MagicMock()
-        result.data.report.findings = []
+        result.output.report.findings = []
         rvm = ResultViewModel(result)
         assert not rvm.is_evaluator
         assert rvm.status_tag() == " [green][ok][/green]"
 
     def _failed_result(self):
-        from dataeval_flow.evaluator.result import EvaluatorMetadata, EvaluatorResult
+        from dataeval_flow.evaluators import EvaluatorResult
+        from dataeval_flow.evaluators._result import EvaluatorMetadata
 
         return EvaluatorResult(
-            name="quality.duplicates",
+            type="quality.duplicates",
             success=False,
-            output={},
             metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
             errors=["boom: bad params"],
         )

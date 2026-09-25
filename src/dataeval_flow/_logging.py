@@ -180,10 +180,9 @@ def configure_log_levels(
     root_level = getattr(logging, lib_level, logging.WARNING)
     logging.getLogger().setLevel(root_level)
 
-    # Keep DataEval's binning and value_range diagnostics at WARNING even when
-    # lib_level is raised above it — they report what this run computed, not
-    # library chatter.  A lib_level *below* WARNING still wins, so asking for
-    # more detail works.
+    # Keep DataEval's binning and value_range diagnostics at WARNING when
+    # lib_level is raised above it.  A lib_level below WARNING wins, so more
+    # detail is still available.
     for name in _LIB_DIAGNOSTIC_LOGGERS:
         logging.getLogger(name).setLevel(min(root_level, _LIB_DIAGNOSTIC_CEILING))
 
@@ -191,13 +190,11 @@ def configure_log_levels(
 class _DiagnosticCollector(logging.Handler):
     """Collect library diagnostics as formatted strings, from logs and warnings alike.
 
-    Two sources because DataEval uses two.  The per-factor detail stays on the logger;
-    the advice a caller is meant to act on — which factors were binned with nobody's
-    say-so, where a declared cut no longer fits the data, which encoding named a factor
-    that is not one — is raised with :func:`warnings.warn`, because a ``NullHandler`` on
+    Per-factor detail stays on the logger; actionable findings (which factors were binned
+    automatically, where a declared cut no longer fits the data, which encoding named an
+    unknown factor) are raised with :func:`warnings.warn`, because a ``NullHandler`` on
     the ``dataeval`` root logger means log records reach only callers who configured
-    logging.  Capturing one and not the other would archive the footnotes and drop the
-    finding.
+    logging.
 
     Deduplicates on the formatted message: DataEval already groups its per-datum
     warnings by message, but a pipeline running several workflows over one dataset
@@ -210,7 +207,7 @@ class _DiagnosticCollector(logging.Handler):
         self._seen: set[str] = set()
 
     def add(self, message: str) -> bool:
-        """Record one message, answering whether it had not been seen before."""
+        """Record one message; return whether it had not been seen before."""
         if message in self._seen:
             return False
         self._seen.add(message)
@@ -228,11 +225,9 @@ class _DiagnosticCollector(logging.Handler):
 def _library_root() -> str | None:
     """Directory the diagnostic library's own frames live in, or None if it is absent.
 
-    Returned with a trailing separator, because the match below is a prefix test and this
-    package installs *beside* the library it is testing for: without the separator
-    ``site-packages/dataeval_flow/...`` matches the ``site-packages/dataeval`` root, and
-    every warning raised anywhere under this package — which is all of them, since the
-    matcher's own frame lives here — would be attributed to DataEval.
+    Returned with a trailing separator: the match below is a prefix test, and without it
+    ``site-packages/dataeval_flow/...`` matches the ``site-packages/dataeval`` root,
+    attributing every warning raised under this package to DataEval.
     """
     try:
         library = __import__(_LIB_DIAGNOSTIC_LOGGERS[0])
@@ -244,12 +239,11 @@ def _library_root() -> str | None:
 def _raised_within(root: str) -> bool:
     """Whether any frame below this one belongs to *root*.
 
-    The filename ``showwarning`` is handed is the *caller's*, not the library's: DataEval
-    computes a ``stacklevel`` that points at the first frame outside itself, deliberately,
-    so that "warn once" is keyed per calling site.  That makes the filename useless for
-    telling its warnings from NumPy's, and the stack the only place the answer survives.
-    ``warn`` calls ``showwarning`` synchronously, so the frames that raised it are still
-    below this one.
+    The filename ``showwarning`` is handed is the caller's, not the library's: DataEval
+    sets a ``stacklevel`` pointing at the first frame outside itself so "warn once" is
+    keyed per calling site, which makes the filename useless for attribution.  ``warn``
+    calls ``showwarning`` synchronously, so the frames that raised it are still below
+    this one.
     """
     frame = inspect.currentframe()
     while frame is not None:
@@ -266,21 +260,18 @@ def capture_diagnostics() -> "Iterator[list[str]]":
     DataEval reports the decisions it makes on the caller's behalf — which factors it
     binned and with what edges, where a declared cut has stopped fitting the data, which
     arrays it could not resolve a ``value_range`` for — as log records and as warnings.
-    Neither reaches the result envelope on its own, so a result archived alone cannot say
-    whether a statistic came back ``NaN`` because the data said so or because nothing
-    declared a range.  Capturing both here lets the envelope carry the answer.
+    Neither reaches the result envelope on its own; capturing both lets the envelope
+    record whether a statistic came back ``NaN`` because of the data or because nothing
+    declared a range.
 
-    Warnings are re-emitted as they arrive, so a user watching the console still sees
-    them — once each, which is what they saw before, for this library's warnings and for
-    everybody else's alike.
+    Warnings are re-emitted as they arrive, once each, as the console showed them before.
 
-    The inserted ``"always"`` filter is load-bearing rather than tidy.  :func:`warnings.warn`
+    The ``"always"`` filter is required, not optional.  :func:`warnings.warn`
     keeps its once-per-location bookkeeping in the globals of the frame its
     ``stacklevel`` selects, and DataEval points that at *its caller* — which is this
     package.  Two workflows building metadata through one line of flow therefore share a
     registry entry, and the second one's diagnostic would be suppressed before anything
-    could record it, leaving its envelope quietly missing a finding that applies to it.
-    Deduplication happens here instead, where it is per message rather than per line.
+    could record it.  Deduplication happens here, per message.
 
     Yields
     ------
@@ -296,13 +287,11 @@ def capture_diagnostics() -> "Iterator[list[str]]":
     root = _library_root()
 
     with warnings.catch_warnings():
-        # Restored on exit along with showwarning, both by catch_warnings itself.
-        #
-        # Inserted rather than `simplefilter`, and only for the category the diagnostics
-        # use.  Replacing the whole filter list would also un-suppress every dependency's
+        # Inserted, not `simplefilter`, and only for the category the diagnostics use:
+        # replacing the whole filter list would un-suppress every dependency's
         # DeprecationWarnings and neutralise a caller's `-W error` or pytest
-        # `filterwarnings` for categories this block has no interest in — for the whole
-        # duration of a workflow run.
+        # `filterwarnings` for categories this block has no interest in, for the whole
+        # duration of a workflow run.  Restored on exit by catch_warnings itself.
         warnings.filterwarnings("always", category=UserWarning)
         previous = warnings.showwarning
         shown: set[tuple[str, str, int, str]] = set()
@@ -315,9 +304,9 @@ def capture_diagnostics() -> "Iterator[list[str]]":
                 if collector.add(f"{category.__name__}: {_LIB_DIAGNOSTIC_LOGGERS[0]}: {message}"):
                     previous(message, category, filename, lineno, file, line)
                 return
-            # Somebody else's warning. The filter above bypasses the once-per-location
-            # registry for its category, so a library warning raised per sample would
-            # otherwise print per sample; keyed here instead to restore what it had.
+            # Another library's warning. The filter above bypasses the once-per-location
+            # registry for its category, so a warning raised per sample would otherwise
+            # print per sample; keyed here to keep the once-per-location behaviour.
             key = (category.__name__, filename, lineno, str(message))
             if key not in shown:
                 shown.add(key)

@@ -3,14 +3,14 @@
 import numpy as np
 import pytest
 
-from dataeval_flow.workflows.drift.outputs import (
+from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftMonitoringHealthThresholds
+from dataeval_flow.workflows.drift_monitoring._outputs import (
     ClasswiseDriftDict,
     ClasswiseDriftRowDict,
     DetectorResultDict,
-    DriftMonitoringRawOutputs,
+    DriftMonitoringRawOutput,
 )
-from dataeval_flow.workflows.drift.params import DriftDetectorMMD, DriftHealthThresholds
-from dataeval_flow.workflows.drift.report import (
+from dataeval_flow.workflows.drift_monitoring._report import (
     _build_chunked_finding,
     _build_detector_finding,
     _max_consecutive_drifted,
@@ -18,7 +18,7 @@ from dataeval_flow.workflows.drift.report import (
     _severity_for_detector,
     build_findings,
 )
-from dataeval_flow.workflows.drift.workflow import _serialize_result
+from dataeval_flow.workflows.drift_monitoring._workflow import _serialize_result
 from tests.test_drift_workflow import _make_chunk_results, _make_detector_result, _make_params
 
 pytestmark = pytest.mark.required
@@ -30,15 +30,15 @@ pytestmark = pytest.mark.required
 
 class TestSeverityForDetector:
     def test_drifted_with_warning_enabled(self):
-        t = DriftHealthThresholds(any_drift_is_warning=True)
+        t = DriftMonitoringHealthThresholds(any_drift_is_warning=True)
         assert _severity_for_detector(True, t) == "warning"
 
     def test_drifted_with_warning_disabled(self):
-        t = DriftHealthThresholds(any_drift_is_warning=False)
+        t = DriftMonitoringHealthThresholds(any_drift_is_warning=False)
         assert _severity_for_detector(True, t) == "info"
 
     def test_not_drifted(self):
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         assert _severity_for_detector(False, t) == "ok"
 
 
@@ -65,30 +65,30 @@ class TestMaxConsecutiveDrifted:
 
 class TestSeverityForChunks:
     def test_no_chunks(self):
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         assert _severity_for_chunks([], t) == "ok"
 
     def test_below_pct_threshold(self):
         # 1/10 = 10%, threshold is 10 -> not exceeded
         chunks = _make_chunk_results(10, drifted_indices={5})
-        t = DriftHealthThresholds(chunk_drift_pct_warning=11.0, consecutive_chunks_warning=3)
+        t = DriftMonitoringHealthThresholds(chunk_drift_pct_warning=11.0, consecutive_chunks_warning=3)
         assert _severity_for_chunks(chunks, t) == "info"
 
     def test_above_pct_threshold(self):
         # 3/10 = 30% > 10%
         chunks = _make_chunk_results(10, drifted_indices={2, 5, 8})
-        t = DriftHealthThresholds(chunk_drift_pct_warning=10.0)
+        t = DriftMonitoringHealthThresholds(chunk_drift_pct_warning=10.0)
         assert _severity_for_chunks(chunks, t) == "warning"
 
     def test_consecutive_trigger(self):
         # 3 consecutive: indices 2,3,4
         chunks = _make_chunk_results(10, drifted_indices={2, 3, 4})
-        t = DriftHealthThresholds(chunk_drift_pct_warning=50.0, consecutive_chunks_warning=3)
+        t = DriftMonitoringHealthThresholds(chunk_drift_pct_warning=50.0, consecutive_chunks_warning=3)
         assert _severity_for_chunks(chunks, t) == "warning"
 
     def test_no_drift_at_all(self):
         chunks = _make_chunk_results(5, drifted_indices=set())
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         assert _severity_for_chunks(chunks, t) == "ok"
 
 
@@ -100,7 +100,7 @@ class TestSeverityForChunks:
 class TestBuildDetectorFinding:
     def test_drifted_finding(self):
         result = _make_detector_result(drifted=True, distance=0.34)
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("KS Univariate", result, t)
 
         assert finding.title == "KS Univariate"
@@ -111,7 +111,7 @@ class TestBuildDetectorFinding:
 
     def test_no_drift_finding(self):
         result = _make_detector_result(drifted=False, distance=0.01)
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("MMD", result, t)
 
         assert finding.severity == "ok"
@@ -119,14 +119,14 @@ class TestBuildDetectorFinding:
 
     def test_includes_p_val(self):
         result = _make_detector_result(details={"p_val": 0.001})
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("Test", result, t)
         assert isinstance(finding.data, dict)
         assert "p_val" in finding.data
 
     def test_includes_feature_drift_summary(self):
         result = _make_detector_result(details={"p_val": 0.01, "feature_drift": [True, False, True, False, False]})
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("Test", result, t)
         assert isinstance(finding.data, dict)
         assert finding.data["features_drifted"] == "2 / 5"
@@ -136,7 +136,7 @@ class TestBuildChunkedFinding:
     def test_chunked_table_type(self):
         chunks = _make_chunk_results(5, drifted_indices={2, 3})
         result = _make_detector_result(chunks=chunks)
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_chunked_finding("KS Univariate", result, t)
 
         assert finding.report_type == "chunk_table"
@@ -150,14 +150,14 @@ class TestBuildChunkedFinding:
 
     def test_no_chunks_falls_back_to_detector_finding(self):
         result = _make_detector_result()
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_chunked_finding("MMD", result, t)
         assert finding.report_type == "key_value"  # fell back
 
     def test_description_includes_stats(self):
         chunks = _make_chunk_results(10, drifted_indices={3, 4, 5})
         result = _make_detector_result(chunks=chunks)
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_chunked_finding("Test", result, t)
         assert finding.description is not None
         assert "3/10" in finding.description
@@ -166,7 +166,7 @@ class TestBuildChunkedFinding:
 
 class TestBuildFindings:
     def test_non_chunked_findings(self):
-        raw = DriftMonitoringRawOutputs(
+        raw = DriftMonitoringRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -185,7 +185,7 @@ class TestBuildFindings:
 
     def test_chunked_findings(self):
         chunks = _make_chunk_results(3, drifted_indices={1})
-        raw = DriftMonitoringRawOutputs(
+        raw = DriftMonitoringRawOutput(
             dataset_size=400,
             reference_size=100,
             test_size=300,
@@ -199,7 +199,7 @@ class TestBuildFindings:
         assert findings[0].report_type == "chunk_table"
 
     def test_classwise_finding_appended(self):
-        raw = DriftMonitoringRawOutputs(
+        raw = DriftMonitoringRawOutput(
             dataset_size=300,
             reference_size=200,
             test_size=100,
@@ -230,7 +230,7 @@ class TestSerializeResultEdgeCases:
     def test_feature_drift_as_numpy_array(self):
         """Cover the numpy array branch in _build_detector_finding."""
         result = _make_detector_result(details={"p_val": 0.01, "feature_drift": np.array([True, False, True])})
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("Test", result, t)
         assert isinstance(finding.data, dict)
         assert finding.data["features_drifted"] == "2 / 3"
@@ -263,7 +263,7 @@ class TestBuildDetectorFindingClasswise:
             ClasswiseDriftRowDict(class_name="cat", drifted=True, distance=0.5, p_val=0.001),
             ClasswiseDriftRowDict(class_name="dog", drifted=False, distance=0.1, p_val=0.4),
         ]
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("KS Univariate", result, t, classwise_rows=cw_rows)
 
         assert finding.report_type == "classwise_table"
@@ -281,7 +281,7 @@ class TestBuildDetectorFindingClasswise:
         cw_rows = [
             ClasswiseDriftRowDict(class_name="a", drifted=True, distance=0.5, p_val=0.01),
         ]
-        t = DriftHealthThresholds(classwise_any_drift_is_warning=True)
+        t = DriftMonitoringHealthThresholds(classwise_any_drift_is_warning=True)
         finding = _build_detector_finding("MMD", result, t, classwise_rows=cw_rows)
         assert finding.severity == "warning"
 
@@ -291,7 +291,7 @@ class TestBuildDetectorFindingClasswise:
         cw_rows = [
             ClasswiseDriftRowDict(class_name="a", drifted=True, distance=0.5, p_val=0.01),
         ]
-        t = DriftHealthThresholds(classwise_any_drift_is_warning=False)
+        t = DriftMonitoringHealthThresholds(classwise_any_drift_is_warning=False)
         finding = _build_detector_finding("MMD", result, t, classwise_rows=cw_rows)
         # Overall detector didn't drift, classwise warning disabled → stays "ok"
         assert finding.severity == "ok"
@@ -299,7 +299,7 @@ class TestBuildDetectorFindingClasswise:
     def test_no_classwise_rows(self):
         """Without classwise rows, finding is key_value with no table_rows."""
         result = _make_detector_result()
-        t = DriftHealthThresholds()
+        t = DriftMonitoringHealthThresholds()
         finding = _build_detector_finding("MMD", result, t)
         assert finding.report_type == "key_value"
         assert "table_rows" not in finding.data
@@ -321,7 +321,7 @@ class TestBuildDetectorFindingBranches:
             "metric_name": "KS",
             "details": {"p_val": 0.001},
         }
-        finding = _build_detector_finding("Univariate", result, DriftHealthThresholds(), classwise_rows=None)
+        finding = _build_detector_finding("Univariate", result, DriftMonitoringHealthThresholds(), classwise_rows=None)
         assert isinstance(finding.data, dict)
         assert finding.data["p_val"] == 0.001
         assert finding.description is not None
@@ -337,6 +337,6 @@ class TestBuildDetectorFindingBranches:
             "metric_name": "KS",
             "details": {"feature_drift": [True, False, True, False, True]},
         }
-        finding = _build_detector_finding("Univariate", result, DriftHealthThresholds(), classwise_rows=None)
+        finding = _build_detector_finding("Univariate", result, DriftMonitoringHealthThresholds(), classwise_rows=None)
         assert isinstance(finding.data, dict)
         assert finding.data["features_drifted"] == "3 / 5"

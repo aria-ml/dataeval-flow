@@ -92,8 +92,8 @@ encoding policies — see [CHANGELOG.md](CHANGELOG.md) and the
 
 ### v0.2.1 — CUDA variant refresh (shipped 2026-08-21)
 
-A patch release carrying the container-variant rename forward and restoring
-per-split loading for the object-detection formats.
+A patch release carrying the container-variant rename and restoring per-split
+loading for the object-detection formats.
 
 - [x] CUDA variants bumped from `cu118` / `cu128` to `cu126` / `cu130`, tracking the
       CUDA builds PyTorch publishes; `onnx-gpu` split into `onnx-cu126` / `onnx-cu130`

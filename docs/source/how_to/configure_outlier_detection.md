@@ -11,7 +11,7 @@ control what counts as an outlier and when a finding becomes a warning.
 ## Pick a statistical method
 
 `outlier_method` selects how far from typical a statistic has to be before the sample is flagged. There is no
-universally correct choice — it depends on how heavy-tailed your data is.
+universally correct choice. It depends on how heavy-tailed your data is.
 
 | Method | Flags a sample when a statistic is… | Use when |
 | --- | --- | --- |
@@ -34,19 +34,16 @@ workflows:
 `outlier_flags` selects the *groups* of image statistics the method is applied to. At least one is required.
 
 - `dimension` — geometry: width, height, aspect ratio, channel count, value range, total pixel count, and (for detection
-  boxes) offsets and distances to the image center and edges. Catches the wrong-shaped image, the accidental
-  thumbnail, the one grayscale file in an RGB set, the degenerate bounding box.
+  boxes) offsets and distances to the image center and edges.
 - `pixel` — the intensity *distribution*: mean, standard deviation, variance, skew, kurtosis, entropy, and the
-  fraction of zero or missing/NaN pixels. Catches corrupt, truncated, and constant-valued frames. As of DataEval
-  v1.1 these are reported in the units the data is stored in rather than normalized to `[0, 1]`, so their magnitude
-  depends on the encoding — a 12-bit mean reads in the thousands, not in fractions.
+  fraction of zero or missing/NaN pixels. As of DataEval v1.1 these are reported in the units the data is stored in,
+  so their magnitude depends on the encoding — a 12-bit mean reads in the thousands.
 - `visual` — perceived appearance derived from intensity percentiles: brightness, contrast, darkness, and
-  edge-detection sharpness. Catches the blown-out, the underexposed, and the out-of-focus capture. These read the
-  0–255 display range regardless of encoding, so one image answers the same whatever it is stored as.
+  edge-detection sharpness. These read the 0–255 display range regardless of encoding, so one image answers the same
+  whatever it is stored as.
 
 Float imagery needs `value_range` before the `visual` group — and pixel histogram and entropy — can be computed at
-all; without it they answer `NaN`. Declare it on the dataset, not on this workflow — see
-{doc}`configure_metadata_binning`.
+all; without it they answer `NaN`. Declare it on the dataset — see {doc}`configure_metadata_binning`.
 
 Narrow the list when you already know what kind of defect you are hunting. A dimension-only run over a freshly
 converted dataset is fast and answers one question cleanly.
@@ -61,9 +58,8 @@ you chose; raise it to flag less, lower it to flag more.
     outlier_threshold: 3.5
 ```
 
-Because the right value depends on the dataset, this is the parameter most worth sweeping rather than guessing — see
-{doc}`the Parameter Sweep tutorial <../notebooks/parameter_sweep>` to run a grid and compare the flag rates side by
-side.
+Because the right value depends on the dataset, this is the parameter most worth sweeping — see
+{doc}`the Parameter Sweep tutorial <../notebooks/parameter_sweep>` to run a grid and compare the flag rates.
 
 :::{note}
 The pixel rescale that arrived in v0.2 did **not** move any outlier flag, and a threshold tuned under v0.1 is still
@@ -74,8 +70,7 @@ distribution's own spread, so scaling every value by a constant moves the statis
 ## Add cluster-based detection
 
 Statistical flags only see per-image statistics. A sample can be statistically unremarkable and still sit far from
-every cluster in {term}`embedding <Embedding>` space — a picture of something that simply does not belong. Catching
-that requires an {term}`extractor <Extractor>`.
+every cluster in {term}`embedding <Embedding>` space. Catching that requires an {term}`extractor <Extractor>`.
 
 ```yaml
 extractors:
@@ -126,8 +121,7 @@ large web-scraped or naturally diverse collections. For a class hierarchy with a
 
 ## Verify the effect
 
-Every run reports the flag rate alongside the health line, so the fastest feedback loop is to change one parameter and
-re-read the report:
+Every run reports the flag rate alongside the health line. Change one parameter and re-read the report:
 
 ```python
 result = run_task(task, config)
@@ -148,4 +142,4 @@ inspection.
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field and default on
-  `DataCleaningParameters` and `DataCleaningHealthThresholds`
+  `DataCleaningConfig` and `DataCleaningHealthThresholds`

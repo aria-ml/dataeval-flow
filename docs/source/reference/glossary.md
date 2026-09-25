@@ -2,7 +2,7 @@
 
 Key vocabulary for using DataEval Flow. Orchestration terms (workflow, pipeline,
 source, extractor, …) are defined here in full; for the underlying evaluator
-science, each entry links to the authoritative
+science, each entry links to the
 [DataEval explanations](https://dataeval.readthedocs.io/en/latest/) and the
 DataEval Flow [Explanation pages](../concepts/index.md).
 
@@ -16,7 +16,7 @@ Binning
     Cutting a continuous {term}`factor<Factor>` into intervals so evaluators read
     interval codes rather than measured values. Bias, balance, diversity, and
     parity all operate on binned codes, so where the cuts fall changes the
-    numbers they report. A categorical factor is *digitized* instead — mapped to
+    numbers they report. A categorical factor is *digitized*: mapped to
     ordinals, one code per distinct value. See
     [Configure metadata binning](../how_to/configure_metadata_binning.md).
 
@@ -29,8 +29,8 @@ Caching
     formats can coexist.
 
 Classwise Drift
-    {term}`Drift` measured separately for each class, revealing which classes a
-    distribution shift most affects rather than only an aggregate signal.
+    {term}`Drift` measured separately for each class, showing which classes a
+    distribution shift affects most.
 
 Coverage
     How completely a dataset spans the conditions a model will meet in operation,
@@ -53,8 +53,8 @@ DataEval
 
 Determination
     What an {term}`evaluator<Evaluator>` reports: a flag, a group or a p-value
-    that DataEval's threshold produced. A determination says what was found, not
-    whether it is a problem; that verdict belongs to a {term}`workflow<Workflow>`.
+    that DataEval's threshold produced. A determination says what was found;
+    the verdict of whether it is a problem belongs to a {term}`workflow<Workflow>`.
 
 Domain Classifier
     A drift/OOD method that trains a classifier to distinguish reference data
@@ -139,14 +139,12 @@ ONNX
 Ontology
     A machine-readable statement of the sanctioned label space — the concepts in a
     domain and how they relate. Declaring one lets the coverage workflow validate
-    a dataset's labels and name classes that are missing entirely, which raw counts
-    cannot do. See the
+    a dataset's labels and name classes missing entirely. See the
     [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html).
 
 Out-of-Distribution (OOD)
-    A sample that differs significantly from the training distribution. Where
-    {term}`drift<Drift>` is a population-level signal, OOD detection scores
-    individual samples. See the
+    A sample that differs significantly from the training distribution. {term}`Drift<Drift>`
+    is a population-level signal; OOD detection scores individual samples. See the
     [DataEval Distribution Shift explanation](https://dataeval.readthedocs.io/en/latest/concepts/DistributionShift.html).
 
 Outlier
@@ -203,8 +201,7 @@ Source
 
 Stratified Split
     A dataset split that preserves class proportions across the resulting
-    subsets (as opposed to a purely random split), produced by the dataset
-    splitting workflow.
+    subsets, produced by the dataset splitting workflow.
 
 Task
     A single configured unit of work within a {term}`pipeline<Pipeline>` —

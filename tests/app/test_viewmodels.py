@@ -201,8 +201,7 @@ class TestBuilderViewModel:
 
     def test_build_pipeline_config_empty_raises(self) -> None:
         vm = BuilderViewModel()
-        # Empty config should raise because PipelineConfig validates tasks etc.
-        # but actually empty config is valid (all fields optional)
+        # Empty config is valid (all PipelineConfig fields are optional).
         config = vm.build_pipeline_config()
         assert config is not None
 

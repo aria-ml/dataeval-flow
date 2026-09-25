@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from dataeval_flow import WorkflowResult, get_workflow, list_workflows, run_tasks
-from dataeval_flow.workflow import WorkflowProtocol
+from dataeval_flow import run_tasks
+from dataeval_flow.workflows import Workflow, WorkflowResult, get_workflow, list_workflows
 
 pytestmark = pytest.mark.required
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class TestOrchestration:
     def test_list_workflows_returns_the_registered_set(self) -> None:
         wfs = list_workflows()
-        names = {w["name"] for w in wfs}
+        names = {w.name for w in wfs}
         assert names == {
             "data-analysis",
             "data-cleaning",
@@ -33,9 +33,9 @@ class TestOrchestration:
             "metadata-triage",
         }
 
-    def test_get_workflow_returns_protocol(self) -> None:
+    def test_get_workflow_returns_a_workflow_class(self) -> None:
         wf = get_workflow("data-cleaning")
-        assert isinstance(wf, WorkflowProtocol)
+        assert issubclass(wf, Workflow)
 
     def test_get_workflow_unknown_raises(self) -> None:
         with pytest.raises(ValueError):
@@ -44,6 +44,6 @@ class TestOrchestration:
     def test_run_tasks_returns_results(self, synthetic_pipeline_config: tuple[PipelineConfig, Path]) -> None:
         cfg, data_dir = synthetic_pipeline_config
         results = run_tasks(cfg, data_dir=data_dir)
-        assert len(results) == 1
-        assert isinstance(results[0], WorkflowResult)
-        assert results[0].metadata.tool == "dataeval-flow"
+        assert list(results) == ["clean_task"]
+        assert isinstance(results["clean_task"], WorkflowResult)
+        assert results["clean_task"].metadata.tool == "dataeval-flow"

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dataeval_flow import PreprocessorConfig, ViewConfig, ViewOperation
-from dataeval_flow.preprocessing import PreprocessingStep
+from dataeval_flow.config import PreprocessingStep, PreprocessorConfig, ViewConfig, ViewOperation
 from verification.fixtures import make_synthetic_dataset
 
 pytestmark = pytest.mark.required

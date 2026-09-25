@@ -1,31 +1,41 @@
 """Pipeline and workflow composition models — SourceConfig, PipelineConfig."""
 
 __all__ = [
+    "LoggingConfig",
     "PipelineConfig",
     "SourceConfig",
 ]
 
 import warnings
-from collections.abc import Mapping, Sequence
-from typing import Any, ClassVar, Literal
+from collections.abc import Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
 
-from dataeval_flow.config.schemas import (
+from dataeval_flow._kind import input_problem
+from dataeval_flow.config._schemas import (
     DatasetConfig,
     DatasetProtocolConfig,
-    EvaluatorConfig,
     ExportConfig,
-    ExtractorConfig,
     MetadataPolicyConfig,
     OntologyConfig,
     PreprocessorConfig,
     StatsPolicyConfig,
     TaskConfig,
     ViewConfig,
-    WorkflowConfig,
 )
-from dataeval_flow.evaluator.base import task_problem
+from dataeval_flow.config.extractors._base import ExtractorConfig
+from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.workflows._base import WorkflowConfig
+
+if TYPE_CHECKING:
+    _WorkflowBase = WorkflowConfig[Any]
+    _EvaluatorBase = EvaluatorConfig[Any]
+else:
+    # Bare at runtime: an instance of any parameterization is an instance of the bare class, whereas
+    # `WorkflowConfig[Any]` is a class of its own that would rebuild each entry as the base, dropping its fields.
+    _WorkflowBase = WorkflowConfig
+    _EvaluatorBase = EvaluatorConfig
 
 # ---------------------------------------------------------------------------
 # Source — dataset + optional view
@@ -94,15 +104,69 @@ class SourceConfig(BaseModel):
 
 
 class LoggingConfig(BaseModel):
-    """Logging level configuration."""
+    """The log levels of a pipeline's ``logging:`` key.
 
-    app_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "DEBUG"
-    lib_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
+    Only a pipeline run by the ``dataeval-flow`` command applies them: :func:`~dataeval_flow.run_tasks` and
+    :func:`~dataeval_flow.run` leave logging to their caller.
+
+    YAML example::
+
+        logging:
+          app_level: INFO
+          lib_level: ERROR
+    """
+
+    app_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
+        default="DEBUG", description="Level of dataeval-flow's own loggers."
+    )
+    lib_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
+        default="WARNING",
+        description=(
+            "Level of the root logger, so of the libraries dataeval-flow calls. DataEval's diagnostics still show at "
+            "WARNING when this is set higher."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Pipeline (top-level)
 # ---------------------------------------------------------------------------
+
+
+def _dispatch(entry: Any, *, kind: str, resolve: Callable[[str], type[Any]], key: str = "type") -> Any:
+    """Validate a mapping entry with the config class its `key` names; leave an instance as it is."""
+    if not isinstance(entry, Mapping):
+        return entry
+    type_id = entry.get(key)
+    if not isinstance(type_id, str):
+        raise ValueError(f"Each `{kind}s:` entry needs a `{key}:`.")
+    return resolve(type_id).config_type.model_validate(entry)
+
+
+def _workflow_entry(entry: Any) -> Any:
+    from dataeval_flow.workflows._registry import get_workflow
+
+    return _dispatch(entry, kind="workflow", resolve=get_workflow)
+
+
+def _evaluator_entry(entry: Any) -> Any:
+    from dataeval_flow.evaluators._registry import get_evaluator
+
+    return _dispatch(entry, kind="evaluator", resolve=get_evaluator)
+
+
+def _extractor_entry(entry: Any) -> Any:
+    from dataeval_flow.config.extractors._registry import get_extractor
+
+    return _dispatch(entry, kind="extractor", resolve=get_extractor, key="model")
+
+
+# One `workflows:` / `evaluators:` / `extractors:` entry, validated with the config class its registered type
+# (an extractor's `model`) names. Dispatched per entry, so an error's location carries the entry's index;
+# serialized as its own class, so a dump keeps a subclass's fields.
+_WorkflowEntry = Annotated[SerializeAsAny[_WorkflowBase], BeforeValidator(_workflow_entry)]
+_EvaluatorEntry = Annotated[SerializeAsAny[_EvaluatorBase], BeforeValidator(_evaluator_entry)]
+_ExtractorEntry = Annotated[SerializeAsAny[ExtractorConfig], BeforeValidator(_extractor_entry)]
 
 
 class PipelineConfig(BaseModel):
@@ -120,7 +184,10 @@ class PipelineConfig(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
 
     # Logging
-    logging: LoggingConfig | None = None
+    logging: LoggingConfig | None = Field(
+        default=None,
+        description="Log levels for dataeval-flow and the libraries it calls, applied when the CLI runs the pipeline",
+    )
 
     # Reproducibility [CR-7-S-1]
     seed: int | None = Field(
@@ -141,8 +208,12 @@ class PipelineConfig(BaseModel):
     )
 
     # Named resource pools
-    datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = None
-    preprocessors: Sequence[PreprocessorConfig] | None = None
+    datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = Field(
+        default=None, description="Named dataset definitions (format + path), referenced by sources"
+    )
+    preprocessors: Sequence[PreprocessorConfig] | None = Field(
+        default=None, description="Named preprocessor definitions (transform steps), referenced by extractors"
+    )
     views: Sequence[ViewConfig] | None = Field(
         default=None,
         validation_alias=AliasChoices("views", "selections"),
@@ -180,7 +251,7 @@ class PipelineConfig(BaseModel):
         default=None,
         description="Named source definitions (dataset + optional view)",
     )
-    extractors: Sequence[ExtractorConfig] | None = Field(
+    extractors: Sequence[_ExtractorEntry] | None = Field(
         default=None,
         description="Named extractor definitions (model type + params + optional preprocessor + batch_size)",
     )
@@ -193,18 +264,30 @@ class PipelineConfig(BaseModel):
     )
 
     # Execution
-    workflows: Sequence[WorkflowConfig] | None = Field(
+    workflows: Sequence[_WorkflowEntry] | None = Field(
         default=None,
         description="Named workflow configurations (type + params), referenced by tasks",
     )
-    evaluators: Sequence[EvaluatorConfig] | None = Field(
+    evaluators: Sequence[_EvaluatorEntry] | None = Field(
         default=None,
         description=(
             "Named evaluator configurations (type + params), referenced by tasks. An evaluator runs one DataEval "
             "evaluator and reports its determinations, with no health status."
         ),
     )
-    tasks: Sequence[TaskConfig] | None = None
+    tasks: Sequence[TaskConfig] | None = Field(
+        default=None,
+        description="What to run: each task runs a workflow or evaluator on named sources, with an optional extractor",
+    )
+
+    @classmethod
+    def model_json_schema(cls, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """The schema a config file follows, with one branch per installed workflow, evaluator and extractor."""
+        if cls is PipelineConfig:
+            from dataeval_flow.config._json_schema import registry_twin
+
+            return registry_twin().model_json_schema(*args, **kwargs)
+        return super().model_json_schema(*args, **kwargs)
 
     @model_validator(mode="before")
     @classmethod
@@ -227,25 +310,24 @@ class PipelineConfig(BaseModel):
         return data
 
     @model_validator(mode="after")
-    def _check_evaluator_tasks(self) -> "PipelineConfig":
-        """Refuse an evaluator task its evaluator cannot run, before any data is read."""
+    def _check_task_inputs(self) -> "PipelineConfig":
+        """Refuse a task its workflow or evaluator cannot run, before any data is read."""
+        workflows = {workflow.name: workflow for workflow in self.workflows or ()}
         evaluators = {evaluator.name: evaluator for evaluator in self.evaluators or ()}
         for task in self.tasks or ():
-            if task.kind != "evaluator":
-                continue
-            evaluator = evaluators.get(task.workflow)
-            if evaluator is None:
+            kind = task.kind
+            pool = evaluators if kind == "evaluator" else workflows
+            target = pool.get(task.workflow)
+            if target is None:
                 raise ValueError(
-                    f"Task '{task.name}' names evaluator '{task.workflow}', which `evaluators:` does not define. "
-                    f"Defined: {sorted(evaluators)}"
+                    f"Task '{task.name}' names {kind} '{task.workflow}', which `{kind}s:` does not define. "
+                    f"Defined: {sorted(pool)}"
                 )
-            problem = task_problem(
-                evaluator, source_count=len(task.source_names), has_extractor=task.extractor is not None
+            problem = input_problem(
+                target, source_count=len(task.source_names), has_extractor=task.extractor is not None
             )
             if problem is not None:
-                raise ValueError(
-                    f"Task '{task.name}' runs evaluator '{evaluator.name}' ({evaluator.type}), which {problem}"
-                )
+                raise ValueError(f"Task '{task.name}' runs {kind} '{target.name}' ({target.type}), which {problem}")
         return self
 
     @model_validator(mode="after")

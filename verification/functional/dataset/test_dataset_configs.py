@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from dataeval_flow import (
+from dataeval_flow import load_dataset
+from dataeval_flow.config import (
     CocoDatasetConfig,
     DatasetProtocolConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
     YoloDatasetConfig,
-    load_dataset,
 )
 from verification.fixtures import write_image_folder
 

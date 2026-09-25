@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from dataeval_flow.config._models import PipelineConfig
-from dataeval_flow.runner import _resolve_config
+from dataeval_flow import PipelineConfig
+from dataeval_flow._runner import _resolve_config
 
 pytestmark = pytest.mark.required
 
@@ -47,14 +47,14 @@ class TestResolveConfig:
         cfg_dir = tmp_path / "conf"
         cfg_dir.mkdir()
 
-        with patch(f"{_LOADER}.load_config_folder", return_value=dummy_config) as mock_load:
+        with patch(f"{_LOADER}.load_config", return_value=dummy_config) as mock_load:
             result = _resolve_config(cfg_dir, tmp_path)
 
         mock_load.assert_called_once_with(cfg_dir)
         assert result is dummy_config
 
     def test_none_config_uses_data_dir(self, tmp_path: Path, dummy_config: PipelineConfig):
-        with patch(f"{_LOADER}.load_config_folder", return_value=dummy_config) as mock_load:
+        with patch(f"{_LOADER}.load_config", return_value=dummy_config) as mock_load:
             result = _resolve_config(None, tmp_path)
 
         mock_load.assert_called_once_with(tmp_path)
@@ -91,7 +91,7 @@ class TestWriteEncodingDescriptor:
         }
 
     def test_writes_one_when_the_tasks_agree(self, tmp_path: Path):
-        from dataeval_flow.runner import _write_encoding_descriptor
+        from dataeval_flow._runner import _write_encoding_descriptor
 
         record = self._record("abc", ["-inf", 0.0, "inf"])
         _write_encoding_descriptor({"a": record, "b": record}, tmp_path)
@@ -104,7 +104,7 @@ class TestWriteEncodingDescriptor:
 
     def test_writes_nothing_when_the_tasks_disagree(self, tmp_path: Path, caplog):
         """Writing one of them would hand somebody a policy nobody chose."""
-        from dataeval_flow.runner import _write_encoding_descriptor
+        from dataeval_flow._runner import _write_encoding_descriptor
 
         _write_encoding_descriptor(
             {"a": self._record("abc", ["-inf", 0.0, "inf"]), "b": self._record("def", ["-inf", 5.0, "inf"])},
@@ -115,14 +115,14 @@ class TestWriteEncodingDescriptor:
         assert "dataeval-flow encoding" in caplog.text
 
     def test_writes_nothing_when_no_task_built_metadata(self, tmp_path: Path):
-        from dataeval_flow.runner import _write_encoding_descriptor
+        from dataeval_flow._runner import _write_encoding_descriptor
 
         _write_encoding_descriptor({}, tmp_path)
         assert not (tmp_path / "encoding.json").exists()
 
     def test_a_record_with_no_encodings_is_skipped_quietly(self, tmp_path: Path):
         """Never fatal: result.json already carries every record it is built from."""
-        from dataeval_flow.runner import _write_encoding_descriptor
+        from dataeval_flow._runner import _write_encoding_descriptor
 
         _write_encoding_descriptor({"a": {"factors": {}}}, tmp_path)
         assert not (tmp_path / "encoding.json").exists()
@@ -164,7 +164,7 @@ def _fake_result(*, warnings: int = 0):
     """A stand-in workflow result with a controllable warning count."""
     from unittest.mock import MagicMock
 
-    from dataeval_flow.workflow import WorkflowResult
+    from dataeval_flow.workflows import WorkflowResult
 
     result = MagicMock(spec=WorkflowResult)
     result.success = True
@@ -180,8 +180,8 @@ class TestRunTaskPairing:
 
     def test_disabled_task_does_not_break_the_run(self, tmp_path: Path):
         """Regression: run() paired results against every task, not the executed ones."""
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path, disable="task_b")
         with patch.object(orch, "_run_single_task", return_value=_fake_result()):
@@ -194,8 +194,8 @@ class TestRunTaskPairing:
 
     def test_results_are_keyed_by_the_task_that_produced_them(self, tmp_path: Path):
         """A result names its workflow type, so keying has to come from the selection."""
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result()):
@@ -209,8 +209,8 @@ class TestRunTaskPairing:
 
 class TestRunTaskSelection:
     def test_names_select_a_subset(self, tmp_path: Path):
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result()):
@@ -222,8 +222,8 @@ class TestRunTaskSelection:
         assert list(merged) == ["task_b"]
 
     def test_naming_a_disabled_task_runs_it(self, tmp_path: Path):
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path, disable="task_b")
         with patch.object(orch, "_run_single_task", return_value=_fake_result()):
@@ -234,8 +234,24 @@ class TestRunTaskSelection:
         merged = json.loads((tmp_path / "out" / "results" / "result.json").read_text())
         assert list(merged) == ["task_b"]
 
+    def test_a_task_named_twice_runs_and_counts_once(self, tmp_path: Path, caplog):
+        import logging
+
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path)
+        with (
+            patch.object(orch, "_run_single_task", return_value=_fake_result()) as run_single,
+            caplog.at_level(logging.INFO),
+        ):
+            assert run(config, tmp_path / "out", data_dir=tmp_path, tasks=["task_b", "task_b"]) == 0
+
+        assert run_single.call_count == 1
+        assert "Done. 1/1 succeeded." in caplog.text
+
     def test_unknown_task_name_raises(self, tmp_path: Path):
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with pytest.raises(ValueError, match="Unknown task: 'nope'"):
@@ -245,8 +261,8 @@ class TestRunTaskSelection:
 class TestFailOnWarning:
     def test_warnings_are_not_fatal_by_default(self, tmp_path: Path, caplog):
         """A warning is a prompt to look, so it is reported without failing the run."""
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=2)):
@@ -255,16 +271,16 @@ class TestFailOnWarning:
         assert "Health warnings raised by: task_a, task_b" in caplog.text
 
     def test_flag_makes_warnings_fatal(self, tmp_path: Path):
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=1)):
             assert run(config, tmp_path / "out", data_dir=tmp_path, fail_on_warning=True) == 1
 
     def test_flag_is_a_no_op_without_warnings(self, tmp_path: Path):
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=0)):
@@ -272,8 +288,8 @@ class TestFailOnWarning:
 
     def test_results_are_still_written_when_warnings_are_fatal(self, tmp_path: Path):
         """The gate decides the exit code, not whether the run's artifacts survive."""
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=1)):
@@ -293,9 +309,9 @@ class TestRunnerExports:
     """The runner writes declared exports beside the results, and answers for a failure."""
 
     def test_exports_are_written_beside_the_results(self, tmp_path: Path):
-        import dataeval_flow.export as export_mod
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._export as export_mod
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _with_exports(_write_config(tmp_path), "src")
         out = tmp_path / "out"
@@ -311,9 +327,9 @@ class TestRunnerExports:
 
     def test_nothing_is_exported_without_an_output_directory(self, tmp_path: Path):
         """No output directory means no file artifacts, exports included."""
-        import dataeval_flow.export as export_mod
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._export as export_mod
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _with_exports(_write_config(tmp_path), "src")
         with (
@@ -328,8 +344,8 @@ class TestRunnerExports:
         """An export the config asked for and did not get is a failure the caller must see."""
         import logging
 
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _with_exports(_write_config(tmp_path), "absent")
         with patch.object(orch, "_run_single_task", return_value=_fake_result()), caplog.at_level(logging.ERROR):
@@ -341,8 +357,8 @@ class TestRunnerExports:
 
     def test_an_export_is_written_when_the_config_declares_no_tasks(self, tmp_path: Path):
         """An export names a source, so a config that runs nothing still writes its corpus."""
-        import dataeval_flow.export as export_mod
-        from dataeval_flow.runner import run
+        import dataeval_flow._export as export_mod
+        from dataeval_flow._runner import run
 
         path = tmp_path / "config.yaml"
         path.write_text("datasets: []\nsources: []\n")
@@ -355,14 +371,16 @@ class TestRunnerExports:
 
 def _fake_evaluator_result(*, success: bool = True):
     """A real evaluator result: evaluators never warn, so there is nothing to stub."""
-    from dataeval_flow.evaluator.result import EvaluatorMetadata, EvaluatorResult
+    from dataeval_flow.evaluators import EvaluatorResult
+    from dataeval_flow.evaluators._result import EvaluatorMetadata
 
     return EvaluatorResult(
-        name="quality.duplicates",
+        type="quality.duplicates",
         success=success,
-        output={"shape": "table", "columns": [], "rows": []},
+        output=object() if success else None,
+        serialized={"shape": "table", "columns": [], "rows": []} if success else None,
         metadata=EvaluatorMetadata(evaluator="quality.duplicates"),
-        errors=[] if success else ["Evaluator execution failed: boom"],
+        errors=[] if success else ["RuntimeError: boom"],
     )
 
 
@@ -371,8 +389,8 @@ class TestEvaluatorResultsCarryNoVerdict:
         """Review Focus 4: evaluators make determinations, never warnings."""
         import json
 
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_evaluator_result()):
@@ -383,8 +401,8 @@ class TestEvaluatorResultsCarryNoVerdict:
         assert not any("health" in entry for entry in merged.values())
 
     def test_a_failed_evaluator_still_fails_the_run(self, tmp_path: Path):
-        import dataeval_flow.workflow.orchestrator as orch
-        from dataeval_flow.runner import run
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_evaluator_result(success=False)):

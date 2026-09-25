@@ -1,8 +1,8 @@
 # Export a dataset
 
 Declare an `exports:` block to write a {term}`source <Source>` out as a dataset on disk, together with the provenance
-that produced it. Use it to take a conformed corpus out of the tool: merged, relabeled, and filtered as the config
-describes. This guide covers declaring an export, the formats available, what the emitted corpus carries, and what it
+that produced it. It takes a conformed corpus out of the tool: merged, relabeled, and filtered as the config
+describes. This guide covers declaring an export, the available formats, what the emitted corpus carries, and what it
 does not.
 
 ## Declare an export
@@ -22,8 +22,7 @@ no exports.
 An export names a source, not a task, so it is written whether or not any task reads that source. A config that
 declares no tasks at all still writes its exports.
 
-`name:` must be a single directory segment. A `/` or a `\` is refused, as are `.` and `..`, because the name is a
-directory under the run's output and not a path to write to.
+`name:` must be a single directory segment. A `/` or a `\` is refused, as are `.` and `..`.
 
 An export that fails is logged and does not cost the run its other exports. The run then exits non-zero.
 
@@ -55,7 +54,7 @@ exports:
 | `replace` | Clears the destination first |
 | `append` | Writes into what is already there |
 
-The default refuses so that a re-run cannot overwrite a corpus somebody is using. `replace` empties the destination
+The default refuses so a re-run cannot overwrite a corpus somebody is using. `replace` empties the destination
 before the write and does not restore it if the write then fails. `append` may leave stale files behind that a reload
 of the destination would pick up.
 
@@ -76,7 +75,8 @@ exports:
 ```
 
 If you omit it while a workflow declares one, the digests will not match: the corpus carries a label-space identity
-the run's envelope does not. The run warns and names the workflows that declare one, so you can copy the value across.
+the run's envelope does not. The run warns and names the workflows that declare one, so you can copy the value
+across.
 
 ## Read the provenance the export writes
 
@@ -113,15 +113,14 @@ Read the source's own files where you need those.
 ## Know when the imagery is copied and when it is re-encoded
 
 Images are referenced by path where the source is file-backed and its view left the imagery alone, so a write copies
-files rather than re-encoding pixels. That is what keeps an export cheap.
+files. That keeps an export cheap.
 
-The realized pixels are encoded instead in two cases: a source that is not file-backed, and a view that changed the
-image size or the channel count. `Crop`, `Resize`, and `SelectChannels` all produce imagery the file on disk no
-longer matches, and referencing that file would emit imagery nobody evaluated.
+The realized pixels are encoded in two cases: a source that is not file-backed, and a view that changed the image
+size or the channel count. `Crop`, `Resize`, and `SelectChannels` all produce imagery the file on disk no longer
+matches.
 
-Encoded imagery must be 8-bit, and grayscale or three-channel. An export refuses any other dtype or channel count
-rather than writing a black or unreadable corpus. Drop the view operation that normalizes the pixel range or changes
-the channel count.
+Encoded imagery must be 8-bit, and grayscale or three-channel. An export refuses any other dtype or channel count.
+Drop the view operation that normalizes the pixel range or changes the channel count.
 
 ## Export a merged source
 

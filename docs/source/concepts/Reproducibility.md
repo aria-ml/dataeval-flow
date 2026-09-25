@@ -8,10 +8,10 @@ assessment, and you cannot meaningfully compare two evaluations run weeks apart.
 **Reproducibility** is the property that the same evaluation, applied to the same
 data, yields the same result — every time, on any machine, by anyone.
 
-This is harder than it sounds when an evaluation is assembled by hand. A notebook
-of loading, transforming, embedding, and formatting code is rarely fully
-version-controlled, differs from engineer to engineer, and carries hidden state.
-The glue is where reproducibility quietly breaks. DataEval Flow's design exists to
+An evaluation assembled by hand is rarely fully version-controlled: a notebook of
+loading, transforming, embedding, and formatting code differs from engineer to
+engineer and carries hidden state. The glue is where reproducibility breaks.
+DataEval Flow's design exists to
 remove that glue: it makes the *description* of a run the only thing that
 determines its result, so that re-running is deterministic by construction. The
 app architecture below is the *how*; reproducibility is the *why*.
@@ -28,9 +28,9 @@ produces the same result, and that fact can be checked into version control,
 reviewed, and replayed.
 
 The configuration is organized as named building blocks — datasets, views,
-preprocessors, extractors, workflows — that tasks reference *by name*. Selecting a
-workflow by a registered name rather than by importing a Python class is what
-keeps the configuration the single source of truth for what runs: there is no
+preprocessors, extractors, workflows — that tasks reference *by name*. Selecting
+a workflow by a registered name keeps the configuration the single source of
+truth for what runs: there is no
 out-of-band code path that can change the outcome.
 
 ## Nothing runs until it validates
@@ -39,8 +39,8 @@ Every section of a configuration is backed by a typed schema, so a run is
 validated before any computation begins. Required fields are checked, unknown
 fields are rejected, and every by-name reference — a task's source, its extractor,
 its preprocessors — is resolved up front. A misnamed source or an invalid
-parameter fails early and predictably rather than partway through an expensive
-run. Deterministic, validated inputs are a precondition for a deterministic
+parameter fails during validation, before an expensive run begins. Deterministic,
+validated inputs are a precondition for a deterministic
 result.
 
 ## What is developed interactively is what runs in production
@@ -64,7 +64,7 @@ laptop and inside a container where the data is mounted at a fixed location. The
 [container reference](../reference/containers.md) documents the mounts and
 precedence rules that anchor a run.
 
-## Randomness is pinned, not hoped for
+## Randomness is pinned
 
 A declarative configuration only determines the result if nothing inside the run is
 free to vary. Several evaluators are stochastic — clustering for cluster-based
@@ -80,17 +80,17 @@ deterministic: false   # optional; forces PyTorch's deterministic algorithms
 ```
 
 The seed is applied through DataEval's own seed configuration, so it reaches the
-evaluators and the NumPy and PyTorch global generators together — a partial seeding
-would leave some component free to drift. It is applied **before each task** rather
-than once per pipeline, so a task's result does not depend on which tasks happened to
-run before it.
+evaluators and the NumPy and PyTorch global generators together — a partial
+seeding would leave some component free to drift. It is applied **before each
+task**, so a task's result does not depend on which tasks happened to run before
+it.
 
 A seeded run records its seed in the {term}`result envelope <Result Envelope>`'s
-resolved configuration, which is what lets the envelope alone be enough to repeat the
-run. Leaving `seed` unset is a deliberate choice, not an oversight: it says this run
+resolved configuration, which is what lets the envelope alone be enough to repeat
+the run. Leaving `seed` unset is a deliberate choice: it declares that this run
 does not need to be bit-reproducible, and nothing is recorded to claim otherwise.
 
-## Caching preserves the result, not just the time
+## Caching preserves the result
 
 Re-running an evaluation should be cheap, but caching is only safe if it never
 changes the answer. DataEval Flow caches the expensive, reusable products of a
@@ -129,8 +129,8 @@ reproduce any finding travel with the finding itself.
   not the process.
 - **Independent verification** during a product or program assessment — a reviewer
   can replay the exact run.
-- **Automated, scheduled evaluation** — a headless, deterministic run drops into a
-  container and CI as a repeatable batch job rather than an ad-hoc activity.
+- **Automated, scheduled evaluation** — a headless, deterministic run drops into
+  a container and CI as a repeatable batch job.
 
 ## Related concept pages
 

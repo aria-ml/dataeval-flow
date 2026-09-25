@@ -2,7 +2,8 @@
 
 import pytest
 
-from dataeval_flow.preprocessing import PreprocessingStep, build_preprocessing
+from dataeval_flow._preprocessing import build_preprocessing
+from dataeval_flow.config import PreprocessingStep
 
 pytestmark = pytest.mark.required
 
@@ -87,8 +88,8 @@ class TestBuildPreprocessing:
         with pytest.raises(ValueError, match="Unknown torch dtype"):
             build_preprocessing(steps)
 
-    def test_custom_preprocessor_resolves(self):
-        """A custom preprocessor name (ToRGB) resolves and composes."""
+    def test_registered_transform_resolves(self):
+        """A registered transform's name (ToRGB) resolves and composes."""
         steps = [
             PreprocessingStep(step="ToRGB"),
             PreprocessingStep(step="Resize", params={"size": [16, 16], "antialias": True}),
@@ -96,17 +97,17 @@ class TestBuildPreprocessing:
         transform = build_preprocessing(steps)
         assert "ToRGB()" in repr(transform)
 
-    def test_rgb_no_longer_custom(self):
-        """'RGB' is not our custom preprocessor — it falls through to torchvision.
+    def test_rgb_is_not_registered(self):
+        """'RGB' is not a registered transform — it falls through to torchvision.
 
-        The custom transform was renamed ``RGB`` -> ``ToRGB`` so it no longer
+        The built-in transform was renamed ``RGB`` -> ``ToRGB`` so it no longer
         shadows torchvision's ``v2.RGB``. The registry invariant holds on every
         torchvision version; the build-and-resolve check is only meaningful where
         torchvision actually provides ``v2.RGB`` (added after the 0.17 minimum).
         """
-        from dataeval_flow.preprocessors import resolve_custom
+        from dataeval_flow.config.transforms import list_transforms
 
-        assert resolve_custom("RGB") is None
+        assert "RGB" not in [cls.name for cls in list_transforms()]
 
         from torchvision.transforms import v2
 

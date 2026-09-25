@@ -5,31 +5,25 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from dataeval_flow import PipelineConfig, load_config
 from dataeval_flow.config import (
-    BoVWExtractorConfig,
     CocoDatasetConfig,
-    DataCleaningWorkflowConfig,
     DemoDatasetConfig,
-    FlattenExtractorConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
-    OnnxExtractorConfig,
-    PipelineConfig,
     SourceConfig,
+    YoloDatasetConfig,
+)
+from dataeval_flow.config.extractors import (
+    BoVWExtractorConfig,
+    FlattenExtractorConfig,
+    OnnxExtractorConfig,
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
-    YoloDatasetConfig,
-    export_params_schema,
-    load_config,
-    load_config_folder,
 )
-from dataeval_flow.workflow.base import Reportable, WorkflowOutputsBase, WorkflowParametersBase, WorkflowReportBase
-from dataeval_flow.workflows.cleaning import (
-    DataCleaningOutputs,
-    DataCleaningParameters,
-    DataCleaningRawOutputs,
-    DataCleaningReport,
-)
+from dataeval_flow.workflows import Finding, WorkflowConfig, WorkflowRawOutput, WorkflowReport
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningOutput, DataCleaningRawOutput, DataCleaningReport
 
 pytestmark = pytest.mark.required
 
@@ -40,34 +34,34 @@ VALID_REQUIRED_PARAMS = {
 }
 
 
-class TestDataCleaningParameters:
-    """Test DataCleaningParameters schema."""
+class TestDataCleaningConfig:
+    """Test DataCleaningConfig schema."""
 
     def test_required_fields_missing(self):
         """Missing required fields raise ValidationError (CR-4.14-G-1)."""
         with pytest.raises(ValidationError, match="outlier_method"):
-            DataCleaningParameters()  # type: ignore[call-arg]
+            DataCleaningConfig()  # type: ignore[call-arg]
 
     def test_required_fields_partial(self):
         """Partial required fields raise ValidationError."""
         with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningParameters(outlier_method="iqr")  # type: ignore[call-arg]
+            DataCleaningConfig(outlier_method="iqr")  # type: ignore[call-arg]
 
     def test_required_fields_complete(self):
         """All required fields provided succeeds."""
-        params = DataCleaningParameters(**VALID_REQUIRED_PARAMS)
+        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)
         assert params.outlier_method == "modzscore"
         assert params.outlier_flags == ["dimension", "pixel", "visual"]
 
     def test_optional_defaults(self):
         """Optional fields have safe defaults."""
-        params = DataCleaningParameters(**VALID_REQUIRED_PARAMS)
+        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)
         assert params.mode == "advisory"
         assert params.outlier_threshold is None
 
     def test_custom_values(self):
         """Parameters accept custom values."""
-        params = DataCleaningParameters(
+        params = DataCleaningConfig(
             outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"], mode="preparatory"
         )
         assert params.outlier_method == "iqr"
@@ -78,7 +72,7 @@ class TestDataCleaningParameters:
     def test_invalid_outlier_method(self):
         """Invalid outlier_method raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_method"):
-            DataCleaningParameters(
+            DataCleaningConfig(
                 outlier_method="invalid",  # type: ignore[arg-type]
                 outlier_flags=["dimension"],
                 outlier_threshold=None,
@@ -87,17 +81,17 @@ class TestDataCleaningParameters:
     def test_negative_threshold_rejected(self):
         """Negative outlier_threshold raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_threshold"):
-            DataCleaningParameters(outlier_method="modzscore", outlier_flags=["dimension"], outlier_threshold=-1.0)
+            DataCleaningConfig(outlier_method="modzscore", outlier_flags=["dimension"], outlier_threshold=-1.0)
 
     def test_empty_outlier_flags_rejected(self):
         """Empty outlier_flags list raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningParameters(outlier_method="modzscore", outlier_flags=[], outlier_threshold=None)
+            DataCleaningConfig(outlier_method="modzscore", outlier_flags=[], outlier_threshold=None)
 
     def test_invalid_duplicate_flag_rejected(self):
         """Invalid duplicate_flags value raises ValidationError."""
         with pytest.raises(ValidationError, match="duplicate_flags"):
-            DataCleaningParameters(
+            DataCleaningConfig(
                 outlier_method="modzscore",
                 outlier_flags=["dimension"],
                 duplicate_flags=["invalid_hash"],  # type: ignore[list-item]
@@ -105,7 +99,7 @@ class TestDataCleaningParameters:
 
     def test_valid_duplicate_flags_accepted(self):
         """Valid duplicate_flags values are accepted."""
-        params = DataCleaningParameters(
+        params = DataCleaningConfig(
             outlier_method="modzscore", outlier_flags=["dimension"], duplicate_flags=["hash_basic", "hash_d4"]
         )
         assert params.duplicate_flags == ["hash_basic", "hash_d4"]
@@ -113,7 +107,7 @@ class TestDataCleaningParameters:
     def test_invalid_mode_rejected(self):
         """Invalid mode raises ValidationError."""
         with pytest.raises(ValidationError, match="mode"):
-            DataCleaningParameters(
+            DataCleaningConfig(
                 outlier_method="modzscore",
                 outlier_flags=["dimension"],
                 outlier_threshold=None,
@@ -129,7 +123,7 @@ class TestYAMLValidationEdgeCases:
         # Using wrong field name simulates a typo - Pydantic ignores unknown fields
         # but requires all declared fields, so missing 'outlier_method' raises
         with pytest.raises(ValidationError, match="outlier_method"):
-            DataCleaningParameters(
+            DataCleaningConfig(
                 outler_method="iqr",  # type: ignore[call-arg]  # wrong field name
                 outlier_flags=["dimension", "pixel", "visual"],
             )
@@ -137,7 +131,7 @@ class TestYAMLValidationEdgeCases:
     def test_wrong_type_string_instead_of_number(self):
         """outlier_threshold as string raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_threshold"):
-            DataCleaningParameters(
+            DataCleaningConfig(
                 outlier_method="iqr",
                 outlier_flags=["dimension", "pixel", "visual"],
                 outlier_threshold="high",  # type: ignore[arg-type]  # string not number
@@ -146,37 +140,10 @@ class TestYAMLValidationEdgeCases:
     def test_invalid_outlier_flag_value(self):
         """Invalid outlier flag value raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningParameters(
+            DataCleaningConfig(
                 outlier_method="iqr",
                 outlier_flags=["invalid_flag"],  # type: ignore[list-item]
             )
-
-
-class TestExportParamsSchema:
-    """Test export_params_schema function."""
-
-    def test_export_creates_file(self, tmp_path: Path):
-        """export_params_schema creates JSON schema file."""
-        schema_path = tmp_path / "schema.json"
-        export_params_schema(schema_path)
-        assert schema_path.exists()
-
-    def test_export_creates_parent_dirs(self, tmp_path: Path):
-        """export_params_schema creates parent directories."""
-        schema_path = tmp_path / "nested" / "dir" / "schema.json"
-        export_params_schema(schema_path)
-        assert schema_path.exists()
-
-    def test_export_valid_json(self, tmp_path: Path):
-        """export_params_schema creates valid JSON with nested structure."""
-        import json
-
-        schema_path = tmp_path / "schema.json"
-        export_params_schema(schema_path)
-        content = schema_path.read_text()
-        schema = json.loads(content)
-        assert "properties" in schema
-        assert "tasks" in schema["properties"]
 
 
 class TestUnifiedConfig:
@@ -214,7 +181,7 @@ class TestUnifiedConfig:
         assert config.tasks[0].workflow == "iqr_clean"
         assert config.workflows is not None
         wf = config.workflows[0]
-        assert isinstance(wf, DataCleaningWorkflowConfig)
+        assert isinstance(wf, DataCleaningConfig)
         assert wf.outlier_method == "iqr"
 
     def test_load_config_file_not_found(self):
@@ -223,12 +190,12 @@ class TestUnifiedConfig:
             load_config(Path("/nonexistent/params.yaml"))
 
 
-class TestDataCleaningOutputs:
+class TestDataCleaningOutput:
     """Test output schemas."""
 
     def test_data_cleaning_raw_outputs_defaults(self):
-        """DataCleaningRawOutputs has correct defaults."""
-        raw = DataCleaningRawOutputs(dataset_size=100)
+        """DataCleaningRawOutput has correct defaults."""
+        raw = DataCleaningRawOutput(dataset_size=100)
         assert raw.dataset_size == 100
         assert raw.duplicates == {"items": {}, "targets": {}}
         assert raw.img_outliers == {"issues": [], "count": 0}
@@ -242,15 +209,15 @@ class TestDataCleaningOutputs:
         assert report.findings == []
 
     def test_reportable(self):
-        """Reportable can be created."""
-        item = Reportable(report_type="table", title="Test", data={"key": "value"})
+        """Finding can be created."""
+        item = Finding(report_type="table", title="Test", data={"key": "value"})
         assert item.report_type == "table"
         assert item.title == "Test"
 
     def test_reportable_invalid_type(self):
-        """Reportable rejects invalid report_type."""
+        """Finding rejects invalid report_type."""
         with pytest.raises(ValidationError, match="report_type"):
-            Reportable(
+            Finding(
                 report_type="invalid",  # type: ignore[arg-type]
                 title="Test",
                 data={"key": "value"},
@@ -258,16 +225,16 @@ class TestDataCleaningOutputs:
 
     def test_data_cleaning_report_with_findings(self):
         """DataCleaningReport can have findings."""
-        finding = Reportable(report_type="key_value", title="Finding", data={"count": 10}, description="Test finding")
+        finding = Finding(report_type="key_value", title="Finding", data={"count": 10}, description="Test finding")
         report = DataCleaningReport(summary="Summary", findings=[finding])
         assert len(report.findings) == 1
         assert report.findings[0].title == "Finding"
 
     def test_data_cleaning_outputs_combined(self):
-        """DataCleaningOutputs combines raw and report."""
-        raw = DataCleaningRawOutputs(dataset_size=50)
+        """DataCleaningOutput combines raw and report."""
+        raw = DataCleaningRawOutput(dataset_size=50)
         report = DataCleaningReport(summary="Complete")
-        outputs = DataCleaningOutputs(raw=raw, report=report)
+        outputs = DataCleaningOutput(raw=raw, report=report)
 
         assert outputs.raw.dataset_size == 50
         assert outputs.report.summary == "Complete"
@@ -277,40 +244,40 @@ class TestBaseClasses:
     """Test base classes for workflow parameters and outputs."""
 
     def test_workflow_parameters_base(self):
-        """WorkflowParametersBase has mode with default."""
-        params = WorkflowParametersBase()
+        """WorkflowConfig has mode with default."""
+        params = WorkflowConfig(type="x")
         assert params.mode == "advisory"
 
     def test_workflow_parameters_base_custom_mode(self):
-        """WorkflowParametersBase accepts custom mode."""
-        params = WorkflowParametersBase(mode="preparatory")
+        """WorkflowConfig accepts custom mode."""
+        params = WorkflowConfig(type="x", mode="preparatory")
         assert params.mode == "preparatory"
 
     def test_workflow_outputs_base(self):
-        """WorkflowOutputsBase requires dataset_size."""
-        outputs = WorkflowOutputsBase(dataset_size=100)
+        """WorkflowRawOutput requires dataset_size."""
+        outputs = WorkflowRawOutput(dataset_size=100)
         assert outputs.dataset_size == 100
 
     def test_workflow_report_base(self):
-        """WorkflowReportBase requires summary."""
-        report = WorkflowReportBase(summary="Test")
+        """WorkflowReport requires summary."""
+        report = WorkflowReport(summary="Test")
         assert report.summary == "Test"
 
     def test_inheritance_data_cleaning_parameters(self):
-        """DataCleaningParameters inherits from WorkflowParametersBase."""
-        assert issubclass(DataCleaningParameters, WorkflowParametersBase)
+        """DataCleaningConfig inherits from WorkflowConfig."""
+        assert issubclass(DataCleaningConfig, WorkflowConfig)
 
     def test_inheritance_data_cleaning_raw_outputs(self):
-        """DataCleaningRawOutputs inherits from WorkflowOutputsBase."""
-        assert issubclass(DataCleaningRawOutputs, WorkflowOutputsBase)
+        """DataCleaningRawOutput inherits from WorkflowRawOutput."""
+        assert issubclass(DataCleaningRawOutput, WorkflowRawOutput)
 
     def test_inheritance_data_cleaning_report(self):
-        """DataCleaningReport inherits from WorkflowReportBase."""
-        assert issubclass(DataCleaningReport, WorkflowReportBase)
+        """DataCleaningReport inherits from WorkflowReport."""
+        assert issubclass(DataCleaningReport, WorkflowReport)
 
 
-class TestLoadConfigFolder:
-    """Test load_config_folder function."""
+class TestLoadConfigFromFolder:
+    """Test load_config on a folder."""
 
     def test_load_from_folder(self, tmp_path: Path):
         """Load config from folder with multiple YAML files."""
@@ -325,20 +292,19 @@ class TestLoadConfigFolder:
             "datasets:\n  - name: train\n    format: image_folder\n    path: ./data/train\n"
         )
 
-        config = load_config_folder(tmp_path)
+        config = load_config(tmp_path)
         assert config.extractors is not None
         assert len(config.extractors) == 1
         assert config.extractors[0].name == "resnet50"
         assert config.datasets is not None
         assert len(config.datasets) == 1
 
-    def test_load_from_folder_not_directory(self, tmp_path: Path):
-        """Raises ValueError if path is not a directory."""
-        file_path = tmp_path / "file.yaml"
-        file_path.write_text("key: value\n")
+    def test_load_from_folder_without_a_config(self, tmp_path: Path):
+        """A folder holding no pipeline config file is not a config."""
+        (tmp_path / "notes.yaml").write_text("key: value\n")
 
-        with pytest.raises(ValueError, match="not a directory"):
-            load_config_folder(file_path)
+        with pytest.raises(FileNotFoundError, match="No valid pipeline config"):
+            load_config(tmp_path)
 
 
 class TestSourceConfig:
@@ -358,7 +324,7 @@ class TestSourceConfig:
 
     def test_source_config_legacy_selection_alias(self):
         """The deprecated ``selection`` key is still accepted and maps to ``view``."""
-        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow import PipelineConfig
 
         payload = {"sources": [{"name": "s", "dataset": "d", "selection": "first_5k"}]}
         with pytest.warns(DeprecationWarning, match="'selection' key"):
@@ -467,12 +433,13 @@ class TestExtractorConfig:
         assert config.extractors is not None
         assert len(config.extractors) == 3
 
-        assert config.extractors[0].model == "onnx"
-        assert config.extractors[0].model_path == "./model.onnx"
-        assert config.extractors[0].batch_size == 64
-        assert config.extractors[1].model == "bovw"
-        assert config.extractors[1].vocab_size == 512
-        assert config.extractors[2].model == "flatten"
+        onnx, bovw, flat = config.extractors
+        assert isinstance(onnx, OnnxExtractorConfig)
+        assert onnx.model_path == "./model.onnx"
+        assert onnx.batch_size == 64
+        assert isinstance(bovw, BoVWExtractorConfig)
+        assert bovw.vocab_size == 512
+        assert isinstance(flat, FlattenExtractorConfig)
 
     def test_pipeline_config_without_extractors(self, tmp_path: Path):
         """PipelineConfig works without extractors section."""
@@ -574,8 +541,7 @@ class TestP1SchemaClasses:
 
     def test_preprocessor_config_valid(self):
         """PreprocessorConfig with valid steps."""
-        from dataeval_flow.config import PreprocessorConfig
-        from dataeval_flow.preprocessing import PreprocessingStep
+        from dataeval_flow.config import PreprocessingStep, PreprocessorConfig
 
         config = PreprocessorConfig(
             name="resnet50_preprocessor",
@@ -629,18 +595,6 @@ class TestP1SchemaClasses:
         with pytest.warns(DeprecationWarning, match="'steps' key"):
             config = ViewConfig.model_validate(payload)
         assert config.operations[0].type == "Limit"
-
-    def test_deprecated_selection_classes_still_importable(self):
-        """SelectionConfig / SelectionStep remain importable as deprecated aliases."""
-        from dataeval_flow.config import SelectionConfig, SelectionStep, ViewOperation
-
-        with pytest.warns(DeprecationWarning, match="SelectionStep is deprecated"):
-            step = SelectionStep(type="Limit", params={"size": 5})
-        with pytest.warns(DeprecationWarning, match="SelectionConfig is deprecated"):
-            cfg = SelectionConfig(name="s", operations=[step])
-        assert isinstance(step, ViewOperation)
-        assert cfg.operations[0].type == "Limit"
-        assert cfg.operations[0].type == "Limit"
 
     def test_selection_step_indices_range_shorthand(self):
         """ViewOperation expands indices range dict into a list."""
@@ -760,6 +714,10 @@ class TestP1SchemaClasses:
             "    model_path: ./resnet50.onnx\n"
             "    output_name: flatten0\n"
             "    batch_size: 64\n"
+            "workflows:\n"
+            "  - type: data-cleaning\n"
+            "    outlier_method: zscore\n"
+            "    outlier_flags: [pixel]\n"
             "tasks:\n"
             "  - name: clean\n"
             "    workflow: data-cleaning\n"
@@ -767,7 +725,7 @@ class TestP1SchemaClasses:
             "    extractor: resnet_ext\n"
         )
 
-        config = load_config_folder(tmp_path)
+        config = load_config(tmp_path)
 
         # Verify datasets
         assert config.datasets is not None
@@ -796,10 +754,11 @@ class TestP1SchemaClasses:
         # Verify extractors
         assert config.extractors is not None
         assert len(config.extractors) == 1
-        assert config.extractors[0].name == "resnet_ext"
-        assert config.extractors[0].model == "onnx"
-        assert config.extractors[0].model_path == "./resnet50.onnx"
-        assert config.extractors[0].batch_size == 64
+        (extractor,) = config.extractors
+        assert isinstance(extractor, OnnxExtractorConfig)
+        assert extractor.name == "resnet_ext"
+        assert extractor.model_path == "./resnet50.onnx"
+        assert extractor.batch_size == 64
 
         # Verify tasks
         assert config.tasks is not None
@@ -807,32 +766,6 @@ class TestP1SchemaClasses:
         assert config.tasks[0].name == "clean"
         assert config.tasks[0].sources == "cppe5_src"
         assert config.tasks[0].extractor == "resnet_ext"
-
-
-class TestDriftMonitoringTaskConfig:
-    """Test DriftMonitoringTaskConfig schema."""
-
-    def test_single_source_raises(self):
-        """DriftMonitoringTaskConfig requires at least 2 sources."""
-        from dataeval_flow.config import DriftMonitoringTaskConfig
-
-        with pytest.raises(ValidationError, match="at least 2 sources"):
-            DriftMonitoringTaskConfig(name="test", workflow="drift-instance", sources="single_src")
-
-    def test_single_source_in_list_raises(self):
-        """DriftMonitoringTaskConfig rejects a list with only one source."""
-        from dataeval_flow.config import DriftMonitoringTaskConfig
-
-        with pytest.raises(ValidationError, match="at least 2 sources"):
-            DriftMonitoringTaskConfig(name="test", workflow="drift-instance", sources=["only_one"])
-
-    def test_valid_drift_task_config(self):
-        """DriftMonitoringTaskConfig accepts valid config with 2 sources."""
-        from dataeval_flow.config import DriftMonitoringTaskConfig
-
-        task = DriftMonitoringTaskConfig(name="drift", workflow="drift-instance", sources=["ref_src", "test_src"])
-        assert task.name == "drift"
-        assert len(task.sources) == 2
 
 
 class TestLoggingConfig:
@@ -865,29 +798,26 @@ class TestLoggingConfig:
 
 
 class TestWorkflowConfig:
-    """Test WorkflowConfig schema (workflow instances)."""
+    """Workflow config entries, alone and in a pipeline."""
 
     def test_cleaning_workflow_config_basic(self):
-        """DataCleaningWorkflowConfig stores name, type, and flat params."""
-        wc = DataCleaningWorkflowConfig(
-            name="aggressive_clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"]
-        )
+        """DataCleaningConfig stores name, type, and flat params."""
+        wc = DataCleaningConfig(name="aggressive_clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
         assert wc.name == "aggressive_clean"
         assert wc.type == "data-cleaning"
         assert wc.outlier_method == "zscore"
         assert wc.outlier_flags == ["dimension", "pixel"]
 
     def test_cleaning_workflow_config_requires_fields(self):
-        """DataCleaningWorkflowConfig requires outlier_method and outlier_flags."""
+        """DataCleaningConfig requires outlier_method and outlier_flags."""
         with pytest.raises(ValidationError):
-            DataCleaningWorkflowConfig(name="empty")  # type: ignore[call-arg]
+            DataCleaningConfig(name="empty")  # type: ignore[call-arg]
 
     def test_drift_workflow_config_basic(self):
-        """DriftMonitoringWorkflowConfig stores name, type, and flat params."""
-        from dataeval_flow.config import DriftMonitoringWorkflowConfig
-        from dataeval_flow.workflows.drift.params import DriftDetectorKNeighbors
+        """DriftMonitoringConfig stores name, type, and flat params."""
+        from dataeval_flow.workflows.drift_monitoring import DriftDetectorKNeighbors, DriftMonitoringConfig
 
-        wc = DriftMonitoringWorkflowConfig(name="knn_drift", detectors=[DriftDetectorKNeighbors(k=10)])
+        wc = DriftMonitoringConfig(name="knn_drift", detectors=[DriftDetectorKNeighbors(k=10)])
         assert wc.name == "knn_drift"
         assert wc.type == "drift-monitoring"
         assert len(wc.detectors) == 1
@@ -913,7 +843,7 @@ class TestWorkflowConfig:
         assert config.workflows[0].name == "standard_clean"
         assert config.workflows[1].name == "strict_clean"
         wf = config.workflows[0]
-        assert isinstance(wf, DataCleaningWorkflowConfig)
+        assert isinstance(wf, DataCleaningConfig)
         assert wf.outlier_method == "adaptive"
 
     def test_full_config_with_workflows(self, tmp_path: Path):
@@ -944,19 +874,19 @@ class TestWorkflowConfig:
         assert config.tasks[0].workflow == "standard_clean"
 
     def test_invalid_params_rejected(self):
-        """DataCleaningWorkflowConfig rejects invalid field values."""
+        """DataCleaningConfig rejects invalid field values."""
         with pytest.raises(ValidationError):
-            DataCleaningWorkflowConfig(
+            DataCleaningConfig(
                 name="bad",
                 outlier_method="not_a_real_method",  # type: ignore[call-arg]
                 outlier_flags=["dimension"],
             )
 
     def test_metadata_triage_workflow_config_basic(self):
-        """MetadataTriageWorkflowConfig stores name, type, and flat params."""
-        from dataeval_flow.config import MetadataTriageWorkflowConfig
+        """MetadataTriageConfig stores name, type, and flat params."""
+        from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
-        wc = MetadataTriageWorkflowConfig(name="triage", metadata="standard", max_examples=5)
+        wc = MetadataTriageConfig(name="triage", metadata="standard", max_examples=5)
         assert wc.name == "triage"
         assert wc.type == "metadata-triage"
         assert wc.verify is True
@@ -968,11 +898,11 @@ class TestResolveWorkflow:
 
     def test_resolve_workflow_by_name(self):
         """Workflow is resolved from config.workflows by name."""
-        from dataeval_flow.workflow.orchestrator import _resolve_workflow
+        from dataeval_flow._orchestrator import _resolve_workflow
 
         config = PipelineConfig(
             workflows=[
-                DataCleaningWorkflowConfig(
+                DataCleaningConfig(
                     name="standard_clean", outlier_method="adaptive", outlier_flags=["dimension", "pixel"]
                 ),
             ]
@@ -980,24 +910,22 @@ class TestResolveWorkflow:
         result = _resolve_workflow("standard_clean", config)
         assert result.name == "standard_clean"
         assert result.type == "data-cleaning"
-        assert isinstance(result, DataCleaningWorkflowConfig)
+        assert isinstance(result, DataCleaningConfig)
         assert result.outlier_method == "adaptive"
 
     def test_resolve_workflow_not_found(self):
         """Unknown workflow name raises ValueError."""
-        from dataeval_flow.workflow.orchestrator import _resolve_workflow
+        from dataeval_flow._orchestrator import _resolve_workflow
 
         config = PipelineConfig(
-            workflows=[
-                DataCleaningWorkflowConfig(name="existing", outlier_method="zscore", outlier_flags=["dimension"])
-            ]
+            workflows=[DataCleaningConfig(name="existing", outlier_method="zscore", outlier_flags=["dimension"])]
         )
         with pytest.raises(ValueError, match="Unknown workflow: 'nonexistent'"):
             _resolve_workflow("nonexistent", config)
 
     def test_resolve_workflow_no_workflows_section(self):
         """Workflow reference with no workflows section raises ValueError."""
-        from dataeval_flow.workflow.orchestrator import _resolve_workflow
+        from dataeval_flow._orchestrator import _resolve_workflow
 
         config = PipelineConfig()
         with pytest.raises(ValueError, match="No workflow configs defined"):
@@ -1043,13 +971,13 @@ class TestPipelineConfigDuplicateNames:
         with pytest.raises(ValidationError, match="Duplicate name 'wf' in workflows"):
             PipelineConfig(
                 workflows=[
-                    DataCleaningWorkflowConfig(name="wf", outlier_method="zscore", outlier_flags=["dimension"]),
-                    DataCleaningWorkflowConfig(name="wf", outlier_method="iqr", outlier_flags=["pixel"]),
+                    DataCleaningConfig(name="wf", outlier_method="zscore", outlier_flags=["dimension"]),
+                    DataCleaningConfig(name="wf", outlier_method="iqr", outlier_flags=["pixel"]),
                 ]
             )
 
     def test_duplicate_metadata_policy_name_raises(self):
-        """A silently discarded policy is a run cut by edges nobody chose."""
+        """A discarded policy leaves the run to automatic binning."""
         with pytest.raises(ValidationError, match="Duplicate name 'std' in metadata"):
             PipelineConfig.model_validate(
                 {
@@ -1198,13 +1126,13 @@ class TestDatamaitePortConfig:
         import pytest
         from pydantic import ValidationError
 
-        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+        from dataeval_flow.config import HuggingFaceDatasetConfig
 
         with pytest.raises(ValidationError):
             HuggingFaceDatasetConfig(name="ds", path="./d")  # type: ignore[call-arg]  # task missing
 
     def test_hf_config_accepts_task(self):
-        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+        from dataeval_flow.config import HuggingFaceDatasetConfig
 
         cfg = HuggingFaceDatasetConfig(name="ds", path="./d", task="object_detection")
         assert cfg.task == "object_detection"
@@ -1213,7 +1141,7 @@ class TestDatamaitePortConfig:
         import pytest
         from pydantic import ValidationError
 
-        from dataeval_flow.config.schemas import HuggingFaceDatasetConfig
+        from dataeval_flow.config import HuggingFaceDatasetConfig
 
         with pytest.raises(ValidationError):
             HuggingFaceDatasetConfig(name="ds", path="./d", task="segmentation")  # type: ignore[arg-type]
@@ -1222,7 +1150,7 @@ class TestDatamaitePortConfig:
         import pytest
         from pydantic import ValidationError
 
-        from dataeval_flow.config.schemas import CocoDatasetConfig
+        from dataeval_flow.config import CocoDatasetConfig
 
         with pytest.raises(ValidationError):
             CocoDatasetConfig(name="ds", path="./d", classes_file="c.txt")  # type: ignore[call-arg]
@@ -1231,7 +1159,7 @@ class TestDatamaitePortConfig:
         import pytest
         from pydantic import ValidationError
 
-        from dataeval_flow.config.schemas import YoloDatasetConfig
+        from dataeval_flow.config import YoloDatasetConfig
 
         for field in ("images_dir", "labels_dir", "classes_file"):
             with pytest.raises(ValidationError):
@@ -1241,7 +1169,7 @@ class TestDatamaitePortConfig:
 @pytest.mark.required
 class TestOntologyConfig:
     def test_minimal_definition(self) -> None:
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         onto = OntologyConfig(name="vehicles", source="config/label_ontology.jsonld")
         assert onto.name == "vehicles"
@@ -1249,13 +1177,13 @@ class TestOntologyConfig:
 
     def test_a_definition_needs_a_source_or_concepts(self) -> None:
         # An entry naming neither describes no label space at all.
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         with pytest.raises(ValidationError):
             OntologyConfig(name="empty")
 
     def test_concepts_alone_are_enough(self) -> None:
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         onto = OntologyConfig(
             name="hand_built",
@@ -1265,7 +1193,7 @@ class TestOntologyConfig:
         assert onto.concepts[0].id == "car"
 
     def test_concept_carries_the_upstream_fields(self) -> None:
-        from dataeval_flow.config.schemas import OntologyConceptConfig
+        from dataeval_flow.config import OntologyConceptConfig
 
         concept = OntologyConceptConfig(
             id="http://ex.org/cv#FreightCar",
@@ -1279,13 +1207,13 @@ class TestOntologyConfig:
 
     def test_source_must_be_a_relative_path(self) -> None:
         # Same portability rule every other config path follows.
-        from dataeval_flow.config.schemas import OntologyConfig
+        from dataeval_flow.config import OntologyConfig
 
         with pytest.raises(ValidationError):
             OntologyConfig(name="vehicles", source="/etc/passwd")
 
     def test_pipeline_holds_a_named_pool(self) -> None:
-        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow import PipelineConfig
 
         config = PipelineConfig(ontologies=[{"name": "vehicles", "source": "config/onto.jsonld"}])  # type: ignore[arg-type]
         assert config.ontologies is not None
@@ -1293,7 +1221,7 @@ class TestOntologyConfig:
 
     def test_duplicate_names_are_refused(self) -> None:
         # PipelineConfig already enforces unique names across every pool.
-        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow import PipelineConfig
 
         with pytest.raises(ValidationError):
             PipelineConfig(
@@ -1309,14 +1237,14 @@ class TestExportConfig:
     """An export names a source and a datamaite output format."""
 
     def test_defaults_to_coco_and_refuses_to_overwrite(self):
-        from dataeval_flow.config.schemas import ExportConfig
+        from dataeval_flow.config import ExportConfig
 
         export = ExportConfig(name="corpus", source="merged")
         assert export.format == "coco"
         assert export.mode == "error"
 
     def test_unknown_format_is_refused(self):
-        from dataeval_flow.config.schemas import ExportConfig
+        from dataeval_flow.config import ExportConfig
 
         with pytest.raises(ValidationError):
             ExportConfig(name="corpus", source="merged", format="parquet")  # type: ignore[arg-type]
@@ -1327,14 +1255,14 @@ class TestExportConfig:
 
         from datamaite import available_output_formats
 
-        from dataeval_flow.config.schemas import ExportConfig
+        from dataeval_flow.config import ExportConfig
 
         declared = set(get_args(ExportConfig.model_fields["format"].annotation))
         assert declared <= {f.value for f in available_output_formats()}
 
     def test_pipeline_holds_the_pool(self):
-        from dataeval_flow.config import PipelineConfig
-        from dataeval_flow.config.schemas import ExportConfig
+        from dataeval_flow import PipelineConfig
+        from dataeval_flow.config import ExportConfig
 
         config = PipelineConfig(exports=[ExportConfig(name="corpus", source="merged")])
         assert config.exports is not None
@@ -1343,13 +1271,13 @@ class TestExportConfig:
     @pytest.mark.parametrize("name", ["", "/etc/corpus", "nested/corpus", "nested\\corpus", ".", ".."])
     def test_a_name_that_is_not_one_directory_segment_is_refused(self, name):
         """The name becomes a directory under the run's output, so it cannot be a path."""
-        from dataeval_flow.config.schemas import ExportConfig
+        from dataeval_flow.config import ExportConfig
 
         with pytest.raises(ValidationError):
             ExportConfig(name=name, source="merged")
 
     def test_a_plain_name_is_kept(self):
-        from dataeval_flow.config.schemas import ExportConfig
+        from dataeval_flow.config import ExportConfig
 
         assert ExportConfig(name="conformed_corpus.v2", source="merged").name == "conformed_corpus.v2"
 
@@ -1391,7 +1319,7 @@ class TestStatsPolicyConfig:
     """A stats policy states what is measured and who reads it."""
 
     def _policy(self, **kwargs):
-        from dataeval_flow.config.schemas import StatsPolicyConfig
+        from dataeval_flow.config import StatsPolicyConfig
 
         base = {"name": "p", "measure": [{"bands": None, "families": ["visual"]}]}
         return StatsPolicyConfig(**{**base, **kwargs})
@@ -1488,7 +1416,7 @@ class TestStatsPoolWiring:
     """The pool is referenced by name, like `metadata:` and `ontologies:`."""
 
     def test_pipeline_holds_a_stats_pool(self):
-        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow import PipelineConfig
 
         cfg = PipelineConfig(
             stats=[{"name": "p", "measure": [{"bands": None, "families": ["visual"]}]}]  # type: ignore[arg-type]
@@ -1497,9 +1425,9 @@ class TestStatsPoolWiring:
         assert cfg.stats[0].name == "p"
 
     def test_stats_mixin_carries_a_reference(self):
-        from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
-        params = DataCleaningParameters(
+        params = DataCleaningConfig(
             name="c",  # type: ignore[call-arg]
             type="data-cleaning",  # type: ignore[call-arg]
             outlier_method="modzscore",
@@ -1509,7 +1437,7 @@ class TestStatsPoolWiring:
         assert params.stats == "p"
 
     def test_parameter_sweep_can_name_a_stats_policy(self):
-        from dataeval_flow.workflow.base import StatsConfigMixin
-        from dataeval_flow.workflows.parameter_sweep.params import ParameterSweepParameters
+        from dataeval_flow.config import StatsConfigMixin
+        from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 
-        assert issubclass(ParameterSweepParameters, StatsConfigMixin)
+        assert issubclass(ParameterSweepConfig, StatsConfigMixin)

@@ -596,8 +596,8 @@ class TestViewResult:
             mock_result.metadata.model_id = None
             mock_result.metadata.preprocessor_id = None
             mock_result.metadata.source_descriptions = []
-            mock_result.data.report.findings = []
-            mock_result.data.report.summary = "ok"
+            mock_result.output.report.findings = []
+            mock_result.output.report.summary = "ok"
             mock_result.to_dict.return_value = {"k": "v"}
             mock_result.report.return_value = "report"
             app._vm.mark_task_completed("t1", mock_result)
@@ -833,7 +833,7 @@ class TestExecuteTaskWorker:
 
         with (
             patch.object(app, "call_from_thread") as mock_call,
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", return_value=mock_result),
+            patch("dataeval_flow._orchestrator._run_single_task", return_value=mock_result),
         ):
             app._execute_task_worker("t1", mock_config)
             assert mock_call.called
@@ -847,7 +847,7 @@ class TestExecuteTaskWorker:
 
         with (
             patch.object(app, "call_from_thread") as mock_call,
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", side_effect=RuntimeError("boom")),
+            patch("dataeval_flow._orchestrator._run_single_task", side_effect=RuntimeError("boom")),
         ):
             app._execute_task_worker("t1", mock_config)
             assert mock_call.called
@@ -870,7 +870,7 @@ class TestExecuteAllWorker:
 
         with (
             patch.object(app, "call_from_thread") as mock_call,
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", return_value=mock_result),
+            patch("dataeval_flow._orchestrator._run_single_task", return_value=mock_result),
         ):
             app._execute_all_worker(["t1"], mock_config)
             assert mock_call.called
@@ -884,7 +884,7 @@ class TestExecuteAllWorker:
 
         with (
             patch.object(app, "call_from_thread") as mock_call,
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", side_effect=RuntimeError("boom")),
+            patch("dataeval_flow._orchestrator._run_single_task", side_effect=RuntimeError("boom")),
         ):
             app._execute_all_worker(["t1"], mock_config)
             assert mock_call.called
@@ -902,7 +902,7 @@ class TestExecuteAllWorker:
 
         with (
             patch.object(app, "call_from_thread") as mock_call,
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", return_value=mock_result),
+            patch("dataeval_flow._orchestrator._run_single_task", return_value=mock_result),
         ):
             app._execute_all_worker(["t1", "t2"], mock_config)
             assert mock_call.call_count >= 3  # mark_running x2 + on_done x2 + on_all_done
@@ -1296,7 +1296,7 @@ class TestExecuteTaskWorkerCallbacks:
 
         with (
             patch.object(app, "call_from_thread", side_effect=_capture_call),
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", return_value=mock_result),
+            patch("dataeval_flow._orchestrator._run_single_task", return_value=mock_result),
         ):
             app._execute_task_worker("t1", mock_config)
 
@@ -1330,7 +1330,7 @@ class TestExecuteTaskWorkerCallbacks:
 
         with (
             patch.object(app, "call_from_thread", side_effect=_capture_call),
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", side_effect=RuntimeError("boom")),
+            patch("dataeval_flow._orchestrator._run_single_task", side_effect=RuntimeError("boom")),
         ):
             app._execute_task_worker("t1", mock_config)
 
@@ -1373,7 +1373,7 @@ class TestExecuteAllWorkerCallbacks:
 
         with (
             patch.object(app, "call_from_thread", side_effect=_capture_call),
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", return_value=mock_result),
+            patch("dataeval_flow._orchestrator._run_single_task", return_value=mock_result),
         ):
             app._execute_all_worker(["t1", "t2"], mock_config)
 
@@ -1412,7 +1412,7 @@ class TestExecuteAllWorkerCallbacks:
 
         with (
             patch.object(app, "call_from_thread", side_effect=_capture_call),
-            patch("dataeval_flow.workflow.orchestrator._run_single_task", side_effect=RuntimeError("fail")),
+            patch("dataeval_flow._orchestrator._run_single_task", side_effect=RuntimeError("fail")),
         ):
             app._execute_all_worker(["t1"], mock_config)
 

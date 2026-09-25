@@ -7,8 +7,8 @@ import pytest
 from dataeval.flags import ImageStats
 from dataeval.protocols import DatasetMetadata
 
-from dataeval_flow.metadata import build_metadata, expand_declared_bins, resolve_families, stat_names_for
-from dataeval_flow.policy import ResolvedPolicy
+from dataeval_flow._metadata import build_metadata, expand_declared_bins, resolve_families, stat_names_for
+from dataeval_flow._policy import ResolvedPolicy
 
 
 class TestResolvingFamilies:
@@ -84,13 +84,11 @@ class TestStatNames:
 class TestStatNamesForMatchesComputeStats:
     """`stat_names_for` derives names from the enum; `compute_stats` derives columns from it.
 
-    `stat_names_for` was a request-side convenience once, read only to build a `stats:`
-    mapping. It is now a filter gate at every consumer — `columns_for` calls it to decide
-    what a view is even allowed to carry — so a `dataeval` column that does not follow the
-    `<FAMILY>_<STATISTIC>` naming this derives from would vanish from every consumer
-    silently, with no error anywhere naming the mismatch. Pin the two together against a
-    real `compute_stats` call, so upstream renaming a statistic, or adding one that breaks
-    the naming assumption, fails here instead.
+    `stat_names_for` is a filter gate at every consumer: `columns_for` calls it to decide
+    what a view is allowed to carry. A `dataeval` column that breaks the
+    `<FAMILY>_<STATISTIC>` naming vanishes from every consumer silently, with no error
+    naming the mismatch. Pinning the two against a real `compute_stats` call makes an
+    upstream rename, or a new statistic that breaks the naming, fail here.
     """
 
     def test_every_column_compute_stats_emits_is_named(self, toy_images):
@@ -216,12 +214,11 @@ class _ODDataset:
 class _WideRangeDataset:
     """Classification with float values outside any range dataeval can infer.
 
-    Spans ``[0, 4000]`` rather than ``[0, 1]`` or ``[0, 255]``, so a ``VISUAL`` statistic
-    needs the policy's declared ``value_range`` to mean anything — without it, dataeval
-    cannot decode a bit depth and reports NaN. ``_ICDataset``'s values sit inside the
-    ``[0, 1]`` convention dataeval infers on its own, so it cannot tell whether
-    ``value_range`` was actually threaded through to ``compute_stats`` or silently dropped:
-    both give the same answer. This fixture makes the wire observable.
+    Spans ``[0, 4000]``, so a ``VISUAL`` statistic needs the policy's declared
+    ``value_range`` to mean anything; without it, dataeval cannot decode a bit depth and
+    reports NaN. ``_ICDataset``'s values sit inside the ``[0, 1]`` convention dataeval
+    infers on its own, so a threaded and a dropped ``value_range`` give the same answer
+    there. This fixture makes the wire observable.
     """
 
     def __init__(self, n: int = 40) -> None:
@@ -300,11 +297,11 @@ class TestBuildMetadataInjects:
         assert metadata.continuous_factor_bins == {"brightnes": 4}
 
     def test_declared_value_range_reaches_compute_stats(self):
-        """``value_range`` must actually reach ``compute_stats``, not just sit on the policy.
+        """``value_range`` must reach ``compute_stats``, not just sit on the policy.
 
-        ``_WideRangeDataset``'s values fall outside any range dataeval can infer on its own,
-        so a ``VISUAL`` statistic comes back NaN unless the declared ``value_range`` is the
-        one ``compute_stats`` actually receives.
+        ``_WideRangeDataset``'s values fall outside any range dataeval can infer. A
+        ``VISUAL`` statistic comes back NaN unless the declared ``value_range`` is what
+        ``compute_stats`` receives.
         """
         policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 4000.0))
         metadata = build_metadata(_WideRangeDataset(), policy)
@@ -315,12 +312,12 @@ class TestBuildMetadataInjects:
         """``per_target`` must come from ``metadata.multi_target``, not be hardcoded.
 
         Classification data has no boxes, so ``compute_stats``' own output cannot tell
-        ``per_target=True`` from ``per_target=False`` apart on it — spying on the call is
-        what actually pins the wire.
+        ``per_target=True`` from ``per_target=False`` on it. Spying on the call pins the
+        wire.
         """
-        from dataeval_flow.cache import get_or_compute_stats as real_get_or_compute_stats
+        from dataeval_flow._cache import get_or_compute_stats as real_get_or_compute_stats
 
         policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 1.0))
-        with patch("dataeval_flow.cache.get_or_compute_stats", wraps=real_get_or_compute_stats) as mock_stats:
+        with patch("dataeval_flow._cache.get_or_compute_stats", wraps=real_get_or_compute_stats) as mock_stats:
             build_metadata(_ICDataset(), policy)
         assert mock_stats.call_args.kwargs["per_target"] is False

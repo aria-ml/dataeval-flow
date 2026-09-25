@@ -5,118 +5,58 @@ Quick start::
     from pathlib import Path
     from dataeval_flow import load_config, run_tasks
 
-    config = load_config(Path("/path/to/data/config.yaml"))
-    results = run_tasks(config, data_dir=Path("/path/to/data"))
-    print(results[0].report())  # text report
-    results[0].export("output/")  # write result JSON
+    config = load_config(Path("/path/to/data/config.yaml"))  # a file, or a folder of them
+    results = run_tasks(config, data_dir=Path("/path/to/data"))  # keyed by task name
+    for name, result in results.items():
+        print(result.report())  # text report
+        result.export(f"output/{name}.json")  # write result JSON
+
+Or run one workflow or evaluator on a dataset already in memory, typed to its result::
+
+    from dataeval_flow import run
+    from dataeval_flow.evaluators.quality import DuplicatesConfig
+
+    result = run(DuplicatesConfig(), dataset)  # a DuplicatesResult
+    print(result.report())
 
 Or build a pipeline programmatically::
 
-    from dataeval_flow import (
-        PipelineConfig, HuggingFaceDatasetConfig, FlattenExtractorConfig,
-        SourceConfig, DataCleaningWorkflowConfig, TaskConfig, run_tasks,
-    )
+    from dataeval_flow import PipelineConfig, run_tasks
+    from dataeval_flow.config import HuggingFaceDatasetConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config.extractors import FlattenExtractorConfig
+    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
-Discovery helpers::
+Discovery helpers live with each kind, and list every installed type, plugins included::
 
-    >>> from dataeval_flow import list_workflows
-    >>> list_workflows()
-    [{'name': 'data-cleaning', ...}, {'name': 'drift-monitoring', ...}]
+    >>> from dataeval_flow.workflows import list_workflows
+    >>> [cls.name for cls in list_workflows()]
+    ['data-analysis', 'data-cleaning', ...]
 
-    >>> from dataeval_flow import list_evaluators
-    >>> list_evaluators()
-    [{'name': 'quality.duplicates', ...}, {'name': 'quality.outliers', ...}]
+    >>> from dataeval_flow.evaluators import list_evaluators
+    >>> [cls.name for cls in list_evaluators()]
+    ['quality.duplicates', 'quality.outliers']
 """
 
-from dataeval_flow.config import (
-    BoVWExtractorConfig,
-    CocoDatasetConfig,
-    DataCleaningTaskConfig,
-    DataCleaningWorkflowConfig,
-    DatasetProtocolConfig,
-    DriftMonitoringTaskConfig,
-    DriftMonitoringWorkflowConfig,
-    DuplicatesEvaluatorConfig,
-    EvaluatorConfig,
-    EvaluatorTaskConfig,
-    FlattenExtractorConfig,
-    HuggingFaceDatasetConfig,
-    ImageFolderDatasetConfig,
-    OnnxExtractorConfig,
-    OutliersEvaluatorConfig,
-    PipelineConfig,
-    PreprocessorConfig,
-    SelectionConfig,
-    SelectionStep,
-    SourceConfig,
-    TaskConfig,
-    TorchExtractorConfig,
-    UncertaintyExtractorConfig,
-    ViewConfig,
-    ViewOperation,
-    YoloDatasetConfig,
-    export_params_schema,
-    load_config,
-    load_config_folder,
-)
-from dataeval_flow.dataset import load_dataset
-from dataeval_flow.evaluator import get_evaluator, list_evaluators
-from dataeval_flow.evaluator.result import EvaluatorResult
-from dataeval_flow.evaluators.quality import DuplicatesParameters, OutliersParameters
-from dataeval_flow.result import Result
-from dataeval_flow.workflow import WorkflowResult, get_workflow, list_workflows, run_tasks
+from dataeval_flow._dataset import load_dataset
+from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
+from dataeval_flow._orchestrator import run_task, run_tasks
+from dataeval_flow._result import Result, ResultMetadata
+from dataeval_flow._run import run
+from dataeval_flow.config._loader import load_config
+from dataeval_flow.config._models import PipelineConfig
 
 __all__ = [
-    # --- Core workflow ---
     "load_config",
-    "load_config_folder",
+    "load_dataset",
+    "run",
+    "run_task",
     "run_tasks",
     "PipelineConfig",
     "Result",
-    "WorkflowResult",
-    "EvaluatorResult",
-    # --- Discovery ---
-    "list_workflows",
-    "get_workflow",
-    "list_evaluators",
-    "get_evaluator",
-    # --- Dataset configs ---
-    "HuggingFaceDatasetConfig",
-    "ImageFolderDatasetConfig",
-    "CocoDatasetConfig",
-    "YoloDatasetConfig",
-    "DatasetProtocolConfig",
-    # --- Extractor configs ---
-    "OnnxExtractorConfig",
-    "BoVWExtractorConfig",
-    "FlattenExtractorConfig",
-    "TorchExtractorConfig",
-    "UncertaintyExtractorConfig",
-    # --- Workflow configs ---
-    "DataCleaningWorkflowConfig",
-    "DriftMonitoringWorkflowConfig",
-    # --- Evaluator configs ---
-    "EvaluatorConfig",
-    "DuplicatesEvaluatorConfig",
-    "OutliersEvaluatorConfig",
-    "DuplicatesParameters",
-    "OutliersParameters",
-    # --- Task configs ---
-    "TaskConfig",
-    "DataCleaningTaskConfig",
-    "DriftMonitoringTaskConfig",
-    "EvaluatorTaskConfig",
-    # --- Composition ---
-    "SourceConfig",
-    "PreprocessorConfig",
-    "ViewConfig",
-    "ViewOperation",
-    # Deprecated aliases (use ViewConfig / ViewOperation)
-    "SelectionConfig",
-    "SelectionStep",
-    # --- Utilities ---
-    "load_dataset",
-    "export_params_schema",
+    "ResultMetadata",
+    "InputSpec",
+    "InputKind",
+    "SourceCount",
     "__version__",
 ]
 

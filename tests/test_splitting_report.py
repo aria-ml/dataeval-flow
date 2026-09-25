@@ -2,8 +2,8 @@
 
 import pytest
 
-from dataeval_flow.workflows.splitting.outputs import DataSplittingRawOutputs, SplitInfo
-from dataeval_flow.workflows.splitting.report import (
+from dataeval_flow.workflows.data_splitting._outputs import DataSplittingRawOutput, SplitInfo
+from dataeval_flow.workflows.data_splitting._report import (
     _format_factor_table,
     _normalize_label_counts,
     build_findings,
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.required
 
 class TestBuildFindings:
     def test_label_distribution_info(self) -> None:
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             label_stats_full={"label_counts_per_class": {"a": 50, "b": 45}},
             test_indices=list(range(20)),
@@ -30,7 +30,7 @@ class TestBuildFindings:
 
     def test_label_distribution_from_list(self) -> None:
         """label_counts_per_class is a list after NDArray.tolist() in real usage."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             label_stats_full={"label_counts_per_class": [55, 40, 5]},
             test_indices=list(range(20)),
@@ -42,7 +42,7 @@ class TestBuildFindings:
 
     def test_label_distribution_uses_class_names(self) -> None:
         """A dataset carrying a class-name table reports names, not class indices."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             label_stats_full={
                 "label_counts_per_class": {0: 50, 1: 45},
@@ -57,7 +57,7 @@ class TestBuildFindings:
         assert label_finding.data["table_data"] == {"Coverall": 50, "Mask": 45}
 
     def test_label_distribution_warning(self) -> None:
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             label_stats_full={"label_counts_per_class": {"a": 95, "b": 5}},
             test_indices=list(range(20)),
@@ -68,7 +68,7 @@ class TestBuildFindings:
         assert label_finding.severity == "warning"
 
     def test_split_sizes_finding(self) -> None:
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
@@ -81,7 +81,7 @@ class TestBuildFindings:
         assert size_finding.data["test"] == 20
 
     def test_coverage_warning(self) -> None:
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             test_indices=list(range(20)),
             folds=[
@@ -127,7 +127,7 @@ class TestFormatFactorTable:
 class TestBuildFindingsCoverageTest:
     def test_coverage_test_info(self) -> None:
         """Lines 209-213: coverage_test present with low uncovered %."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             test_indices=list(range(20)),
             coverage_test={"uncovered_indices": [0], "coverage_radius": 0.4},
@@ -141,7 +141,7 @@ class TestBuildFindingsCoverageTest:
 
     def test_coverage_test_warning(self) -> None:
         """Lines 209-213: coverage_test present with high uncovered %."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             test_indices=list(range(20)),
             coverage_test={"uncovered_indices": list(range(5)), "coverage_radius": 0.4},
@@ -153,7 +153,7 @@ class TestBuildFindingsCoverageTest:
 
     def test_coverage_test_empty_indices(self) -> None:
         """Lines 209-213: coverage_test with empty test_indices."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             test_indices=[],
             coverage_test={"uncovered_indices": [], "coverage_radius": 0.4},
@@ -211,8 +211,8 @@ def _make_raw(
     folds: list[tuple[dict[str, int], dict[str, int]]],
     test_counts: dict[str, int] | None = None,
     test_size: int = 20,
-) -> DataSplittingRawOutputs:
-    """Build a DataSplittingRawOutputs with per-split label stats populated."""
+) -> DataSplittingRawOutput:
+    """Build a DataSplittingRawOutput with per-split label stats populated."""
     total = sum(full_counts.values())
     fold_infos: list[SplitInfo] = []
     for i, (train_c, val_c) in enumerate(folds):
@@ -228,7 +228,7 @@ def _make_raw(
             )
         )
     test_indices = list(range(test_size)) if test_counts else []
-    return DataSplittingRawOutputs(
+    return DataSplittingRawOutput(
         dataset_size=total,
         label_stats_full={"label_counts_per_class": full_counts},
         test_indices=test_indices,
@@ -245,7 +245,7 @@ def _make_raw(
 class TestConsolidatedSplitSizes:
     def test_single_fold_keeps_key_value(self) -> None:
         """Single fold preserves existing key_value format."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
@@ -258,7 +258,7 @@ class TestConsolidatedSplitSizes:
 
     def test_multi_fold_uses_pivot_table(self) -> None:
         """Multi-fold emits a single pivot_table instead of N key_values."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=300,
             test_indices=list(range(60)),
             folds=[
@@ -390,7 +390,7 @@ class TestCrossSplitDistribution:
 
     def test_empty_label_stats_skips(self) -> None:
         """No cross-split finding when per-split stats are missing."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             label_stats_full={"label_counts_per_class": {"a": 50, "b": 50}},
             test_indices=list(range(20)),
@@ -449,7 +449,7 @@ class TestStratificationQuality:
 
     def test_empty_label_stats_skips(self) -> None:
         """No stratification finding when per-split stats are missing."""
-        raw = DataSplittingRawOutputs(
+        raw = DataSplittingRawOutput(
             dataset_size=100,
             label_stats_full={"label_counts_per_class": {"a": 50, "b": 50}},
             test_indices=list(range(20)),

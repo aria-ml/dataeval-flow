@@ -1,4 +1,4 @@
-"""Config loading - YAML/JSON single-file, multi-file merge, schema export."""
+"""Config loading - a YAML/JSON file, or a folder of them merged."""
 
 import json
 import logging
@@ -11,10 +11,8 @@ from dataeval_flow.config._models import PipelineConfig
 from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 
 __all__ = [
-    "export_params_schema",
     "get_data_dir",
     "load_config",
-    "load_config_folder",
     "relativize_to_data_dir",
     "resolve_path",
     "validate_config_path",
@@ -60,31 +58,47 @@ def resolve_path(relative: str | Path, data_dir: Path | None = None, *, default_
     return direct
 
 
-def load_config(config_path: Path) -> PipelineConfig:
-    """Load pipeline configuration from a single YAML or JSON file."""
-    _logger.debug("Loading config from %s", config_path)
+def load_config(path: Path | str) -> PipelineConfig:
+    """Load a pipeline config from a YAML or JSON file, or from a folder of them.
 
-    if not config_path.exists():
-        msg = f"Config file not found: {config_path}"
+    Parameters
+    ----------
+    path : Path or str
+        A ``.yaml``, ``.yml`` or ``.json`` file, or a folder. A folder's config files are merged in name
+        order: mappings merge, lists extend and a later file's scalar replaces an earlier one's. Files in the
+        folder that are not pipeline configs are skipped.
+
+    Returns
+    -------
+    PipelineConfig
+        The validated config.
+
+    Raises
+    ------
+    FileNotFoundError
+        When `path` does not exist, or names a folder holding no pipeline config file.
+    pydantic.ValidationError
+        When the config is invalid.
+
+    Examples
+    --------
+    >>> from dataeval_flow import load_config
+    >>> config = load_config("params.yaml")  # doctest: +SKIP
+    >>> config = load_config("configs/")  # doctest: +SKIP
+    """
+    path = Path(path)
+    if path.is_dir():
+        from dataeval_flow.config._merge import merge_config_folder
+
+        _logger.debug("Loading config folder %s", path)
+        return PipelineConfig.model_validate(merge_config_folder(path))
+
+    _logger.debug("Loading config from %s", path)
+    if not path.exists():
+        msg = f"Config file not found: {path}"
         raise FileNotFoundError(msg)
 
-    with open(config_path, encoding="utf-8") as f:
-        data = json.load(f) if config_path.suffix.lower() == ".json" else yaml.safe_load(f) or {}
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f) if path.suffix.lower() == ".json" else yaml.safe_load(f) or {}
 
     return PipelineConfig.model_validate(data)
-
-
-def load_config_folder(config_path: Path) -> PipelineConfig:
-    """Load and merge all YAML/JSON files from config folder."""
-    from dataeval_flow.config._merge import merge_config_folder
-
-    _logger.debug("Loading config folder %s", config_path)
-    merged = merge_config_folder(config_path)
-    return PipelineConfig.model_validate(merged)
-
-
-def export_params_schema(output_path: Path) -> None:
-    """Export JSON Schema for params.yaml (PipelineConfig) for IDE validation."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    schema = PipelineConfig.model_json_schema()
-    output_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")

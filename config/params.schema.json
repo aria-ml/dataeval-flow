@@ -166,7 +166,7 @@
       "description": "Extractor config for Bag-of-Visual-Words.\n\nYAML example::\n\n    extractors:\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
       "properties": {
         "name": {
-          "description": "Identifier for the extractor",
+          "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
           "title": "Name",
           "type": "string"
         },
@@ -193,12 +193,13 @@
             }
           ],
           "default": null,
-          "description": "Batch size for embedding extraction",
+          "description": "Images per call to the feature extractor. Unset takes DataEval's global batch size, and a run that needs embeddings fails when that is unset too.",
           "title": "Batch Size"
         },
         "model": {
           "const": "bovw",
           "default": "bovw",
+          "description": "The extractor this entry configures: `bovw`.",
           "title": "Model",
           "type": "string"
         },
@@ -211,9 +212,6 @@
           "type": "integer"
         }
       },
-      "required": [
-        "name"
-      ],
       "title": "BoVWExtractorConfig",
       "type": "object"
     },
@@ -270,89 +268,6 @@
       "title": "ChunkingConfig",
       "type": "object"
     },
-    "CleaningConfig": {
-      "additionalProperties": false,
-      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, outlier and duplicate detection runs across all datasets\nbefore prioritization.  Flagged items are excluded from the ranking.",
-      "properties": {
-        "outlier_method": {
-          "description": "Statistical method for outlier detection.",
-          "enum": [
-            "adaptive",
-            "zscore",
-            "modzscore",
-            "iqr"
-          ],
-          "title": "Outlier Method",
-          "type": "string"
-        },
-        "outlier_flags": {
-          "description": "Image statistics groups for outlier detection. At least one required.",
-          "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outlier Flags",
-          "type": "array"
-        },
-        "outlier_threshold": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Custom threshold (None = use DataEval default for chosen method).",
-          "title": "Outlier Threshold"
-        },
-        "duplicate_flags": {
-          "anyOf": [
-            {
-              "items": {
-                "enum": [
-                  "hash_basic",
-                  "hash_d4"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic).",
-          "title": "Duplicate Flags"
-        },
-        "duplicate_merge_near": {
-          "default": true,
-          "description": "Merge overlapping near-duplicate groups from different detection methods.",
-          "title": "Duplicate Merge Near",
-          "type": "boolean"
-        },
-        "duplicate_exact_only": {
-          "default": false,
-          "description": "When True, only flag exact duplicates \u2014 skip near-duplicate detection.",
-          "title": "Duplicate Exact Only",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "outlier_method",
-        "outlier_flags"
-      ],
-      "title": "CleaningConfig",
-      "type": "object"
-    },
     "CocoDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
@@ -360,14 +275,17 @@
         "format": {
           "const": "coco",
           "default": "coco",
+          "description": "Selects this dataset format: `coco`.",
           "title": "Format",
           "type": "string"
         },
         "name": {
+          "description": "Identifier for the dataset, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
         "path": {
+          "description": "Where the dataset lives, relative to the data root; a path not found there is looked up in the root's `data` folder.",
           "title": "Path",
           "type": "string"
         },
@@ -430,6 +348,7 @@
             }
           ],
           "default": null,
+          "description": "The annotations JSON, relative to `path`, which also selects the split. Leave unset to read the one found under `path`, preferring `annotations/instances_*.json`.",
           "title": "Annotations File"
         },
         "images_dir": {
@@ -442,6 +361,7 @@
             }
           ],
           "default": null,
+          "description": "The directory the annotations' image file names are relative to, relative to `path`. Leave unset for the annotations file's folder, or its parent when that folder is `annotations/`.",
           "title": "Images Dir"
         }
       },
@@ -452,53 +372,8 @@
       "title": "CocoDatasetConfig",
       "type": "object"
     },
-    "DataAnalysisHealthThresholds": {
-      "description": "Configurable warning thresholds for data analysis health status.\n\nEach threshold is a percentage (0\u2013100) unless otherwise noted.\nWhen the detected rate exceeds the threshold the corresponding\nfinding is elevated to ``severity=\"warning\"``; otherwise it stays\nat ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
-      "properties": {
-        "image_outliers": {
-          "default": 3.0,
-          "description": "Max allowable % of images flagged as statistical outliers. Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Image Outliers",
-          "type": "number"
-        },
-        "exact_duplicates": {
-          "default": 0.0,
-          "description": "Max allowable % of images in exact-duplicate groups. Default 0% \u2014 any exact duplicates trigger a warning.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Exact Duplicates",
-          "type": "number"
-        },
-        "near_duplicates": {
-          "default": 5.0,
-          "description": "Max allowable % of images in near-duplicate groups. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Near Duplicates",
-          "type": "number"
-        },
-        "class_label_imbalance": {
-          "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. Set to 1.0 to require perfectly balanced classes.",
-          "minimum": 1.0,
-          "title": "Class Label Imbalance",
-          "type": "number"
-        },
-        "distribution_shift": {
-          "default": 0.5,
-          "description": "Embedding divergence above which cross-split shift is flagged as warning. Default 0.5. Values above 0.2 are reported as 'moderate'.",
-          "minimum": 0.0,
-          "title": "Distribution Shift",
-          "type": "number"
-        }
-      },
-      "title": "DataAnalysisHealthThresholds",
-      "type": "object"
-    },
-    "DataAnalysisWorkflowConfig": {
-      "description": "Typed workflow configuration for ``data-analysis``.\n\nInherits all fields from :class:`DataAnalysisParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
+    "DataAnalysisConfig": {
+      "description": "The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
       "properties": {
         "stats": {
           "anyOf": [
@@ -510,7 +385,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views that drive outlier detection and metadata factors. Leave unset to measure the whole image alone, which is what this workflow's own `outlier_flags`, `duplicate_flags` and the metadata policy's `intrinsic_factors` ask for.",
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
         },
         "value_range": {
@@ -565,9 +440,11 @@
             }
           ],
           "default": null,
+          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
           "title": "Metadata Auto Bin Method"
         },
         "metadata_exclude": {
+          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
           "items": {
             "type": "string"
           },
@@ -597,6 +474,7 @@
             }
           ],
           "default": null,
+          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
           "title": "Metadata Continuous Factor Bins"
         },
         "metadata_factor_source": {
@@ -616,6 +494,18 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-analysis",
+          "default": "data-analysis",
+          "description": "The workflow type this entry configures: `data-analysis`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -733,33 +623,29 @@
         "health_thresholds": {
           "$ref": "#/$defs/DataAnalysisHealthThresholds",
           "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-analysis",
-          "default": "data-analysis",
-          "title": "Type",
-          "type": "string"
         }
       },
       "required": [
         "outlier_method",
-        "outlier_flags",
-        "name"
+        "outlier_flags"
       ],
-      "title": "DataAnalysisWorkflowConfig",
+      "title": "DataAnalysisConfig",
       "type": "object"
     },
-    "DataCleaningHealthThresholds": {
-      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
+    "DataAnalysisHealthThresholds": {
+      "description": "Configurable warning thresholds for data analysis health status.\n\nEach threshold is a percentage (0\u2013100) unless otherwise noted.\nWhen the detected rate exceeds the threshold the corresponding\nfinding is elevated to ``severity=\"warning\"``; otherwise it stays\nat ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
       "properties": {
+        "image_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of images flagged as statistical outliers. Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Image Outliers",
+          "type": "number"
+        },
         "exact_duplicates": {
           "default": 0.0,
-          "description": "Max allowable % of images in exact-duplicate groups. Exact duplicates are byte-identical images that inflate dataset size without adding information. Default 0% \u2014 any exact duplicates trigger a warning. Raise above 0 only if your pipeline intentionally includes repeated images (e.g. augmentation-before-split workflows).",
+          "description": "Max allowable % of images in exact-duplicate groups. Default 0% \u2014 any exact duplicates trigger a warning.",
           "maximum": 100.0,
           "minimum": 0.0,
           "title": "Exact Duplicates",
@@ -767,49 +653,32 @@
         },
         "near_duplicates": {
           "default": 5.0,
-          "description": "Max allowable % of images in near-duplicate groups. Near duplicates are visually similar images (crops, resizes, minor edits) that can bias model training toward repeated content. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
+          "description": "Max allowable % of images in near-duplicate groups. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
           "maximum": 100.0,
           "minimum": 0.0,
           "title": "Near Duplicates",
           "type": "number"
         },
-        "image_outliers": {
-          "default": 3.0,
-          "description": "Max allowable % of images flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics). Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Image Outliers",
-          "type": "number"
-        },
-        "target_outliers": {
-          "default": 3.0,
-          "description": "Max allowable % of targets (labels/annotations) flagged as outliers (unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. Lower to 1% for annotation-quality audits; raise to 5\u201310% for datasets with naturally high annotation variance (e.g. dense object detection).",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Target Outliers",
-          "type": "number"
-        },
-        "classwise_outliers": {
-          "default": 3.0,
-          "description": "Max allowable % of items flagged as outliers within any single class. Default 3%. This catches classes where outlier concentration is disproportionately high, which may indicate labeling errors or class definition issues. Lower to 1% for label-quality audits; raise to 5\u201310% for classes with inherently high visual diversity.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Classwise Outliers",
-          "type": "number"
-        },
         "class_label_imbalance": {
           "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. For binary classification, 3:1 is a common threshold for 'imbalanced'. For large class hierarchies (25+ classes), the long tail naturally increases this ratio \u2014 raise to 10\u201320:1 to avoid false warnings. Set to 1.0 to require perfectly balanced classes.",
+          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. Set to 1.0 to require perfectly balanced classes.",
           "minimum": 1.0,
           "title": "Class Label Imbalance",
           "type": "number"
+        },
+        "distribution_shift": {
+          "default": 0.5,
+          "description": "Embedding divergence above which cross-split shift is flagged as warning. Default 0.5. Values above 0.2 are reported as 'moderate'.",
+          "minimum": 0.0,
+          "title": "Distribution Shift",
+          "type": "number"
         }
       },
-      "title": "DataCleaningHealthThresholds",
+      "title": "DataAnalysisHealthThresholds",
       "type": "object"
     },
-    "DataCleaningWorkflowConfig": {
-      "description": "Typed workflow configuration for ``data-cleaning``.\n\nInherits all fields from :class:`DataCleaningParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
+    "DataCleaningConfig": {
+      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -821,7 +690,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views that drive outlier detection and metadata factors. Leave unset to measure the whole image alone, which is what this workflow's own `outlier_flags`, `duplicate_flags` and the metadata policy's `intrinsic_factors` ask for.",
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
         },
         "value_range": {
@@ -876,9 +745,11 @@
             }
           ],
           "default": null,
+          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
           "title": "Metadata Auto Bin Method"
         },
         "metadata_exclude": {
+          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
           "items": {
             "type": "string"
           },
@@ -908,6 +779,7 @@
             }
           ],
           "default": null,
+          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
           "title": "Metadata Continuous Factor Bins"
         },
         "metadata_factor_source": {
@@ -927,6 +799,18 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-cleaning",
+          "default": "data-cleaning",
+          "description": "The workflow type this entry configures: `data-cleaning`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -1109,110 +993,71 @@
         "health_thresholds": {
           "$ref": "#/$defs/DataCleaningHealthThresholds",
           "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-cleaning",
-          "default": "data-cleaning",
-          "title": "Type",
-          "type": "string"
         }
       },
       "required": [
         "outlier_method",
-        "outlier_flags",
-        "name"
+        "outlier_flags"
       ],
-      "title": "DataCleaningWorkflowConfig",
+      "title": "DataCleaningConfig",
       "type": "object"
     },
-    "DataCoverageHealthThresholds": {
-      "description": "Configurable warning thresholds for data coverage health status.\n\nEach threshold controls when the corresponding finding is elevated to\n``severity=\"warning\"``; otherwise it stays at ``severity=\"info\"``.\n\nAll ten are required numbers \u2014 ``None`` is not accepted. To stop a metric\nfrom ever warning, set it past the value it can reach: ``uncovered_rate=100.0``,\n``completeness_score=0.0``, ``leaf_coverage=0.0``, or a\n``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.",
+    "DataCleaningHealthThresholds": {
+      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
       "properties": {
-        "uncovered_rate": {
-          "default": 10.0,
-          "description": "Max allowable % of embedding observations flagged as uncovered. Default 10%. Lower for safety-critical datasets. Only applied when the headline result comes from coverage_naive \u2014 coverage_adaptive flags a fixed coverage_percent of observations, so its rate is not a health signal.",
+        "exact_duplicates": {
+          "default": 0.0,
+          "description": "Max allowable % of images in exact-duplicate groups. Exact duplicates are byte-identical images that inflate dataset size without adding information. Default 0% \u2014 any exact duplicates trigger a warning. Raise above 0 only if your pipeline intentionally includes repeated images (e.g. augmentation-before-split workflows).",
           "maximum": 100.0,
           "minimum": 0.0,
-          "title": "Uncovered Rate",
+          "title": "Exact Duplicates",
           "type": "number"
         },
-        "completeness_score": {
-          "default": 0.5,
-          "description": "Minimum dimensional completeness score before warning. Default 0.5. Raise to 0.7\u20130.8 for high-dimensional models.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Completeness Score",
-          "type": "number"
-        },
-        "class_imbalance_ratio": {
+        "near_duplicates": {
           "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1.",
+          "description": "Max allowable % of images in near-duplicate groups. Near duplicates are visually similar images (crops, resizes, minor edits) that can bias model training toward repeated content. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Near Duplicates",
+          "type": "number"
+        },
+        "image_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of images flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics). Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Image Outliers",
+          "type": "number"
+        },
+        "target_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of targets (labels/annotations) flagged as outliers (unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. Lower to 1% for annotation-quality audits; raise to 5\u201310% for datasets with naturally high annotation variance (e.g. dense object detection).",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Target Outliers",
+          "type": "number"
+        },
+        "classwise_outliers": {
+          "default": 3.0,
+          "description": "Max allowable % of items flagged as outliers within any single class. Default 3%. This catches classes where outlier concentration is disproportionately high, which may indicate labeling errors or class definition issues. Lower to 1% for label-quality audits; raise to 5\u201310% for classes with inherently high visual diversity.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Classwise Outliers",
+          "type": "number"
+        },
+        "class_label_imbalance": {
+          "default": 5.0,
+          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. For binary classification, 3:1 is a common threshold for 'imbalanced'. For large class hierarchies (25+ classes), the long tail naturally increases this ratio \u2014 raise to 10\u201320:1 to avoid false warnings. Set to 1.0 to require perfectly balanced classes.",
           "minimum": 1.0,
-          "title": "Class Imbalance Ratio",
+          "title": "Class Label Imbalance",
           "type": "number"
-        },
-        "gap_count": {
-          "default": 3,
-          "description": "Number of metadata coverage gaps before elevating to warning. Default 3.",
-          "minimum": 0,
-          "title": "Gap Count",
-          "type": "integer"
-        },
-        "min_dispersion": {
-          "default": 0.5,
-          "description": "Minimum per-class dispersion before warning. A class below this spreads less than half as far as a typical class \u2014 clustered. Default 0.5.",
-          "minimum": 0.0,
-          "title": "Min Dispersion",
-          "type": "number"
-        },
-        "min_isotropy": {
-          "default": 0.5,
-          "description": "Minimum per-class isotropy before warning. A class below this varies along too few independent directions \u2014 one-dimensional. Default 0.5.",
-          "minimum": 0.0,
-          "title": "Min Isotropy",
-          "type": "number"
-        },
-        "max_near_duplicate_fraction": {
-          "default": 0.1,
-          "description": "Maximum share of a class allowed to sit in near-duplicate pairs before warning. Above this the class is padded with repeated frames. Default 0.1.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Max Near Duplicate Fraction",
-          "type": "number"
-        },
-        "leaf_coverage": {
-          "default": 0.9,
-          "description": "Minimum fraction of sanctioned leaf species with any examples before warning. Default 0.9. Applied only to a configured ontology \u2014 against a synthesized one leaf coverage is 1.0 by construction.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Leaf Coverage",
-          "type": "number"
-        },
-        "dark_branch_count": {
-          "default": 0,
-          "description": "Number of wholly-unpopulated ontology branches tolerated before warning. Default 0, so any dark branch warns. Applied only to a configured ontology.",
-          "minimum": 0,
-          "title": "Dark Branch Count",
-          "type": "integer"
-        },
-        "unmatched_class_count": {
-          "default": 0,
-          "description": "Number of class names that may fail to resolve to an ontology concept before warning. Default 0. Applied only to a configured ontology.",
-          "minimum": 0,
-          "title": "Unmatched Class Count",
-          "type": "integer"
         }
       },
-      "title": "DataCoverageHealthThresholds",
+      "title": "DataCleaningHealthThresholds",
       "type": "object"
     },
-    "DataCoverageWorkflowConfig": {
-      "description": "Typed workflow configuration for ``data-coverage``.\n\nInherits all fields from :class:`DataCoverageParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        coverage_method: adaptive\n        balance: true\n        diversity_method: simpson\n        run_gap_analysis: true",
+    "DataCoverageConfig": {
+      "description": "The settings of one ``data-coverage`` entry: the coverage, distribution and gap analyses, and when they warn.\n\nEmbedding-based analyses (coverage, completeness) require an extractor\nand are skipped when none is configured. Metadata-based analyses always run.\n\nExample YAML::\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        coverage_method: adaptive\n        balance: true\n        diversity_method: simpson\n        run_gap_analysis: true",
       "properties": {
         "stats": {
           "anyOf": [
@@ -1224,7 +1069,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views that drive outlier detection and metadata factors. Leave unset to measure the whole image alone, which is what this workflow's own `outlier_flags`, `duplicate_flags` and the metadata policy's `intrinsic_factors` ask for.",
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
         },
         "value_range": {
@@ -1279,9 +1124,11 @@
             }
           ],
           "default": null,
+          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
           "title": "Metadata Auto Bin Method"
         },
         "metadata_exclude": {
+          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
           "items": {
             "type": "string"
           },
@@ -1311,6 +1158,7 @@
             }
           ],
           "default": null,
+          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
           "title": "Metadata Continuous Factor Bins"
         },
         "metadata_factor_source": {
@@ -1330,6 +1178,18 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-coverage",
+          "default": "data-coverage",
+          "description": "The workflow type this entry configures: `data-coverage`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -1508,42 +1368,177 @@
         "health_thresholds": {
           "$ref": "#/$defs/DataCoverageHealthThresholds",
           "description": "Warning thresholds for dataset coverage health status."
+        }
+      },
+      "title": "DataCoverageConfig",
+      "type": "object"
+    },
+    "DataCoverageHealthThresholds": {
+      "description": "Configurable warning thresholds for data coverage health status.\n\nEach threshold controls when the corresponding finding is elevated to\n``severity=\"warning\"``; otherwise it stays at ``severity=\"info\"``.\n\nAll ten are required numbers \u2014 ``None`` is not accepted. To stop a metric\nfrom ever warning, set it past the value it can reach: ``uncovered_rate=100.0``,\n``completeness_score=0.0``, ``leaf_coverage=0.0``, or a\n``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.",
+      "properties": {
+        "uncovered_rate": {
+          "default": 10.0,
+          "description": "Max allowable % of embedding observations flagged as uncovered. Default 10%. Lower for safety-critical datasets. Only applied when the headline result comes from coverage_naive \u2014 coverage_adaptive flags a fixed coverage_percent of observations, so its rate is not a health signal.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Uncovered Rate",
+          "type": "number"
         },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
+        "completeness_score": {
+          "default": 0.5,
+          "description": "Minimum dimensional completeness score before warning. Default 0.5. Raise to 0.7\u20130.8 for high-dimensional models.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Completeness Score",
+          "type": "number"
+        },
+        "class_imbalance_ratio": {
+          "default": 5.0,
+          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1.",
+          "minimum": 1.0,
+          "title": "Class Imbalance Ratio",
+          "type": "number"
+        },
+        "gap_count": {
+          "default": 3,
+          "description": "Number of metadata coverage gaps before elevating to warning. Default 3.",
+          "minimum": 0,
+          "title": "Gap Count",
+          "type": "integer"
+        },
+        "min_dispersion": {
+          "default": 0.5,
+          "description": "Minimum per-class dispersion before warning. A class below this spreads less than half as far as a typical class \u2014 clustered. Default 0.5.",
+          "minimum": 0.0,
+          "title": "Min Dispersion",
+          "type": "number"
+        },
+        "min_isotropy": {
+          "default": 0.5,
+          "description": "Minimum per-class isotropy before warning. A class below this varies along too few independent directions \u2014 one-dimensional. Default 0.5.",
+          "minimum": 0.0,
+          "title": "Min Isotropy",
+          "type": "number"
+        },
+        "max_near_duplicate_fraction": {
+          "default": 0.1,
+          "description": "Maximum share of a class allowed to sit in near-duplicate pairs before warning. Above this the class is padded with repeated frames. Default 0.1.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Near Duplicate Fraction",
+          "type": "number"
+        },
+        "leaf_coverage": {
+          "default": 0.9,
+          "description": "Minimum fraction of sanctioned leaf species with any examples before warning. Default 0.9. Applied only to a configured ontology \u2014 against a synthesized one leaf coverage is 1.0 by construction.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Leaf Coverage",
+          "type": "number"
+        },
+        "dark_branch_count": {
+          "default": 0,
+          "description": "Number of wholly-unpopulated ontology branches tolerated before warning. Default 0, so any dark branch warns. Applied only to a configured ontology.",
+          "minimum": 0,
+          "title": "Dark Branch Count",
+          "type": "integer"
+        },
+        "unmatched_class_count": {
+          "default": 0,
+          "description": "Number of class names that may fail to resolve to an ontology concept before warning. Default 0. Applied only to a configured ontology.",
+          "minimum": 0,
+          "title": "Unmatched Class Count",
+          "type": "integer"
+        }
+      },
+      "title": "DataCoverageHealthThresholds",
+      "type": "object"
+    },
+    "DataPrioritizationCleaningConfig": {
+      "additionalProperties": false,
+      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, outlier and duplicate detection runs across all datasets\nbefore prioritization.  Flagged items are excluded from the ranking.",
+      "properties": {
+        "outlier_method": {
+          "description": "Statistical method for outlier detection.",
+          "enum": [
+            "adaptive",
+            "zscore",
+            "modzscore",
+            "iqr"
+          ],
+          "title": "Outlier Method",
           "type": "string"
         },
-        "type": {
-          "const": "data-coverage",
-          "default": "data-coverage",
-          "title": "Type",
-          "type": "string"
+        "outlier_flags": {
+          "description": "Image statistics groups for outlier detection. At least one required.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outlier Flags",
+          "type": "array"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom threshold (None = use DataEval default for chosen method).",
+          "title": "Outlier Threshold"
+        },
+        "duplicate_flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic).",
+          "title": "Duplicate Flags"
+        },
+        "duplicate_merge_near": {
+          "default": true,
+          "description": "Merge overlapping near-duplicate groups from different detection methods.",
+          "title": "Duplicate Merge Near",
+          "type": "boolean"
+        },
+        "duplicate_exact_only": {
+          "default": false,
+          "description": "When True, only flag exact duplicates \u2014 skip near-duplicate detection.",
+          "title": "Duplicate Exact Only",
+          "type": "boolean"
         }
       },
       "required": [
-        "name"
+        "outlier_method",
+        "outlier_flags"
       ],
-      "title": "DataCoverageWorkflowConfig",
+      "title": "DataPrioritizationCleaningConfig",
       "type": "object"
     },
-    "DataPrioritizationHealthThresholds": {
-      "description": "Thresholds that control finding severity for the prioritization report.",
-      "properties": {
-        "cleaning_removed_pct_warning": {
-          "default": 20.0,
-          "description": "Warn if cleaning removes more than this percentage of the combined dataset.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Cleaning Removed Pct Warning",
-          "type": "number"
-        }
-      },
-      "title": "DataPrioritizationHealthThresholds",
-      "type": "object"
-    },
-    "DataPrioritizationWorkflowConfig": {
-      "description": "Typed workflow configuration for ``data-prioritization``.\n\nInherits all fields from :class:`DataPrioritizationParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
+    "DataPrioritizationConfig": {
+      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand subsequent sources are unlabeled data pools to prioritize.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -1555,7 +1550,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views that drive outlier detection and metadata factors. Leave unset to measure the whole image alone, which is what this workflow's own `outlier_flags`, `duplicate_flags` and the metadata policy's `intrinsic_factors` ask for.",
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
         },
         "value_range": {
@@ -1581,6 +1576,18 @@
           "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-prioritization",
+          "default": "data-prioritization",
+          "description": "The workflow type this entry configures: `data-prioritization`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -1709,7 +1716,7 @@
         "cleaning": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CleaningConfig"
+              "$ref": "#/$defs/DataPrioritizationCleaningConfig"
             },
             {
               "type": "null"
@@ -1721,28 +1728,41 @@
         "health_thresholds": {
           "$ref": "#/$defs/DataPrioritizationHealthThresholds",
           "description": "Warning thresholds for the prioritization report."
-        },
+        }
+      },
+      "title": "DataPrioritizationConfig",
+      "type": "object"
+    },
+    "DataPrioritizationHealthThresholds": {
+      "description": "Thresholds that control finding severity for the prioritization report.",
+      "properties": {
+        "cleaning_removed_pct_warning": {
+          "default": 20.0,
+          "description": "Warn if cleaning removes more than this percentage of the combined dataset.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Cleaning Removed Pct Warning",
+          "type": "number"
+        }
+      },
+      "title": "DataPrioritizationHealthThresholds",
+      "type": "object"
+    },
+    "DataSplittingConfig": {
+      "description": "The settings of one ``data-splitting`` entry: the folds and fractions, stratification and rebalancing.\n\nControls how the dataset is split into train/val/test partitions and\nwhat assessments are run on each split.\n\nExample YAML::\n\n    workflows:\n      - name: split_stratified\n        type: data-splitting\n        test_frac: 0.2\n        val_frac: 0.1\n        stratify: true",
+      "properties": {
         "name": {
-          "description": "Identifier for this workflow",
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
           "title": "Name",
           "type": "string"
         },
         "type": {
-          "const": "data-prioritization",
-          "default": "data-prioritization",
+          "const": "data-splitting",
+          "default": "data-splitting",
+          "description": "The workflow type this entry configures: `data-splitting`.",
           "title": "Type",
           "type": "string"
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "title": "DataPrioritizationWorkflowConfig",
-      "type": "object"
-    },
-    "DataSplittingWorkflowConfig": {
-      "description": "Typed workflow configuration for ``data-splitting``.\n\nInherits all fields from :class:`DataSplittingParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: split_stratified\n        type: data-splitting\n        test_frac: 0.2\n        val_frac: 0.1\n        stratify: true",
-      "properties": {
+        },
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",
@@ -1846,34 +1866,22 @@
           "minimum": 1,
           "title": "Num Observations",
           "type": "integer"
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-splitting",
-          "default": "data-splitting",
-          "title": "Type",
-          "type": "string"
         }
       },
-      "required": [
-        "name"
-      ],
-      "title": "DataSplittingWorkflowConfig",
+      "title": "DataSplittingConfig",
       "type": "object"
     },
     "DatasetProtocolConfig": {
       "description": "Dataset Configuration schema for an in-memory dataset.\n\nNot serializable \u2014 for programmatic use only. Cannot be loaded from\nYAML/JSON config files or edited in the builder UI.",
       "properties": {
         "name": {
+          "description": "Identifier for the dataset, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
         "format": {
           "default": "maite",
+          "description": "`maite` for a dataset already in MAITE form; `torchvision` for a torchvision dataset to wrap.",
           "enum": [
             "maite",
             "torchvision"
@@ -1882,10 +1890,12 @@
           "type": "string"
         },
         "dataset": {
+          "description": "The dataset object itself.",
           "title": "Dataset"
         },
         "version": {
           "default": "1",
+          "description": "A label for this dataset's contents, part of its cache key beside a fingerprint of a sample of its items. Change it when the data changes, so the cache is sure to miss.",
           "title": "Version",
           "type": "string"
         }
@@ -1904,14 +1914,17 @@
         "format": {
           "const": "demo",
           "default": "demo",
+          "description": "Selects this dataset format: `demo`.",
           "title": "Format",
           "type": "string"
         },
         "name": {
+          "description": "Identifier for the dataset, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
         "path": {
+          "description": "Where the dataset lives, relative to the data root; a path not found there is looked up in the root's `data` folder.",
           "title": "Path",
           "type": "string"
         },
@@ -2004,6 +2017,7 @@
         "method": {
           "const": "domain_classifier",
           "default": "domain_classifier",
+          "description": "Selects this drift detector: `domain_classifier`.",
           "title": "Method",
           "type": "string"
         },
@@ -2051,6 +2065,7 @@
         "method": {
           "const": "kneighbors",
           "default": "kneighbors",
+          "description": "Selects this drift detector: `kneighbors`.",
           "title": "Method",
           "type": "string"
         },
@@ -2108,6 +2123,7 @@
         "method": {
           "const": "mmd",
           "default": "mmd",
+          "description": "Selects this drift detector: `mmd`.",
           "title": "Method",
           "type": "string"
         },
@@ -2168,6 +2184,7 @@
         "method": {
           "const": "univariate",
           "default": "univariate",
+          "description": "Selects this drift detector: `univariate`.",
           "title": "Method",
           "type": "string"
         },
@@ -2249,43 +2266,21 @@
       "title": "DriftDetectorUnivariate",
       "type": "object"
     },
-    "DriftHealthThresholds": {
-      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"``.",
+    "DriftMonitoringConfig": {
+      "description": "The settings of one ``drift-monitoring`` entry: the detectors run against the reference, and when they warn.\n\nAt least one detector must be configured.  Chunking and classwise\nanalysis are optional extensions.\n\nExample YAML::\n\n    workflows:\n      - name: drift_knn\n        type: drift-monitoring\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
-        "any_drift_is_warning": {
-          "default": true,
-          "description": "Non-chunked mode: if any detector flags drift, the finding is a warning. Set to False to treat all non-chunked results as informational.",
-          "title": "Any Drift Is Warning",
-          "type": "boolean"
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
         },
-        "chunk_drift_pct_warning": {
-          "default": 10.0,
-          "description": "Chunked mode: percentage of chunks that must drift to trigger a warning.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Chunk Drift Pct Warning",
-          "type": "number"
+        "type": {
+          "const": "drift-monitoring",
+          "default": "drift-monitoring",
+          "description": "The workflow type this entry configures: `drift-monitoring`.",
+          "title": "Type",
+          "type": "string"
         },
-        "consecutive_chunks_warning": {
-          "default": 3,
-          "description": "Chunked mode: number of consecutive drifted chunks that triggers a warning. Sustained drift is typically more concerning than sporadic drift.",
-          "minimum": 1,
-          "title": "Consecutive Chunks Warning",
-          "type": "integer"
-        },
-        "classwise_any_drift_is_warning": {
-          "default": true,
-          "description": "Classwise mode: if any class drifts for any detector, the finding is a warning.",
-          "title": "Classwise Any Drift Is Warning",
-          "type": "boolean"
-        }
-      },
-      "title": "DriftHealthThresholds",
-      "type": "object"
-    },
-    "DriftMonitoringWorkflowConfig": {
-      "description": "Typed workflow configuration for ``drift-monitoring``.\n\nInherits all fields from :class:`DriftMonitoringParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: drift_knn\n        type: drift-monitoring\n        detectors:\n          - method: kneighbors\n            k: 10",
-      "properties": {
         "mode": {
           "default": "advisory",
           "description": "advisory: report only, preparatory: modify dataset",
@@ -2357,31 +2352,53 @@
           "description": "Reference-set update strategy (stubbed \u2014 not yet applied at runtime). Accepted in config to preserve forward compatibility."
         },
         "health_thresholds": {
-          "$ref": "#/$defs/DriftHealthThresholds",
+          "$ref": "#/$defs/DriftMonitoringHealthThresholds",
           "description": "Warning thresholds for drift severity classification."
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "drift-monitoring",
-          "default": "drift-monitoring",
-          "title": "Type",
-          "type": "string"
         }
       },
       "required": [
-        "detectors",
-        "name"
+        "detectors"
       ],
-      "title": "DriftMonitoringWorkflowConfig",
+      "title": "DriftMonitoringConfig",
       "type": "object"
     },
-    "DuplicatesEvaluatorConfig": {
+    "DriftMonitoringHealthThresholds": {
+      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"``.",
+      "properties": {
+        "any_drift_is_warning": {
+          "default": true,
+          "description": "Non-chunked mode: if any detector flags drift, the finding is a warning. Set to False to treat all non-chunked results as informational.",
+          "title": "Any Drift Is Warning",
+          "type": "boolean"
+        },
+        "chunk_drift_pct_warning": {
+          "default": 10.0,
+          "description": "Chunked mode: percentage of chunks that must drift to trigger a warning.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Chunk Drift Pct Warning",
+          "type": "number"
+        },
+        "consecutive_chunks_warning": {
+          "default": 3,
+          "description": "Chunked mode: number of consecutive drifted chunks that triggers a warning. Sustained drift is typically more concerning than sporadic drift.",
+          "minimum": 1,
+          "title": "Consecutive Chunks Warning",
+          "type": "integer"
+        },
+        "classwise_any_drift_is_warning": {
+          "default": true,
+          "description": "Classwise mode: if any class drifts for any detector, the finding is a warning.",
+          "title": "Classwise Any Drift Is Warning",
+          "type": "boolean"
+        }
+      },
+      "title": "DriftMonitoringHealthThresholds",
+      "type": "object"
+    },
+    "DuplicatesConfig": {
       "additionalProperties": false,
-      "description": "Typed evaluator configuration for ``quality.duplicates``.\n\nExample YAML::\n\n    evaluators:\n      - name: dupes\n        type: quality.duplicates\n        flags: [hash_basic, hash_d4]",
+      "description": "Config for ``quality.duplicates``, DataEval's Duplicates.\n\nDetermines which images are exact or near duplicates of each other, across every source\nthe task names. Setting ``cluster_sensitivity`` adds embedding-space near duplicates,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators quality.duplicates`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: dupes\n        type: quality.duplicates\n        flags: [hash_basic, hash_d4]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -2395,6 +2412,18 @@
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "quality.duplicates",
+          "default": "quality.duplicates",
+          "description": "The evaluator type this entry configures: `quality.duplicates`.",
+          "title": "Type",
+          "type": "string"
         },
         "cluster_algorithm": {
           "anyOf": [
@@ -2513,23 +2542,9 @@
           "default": null,
           "description": "Enables cluster mode: embedding-space near duplicates at this sensitivity, merged with the hash groups. Needs an extractor on the task, and reads one source.",
           "title": "Cluster Sensitivity"
-        },
-        "name": {
-          "description": "Identifier for this evaluator",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "quality.duplicates",
-          "default": "quality.duplicates",
-          "title": "Type",
-          "type": "string"
         }
       },
-      "required": [
-        "name"
-      ],
-      "title": "DuplicatesEvaluatorConfig",
+      "title": "DuplicatesConfig",
       "type": "object"
     },
     "ExportConfig": {
@@ -2595,7 +2610,7 @@
       "description": "Extractor config for simple flattening (no model).\n\nYAML example::\n\n    extractors:\n      - name: flat_extractor\n        model: flatten",
       "properties": {
         "name": {
-          "description": "Identifier for the extractor",
+          "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
           "title": "Name",
           "type": "string"
         },
@@ -2622,19 +2637,17 @@
             }
           ],
           "default": null,
-          "description": "Batch size for embedding extraction",
+          "description": "Images per call to the feature extractor. Unset takes DataEval's global batch size, and a run that needs embeddings fails when that is unset too.",
           "title": "Batch Size"
         },
         "model": {
           "const": "flatten",
           "default": "flatten",
+          "description": "The extractor this entry configures: `flatten`.",
           "title": "Model",
           "type": "string"
         }
       },
-      "required": [
-        "name"
-      ],
       "title": "FlattenExtractorConfig",
       "type": "object"
     },
@@ -2645,14 +2658,17 @@
         "format": {
           "const": "huggingface",
           "default": "huggingface",
+          "description": "Selects this dataset format: `huggingface`.",
           "title": "Format",
           "type": "string"
         },
         "name": {
+          "description": "Identifier for the dataset, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
         "path": {
+          "description": "Where the dataset lives, relative to the data root; a path not found there is looked up in the root's `data` folder.",
           "title": "Path",
           "type": "string"
         },
@@ -2715,9 +2731,11 @@
             }
           ],
           "default": null,
+          "description": "Split to load, read as a subdirectory of `path`. Leave unset to load `path` itself.",
           "title": "Split"
         },
         "task": {
+          "description": "Which loader reads the dataset: image classification or object detection.",
           "enum": [
             "image_classification",
             "object_detection"
@@ -2741,14 +2759,17 @@
         "format": {
           "const": "image_folder",
           "default": "image_folder",
+          "description": "Selects this dataset format: `image_folder`.",
           "title": "Format",
           "type": "string"
         },
         "name": {
+          "description": "Identifier for the dataset, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
         "path": {
+          "description": "Where the dataset lives, relative to the data root; a path not found there is looked up in the root's `data` folder.",
           "title": "Path",
           "type": "string"
         },
@@ -2803,11 +2824,13 @@
         },
         "recursive": {
           "default": false,
+          "description": "Scan subdirectories for images as well.",
           "title": "Recursive",
           "type": "boolean"
         },
         "infer_labels": {
           "default": false,
+          "description": "Label each image by the subdirectory it sits in, one class per subdirectory.",
           "title": "Infer Labels",
           "type": "boolean"
         }
@@ -2820,10 +2843,11 @@
       "type": "object"
     },
     "LoggingConfig": {
-      "description": "Logging level configuration.",
+      "description": "The log levels of a pipeline's ``logging:`` key.\n\nOnly a pipeline run by the ``dataeval-flow`` command applies them: :func:`~dataeval_flow.run_tasks` and\n:func:`~dataeval_flow.run` leave logging to their caller.\n\nYAML example::\n\n    logging:\n      app_level: INFO\n      lib_level: ERROR",
       "properties": {
         "app_level": {
           "default": "DEBUG",
+          "description": "Level of dataeval-flow's own loggers.",
           "enum": [
             "DEBUG",
             "INFO",
@@ -2835,6 +2859,7 @@
         },
         "lib_level": {
           "default": "WARNING",
+          "description": "Level of the root logger, so of the libraries dataeval-flow calls. DataEval's diagnostics still show at WARNING when this is set higher.",
           "enum": [
             "DEBUG",
             "INFO",
@@ -3050,8 +3075,8 @@
       "title": "MetadataPolicyConfig",
       "type": "object"
     },
-    "MetadataTriageWorkflowConfig": {
-      "description": "Typed workflow configuration for ``metadata-triage``.\n\nInherits all fields from :class:`MetadataTriageParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+    "MetadataTriageConfig": {
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -3081,9 +3106,11 @@
             }
           ],
           "default": null,
+          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
           "title": "Metadata Auto Bin Method"
         },
         "metadata_exclude": {
+          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
           "items": {
             "type": "string"
           },
@@ -3113,6 +3140,7 @@
             }
           ],
           "default": null,
+          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
           "title": "Metadata Continuous Factor Bins"
         },
         "metadata_factor_source": {
@@ -3132,6 +3160,18 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "metadata-triage",
+          "default": "metadata-triage",
+          "description": "The workflow type this entry configures: `metadata-triage`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -3187,27 +3227,13 @@
           "minimum": 0.0,
           "title": "Min Missing Fraction",
           "type": "number"
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "metadata-triage",
-          "default": "metadata-triage",
-          "title": "Type",
-          "type": "string"
         }
       },
-      "required": [
-        "name"
-      ],
-      "title": "MetadataTriageWorkflowConfig",
+      "title": "MetadataTriageConfig",
       "type": "object"
     },
-    "OODDetectionWorkflowConfig": {
-      "description": "Typed workflow configuration for ``ood-detection``.\n\nInherits all fields from :class:`OODDetectionParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
+    "OODDetectionConfig": {
+      "description": "The settings of one ``ood-detection`` entry: the OOD detectors scored against the reference, and when they warn.\n\nAt least one detector must be configured.  Metadata insights are\nenabled by default to explain why samples are flagged OOD.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
         "stats": {
           "anyOf": [
@@ -3219,7 +3245,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views that drive outlier detection and metadata factors. Leave unset to measure the whole image alone, which is what this workflow's own `outlier_flags`, `duplicate_flags` and the metadata policy's `intrinsic_factors` ask for.",
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
         },
         "value_range": {
@@ -3274,9 +3300,11 @@
             }
           ],
           "default": null,
+          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
           "title": "Metadata Auto Bin Method"
         },
         "metadata_exclude": {
+          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
           "items": {
             "type": "string"
           },
@@ -3306,6 +3334,7 @@
             }
           ],
           "default": null,
+          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
           "title": "Metadata Continuous Factor Bins"
         },
         "metadata_factor_source": {
@@ -3325,6 +3354,18 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "ood-detection",
+          "default": "ood-detection",
+          "description": "The workflow type this entry configures: `ood-detection`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -3377,7 +3418,7 @@
           "type": "array"
         },
         "health_thresholds": {
-          "$ref": "#/$defs/OODHealthThresholds",
+          "$ref": "#/$defs/OODDetectionHealthThresholds",
           "description": "Warning thresholds for OOD severity classification."
         },
         "metadata_insights": {
@@ -3392,33 +3433,45 @@
           "exclusiveMinimum": 0,
           "title": "Max Ood Insights",
           "type": "integer"
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "ood-detection",
-          "default": "ood-detection",
-          "title": "Type",
-          "type": "string"
         }
       },
       "required": [
-        "detectors",
-        "name"
+        "detectors"
       ],
-      "title": "OODDetectionWorkflowConfig",
+      "title": "OODDetectionConfig",
+      "type": "object"
+    },
+    "OODDetectionHealthThresholds": {
+      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"`` or ``severity=\"ok\"``.",
+      "properties": {
+        "ood_pct_warning": {
+          "default": 10.0,
+          "description": "Percentage of test samples flagged OOD that triggers a warning.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Ood Pct Warning",
+          "type": "number"
+        },
+        "ood_pct_info": {
+          "default": 1.0,
+          "description": "Percentage of test samples flagged OOD that triggers an info finding. Below this percentage, severity is 'ok'.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Ood Pct Info",
+          "type": "number"
+        }
+      },
+      "title": "OODDetectionHealthThresholds",
       "type": "object"
     },
     "OODDetectorDomainClassifier": {
       "additionalProperties": false,
-      "description": "Domain classifier OOD detector.\n\nUses a LightGBM classifier's ability to distinguish test samples from\nreference samples as an OOD signal.  Samples that a classifier can easily\nidentify as 'not reference' are likely OOD.",
+      "description": "Domain classifier OOD detector.\n\nUses a LightGBM classifier's ability to distinguish test samples from\nreference samples as an OOD signal.  Samples that a classifier can identify as 'not reference' are likely OOD.",
       "properties": {
         "method": {
           "const": "domain_classifier",
           "default": "domain_classifier",
+          "description": "Selects this OOD detector: `domain_classifier`.",
           "title": "Method",
           "type": "string"
         },
@@ -3462,6 +3515,7 @@
         "method": {
           "const": "kneighbors",
           "default": "kneighbors",
+          "description": "Selects this OOD detector: `kneighbors`.",
           "title": "Method",
           "type": "string"
         },
@@ -3494,35 +3548,12 @@
       "title": "OODDetectorKNeighbors",
       "type": "object"
     },
-    "OODHealthThresholds": {
-      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"`` or ``severity=\"ok\"``.",
-      "properties": {
-        "ood_pct_warning": {
-          "default": 10.0,
-          "description": "Percentage of test samples flagged OOD that triggers a warning.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Ood Pct Warning",
-          "type": "number"
-        },
-        "ood_pct_info": {
-          "default": 1.0,
-          "description": "Percentage of test samples flagged OOD that triggers an info finding. Below this percentage, severity is 'ok'.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Ood Pct Info",
-          "type": "number"
-        }
-      },
-      "title": "OODHealthThresholds",
-      "type": "object"
-    },
     "OnnxExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64\n        image_height: 224\n        image_width: 224",
       "properties": {
         "name": {
-          "description": "Identifier for the extractor",
+          "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
           "title": "Name",
           "type": "string"
         },
@@ -3549,12 +3580,13 @@
             }
           ],
           "default": null,
-          "description": "Batch size for embedding extraction",
+          "description": "Images per call to the feature extractor. Unset takes DataEval's global batch size, and a run that needs embeddings fails when that is unset too.",
           "title": "Batch Size"
         },
         "model": {
           "const": "onnx",
           "default": "onnx",
+          "description": "The extractor this entry configures: `onnx`.",
           "title": "Model",
           "type": "string"
         },
@@ -3612,7 +3644,6 @@
         }
       },
       "required": [
-        "name",
         "model_path"
       ],
       "title": "OnnxExtractorConfig",
@@ -3714,9 +3745,9 @@
       "title": "OntologyConfig",
       "type": "object"
     },
-    "OutliersEvaluatorConfig": {
+    "OutliersConfig": {
       "additionalProperties": false,
-      "description": "Typed evaluator configuration for ``quality.outliers``.\n\nExample YAML::\n\n    evaluators:\n      - name: outliers\n        type: quality.outliers\n        flags: [pixel, visual]\n        outlier_threshold: [zscore, 3.0]",
+      "description": "Config for ``quality.outliers``, DataEval's Outliers.\n\nDetermines which images' statistics sit outside ``outlier_threshold``, across every\nsource the task names. Setting ``cluster_threshold`` adds embedding-space outliers,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators quality.outliers`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: outliers\n        type: quality.outliers\n        flags: [pixel, visual]\n        outlier_threshold: [zscore, 3.0]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -3730,6 +3761,18 @@
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "quality.outliers",
+          "default": "quality.outliers",
+          "description": "The evaluator type this entry configures: `quality.outliers`.",
+          "title": "Type",
+          "type": "string"
         },
         "cluster_algorithm": {
           "anyOf": [
@@ -4511,27 +4554,13 @@
           "default": null,
           "description": "Enables cluster mode: embedding-space outliers at this threshold, merged with the statistical ones. Needs an extractor on the task, and reads one source.",
           "title": "Cluster Threshold"
-        },
-        "name": {
-          "description": "Identifier for this evaluator",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "quality.outliers",
-          "default": "quality.outliers",
-          "title": "Type",
-          "type": "string"
         }
       },
-      "required": [
-        "name"
-      ],
-      "title": "OutliersEvaluatorConfig",
+      "title": "OutliersConfig",
       "type": "object"
     },
-    "ParameterSweepWorkflowConfig": {
-      "description": "Typed workflow configuration for ``parameter-sweep``.\n\nInherits all fields from :class:`ParameterSweepParameters` \u2014 no ``params``\nnesting required.\n\nExample YAML::\n\n    workflows:\n      - name: sweep_outlier_threshold\n        type: parameter-sweep\n        outlier_method: [adaptive]\n        outlier_threshold: [null, 1.0, 2.0, 3.0]",
+    "ParameterSweepConfig": {
+      "description": "The settings of one ``parameter-sweep`` entry: the ``data-cleaning`` values to try, each field a list of them.\n\nEvery combination runs once, so the report shows how each outcome moves with the\nvalues that feed it.\n\nExample YAML::\n\n    workflows:\n      - name: sweep_outlier_threshold\n        type: parameter-sweep\n        outlier_method: [adaptive]\n        outlier_threshold: [null, 1.0, 2.0, 3.0]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -4543,7 +4572,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views that drive outlier detection and metadata factors. Leave unset to measure the whole image alone, which is what this workflow's own `outlier_flags`, `duplicate_flags` and the metadata policy's `intrinsic_factors` ask for.",
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
         },
         "value_range": {
@@ -4569,6 +4598,18 @@
           "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "parameter-sweep",
+          "default": "parameter-sweep",
+          "description": "The workflow type this entry configures: `parameter-sweep`.",
+          "title": "Type",
+          "type": "string"
         },
         "mode": {
           "default": "advisory",
@@ -4756,23 +4797,9 @@
           },
           "title": "Duplicate Cluster Algorithm",
           "type": "array"
-        },
-        "name": {
-          "description": "Identifier for this workflow",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "parameter-sweep",
-          "default": "parameter-sweep",
-          "title": "Type",
-          "type": "string"
         }
       },
-      "required": [
-        "name"
-      ],
-      "title": "ParameterSweepWorkflowConfig",
+      "title": "ParameterSweepConfig",
       "type": "object"
     },
     "ParseDateTimeCorrectionConfig": {
@@ -4787,6 +4814,7 @@
         "kind": {
           "const": "parse_datetime",
           "default": "parse_datetime",
+          "description": "Selects this correction: `parse_datetime`.",
           "title": "Kind",
           "type": "string"
         },
@@ -4858,6 +4886,7 @@
         "kind": {
           "const": "parse_value",
           "default": "parse_value",
+          "description": "Selects this correction: `parse_value`.",
           "title": "Kind",
           "type": "string"
         },
@@ -4884,15 +4913,16 @@
       "type": "object"
     },
     "PreprocessingStep": {
-      "description": "Single preprocessing step.\n\nPass-through to torchvision.transforms.v2 - any transform name is allowed.\nSee: https://pytorch.org/vision/stable/transforms.html\n\nExample\n-------\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
+      "description": "One step of a preprocessor: a transform, by name, and the keyword arguments it is built with.\n\nA step names a registered transform (see :func:`~dataeval_flow.config.transforms.list_transforms`) or, failing\nthat, a ``torchvision.transforms.v2`` transform (https://pytorch.org/vision/stable/transforms.html).\n\nExamples\n--------\n>>> from dataeval_flow.config import PreprocessingStep\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
       "properties": {
         "step": {
-          "description": "Transform name from torchvision.transforms.v2",
+          "description": "The transform: a registered one's name, such as `ToRGB`, or a torchvision.transforms.v2 one's.",
           "title": "Step",
           "type": "string"
         },
         "params": {
           "additionalProperties": true,
+          "description": "Keyword arguments the transform is built with. For a torchvision transform, a `dtype` names a torch dtype and an `interpolation` an InterpolationMode.",
           "title": "Params",
           "type": "object"
         }
@@ -4904,13 +4934,15 @@
       "type": "object"
     },
     "PreprocessorConfig": {
-      "description": "Named preprocessor pipeline configuration.\n\nSteps can be torchvision transforms (serializable, YAML-configurable)\nor arbitrary callables (programmatic only).",
+      "description": "A named preprocessor: the steps an extractor applies to each image before it embeds it.\n\nAn extractor names one by its ``preprocessor``. Its steps run in order, in one torchvision ``v2.Compose``.",
       "properties": {
         "name": {
+          "description": "Identifier for the preprocessor, referenced by extractors.",
           "title": "Name",
           "type": "string"
         },
         "steps": {
+          "description": "The transforms to apply, in order.",
           "items": {
             "$ref": "#/$defs/PreprocessingStep"
           },
@@ -5180,6 +5212,7 @@
         "kind": {
           "const": "remap",
           "default": "remap",
+          "description": "Selects this correction: `remap`.",
           "title": "Kind",
           "type": "string"
         },
@@ -5272,6 +5305,7 @@
         "kind": {
           "const": "rescale",
           "default": "rescale",
+          "description": "Selects this correction: `rescale`.",
           "title": "Kind",
           "type": "string"
         },
@@ -5507,6 +5541,7 @@
       ],
       "properties": {
         "name": {
+          "description": "Identifier for the task: the key of its result, and what `--task` selects.",
           "title": "Name",
           "type": "string"
         },
@@ -5533,6 +5568,7 @@
               "type": "array"
             }
           ],
+          "description": "The sources this task reads, by name: one, or several in the order the workflow reads them.",
           "title": "Sources"
         },
         "extractor": {
@@ -5545,6 +5581,7 @@
             }
           ],
           "default": null,
+          "description": "The extractor this task embeds with, by name. Leave unset when it needs none.",
           "title": "Extractor"
         },
         "evaluator": {
@@ -5565,7 +5602,7 @@
       "description": "Extractor config for PyTorch models.\n\nYAML example::\n\n    extractors:\n      - name: torch_extractor\n        model: torch\n        model_path: \"./resnet.pt\"\n        layer_name: layer4\n        device: cpu",
       "properties": {
         "name": {
-          "description": "Identifier for the extractor",
+          "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
           "title": "Name",
           "type": "string"
         },
@@ -5592,12 +5629,13 @@
             }
           ],
           "default": null,
-          "description": "Batch size for embedding extraction",
+          "description": "Images per call to the feature extractor. Unset takes DataEval's global batch size, and a run that needs embeddings fails when that is unset too.",
           "title": "Batch Size"
         },
         "model": {
           "const": "torch",
           "default": "torch",
+          "description": "The extractor this entry configures: `torch`.",
           "title": "Model",
           "type": "string"
         },
@@ -5640,7 +5678,6 @@
         }
       },
       "required": [
-        "name",
         "model_path"
       ],
       "title": "TorchExtractorConfig",
@@ -5651,7 +5688,7 @@
       "description": "Extractor config for uncertainty estimation models.\n\nYAML example::\n\n    extractors:\n      - name: unc_extractor\n        model: uncertainty\n        model_path: \"./classifier.pt\"\n        preds_type: logits",
       "properties": {
         "name": {
-          "description": "Identifier for the extractor",
+          "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
           "title": "Name",
           "type": "string"
         },
@@ -5678,12 +5715,13 @@
             }
           ],
           "default": null,
-          "description": "Batch size for embedding extraction",
+          "description": "Images per call to the feature extractor. Unset takes DataEval's global batch size, and a run that needs embeddings fails when that is unset too.",
           "title": "Batch Size"
         },
         "model": {
           "const": "uncertainty",
           "default": "uncertainty",
+          "description": "The extractor this entry configures: `uncertainty`.",
           "title": "Model",
           "type": "string"
         },
@@ -5724,7 +5762,6 @@
         }
       },
       "required": [
-        "name",
         "model_path"
       ],
       "title": "UncertaintyExtractorConfig",
@@ -5760,6 +5797,7 @@
       "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.\n\nFor backward compatibility the legacy ``steps`` key is accepted on input as\nan alias for ``operations`` (with a :class:`DeprecationWarning`).",
       "properties": {
         "name": {
+          "description": "Identifier for the view, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
@@ -5789,6 +5827,7 @@
         },
         "params": {
           "additionalProperties": true,
+          "description": "Keyword arguments the operation is built with. `indices` also takes a {start, stop[, step]} range.",
           "properties": {
             "indices": {
               "anyOf": [
@@ -5833,19 +5872,22 @@
     },
     "YoloDatasetConfig": {
       "additionalProperties": false,
-      "description": "Dataset config for YOLO format.\n\n``path`` is the dataset root \u2014 the directory holding ``data.yaml`` and the\nimage/label trees \u2014 for either Ultralytics arrangement (``images/train/`` +\n``labels/train/`` or ``train/images/`` + ``train/labels/``).  Select a split\nwith ``split`` rather than by pointing ``path`` at a split subdirectory,\nwhich puts ``data.yaml`` out of scope and falls back to numeric class names.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo\n        split: train",
+      "description": "Dataset config for YOLO format.\n\n``path`` is the dataset root \u2014 the directory holding ``data.yaml`` and the\nimage/label trees \u2014 for either Ultralytics arrangement (``images/train/`` +\n``labels/train/`` or ``train/images/`` + ``train/labels/``).  Select a split\nwith ``split``. Pointing ``path`` at a split subdirectory puts\n``data.yaml`` out of scope and falls back to numeric class names.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo\n        split: train",
       "properties": {
         "format": {
           "const": "yolo",
           "default": "yolo",
+          "description": "Selects this dataset format: `yolo`.",
           "title": "Format",
           "type": "string"
         },
         "name": {
+          "description": "Identifier for the dataset, referenced by sources.",
           "title": "Name",
           "type": "string"
         },
         "path": {
+          "description": "Where the dataset lives, relative to the data root; a path not found there is looked up in the root's `data` folder.",
           "title": "Path",
           "type": "string"
         },
@@ -5908,6 +5950,7 @@
             }
           ],
           "default": null,
+          "description": "Load only this split (`train`, `val` or `test`; aliases such as `validation` normalize). Leave unset to load every split under `path`.",
           "title": "Split"
         },
         "yaml_file": {
@@ -5920,6 +5963,7 @@
             }
           ],
           "default": null,
+          "description": "The `data.yaml` file, relative to `path`, for one not at the root under the conventional name. It is authoritative: a missing file, or one whose image sources yield nothing, gives an empty dataset.",
           "title": "Yaml File"
         },
         "ann_dir": {
@@ -5932,6 +5976,7 @@
             }
           ],
           "default": null,
+          "description": "The label directory, relative to `path`, for labels kept outside the conventional `labels/`.",
           "title": "Ann Dir"
         }
       },
@@ -5954,7 +5999,8 @@
           "type": "null"
         }
       ],
-      "default": null
+      "default": null,
+      "description": "Log levels for dataeval-flow and the libraries it calls, applied when the CLI runs the pipeline"
     },
     "seed": {
       "anyOf": [
@@ -6021,6 +6067,7 @@
         }
       ],
       "default": null,
+      "description": "Named dataset definitions (format + path), referenced by sources",
       "title": "Datasets"
     },
     "preprocessors": {
@@ -6036,6 +6083,7 @@
         }
       ],
       "default": null,
+      "description": "Named preprocessor definitions (transform steps), referenced by extractors",
       "title": "Preprocessors"
     },
     "views": {
@@ -6122,25 +6170,15 @@
       "anyOf": [
         {
           "items": {
-            "discriminator": {
-              "mapping": {
-                "bovw": "#/$defs/BoVWExtractorConfig",
-                "flatten": "#/$defs/FlattenExtractorConfig",
-                "onnx": "#/$defs/OnnxExtractorConfig",
-                "torch": "#/$defs/TorchExtractorConfig",
-                "uncertainty": "#/$defs/UncertaintyExtractorConfig"
-              },
-              "propertyName": "model"
-            },
             "oneOf": [
-              {
-                "$ref": "#/$defs/OnnxExtractorConfig"
-              },
               {
                 "$ref": "#/$defs/BoVWExtractorConfig"
               },
               {
                 "$ref": "#/$defs/FlattenExtractorConfig"
+              },
+              {
+                "$ref": "#/$defs/OnnxExtractorConfig"
               },
               {
                 "$ref": "#/$defs/TorchExtractorConfig"
@@ -6180,47 +6218,33 @@
       "anyOf": [
         {
           "items": {
-            "discriminator": {
-              "mapping": {
-                "data-analysis": "#/$defs/DataAnalysisWorkflowConfig",
-                "data-cleaning": "#/$defs/DataCleaningWorkflowConfig",
-                "data-coverage": "#/$defs/DataCoverageWorkflowConfig",
-                "data-prioritization": "#/$defs/DataPrioritizationWorkflowConfig",
-                "data-splitting": "#/$defs/DataSplittingWorkflowConfig",
-                "drift-monitoring": "#/$defs/DriftMonitoringWorkflowConfig",
-                "metadata-triage": "#/$defs/MetadataTriageWorkflowConfig",
-                "ood-detection": "#/$defs/OODDetectionWorkflowConfig",
-                "parameter-sweep": "#/$defs/ParameterSweepWorkflowConfig"
-              },
-              "propertyName": "type"
-            },
             "oneOf": [
               {
-                "$ref": "#/$defs/DataAnalysisWorkflowConfig"
+                "$ref": "#/$defs/DataAnalysisConfig"
               },
               {
-                "$ref": "#/$defs/DataCleaningWorkflowConfig"
+                "$ref": "#/$defs/DataCleaningConfig"
               },
               {
-                "$ref": "#/$defs/DataCoverageWorkflowConfig"
+                "$ref": "#/$defs/DataCoverageConfig"
               },
               {
-                "$ref": "#/$defs/DataPrioritizationWorkflowConfig"
+                "$ref": "#/$defs/DataPrioritizationConfig"
               },
               {
-                "$ref": "#/$defs/DataSplittingWorkflowConfig"
+                "$ref": "#/$defs/DataSplittingConfig"
               },
               {
-                "$ref": "#/$defs/DriftMonitoringWorkflowConfig"
+                "$ref": "#/$defs/DriftMonitoringConfig"
               },
               {
-                "$ref": "#/$defs/MetadataTriageWorkflowConfig"
+                "$ref": "#/$defs/MetadataTriageConfig"
               },
               {
-                "$ref": "#/$defs/OODDetectionWorkflowConfig"
+                "$ref": "#/$defs/OODDetectionConfig"
               },
               {
-                "$ref": "#/$defs/ParameterSweepWorkflowConfig"
+                "$ref": "#/$defs/ParameterSweepConfig"
               }
             ]
           },
@@ -6238,19 +6262,12 @@
       "anyOf": [
         {
           "items": {
-            "discriminator": {
-              "mapping": {
-                "quality.duplicates": "#/$defs/DuplicatesEvaluatorConfig",
-                "quality.outliers": "#/$defs/OutliersEvaluatorConfig"
-              },
-              "propertyName": "type"
-            },
             "oneOf": [
               {
-                "$ref": "#/$defs/DuplicatesEvaluatorConfig"
+                "$ref": "#/$defs/DuplicatesConfig"
               },
               {
-                "$ref": "#/$defs/OutliersEvaluatorConfig"
+                "$ref": "#/$defs/OutliersConfig"
               }
             ]
           },
@@ -6277,6 +6294,7 @@
         }
       ],
       "default": null,
+      "description": "What to run: each task runs a workflow or evaluator on named sources, with an optional extractor",
       "title": "Tasks"
     }
   },

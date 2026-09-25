@@ -9,9 +9,9 @@ Cut a release from the branch you are standing on.
     python scripts/release.py --dry-run       # print what would happen, touch nothing
 
 Promotes the hand-written `## Unreleased` section of CHANGELOG.md to the new version,
-commits, and tags. Unlike DataEval's script this does not generate release notes from
-commit subjects: `.github/workflows/publish.yml` lifts the `## vX.Y.Z` section verbatim
-as the GitHub Release body, and BRANCHING.md asks for that prose to be written by hand.
+commits, and tags. It does not generate release notes from commit subjects:
+`.github/workflows/publish.yml` lifts the `## vX.Y.Z` section verbatim as the GitHub
+Release body, and BRANCHING.md asks for that prose to be written by hand.
 Commit `[tag]` prefixes are still read, to enforce what a release branch may carry.
 
 It never pushes: review the commit, then `git push --follow-tags` to publish. Pushing

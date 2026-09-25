@@ -10,10 +10,10 @@ pytestmark = pytest.mark.required
 
 
 class TestRunTasks:
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_no_tasks_exits_zero(self, mock_load: MagicMock, mock_run: MagicMock):
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         config = MagicMock()
         config.tasks = []
@@ -22,10 +22,10 @@ class TestRunTasks:
 
         assert run(Path("/fake/config"), Path("/fake/output")) == 0
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_successful_tasks(self, mock_load: MagicMock, mock_run: MagicMock, tmp_path: Path):
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task1 = MagicMock()
         task1.name = "task1"
@@ -53,7 +53,7 @@ class TestRunTasks:
         result2.report.return_value = "text report 2"
         result2.to_dict.return_value = {"metadata": {}, "score": 0.8}
 
-        mock_run.return_value = [result1, result2]
+        mock_run.return_value = {"task1": result1, "task2": result2}
 
         assert run(Path("/fake/config"), tmp_path) == 0
         # Single merged result files in the results folder
@@ -63,11 +63,11 @@ class TestRunTasks:
         assert "task1" in merged
         assert "task2" in merged
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_no_output_dir_no_files(self, mock_load: MagicMock, mock_run: MagicMock):
         """When output_dir is None, no file artifacts are created."""
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task = MagicMock()
         task.name = "task1"
@@ -86,18 +86,18 @@ class TestRunTasks:
         result.report.return_value = "text report"
         result.to_dict.return_value = {"metadata": {}}
 
-        mock_run.return_value = [result]
+        mock_run.return_value = {"task1": result}
 
         assert run(Path("/fake/config"), None) == 0
         # No files should be written anywhere
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_verbosity_1_detailed_report(
         self, mock_load: MagicMock, mock_run: MagicMock, capsys: pytest.CaptureFixture
     ):
         """At verbosity >= 1, full detailed text report is printed."""
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task = MagicMock()
         task.name = "task1"
@@ -115,7 +115,7 @@ class TestRunTasks:
 
         result.report.return_value = "== Full Report =="
 
-        mock_run.return_value = [result]
+        mock_run.return_value = {"task1": result}
 
         run(Path("/fake/config"), None, verbosity=1)
         captured = capsys.readouterr()
@@ -123,11 +123,11 @@ class TestRunTasks:
         # Console call uses detailed=True at verbosity >= 1
         result.report.assert_any_call(detailed=True)
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_verbosity_0_summary_report(self, mock_load: MagicMock, mock_run: MagicMock, capsys: pytest.CaptureFixture):
         """At verbosity 0, summary-only text report is printed."""
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task = MagicMock()
         task.name = "task1"
@@ -145,7 +145,7 @@ class TestRunTasks:
 
         result.report.return_value = "== Summary =="
 
-        mock_run.return_value = [result]
+        mock_run.return_value = {"task1": result}
 
         run(Path("/fake/config"), None, verbosity=0)
         captured = capsys.readouterr()
@@ -153,10 +153,10 @@ class TestRunTasks:
         # Console call uses detailed=False at verbosity 0
         result.report.assert_any_call(detailed=False)
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_failed_task_exits_one(self, mock_load: MagicMock, mock_run: MagicMock, caplog: pytest.LogCaptureFixture):
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task1 = MagicMock()
         task1.name = "task1"
@@ -170,17 +170,17 @@ class TestRunTasks:
         result = MagicMock()
         result.success = False
         result.errors = ["Something went wrong"]
-        mock_run.return_value = [result]
+        mock_run.return_value = {"task1": result}
 
         assert run(Path("/fake/config"), Path("/fake/output")) == 1
         assert "FAILED" in caplog.text
         assert "Something went wrong" in caplog.text
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_result_without_report(self, mock_load: MagicMock, mock_run: MagicMock, tmp_path: Path):
-        """Result.data without .report attribute still works."""
-        from dataeval_flow.runner import run
+        """A result's output without a .report attribute still works."""
+        from dataeval_flow._runner import run
 
         task = MagicMock()
         task.name = "task1"
@@ -194,25 +194,25 @@ class TestRunTasks:
 
         result = MagicMock()
         result.success = True
-        result.name = "task1"
+        result.type = "task1"
 
-        result.data = MagicMock(spec=[])  # No .report attribute
+        result.output = MagicMock(spec=[])  # No .report attribute
         result.report.side_effect = [
             "summary report",  # console print (detailed=False)
             "full text report",  # written to .txt file (detailed=True)
         ]
         result.to_dict.return_value = {"metadata": {}, "data": "test"}
 
-        mock_run.return_value = [result]
+        mock_run.return_value = {"task1": result}
 
         assert run(Path("/fake/config"), tmp_path) == 0
         assert (tmp_path / "results" / "result.json").exists()
         merged = json.loads((tmp_path / "results" / "result.json").read_text())
         assert "task1" in merged
 
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_uses_default_config_path(self, mock_load: MagicMock):
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         config = MagicMock()
         config.tasks = []
@@ -228,10 +228,10 @@ class TestRunTasks:
         assert args[1] is not None  # data_dir resolved
 
     @patch("dataeval_flow._logging.configure_log_levels")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_logging_config_applies_levels(self, mock_load: MagicMock, mock_configure: MagicMock):
         """config.logging triggers configure_log_levels after config loads."""
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         config = MagicMock()
         config.tasks = []
@@ -290,11 +290,11 @@ class TestParseArgs:
 
 
 class TestCacheDir:
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_cache_dir_forwarded_to_run_tasks(self, mock_load: MagicMock, mock_run: MagicMock):
         """Global --cache is forwarded to run_tasks()."""
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task = MagicMock()
         task.name = "task1"
@@ -305,18 +305,18 @@ class TestCacheDir:
         mock_load.return_value = config
 
         r1 = MagicMock(success=False, errors=["e"])
-        mock_run.return_value = [r1]
+        mock_run.return_value = {"task1": r1}
 
         run(Path("/fake/config"), cache_dir=Path("/global/cache"))
 
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["cache_dir"] == Path("/global/cache")
 
-    @patch("dataeval_flow.workflow.run_tasks")
-    @patch("dataeval_flow.runner._resolve_config")
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
     def test_no_cache_forwards_none(self, mock_load: MagicMock, mock_run: MagicMock):
         """Without --cache, run_tasks() receives cache_dir=None."""
-        from dataeval_flow.runner import run
+        from dataeval_flow._runner import run
 
         task = MagicMock()
         task.name = "task1"
@@ -327,7 +327,7 @@ class TestCacheDir:
         mock_load.return_value = config
 
         r1 = MagicMock(success=False, errors=["e"])
-        mock_run.return_value = [r1]
+        mock_run.return_value = {"task1": r1}
 
         run(Path("/fake/config"))
 
@@ -336,7 +336,7 @@ class TestCacheDir:
 
 
 class TestMain:
-    @patch("dataeval_flow.runner.run")
+    @patch("dataeval_flow._runner.run")
     @patch("dataeval_flow.__main__.parse_args")
     def test_main_calls_run_tasks(self, mock_parse: MagicMock, mock_run_tasks: MagicMock):
         from dataeval_flow.__main__ import main
@@ -366,7 +366,7 @@ class TestMain:
             fail_on_warning=False,
         )
 
-    @patch("dataeval_flow.runner.run")
+    @patch("dataeval_flow._runner.run")
     @patch("dataeval_flow.__main__.parse_args")
     def test_main_handles_errors(self, mock_parse: MagicMock, mock_run_tasks: MagicMock, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import main
@@ -406,7 +406,7 @@ class TestVersionFlag:
         assert __version__ in capsys.readouterr().out
 
     def test_short_v_is_still_verbose(self):
-        """-v stays --verbose: which build am I running is a different question."""
+        """-v stays --verbose; the running build is what --version answers."""
         from dataeval_flow.__main__ import _build_parser
 
         assert _build_parser().parse_args(["-vv"]).verbose == 2
@@ -441,7 +441,7 @@ class TestFailOnWarningFlag:
 
         assert _build_parser().parse_args(["--fail-on-warning"]).fail_on_warning is True
 
-    @patch("dataeval_flow.runner.run")
+    @patch("dataeval_flow._runner.run")
     @patch("dataeval_flow.__main__.parse_args")
     def test_flags_reach_the_runner(self, mock_parse: MagicMock, mock_run: MagicMock):
         from dataeval_flow.__main__ import main
@@ -469,12 +469,12 @@ class TestFailOnWarningFlag:
 class TestWorkflowsCommand:
     def test_lists_every_registered_workflow(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_workflows
-        from dataeval_flow.workflow import list_workflows
+        from dataeval_flow.workflows import list_workflows
 
         assert _list_workflows(None, as_json=False) == 0
         out = capsys.readouterr().out
-        for entry in list_workflows():
-            assert entry["name"] in out
+        for cls in list_workflows():
+            assert cls.name in out
 
     def test_json_listing_is_machine_readable(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_workflows
@@ -484,7 +484,7 @@ class TestWorkflowsCommand:
         assert {"name", "description"} <= set(entries[0])
         assert [e["name"] for e in entries] == sorted(e["name"] for e in entries)
 
-    def test_named_workflow_prints_its_params_schema(self, capsys: pytest.CaptureFixture):
+    def test_named_workflow_prints_its_config_schema(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_workflows
 
         assert _list_workflows("data-cleaning", as_json=False) == 0
@@ -496,17 +496,6 @@ class TestWorkflowsCommand:
 
         assert _list_workflows("nope", as_json=False) == 1
         assert "Unknown workflow" in capsys.readouterr().err
-
-    def test_workflow_without_params_says_so(self, capsys: pytest.CaptureFixture):
-        from dataeval_flow.__main__ import _list_workflows
-
-        stub = MagicMock()
-        stub.name = "paramless"
-        stub.params_schema = None
-        with patch("dataeval_flow.workflow.get_workflow", return_value=stub):
-            assert _list_workflows("paramless", as_json=False) == 0
-
-        assert "takes no parameters" in capsys.readouterr().out
 
     @patch("dataeval_flow.__main__._list_workflows", return_value=0)
     @patch("dataeval_flow.__main__.parse_args")
@@ -543,7 +532,7 @@ class TestEvaluatorsCommand:
         assert {"name", "description", "consumes", "sources"} <= set(entries[0])
         assert [e["name"] for e in entries] == sorted(e["name"] for e in entries)
 
-    def test_named_evaluator_prints_its_params_schema(self, capsys: pytest.CaptureFixture):
+    def test_named_evaluator_prints_its_config_schema(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_evaluators
 
         assert _list_evaluators("quality.duplicates", as_json=False) == 0

@@ -1,10 +1,8 @@
-"""`config/params.example.yaml` parses, and its stats policy actually works.
+"""`config/params.example.yaml` parses, and its stats policy works.
 
-The file is all-comments by design (see its own header), so nothing has ever loaded it.
-Three separate defects have shipped in its `stats:` block for exactly that reason: nobody
-ran it against the code it demonstrates. These tests un-comment the relevant sections and
-run them through the real config and stats machinery, so a fourth defect fails a test
-instead of shipping.
+The file is all-comments by design, so nothing has ever loaded it. Three defects
+shipped in its `stats:` block because of that. These tests un-comment the relevant
+sections and run them through the real config and stats machinery.
 """
 
 from pathlib import Path
@@ -13,15 +11,16 @@ from typing import Any
 import pytest
 from dataeval.flags import ImageStats
 
-from dataeval_flow.config import DataCleaningWorkflowConfig, PipelineConfig
-from dataeval_flow.config.schemas._stats import StatsPolicyConfig
-from dataeval_flow.metadata import resolve_families
-from dataeval_flow.stats import (
+from dataeval_flow import PipelineConfig
+from dataeval_flow._metadata import resolve_families
+from dataeval_flow._stats import (
     OUTLIER_FLAG_MAP,
     ResolvedStatsPolicy,
     check_consumers,
     resolve_stats_policy,
 )
+from dataeval_flow.config import StatsPolicyConfig
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 _EXAMPLE_PATH = Path(__file__).resolve().parents[1] / "config" / "params.example.yaml"
 
@@ -67,7 +66,7 @@ def _channel_groups_of(dataset: dict[str, Any]) -> dict[str, tuple[int, ...]]:
     }
 
 
-def _build_clean_config() -> tuple[PipelineConfig, DataCleaningWorkflowConfig, dict[str, tuple[int, ...]]]:
+def _build_clean_config() -> tuple[PipelineConfig, DataCleaningConfig, dict[str, tuple[int, ...]]]:
     """Build a `PipelineConfig` scoped to just `m3fd`, `multispectral`, and the `clean` workflow."""
     sections = _load_example_sections()
     m3fd = next(d for d in sections["datasets"] if d["name"] == "m3fd")
@@ -77,7 +76,7 @@ def _build_clean_config() -> tuple[PipelineConfig, DataCleaningWorkflowConfig, d
     config = PipelineConfig.model_validate({"datasets": [m3fd], "stats": sections["stats"], "workflows": [clean]})
     assert config.workflows is not None
     (clean_params,) = config.workflows
-    assert isinstance(clean_params, DataCleaningWorkflowConfig)
+    assert isinstance(clean_params, DataCleaningConfig)
     return config, clean_params, _channel_groups_of(m3fd)
 
 
@@ -111,12 +110,11 @@ class TestExampleStatsPolicyParses:
 class TestExampleCleaningWorkflowCanReadItsOwnPolicy:
     """The `clean` workflow's `outlier_flags` must be satisfied by `multispectral`.
 
-    This is the exact failure mode of the shipped defect: `check_consumers` refused the
-    policy because the whole-image entry did not measure what `outlier_flags: [visual]`
-    needed on `~`. Nothing parsed this file, so nothing caught it before review.
+    `check_consumers` refused this policy because the whole-image entry did not measure
+    what `outlier_flags: [visual]` needed on `~`.
     """
 
-    def _resolve(self) -> tuple[ResolvedStatsPolicy, DataCleaningWorkflowConfig]:
+    def _resolve(self) -> tuple[ResolvedStatsPolicy, DataCleaningConfig]:
         config, clean_params, channel_groups = _build_clean_config()
         resolved = resolve_stats_policy(clean_params, config, channel_groups)
         assert resolved is not None
@@ -146,8 +144,7 @@ class TestExamplePolicyAlsoSatisfiesADataAnalysisStyleConsumer:
 
     `measure_band_groups.md` says a policy used by `data-analysis` must give `~` the full
     `hash` family, because analysis always runs duplicate detection over the whole image.
-    Check that claim directly against the shipped policy, so the doc and the config cannot
-    drift apart again.
+    This test checks that claim against the shipped policy.
     """
 
     def test_the_whole_image_entry_carries_the_full_hash_family_and_visual(self):

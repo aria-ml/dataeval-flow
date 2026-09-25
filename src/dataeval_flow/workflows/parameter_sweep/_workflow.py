@@ -1,0 +1,308 @@
+"""Parameter Sweep Workflow — efficiently sweep data cleaning parameters."""
+
+__all__ = ["ParameterSweepWorkflow"]
+
+import contextlib
+import itertools
+import logging
+from typing import Any, ClassVar
+
+import polars as pl
+from dataeval.flags import ImageStats
+from dataeval.quality import Duplicates, Outliers
+
+from dataeval_flow._cache import active_cache, get_or_compute_stats
+from dataeval_flow._embeddings import build_extractor
+from dataeval_flow._stats import HASH_FLAG_MAP, columns_for, restrict_columns, stats_policy_for
+from dataeval_flow._stats import OUTLIER_FLAG_MAP as FLAG_MAP
+from dataeval_flow.workflows._base import Finding, Workflow
+from dataeval_flow.workflows._context import WorkflowContext
+from dataeval_flow.workflows.data_cleaning._internal import (
+    _compute_embeddings,
+    _merge_duplicate_results,
+    _merge_outlier_outputs,
+)
+from dataeval_flow.workflows.data_cleaning._workflow import CleaningRunContext
+from dataeval_flow.workflows.parameter_sweep._config import ParameterSweepConfig
+from dataeval_flow.workflows.parameter_sweep._outputs import (
+    ParameterSweepMetadata,
+    ParameterSweepOutput,
+    ParameterSweepRawOutput,
+    ParameterSweepReport,
+    ParameterSweepResult,
+    SweepRunResult,
+)
+
+_logger: logging.Logger = logging.getLogger(__name__)
+
+# Maps each outcome column to the input parameters that affect it.
+# Exact duplicates depend on no swept inputs and are intentionally omitted.
+OUTCOME_INPUTS: dict[str, tuple[str, ...]] = {
+    "Outliers": (
+        "outlier_method",
+        "outlier_threshold",
+        "outlier_cluster_threshold",
+        "outlier_cluster_algorithm",
+    ),
+    "Near Duplicates": (
+        "duplicate_cluster_sensitivity",
+        "duplicate_cluster_algorithm",
+    ),
+}
+
+OUTCOME_FIELD: dict[str, str] = {
+    "Outliers": "outlier_count",
+    "Near Duplicates": "near_duplicate_groups",
+}
+
+
+def _resolve_flags(params: ParameterSweepConfig) -> tuple[ImageStats, ImageStats]:
+    """Resolve outlier and hash flags from parameters."""
+    outlier_flags = ImageStats.NONE
+    for name in params.outlier_flags:
+        outlier_flags |= FLAG_MAP[name]
+
+    hash_flags = ImageStats.NONE
+    if params.duplicate_flags is not None:
+        for name in params.duplicate_flags:
+            hash_flags |= HASH_FLAG_MAP[name]
+    else:
+        hash_flags = ImageStats.HASH_DUPLICATES_BASIC
+
+    return outlier_flags, hash_flags
+
+
+class ParameterSweepWorkflow(Workflow[ParameterSweepConfig, ParameterSweepResult]):
+    """Workflow to sweep parameters for data cleaning."""
+
+    name: ClassVar[str] = "parameter-sweep"
+    description: ClassVar[str] = "Sweep data cleaning parameters to analyze result sensitivity"
+
+    def run(self, config: ParameterSweepConfig, context: WorkflowContext) -> ParameterSweepResult:
+        """Run data cleaning once per combination of the swept values, and tabulate how each outcome moves."""
+        from dataeval_flow._cache import selection_repr as _sel_repr
+        from dataeval_flow._view import build_view
+
+        # Parameter Sweep is single-dataset
+        dc = next(iter(context.dataset_contexts.values()))
+        dataset = dc.dataset
+        if dc.view_operations:
+            dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
+
+        sel_key = _sel_repr(dataset)
+        outlier_flags, hash_flags = _resolve_flags(config)
+
+        # 1. Shared Setup
+        extractor = None
+        if dc.extractor:
+            extractor = build_extractor(dc.extractor, dc.transforms)
+
+        with contextlib.ExitStack() as stack:
+            if dc.cache is not None:
+                stack.enter_context(active_cache(dc.cache, sel_key))
+
+            # Pre-compute shared stats
+            stats_policy = stats_policy_for(context, outlier_flags=outlier_flags, duplicate_flags=hash_flags)
+            calc_result = get_or_compute_stats(
+                stats_policy,
+                dataset=dataset,
+            )
+
+            # Pre-compute shared embeddings if needed
+            embeddings_array = None
+            run_ctx = None
+            needs_embeddings = any(
+                p is not None
+                for p in (
+                    *config.outlier_cluster_threshold,
+                    *config.outlier_cluster_algorithm,
+                    *config.duplicate_cluster_sensitivity,
+                    *config.duplicate_cluster_algorithm,
+                )
+            )
+            if needs_embeddings and extractor is not None:
+                run_ctx = CleaningRunContext(
+                    extractor_config=dc.extractor,
+                    transforms=dc.transforms,
+                    batch_size=dc.batch_size,
+                )
+                embeddings_array = _compute_embeddings(dataset, extractor, run_ctx)
+
+            # 2. Sweep over parameters
+            sweep_results: list[SweepRunResult] = []
+
+            # Determine which parameters are actually being swept (more than 1 value)
+            swept_fields = [
+                field
+                for field in [
+                    "outlier_method",
+                    "outlier_threshold",
+                    "outlier_cluster_threshold",
+                    "outlier_cluster_algorithm",
+                    "duplicate_cluster_sensitivity",
+                    "duplicate_cluster_algorithm",
+                ]
+                if len(getattr(config, field)) > 1
+            ]
+
+            # Cartesian product of all sweep sequences
+            param_combinations = list(
+                itertools.product(
+                    config.outlier_method,
+                    config.outlier_threshold,
+                    config.outlier_cluster_threshold,
+                    config.outlier_cluster_algorithm,
+                    config.duplicate_cluster_sensitivity,
+                    config.duplicate_cluster_algorithm,
+                )
+            )
+
+            _logger.info("Running sweep over %d combinations...", len(param_combinations))
+
+            for combo in param_combinations:
+                (
+                    m_outlier_method,
+                    m_outlier_threshold,
+                    m_outlier_cluster_threshold,
+                    m_outlier_cluster_algorithm,
+                    m_duplicate_cluster_sensitivity,
+                    m_duplicate_cluster_algorithm,
+                ) = combo
+
+                current_params = {
+                    "outlier_method": m_outlier_method,
+                    "outlier_threshold": m_outlier_threshold,
+                    "outlier_cluster_threshold": m_outlier_cluster_threshold,
+                    "outlier_cluster_algorithm": m_outlier_cluster_algorithm,
+                    "duplicate_cluster_sensitivity": m_duplicate_cluster_sensitivity,
+                    "duplicate_cluster_algorithm": m_duplicate_cluster_algorithm,
+                }
+
+                # Outlier detection
+                outliers_eval = Outliers(
+                    flags=outlier_flags,
+                    outlier_threshold=(m_outlier_method, m_outlier_threshold),
+                )
+                outlier_output = outliers_eval.from_stats(
+                    restrict_columns(calc_result, columns_for(stats_policy.outliers_from, outlier_flags)),
+                    per_target=False,
+                )
+
+                if m_outlier_cluster_threshold is not None and embeddings_array is not None:
+                    # _merge_outlier_outputs expects a DataCleaningConfig but uses only a few fields;
+                    # shim one.
+                    from dataeval_flow.workflows.data_cleaning._config import DataCleaningConfig
+
+                    shim_params = DataCleaningConfig(
+                        outlier_method=m_outlier_method,
+                        outlier_flags=list(config.outlier_flags),
+                        outlier_threshold=m_outlier_threshold,
+                        outlier_cluster_threshold=m_outlier_cluster_threshold,
+                        outlier_cluster_algorithm=m_outlier_cluster_algorithm,
+                    )
+                    outlier_output = _merge_outlier_outputs(
+                        outliers_eval,
+                        outlier_output,
+                        embeddings_array,
+                        shim_params,
+                        run_ctx=run_ctx,
+                    )
+
+                outlier_count = outlier_output.data()["item_index"].n_unique() if len(outlier_output.data()) > 0 else 0
+
+                # Duplicate detection
+                dup_kwargs: dict[str, Any] = {
+                    "merge_near_duplicates": config.duplicate_merge_near,
+                    "flags": hash_flags,
+                }
+                duplicates_eval = Duplicates(**dup_kwargs)
+                duplicates_result = duplicates_eval.from_stats(
+                    restrict_columns(calc_result, columns_for([None], hash_flags))
+                )
+
+                if m_duplicate_cluster_sensitivity is not None and embeddings_array is not None:
+                    from dataeval_flow.workflows.data_cleaning._config import DataCleaningConfig
+
+                    shim_params = DataCleaningConfig(
+                        outlier_method=m_outlier_method,
+                        outlier_flags=list(config.outlier_flags),
+                        duplicate_cluster_sensitivity=m_duplicate_cluster_sensitivity,
+                        duplicate_cluster_algorithm=m_duplicate_cluster_algorithm,
+                    )
+                    duplicates_result = _merge_duplicate_results(
+                        duplicates_result,
+                        embeddings_array,
+                        shim_params,
+                        run_ctx=run_ctx,
+                    )
+
+                exact_groups = (
+                    len(duplicates_result.data().filter(pl.col("dup_type") == "exact", pl.col("level") == "item"))
+                    if len(duplicates_result.data()) > 0
+                    else 0
+                )
+                near_groups = (
+                    len(duplicates_result.data().filter(pl.col("dup_type") == "near", pl.col("level") == "item"))
+                    if len(duplicates_result.data()) > 0
+                    else 0
+                )
+
+                sweep_results.append(
+                    SweepRunResult(
+                        params=current_params,
+                        outlier_count=outlier_count,
+                        exact_duplicate_groups=exact_groups,
+                        near_duplicate_groups=near_groups,
+                    )
+                )
+
+            # 3. Assemble report
+            findings = self._build_findings(sweep_results, swept_fields)
+            raw = ParameterSweepRawOutput(dataset_size=len(dataset), results=sweep_results)
+            report = ParameterSweepReport(
+                summary=f"Parameter sweep complete. {len(sweep_results)} combinations evaluated.",
+                findings=findings,
+            )
+            metadata = ParameterSweepMetadata(sweep_parameters=swept_fields)
+
+            return ParameterSweepResult(
+                type=self.name,
+                success=True,
+                output=ParameterSweepOutput(raw=raw, report=report),
+                metadata=metadata,
+                dataset=dataset,
+            )
+
+    def _build_findings(self, results: list[SweepRunResult], swept_fields: list[str]) -> list[Finding]:
+        findings: list[Finding] = []
+
+        for outcome, inputs in OUTCOME_INPUTS.items():
+            relevant = [f for f in swept_fields if f in inputs]
+            if not relevant:
+                continue
+
+            seen: set[tuple[Any, ...]] = set()
+            rows: list[dict[str, Any]] = []
+            for r in results:
+                key = tuple(r.params[f] for f in relevant)
+                if key in seen:
+                    continue
+                seen.add(key)
+                row: dict[str, Any] = {f: r.params[f] for f in relevant}
+                row[outcome] = getattr(r, OUTCOME_FIELD[outcome])
+                rows.append(row)
+
+            findings.append(
+                Finding(
+                    report_type="pivot_table",
+                    title=f"{outcome} Sweep",
+                    data={
+                        "brief": f"{len(rows)} unique combinations",
+                        "table_data": rows,
+                        "table_headers": [*relevant, outcome],
+                    },
+                    description=f"Effect of {', '.join(relevant)} on {outcome.lower()}.",
+                )
+            )
+
+        return findings

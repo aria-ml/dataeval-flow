@@ -78,6 +78,10 @@ autoapi_own_page_level = "function"
 autoapi_member_order = "groupwise"
 autoapi_add_toctree_entry = False
 
+# The extension bases document how to subclass them in a numpydoc-style "Subclassing" section, and each type's
+# result lists the output and metadata fields typed code reads in a "Fields" section, rendered like Parameters.
+napoleon_custom_sections = ["Subclassing", ("Fields", "params_style")]
+
 # -----------------------------------------------------------------------------
 # MyST settings
 # -----------------------------------------------------------------------------
@@ -155,11 +159,16 @@ def _inherits_from(obj: Any, full_name: str) -> bool:
     return bool(parent and parent.get("full_name") == full_name)
 
 
+def _is_private_module(name: str) -> bool:
+    """Whether any dotted segment after ``dataeval_flow`` starts with an underscore."""
+    return any(part.startswith("_") for part in name.split(".")[1:])
+
+
 def autoapi_skip_member(app: Any, what: str, name: str, obj: Any, skip: bool, options: Any) -> bool:  # noqa: ARG001
-    """Skip undocumented attributes, pydantic internals, and empty modules."""
+    """Skip undocumented attributes, pydantic internals, and private modules."""
     if what == "attribute" and obj.docstring == "":
         skip = True
-    if what in ("module", "package") and (obj.all is None or len(obj.all) == 0):
+    if what in ("module", "package") and _is_private_module(name):
         skip = True
     if _inherits_from(obj, "pydantic.main.BaseModel"):
         skip = True

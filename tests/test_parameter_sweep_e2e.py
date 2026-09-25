@@ -5,22 +5,19 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 import pytest
 
-from dataeval_flow.config import PipelineConfig, SourceConfig
-from dataeval_flow.config.schemas import (
-    HuggingFaceDatasetConfig,
-    ParameterSweepTaskConfig,
-    ParameterSweepWorkflowConfig,
-)
-from dataeval_flow.workflow import WorkflowResult, run_tasks
+from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow.config import HuggingFaceDatasetConfig, SourceConfig, TaskConfig
+from dataeval_flow.workflows import WorkflowResult
+from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 
 pytestmark = pytest.mark.required
 
 
 class TestParameterSweepE2E:
-    @patch("dataeval_flow.dataset.resolve_dataset")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.get_or_compute_stats")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Outliers")
-    @patch("dataeval_flow.workflows.parameter_sweep.workflow.Duplicates")
+    @patch("dataeval_flow._dataset.resolve_dataset")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.get_or_compute_stats")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Outliers")
+    @patch("dataeval_flow.workflows.parameter_sweep._workflow.Duplicates")
     def test_run_tasks_with_parameter_sweep(self, mock_dup_cls, mock_outliers_cls, mock_stats, mock_resolve_ds):
         # 1. Setup mock pipeline config
         config = PipelineConfig(
@@ -31,14 +28,14 @@ class TestParameterSweepE2E:
             ],
             sources=[SourceConfig(name="src1", dataset="ds1")],
             workflows=[
-                ParameterSweepWorkflowConfig(
+                ParameterSweepConfig(
                     name="sweep1",
                     type="parameter-sweep",
                     outlier_method=["adaptive", "zscore"],
                     outlier_threshold=[None, 2.0],
                 )
             ],
-            tasks=[ParameterSweepTaskConfig(name="task1", workflow="sweep1", sources="src1")],
+            tasks=[TaskConfig(name="task1", workflow="sweep1", sources="src1")],
         )
 
         # 2. Mock dataset resolution
@@ -63,17 +60,17 @@ class TestParameterSweepE2E:
         results = run_tasks(config)
 
         # 5. Verify results
-        assert len(results) == 1
-        res = results[0]
+        assert list(results) == ["task1"]
+        res = results["task1"]
         assert isinstance(res, WorkflowResult)
-        assert res.name == "parameter-sweep"
+        assert res.type == "parameter-sweep"
         assert res.success is True
-        assert len(res.data.raw.results) == 4  # 2 methods * 2 thresholds
+        assert len(res.output.raw.results) == 4  # 2 methods * 2 thresholds
         assert res.metadata.sweep_parameters == ["outlier_method", "outlier_threshold"]
 
         # Verify findings summary — outlier inputs swept → only Outliers table emitted.
-        assert len(res.data.report.findings) == 1
-        finding = res.data.report.findings[0]
+        assert len(res.output.report.findings) == 1
+        finding = res.output.report.findings[0]
         assert finding.title == "Outliers Sweep"
         assert finding.data["table_headers"] == ["outlier_method", "outlier_threshold", "Outliers"]
         assert len(finding.data["table_data"]) == 4

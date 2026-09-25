@@ -1,9 +1,15 @@
-"""The quality evaluators: DataEval's Duplicates and Outliers.
+"""The quality evaluators: DataEval's Duplicates and Outliers."""
 
-Their parameters are importable from here; the evaluators themselves live in
-:mod:`~dataeval_flow.evaluators.quality.evaluator`, which imports DataEval.
-"""
+__all__ = [
+    "DuplicatesConfig",
+    "DuplicatesEvaluator",
+    "DuplicatesResult",
+    "OutliersConfig",
+    "OutliersEvaluator",
+    "OutliersResult",
+    "ThresholdSpec",
+]
 
-__all__ = ["DuplicatesParameters", "OutliersParameters", "ThresholdSpec"]
-
-from dataeval_flow.evaluators.quality.params import DuplicatesParameters, OutliersParameters, ThresholdSpec
+from dataeval_flow.evaluators.quality._config import DuplicatesConfig, OutliersConfig, ThresholdSpec
+from dataeval_flow.evaluators.quality._evaluator import DuplicatesEvaluator, OutliersEvaluator
+from dataeval_flow.evaluators.quality._result import DuplicatesResult, OutliersResult

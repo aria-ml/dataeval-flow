@@ -6,7 +6,7 @@ a flat vocabulary synthesized from the dataset's ``index2label`` when a workflow
 no ontology. Declared concepts also merge onto an inline mapping or an RDF artifact,
 replacing any concept with the same id.
 
-Lives here rather than in a workflow package. It handles configuration: path resolution, an
+Lives here, not in a workflow package, because it handles configuration: path resolution,
 optional dependency, and format inference.
 """
 
@@ -19,13 +19,13 @@ if TYPE_CHECKING:
     from dataeval import Ontology
     from dataeval.types import OntologyConcept
 
-    from dataeval_flow.config.schemas import OntologyConfig
+    from dataeval_flow.config._schemas import OntologyConfig
 
 __all__ = ["OntologyLoadError", "load_ontology", "resolve_ontology", "synthesize_ontology"]
 
 _logger = logging.getLogger(__name__)
 
-#: File suffix to the rdflib format hint. ``None`` lets rdflib guess.
+# File suffix to the rdflib format hint. ``None`` lets rdflib guess.
 _RDF_FORMATS: dict[str, str] = {
     ".ttl": "turtle",
     ".rdf": "xml",

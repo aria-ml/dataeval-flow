@@ -1,8 +1,8 @@
 # JATIC Maturity
 
-The JATIC program grades each product on a maturity scale. This page records the
-maturity level DataEval Flow holds, the releases that level applies to, and what
-the program requires at each level.
+The JATIC program grades each product on a maturity scale. This page records
+DataEval Flow's level, the releases that level applies to, and the program's
+requirements at each level.
 
 Requirements on this page follow draft version 1.3 of the JATIC product
 standards: the Software Development Plan (SDP) Requirements v1.3 draft for

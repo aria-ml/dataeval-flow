@@ -2,9 +2,9 @@
 
 Release guides for DataEval Flow. Each one covers a single release: what changed, why it matters, and what you
 have to do about it. The {doc}`Change Log <../changelog>` is the exhaustive, authoritative list of every entry —
-these pages are the narrower story of upgrading.
+these pages cover the upgrade path.
 
-Reading in order? Start at the release you are on and work forward; each guide's upgrade checklist assumes the
+Read in order: start at the release you are on and work forward; each guide's upgrade checklist assumes the
 one before it has been applied.
 
 ## Releases
@@ -39,7 +39,7 @@ v0.1
 
 :::
 
-## Where to go instead
+## More resources
 
 - {doc}`Change Log <../changelog>` — every change, per release, in full.
 - {doc}`Installation <../installation>` — every supported install path and extra.

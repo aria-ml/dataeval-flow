@@ -24,6 +24,34 @@ def _clear_dataeval_env(monkeypatch: pytest.MonkeyPatch):
             monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture
+def plugins(monkeypatch: pytest.MonkeyPatch):
+    """Serve entry points from a dict of group -> [(name, value)], resetting every registry around the test.
+
+    Tests add entries before the first registry lookup; the registries load lazily on first use.
+    """
+    from importlib.metadata import EntryPoint
+
+    import dataeval_flow._registry as registry_module
+    from dataeval_flow.config.extractors._registry import EXTRACTORS
+    from dataeval_flow.config.transforms._registry import TRANSFORMS
+    from dataeval_flow.evaluators._registry import EVALUATORS
+    from dataeval_flow.workflows._registry import WORKFLOWS
+
+    registries = [WORKFLOWS, EVALUATORS, EXTRACTORS, TRANSFORMS]
+    served: dict[str, list[tuple[str, str]]] = {}
+
+    def entry_points(*, group: str) -> list[EntryPoint]:
+        return [EntryPoint(name=name, value=value, group=group) for name, value in served.get(group, [])]
+
+    monkeypatch.setattr(registry_module, "entry_points", entry_points)
+    for registry in registries:
+        registry._reset()
+    yield served
+    for registry in registries:
+        registry._reset()
+
+
 @pytest.fixture(autouse=True)
 def _reset_logging():
     yield

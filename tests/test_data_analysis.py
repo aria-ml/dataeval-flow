@@ -10,16 +10,23 @@ from dataeval.core import LabelStatsResult, StatsResult
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import ValidationError
 
-from dataeval_flow.config.schemas import ViewOperation
-from dataeval_flow.metadata import inject_intrinsic_factors
-from dataeval_flow.workflow import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.analysis.outputs import (
+from dataeval_flow._metadata import inject_intrinsic_factors
+from dataeval_flow._orchestrator import _run_target
+from dataeval_flow.config import ViewOperation
+from dataeval_flow.workflows import DatasetContext, WorkflowContext
+from dataeval_flow.workflows.data_analysis import (
+    DataAnalysisConfig,
+    DataAnalysisHealthThresholds,
+    DataAnalysisResult,
+    DataAnalysisWorkflow,
+)
+from dataeval_flow.workflows.data_analysis._outputs import (
     BiasResult,
     CrossSplitLabelHealth,
     CrossSplitRedundancy,
     CrossSplitResult,
-    DataAnalysisOutputs,
-    DataAnalysisRawOutputs,
+    DataAnalysisOutput,
+    DataAnalysisRawOutput,
     DataAnalysisReport,
     DistributionShiftResult,
     ImageQualityResult,
@@ -27,9 +34,7 @@ from dataeval_flow.workflows.analysis.outputs import (
     RedundancyResult,
     SplitResult,
 )
-from dataeval_flow.workflows.analysis.params import DataAnalysisHealthThresholds, DataAnalysisParameters
-from dataeval_flow.workflows.analysis.workflow import (
-    DataAnalysisWorkflow,
+from dataeval_flow.workflows.data_analysis._workflow import (
     SplitData,
     _assess_bias,
     _assess_cross_label_health,
@@ -58,7 +63,7 @@ from dataeval_flow.workflows.analysis.workflow import (
 
 pytestmark = pytest.mark.required
 
-_WF = "dataeval_flow.workflows.analysis.workflow"
+_WF = "dataeval_flow.workflows.data_analysis._workflow"
 _DEFAULT_THRESHOLDS = DataAnalysisHealthThresholds()
 
 # ---------------------------------------------------------------------------
@@ -103,14 +108,14 @@ def _make_ls(values: dict[str, Any]) -> LabelStatsResult:
     return LabelStatsResult(**values)  # type: ignore
 
 
-def _make_params(**overrides: object) -> DataAnalysisParameters:
-    """Build DataAnalysisParameters with required fields for testing."""
+def _make_params(**overrides: object) -> DataAnalysisConfig:
+    """Build DataAnalysisConfig with required fields for testing."""
     defaults: dict[str, object] = {
         "outlier_method": "modzscore",
         "outlier_flags": ["dimension", "pixel", "visual"],
     }
     defaults.update(overrides)
-    return DataAnalysisParameters(**defaults)  # type: ignore[arg-type]
+    return DataAnalysisConfig(**defaults)  # type: ignore[arg-type]
 
 
 def _make_image_quality(
@@ -199,15 +204,15 @@ def _make_cross_split_result(
 
 
 # ===========================================================================
-# DataAnalysisParameters
+# DataAnalysisConfig
 # ===========================================================================
 
 
-class TestDataAnalysisParameters:
+class TestDataAnalysisConfig:
     def test_required_outlier_method(self):
         """outlier_method is required — no default."""
         with pytest.raises(ValidationError, match="outlier_method"):
-            DataAnalysisParameters()  # type: ignore[call-arg]
+            DataAnalysisConfig()  # type: ignore[call-arg]
 
     def test_minimal_valid(self):
         p = _make_params()
@@ -611,54 +616,33 @@ class TestDataAnalysisWorkflow:
         assert isinstance(wf.description, str)
         assert len(wf.description) > 0
 
-    def test_params_schema(self):
-        wf = DataAnalysisWorkflow()
-        assert wf.params_schema is DataAnalysisParameters
+    def test_config_type(self):
+        assert DataAnalysisWorkflow.config_type is DataAnalysisConfig
 
-    def test_output_schema(self):
-        wf = DataAnalysisWorkflow()
-        assert wf.output_schema is DataAnalysisOutputs
-
-    def test_execute_wrong_context_type(self):
-        wf = DataAnalysisWorkflow()
-        result = wf.execute("not a context", _make_params())  # type: ignore[arg-type]
+    def test_the_wrong_config_type_fails_the_run(self):
+        ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=MagicMock())})
+        result = _run_target(DataAnalysisWorkflow(), MagicMock(), ctx)
         assert result.success is False
-        assert "Expected WorkflowContext" in result.errors[0]
+        assert "Expected DataAnalysisConfig" in result.errors[0]
 
-    def test_execute_none_params(self):
+    def test_a_runtime_error_fails_the_run_and_its_output_raises(self):
         wf = DataAnalysisWorkflow()
         ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=MagicMock())})
-        result = wf.execute(ctx, params=None)
-        assert result.success is False
-        assert "required" in result.errors[0].lower()
-
-    def test_execute_wrong_params_type(self):
-        wf = DataAnalysisWorkflow()
-        ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=MagicMock())})
-        result = wf.execute(ctx, params=MagicMock())
-        assert result.success is False
-        assert "Expected DataAnalysisParameters" in result.errors[0]
-
-    def test_execute_catches_runtime_errors(self):
-        wf = DataAnalysisWorkflow()
-        ctx = WorkflowContext(dataset_contexts={"default": DatasetContext(name="default", dataset=MagicMock())})
-        params = _make_params()
-        with patch.object(wf, "_run", side_effect=RuntimeError("boom")):
-            result = wf.execute(ctx, params)
+        with patch("dataeval_flow.workflows.data_analysis._workflow.policy_for", side_effect=RuntimeError("boom")):
+            result = _run_target(wf, _make_params(), ctx)
+        assert isinstance(result, DataAnalysisResult)
         assert result.success is False
         assert "boom" in result.errors[0]
+        with pytest.raises(RuntimeError, match="boom"):
+            _ = result.output
 
-    def test_failed_result_has_empty_outputs(self):
-        wf = DataAnalysisWorkflow()
-        result = wf.execute("bad", _make_params())  # type: ignore[arg-type]
-        assert isinstance(result.data, DataAnalysisOutputs)
-        assert result.data.raw.dataset_size == 0
-        assert result.data.report.findings == []
+    # An empty task (no sources) is refused when the config loads (see
+    # test_workflow_inputs.py); the workflow itself no longer guards against it.
 
     def test_registered_in_workflow_discovery(self):
-        from dataeval_flow.workflow import list_workflows
+        from dataeval_flow.workflows import list_workflows
 
-        names = [w["name"] for w in list_workflows()]
+        names = [w.name for w in list_workflows()]
         assert "data-analysis" in names
 
 
@@ -688,8 +672,8 @@ class TestOutputModels:
         assert csr2.label_health.label_parity["p_value"] == 0.5
 
     def test_full_outputs_roundtrip(self):
-        outputs = DataAnalysisOutputs(
-            raw=DataAnalysisRawOutputs(
+        outputs = DataAnalysisOutput(
+            raw=DataAnalysisRawOutput(
                 dataset_size=200,
                 splits={"train": _make_split_result()},  # type: ignore
                 cross_split={},  # type: ignore
@@ -697,7 +681,7 @@ class TestOutputModels:
             report=DataAnalysisReport(summary="Test", findings=[]),
         )
         json_str = outputs.model_dump_json()
-        restored = DataAnalysisOutputs.model_validate_json(json_str)
+        restored = DataAnalysisOutput.model_validate_json(json_str)
         assert restored.raw.dataset_size == 200
         assert restored.raw.splits["train"].num_samples == 100
 
@@ -758,10 +742,10 @@ class TestInjectImageStats:
         assert "level" not in kwargs
 
     def test_drops_non_numeric_hashes(self):
-        """Hashes ride along in the same stats result and must not become factors.
+        """Hashes arrive with the stats result and must not become factors.
 
-        They are near-unique per image, so digitizing them yields one category
-        per item — a factor that correlates with everything and means nothing.
+        They are near-unique per image; digitizing them yields one category per
+        item — a factor that correlates with everything and means nothing.
         """
         metadata = MagicMock()
         calc_result = _make_cr(
@@ -778,10 +762,8 @@ class TestInjectImageStats:
         assert set(factors[0]) == {"brightness"}
 
     def test_forwards_multidimensional_to_be_recorded(self):
-        """Vector stats are forwarded, not filtered, so the drop gets recorded.
-
-        Dropping them here would lose them silently; ``add_factors`` puts them
-        in ``dropped_factors`` where the metadata summary can report them.
+        """Vector stats pass through unfiltered so ``add_factors`` records them
+        in ``dropped_factors``, where the metadata summary can report them.
         """
         metadata = MagicMock()
         calc_result = _make_cr(stats={"histogram": np.array([[1, 2], [3, 4]])})
@@ -793,7 +775,7 @@ class TestInjectImageStats:
         assert "histogram" in factors[0]
 
     def test_keeps_boolean_factors(self):
-        """Bool digitizes to a two-value category — usable, unlike a hash."""
+        """Bool digitizes to a two-value category, which is usable."""
         metadata = MagicMock()
         calc_result = _make_cr(stats={"invalid_box": np.array([True, False])})
         calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
@@ -1053,10 +1035,8 @@ class TestComputeSplitData:
     @patch(f"{_WF}.get_or_compute_stats")
     @patch(f"{_WF}.get_or_compute_metadata")
     def test_binning_config_reaches_metadata(self, mock_get_meta, mock_get_stats, mock_ls):
-        """Binning is the largest uncontrolled variable on the metadata side.
-
-        Configured edges that never reach ``Metadata`` are discarded silently:
-        the run still succeeds and still reports numbers, computed against
+        """Configured binning edges that never reach ``Metadata`` are discarded silently:
+        the run still succeeds and reports numbers, computed against
         automatic bins the user did not choose.
         """
         dataset = MagicMock()
@@ -1142,7 +1122,7 @@ class TestAssessImageQuality:
     def _make_split_data(self, n: int = 3) -> MagicMock:
         from dataeval.flags import ImageStats
 
-        from dataeval_flow.stats import ResolvedStatsPolicy
+        from dataeval_flow._stats import ResolvedStatsPolicy
 
         data = MagicMock(spec=SplitData)
         si = MagicMock()
@@ -1326,18 +1306,18 @@ class TestBackgroundFractionLeads:
     """A background statistic measured over a few percent of an image is noise."""
 
     def test_the_fraction_comes_first_among_the_background_factors(self):
-        from dataeval_flow.workflows.analysis.workflow import _order_factors
+        from dataeval_flow.workflows.data_analysis._workflow import _order_factors
 
         ordered = _order_factors(["brightness", "background_brightness", "background_fraction", "mean"])
         assert ordered.index("background_fraction") < ordered.index("background_brightness")
 
     def test_non_background_factors_keep_their_order(self):
-        from dataeval_flow.workflows.analysis.workflow import _order_factors
+        from dataeval_flow.workflows.data_analysis._workflow import _order_factors
 
         assert _order_factors(["brightness", "mean"]) == ["brightness", "mean"]
 
     def test_a_run_without_a_background_is_unchanged(self):
-        from dataeval_flow.workflows.analysis.workflow import _order_factors
+        from dataeval_flow.workflows.data_analysis._workflow import _order_factors
 
         names = ["a", "b", "c"]
         assert _order_factors(names) == names
@@ -1348,7 +1328,7 @@ class TestBackgroundFractionLeads:
         level-prefixes every name — the real names this has to handle are
         `unit_background_fraction` and `instance_background_brightness`, not the bare forms.
         """
-        from dataeval_flow.workflows.analysis.workflow import _order_factors
+        from dataeval_flow.workflows.data_analysis._workflow import _order_factors
 
         ordered = _order_factors(
             ["unit_brightness", "instance_background_brightness", "unit_background_fraction", "unit_mean"]
@@ -1356,7 +1336,7 @@ class TestBackgroundFractionLeads:
         assert ordered.index("unit_background_fraction") < ordered.index("instance_background_brightness")
 
     def test_a_level_prefixed_run_without_a_background_is_unchanged(self):
-        from dataeval_flow.workflows.analysis.workflow import _order_factors
+        from dataeval_flow.workflows.data_analysis._workflow import _order_factors
 
         names = ["unit_brightness", "instance_mean"]
         assert _order_factors(names) == names
@@ -1663,12 +1643,12 @@ class TestWorkflowRun:
         ctx = WorkflowContext(dataset_contexts={"train": dc})
         params = _make_params()
 
-        result = wf.execute(ctx, params)
+        result = wf.run(params, ctx)
         assert result.success is True
-        assert isinstance(result.data, DataAnalysisOutputs)
-        assert "train" in result.data.raw.splits
-        assert result.data.raw.dataset_size == 50
-        assert len(result.data.report.findings) > 0
+        assert isinstance(result.output, DataAnalysisOutput)
+        assert "train" in result.output.raw.splits
+        assert result.output.raw.dataset_size == 50
+        assert len(result.output.report.findings) > 0
 
     @patch(f"{_WF}._assess_distribution_shift")
     @patch(f"{_WF}._assess_cross_label_health")
@@ -1702,11 +1682,11 @@ class TestWorkflowRun:
             }
         )
 
-        result = wf.execute(ctx, _make_params())
+        result = wf.run(_make_params(), ctx)
         assert result.success is True
-        assert "train" in result.data.raw.splits  # type: ignore
-        assert "test" in result.data.raw.splits  # type: ignore
-        assert "train_vs_test" in result.data.raw.cross_split  # type: ignore
+        assert "train" in result.output.raw.splits  # type: ignore
+        assert "test" in result.output.raw.splits  # type: ignore
+        assert "train_vs_test" in result.output.raw.cross_split  # type: ignore
 
     @patch(f"{_WF}._assess_bias")
     @patch(f"{_WF}._assess_label_health")
@@ -1725,13 +1705,13 @@ class TestWorkflowRun:
         dc = DatasetContext(name="train", dataset=ds)
         ctx = WorkflowContext(dataset_contexts={"train": dc})
 
-        result = wf.execute(ctx, _make_params(mode="preparatory"))
+        result = wf.run(_make_params(mode="preparatory"), ctx)
         assert result.success is True
         assert result.metadata.mode == "preparatory"
-        titles = [f.title for f in result.data.report.findings]  # type: ignore
+        titles = [f.title for f in result.output.report.findings]  # type: ignore
         assert "Preparatory Mode" in titles
 
-    @patch("dataeval_flow.embeddings.build_embeddings")
+    @patch("dataeval_flow._embeddings.build_embeddings")
     @patch(f"{_WF}._assess_bias")
     @patch(f"{_WF}._assess_label_health")
     @patch(f"{_WF}._assess_redundancy")
@@ -1751,18 +1731,18 @@ class TestWorkflowRun:
         dc = DatasetContext(name="train", dataset=ds, extractor=extractor)
         ctx = WorkflowContext(dataset_contexts={"train": dc})
 
-        result = wf.execute(ctx, _make_params())
+        result = wf.run(_make_params(), ctx)
         assert result.success is True
         mock_build_emb.assert_called_once()
 
-    @patch("dataeval_flow.view.build_view")
+    @patch("dataeval_flow._view.build_view")
     @patch(f"{_WF}._assess_bias")
     @patch(f"{_WF}._assess_label_health")
     @patch(f"{_WF}._assess_redundancy")
     @patch(f"{_WF}._assess_image_quality")
     @patch(f"{_WF}._compute_split_data")
     def test_with_view_operations(self, mock_compute, mock_iq, mock_rd, mock_lh, mock_bias, mock_build_sel):
-        """view_operations on DatasetContext triggers build_selection (line 1186)."""
+        """view_operations on DatasetContext triggers build_view (line 1186)."""
         mock_selected = MagicMock(__len__=MagicMock(return_value=50))
         mock_build_sel.return_value = mock_selected
         mock_compute.return_value = MagicMock(dataset_len=50)
@@ -1777,7 +1757,7 @@ class TestWorkflowRun:
         dc = DatasetContext(name="train", dataset=ds, view_operations=steps)
         ctx = WorkflowContext(dataset_contexts={"train": dc})
 
-        result = wf.execute(ctx, _make_params())
+        result = wf.run(_make_params(), ctx)
         assert result.success is True
         mock_build_sel.assert_called_once()
 
@@ -1800,7 +1780,7 @@ class TestWorkflowRun:
         dc = DatasetContext(name="train", dataset=ds, cache=MagicMock())
         ctx = WorkflowContext(dataset_contexts={"train": dc})
 
-        result = wf.execute(ctx, _make_params())
+        result = wf.run(_make_params(), ctx)
         assert result.success is True
         mock_active_cache.assert_called_once()
 
@@ -2073,59 +2053,39 @@ class TestBuildFindingsWithShift:
         assert "Distribution Shift" in titles
 
 
-# ===========================================================================
-# is_analysis_result
-# ===========================================================================
-
-
-class TestIsAnalysisResult:
-    def test_true_for_analysis_metadata(self):
-        from dataeval_flow.workflows.analysis.outputs import DataAnalysisMetadata, is_analysis_result
-
-        result = MagicMock()
-        result.metadata = DataAnalysisMetadata()
-        assert is_analysis_result(result) is True
-
-    def test_false_for_other_metadata(self):
-        from dataeval_flow.workflows.analysis.outputs import is_analysis_result
-
-        result = MagicMock()
-        result.metadata = MagicMock()
-        assert is_analysis_result(result) is False
-
-
 class TestOnePolicyPerRun:
     """Splits share the reference split's encoding, so their statistics are comparable."""
 
     def test_the_reference_comes_first_by_default(self):
-        from dataeval_flow.workflows.analysis.workflow import _split_order
+        from dataeval_flow.workflows.data_analysis._workflow import _split_order
 
         assert _split_order(["train", "val", "test"], None) == ["train", "val", "test"]
 
     def test_a_named_reference_is_moved_to_the_front(self):
-        from dataeval_flow.workflows.analysis.workflow import _split_order
+        from dataeval_flow.workflows.data_analysis._workflow import _split_order
 
         assert _split_order(["train", "val", "test"], "test") == ["test", "train", "val"]
 
     def test_a_reference_the_task_does_not_have_is_refused(self):
-        """Silently falling back would encode every split against a policy nobody chose."""
-        from dataeval_flow.workflows.analysis.workflow import _split_order
+        """Falling back would encode every split against an unchosen policy."""
+        from dataeval_flow.workflows.data_analysis._workflow import _split_order
 
         with pytest.raises(ValueError, match="reference_split='holdout'"):
             _split_order(["train", "test"], "holdout")
 
     def test_the_reference_split_does_not_rename_cross_split_comparisons(self):
-        """Build order and result order are different things.
+        """Build order and result order are different.
 
-        The reference is built first so the others can follow its encoding — but if that
-        order also drove the pairing, `reference_split: test` would produce `test_vs_train`
-        where an otherwise identical config produces `train_vs_test`, and would hand
-        `_assess_cross_label_health` its two splits the other way round. `label_parity`
-        normalizes expected to observed, so swapping them moves the chi-squared statistic.
+        The reference is built first so the others can follow its encoding. If that
+        order also drove the pairing, `reference_split: test` would produce
+        `test_vs_train` where an otherwise identical config produces `train_vs_test`,
+        and would hand `_assess_cross_label_health` its two splits the other way round.
+        `label_parity` normalizes expected to observed, so swapping them moves the
+        chi-squared statistic.
         """
         from unittest.mock import MagicMock, patch
 
-        from dataeval_flow.workflows.analysis.workflow import _assess_cross_splits
+        from dataeval_flow.workflows.data_analysis._workflow import _assess_cross_splits
 
         params = _make_params()
         splits = {name: MagicMock() for name in ("train", "val", "test")}
@@ -2134,17 +2094,17 @@ class TestOnePolicyPerRun:
         reordered = {name: splits[name] for name in ("test", "train", "val")}
         with (
             patch(
-                "dataeval_flow.workflows.analysis.workflow._assess_cross_redundancy",
+                "dataeval_flow.workflows.data_analysis._workflow._assess_cross_redundancy",
                 return_value=CrossSplitRedundancy(),
             ),
             patch(
-                "dataeval_flow.workflows.analysis.workflow._assess_cross_label_health",
+                "dataeval_flow.workflows.data_analysis._workflow._assess_cross_label_health",
                 return_value=CrossSplitLabelHealth(
                     label_overlap={"shared_classes": [], "train_only": [], "test_only": []}
                 ),
             ),
             patch(
-                "dataeval_flow.workflows.analysis.workflow._assess_distribution_shift",
+                "dataeval_flow.workflows.data_analysis._workflow._assess_distribution_shift",
                 return_value=DistributionShiftResult(),
             ),
         ):
@@ -2152,13 +2112,13 @@ class TestOnePolicyPerRun:
             assert list(_assess_cross_splits(reordered, params)) == ["test_vs_train", "test_vs_val", "train_vs_val"]  # type: ignore
 
     def test_splits_share_one_encoding_end_to_end(self):
-        """The defect this fixes: train got four bins and test three, for one factor."""
+        """The binning mismatch: train got four bins and test three, for one factor."""
         import warnings
 
         from dataeval import Metadata
 
-        from dataeval_flow.binning import _descriptor
-        from dataeval_flow.policy import ResolvedPolicy, derive_from
+        from dataeval_flow._binning import _descriptor
+        from dataeval_flow._policy import ResolvedPolicy, derive_from
 
         def build(seed, n, **kwargs):
             rng = np.random.default_rng(seed)
@@ -2196,7 +2156,7 @@ class TestValueRangeComesFromTheDataset:
         )
 
         # `_make_params()` declares no range, so a revert to `params.value_range` reads None.
-        result = DataAnalysisWorkflow().execute(ctx, _make_params())
+        result = DataAnalysisWorkflow().run(_make_params(), ctx)
 
         assert result.success is True
         assert mock_compute.call_args.kwargs["value_range"] == (0.0, 1.0)

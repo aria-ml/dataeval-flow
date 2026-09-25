@@ -98,9 +98,9 @@ def test_optional_bool_is_tri_state_plain_bool_is_not():
 
 
 def test_real_cleaning_params():
-    from dataeval_flow.workflows.cleaning.params import DataCleaningParameters
+    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
-    descriptors = introspect_model(DataCleaningParameters)
+    descriptors = introspect_model(DataCleaningConfig)
     by_name = {d.name: d for d in descriptors}
 
     assert by_name["outlier_method"].kind == FieldKind.SELECT
@@ -113,9 +113,9 @@ def test_real_cleaning_params():
 
 
 def test_real_drift_params():
-    from dataeval_flow.workflows.drift.params import DriftMonitoringParameters
+    from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
-    descriptors = introspect_model(DriftMonitoringParameters)
+    descriptors = introspect_model(DriftMonitoringConfig)
     by_name = {d.name: d for d in descriptors}
 
     assert by_name["detectors"].kind == FieldKind.LIST

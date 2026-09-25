@@ -2,10 +2,9 @@
 
 Labels and human review are expensive; data is abundant. When you have far more
 candidate samples than you can afford to label, annotate, or inspect, the question
-is not *whether* to review data but *which data first*. **Data prioritization**
-ranks an unlabeled or oversized pool so that the most valuable samples come to the
-front — the ones whose labeling will teach the model most, or whose inspection is
-most likely to surface a problem.
+is *which data first*. **Data prioritization** ranks an unlabeled or oversized
+pool so that the most valuable samples come to the front — the ones whose labeling
+will teach the model most, or whose inspection is most likely to surface a problem.
 
 Value here is a geometric notion. Working in the {term}`embedding <Embeddings>`
 space, prioritization can rank samples by how *novel* they are — far from existing
@@ -13,8 +12,7 @@ labeled data, in sparse or under-covered regions — or by how *hard* they are �
 near decision boundaries or anomalous relative to a reference. Ranking by novelty
 spends a labeling budget on territory the dataset does not yet cover; ranking by
 difficulty concentrates review where a model is most likely to fail. Either way,
-prioritization turns a fixed budget into the largest improvement, rather than
-labeling at random.
+prioritization turns a fixed budget into the largest improvement.
 
 In DataEval Flow, the `data-prioritization` workflow ranks a pool source against a
 reference and returns ordered indices with their scores, supporting different

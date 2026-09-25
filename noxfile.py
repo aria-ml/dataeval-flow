@@ -32,9 +32,9 @@ if not UV_EXTRAS_OVERRIDE:
 def onnx_extra(device: str) -> str:
     """Name the onnx extra matching a device variant.
 
-    CPU wheels for cpu, and for CUDA the GPU extra built against that same CUDA major --
-    an onnxruntime-gpu wheel links against one specific CUDA runtime, so `cu130` has to
-    pull `onnx-cu130` rather than a shared `onnx-gpu`.
+    `cpu` uses the plain CPU wheels. Each CUDA variant uses the GPU extra built against
+    the same CUDA major: an onnxruntime-gpu wheel links against one specific CUDA
+    runtime, so there is no shared `onnx-gpu` and `cu130` pulls `onnx-cu130`.
     """
     return "onnx" if device == "cpu" else f"onnx-{device}"
 
@@ -100,9 +100,9 @@ def dev(session: nox.Session) -> None:
 
     Usage: `uvx --with nox-uv nox -s dev -- [-p VERSION] [-d DEVICE] [-n NAME]`
 
-    Bootstrap this one with `uvx`, not `uv run nox -s dev` -- nox itself lives in the
-    environment the session rebuilds. `--with nox-uv` is required for every other session
-    in this file, since it imports nox_uv at module scope.
+    Bootstrap with `uvx`: nox itself lives in the environment the session rebuilds, so a
+    `uv run` nox would be replaced out from under it. `--with nox-uv` is required for
+    every other session in this file, since it imports nox_uv at module scope.
     """
     parser = argparse.ArgumentParser(prog="nox -s dev --", add_help=False)
     parser.add_argument("-p", "--python", dest="python")
@@ -445,9 +445,9 @@ def docker_smoke(session: nox.Session) -> None:
 
     Skips repo-state checks (lint, schema, lockfile validation) and the 90%
     coverage gate — those are already enforced by the MR pipeline before any
-    Docker build runs. What's left is the slice that only the *built image*
-    can validate: that the frozen, variant-specific venv (cpu / cu126 / cu130)
-    actually produces a runnable package end-to-end.
+    Docker build runs. What remains is the part only the *built image* can
+    validate: the frozen, variant-specific venv (cpu / cu126 / cu130) produces
+    a runnable package end-to-end.
 
     Coverage:
       1. Import smoke — package + key submodules import cleanly with the
@@ -460,7 +460,7 @@ def docker_smoke(session: nox.Session) -> None:
       4. Wiring tests — fast integration tests against the installed venv:
          config loading, runner, main entrypoint, and e2e orchestration.
     """
-    session.run("python", "-c", "import dataeval_flow; from dataeval_flow import runner, workflow")
+    session.run("python", "-c", "import dataeval_flow; from dataeval_flow import _runner, workflows")
     session.run("python", "-m", "dataeval_flow", "--help")
     # Verify parameter surface can be configured entirely via environment variables.
     session.run(

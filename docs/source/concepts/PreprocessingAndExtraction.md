@@ -1,12 +1,12 @@
 # Preprocessing and Feature Extraction
 
-Almost every DataEval evaluator works not on raw pixels but on
-{term}`embeddings <Embeddings>` — compact numerical vectors that capture what
-matters about an image while suppressing irrelevant variation. Getting from a
-folder of images to those vectors involves two steps that DataEval Flow makes
-explicit and configurable: **preprocessing** the images into a consistent form,
-and **extracting** features from them. Both are declared in the configuration, so
-the representation an evaluation runs on is part of the reproducible record.
+Almost every DataEval evaluator works on {term}`embeddings <Embeddings>` — compact
+numerical vectors that capture what matters about an image while suppressing
+irrelevant variation. Getting from a folder of images to those vectors involves
+two steps that DataEval Flow makes explicit and configurable: **preprocessing**
+the images into a consistent form, and **extracting** features from them. Both
+are declared in the configuration, so the representation an evaluation runs on is
+part of the reproducible record.
 
 ## Why the representation matters
 

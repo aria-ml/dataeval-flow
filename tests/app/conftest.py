@@ -83,8 +83,8 @@ def _state_with_datasets() -> ConfigState:
 async def _wait_for_result(pilot, results: list) -> None:  # type: ignore[type-arg]
     """Pause until the dismiss callback populates *results*.
 
-    Textual's ``dismiss()`` may take several event-loop cycles before the
-    callback fires, so a single ``pilot.pause()`` is not always sufficient.
+    Textual's ``dismiss()`` may fire its callback several event-loop cycles
+    later, so loop until *results* is non-empty.
     """
     for _ in range(10):
         await pilot.pause()

@@ -1,6 +1,6 @@
 """ViewModel for rendering workflow results in the TUI.
 
-Transforms ``WorkflowResult`` data into view-ready structures.
+Transforms a workflow or evaluator result into view-ready structures.
 No Textual dependency — consumed by the result modal and result cards.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from dataeval_flow.workflow._text_report import (
+from dataeval_flow._text_report import (
     _brief_value,
     _render_detail_section,
     _summary_line,
@@ -33,19 +33,16 @@ class ResultViewModel:
     """Transforms a ``WorkflowResult`` into view-ready structures."""
 
     def __init__(self, result: Any) -> None:
-        from dataeval_flow.evaluator.result import EvaluatorResult
+        from dataeval_flow.evaluators._result import EvaluatorResult
 
         self._result = result
         self._is_evaluator = isinstance(result, EvaluatorResult)
         self._findings = self._extract_findings()
 
     def _extract_findings(self) -> list[Any]:
-        if self._is_evaluator:
+        if self._is_evaluator or not self._result.success:
             return []
-        report_obj = getattr(self._result.data, "report", None)
-        if report_obj is None:
-            return []
-        return list(getattr(report_obj, "findings", []))
+        return list(self._result.output.report.findings)
 
     @property
     def is_evaluator(self) -> bool:
@@ -54,7 +51,7 @@ class ResultViewModel:
 
     def output_text(self) -> str:
         """An evaluator's output rendered as the text report renders it, every row included."""
-        from dataeval_flow.evaluator._report import render_result_body
+        from dataeval_flow.evaluators._report import render_result_body
 
         if not self._is_evaluator:
             return ""
@@ -63,12 +60,14 @@ class ResultViewModel:
     def status_tag(self) -> str:
         """The result card's status marker.
 
-        For a workflow this is the health verdict (``[ok]``/``[!!]``). An evaluator carries no
-        health verdict, so a successful one is empty; a failed one still shows a run-status
-        marker, since a failure is not a finding.
+        A failed run of either kind shows a run-status marker, since a failure is not a finding.
+        Otherwise, for a workflow this is the health verdict (``[ok]``/``[!!]``); an evaluator
+        carries no health verdict, so a successful one is empty.
         """
+        if not self._result.success:
+            return " [bold red][failed][/bold red]"
         if self._is_evaluator:
-            return "" if self._result.success else " [bold red][failed][/bold red]"
+            return ""
         return " [bold red][!!][/bold red]" if self.warning_count() else " [green][ok][/green]"
 
     # -- Summary -----------------------------------------------------------
@@ -76,11 +75,13 @@ class ResultViewModel:
     def summary_line(self) -> str:
         """One-line summary: finding count, warning count, duration."""
         if self._is_evaluator:
+            from dataeval_flow.evaluators._report import serialized_of
+
             if not self._result.success:
                 errors = self._result.errors
                 parts = [f"failed: {errors[0]}" if errors else "failed"]
             else:
-                output = self._result.output
+                output = serialized_of(self._result)
                 count = len(output.get("rows", output.get("data", [])))
                 noun = "row" if output.get("shape") == "table" else "value"
                 parts = [f"{count} {noun}{'s' if count != 1 else ''}"]
@@ -101,11 +102,10 @@ class ResultViewModel:
         return ", ".join(parts)
 
     def report_summary(self) -> str:
-        """The workflow's own summary string (e.g. 'Data Cleaning Report'); empty for an evaluator."""
-        report_obj = getattr(getattr(self._result, "data", None), "report", None)
-        if report_obj is None:
+        """The workflow's own summary string (e.g. 'Data Cleaning Report'); empty for an evaluator or a failed run."""
+        if self._is_evaluator or not self._result.success:
             return ""
-        return getattr(report_obj, "summary", "")
+        return self._result.output.report.summary
 
     # -- Metadata ----------------------------------------------------------
 

@@ -67,7 +67,11 @@ The cache is keyed on the things that would change the answer, so a hit means th
 - **The view** — a hash of the {term}`view <View>` applied to it, so the same dataset under two views keeps two
   separate entries.
 - **The artifact configuration** — for embeddings, the extractor's model, parameters, preprocessor, and the content
-  hash of the model file itself; for statistics, the set of metrics requested.
+  hash of the model file itself; for statistics, the set of metrics requested. An extractor that fits itself to the
+  data, such as BoVW, is fitted once per task on the first source to ask. Its embeddings, and the clusters built
+  from them, are keyed by that source, the batch size that picked its fitting images, and the `seed` it was fitted
+  under. They are only reused under the same vocabulary. Without a `seed` each fit learns a different vocabulary,
+  so they are kept only for the task that computed them and recomputed for every task.
 
 Change any of those and the next run recomputes. Change nothing and it does not. This is the same property that makes
 a result reproducible — see [Reproducibility](../concepts/Reproducibility.md).
@@ -96,11 +100,11 @@ Artifacts live under a version directory so that formats can coexist. When the c
 version is bumped and older data is simply ignored — it is not deleted, so it is worth removing stale versions
 yourself.
 
-The version tracks releases rather than individual format changes, so it advances at most once per release and
-the numbering matches what you can actually have on disk. The v0.1 line shipped `v0`; the current version is
-`v1`, which v0.2 moved to because pixel statistics are now cached in the units the data is stored in — making
-every `v0` statistic incomparable with a fresh one — and because metadata archives now serve only the binning
-configuration that wrote them.
+The version tracks releases rather than individual format changes, so it advances at most once per release and the
+numbering matches what you can actually have on disk. The v0.1 line shipped `v0`; the current version is `v1`.
+v0.2 moved to it because pixel statistics are now cached in the units the data is stored in — making every `v0`
+statistic incomparable with a fresh one — and because metadata archives now serve only the binning configuration
+that wrote them.
 
 ```bash
 rm -rf ./cache/v0        # drop the superseded v0.1 cache

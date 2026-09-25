@@ -41,6 +41,6 @@ class TestLogging:
             _logging._initialized = original_initialized
 
     def test_module_logger_is_logging_logger(self) -> None:
-        import dataeval_flow.runner as runner
+        import dataeval_flow._runner as runner
 
         assert isinstance(runner._logger, logging.Logger)
