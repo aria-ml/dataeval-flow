@@ -5,6 +5,7 @@ import json
 import pytest
 
 from dataeval_flow import Result, ResultMetadata
+from dataeval_flow._result import results_html
 from dataeval_flow.evaluators import EvaluatorResult
 from dataeval_flow.evaluators._result import EvaluatorMetadata
 from dataeval_flow.workflows import WorkflowResult
@@ -15,6 +16,7 @@ from dataeval_flow.workflows.data_cleaning._outputs import (
     DataCleaningRawOutput,
     DataCleaningReport,
 )
+from tests.test_blocks_html import _well_formed
 
 
 def _output() -> DataCleaningOutput:
@@ -85,6 +87,19 @@ class TestOneShape:
         lines = make().report(width=60).splitlines()
         assert lines[1] == "=" * 60
         assert all(len(line) <= 60 for line in lines), max(lines, key=len)
+
+    def test_the_html_page_is_the_report(self, make, kind):
+        result = make()
+        page = result.to_html()
+        assert page.startswith("<!doctype html>")
+        assert f"<h1>{result._report_title()}</h1>" in page
+        assert _well_formed(page)
+        assert "<script" not in page
+
+    def test_a_failed_run_s_page_shows_its_errors(self, make, kind):
+        page = make(success=False).to_html()
+        assert "<h2>FAILED</h2>" in page
+        assert "<p>boom</p>" in page
 
     def test_an_empty_configuration_draws_no_section(self, make, kind):
         result = make()
@@ -163,3 +178,20 @@ def test_a_failed_result_of_a_class_carries_that_class_metadata():
 def test_every_argument_is_keyword_only():
     with pytest.raises(TypeError, match="takes 1 positional argument"):
         WorkflowResult("data-cleaning", True, _output(), ResultMetadata())  # type: ignore[misc]
+
+
+def test_every_result_of_a_run_shares_one_page():
+    page = results_html([_workflow(), _evaluator()])
+    assert "<title>dataeval-flow results</title>" in page
+    assert page.count("<h1>") == 2
+    assert _well_formed(page)
+
+
+def test_a_run_of_one_task_is_titled_by_its_report():
+    assert "<title>Data cleaning complete.</title>" in results_html([_workflow()])
+
+
+def test_a_run_with_no_report_to_show_still_writes_a_page():
+    page = results_html([])
+    assert "<title>dataeval-flow results</title>" in page
+    assert _well_formed(page)

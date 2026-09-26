@@ -126,12 +126,16 @@ def _fit(columns: Sequence[Column], widths: list[int], room: int) -> list[int]:
 
 
 def _scale(table: Table, column: Column) -> tuple[float, float]:
-    """The range a bar column is drawn over: zero or below up to the largest value or marker."""
+    """The range a bar column is drawn over: zero or below, up to the largest value or marker or zero.
+
+    Zero is always on the scale, since every bar runs from it: with only negative values, the one
+    nearest zero draws the shortest bar rather than none.
+    """
     values = [float(v) for row in table.rows if _finite(v := row.get(column.key))]
     values.extend(value for _, value in _markers(column))
     if not values:
         return 0.0, 1.0
-    return min(min(values), 0.0), max(values)
+    return min(min(values), 0.0), max(max(values), 0.0)
 
 
 def _bar(value: Cell, low: float, high: float, width: int) -> str:

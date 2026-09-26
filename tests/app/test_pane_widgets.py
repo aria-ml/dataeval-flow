@@ -378,6 +378,16 @@ class TestResultPaneCoverage:
             cards = [w for w in app._get_pane_widgets("result-pane") if isinstance(w, ResultCard)]
             assert len(cards) >= 1
 
+    async def test_a_bracketed_task_name_and_error_show_as_written(self, builder_app) -> None:
+        app = builder_app
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            app._vm.mark_task_failed("[/t] task", "KeyError: [/x]")
+            app._rebuild_result_pane()
+            await pilot.pause()
+            (card,) = [w for w in app._get_pane_widgets("result-pane") if isinstance(w, ResultCard)]
+            assert str(card.render()) == "[/t] task — FAILED: KeyError: [/x]"
+
     async def test_append_or_update_new(self, builder_app) -> None:
         """Append a new result card (task not yet in pane)."""
         app = builder_app

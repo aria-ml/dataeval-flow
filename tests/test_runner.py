@@ -164,11 +164,13 @@ def _fake_result(*, warnings: int = 0):
     """A stand-in workflow result with a controllable warning count."""
     from unittest.mock import MagicMock
 
+    from dataeval_flow._blocks import Section
     from dataeval_flow.workflows import WorkflowResult
 
     result = MagicMock(spec=WorkflowResult)
     result.success = True
     result.report.return_value = "report"
+    result._document.return_value = Section(title="report")
     result.to_dict.return_value = {"metadata": {}}
     result.metadata = MagicMock(metadata_binning=None)
     result.warning_count = warnings
@@ -297,6 +299,23 @@ class TestFailOnWarning:
 
         assert (tmp_path / "out" / "results" / "result.json").exists()
         assert (tmp_path / "out" / "results" / "result.txt").exists()
+        assert (tmp_path / "out" / "results" / "result.html").exists()
+
+
+class TestNothingSucceeded:
+    def test_a_run_where_every_task_fails_writes_no_results_and_exits_1(self, tmp_path: Path):
+        """With no report to show, no result file is written, json, text or html, and the run fails."""
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        failed = _fake_result()
+        failed.success = False
+        failed.errors = ["boom"]
+        config = _write_config(tmp_path)
+        with patch.object(orch, "_run_single_task", return_value=failed):
+            assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
+
+        assert not (tmp_path / "out" / "results").exists()
 
 
 def _with_exports(path: Path, source: str) -> Path:
