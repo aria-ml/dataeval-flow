@@ -121,7 +121,40 @@ class TestRunTasks:
         captured = capsys.readouterr()
         assert "== Full Report ==" in captured.out
         # Console call uses detailed=True at verbosity >= 1
-        result.report.assert_any_call(detailed=True)
+        result.report.assert_any_call(detailed=True, width=80)
+
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
+    def test_the_report_width_reaches_the_console_and_the_file(
+        self, mock_load: MagicMock, mock_run: MagicMock, tmp_path: Path
+    ):
+        from dataeval_flow._runner import run
+
+        config = MagicMock()
+        config.tasks = [MagicMock()]
+        config.logging = None
+        mock_load.return_value = config
+        result = MagicMock()
+        result.success = True
+        result.report.return_value = "report"
+        result.to_dict.return_value = {"metadata": {}}
+        mock_run.return_value = {"task1": result}
+
+        run(Path("/fake/config"), tmp_path, verbosity=1, report_width=64)
+        widths = {call.kwargs["width"] for call in result.report.call_args_list}
+        assert widths == {64}
+        # At -v the console shows the detailed report, so it is drawn once for both.
+        assert result.report.call_count == 1
+
+    @patch("dataeval_flow._orchestrator.run_tasks")
+    @patch("dataeval_flow._runner._resolve_config")
+    def test_a_too_narrow_report_width_fails_before_any_task_runs(self, mock_load: MagicMock, mock_run: MagicMock):
+        from dataeval_flow._runner import run
+
+        with pytest.raises(ValueError, match="at least 40"):
+            run(Path("/fake/config"), None, report_width=30)
+        mock_load.assert_not_called()
+        mock_run.assert_not_called()
 
     @patch("dataeval_flow._orchestrator.run_tasks")
     @patch("dataeval_flow._runner._resolve_config")
@@ -151,7 +184,7 @@ class TestRunTasks:
         captured = capsys.readouterr()
         assert "== Summary ==" in captured.out
         # Console call uses detailed=False at verbosity 0
-        result.report.assert_any_call(detailed=False)
+        result.report.assert_any_call(detailed=False, width=80)
 
     @patch("dataeval_flow._orchestrator.run_tasks")
     @patch("dataeval_flow._runner._resolve_config")
@@ -350,6 +383,7 @@ class TestMain:
         args.cache = None
         args.task = None
         args.fail_on_warning = False
+        args.report_width = 72
         mock_parse.return_value = args
         mock_run_tasks.return_value = 0
 
@@ -364,6 +398,7 @@ class TestMain:
             cache_dir=None,
             tasks=None,
             fail_on_warning=False,
+            report_width=72,
         )
 
     @patch("dataeval_flow._runner.run")

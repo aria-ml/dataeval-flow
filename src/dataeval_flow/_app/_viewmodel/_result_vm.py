@@ -7,15 +7,16 @@ No Textual dependency — consumed by the result modal and result cards.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeGuard
 
-from dataeval_flow._text_report import (
-    _brief_value,
-    _render_detail_section,
-    _summary_line,
-)
+from dataeval_flow._blocks import Block, Paragraph, Summary, SummaryItem, Table
+from dataeval_flow._blocks._table import cell_text
+from dataeval_flow._blocks._text import Frame, render_text
 
-__all__ = ["FindingSummary", "ResultViewModel"]
+__all__ = ["FindingSummary", "ResultViewModel", "Segment", "table_data"]
+
+# A run of blocks the detail view draws as text, or a table it shows as a native ``DataTable``.
+Segment = Table | list[Block]
 
 
 @dataclass
@@ -25,8 +26,21 @@ class FindingSummary:
     title: str
     severity: str  # "ok" | "info" | "warning"
     brief: str
-    report_type: str
-    has_table: bool
+
+
+def _is_data_table(block: Block) -> TypeGuard[Table]:
+    """A table a ``DataTable`` shows in full: rows, and nothing drawn, neither chart nor threshold marker.
+
+    A table with a chart stays in the text, where its bars, stacks and threshold lines draw;
+    a ``DataTable`` cell holds only text.
+    """
+    return isinstance(block, Table) and bool(block.rows) and all(column.kind == "text" for column in block.columns)
+
+
+def table_data(table: Table) -> tuple[list[str], list[list[str]]]:
+    """A data table's headers and rows as text, each cell printed as the text report prints it."""
+    rows = [[cell_text(column, row.get(column.key)) for column in table.columns] for row in table.rows]
+    return [column.header for column in table.columns], rows
 
 
 class ResultViewModel:
@@ -136,56 +150,46 @@ class ResultViewModel:
 
     def finding_summaries(self) -> list[FindingSummary]:
         """Return view-ready summaries for all findings."""
-        summaries: list[FindingSummary] = []
-        for finding in self._findings:
-            rt = finding.report_type
-            summaries.append(
-                FindingSummary(
-                    title=finding.title,
-                    severity=getattr(finding, "severity", "info"),
-                    brief=_brief_value(finding),
-                    report_type=rt,
-                    has_table=rt in ("table", "pivot_table", "classwise_table", "chunk_table"),
-                )
+        return [
+            FindingSummary(
+                title=finding.title,
+                severity=getattr(finding, "severity", "info"),
+                brief=finding.brief or "",
             )
-        return summaries
+            for finding in self._findings
+        ]
 
     def finding_summary_markup(self, idx: int) -> str:
-        """Rich-markup one-liner for finding at *idx* (dotted summary style)."""
-        if 0 <= idx < len(self._findings):
-            return _summary_line(self._findings[idx])
-        return ""
+        """Rich-markup summary line for finding at *idx* (dotted summary style).
 
-    def finding_detail_markup(self, idx: int) -> str:
-        """Rich-markup detail block for finding at *idx*."""
-        if 0 <= idx < len(self._findings):
-            lines = _render_detail_section(self._findings[idx])
-            return "\n".join(lines)
-        return ""
-
-    def finding_table_data(self, idx: int) -> tuple[list[str], list[list[str]]] | None:
-        """Extract structured table data for ``DataTable`` rendering.
-
-        Returns ``(headers, rows)`` where each row is a list of strings,
-        or ``None`` if the finding doesn't have tabular data.
+        A title and brief too long for one line wrap onto more, joined by ``\\n``; the last line
+        carries the brief and the severity marker.
         """
-        if not (0 <= idx < len(self._findings)):
-            return None
+        if 0 <= idx < len(self._findings):
+            finding = self._findings[idx]
+            item = SummaryItem(label=finding.title, value=finding.brief or "", severity=finding.severity)
+            return "\n".join(render_text([Summary(items=[item])], Frame(indent="  ")))
+        return ""
 
+    def finding_blocks(self, idx: int) -> list[Block]:
+        """The finding at *idx* as its detail draws it: the description as a lede, then its evidence."""
+        if not 0 <= idx < len(self._findings):
+            return []
         finding = self._findings[idx]
-        data = finding.data
-        if not isinstance(data, dict):
-            return None
+        lede: list[Block] = [Paragraph(text=finding.description)] if finding.description else []
+        return [*lede, *finding.blocks]
 
-        rt = finding.report_type
-
-        if rt == "table":
-            return self._extract_simple_table(data)
-        if rt == "pivot_table":
-            return self._extract_pivot_table(data)
-        if rt in ("classwise_table", "chunk_table"):
-            return self._extract_row_table(data)
-        return None
+    def finding_segments(self, idx: int) -> list[Segment]:
+        """The finding's blocks in the order they draw: each data table on its own, the rest in runs of text."""
+        segments: list[Segment] = []
+        for block in self.finding_blocks(idx):
+            if _is_data_table(block):
+                segments.append(block)
+            elif segments and isinstance(segments[-1], list):
+                segments[-1].append(block)
+            else:
+                segments.append([block])
+        return segments
 
     # -- Health summary ----------------------------------------------------
 
@@ -197,58 +201,3 @@ class ResultViewModel:
         if warnings:
             return f"Health: {warnings} warning(s) — review flagged findings"
         return "Health: All checks passed"
-
-    # -- Table extraction helpers ------------------------------------------
-
-    @staticmethod
-    def _extract_simple_table(data: dict[str, Any]) -> tuple[list[str], list[list[str]]] | None:
-        """Extract from ``table`` report type (dict of name→count)."""
-        table_data: dict[str, int] = data.get("table_data", {})
-        if not table_data:
-            return None
-        headers_raw = data.get("table_headers", ("Name", "Value"))
-        headers: list[str] = [str(h) for h in headers_raw]
-        rows = [[str(k), str(v)] for k, v in sorted(table_data.items(), key=lambda x: -x[1])]
-        return headers, rows
-
-    @staticmethod
-    def _extract_pivot_table(data: dict[str, Any]) -> tuple[list[str], list[list[str]]] | None:
-        """Extract from ``pivot_table`` report type."""
-        rows_data: list[dict[str, Any]] = data.get("table_data", [])
-        headers: list[str] = data.get("table_headers", [])
-        if not rows_data or not headers:
-            return None
-
-        key_aliases: dict[str, str] = {"%": "pct", "Class Name": "class_name", "Count": "count"}
-        keys = [key_aliases.get(h, h) for h in headers]
-
-        rows: list[list[str]] = []
-        for row in rows_data:
-            cells: list[str] = []
-            for key in keys:
-                val = row.get(key, "")
-                if key == "pct" and isinstance(val, (int, float)):
-                    cells.append(f"{val:.1f}%")
-                else:
-                    cells.append(str(val) if val is not None else "")
-            rows.append(cells)
-        return headers, rows
-
-    @staticmethod
-    def _extract_row_table(data: dict[str, Any]) -> tuple[list[str], list[list[str]]] | None:
-        """Extract from ``classwise_table`` or ``chunk_table`` (list of row dicts)."""
-        rows_data: list[dict[str, Any]] = data.get("table_rows", [])
-        if not rows_data:
-            return None
-        headers = list(rows_data[0].keys())
-        rows: list[list[str]] = []
-        for row in rows_data:
-            cells: list[str] = []
-            for h in headers:
-                val = row.get(h, "")
-                if isinstance(val, float):
-                    cells.append(f"{val:.4f}")
-                else:
-                    cells.append(str(val) if val is not None else "")
-            rows.append(cells)
-        return headers, rows

@@ -29,9 +29,9 @@ GROUPS: list[tuple[str, str]] = [
     ("ASCII baseline", "#"),
     ("vertical eighths (sparklines)", "▁▂▃▄▅▆▇█"),
     ("left eighths (bar fractions)", "▏▎▍▌▋▊▉█"),
-    ("light shade (ratio bars)", "░"),
+    ("shades (ratio and stacked bars)", "░▒▓"),
     ("box drawing (box plots)", "─│├┤"),
-    ("punctuation (table columns)", "–—→·"),
+    ("punctuation (headings, legends, markers)", "–—→←·"),
 ]
 
 

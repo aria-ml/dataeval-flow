@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
+from dataeval_flow._blocks import Block, BulletList, Cell, Column, Fields, Paragraph, Section, Table
 from dataeval_flow.workflows._base import Finding
+from dataeval_flow.workflows._tables import ranked_table
 from dataeval_flow.workflows.ood_detection._config import (
     OODDetectionConfig,
     OODDetectionHealthThresholds,
@@ -28,8 +30,8 @@ def _severity_for_ood(
     return "ok"
 
 
-def _score_histogram_lines(det_result: DetectorOODResultDict, n_bins: int = 10) -> list[str]:
-    """Build ASCII histogram lines for a detector's score distribution."""
+def _score_histogram_blocks(det_result: DetectorOODResultDict, n_bins: int = 10) -> list[Block]:
+    """A detector's score distribution: in-dist and OOD counts per bin, the threshold's bin marked."""
     samples = det_result.get("samples", [])
     if not samples:
         return []
@@ -41,45 +43,37 @@ def _score_histogram_lines(det_result: DetectorOODResultDict, n_bins: int = 10) 
     lo = min(all_scores)
     hi = max(all_scores)
     if hi == lo:
-        return [f"All scores = {lo:.4f}"]
+        return [Paragraph(text=f"All scores = {lo:.4f}")]
 
     bin_w = (hi - lo) / n_bins
     threshold = det_result["threshold_score"]
-    bar_max = 30
 
-    # Build bins
-    bins: list[tuple[float, float, int, int]] = []
+    rows: list[dict[str, Cell]] = []
     for i in range(n_bins):
         b_lo = lo + i * bin_w
         b_hi = b_lo + bin_w
         ic = sum(1 for s in in_scores if (b_lo <= s < b_hi) or (i == n_bins - 1 and s == b_hi))
         oc = sum(1 for s in ood_scores if (b_lo <= s < b_hi) or (i == n_bins - 1 and s == b_hi))
-        bins.append((b_lo, b_hi, ic, oc))
+        # The threshold's bin is found by the bounds as printed, to three places.
+        at_threshold = float(f"{b_lo:.3f}") <= threshold < float(f"{b_hi:.3f}")
+        rows.append(
+            {
+                "range": f"{b_lo:.3f}-{b_hi:.3f}",
+                "in": ic,
+                "ood": oc,
+                "bar": [ic, oc],
+                "marker": "\u2190 threshold" if at_threshold else "",
+            }
+        )
 
-    max_count = max(ic + oc for _, _, ic, oc in bins) or 1
-
-    # Format ranges to determine column width
-    range_strs = [f"{lo:.3f}-{hi:.3f}" for lo, hi, _, _ in bins]
-    w_range = max(len(r) for r in range_strs)
-
-    lines = [
-        "",
-        f"{'Range':>{w_range}}  {'In':>4} {'OOD':>4}",
-        f"{'-' * w_range}  {'-' * 4} {'-' * 4}  {'-' * bar_max}",
+    columns = [
+        Column(key="range", header="Range", align="right"),
+        Column(key="in", header="In"),
+        Column(key="ood", header="OOD"),
+        Column(key="bar", kind="stacked", series=["in-dist", "OOD"]),
+        Column(key="marker", align="left"),
     ]
-
-    for range_str, (_, _, ic, oc) in zip(range_strs, bins, strict=True):
-        total_bar = int(((ic + oc) / max_count) * bar_max)
-        in_bar = int((ic / max_count) * bar_max) if ic else 0
-        ood_bar = total_bar - in_bar
-        bar = "\u2588" * in_bar + "\u2591" * ood_bar
-        b_lo = float(range_str.split("-")[0])
-        b_hi = float(range_str.split("-")[1])
-        marker = "  \u2190 threshold" if b_lo <= threshold < b_hi else ""
-        lines.append(f"{range_str:>{w_range}}  {ic:4d} {oc:4d}  {bar}{marker}")
-
-    lines.append(f"\u2588 in-dist  \u2591 OOD  (threshold={threshold:.4f})")
-    return lines
+    return [Table(columns=columns, rows=rows)]
 
 
 def _build_detector_finding(
@@ -91,24 +85,22 @@ def _build_detector_finding(
     ood_pct = result["ood_percentage"]
     severity = _severity_for_ood(ood_pct, thresholds)
 
-    detail_lines = _score_histogram_lines(result)
-
-    data: dict[str, Any] = {
-        "ood_count": result["ood_count"],
-        "total_count": result["total_count"],
-        "ood_percentage": f"{ood_pct:.1f}%",
-        "threshold_score": round(result["threshold_score"], 6),
-        "detail_lines": detail_lines,
-    }
+    counts = Fields(
+        items=[
+            ("OOD count", result["ood_count"]),
+            ("Total count", result["total_count"]),
+            ("OOD percentage", f"{ood_pct:.1f}%"),
+            ("Threshold score", round(result["threshold_score"], 6)),
+        ]
+    )
 
     description = f"{name}: {result['ood_count']}/{result['total_count']} samples OOD ({ood_pct:.1f}%)"
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title=name,
-        data=data,
         description=description,
+        blocks=[*_score_histogram_blocks(result), counts],
     )
 
 
@@ -116,17 +108,13 @@ def _build_factor_predictors_finding(
     predictors: dict[str, float],
 ) -> Finding:
     """Build a table finding showing mutual information per factor."""
-    data: dict[str, Any] = {
-        "table_data": {k: round(v, 4) for k, v in predictors.items()},
-        "table_headers": ("Factor", "MI (bits)"),
-    }
+    table = ranked_table({k: round(v, 4) for k, v in predictors.items()}, headers=("Factor", "MI (bits)"))
 
     return Finding(
-        report_type="table",
         severity="info",
         title="OOD Factor Predictors",
-        data=data,
         description="Mutual information between metadata factors and OOD status (higher = stronger association)",
+        blocks=[table],
     )
 
 
@@ -206,14 +194,13 @@ def _build_factor_deviations_finding(
     n_total = len(deviations)
 
     return Finding(
-        report_type="key_value",
         severity="info",
         title="OOD Sample Metadata Deviations",
-        data={"detail_lines": detail_lines},
         description=(
             f"{n_agreed}/{n_total} OOD samples agreed by all detectors "
             f"(sorted by normalized score, showing top {min(10, n_agreed)})"
         ),
+        blocks=[BulletList(items=detail_lines)] if detail_lines else [],
     )
 
 
@@ -236,14 +223,13 @@ def _build_aggregate_finding(
     severity = _severity_for_ood(ood_pct, thresholds)
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title="Aggregate OOD (all detectors agree)",
-        data={"detail_lines": detail_lines},
         description=(
             f"{n_mutual}/{total_ood} OOD samples agreed by all detectors ({ood_pct:.1f}%) "
             f"(sorted by normalized score, showing top {min(10, n_mutual)})"
         ),
+        blocks=[BulletList(items=detail_lines)] if detail_lines else [],
     )
 
 
@@ -253,25 +239,24 @@ def _build_unique_ood_finding(
     detector_names: dict[str, str],
 ) -> Finding:
     """Build a single finding listing OOD samples unique to each detector."""
-    detail_lines: list[str] = []
+    groups: list[Block] = []
     for method_key, unique_indices in unique_ood.items():
         if not unique_indices:
             continue
         name = detector_names.get(method_key, method_key)
         sorted_indices = sorted(unique_indices, key=lambda i: normalized_scores.get(i, 0.0), reverse=True)
-        detail_lines.append(f"{name}: {len(unique_indices)} unique sample(s)")
-        for idx in sorted_indices[:10]:
-            norm = normalized_scores.get(idx, 0.0)
-            detail_lines.append(f"  Sample {idx:4d} (score={norm:.2f}x)")
+        items = [f"Sample {idx:4d} (score={normalized_scores.get(idx, 0.0):.2f}x)" for idx in sorted_indices[:10]]
+        groups.append(
+            Section(title=name, brief=f"{len(unique_indices)} unique sample(s)", blocks=[BulletList(items=items)])
+        )
 
     total_unique = sum(len(v) for v in unique_ood.values())
 
     return Finding(
-        report_type="key_value",
         severity="info",
         title="Unique OOD Samples (single-detector only)",
-        data={"detail_lines": detail_lines},
         description=f"{total_unique} sample(s) flagged by only one detector",
+        blocks=groups,
     )
 
 

@@ -7,12 +7,34 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._env import env_bool, env_choice, env_int, env_list, env_path
 
 if TYPE_CHECKING:
     from dataeval_flow.evaluators._evaluator import Evaluator
 
 _logger = logging.getLogger(__name__)
+
+
+def _report_width(value: str) -> int:
+    """``--report-width``: a whole number of characters no narrower than a report can be drawn."""
+    try:
+        width = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"must be a whole number, got {value!r}") from None
+    if width < MIN_WIDTH:
+        raise argparse.ArgumentTypeError(f"must be at least {MIN_WIDTH}, got {width}")
+    return width
+
+
+def _env_report_width() -> int:
+    """``$DATAEVAL_REPORT_WIDTH``, or the default; a malformed or too-narrow value raises ``ValueError``."""
+    width = env_int("DATAEVAL_REPORT_WIDTH")
+    if width is None:
+        return DEFAULT_WIDTH
+    if width < MIN_WIDTH:
+        raise ValueError(f"DATAEVAL_REPORT_WIDTH must be at least {MIN_WIDTH}, got {width}")
+    return width
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -91,6 +113,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "Run only this task, by name. Repeat to run several, in the order given. "
             "Naming a task runs it whether or not the config marks it enabled. "
             "Default: every enabled task."
+        ),
+    )
+    parser.add_argument(
+        "--report-width",
+        type=_report_width,
+        default=_env_report_width(),
+        metavar="N",
+        help=(
+            f"Characters per line of the text report, at least {MIN_WIDTH} "
+            f"(default: $DATAEVAL_REPORT_WIDTH, else {DEFAULT_WIDTH})."
         ),
     )
     parser.add_argument(
@@ -383,6 +415,7 @@ def main() -> NoReturn:
                 cache_dir=args.cache,
                 tasks=args.task,
                 fail_on_warning=args.fail_on_warning,
+                report_width=args.report_width,
             )
         )
     except (FileNotFoundError, ValueError, ImportError) as e:

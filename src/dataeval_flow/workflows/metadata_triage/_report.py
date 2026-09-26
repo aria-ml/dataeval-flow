@@ -2,7 +2,8 @@
 
 from typing import Any, Literal
 
-from dataeval_flow._text_report import _render_distribution, _render_ratio
+from dataeval_flow._binning_report import distribution_blocks, proportion_block
+from dataeval_flow._blocks import Block, BulletList, Code, Fields, Paragraph, Scalar, Section
 from dataeval_flow._triage import TriageFinding
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageRawOutput
@@ -58,45 +59,32 @@ def build_findings(raw: MetadataTriageRawOutput, max_examples: int) -> list[Find
             continue
         blocking = any(f.severity == "blocking" for f in group)
         severity: Literal["ok", "info", "warning"] = "warning" if blocking else "info"
-        lines: list[str] = []
+        blocks: list[Block]
         if category == "floor_mass":
-            lines.extend(_floor_mass_lines(group))
+            blocks = _floor_mass_blocks(group)
         elif shared := _COLLAPSED.get(category):
-            lines.extend([shared, ""])
-            lines.extend(_collapsed_lines(group, list(raw.findings)))
+            blocks = [Paragraph(text=shared), *_collapsed_sections(group, list(raw.findings))]
         else:
-            for finding in group:
-                lines.extend(_finding_lines(finding, max_examples))
+            blocks = [_finding_section(finding, max_examples) for finding in group]
         findings.append(
-            Finding(
-                report_type="key_value",
-                severity=severity,
-                title=_TITLES[category],
-                data={"brief": f"{len(group)} factors", "detail_lines": lines},
-            )
+            Finding(severity=severity, title=_TITLES[category], brief=f"{len(group)} factors", blocks=blocks)
         )
     if raw.suggested_policy_yaml:
         findings.append(
             Finding(
-                report_type="key_value",
                 severity="info",
                 title="Suggested policy",
-                data={
-                    "brief": "add to configuration under `metadata:`",
-                    "detail_lines": raw.suggested_policy_yaml.splitlines(),
-                },
+                brief="add to configuration under `metadata:`",
+                blocks=[Code(text=raw.suggested_policy_yaml.rstrip("\n"), language="yaml")],
             )
         )
     if raw.verification:
         findings.append(
             Finding(
-                report_type="key_value",
                 severity="info",
                 title="Verified",
-                data={
-                    "brief": f"{sum(1 for v in raw.verification if v.recovered)} recovered",
-                    "detail_lines": [f"{v.factor}: {v.detail}" for v in raw.verification],
-                },
+                brief=f"{sum(1 for v in raw.verification if v.recovered)} recovered",
+                blocks=[Fields(items=[(v.factor, v.detail) for v in raw.verification])],
             )
         )
     elif raw.verification_error:
@@ -105,40 +93,51 @@ def build_findings(raw: MetadataTriageRawOutput, max_examples: int) -> list[Find
         # an omitted section says nothing at all.
         findings.append(
             Finding(
-                report_type="key_value",
                 severity="warning",
                 title="Verification failed",
-                data={"brief": "not verified", "detail_lines": [raw.verification_error]},
+                brief="not verified",
+                blocks=[Paragraph(text=raw.verification_error)],
             )
         )
     return findings
 
 
-def _floor_mass_lines(group: list[TriageFinding]) -> list[str]:
-    """One block per shared value, not one per factor."""
+def _floor_mass_blocks(group: list[TriageFinding]) -> list[Block]:
+    """One section per shared value, not one per factor."""
     by_value: dict[str, list[TriageFinding]] = {}
     for finding in group:
         by_value.setdefault(repr(finding.detail.get("value")), []).append(finding)
-    lines: list[str] = []
+    blocks: list[Block] = []
     for value, findings in sorted(by_value.items()):
         names = sorted(f.factor for f in findings)
         plural = "factors" if len(names) > 1 else "factor"
-        lines.append(f"{value} appears in >=25% of rows across {len(names)} {plural}:")
-        lines.append(f"  {', '.join(names)}")
-        lines.append("")
         if len(names) > 1:
-            lines.append("A common extreme value across multiple factors may indicate a missing")
-            lines.append("reading sentinel. Verify and remap to `.nan` if appropriate.")
+            advice = (
+                "A common extreme value across multiple factors may indicate a missing reading sentinel. "
+                "Verify and remap to `.nan` if appropriate."
+            )
         else:
-            lines.append("This may indicate a missing reading sentinel. Remap to `.nan` if appropriate.")
-        lines.append("")
-        lines.append("If this is a valid measurement, note the high concentration at this value.")
-        lines.append("No automatic bin count is suggested for skewed distributions.")
-        lines.append("")
-    return lines
+            advice = "This may indicate a missing reading sentinel. Remap to `.nan` if appropriate."
+        blocks.append(
+            Section(
+                title=value,
+                brief=f"appears in >=25% of rows across {len(names)} {plural}",
+                blocks=[
+                    BulletList(items=names),
+                    Paragraph(text=advice),
+                    Paragraph(
+                        text=(
+                            "If this is a valid measurement, note the high concentration at this value. "
+                            "No automatic bin count is suggested for skewed distributions."
+                        )
+                    ),
+                ],
+            )
+        )
+    return blocks
 
 
-def _collapsed_lines(group: list[TriageFinding], everything: list[TriageFinding]) -> list[str]:
+def _collapsed_sections(group: list[TriageFinding], everything: list[TriageFinding]) -> list[Block]:
     """Each factor with its own shape, under a remedy stated once for all of them.
 
     What repeats across these findings is the *sentence*, and printing it ten times reads as ten
@@ -146,7 +145,7 @@ def _collapsed_lines(group: list[TriageFinding], everything: list[TriageFinding]
     being proposed, and the reader is meant to disagree with a suggestion by looking at it. So
     the prose collapses and the charts do not.
     """
-    lines: list[str] = []
+    sections: list[Block] = []
     for finding in sorted(group, key=lambda f: f.factor):
         policy = (finding.suggestion.policy if finding.suggestion else {}) or {}
         bins = (policy.get("continuous_factor_bins") or {}).get(finding.factor)
@@ -156,10 +155,9 @@ def _collapsed_lines(group: list[TriageFinding], everything: list[TriageFinding]
             detail = _withdrawn_reason(finding.factor, everything)
         else:
             detail = _bucket_count(finding)
-        lines.append(f"{finding.factor} — {detail}")
-        lines.extend(f"  {line}" for line in _render_distribution(finding.detail.get("info") or {}))
-        lines.append("")
-    return lines
+        charts = distribution_blocks(finding.detail.get("info") or {})
+        sections.append(Section(title=finding.factor, brief=detail, blocks=charts))
+    return sections
 
 
 def _bucket_count(finding: TriageFinding) -> str:
@@ -171,34 +169,40 @@ def _bucket_count(finding: TriageFinding) -> str:
     return f"{len(fit.get('bins') or ())} bins"
 
 
-def _finding_lines(finding: TriageFinding, max_examples: int) -> list[str]:
-    """One finding as report lines: what it is, its shape, and what to do."""
-    head = f"[{finding.severity}] {finding.factor} [{', '.join(finding.reasons) or finding.category}"
-    head += f" @ {finding.level}]" if finding.level else "]"
-    lines = [head]
+def _finding_section(finding: TriageFinding, max_examples: int) -> Section:
+    """One finding as a section: what it is, its shape, the values it read, and what to do."""
+    brief = f"[{finding.severity}] {', '.join(finding.reasons) or finding.category}"
+    if finding.level:
+        brief += f" @ {finding.level}"
+    blocks: list[Block] = []
     counts = finding.detail.get("counts")
     if counts:
-        lines.append(f"  {_render_ratio(counts)}")
+        blocks.append(proportion_block(counts))
     # Not for an identifier: the chart would be the arbitrary cut this finding exists to
     # reject, drawn at full size and lending it the authority of a measurement.
     if "n_distinct" not in finding.detail:
-        lines.extend(f"  {line}" for line in _render_distribution(finding.detail.get("info") or {}))
-    lines.extend(f"  {line}" for line in _example_lines(finding, max_examples))
-    lines.append(f"  -> {finding.remedy}")
-    lines.append("")
-    return lines
+        blocks.extend(distribution_blocks(finding.detail.get("info") or {}))
+    if examples := _examples(finding, max_examples):
+        blocks.append(Fields(items=examples))
+    blocks.append(Paragraph(text=f"-> {finding.remedy}"))
+    return Section(
+        title=finding.factor,
+        brief=brief,
+        severity="warning" if finding.severity == "blocking" else "info",
+        blocks=blocks,
+    )
 
 
-def _example_lines(finding: TriageFinding, max_examples: int) -> list[str]:
+def _examples(finding: TriageFinding, max_examples: int) -> list[tuple[str, Scalar]]:
     """The values a repair has to be written against, truncated for reading only."""
-    lines: list[str] = []
+    items: list[tuple[str, Scalar]] = []
     for kind, values in (finding.detail.get("distinct") or {}).items():
         if not values:
             continue
         shown = [repr(v) for v in values[:max_examples]]
         more = f" (+{len(values) - max_examples} more)" if len(values) > max_examples else ""
-        lines.append(f"{kind} reads: {', '.join(shown)}{more}")
-    return lines
+        items.append((f"{kind} reads", f"{', '.join(shown)}{more}"))
+    return items
 
 
 def summarize(raw: MetadataTriageRawOutput) -> dict[str, Any]:

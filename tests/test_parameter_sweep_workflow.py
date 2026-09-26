@@ -6,6 +6,8 @@ import pytest
 
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig, ParameterSweepWorkflow
+from dataeval_flow.workflows.parameter_sweep._outputs import SweepRunResult
+from tests.finding_blocks import column, rendered, tables
 
 pytestmark = pytest.mark.required
 
@@ -66,10 +68,11 @@ class TestParameterSweepWorkflow:
         assert len(result.output.report.findings) == 1
         finding = result.output.report.findings[0]
         assert finding.title == "Outliers Sweep"
-        assert isinstance(finding.data, dict)
-        assert finding.data["table_headers"] == ["outlier_threshold", "Outliers"]
-        assert len(finding.data["table_data"]) == 2
-        assert "Exact Duplicates" not in finding.data["table_headers"]
+        (table,) = tables(finding)
+        headers = [c.header for c in table.columns]
+        assert headers == ["outlier_threshold", "Outliers"]
+        assert len(table.rows) == 2
+        assert "Exact Duplicates" not in headers
 
     @patch("dataeval_flow.workflows.parameter_sweep._workflow.get_or_compute_stats")
     @patch("dataeval_flow.workflows.parameter_sweep._workflow.Outliers")
@@ -181,12 +184,66 @@ class TestParameterSweepWorkflow:
         titles = [f.title for f in findings]
         assert titles == ["Outliers Sweep", "Near Duplicates Sweep"]
 
-        outliers_finding = findings[0]
-        assert isinstance(outliers_finding.data, dict)
-        assert outliers_finding.data["table_headers"] == ["outlier_threshold", "Outliers"]
-        assert len(outliers_finding.data["table_data"]) == 2  # deduped on threshold
+        (outliers_table,) = tables(findings[0])
+        assert [c.header for c in outliers_table.columns] == ["outlier_threshold", "Outliers"]
+        assert len(outliers_table.rows) == 2  # deduped on threshold
 
-        near_finding = findings[1]
-        assert isinstance(near_finding.data, dict)
-        assert near_finding.data["table_headers"] == ["duplicate_cluster_sensitivity", "Near Duplicates"]
-        assert len(near_finding.data["table_data"]) == 3  # deduped on sensitivity
+        (near_table,) = tables(findings[1])
+        assert [c.header for c in near_table.columns] == ["duplicate_cluster_sensitivity", "Near Duplicates"]
+        assert len(near_table.rows) == 3  # deduped on sensitivity
+
+
+def _run(method: str, threshold: float | None, outliers: int) -> SweepRunResult:
+    params = {
+        "outlier_method": method,
+        "outlier_threshold": threshold,
+        "outlier_cluster_threshold": None,
+        "outlier_cluster_algorithm": None,
+        "duplicate_cluster_sensitivity": None,
+        "duplicate_cluster_algorithm": None,
+    }
+    return SweepRunResult(params=params, outlier_count=outliers, exact_duplicate_groups=1, near_duplicate_groups=0)
+
+
+class TestBuildFindings:
+    """Each outcome's sweep, as a table of the swept values beside the outcome."""
+
+    _RUNS = [_run("adaptive", None, 12), _run("adaptive", 2.0, 30), _run("zscore", None, 8), _run("zscore", 2.0, 25)]
+
+    def test_one_finding_per_outcome_with_its_brief_and_description(self):
+        (finding,) = ParameterSweepWorkflow()._build_findings(self._RUNS, ["outlier_method", "outlier_threshold"])
+        assert finding.title == "Outliers Sweep"
+        assert finding.brief == "4 unique combinations"
+        assert finding.description == "Effect of outlier_method, outlier_threshold on outliers."
+
+    def test_columns_are_keyed_and_headed_by_their_own_names(self):
+        (finding,) = ParameterSweepWorkflow()._build_findings(self._RUNS, ["outlier_method", "outlier_threshold"])
+        (table,) = tables(finding)
+        assert [(c.key, c.header) for c in table.columns] == [
+            ("outlier_method", "outlier_method"),
+            ("outlier_threshold", "outlier_threshold"),
+            ("Outliers", "Outliers"),
+        ]
+
+    def test_cells_are_the_raw_values(self):
+        (finding,) = ParameterSweepWorkflow()._build_findings(self._RUNS, ["outlier_method", "outlier_threshold"])
+        (table,) = tables(finding)
+        assert column(table, "outlier_method") == ["adaptive", "adaptive", "zscore", "zscore"]
+        assert column(table, "outlier_threshold") == [None, 2.0, None, 2.0]
+        assert column(table, "Outliers") == [12, 30, 8, 25]
+
+    def test_an_unset_threshold_draws_blank(self):
+        (finding,) = ParameterSweepWorkflow()._build_findings(self._RUNS, ["outlier_method", "outlier_threshold"])
+        assert rendered(finding).splitlines() == [
+            "=" * 80,
+            "  OUTLIERS SWEEP" + "4 unique combinations".rjust(64),
+            "=" * 80,
+            "  Effect of outlier_method, outlier_threshold on outliers.",
+            "",
+            "  outlier_method  outlier_threshold  Outliers",
+            "  --------------  -----------------  --------",
+            "  adaptive                                 12",
+            "  adaptive                      2.0        30",
+            "  zscore                                    8",
+            "  zscore                        2.0        25",
+        ]

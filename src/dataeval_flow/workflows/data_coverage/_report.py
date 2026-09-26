@@ -5,11 +5,17 @@ from typing import Any, Literal
 
 import yaml
 
+from dataeval_flow._blocks import Block, Cell, Code, Column, Fields, Paragraph, Table
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows.data_coverage._config import DataCoverageHealthThresholds
 from dataeval_flow.workflows.data_coverage._outputs import DataCoverageRawOutput, LabelSpaceCoverage
 
 __all__ = ["build_findings"]
+
+
+def _table(columns: list[Column], rows: list[dict[str, Cell]]) -> list[Block]:
+    """*rows* under *columns*, or no block at all when there are no rows to show."""
+    return [Table(columns=columns, rows=rows)] if rows else []
 
 
 def _finding_coverage(  # noqa: C901
@@ -24,10 +30,9 @@ def _finding_coverage(  # noqa: C901
         # An extractor was configured but the assessment could not run — say so
         # rather than letting the section silently vanish from the report.
         return Finding(
-            report_type="key_value",
             severity="info",
             title="Embedding Coverage",
-            data={"brief": "skipped"},
+            brief="skipped",
             description=f"Embedding coverage was skipped: {raw.coverage_skipped_reason}.",
         )
 
@@ -51,15 +56,22 @@ def _finding_coverage(  # noqa: C901
     elif cov.uncovered_count > 0:
         severity = "info"
 
-    rows: list[dict[str, Any]] = [
+    rows: list[dict[str, Cell]] = [
         {
             "class_name": row.class_name,
             "count": row.count,
-            "Dispersion": "-" if row.dispersion is None else round(row.dispersion, 2),
-            "Isotropy": "-" if row.isotropy is None else round(row.isotropy, 2),
-            "NearDup": "-" if row.near_duplicate_fraction is None else round(row.near_duplicate_fraction, 2),
+            "dispersion": "-" if row.dispersion is None else round(row.dispersion, 2),
+            "isotropy": "-" if row.isotropy is None else round(row.isotropy, 2),
+            "near_dup": "-" if row.near_duplicate_fraction is None else round(row.near_duplicate_fraction, 2),
         }
         for row in cov.per_class
+    ]
+    columns = [
+        Column(key="class_name", header="Class Name"),
+        Column(key="count", header="Count"),
+        Column(key="dispersion", header="Dispersion"),
+        Column(key="isotropy", header="Isotropy"),
+        Column(key="near_dup", header="NearDup"),
     ]
 
     flags: list[str] = []
@@ -77,43 +89,46 @@ def _finding_coverage(  # noqa: C901
     # Results written before observation_count existed carry 0 — fall back to the
     # image count, which is what those runs assessed.
     observed = cov.observation_count or raw.dataset_size
-    description = f"{cov.uncovered_count} of {observed} {units} uncovered in embedding space."
+    notes: list[str] = []
     if cov.observation_unit != "image":
-        description += (
-            f" The embedding assessments run on {units} — one per ground-truth box — because "
+        notes.append(
+            f"The embedding assessments run on {units} — one per ground-truth box — because "
             "coverage assumes one embedding per label."
         )
     if cov.dropped_detections:
-        description += (
-            f" {cov.dropped_detections} detection(s) were too small or degenerate to embed and "
+        notes.append(
+            f"{cov.dropped_detections} detection(s) were too small or degenerate to embed and "
             "are not covered by these numbers."
         )
     if clustered:
-        description += f" Clustered (low dispersion): {', '.join(r.class_name for r in clustered)}."
+        notes.append(f"Clustered (low dispersion): {', '.join(r.class_name for r in clustered)}.")
     if flat:
-        description += f" One-dimensional (low isotropy): {', '.join(r.class_name for r in flat)}."
+        notes.append(f"One-dimensional (low isotropy): {', '.join(r.class_name for r in flat)}.")
     if padded:
-        description += f" Duplicate-padded: {', '.join(r.class_name for r in padded)}."
+        notes.append(f"Duplicate-padded: {', '.join(r.class_name for r in padded)}.")
     if not rate_is_data_driven:
-        description += (
-            " The uncovered rate is not health-checked: coverage_method='adaptive' flags a "
+        notes.append(
+            "The uncovered rate is not health-checked: coverage_method='adaptive' flags a "
             "fixed coverage_percent of observations by construction. The per-class columns "
             "are the data-driven signal."
         )
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Embedding Coverage",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Class Name", "Count", "Dispersion", "Isotropy", "NearDup"],
-            "footer_lines": [
-                f"method={cov.method}  radius={round(cov.coverage_radius, 4)}  observations={observed} {units}"
-            ],
-        },
-        description=description,
+        brief=brief,
+        description=f"{cov.uncovered_count} of {observed} {units} uncovered in embedding space.",
+        blocks=[
+            *(Paragraph(text=note) for note in notes),
+            *_table(columns, rows),
+            Fields(
+                items=[
+                    ("Method", cov.method),
+                    ("Radius", round(cov.coverage_radius, 4)),
+                    ("Observations", f"{observed} {units}"),
+                ]
+            ),
+        ],
     )
 
 
@@ -136,15 +151,18 @@ def _finding_completeness(
     brief = f"Completeness: {score}"
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title="Dimensional Completeness",
-        data={
-            "brief": brief,
-            "Completeness Score": score,
-            "Nearest Neighbor Pairs": len(comp.nearest_neighbor_pairs),
-        },
+        brief=brief,
         description=(f"Dimensional completeness score is {score} (threshold: {thresholds.completeness_score})."),
+        blocks=[
+            Fields(
+                items=[
+                    ("Completeness Score", score),
+                    ("Nearest Neighbor Pairs", len(comp.nearest_neighbor_pairs)),
+                ]
+            )
+        ],
     )
 
 
@@ -170,13 +188,16 @@ def _finding_label_distribution(
     # produce column percentages summing well past 100%.
     total_labels = sum(ld.class_distribution.values())
 
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     for cls in sorted(ld.class_distribution, key=lambda c: ld.class_distribution[c], reverse=True):
         count = ld.class_distribution[cls]
         pct = round((count / max(total_labels, 1)) * 100, 1)
-        # "Count" and "%" headers are aliased by _render_pivot_table to the
-        # lowercase row keys "count"/"pct" — match them or the columns render blank.
-        rows.append({"Class": cls, "count": count, "pct": pct})
+        rows.append({"class": cls, "count": count, "pct": pct})
+    columns = [
+        Column(key="class", header="Class"),
+        Column(key="count", header="Count"),
+        Column(key="pct", header="%", format="{:.1f}%"),
+    ]
 
     brief = f"{ld.num_classes} classes, ratio {ratio}:1"
     if ld.missing_classes:
@@ -187,23 +208,20 @@ def _finding_label_distribution(
     description = (
         f"{ld.num_classes} classes with imbalance ratio {ratio}:1. {len(ld.empty_images)} images have no labels."
     )
+    notes: list[str] = []
     if total_labels != raw.dataset_size:
-        description += f" Percentages are shares of {total_labels} labels across {raw.dataset_size} images."
+        notes.append(f"Percentages are shares of {total_labels} labels across {raw.dataset_size} images.")
     if ld.missing_classes:
-        description += (
-            f" {len(ld.missing_classes)} declared class(es) have zero samples: {', '.join(ld.missing_classes)}."
+        notes.append(
+            f"{len(ld.missing_classes)} declared class(es) have zero samples: {', '.join(ld.missing_classes)}."
         )
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Label Distribution",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Class", "Count", "%"],
-        },
+        brief=brief,
         description=description,
+        blocks=[*(Paragraph(text=note) for note in notes), *_table(columns, rows)],
     )
 
 
@@ -214,30 +232,35 @@ def _finding_metadata_distribution(
     md = raw.metadata_distribution
     if not md.metadata_factors:
         return Finding(
-            report_type="key_value",
             severity="info",
             title="Metadata Distribution",
-            data={"brief": "No metadata factors available"},
+            brief="No metadata factors available",
             description="No metadata factors were extracted from the dataset.",
         )
 
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     for factor in md.metadata_factors:
         info = md.metadata_summary.get(factor, {})
-        row: dict[str, Any] = {
-            "Factor": factor,
-            "Type": info.get("type", "unknown"),
+        row: dict[str, Cell] = {
+            "factor": factor,
+            "type": info.get("type", "unknown"),
         }
         if "unique_values" in info:
-            row["Unique"] = info["unique_values"]
+            row["unique"] = info["unique_values"]
         elif info.get("mean") is not None:
             # An all-null column (e.g. a target-level factor read off image-level rows)
             # summarizes to a null mean — show it as absent rather than raising.
-            row["Unique"] = f"μ={round(info['mean'], 2)}"
+            row["unique"] = f"μ={round(info['mean'], 2)}"
         else:
-            row["Unique"] = "-"
-        row["Nulls"] = info.get("null_count", 0)
+            row["unique"] = "-"
+        row["nulls"] = info.get("null_count", 0)
         rows.append(row)
+    columns = [
+        Column(key="factor", header="Factor"),
+        Column(key="type", header="Type"),
+        Column(key="unique", header="Unique"),
+        Column(key="nulls", header="Nulls"),
+    ]
 
     brief = f"{len(md.metadata_factors)} factors"
     if md.balance_summary:
@@ -246,15 +269,11 @@ def _finding_metadata_distribution(
         brief += ", diversity computed"
 
     return Finding(
-        report_type="pivot_table",
         severity="info",
         title="Metadata Distribution",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Factor", "Type", "Unique", "Nulls"],
-        },
+        brief=brief,
         description=f"{len(md.metadata_factors)} metadata factors analyzed.",
+        blocks=_table(columns, rows),
     )
 
 
@@ -269,61 +288,63 @@ def _finding_metadata_gaps(
 
     if not gaps.gaps:
         return Finding(
-            report_type="key_value",
             severity="ok",
             title="Metadata Coverage Gaps",
-            data={"brief": "No significant gaps detected"},
+            brief="No significant gaps detected",
             description="No class-factor-value combinations are significantly under-represented.",
         )
 
     severity: Literal["ok", "info", "warning"] = "warning" if len(gaps.gaps) >= thresholds.gap_count else "info"
 
-    # "Count" is aliased by _render_pivot_table to the lowercase row key "count".
-    rows: list[dict[str, Any]] = [
+    rows: list[dict[str, Cell]] = [
         {
-            "Class": gap.class_name,
-            "Factor": gap.factor_name,
-            "Value": gap.factor_value,
+            "class": gap.class_name,
+            "factor": gap.factor_name,
+            "value": gap.factor_value,
             "count": gap.class_count,
-            "Expected": round(gap.expected_count, 1),
-            "Deficit": f"{round(gap.deficit * 100, 1)}%",
+            "expected": round(gap.expected_count, 1),
+            "deficit": round(gap.deficit * 100, 1),
         }
         for gap in gaps.gaps
+    ]
+    columns = [
+        Column(key="class", header="Class"),
+        Column(key="factor", header="Factor"),
+        Column(key="value", header="Value"),
+        Column(key="count", header="Count"),
+        Column(key="expected", header="Expected"),
+        Column(key="deficit", header="Deficit", format="{:.1f}%"),
     ]
 
     brief = f"{len(gaps.gaps)} gaps identified"
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Metadata Coverage Gaps",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Class", "Factor", "Value", "Count", "Expected", "Deficit"],
-        },
+        brief=brief,
         description=(
             f"{len(gaps.gaps)} class-factor-value combinations are under-represented. "
             "These represent gaps in data collection that may affect model performance."
         ),
+        blocks=_table(columns, rows),
     )
 
 
-def _worklist_rows(rep: LabelSpaceCoverage) -> list[dict[str, Any]]:
-    """Worklist rows in pivot-table form. 'Count' aliases the lowercase 'count' key."""
-    return [
-        {
-            "Concept": row.label,
-            "Action": row.action,
-            "count": row.count,
-            "Target": row.target,
-            "Deficit": row.deficit,
-        }
+def _worklist_table(rep: LabelSpaceCoverage) -> list[Block]:
+    """The concepts to acquire or augment, and by how much; nothing when none fall short."""
+    columns = [
+        Column(key="concept", header="Concept"),
+        Column(key="action", header="Action"),
+        Column(key="count", header="Count"),
+        Column(key="target", header="Target"),
+        Column(key="deficit", header="Deficit"),
+    ]
+    rows: list[dict[str, Cell]] = [
+        {"concept": row.label, "action": row.action, "count": row.count, "target": row.target, "deficit": row.deficit}
         for row in rep.worklist
     ]
+    return _table(columns, rows)
 
-
-_WORKLIST_HEADERS = ["Concept", "Action", "Count", "Target", "Deficit"]
 
 # Mergeability to the severity it reports at.  A collapse is usually deliberate, so `lossy`
 # informs rather than warns; `partial` warns because Relabel will drop a class.
@@ -363,29 +384,29 @@ def _finding_label_space(
         f"{pct}% of the ontology's sanctioned leaf species have examples. "
         f"The dataset is {rep.total_deficit} labels short of an even spread across them."
     )
+    notes: list[str] = []
     if rep.dark_branches:
         names = ", ".join(f"{b.label} ({b.leaves} leaves)" for b in rep.dark_branches)
-        description += f" Wholly-empty branches: {names}."
+        notes.append(f"Wholly-empty branches: {names}.")
     if rep.violations:
         names = ", ".join(f"{v.label} ({v.actual:.1%} < {v.floor:.1%})" for v in rep.violations)
-        description += f" Asserted minimum shares not met: {names}."
+        notes.append(f"Asserted minimum shares not met: {names}.")
     if rep.ignored_expected:
-        description += (
-            f" Ignored ontology_expected entries (they resolve to zero or several concepts): "
+        notes.append(
+            f"Ignored ontology_expected entries (they resolve to zero or several concepts): "
             f"{', '.join(rep.ignored_expected)}."
         )
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Label Space Coverage",
-        data={
-            "brief": brief,
-            "table_data": _worklist_rows(rep),
-            "table_headers": _WORKLIST_HEADERS,
-            "footer_lines": [f"ontology source: {onto.source}"],
-        },
+        brief=brief,
         description=description,
+        blocks=[
+            *(Paragraph(text=note) for note in notes),
+            *_worklist_table(rep),
+            Fields(items=[("Ontology source", onto.source)]),
+        ],
     )
 
 
@@ -418,22 +439,19 @@ def _finding_class_balance(
         "itself declares — configure an `ontology` to measure coverage of a sanctioned label "
         "space instead, which is what reveals classes that were never collected at all."
     )
+    notes: list[str] = []
     if rep.violations:
         names = ", ".join(f"{v.label} ({v.actual:.1%} < {v.floor:.1%})" for v in rep.violations)
-        description += f" Asserted minimum shares not met: {names}."
+        notes.append(f"Asserted minimum shares not met: {names}.")
     if rep.ignored_expected:
-        description += f" Ignored ontology_expected entries: {', '.join(rep.ignored_expected)}."
+        notes.append(f"Ignored ontology_expected entries: {', '.join(rep.ignored_expected)}.")
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Class Balance Worklist",
-        data={
-            "brief": brief,
-            "table_data": _worklist_rows(rep),
-            "table_headers": _WORKLIST_HEADERS,
-        },
+        brief=brief,
         description=description,
+        blocks=[*(Paragraph(text=note) for note in notes), *_worklist_table(rep)],
     )
 
 
@@ -451,6 +469,7 @@ def _finding_conformance(
     if len(conf.unmatched) > thresholds.unmatched_class_count or conf.ambiguous:
         severity = "warning"
 
+    notes: list[str] = []
     if conf.conforms:
         brief = "conforms"
         description = "Every class name resolves to exactly one ontology concept."
@@ -462,22 +481,26 @@ def _finding_conformance(
             "does not sanction."
         )
         if conf.unmatched:
-            description += f" Unmatched: {', '.join(conf.unmatched)}."
+            notes.append(f"Unmatched: {', '.join(conf.unmatched)}.")
         if conf.ambiguous:
             names = ", ".join(f"{name} -> {len(ids)} concepts" for name, ids in conf.ambiguous.items())
-            description += f" Ambiguous: {names}. Disambiguate upstream by passing a concept id."
+            notes.append(f"Ambiguous: {names}. Disambiguate upstream by passing a concept id.")
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title="Label Conformance",
-        data={
-            "brief": brief,
-            "Matched": len(conf.matched),
-            "Unmatched": len(conf.unmatched),
-            "Ambiguous": len(conf.ambiguous),
-        },
+        brief=brief,
         description=description,
+        blocks=[
+            *(Paragraph(text=note) for note in notes),
+            Fields(
+                items=[
+                    ("Matched", len(conf.matched)),
+                    ("Unmatched", len(conf.unmatched)),
+                    ("Ambiguous", len(conf.ambiguous)),
+                ]
+            ),
+        ],
     )
 
 
@@ -533,42 +556,63 @@ def _finding_alignment(
     }
     description = f"Mergeability: {al.mergeability}. {described.get(al.mergeability, '')}"
 
+    blocks: list[Block] = []
     if al.unaligned_source:
-        description += f" Dropped: {', '.join(al.unaligned_source)}."
+        blocks.append(Paragraph(text=f"Dropped: {', '.join(al.unaligned_source)}."))
     if al.unaligned_target:
-        description += f" Concepts this dataset does not cover: {', '.join(al.unaligned_target)}."
+        blocks.append(Paragraph(text=f"Concepts this dataset does not cover: {', '.join(al.unaligned_target)}."))
     if al.ambiguous_labels:
-        description += (
-            f" {len(al.ambiguous_labels)} target label(s) name more than one concept "
-            f"({', '.join(al.ambiguous_labels)}). The stanza below cannot be used until the "
-            "ontology is fixed, because the index such a label takes is undetermined."
+        blocks.append(
+            Paragraph(
+                text=(
+                    f"{len(al.ambiguous_labels)} target label(s) name more than one concept "
+                    f"({', '.join(al.ambiguous_labels)}). The stanza below cannot be used until the "
+                    "ontology is fixed, because the index such a label takes is undetermined."
+                )
+            )
         )
+
+    columns = [
+        Column(key="source", header="Source"),
+        Column(key="relation", header="Relation"),
+        Column(key="target", header="Target"),
+        Column(key="confidence", header="Confidence"),
+        Column(key="matcher", header="Matcher"),
+    ]
+    rows: list[dict[str, Cell]] = [
+        {
+            "source": c.source,
+            "relation": c.relation,
+            "target": c.target_label,
+            "confidence": round(c.confidence, 3),
+            "matcher": c.matcher,
+        }
+        for c in al.correspondences
+    ]
+    blocks.extend(_table(columns, rows))
 
     if al.paste_remap:
-        description += (
-            "\n\nTo conform a dataset to this vocabulary, add to its view:\n\n"
-            f"{_relabel_stanza(al.paste_remap, al.target_vocabulary)}\n\n"
-            "Datasets merged together must pass the identical `target`, or their integer "
-            "labels denote different classes."
+        blocks.extend(
+            [
+                Paragraph(text="To conform a dataset to this vocabulary, add to its view:"),
+                # Printed exactly as given: the leading spaces nest it under a view's `operations:`.
+                Code(text=_relabel_stanza(al.paste_remap, al.target_vocabulary), language="yaml"),
+                Paragraph(
+                    text=(
+                        "Datasets merged together must pass the identical `target`, or their integer "
+                        "labels denote different classes."
+                    )
+                ),
+            ]
         )
     if al.label_space_digest:
-        description += f"\n\nLabel space: {al.label_space_digest}"
+        blocks.append(Fields(items=[("Label space", al.label_space_digest)]))
 
     return Finding(
-        report_type="table",
         severity=severity,
         title="Label Alignment",
-        data=[
-            {
-                "source": c.source,
-                "relation": c.relation,
-                "target": c.target_label,
-                "confidence": round(c.confidence, 3),
-                "matcher": c.matcher,
-            }
-            for c in al.correspondences
-        ],
         description=description,
+        blocks=blocks,
     )
 
 
@@ -583,10 +627,9 @@ def _finding_ontology_skipped(raw: DataCoverageRawOutput) -> Finding | None:
         return None
 
     return Finding(
-        report_type="key_value",
         severity="info",
         title="Ontology Analysis",
-        data={"brief": "skipped"},
+        brief="skipped",
         description=f"Ontology analysis was skipped: {raw.ontology_skipped_reason}.",
     )
 
@@ -632,31 +675,36 @@ def _finding_ontology_structure(raw: DataCoverageRawOutput) -> Finding | None:
     description = (
         f"The ontology has {st.concept_count} concepts, {st.leaf_count} of them leaves, reaching depth {st.max_depth}."
     )
+    notes: list[str] = []
     if st.label_collisions:
         names = ", ".join(st.label_collisions)
-        description += (
-            f" {len(st.label_collisions)} name(s) resolve to more than one concept ({names}); "
+        notes.append(
+            f"{len(st.label_collisions)} name(s) resolve to more than one concept ({names}); "
             "this is what makes reconciliation ambiguous and should be fixed in the ontology."
         )
     if smells and not st.label_collisions:
-        description += (
-            " The remaining observations are facts, not defects — a truncated ancestry is "
+        notes.append(
+            "The remaining observations are facts, not defects — a truncated ancestry is "
             "expected in a deliberately distributed ontology subset."
         )
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title="Ontology Structure",
-        data={
-            "brief": brief,
-            "Concepts": st.concept_count,
-            "Leaves": st.leaf_count,
-            "Max Depth": st.max_depth,
-            "Roots": len(st.roots),
-            "Label Collisions": len(st.label_collisions),
-        },
+        brief=brief,
         description=description,
+        blocks=[
+            *(Paragraph(text=note) for note in notes),
+            Fields(
+                items=[
+                    ("Concepts", st.concept_count),
+                    ("Leaves", st.leaf_count),
+                    ("Max Depth", st.max_depth),
+                    ("Roots", len(st.roots)),
+                    ("Label Collisions", len(st.label_collisions)),
+                ]
+            ),
+        ],
     )
 
 

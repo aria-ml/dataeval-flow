@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 from typing import TYPE_CHECKING, Any
 
 from textual.containers import VerticalScroll
@@ -67,7 +68,7 @@ class ResultPaneMixin(App):
             lines = [f"[bold]{entry.task_name}[/bold] — {summary}{severity_tag}"]
             for fi in range(rvm.finding_count()):
                 fline = _colorize_marker(rvm.finding_summary_markup(fi))
-                lines.append(f"  {fline}")
+                lines.append(textwrap.indent(fline, "  "))
             return "\n".join(lines)
         error_brief = (entry.error or "unknown error")[:60]
         return f"[bold]{entry.task_name}[/bold] — [bold red]FAILED[/bold red]: {error_brief}"

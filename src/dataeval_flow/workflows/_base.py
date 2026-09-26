@@ -17,8 +17,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from dataeval_flow._blocks import Block
 from dataeval_flow._kind import KindConfig, bind_implementation, bind_result_type, type_arguments
 
 if TYPE_CHECKING:
@@ -196,18 +197,20 @@ class Finding(BaseModel):
     """One item of a workflow's report: a titled piece of evidence, and whether it breached a health threshold.
 
     ``severity`` is the verdict: a ``"warning"`` finding counts toward the result's health and
-    ``--fail-on-warning``. ``report_type`` says how ``data`` is laid out, so the text report can render it.
+    ``--fail-on-warning``. ``brief`` is the value on the finding's summary line, ``description`` the lede
+    under its heading, and ``blocks`` the evidence: report blocks that the text report draws and
+    ``results.json`` holds, one object per block with its ``type`` tag. A finding accepts no other field.
+
+    Examples
+    --------
+    >>> from dataeval_flow.workflows import Finding
+    >>> finding = Finding(title="train items", severity="warning", brief="3 items", description="Fewer than 10.")
+    >>> finding.brief
+    '3 items'
     """
 
-    report_type: Literal["table", "key_value", "image", "text", "pivot_table", "chunk_table", "classwise_table"] = (
-        Field(
-            description=(
-                "How `data` is laid out, which decides how the text report renders it: `key_value` (a mapping "
-                "rendered as name and value lines), `table`, `pivot_table`, `chunk_table`, `classwise_table`, "
-                "`text` or `image`."
-            )
-        )
-    )
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     severity: Literal["ok", "info", "warning"] = Field(
         default="info",
         description=(
@@ -216,10 +219,13 @@ class Finding(BaseModel):
         ),
     )
     title: str = Field(description="A short label: the finding's summary line and its detail section's heading.")
-    data: dict[str, Any] | list[dict[str, Any]] | str = Field(
-        description="The evidence, laid out as `report_type` says. A mapping's `brief` shows on the summary line."
+    brief: str | None = Field(
+        default=None, description="A short value shown on the summary line and beside the detail section's heading."
     )
-    description: str | None = Field(default=None, description="A sentence shown under the detail section's heading.")
+    description: str | None = Field(
+        default=None, description="The lede: a sentence or two of plain prose under the detail section's heading."
+    )
+    blocks: list[Block] = Field(default_factory=list, description="The evidence, as report blocks, in order.")
 
 
 class WorkflowRawOutput(BaseModel):
@@ -264,7 +270,7 @@ class WorkflowReport(BaseModel):
     >>> from dataeval_flow.workflows import Finding, WorkflowReport
     >>> class CountReport(WorkflowReport):
     ...     smallest: str | None = Field(default=None, description="The source holding the fewest items.")
-    >>> finding = Finding(report_type="key_value", severity="warning", title="train items", data={"items": 3})
+    >>> finding = Finding(severity="warning", title="train items", brief="3 items")
     >>> CountReport(summary="Item counts", findings=[finding], smallest="train").smallest
     'train'
     """
@@ -404,10 +410,9 @@ class Workflow(ABC, Generic[ConfigT, ResultT]):
     ...         counts = {source: len(context.dataset(source)) for source in context.sources}
     ...         findings = [
     ...             Finding(
-    ...                 report_type="key_value",
     ...                 severity="warning" if n < config.minimum else "ok",
     ...                 title=f"{source} items",
-    ...                 data={"items": n},
+    ...                 brief=f"{n} items",
     ...             )
     ...             for source, n in counts.items()
     ...         ]

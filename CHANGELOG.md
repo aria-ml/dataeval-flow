@@ -36,9 +36,11 @@
 - Extension bases document how to subclass and register a plugin; a test pins the public API
 - Each `<X>Result`'s API page lists the `output.raw` and `metadata` fields its type adds, pinned by a test
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
+- `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 
 ### Changed
 
+- The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
 - `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
@@ -74,6 +76,7 @@
 - `run_task` is imported from `dataeval_flow`; the `maite.tasks` entry point is `dataeval_flow:run_tasks`
 - `ResultMetadata` is imported from `dataeval_flow`; the config mixins from `dataeval_flow.config`
 - A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
+- `Finding` drops `report_type` and `data`, and rejects unknown fields; `brief` and typed report `blocks` hold the evidence
 
 ### Fixed
 

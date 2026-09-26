@@ -9,6 +9,7 @@ from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow.config import HuggingFaceDatasetConfig, SourceConfig, TaskConfig
 from dataeval_flow.workflows import WorkflowResult
 from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
+from tests.finding_blocks import tables
 
 pytestmark = pytest.mark.required
 
@@ -72,5 +73,6 @@ class TestParameterSweepE2E:
         assert len(res.output.report.findings) == 1
         finding = res.output.report.findings[0]
         assert finding.title == "Outliers Sweep"
-        assert finding.data["table_headers"] == ["outlier_method", "outlier_threshold", "Outliers"]
-        assert len(finding.data["table_data"]) == 4
+        (table,) = tables(finding)
+        assert [c.header for c in table.columns] == ["outlier_method", "outlier_threshold", "Outliers"]
+        assert len(table.rows) == 4

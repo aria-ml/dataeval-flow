@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
+from dataeval_flow._blocks import Fields
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows.data_prioritization._config import (
     DataPrioritizationConfig,
@@ -38,26 +39,26 @@ def _build_cleaning_finding(
     removed_pct = (removed / total * 100) if total > 0 else 0.0
     severity = _severity_for_cleaning(removed_pct, thresholds)
 
-    data: dict[str, Any] = {
-        "brief": f"{removed} items ({removed_pct:.1f}%)",
-        "total_combined": total,
-        "outliers_flagged": summary["outliers_flagged"],
-        "duplicates_flagged": summary["duplicates_flagged"],
-        "total_removed": removed,
-        "removed_pct": f"{removed_pct:.1f}%",
-    }
-
     description = (
         f"Pruning removed {removed}/{total} items ({removed_pct:.1f}%): "
         f"{summary['outliers_flagged']} outliers, {summary['duplicates_flagged']} duplicates"
     )
+    counts = Fields(
+        items=[
+            ("Total combined", total),
+            ("Outliers flagged", summary["outliers_flagged"]),
+            ("Duplicates flagged", summary["duplicates_flagged"]),
+            ("Total removed", removed),
+            ("Removed", f"{removed_pct:.1f}%"),
+        ]
+    )
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title="Pruning",
-        data=data,
+        brief=f"{removed} items ({removed_pct:.1f}%)",
         description=description,
+        blocks=[counts],
     )
 
 
@@ -69,32 +70,24 @@ def _build_prioritization_finding(
 ) -> Finding:
     """Build a finding for a single dataset's prioritization results."""
     n_items = result["cleaned_size"]
-    top_n = min(10, len(result["prioritized_indices"]))
-    top_indices = result["prioritized_indices"][:top_n]
-
-    data: dict[str, Any] = {
-        "brief": f"{n_items} items",
-        "source": result["source_name"],
-        "original_size": result["original_size"],
-        "cleaned_size": result["cleaned_size"],
-        "method": method,
-        "order": order,
-        "policy": policy,
-        "top_indices": top_indices,
-    }
-
-    if result["scores"] is not None:
-        top_scores = result["scores"][:top_n]
-        data["top_scores"] = [round(s, 4) for s in top_scores]
-
     description = f"{result['source_name']}: {n_items} items prioritized via {method} ({order}, {policy})"
+    run = Fields(
+        items=[
+            ("Source", result["source_name"]),
+            ("Original size", result["original_size"]),
+            ("Cleaned size", result["cleaned_size"]),
+            ("Method", method),
+            ("Order", order),
+            ("Policy", policy),
+        ]
+    )
 
     return Finding(
-        report_type="key_value",
         severity="info",
         title=f"Prioritization: {result['source_name']}",
-        data=data,
+        brief=f"{n_items} items",
         description=description,
+        blocks=[run],
     )
 
 

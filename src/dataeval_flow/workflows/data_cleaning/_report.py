@@ -2,15 +2,38 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
+from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Scalar, Section, Table
 from dataeval_flow.workflows._base import Finding, render_label_source
+from dataeval_flow.workflows._tables import ranked_table
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import (
     DataCleaningRawOutput,
     IndexValue,
 )
+
+
+def _outlier_blocks(
+    per_metric: Mapping[str, int], *, flags: int, flagged: int, subject: str, pairs: list[tuple[str, Scalar]]
+) -> list[Block]:
+    """How many *subject* each metric flagged, most first, then the finding's labelled values.
+
+    *flags* counts every (subject, metric) flag and *flagged* the distinct subjects, so more flags than
+    subjects means some subject tripped several metrics.
+    """
+    blocks: list[Block] = []
+    if per_metric:
+        ranked = sorted(per_metric.items(), key=lambda item: -item[1])
+        rows: list[dict[str, Cell]] = [{"metric": metric, "count": n} for metric, n in ranked]
+        blocks.append(
+            Table(columns=[Column(key="metric", header="Metric"), Column(key="count", header="Count")], rows=rows)
+        )
+        if flags > flagged:
+            blocks.append(Paragraph(text=f"(Some {subject} trigger multiple metrics.)"))
+    blocks.append(Fields(items=pairs))
+    return blocks
 
 
 def _duplicate_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealthThresholds) -> Finding | None:
@@ -30,16 +53,29 @@ def _duplicate_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealt
         orient = g.get("orientation")
         if orient is not None:
             orientations[orient] = orientations.get(orient, 0) + 1
-    detail_lines: list[str] = []
+    blocks: list[Block] = []
     if exact_groups:
-        detail_lines.append(f"{len(exact_groups)} exact-duplicate groups ({exact_affected} images)")
+        blocks.append(Paragraph(text=f"{len(exact_groups)} exact-duplicate groups ({exact_affected} images)"))
     if near_groups:
-        detail_lines.append(f"{len(near_groups)} near-duplicate groups ({near_affected} images)")
+        near_line = f"{len(near_groups)} near-duplicate groups ({near_affected} images)"
+        near_pairs: list[tuple[str, Scalar]] = []
         if all_methods:
-            detail_lines.append(f"  Methods: {', '.join(sorted(all_methods))}")
+            near_pairs.append(("Methods", ", ".join(sorted(all_methods))))
         if orientations:
-            parts = [f"{c} {o}" for o, c in sorted(orientations.items())]
-            detail_lines.append(f"  Orientations: {', '.join(parts)}")
+            near_pairs.append(("Orientations", ", ".join(f"{c} {o}" for o, c in sorted(orientations.items()))))
+        blocks.append(
+            Section(title=near_line, blocks=[Fields(items=near_pairs)]) if near_pairs else Paragraph(text=near_line)
+        )
+    blocks.append(
+        Fields(
+            items=[
+                ("Exact groups", len(exact_groups)),
+                ("Near groups", len(near_groups)),
+                ("Exact affected", exact_affected),
+                ("Near affected", near_affected),
+            ]
+        )
+    )
     # Determine severity from thresholds
     exact_pct = (exact_affected / raw.dataset_size) * 100 if raw.dataset_size else 0.0
     near_pct = (near_affected / raw.dataset_size) * 100 if raw.dataset_size else 0.0
@@ -48,20 +84,11 @@ def _duplicate_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealt
         severity = "warning"
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title="Duplicates",
-        data={
-            "brief": (f"{exact_affected} exact ({round(exact_pct, 1)}%), {near_affected} near ({round(near_pct, 1)}%)"),
-            "detail_lines": detail_lines,
-            "exact_groups": len(exact_groups),
-            "near_groups": len(near_groups),
-            "exact_affected": exact_affected,
-            "near_affected": near_affected,
-            "near_methods": sorted(all_methods),
-            "near_orientations": orientations,
-        },
+        brief=f"{exact_affected} exact ({round(exact_pct, 1)}%), {near_affected} near ({round(near_pct, 1)}%)",
         description=(f"{len(exact_groups)} exact duplicate groups, {len(near_groups)} near-duplicate groups found."),
+        blocks=blocks,
     )
 
 
@@ -96,23 +123,17 @@ def _label_distribution_finding(
     if has_empty_class or imbalance_ratio > thresholds.class_label_imbalance:
         severity = "warning"
 
+    # The footer annotates the counts table, so with no counts to rank neither shows.
+    blocks: list[Block] = []
+    if label_counts:
+        footer = [Paragraph(text=line) for line in footer_lines]
+        blocks = [ranked_table(label_counts, headers=("Class", "Count")), *footer]
     return Finding(
-        report_type="table",
         severity=severity,
         title=("Label/Directory_Name Distribution" if label_source == "filepath" else "Label Distribution"),
-        data={
-            "brief": f"{class_count} classes, {item_count} items, imbalance {imbalance_ratio}:1",
-            "table_data": label_counts,
-            "table_headers": ("Class", "Count"),
-            "footer_lines": footer_lines,
-            # Keep existing keys for JSON/YAML consumers
-            "label_counts": label_counts,
-            "class_count": class_count,
-            "item_count": item_count,
-            "imbalance_ratio": imbalance_ratio,
-            "label_source": label_source,
-        },
+        brief=f"{class_count} classes, {item_count} items, imbalance {imbalance_ratio}:1",
         description=(f"{class_count} classes, {item_count} items."),
+        blocks=blocks,
     )
 
 
@@ -123,22 +144,11 @@ def _classwise_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealt
 
     if not rows:
         return Finding(
-            report_type="pivot_table",
             severity="ok",
             title="Classwise Outliers",
-            data={
-                "brief": "no outliers detected",
-                "count_basis": "image",
-                "table_data": [],
-                "table_headers": ["Class Name", "Count", "%"],
-                "worst_class": None,
-                "worst_pct": 0.0,
-                "classes_over_threshold": 0,
-            },
+            brief="no outliers detected",
             description="No outliers detected — classwise breakdown not applicable.",
         )
-
-    count_basis = pivot.get("count_basis", "image")  # type: ignore[union-attr]
 
     # The last row is the "Total" row
     total_row = rows[-1] if rows else {}
@@ -163,23 +173,23 @@ def _classwise_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealt
     else:
         brief = f"{brief_prefix}all classes within {thresholds.classwise_outliers}%"
 
+    columns = [
+        Column(key="class_name", header="Class Name"),
+        Column(key="count", header="Count"),
+        Column(key="pct", header="%", format="{:.1f}%"),
+    ]
+    cells: list[dict[str, Cell]] = [
+        {"class_name": row["class_name"], "count": row["count"], "pct": row["pct"]} for row in rows
+    ]
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Classwise Outliers",
-        data={
-            "brief": brief,
-            "count_basis": count_basis,
-            "table_data": rows,
-            "table_headers": ["Class Name", "Count", "%"],
-            "worst_class": worst_name,
-            "worst_pct": worst_pct,
-            "classes_over_threshold": classes_over,
-        },
+        brief=brief,
         description=(
             f"Most outliers in {worst_name} ({worst_pct}%). "
             f"{classes_over}/{len(class_rows)} classes exceed {thresholds.classwise_outliers}% threshold."
         ),
+        blocks=[Table(columns=columns, rows=cells)],
     )
 
 
@@ -209,19 +219,17 @@ def build_findings(
         img_description = "No images flagged as outliers."
     findings.append(
         Finding(
-            report_type="key_value",
             severity=img_severity,
             title="Image Outliers",
-            data={
-                "brief": f"{outlier_image_count} images ({round(pct, 1)}%)",
-                "multi_metric_subject": "images",
-                "count": outlier_image_count,
-                "percentage": round(pct, 1),
-                "per_metric": per_metric,
-                "total_flags": len(outlier_issues),
-                "dataset_size": raw.dataset_size,
-            },
+            brief=f"{outlier_image_count} images ({round(pct, 1)}%)",
             description=img_description,
+            blocks=_outlier_blocks(
+                per_metric,
+                flags=len(outlier_issues),
+                flagged=outlier_image_count,
+                subject="images",
+                pairs=[("Percentage", round(pct, 1)), ("Dataset size", raw.dataset_size)],
+            ),
         )
     )
 
@@ -243,19 +251,17 @@ def build_findings(
         )
         findings.append(
             Finding(
-                report_type="key_value",
                 severity=tgt_severity,
                 title="Target Outliers",
-                data={
-                    "brief": f"{target_pair_count} targets ({target_pct}%)",
-                    "multi_metric_subject": "targets",
-                    "count": target_pair_count,
-                    "percentage": target_pct,
-                    "per_metric": target_per_metric,
-                    "total_flags": len(target_issues),
-                    "total_targets": total_targets,
-                },
+                brief=f"{target_pair_count} targets ({target_pct}%)",
                 description=f"{target_pair_count} bounding-box targets ({target_pct}%) flagged as outliers.",
+                blocks=_outlier_blocks(
+                    target_per_metric,
+                    flags=len(target_issues),
+                    flagged=target_pair_count,
+                    subject="targets",
+                    pairs=[("Percentage", target_pct), ("Total targets", total_targets)],
+                ),
             )
         )
 

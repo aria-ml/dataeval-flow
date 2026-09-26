@@ -6,15 +6,21 @@ detail sections for a single task's ``WorkflowResult``.
 
 from __future__ import annotations
 
+import textwrap
+from collections.abc import Sequence
 from typing import Any
 
+from rich.text import Text
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static
 
-from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+from dataeval_flow._app._viewmodel._result_vm import ResultViewModel, table_data
+from dataeval_flow._blocks import Block, Table
+from dataeval_flow._blocks._text import MIN_WIDTH, Frame, render_text
 
 __all__ = ["ErrorDetailModal", "ResultDetailModal"]
 
@@ -55,6 +61,7 @@ ResultDetailModal {
 
 #rd-scroll {
     height: 1fr;
+    overflow-x: auto;
 }
 
 #rd-title {
@@ -94,6 +101,8 @@ ResultDetailModal {
 .rd-finding-detail {
     padding: 0 1 0 2;
     height: auto;
+    /* The report's 40-column minimum plus the padding: a narrower modal scrolls it sideways. */
+    min-width: 43;
     background: $surface;
 }
 
@@ -119,6 +128,43 @@ class _FindingHeader(Static):
     def __init__(self, content: str, finding_idx: int, **kw: Any) -> None:
         super().__init__(content, **kw)
         self.finding_idx = finding_idx
+
+
+class _BlockText(Static):
+    """Blocks drawn as text at this widget's width, and drawn again whenever that width changes."""
+
+    def __init__(self, blocks: Sequence[Block], **kw: Any) -> None:
+        super().__init__("", markup=False, **kw)
+        self._blocks = list(blocks)
+        self._drawn_at = 0
+        self.text = ""
+
+    def on_resize(self, _event: events.Resize) -> None:
+        width = self.content_size.width
+        if width and width != self._drawn_at:
+            self._drawn_at = width
+            self.text = "\n".join(render_text(self._blocks, Frame(width=max(width, MIN_WIDTH), depth=2)))
+            self.update(self.text)
+
+
+class _BlockTable(DataTable[Text]):
+    """A data table as a native ``DataTable``, each cell printed as the text report prints it.
+
+    Headers and cells are plain ``Text``: a class or split name is the user's own, so a bracket in it
+    is shown as written rather than read as markup.
+    """
+
+    def __init__(self, table: Table, **kw: Any) -> None:
+        super().__init__(**kw)
+        self._table = table
+
+    def on_mount(self) -> None:
+        headers, rows = table_data(self._table)
+        self.add_columns(*(Text(header) for header in headers))
+        for row in rows:
+            # A cell may hold several lines, such as one factor per line: a row as tall as its
+            # tallest cell shows them all rather than only the first.
+            self.add_row(*(Text(cell) for cell in row), height=None)
 
 
 class ResultDetailModal(ModalScreen[None]):
@@ -159,9 +205,8 @@ class ResultDetailModal(ModalScreen[None]):
         yield Static("[bold]SUMMARY[/bold]", markup=True)
         summaries = self._rvm.finding_summaries()
         for idx, _fs in enumerate(summaries):
-            line = self._rvm.finding_summary_markup(idx)
-            line = _colorize_marker(line)
-            yield Static(f"  {line}", classes="rd-summary-line", markup=True)
+            line = _colorize_marker(self._rvm.finding_summary_markup(idx))
+            yield Static(textwrap.indent(line, "  "), classes="rd-summary-line", markup=True)
 
         # Health
         health = self._rvm.health_line()
@@ -188,38 +233,12 @@ class ResultDetailModal(ModalScreen[None]):
             yield header
 
             if expanded:
-                # Try DataTable for tabular findings
-                table_data = self._rvm.finding_table_data(idx)
-                if table_data is not None:
-                    headers, rows = table_data
-                    dt = DataTable(id=f"rd-dt-{gen}-{idx}")
-                    yield dt
-                    # DataTable columns/rows added in _populate_tables
-                else:
-                    # Rich markup detail
-                    detail_text = self._rvm.finding_detail_markup(idx)
-                    if detail_text.strip():
-                        yield Static(detail_text, classes="rd-finding-detail", markup=False)
-
-    def on_mount(self) -> None:
-        """Populate DataTable widgets after initial compose."""
-        self._populate_tables()
-
-    def _populate_tables(self) -> None:
-        """Fill DataTable widgets with data for expanded findings."""
-        gen = self._gen
-        for idx in self._expanded_findings:
-            table_data = self._rvm.finding_table_data(idx)
-            if table_data is not None:
-                headers, rows = table_data
-                try:
-                    dt = self.query_one(f"#rd-dt-{gen}-{idx}", DataTable)
-                    for h in headers:
-                        dt.add_column(h)
-                    for row in rows:
-                        dt.add_row(*row)
-                except NoMatches:
-                    pass
+                # Each data table as a native DataTable; every other run of blocks as text.
+                for position, segment in enumerate(self._rvm.finding_segments(idx)):
+                    if isinstance(segment, Table):
+                        yield _BlockTable(segment, id=f"rd-dt-{gen}-{idx}-{position}")
+                    else:
+                        yield _BlockText(segment, classes="rd-finding-detail")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-rd-close":
@@ -262,7 +281,6 @@ class ResultDetailModal(ModalScreen[None]):
         scroll.remove_children()
         for widget in self._compose_content():
             scroll.mount(widget)
-        self._populate_tables()
 
     def action_close(self) -> None:
         self.dismiss(None)

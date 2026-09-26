@@ -72,7 +72,35 @@ class TestOneShape:
         assert json.loads(result.export()) == result.to_dict()
 
     def test_a_failed_run_reports_its_errors(self, make, kind):
-        assert "  FAILED\n    boom" in make(success=False).report()
+        lines = make(success=False).report().splitlines()
+        at = lines.index("  FAILED")
+        assert lines[at + 2] == "  boom"
+
+    def test_the_report_defaults_to_eighty_columns(self, make, kind):
+        lines = make().report().splitlines()
+        assert lines[1] == "=" * 80
+        assert all(len(line) <= 80 for line in lines)
+
+    def test_the_report_draws_at_the_width_asked_for(self, make, kind):
+        lines = make().report(width=60).splitlines()
+        assert lines[1] == "=" * 60
+        assert all(len(line) <= 60 for line in lines), max(lines, key=len)
+
+    def test_an_empty_configuration_draws_no_section(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {}
+        assert "CONFIGURATION" not in result.report()
+
+    def test_a_non_json_value_in_the_configuration_renders_as_its_text(self, make, kind):
+        from pathlib import Path
+
+        result = make()
+        result.metadata.resolved_config = {"sources": [{"path": Path("data/train")}]}
+        assert "path: data/train" in result.report()
+
+    def test_a_width_below_forty_is_refused(self, make, kind):
+        with pytest.raises(ValueError, match="at least 40"):
+            make().report(width=39)
 
     def test_a_failed_runs_output_raises_naming_each_error(self, make, kind):
         failed = make(success=False)

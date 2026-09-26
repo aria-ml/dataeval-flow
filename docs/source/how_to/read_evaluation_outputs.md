@@ -24,13 +24,18 @@ print(result.report())  # findings plus per-finding detail
 print(result.report(detailed=False))  # summary only
 ```
 
-The report is laid out in five blocks:
+The report is laid out in this order:
 
 1. **Title** — the workflow's one-line summary.
 2. **Provenance** — timestamp, duration, dataset and source descriptions, model and preprocessor identifiers.
 3. **Summary** — one line per finding, then a health line.
-4. **Detail** — an expanded section per finding. This is the only block `detailed=False` suppresses.
-5. **Resolved configuration** — the configuration as actually executed. Always rendered, at both detail levels.
+4. **Detail** — a section per finding: its description, then its evidence as paragraphs, labelled values,
+   tables and charts. This is the only part `detailed=False` suppresses.
+5. **Metadata factors** — how the run encoded its metadata, when it used any.
+6. **Resolved configuration** — the configuration as actually executed. Always rendered, at both detail levels.
+
+The report is 80 columns wide. Pass `width=` (at least 40) to draw it narrower or wider: prose wraps, and charts
+shrink to fit. From the CLI, `--report-width` sets it, or the `DATAEVAL_REPORT_WIDTH` environment variable.
 
 ### Severity and the health line
 
@@ -98,7 +103,68 @@ The serialized envelope has five top-level keys, and a `kind` of `"workflow"`:
 
 `metadata` is the provenance envelope, `health` the roll-up of the findings' severities, `raw` the typed numeric
 outputs, and `report` the same findings the text report renders — summary string plus a list of findings, each
-with a `title`, `severity`, and `data`. `kind` distinguishes this from an evaluator's envelope, covered next.
+with a `title`, `severity`, `brief`, `description`, and `blocks`: its evidence as typed report blocks, one object
+per block with its `type`. `kind` distinguishes this from an evaluator's envelope, covered next.
+
+### Findings and their report blocks
+
+Each finding in `report.findings` has five keys:
+
+| Key | Holds |
+| --- | --- |
+| `title` | A short label: the finding's summary line and the heading of its detail. |
+| `severity` | `ok`, `info` or `warning`. |
+| `brief` | The value on the summary line, or `null`. |
+| `description` | A sentence or two of plain prose that leads the detail, or `null`. |
+| `blocks` | The evidence: report blocks, in reading order. |
+
+```json
+{"severity": "info", "title": "Label Distribution", "brief": "3 classes, 60 items, imbalance 4.0:1",
+ "description": "3 classes, 60 items.",
+ "blocks": [
+   {"type": "table",
+    "columns": [{"key": "name", "header": "Class"},
+                {"key": "value", "header": "Count"},
+                {"key": "value", "kind": "bar"}],
+    "rows": [{"name": "cat", "value": 40}, {"name": "dog", "value": 10}, {"name": "eel", "value": 10}]},
+   {"type": "paragraph", "text": "Imbalance ratio: 4.0 (max/min)"}]}
+```
+
+A block is an object whose `type` says what it holds. A field at its default is left out, so a reader fills in the
+defaults shown in parentheses:
+
+| `type` | Fields |
+| --- | --- |
+| `section` | `title`; `brief` (`null`); `severity` (`null`), one of `ok`, `info`, `warning`; `blocks` (`[]`), nested blocks |
+| `paragraph` | `text`: prose, where a backtick span is inline code and `\n` a line break |
+| `bullet_list` | `items`: strings |
+| `fields` | `items`: `[label, value]` pairs, in order; a value is a string, number, boolean or `null` |
+| `table` | `columns` and `rows`, below |
+| `proportion` | `parts`: `[label, count]` pairs making up one whole |
+| `distribution` | `histogram`: counts per bin, in order; `quantiles` (`null`): `low`, `q1`, `median`, `q3`, `high` |
+| `code` | `text`; `language` (`null`) |
+| `tree` | `value`: any JSON value, such as a configuration |
+| `summary` | `items`: each a `label`, a `value` (`""`) and a `severity` (`"info"`) |
+
+A table's `rows` are objects keyed by each column's `key`. A column has:
+
+| Field | Holds |
+| --- | --- |
+| `key` | The row key it reads. Two columns may share one, such as a count and its bar. |
+| `header` (`""`) | The column's heading. |
+| `kind` (`"text"`) | `text`, `bar`, `stacked` or `sparkline`. |
+| `align` (`null`) | `left` or `right`; `null` puts the first column left and the rest right. |
+| `format` (`null`) | A Python `str.format` template for a numeric cell, such as `"{:.1f}%"`. |
+| `series` (`[]`) | A stacked column's segment names, in cell order. |
+| `markers` (`[]`) | A bar column's labelled reference values, `[name, value]`, such as drift thresholds. |
+
+A cell is a string, number, boolean or `null`, or, in a `stacked` or `sparkline` column, a list of numbers. A
+number stays a number, and its column's `format` says how it displays, so a reader can sort and chart it. A cell
+is a string only when it combines values, such as `"12 (30%)"`.
+
+Flow defines the block types, and a later version may add one. A reader that meets a `type` it doesn't know should
+show a one-line placeholder naming it and carry on, rather than fail, so an older reader keeps working on a newer
+result.
 
 `health.status` is `"warning"` where any finding breached its threshold and `"ok"` otherwise. It answers a
 different question from whether the workflow *ran*: a task that failed produces errors, not warnings.

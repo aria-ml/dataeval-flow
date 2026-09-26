@@ -1,72 +1,417 @@
 {
+  "kind": "workflow",
+  "metadata": {
+    "version": "1.0",
+    "timestamp": "2026-09-26T18:54:40.052342Z",
+    "dataset_id": "dataset",
+    "label_source": "protocol",
+    "model_id": null,
+    "preprocessor_id": null,
+    "selection_id": null,
+    "source_descriptions": [
+      "dataset (dataset)"
+    ],
+    "resolved_config": {
+      "sources": [
+        {
+          "name": "dataset",
+          "dataset": "dataset",
+          "dataset_config": {
+            "name": "dataset",
+            "format": "maite",
+            "version": "1",
+            "dataset": {
+              "type": "protocol",
+              "class": "ToyImages",
+              "id": "toy-0-40"
+            }
+          }
+        }
+      ],
+      "workflow": {
+        "stats": null,
+        "value_range": null,
+        "metadata": null,
+        "metadata_auto_bin_method": null,
+        "metadata_exclude": [],
+        "metadata_continuous_factor_bins": null,
+        "metadata_factor_source": null,
+        "name": "data-cleaning",
+        "type": "data-cleaning",
+        "mode": "advisory",
+        "ontology": null,
+        "outlier_method": "zscore",
+        "outlier_flags": [
+          "pixel",
+          "visual"
+        ],
+        "outlier_threshold": null,
+        "outlier_cluster_threshold": null,
+        "outlier_cluster_algorithm": null,
+        "outlier_n_clusters": null,
+        "duplicate_flags": null,
+        "duplicate_merge_near": true,
+        "duplicate_cluster_sensitivity": null,
+        "duplicate_cluster_algorithm": null,
+        "duplicate_n_clusters": null,
+        "health_thresholds": {
+          "exact_duplicates": 0.0,
+          "near_duplicates": 5.0,
+          "image_outliers": 3.0,
+          "target_outliers": 3.0,
+          "classwise_outliers": 3.0,
+          "class_label_imbalance": 5.0
+        }
+      }
+    },
+    "tool": "dataeval-flow",
+    "tool_version": "0.2.3.dev261+g2f37e9a74",
+    "execution_time_s": 0.072,
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "encoding_digest": "01e7b720ff566d53",
+      "factor_source": "auto",
+      "requested_bins": {},
+      "excluded": [],
+      "factors": {},
+      "dropped": {},
+      "unusable": {},
+      "descriptor_version": 3,
+      "corrections": [],
+      "unreviewed": [],
+      "bin_expansion": {},
+      "injected_factors": []
+    },
+    "encoding_digest": "01e7b720ff566d53",
+    "label_space_digest": null,
+    "label_space": [],
+    "diagnostics": [],
+    "mode": "advisory",
+    "evaluators": [
+      "outliers",
+      "duplicates"
+    ],
+    "flagged_indices": [],
+    "clean_indices": [],
+    "removed_count": 0
+  },
+  "health": {
+    "status": "warning",
+    "warnings": 1,
+    "findings": 4
+  },
   "raw": {
-    "dataset_size": 1000,
+    "dataset_size": 40,
     "duplicates": {
-      "exact": [[0, 45], [12, 789]],
-      "near": [[100, 101, 102], [250, 251]],
-      "total_exact": 2,
-      "total_near": 2
+      "items": {
+        "exact": [
+          [
+            0,
+            5
+          ]
+        ],
+        "near": [
+          {
+            "indices": [
+              3,
+              9
+            ],
+            "methods": [
+              "dhash",
+              "phash"
+            ],
+            "orientation": null
+          }
+        ]
+      },
+      "targets": {}
     },
     "img_outliers": {
-      "outlier_indices": [23, 156, 892],
-      "scores": {
-        "23": 4.21,
-        "156": 3.87,
-        "892": 5.12
-      },
-      "method": "modzscore",
-      "threshold": 3.5
+      "issues": [
+        {
+          "item_index": 7,
+          "metric_name": "brightness",
+          "metric_value": 255.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "contrast",
+          "metric_value": 0.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "darkness",
+          "metric_value": 255.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "entropy",
+          "metric_value": 0.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "kurtosis",
+          "metric_value": 0.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "mean",
+          "metric_value": 255.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "sharpness",
+          "metric_value": 0.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "std",
+          "metric_value": 0.0
+        },
+        {
+          "item_index": 7,
+          "metric_name": "var",
+          "metric_value": 0.0
+        }
+      ],
+      "count": 9
     },
     "label_stats": {
-      "class_counts": {
-        "cat": 450,
-        "dog": 350,
-        "bird": 200
+      "item_count": 40,
+      "class_count": 2,
+      "index2label": {
+        "0": "a",
+        "1": "b"
       },
-      "imbalance_ratio": 2.25,
-      "missing_labels": 5
+      "label_counts_per_class": {
+        "a": 20,
+        "b": 20
+      }
     },
-    "target_outliers": null
+    "target_outliers": null,
+    "classwise_outliers": {
+      "count_basis": "image",
+      "rows": [
+        {
+          "class_name": "b",
+          "count": 1,
+          "pct": 5.0
+        },
+        {
+          "class_name": "Total",
+          "count": 1,
+          "pct": 2.5
+        }
+      ]
+    }
   },
   "report": {
-    "summary": "Dataset analysis complete. Found 2 exact duplicates, 2 near-duplicate groups, and 3 image outliers.",
+    "summary": "Data cleaning complete. Dataset: 40 items. Mode: advisory.",
     "findings": [
       {
-        "report_type": "table",
-        "title": "Duplicate Images",
-        "description": "Image pairs that are identical or near-identical",
-        "data": [
-          {"type": "exact", "indices": [0, 45]},
-          {"type": "exact", "indices": [12, 789]},
-          {"type": "near", "indices": [100, 101, 102]},
-          {"type": "near", "indices": [250, 251]}
-        ]
-      },
-      {
-        "report_type": "table",
+        "severity": "info",
         "title": "Image Outliers",
-        "description": "Images with unusual statistics (dimension, pixel, or visual)",
-        "data": [
-          {"index": 23, "score": 4.21, "reason": "unusual dimensions"},
-          {"index": 156, "score": 3.87, "reason": "pixel intensity outlier"},
-          {"index": 892, "score": 5.12, "reason": "visual feature outlier"}
+        "brief": "1 images (2.5%)",
+        "description": "1 images (2.5%) flagged as outliers.",
+        "blocks": [
+          {
+            "type": "table",
+            "columns": [
+              {
+                "key": "metric",
+                "header": "Metric"
+              },
+              {
+                "key": "count",
+                "header": "Count"
+              }
+            ],
+            "rows": [
+              {
+                "metric": "brightness",
+                "count": 1
+              },
+              {
+                "metric": "contrast",
+                "count": 1
+              },
+              {
+                "metric": "darkness",
+                "count": 1
+              },
+              {
+                "metric": "entropy",
+                "count": 1
+              },
+              {
+                "metric": "kurtosis",
+                "count": 1
+              },
+              {
+                "metric": "mean",
+                "count": 1
+              },
+              {
+                "metric": "sharpness",
+                "count": 1
+              },
+              {
+                "metric": "std",
+                "count": 1
+              },
+              {
+                "metric": "var",
+                "count": 1
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "(Some images trigger multiple metrics.)"
+          },
+          {
+            "type": "fields",
+            "items": [
+              [
+                "Percentage",
+                2.5
+              ],
+              [
+                "Dataset size",
+                40
+              ]
+            ]
+          }
         ]
       },
       {
-        "report_type": "key_value",
-        "title": "Class Distribution",
-        "description": "Label counts per class",
-        "data": {
-          "cat": 450,
-          "dog": 350,
-          "bird": 200
-        }
+        "severity": "info",
+        "title": "Classwise Outliers",
+        "brief": "worst: b (5.0%), 1/1 classes over 3.0%",
+        "description": "Most outliers in b (5.0%). 1/1 classes exceed 3.0% threshold.",
+        "blocks": [
+          {
+            "type": "table",
+            "columns": [
+              {
+                "key": "class_name",
+                "header": "Class Name"
+              },
+              {
+                "key": "count",
+                "header": "Count"
+              },
+              {
+                "key": "pct",
+                "header": "%",
+                "format": "{:.1f}%"
+              }
+            ],
+            "rows": [
+              {
+                "class_name": "b",
+                "count": 1,
+                "pct": 5.0
+              },
+              {
+                "class_name": "Total",
+                "count": 1,
+                "pct": 2.5
+              }
+            ]
+          }
+        ]
       },
       {
-        "report_type": "text",
-        "title": "Recommendations",
-        "description": null,
-        "data": "Consider removing 4 duplicate image groups and reviewing 3 outliers at indices 23, 156, 892."
+        "severity": "warning",
+        "title": "Duplicates",
+        "brief": "2 exact (5.0%), 2 near (5.0%)",
+        "description": "1 exact duplicate groups, 1 near-duplicate groups found.",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "1 exact-duplicate groups (2 images)"
+          },
+          {
+            "type": "section",
+            "title": "1 near-duplicate groups (2 images)",
+            "blocks": [
+              {
+                "type": "fields",
+                "items": [
+                  [
+                    "Methods",
+                    "dhash, phash"
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "type": "fields",
+            "items": [
+              [
+                "Exact groups",
+                1
+              ],
+              [
+                "Near groups",
+                1
+              ],
+              [
+                "Exact affected",
+                2
+              ],
+              [
+                "Near affected",
+                2
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "severity": "info",
+        "title": "Label Distribution",
+        "brief": "2 classes, 40 items, imbalance 1.0:1",
+        "description": "2 classes, 40 items.",
+        "blocks": [
+          {
+            "type": "table",
+            "columns": [
+              {
+                "key": "name",
+                "header": "Class"
+              },
+              {
+                "key": "value",
+                "header": "Count"
+              },
+              {
+                "key": "value",
+                "kind": "bar"
+              }
+            ],
+            "rows": [
+              {
+                "name": "a",
+                "value": 20
+              },
+              {
+                "name": "b",
+                "value": 20
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Labels protocol"
+          },
+          {
+            "type": "paragraph",
+            "text": "Balanced: all classes have equal counts"
+          }
+        ]
       }
     ]
   }

@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow._result import Result, ResultMetadata, _metadata_block
+from dataeval_flow._blocks import Block, Fields
+from dataeval_flow._result import Result, ResultMetadata, _envelope_items
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -136,19 +137,16 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
         """The evaluator's type."""
         return self.type
 
-    def _report_envelope(self) -> list[str]:
+    def _report_envelope(self) -> list[Block]:
         """The shared envelope, with the DataEval version that made the determinations."""
-        from dataeval_flow._text_report import _WIDTH
+        items = [*_envelope_items(self.metadata), ("DataEval", self.metadata.dataeval.version)]
+        return [Fields(items=list(items))]
 
-        block = _metadata_block(self.metadata)
-        version = f"  DataEval:     {self.metadata.dataeval.version}"
-        return [*block[:-1], version, block[-1]] if block else [version, "-" * _WIDTH]
-
-    def _report_output(self, *, detailed: bool) -> list[str]:
+    def _report_output(self, *, detailed: bool) -> list[Block]:
         """DataEval's output as it came; when not *detailed*, tables stop at ``ROW_LIMIT`` rows."""
-        from dataeval_flow.evaluators._report import render_output
+        from dataeval_flow.evaluators._report import output_blocks
 
-        return render_output(self._serialized or {}, detailed=detailed)
+        return output_blocks(self._serialized or {}, detailed=detailed)
 
     def _dict_body(self) -> dict[str, object]:
         """DataEval's output as JSON, under ``output``."""

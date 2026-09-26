@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
+
 if TYPE_CHECKING:
     from dataeval_flow._result import Result
     from dataeval_flow.config._models import PipelineConfig
@@ -44,7 +46,9 @@ class _Collected:
     binning: dict[str, dict] = field(default_factory=dict)
 
 
-def _collect_results(results: Mapping[str, Result[Any, Any]], *, verbosity: int) -> _Collected:
+def _collect_results(
+    results: Mapping[str, Result[Any, Any]], *, verbosity: int, report_width: int = DEFAULT_WIDTH
+) -> _Collected:
     """Print each task's report; collect its failures, warnings, and the payloads to write.
 
     ``results`` is keyed by the task that produced each result, as ``run_tasks`` returns it.
@@ -63,12 +67,13 @@ def _collect_results(results: Mapping[str, Result[Any, Any]], *, verbosity: int)
             flush_logs()
             continue
 
-        # --- Text report: summary (no flag) or full detail (-v) ---
-        print(result.report(detailed=verbosity >= 1))
+        # --- Text report: summary (no flag) or full detail (-v); the file always holds the detail ---
+        detailed = result.report(detailed=True, width=report_width)
+        print(detailed if verbosity >= 1 else result.report(detailed=False, width=report_width))
 
         # --- Collect for file output ---
         collected.merged[name] = result.to_dict()
-        collected.text_parts.append(result.report(detailed=True))
+        collected.text_parts.append(detailed)
         if record := getattr(result.metadata, "metadata_binning", None):
             collected.binning[name] = record
 
@@ -90,6 +95,7 @@ def run(
     cache_dir: Path | None = None,
     tasks: str | Sequence[str] | None = None,
     fail_on_warning: bool = False,
+    report_width: int = DEFAULT_WIDTH,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
 
@@ -118,16 +124,28 @@ def run(
         Return a non-zero exit code when a task that otherwise succeeded reports
         findings at ``severity="warning"``.  Off by default: whether a pipeline should
         stop for a warning is the caller's decision.
+    report_width : int
+        Characters per line of the text report, on the console and in ``result.txt``; at least 40.
 
     Returns
     -------
     int
         0 if every task succeeded (and, under ``fail_on_warning``, raised no
         warnings); 1 otherwise.
+
+    Raises
+    ------
+    ValueError
+        If ``report_width`` is below 40, before any task runs.
     """
     from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_flow._orchestrator import run_tasks
     from dataeval_flow.config._loader import get_data_dir
+
+    # Checked before the tasks run: a width the report refuses would otherwise surface only
+    # after every task had finished, and before any of their results were written.
+    if report_width < MIN_WIDTH:
+        raise ValueError(f"report_width must be at least {MIN_WIDTH}, got {report_width}")
 
     setup_logging(output_dir, verbosity)
 
@@ -147,7 +165,7 @@ def run(
     # with the task that produced it.
     results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir)
 
-    collected = _collect_results(results, verbosity=verbosity)
+    collected = _collect_results(results, verbosity=verbosity, report_width=report_width)
 
     # --- Write file artifacts (only when output_dir is set) ---
     if output_dir is not None and collected.merged:

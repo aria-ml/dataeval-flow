@@ -1,10 +1,11 @@
-"""Tests for prioritization workflow — value_range wiring end-to-end."""
+"""Tests for prioritization workflow — value_range wiring end-to-end, and the findings it reports."""
 
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
+from dataeval_flow._blocks import Fields
 from dataeval_flow._orchestrator import _run_target
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.data_prioritization import (
@@ -12,6 +13,13 @@ from dataeval_flow.workflows.data_prioritization import (
     DataPrioritizationConfig,
     DataPrioritizationWorkflow,
 )
+from dataeval_flow.workflows.data_prioritization._outputs import (
+    CleaningSummaryDict,
+    DataPrioritizationRawOutput,
+    PerDatasetPrioritizationDict,
+)
+from dataeval_flow.workflows.data_prioritization._report import build_findings
+from tests.finding_blocks import blocks_of, rendered
 
 pytestmark = pytest.mark.required
 
@@ -82,3 +90,86 @@ class TestValueRangeReachesPrioritization:
 
         assert seen, "no stats pass ran"
         assert all(entry == (0.0, 1.0) for entry in seen), seen
+
+
+def _raw(*, cleaning: bool = True) -> DataPrioritizationRawOutput:
+    """A two-source run: one source ranked with scores, one without."""
+    return DataPrioritizationRawOutput(
+        dataset_size=1500,
+        reference_size=1000,
+        method="knn",
+        order="hard_first",
+        policy="difficulty",
+        cleaning_summary=(
+            CleaningSummaryDict(total_combined=1500, outliers_flagged=37, duplicates_flagged=12, total_removed=49)
+            if cleaning
+            else None
+        ),
+        prioritizations=[
+            PerDatasetPrioritizationDict(
+                source_name="pool",
+                original_size=500,
+                cleaned_size=468,
+                prioritized_indices=list(range(467, -1, -1)),
+                scores=[0.9 - i * 0.001 for i in range(468)],
+            ),
+            PerDatasetPrioritizationDict(
+                source_name="batch", original_size=200, cleaned_size=200, prioritized_indices=[3, 1, 2], scores=None
+            ),
+        ],
+    )
+
+
+class TestFindings:
+    """Pruning and each source's prioritization, as report blocks."""
+
+    def test_one_pruning_finding_then_one_per_source(self):
+        titles = [f.title for f in build_findings(_raw(), DataPrioritizationConfig())]
+        assert titles == ["Pruning", "Prioritization: pool", "Prioritization: batch"]
+
+    def test_no_pruning_finding_without_cleaning(self):
+        titles = [f.title for f in build_findings(_raw(cleaning=False), DataPrioritizationConfig())]
+        assert titles == ["Prioritization: pool", "Prioritization: batch"]
+
+    def test_pruning_counts_are_labelled_fields_in_order(self):
+        pruning = build_findings(_raw(), DataPrioritizationConfig())[0]
+        assert pruning.brief == "49 items (3.3%)"
+        assert pruning.description == "Pruning removed 49/1500 items (3.3%): 37 outliers, 12 duplicates"
+        (block,) = blocks_of(pruning, Fields)
+        assert block.items == [
+            ("Total combined", 1500),
+            ("Outliers flagged", 37),
+            ("Duplicates flagged", 12),
+            ("Total removed", 49),
+            ("Removed", "3.3%"),
+        ]
+
+    def test_prioritization_run_is_labelled_fields_in_order(self):
+        pool = build_findings(_raw(), DataPrioritizationConfig())[1]
+        assert pool.severity == "info"
+        assert pool.brief == "468 items"
+        assert pool.description == "pool: 468 items prioritized via knn (hard_first, difficulty)"
+        (block,) = blocks_of(pool, Fields)
+        assert block.items == [
+            ("Source", "pool"),
+            ("Original size", 500),
+            ("Cleaned size", 468),
+            ("Method", "knn"),
+            ("Order", "hard_first"),
+            ("Policy", "difficulty"),
+        ]
+
+    def test_pruning_renders_as_aligned_fields(self):
+        pruning = build_findings(_raw(), DataPrioritizationConfig())[0]
+        assert rendered(pruning).splitlines() == [
+            "=" * 80,
+            "  PRUNING" + "49 items (3.3%)".rjust(71),
+            "=" * 80,
+            "  Pruning removed 49/1500 items (3.3%): 37 outliers, 12 duplicates",
+            "",
+            "  Total combined:     1500",
+            "  Outliers flagged:   37",
+            "  Duplicates flagged: 12",
+            "  Total removed:      49",
+            "  Removed:            3.3%",
+        ]
