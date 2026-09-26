@@ -43,6 +43,7 @@ class _Collected:
     warned: list[str] = field(default_factory=list)
     merged: dict[str, dict] = field(default_factory=dict)
     text_parts: list[str] = field(default_factory=list)
+    reported: list[Result[Any, Any]] = field(default_factory=list)
     binning: dict[str, dict] = field(default_factory=dict)
 
 
@@ -74,6 +75,7 @@ def _collect_results(
         # --- Collect for file output ---
         collected.merged[name] = result.to_dict()
         collected.text_parts.append(detailed)
+        collected.reported.append(result)
         if record := getattr(result.metadata, "metadata_binning", None):
             collected.binning[name] = record
 
@@ -140,6 +142,7 @@ def run(
     """
     from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_flow._orchestrator import run_tasks
+    from dataeval_flow._result import results_html
     from dataeval_flow.config._loader import get_data_dir
 
     # Checked before the tasks run: a width the report refuses would otherwise surface only
@@ -173,7 +176,8 @@ def run(
         results_dir.mkdir(parents=True, exist_ok=True)
         (results_dir / "result.json").write_text(json_mod.dumps(collected.merged, indent=2), encoding="utf-8")
         (results_dir / "result.txt").write_text("\n".join(collected.text_parts), encoding="utf-8")
-        _logger.info("  Wrote result.json and result.txt to %s", results_dir)
+        (results_dir / "result.html").write_text(results_html(collected.reported), encoding="utf-8")
+        _logger.info("  Wrote result.json, result.txt and result.html to %s", results_dir)
         _write_encoding_descriptor(collected.binning, results_dir)
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)

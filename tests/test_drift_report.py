@@ -220,6 +220,31 @@ class TestBuildFindings:
         (table,) = tables(findings[0])
         assert column(table, "class_name") == ["0"]
 
+    def test_a_small_classwise_p_value_keeps_its_digits(self):
+        """A p-value of 0.0003 prints as itself rather than 0.00, and results.json keeps it whole."""
+        raw = DriftMonitoringRawOutput(
+            dataset_size=300,
+            reference_size=200,
+            test_size=100,
+            detectors={"univariate": _make_detector_result()},
+            classwise=[
+                ClasswiseDriftDict(
+                    detector="KS Univariate",
+                    rows=[
+                        ClasswiseDriftRowDict(class_name="0", drifted=True, distance=0.4, p_val=3e-4),
+                        ClasswiseDriftRowDict(class_name="1", drifted=True, distance=0.5, p_val=2e-8),
+                    ],
+                )
+            ],
+        )
+        params = _make_params(detectors=[{"method": "univariate", "classwise": True}])
+        findings = build_findings(raw, params, {"univariate": "KS Univariate"})
+        (table,) = tables(findings[0])
+        assert column(table, "p_val") == [3e-4, 2e-8]
+        text = rendered(findings[0])
+        assert "0.0003" in text
+        assert "2e-08" in text
+
 
 # ---------------------------------------------------------------------------
 # _serialize_result edge cases
@@ -416,12 +441,12 @@ class TestClasswiseTable:
         assert [(c.key, c.header, c.kind, c.format, c.align) for c in table.columns] == [
             ("class_name", "Class", "text", None, None),
             ("distance", "Distance", "text", "{:.4f}", None),
-            ("p_val", "PVal", "text", "{:.2f}", None),
+            ("p_val", "PVal", "text", "{:.2g}", None),
             ("abs_distance", "", "bar", None, None),
             ("status", "Status", "text", None, "left"),
         ]
 
-    def test_cells_keep_todays_rounding(self):
+    def test_cells_round_the_distance_and_keep_the_p_value_whole(self):
         finding = _classwise(
             ClasswiseDriftRowDict(class_name="cat", drifted=True, distance=0.51234, p_val=0.00012345),
             ClasswiseDriftRowDict(class_name="dog", drifted=False, distance=0.1, p_val=None),
@@ -429,7 +454,7 @@ class TestClasswiseTable:
         (table,) = tables(finding)
         assert column(table, "class_name") == ["cat", "dog"]
         assert column(table, "distance") == [0.5123, 0.1]
-        assert column(table, "p_val") == [0.000123, None]
+        assert column(table, "p_val") == [0.00012345, None]
         assert column(table, "status") == ["DRIFT", "ok"]
 
     def test_detector_fields_are_not_shown(self):
@@ -488,11 +513,11 @@ class TestClasswiseTable:
             "=" * 80,
             "  Classes drifted: cat, horse",
             "",
-            "  Class  Distance  PVal                                  Status",
-            "  -----  --------  ----  ------------------------------  ------",
-            "  cat      0.5123  0.00  ██████████████████████████████  DRIFT",
-            "  dog      0.1041  0.40  ██████▏                         ok",
-            "  horse   -0.3100        ██████████████████▏             DRIFT",
+            "  Class  Distance    PVal                                  Status",
+            "  -----  --------  ------  ------------------------------  ------",
+            "  cat      0.5123  0.0004  ██████████████████████████████  DRIFT",
+            "  dog      0.1041     0.4  ██████▏                         ok",
+            "  horse   -0.3100          ██████████████████▏             DRIFT",
         ]
 
 

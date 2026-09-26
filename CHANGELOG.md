@@ -37,6 +37,7 @@
 - Each `<X>Result`'s API page lists the `output.raw` and `metadata` fields its type adds, pinned by a test
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
+- `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
 
 ### Changed
 
@@ -77,9 +78,12 @@
 - `ResultMetadata` is imported from `dataeval_flow`; the config mixins from `dataeval_flow.config`
 - A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
 - `Finding` drops `report_type` and `data`, and rejects unknown fields; `brief` and typed report `blocks` hold the evidence
+- The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
 
 ### Fixed
 
+- The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it
+- Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
 - Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
 - Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with `quality.duplicates`

@@ -82,6 +82,16 @@ class TestBars:
         assert lines[2] == "  a  " + " " * 15 + "█" * 15
         assert lines[3] == "  b  " + "█" * 15
 
+    def test_an_all_negative_column_draws_each_bar_back_to_zero(self):
+        """Zero stays on the scale, so the value nearest it draws the shortest bar rather than none."""
+        table = Table(
+            columns=[Column(key="c", header="c"), Column(key="d", kind="bar")],
+            rows=[{"c": "a", "d": -1.0}, {"c": "b", "d": -3.0}],
+        )
+        lines = _draw(table)
+        assert lines[2] == "  a  " + " " * 20 + "█" * 10
+        assert lines[3] == "  b  " + "█" * 30
+
     def test_markers_draw_a_scale_line_under_the_bar(self):
         table = Table(
             columns=[

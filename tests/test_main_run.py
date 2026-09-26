@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from dataeval_flow._blocks import Section
+
 pytestmark = pytest.mark.required
 
 
@@ -45,12 +47,14 @@ class TestRunTasks:
         result1.success = True
         result1.name = "task1"
         result1.report.return_value = "text report 1"
+        result1._document.return_value = Section(title="task1 report")
         result1.to_dict.return_value = {"metadata": {}, "score": 0.9}
 
         result2 = MagicMock()
         result2.success = True
         result2.name = "task2"
         result2.report.return_value = "text report 2"
+        result2._document.return_value = Section(title="task2 report")
         result2.to_dict.return_value = {"metadata": {}, "score": 0.8}
 
         mock_run.return_value = {"task1": result1, "task2": result2}
@@ -62,6 +66,9 @@ class TestRunTasks:
         merged = json.loads((tmp_path / "results" / "result.json").read_text())
         assert "task1" in merged
         assert "task2" in merged
+        page = (tmp_path / "results" / "result.html").read_text()
+        assert "<h1>task1 report</h1>" in page
+        assert "<h1>task2 report</h1>" in page
 
     @patch("dataeval_flow._orchestrator.run_tasks")
     @patch("dataeval_flow._runner._resolve_config")
@@ -137,6 +144,7 @@ class TestRunTasks:
         result = MagicMock()
         result.success = True
         result.report.return_value = "report"
+        result._document.return_value = Section(title="report")
         result.to_dict.return_value = {"metadata": {}}
         mock_run.return_value = {"task1": result}
 
@@ -235,6 +243,7 @@ class TestRunTasks:
             "full text report",  # written to .txt file (detailed=True)
         ]
         result.to_dict.return_value = {"metadata": {}, "data": "test"}
+        result._document.return_value = Section(title="task1 report")
 
         mock_run.return_value = {"task1": result}
 

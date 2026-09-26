@@ -567,6 +567,7 @@ find workspace/output -type f
 # workspace/output/result.log
 # workspace/output/results/result.json
 # workspace/output/results/result.txt
+# workspace/output/results/result.html
 # workspace/output/results/encoding.json
 ```
 
@@ -580,7 +581,9 @@ jq -r 'to_entries[] | "\(.key)\t\(.value.health.status)\t\(.value.health.warning
     workspace/output/results/result.json
 ```
 
-`result.txt` holds the detailed text reports, the same as `result.report()`.
+`result.txt` holds the detailed text reports, the same as `result.report()`. `result.html`
+holds the same reports as one self-contained page, the same as `result.to_html()`: it opens
+offline in any browser, and prints or saves to PDF as it shows.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is omitted when a

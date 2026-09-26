@@ -67,6 +67,22 @@ dataeval-flow --config params.yaml --output ./results --fail-on-warning
 Without the flag the warnings are still logged, and the run exits `0` — only a task that *failed* is
 fatal by default.
 
+## The HTML report
+
+`to_html()` renders the same report as one self-contained page:
+
+```python
+from pathlib import Path
+
+Path("report.html").write_text(result.to_html(), encoding="utf-8")
+```
+
+The page holds everything the text report holds. Tables are HTML tables whose cells keep their raw values, bars
+are drawn in the table cells, histograms and sparklines as SVG, and each finding's severity shows as a badge. It
+loads nothing, neither script nor font nor URL, so it opens offline, attaches to a ticket as it is, and prints (or
+saves as PDF from the browser's print dialog) the way it shows. The page is UTF-8, so write it with
+`encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every task's report on one page.
+
 ## The result envelope
 
 `export()` writes the structured result — findings plus provenance — to disk:

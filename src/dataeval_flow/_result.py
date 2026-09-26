@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from pydantic_core import to_jsonable_python
 
 from dataeval_flow._blocks import Block, Fields, Paragraph, Scalar, Section, Tree
+from dataeval_flow._blocks._html import html_page
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH, Frame, render_text
 
 if TYPE_CHECKING:
@@ -255,6 +256,19 @@ def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: L
     return dest
 
 
+def _page_title(document: Section) -> str:
+    """A report's title on one line, as a page's title bar shows it."""
+    return " — ".join(part.strip() for part in document.title.split("\n"))
+
+
+def results_html(results: Sequence["Result[Any, Any]"]) -> str:
+    """Every result's full report on one page, as a run's ``result.html`` holds all of its tasks."""
+    # The runner writes one page for the whole run, from the documents each result draws.
+    documents = [result._document(detailed=True) for result in results]  # noqa: SLF001 - one page, many reports
+    title = _page_title(documents[0]) if len(documents) == 1 else "dataeval-flow results"
+    return html_page(title, documents)
+
+
 class Result(ABC, Generic[TMetadata, TOutput]):
     """One task's result, whichever kind of task ran.
 
@@ -377,6 +391,25 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         if width < MIN_WIDTH:
             raise ValueError(f"width must be at least {MIN_WIDTH}, got {width}")
         return "\n".join(render_text([self._document(detailed=detailed)], Frame(width=width)))
+
+    def to_html(self, *, detailed: bool = True) -> str:
+        """Return the report as one self-contained HTML page, drawn from the blocks the text report draws.
+
+        The page loads nothing, neither script nor URL, so it opens offline and prints (or saves as
+        PDF) the way it shows.
+
+        Parameters
+        ----------
+        detailed : bool
+            When ``False``, the body is the short form the console shows.
+
+        Returns
+        -------
+        str
+            A complete HTML document.
+        """
+        document = self._document(detailed=detailed)
+        return html_page(_page_title(document), [document])
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors."""

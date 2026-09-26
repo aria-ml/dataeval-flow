@@ -75,6 +75,7 @@ beside the results:
 output/results/
   result.json      # the record, per factor
   result.txt
+  result.html
   encoding.json    # the same record, as the artifact you commit
 ```
 

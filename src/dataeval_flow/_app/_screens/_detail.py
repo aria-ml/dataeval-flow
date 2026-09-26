@@ -7,9 +7,10 @@ detail sections for a single task's ``WorkflowResult``.
 from __future__ import annotations
 
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
+from rich.markup import escape
 from rich.text import Text
 from textual import events
 from textual.app import ComposeResult
@@ -20,6 +21,7 @@ from textual.widgets import Button, DataTable, Static
 
 from dataeval_flow._app._viewmodel._result_vm import ResultViewModel, table_data
 from dataeval_flow._blocks import Block, Table
+from dataeval_flow._blocks._table import shared_widths
 from dataeval_flow._blocks._text import MIN_WIDTH, Frame, render_text
 
 __all__ = ["ErrorDetailModal", "ResultDetailModal"]
@@ -39,11 +41,15 @@ _MARKER_COLORS: list[tuple[str, str]] = [
 
 
 def _colorize_marker(line: str) -> str:
-    """Replace the trailing plain-text severity marker with a colored Rich-markup version."""
+    """A plain summary line as Rich markup: its trailing severity marker colored, the rest escaped.
+
+    A title or brief can carry the user's own strings, such as a class name, so a bracket in one is
+    shown as written rather than read as markup.
+    """
     for plain, colored in _MARKER_COLORS:
         if line.endswith(plain):
-            return line[: -len(plain)] + colored
-    return line
+            return escape(line[: -len(plain)]) + colored
+    return escape(line)
 
 
 _CSS = """
@@ -131,11 +137,18 @@ class _FindingHeader(Static):
 
 
 class _BlockText(Static):
-    """Blocks drawn as text at this widget's width, and drawn again whenever that width changes."""
+    """Blocks drawn as text at this widget's width, and drawn again whenever that width changes.
 
-    def __init__(self, blocks: Sequence[Block], **kw: Any) -> None:
+    *layouts* are the column widths shared by the finding's tables with identical columns, so tables
+    read against each other line up even when a native table sits between them.
+    """
+
+    def __init__(
+        self, blocks: Sequence[Block], layouts: Mapping[tuple[Any, ...], tuple[int, ...]] | None = None, **kw: Any
+    ) -> None:
         super().__init__("", markup=False, **kw)
         self._blocks = list(blocks)
+        self._layouts = dict(layouts or {})
         self._drawn_at = 0
         self.text = ""
 
@@ -143,7 +156,8 @@ class _BlockText(Static):
         width = self.content_size.width
         if width and width != self._drawn_at:
             self._drawn_at = width
-            self.text = "\n".join(render_text(self._blocks, Frame(width=max(width, MIN_WIDTH), depth=2)))
+            frame = Frame(width=max(width, MIN_WIDTH), depth=2, layouts=self._layouts)
+            self.text = "\n".join(render_text(self._blocks, frame))
             self.update(self.text)
 
 
@@ -183,7 +197,7 @@ class ResultDetailModal(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="rd-dialog"):
-            yield Static(f"[bold]Result: {self._task_name}[/bold]", id="rd-title", markup=True)
+            yield Static(f"[bold]Result: {escape(self._task_name)}[/bold]", id="rd-title", markup=True)
             with VerticalScroll(id="rd-scroll"):
                 yield from self._compose_content()
             with Vertical(id="rd-buttons"):
@@ -192,7 +206,7 @@ class ResultDetailModal(ModalScreen[None]):
     def _compose_content(self) -> ComposeResult:
         # Metadata
         for line in self._rvm.metadata_lines():
-            yield Static(f"[dim]{line}[/dim]", classes="rd-metadata", markup=True)
+            yield Static(f"[dim]{escape(line)}[/dim]", classes="rd-metadata", markup=True)
 
         yield Static("", classes="rd-separator")
 
@@ -224,7 +238,7 @@ class ResultDetailModal(ModalScreen[None]):
             arrow = "\u25bc" if expanded else "\u25b6"
             marker = _SEVERITY_MARKUP.get(fs.severity, _SEVERITY_MARKUP["info"])
             header = _FindingHeader(
-                f"{arrow} DETAIL: {fs.title}  {marker}",
+                f"{arrow} DETAIL: {escape(fs.title)}  {marker}",
                 finding_idx=idx,
                 classes="rd-finding-header",
                 id=f"rd-fh-{gen}-{idx}",
@@ -234,11 +248,12 @@ class ResultDetailModal(ModalScreen[None]):
 
             if expanded:
                 # Each data table as a native DataTable; every other run of blocks as text.
+                layouts = shared_widths(self._rvm.finding_blocks(idx))
                 for position, segment in enumerate(self._rvm.finding_segments(idx)):
                     if isinstance(segment, Table):
                         yield _BlockTable(segment, id=f"rd-dt-{gen}-{idx}-{position}")
                     else:
-                        yield _BlockText(segment, classes="rd-finding-detail")
+                        yield _BlockText(segment, layouts, classes="rd-finding-detail")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-rd-close":
@@ -340,11 +355,11 @@ class ErrorDetailModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="ed-dialog"):
             yield Static(
-                f"[bold]FAILED: {self._task_name}[/bold]",
+                f"[bold]FAILED: {escape(self._task_name)}[/bold]",
                 id="ed-title",
                 markup=True,
             )
-            yield Static(self._error, id="ed-error")
+            yield Static(self._error, id="ed-error", markup=False)
             with Vertical(id="ed-buttons"):
                 yield Button("Close", id="btn-ed-close", variant="primary")
 

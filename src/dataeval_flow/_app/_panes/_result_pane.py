@@ -5,6 +5,7 @@ from __future__ import annotations
 import textwrap
 from typing import TYPE_CHECKING, Any
 
+from rich.markup import escape
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
 from textual.widgets import Static
@@ -65,13 +66,13 @@ class ResultPaneMixin(App):
             rvm = ResultViewModel(entry.result)
             summary = rvm.summary_line()
             severity_tag = rvm.status_tag()
-            lines = [f"[bold]{entry.task_name}[/bold] — {summary}{severity_tag}"]
+            lines = [f"[bold]{escape(entry.task_name)}[/bold] — {escape(summary)}{severity_tag}"]
             for fi in range(rvm.finding_count()):
                 fline = _colorize_marker(rvm.finding_summary_markup(fi))
                 lines.append(textwrap.indent(fline, "  "))
             return "\n".join(lines)
         error_brief = (entry.error or "unknown error")[:60]
-        return f"[bold]{entry.task_name}[/bold] — [bold red]FAILED[/bold red]: {error_brief}"
+        return f"[bold]{escape(entry.task_name)}[/bold] — [bold red]FAILED[/bold red]: {escape(error_brief)}"
 
     def _append_or_update_result(self, task_name: str) -> None:
         """Add or update a single result card without full rebuild."""

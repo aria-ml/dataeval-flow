@@ -359,14 +359,19 @@ print(f"Test  indices (first 10): {split_result.output.raw.test_indices[:10]}")
 #
 # You can call `export()` to write the result envelope to disk. Result envelopes
 # contain findings alongside execution metadata: timestamps, tool versions,
-# dataset identifiers, and fully resolved configurations.
+# dataset identifiers, and fully resolved configurations. `to_html()` renders the
+# same report as one self-contained page that you can open in a browser, attach
+# to a ticket, or print to PDF.
 
 # %%
 output_dir = Path("./output/end_to_end")
 
 for name, result in results.items():
     written = result.export(output_dir / f"{name}.json")
+    page = output_dir / f"{name}.html"
+    page.write_text(result.to_html(), encoding="utf-8")
     print(f"{written}  ({written.stat().st_size:,} bytes)")
+    print(f"{page}  ({page.stat().st_size:,} bytes)")
 
 # %%
 import json

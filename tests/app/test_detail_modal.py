@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from rich.markup import render
 from textual.widgets import Button, DataTable, Static
 
 from dataeval_flow._app._screens._detail import (
@@ -17,7 +18,7 @@ from dataeval_flow._app._screens._detail import (
     _colorize_marker,
     _FindingHeader,
 )
-from dataeval_flow._blocks import Column, Paragraph, Table
+from dataeval_flow._blocks import Column, Paragraph, Section, Table
 from dataeval_flow._blocks._text import MIN_WIDTH
 
 from .conftest import _MinimalApp, _wait_for_result
@@ -59,7 +60,14 @@ class TestColorizeMarker:
 
     def test_marker_must_be_at_end(self) -> None:
         line = "[ok] at the beginning"
-        assert _colorize_marker(line) == line
+        assert render(_colorize_marker(line)).plain == line
+
+    def test_brackets_in_the_text_show_as_written(self) -> None:
+        """A class name is the user's own: a bracket in it is text, never markup."""
+        line = "worst: [person], [/x]  [!!]"
+        result = _colorize_marker(line)
+        assert "[bold red]" in result
+        assert render(result).plain == line
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +92,15 @@ class TestErrorDetailModal:
         modal = ErrorDetailModal("task_x", "boom")
         assert modal._task_name == "task_x"
         assert modal._error == "boom"
+
+    async def test_a_bracketed_task_name_and_error_show_as_written(self) -> None:
+        app = _MinimalApp()
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = ErrorDetailModal("[/t] task", "KeyError: [/x] [person]")
+            app.push_screen(modal)
+            await pilot.pause()
+            assert str(modal.query_one("#ed-title", Static).render()) == "FAILED: [/t] task"
+            assert str(modal.query_one("#ed-error", Static).render()) == "KeyError: [/x] [person]"
 
     async def test_compose_renders_elements(self) -> None:
         app = _MinimalApp()
@@ -196,6 +213,22 @@ class TestResultDetailModal:
         assert modal._result is mock_result
         assert modal._expanded_findings == set()
         assert modal._gen == 0
+
+    async def test_bracketed_user_strings_show_as_written(self) -> None:
+        """Task names, sources, finding titles and briefs are the user's own: brackets in them are text."""
+        app = _MinimalApp()
+        finding = _FakeFinding(title="[/y] Balance", severity="warning", brief="worst: [person]")
+        result = _make_fake_result(findings=[finding])
+        result.metadata.source_descriptions = ["[/s] source"]
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = ResultDetailModal("[/t] task", result)
+            app.push_screen(modal)
+            await pilot.pause()
+            drawn = [str(widget.render()) for widget in modal.query(Static)]
+            assert "Result: [/t] task" in drawn
+            assert any("[/s] source" in text for text in drawn)
+            assert any("[/y] Balance" in text and "worst: [person]" in text for text in drawn)
+            assert any(text.startswith("\u25b6 DETAIL: [/y] Balance") for text in drawn)
 
     async def test_compose_renders_title_and_close(self) -> None:
         app = _MinimalApp()
@@ -403,6 +436,25 @@ class TestResultDetailModal:
             narrow = text.text.splitlines()
             assert len(narrow) > len(wide)
             assert max(len(line) for line in narrow) <= text.content_size.width
+
+    async def test_tables_with_the_same_columns_line_up_across_a_finding(self) -> None:
+        """Tables read against each other, such as one per factor, share column widths as the text report's do."""
+
+        def buckets(names: list[str]) -> Table:
+            columns = [Column(key="bin", header="Bin"), Column(key="n", header="Count"), Column(key="n", kind="bar")]
+            return Table(columns=columns, rows=[{"bin": name, "n": float(i + 1)} for i, name in enumerate(names)])
+
+        app = _MinimalApp()
+        factors = [
+            Section(title="altitude", blocks=[buckets(["low", "high"])]),
+            Section(title="weather", blocks=[buckets(["partly cloudy", "rain"])]),
+        ]
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = await self._expanded(pilot, app, _FakeFinding(title="Buckets", severity="info", blocks=factors))
+            (text,) = modal.query(_BlockText)
+            headers = [line for line in text.text.splitlines() if "Bin" in line and "Count" in line]
+            assert len(headers) == 2
+            assert len({line.index("Count") for line in headers}) == 1
 
     async def test_a_modal_narrower_than_the_report_s_minimum_still_draws_its_text(self) -> None:
         """Below 40 columns the text draws at 40, one row per line, and the modal scrolls it sideways."""

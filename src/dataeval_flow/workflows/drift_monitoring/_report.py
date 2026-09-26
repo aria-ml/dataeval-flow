@@ -67,13 +67,14 @@ def _classwise_table(rows: list[ClasswiseDriftRowDict]) -> Table:
     """Per class: its distance, its p-value when any class has one, a bar of the distance's size, and its status."""
     columns = [Column(key="class_name", header="Class"), Column(key="distance", header="Distance", format="{:.4f}")]
     if any(row["p_val"] is not None for row in rows):
-        columns.append(Column(key="p_val", header="PVal", format="{:.2f}"))
+        # Two significant figures, as data analysis prints its p-values: a small one reads 0.0003, not 0.00.
+        columns.append(Column(key="p_val", header="PVal", format="{:.2g}"))
     columns += [Column(key="abs_distance", kind="bar"), Column(key="status", header="Status", align="left")]
     cells: list[dict[str, Cell]] = [
         {
             "class_name": row["class_name"],
             "distance": round(row["distance"], 4),
-            "p_val": round(row["p_val"], 6) if row["p_val"] is not None else None,
+            "p_val": row["p_val"],
             "abs_distance": abs(round(row["distance"], 4)),
             "status": "DRIFT" if row["drifted"] else "ok",
         }
