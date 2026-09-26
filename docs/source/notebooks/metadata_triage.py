@@ -147,10 +147,12 @@ print(result.report())
 # You can inspect the value counts and sample values printed for each mixed type:
 #
 # ```text
-#   [blocking] latitude [mixed_types @ unit]
-#     ████████████████████  198 numeric, 2 text
-#     numeric reads: -1, 47.671928, 47.671942, 47.671971, 47.672015, 47.672055 (+114 more)
-#     text reads: 'N'
+#   latitude — [blocking] mixed_types @ unit
+#     ███████████████████░  198 numeric, 2 text
+#
+#     numeric reads: -1, 47.671928, 47.671942, 47.671971, 47.672015, 47.672055
+#                    (+114 more)
+#     text reads:    'N'
 # ```
 
 # %% [markdown]

@@ -6,9 +6,10 @@ from typing import Any
 
 import dataeval
 
-from dataeval_flow._text_report import _WIDTH
+from dataeval_flow._blocks._text import DEFAULT_WIDTH as _WIDTH
+from dataeval_flow._blocks._text import Frame, render_text
 from dataeval_flow.evaluators import EvaluatorResult
-from dataeval_flow.evaluators._report import ROW_LIMIT, render_result_body, render_rows
+from dataeval_flow.evaluators._report import ROW_LIMIT, render_result_body, table_blocks
 from dataeval_flow.evaluators._result import DataEvalExecution, EvaluatorMetadata
 
 
@@ -62,7 +63,7 @@ class TestReport:
         assert "OUTPUT" in text
         assert "Health" not in text
         assert "SUMMARY" not in text
-        assert "DataEval:     1.1.1" in text
+        assert any(line.split() == ["DataEval:", "1.1.1"] for line in text.splitlines())
 
     def test_the_console_form_caps_long_tables(self):
         text = _result(_table(ROW_LIMIT + 5)).report(detailed=False)
@@ -81,7 +82,7 @@ class TestReport:
         output = {"shape": "mapping", "data": {"drifted": True, "per_class": _table(1)}}
         text = _result(output).report()
         assert "drifted: True" in text
-        assert "per_class:" in text
+        assert "  per_class" in text.splitlines()
         assert "group_id" in text
 
     def test_an_array_shows_its_head(self):
@@ -98,11 +99,16 @@ class TestRenderResultBody:
 
     def test_a_failure_renders_failed_plus_its_errors(self):
         lines = render_result_body(_result({}, success=False, errors=("RuntimeError: boom",)), detailed=True)
-        assert lines[0] == "  FAILED"
+        assert lines[1] == "  FAILED"
         assert any("boom" in line for line in lines)
 
 
-class TestRenderRows:
+def render_rows(columns: list[str], rows: list[dict[str, Any]], *, limit: int | None) -> list[str]:
+    """A table output as the OUTPUT section draws it."""
+    return render_text(table_blocks(columns, rows, limit=limit), Frame(indent="  ", depth=2))
+
+
+class TestTableBlocks:
     def test_wide_cells_are_cut(self):
         rows = [{"a": ["xxxxxxxxxx"] * 50, "b": 1}]
         lines = render_rows(["a", "b"], rows, limit=None)

@@ -272,16 +272,16 @@ for result in results.values():
 # %% [markdown]
 # ### 5b. Structured findings
 #
-# Each finding includes a `title`, `severity` (`ok`, `info`, or `warning`), and `description`.
-# You can query these programmatically in automated CI/CD gates.
+# Each finding includes a `title`, a `severity` (`ok`, `info`, or `warning`), a short `brief`, a
+# `description`, and its evidence as report `blocks`. You can query these programmatically in
+# automated CI/CD gates.
 
 # %%
 for result in results.values():
     print(f"\n{result.type}")
     for finding in result.output.report.findings:
         marker = {"warning": "[!!]", "ok": "[ok]"}.get(finding.severity, "[..]")
-        headline = (finding.description or "").splitlines()
-        print(f"  {marker} {finding.title:<34} {headline[0][:60] if headline else ''}")
+        print(f"  {marker} {finding.title:<34} {finding.brief or ''}")
 
 # %% [markdown]
 # ### 5c. Data cleaning: Inspect flagged images

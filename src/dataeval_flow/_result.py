@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, TypeVar, cast, overload
 
 from pydantic import BaseModel, Field
+from pydantic_core import to_jsonable_python
+
+from dataeval_flow._blocks import Block, Fields, Paragraph, Scalar, Section, Tree
+from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH, Frame, render_text
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -180,49 +184,35 @@ class ResultMetadata(BaseModel):
 TMetadata = TypeVar("TMetadata", bound=ResultMetadata)
 TOutput = TypeVar("TOutput")
 
-# The text helpers below are imported where they are used: they live in the workflow package,
-# which imports this module to define WorkflowResult, so importing them here would be circular.
 
-
-def _source_lines(meta: ResultMetadata) -> list[str]:
-    """Render source/dataset lines for the metadata block."""
+def _source_items(meta: ResultMetadata) -> list[tuple[str, Scalar]]:
+    """What the run read: every source, or else the dataset and selection."""
     from dataeval_flow.workflows._base import render_label_source
 
-    lines: list[str] = []
-    source_descs = meta.source_descriptions
-    if source_descs:
-        label = "  Source:       "
-        continuation = " " * len(label)
-        for i, desc in enumerate(source_descs):
-            lines.append(f"{label if i == 0 else continuation}{desc}")
-    elif meta.dataset_id or meta.selection_id:
-        if meta.dataset_id:
-            ds_line = f"  Dataset:      {meta.dataset_id}"
-            if meta.label_source:
-                ds_line += f"  ({render_label_source(meta.label_source)})"
-            lines.append(ds_line)
-        if meta.selection_id:
-            lines.append(f"  Selection:    {meta.selection_id}")
-    return lines
+    if meta.source_descriptions:
+        return [("Source", "\n".join(meta.source_descriptions))]
+    items: list[tuple[str, Scalar]] = []
+    if meta.dataset_id:
+        label = f"  ({render_label_source(meta.label_source)})" if meta.label_source else ""
+        items.append(("Dataset", f"{meta.dataset_id}{label}"))
+    if meta.selection_id:
+        items.append(("Selection", meta.selection_id))
+    return items
 
 
-def _metadata_block(meta: ResultMetadata) -> list[str]:
-    """Human-readable envelope lines, ending with a separator when there are any."""
-    from dataeval_flow._text_report import _WIDTH
-
-    lines: list[str] = []
+def _envelope_items(meta: ResultMetadata) -> list[tuple[str, Scalar]]:
+    """The envelope a report opens with: when the run happened, how long it took, and what it read."""
+    items: list[tuple[str, Scalar]] = []
     if meta.timestamp:
-        lines.append(f"  Timestamp:    {meta.timestamp.isoformat()}")
+        items.append(("Timestamp", meta.timestamp.isoformat()))
     if meta.execution_time_s is not None:
-        lines.append(f"  Duration:     {meta.execution_time_s:.2f}s")
-    lines.extend(_source_lines(meta))
+        items.append(("Duration", f"{meta.execution_time_s:.2f}s"))
+    items.extend(_source_items(meta))
     if meta.model_id:
-        lines.append(f"  Model:        {meta.model_id}")
+        items.append(("Model", meta.model_id))
     if meta.preprocessor_id:
-        lines.append(f"  Preprocessor: {meta.preprocessor_id}")
-    if lines:
-        lines.append("-" * _WIDTH)
-    return lines
+        items.append(("Preprocessor", meta.preprocessor_id))
+    return items
 
 
 def failure_message(error: BaseException) -> str:
@@ -230,9 +220,9 @@ def failure_message(error: BaseException) -> str:
     return f"{type(error).__name__}: {error}"
 
 
-def _failure_lines(errors: Sequence[str]) -> list[str]:
+def failure_section(errors: Sequence[str]) -> Section:
     """A failed run's report body: ``FAILED``, then each error."""
-    return ["  FAILED", *(f"    {error}" for error in errors)]
+    return Section(title="FAILED", blocks=[Paragraph(text=error) for error in errors])
 
 
 def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: Literal["json", "yaml"]) -> str | Path:
@@ -364,30 +354,29 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     def __repr__(self) -> str:
         return f"{type(self).__name__}(type={self.type!r}, success={self.success})"
 
-    def report(self, *, detailed: bool = True) -> str:
+    def report(self, *, detailed: bool = True, width: int = DEFAULT_WIDTH) -> str:
         """Return a plain-text report: a banner, the run's envelope, the body, then the configuration.
 
         Parameters
         ----------
         detailed : bool
             When ``False``, the body is the short form the console shows.
+        width : int
+            Characters per line, at least 40. Prose wraps and charts shrink to fit it.
 
         Returns
         -------
         str
             Formatted text report suitable for ``print()``.
-        """
-        from dataeval_flow._text_report import _WIDTH, _render_config_section
 
-        title = self._report_title() if self.success else self.type
-        lines = ["", "=" * _WIDTH]
-        lines.extend(f"  {part.strip().upper()}" for part in title.split("\n"))
-        lines.append("=" * _WIDTH)
-        lines.extend(self._report_envelope())
-        lines.extend(self._report_body(detailed=detailed))
-        lines.extend(_render_config_section(self.metadata.resolved_config))
-        lines.extend(["", "=" * _WIDTH])
-        return "\n".join(lines)
+        Raises
+        ------
+        ValueError
+            If ``width`` is below 40.
+        """
+        if width < MIN_WIDTH:
+            raise ValueError(f"width must be at least {MIN_WIDTH}, got {width}")
+        return "\n".join(render_text([self._document(detailed=detailed)], Frame(width=width)))
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors."""
@@ -417,20 +406,31 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         """
         return _write_result(self.to_dict(), path, fmt=fmt)
 
-    def _report_envelope(self) -> list[str]:
-        """The envelope lines under the banner, ending with a separator."""
-        return _metadata_block(self.metadata)
+    def _document(self, *, detailed: bool) -> Section:
+        """The whole report as blocks: the banner title, the envelope, the body, then the configuration."""
+        title = self._report_title() if self.success else self.type
+        blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
+        if self.metadata.resolved_config:
+            # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
+            config = to_jsonable_python(self.metadata.resolved_config, fallback=str)
+            blocks.append(Section(title="CONFIGURATION", blocks=[Tree(value=config)]))
+        return Section(title=title, blocks=blocks)
 
-    def _report_body(self, *, detailed: bool) -> list[str]:
+    def _report_envelope(self) -> list[Block]:
+        """The envelope under the banner, or nothing when the metadata holds none of it."""
+        items = _envelope_items(self.metadata)
+        return [Fields(items=items)] if items else []
+
+    def _report_body(self, *, detailed: bool) -> list[Block]:
         """The report's body: what this kind reports, or ``FAILED`` and each error for a failed run."""
-        return self._report_output(detailed=detailed) if self.success else _failure_lines(self.errors)
+        return self._report_output(detailed=detailed) if self.success else [failure_section(self.errors)]
 
     @abstractmethod
     def _report_title(self) -> str:
         """A successful run's banner title; a multi-line title renders one line per banner row."""
 
     @abstractmethod
-    def _report_output(self, *, detailed: bool) -> list[str]:
+    def _report_output(self, *, detailed: bool) -> list[Block]:
         """The body of a successful run's report."""
 
     @abstractmethod

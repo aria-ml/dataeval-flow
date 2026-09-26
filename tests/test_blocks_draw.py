@@ -1,0 +1,264 @@
+"""Glyph drawing: sparklines resampled by area, and the compact value text the configuration section uses."""
+
+from typing import Any
+
+import pytest
+
+from dataeval_flow._blocks import Section, Tree
+from dataeval_flow._blocks._draw import compact_indices, flow_repr, format_value, ratio_line, shape_cells
+from dataeval_flow._blocks._table import SPARKLINE_CELLS
+from dataeval_flow._blocks._text import Frame, render_text
+
+pytestmark = pytest.mark.required
+
+
+def _config(resolved: dict[str, Any]) -> list[str]:
+    """The CONFIGURATION section as a report draws it."""
+    return render_text([Section(title="CONFIGURATION", blocks=[Tree(value=resolved)])], Frame(indent="  ", depth=1))
+
+
+class TestShapeCells:
+    """A factor's shape, drawn to one width so two factors can be compared."""
+
+    def test_draws_one_width_whatever_the_record_holds(self):
+        assert len(shape_cells([1, 2], SPARKLINE_CELLS)) == SPARKLINE_CELLS
+        assert len(shape_cells([1] * 400, SPARKLINE_CELLS)) == SPARKLINE_CELLS
+
+    def test_a_cell_nothing_reached_renders_blank(self):
+        assert " " not in shape_cells([5] * SPARKLINE_CELLS, SPARKLINE_CELLS)
+        assert shape_cells([5, 5, 5, 0, *([5] * 16)], cells=20)[3] == " "
+
+    def test_merges_rather_than_samples_so_a_spike_survives(self):
+        """Taking every other cell would drop a spike that landed in the skipped one."""
+        counts = [0] * 40
+        counts[7] = 100
+        assert shape_cells(counts, cells=20)[3] == "\u2588"
+
+    def test_the_default_resolution_keeps_every_recorded_cell(self):
+        """The record is forty cells wide and so is the column, so nothing merges away:
+        a spike that occupied one recorded cell still occupies exactly one drawn cell."""
+        counts = [0] * 40
+        counts[7] = 100
+        drawn = shape_cells(counts, SPARKLINE_CELLS)
+        assert drawn[7] == "\u2588"
+        assert drawn.count("\u2588") == 1
+
+    def test_a_flat_record_draws_flat_at_any_width(self):
+        """Integer grouping gives one cell two source cells and its neighbour one. A
+        column of identical counts then draws ragged, and a reader cannot tell from the
+        data. Every drawn cell has to cover the same slice of the record."""
+        flat = [10] * 40
+        for cells in (17, 26, 33, 37):
+            assert len(set(shape_cells(flat, cells))) == 1, f"ragged at {cells}: {shape_cells(flat, cells)}"
+
+    def test_a_record_nothing_reached_draws_nothing_rather_than_a_floor(self):
+        assert shape_cells([0, 0, 0], SPARKLINE_CELLS) == " " * SPARKLINE_CELLS
+        assert shape_cells([], SPARKLINE_CELLS) == " " * SPARKLINE_CELLS
+
+    def test_every_populated_cell_keeps_a_mark_however_thin(self):
+        """The column exists for sparse cells: one populated cell among a thousand must keep its mark."""
+        assert shape_cells([1000, *([1] * 19)], cells=20) == "\u2588" + "\u2581" * 19
+
+
+# ---------------------------------------------------------------------------
+# the configuration section
+# ---------------------------------------------------------------------------
+
+
+class TestRenderConfigSection:
+    def test_full_config(self):
+        """Full config renders all top-level keys."""
+        resolved = {
+            "sources": [{"name": "src", "dataset": "ds"}],
+            "workflow": {"name": "clean", "type": "data-cleaning"},
+            "extractor": {"name": "ext", "model": "onnx"},
+        }
+        lines = _config(resolved)
+        text = "\n".join(lines)
+        assert "CONFIGURATION" in text
+        assert "name: src" in text
+        assert "dataset: ds" in text
+        assert "name: clean" in text
+        assert "name: ext" in text
+
+    def test_nested_dicts(self):
+        """Nested dicts expand to multi-line when they exceed width."""
+        resolved = {
+            "workflow": {
+                "name": "ood",
+                "detectors": [
+                    {"method": "kneighbors", "k": 10},
+                    {"method": "domain_classifier", "n_folds": 3},
+                ],
+            },
+        }
+        lines = _config(resolved)
+        text = "\n".join(lines)
+        assert "method: kneighbors" in text
+        assert "k: 10" in text
+        assert "method: domain_classifier" in text
+
+    def test_int_lists_compacted(self):
+        """Contiguous int lists are replaced with range shorthand."""
+        resolved = {"workflow": {"indices": [0, 1, 2, 3, 4]}}
+        lines = _config(resolved)
+        text = "\n".join(lines)
+        assert "range(0, 5)" in text
+
+    def test_source_with_view(self):
+        """Sources with view config render properly."""
+        resolved = {
+            "sources": [
+                {
+                    "name": "src",
+                    "dataset": "ds",
+                    "view": "subset",
+                    "view_config": {
+                        "operations": [{"type": "Limit", "params": {"size": 1000}}],
+                    },
+                }
+            ],
+        }
+        lines = _config(resolved)
+        text = "\n".join(lines)
+        assert "view: subset" in text
+        assert "type: Limit" in text
+        assert "size: 1000" in text
+
+
+# ---------------------------------------------------------------------------
+# flow_repr
+# ---------------------------------------------------------------------------
+
+
+class TestFlowRepr:
+    def test_scalar(self):
+        """Scalars render as str()."""
+        assert flow_repr("hello") == "hello"
+        assert flow_repr(3.14) == "3.14"
+        assert flow_repr(True) == "True"
+
+    def test_dict(self):
+        """Dicts render as {k: v} without quotes."""
+        assert flow_repr({"a": 1, "b": 2}) == "{a: 1, b: 2}"
+
+    def test_list(self):
+        """Lists render as [v1, v2]."""
+        assert flow_repr(["dim", "pixel"]) == "[dim, pixel]"
+
+    def test_nested(self):
+        """Nested structures render inline."""
+        result = flow_repr({"params": {"size": 100}})
+        assert result == "{params: {size: 100}}"
+
+    def test_int_list_compacted(self):
+        """Contiguous int lists collapse to range()."""
+        assert flow_repr([0, 1, 2, 3, 4]) == "range(0, 5)"
+
+    def test_non_contiguous_int_list(self):
+        """Non-contiguous int lists render normally."""
+        assert flow_repr([1, 3, 7]) == "[1, 3, 7]"
+
+    @pytest.mark.parametrize("flags", [[True, False], [False, True]])
+    def test_a_list_of_flags_is_not_read_as_a_range(self, flags):
+        """A bool is an int to Python, but two flags are not a run of indices."""
+        assert flow_repr(flags) == str(flags)
+
+
+class TestRatioLine:
+    def test_a_first_part_of_zero_draws_an_empty_track(self):
+        """A bar floored at one block would show a share the first part does not have."""
+        line = ratio_line([("numeric", 0), ("text", 5), ("bool", 5)])
+        assert line.startswith("░" * 20)
+        assert "█" not in line
+
+
+# ---------------------------------------------------------------------------
+# format_value
+# ---------------------------------------------------------------------------
+
+
+class TestFormatValue:
+    def test_dict_inline(self):
+        """Short dict values render inline."""
+        lines: list[str] = []
+        format_value(lines, {"threshold": 2.5}, indent=4, max_width=80)
+        assert lines == ["    threshold: 2.5"]
+
+    def test_dict_expanded(self):
+        """Dict value that exceeds width expands to block style."""
+        lines: list[str] = []
+        long_val = {"a" * 40: "b" * 40}
+        format_value(lines, {"params": long_val}, indent=0, max_width=50)
+        text = "\n".join(lines)
+        assert "params:" in text
+        assert "a" * 40 in text
+
+    def test_list_inline(self):
+        """Short list items render inline."""
+        lines: list[str] = []
+        format_value(lines, [{"method": "knn", "k": 5}], indent=4, max_width=80)
+        assert lines == ["    - {method: knn, k: 5}"]
+
+    def test_list_expanded(self):
+        """Long list items expand to block style."""
+        lines: list[str] = []
+        format_value(lines, [{"method": "a" * 60}], indent=4, max_width=40)
+        text = "\n".join(lines)
+        assert "    -" in text
+        assert "method:" in text
+
+    def test_scalar(self):
+        """Plain scalar renders with indent."""
+        lines: list[str] = []
+        format_value(lines, "hello", indent=4, max_width=80)
+        assert lines == ["    hello"]
+
+
+# ---------------------------------------------------------------------------
+# compact_indices
+# ---------------------------------------------------------------------------
+
+
+class TestCompactIndices:
+    def test_empty_list(self):
+        """Empty list returns '[]'."""
+        assert compact_indices([]) == "[]"
+
+    def test_single_element(self):
+        """Single element returns str(list)."""
+        assert compact_indices([42]) == "[42]"
+
+    def test_contiguous_range(self):
+        """Contiguous range collapses to range()."""
+        assert compact_indices([5, 6, 7, 8, 9]) == "range(5, 10)"
+
+    def test_range_with_step(self):
+        """Range with step collapses to range(start, stop, step)."""
+        assert compact_indices([0, 2, 4, 6]) == "range(0, 7, 2)"
+
+    def test_non_contiguous(self):
+        """Non-contiguous list returns str(list)."""
+        result = compact_indices([1, 3, 7])
+        assert result == "[1, 3, 7]"
+
+    def test_zero_step(self):
+        """Repeated elements (step=0) returns str(list) (line 505)."""
+        result = compact_indices([5, 5, 5])
+        assert result == "[5, 5, 5]"
+
+
+# ---------------------------------------------------------------------------
+# format_value — non-dict list fallback
+# ---------------------------------------------------------------------------
+
+
+class TestFormatValueListFallback:
+    def test_non_dict_list_item_exceeds_width(self):
+        """List item that is not a dict and exceeds width triggers fallback (lines 477-478)."""
+        lines: list[str] = []
+        long_item = "a" * 80
+        format_value(lines, [long_item], indent=4, max_width=40)
+        text = "\n".join(lines)
+        assert "a" * 80 in text
+        assert "    -" in text

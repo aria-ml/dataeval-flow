@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from dataeval_flow import PipelineConfig, load_config
+from dataeval_flow._blocks import Paragraph
 from dataeval_flow.config import (
     CocoDatasetConfig,
     DemoDatasetConfig,
@@ -209,23 +210,26 @@ class TestDataCleaningOutput:
         assert report.findings == []
 
     def test_reportable(self):
-        """Finding can be created."""
-        item = Finding(report_type="table", title="Test", data={"key": "value"})
-        assert item.report_type == "table"
+        """A finding holds its evidence as report blocks, read from their JSON form."""
+        item = Finding.model_validate(
+            {"title": "Test", "brief": "1 item", "blocks": [{"type": "paragraph", "text": "hi"}]}
+        )
         assert item.title == "Test"
+        assert item.blocks == [Paragraph(text="hi")]
 
-    def test_reportable_invalid_type(self):
-        """Finding rejects invalid report_type."""
+    def test_reportable_rejects_an_unknown_block_type(self):
+        """A block type Flow does not define is rejected when the finding is built."""
+        with pytest.raises(ValidationError, match="does not match any of the expected tags"):
+            Finding.model_validate({"title": "Test", "blocks": [{"type": "image", "src": "cat.png"}]})
+
+    def test_reportable_rejects_the_retired_layout_fields(self):
+        """A finding still built with report_type and data fails, rather than silently dropping its evidence."""
         with pytest.raises(ValidationError, match="report_type"):
-            Finding(
-                report_type="invalid",  # type: ignore[arg-type]
-                title="Test",
-                data={"key": "value"},
-            )
+            Finding.model_validate({"title": "Test", "report_type": "table", "data": {"key": "value"}})
 
     def test_data_cleaning_report_with_findings(self):
         """DataCleaningReport can have findings."""
-        finding = Finding(report_type="key_value", title="Finding", data={"count": 10}, description="Test finding")
+        finding = Finding(title="Finding", description="Test finding")
         report = DataCleaningReport(summary="Summary", findings=[finding])
         assert len(report.findings) == 1
         assert report.findings[0].title == "Finding"

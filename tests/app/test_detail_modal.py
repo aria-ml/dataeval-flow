@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from textual.widgets import Button, Static
+from textual.widgets import Button, DataTable, Static
 
 from dataeval_flow._app._screens._detail import (
     ErrorDetailModal,
     ResultDetailModal,
+    _BlockTable,
+    _BlockText,
     _colorize_marker,
     _FindingHeader,
 )
+from dataeval_flow._blocks import Column, Paragraph, Table
+from dataeval_flow._blocks._text import MIN_WIDTH
 
 from .conftest import _MinimalApp, _wait_for_result
 
@@ -139,9 +143,9 @@ class _FakeFinding:
 
     title: str
     severity: str
-    report_type: str
-    data: Any = None
     description: str = ""
+    brief: str | None = None
+    blocks: list[Any] = field(default_factory=list)
 
     @property
     def summary(self) -> str:
@@ -180,8 +184,8 @@ class TestResultDetailModal:
     def _mock_result(self, findings: list[_FakeFinding] | None = None) -> MagicMock:
         if findings is None:
             findings = [
-                _FakeFinding(title="Dup Check", severity="ok", report_type="scalar"),
-                _FakeFinding(title="Coverage", severity="warning", report_type="scalar"),
+                _FakeFinding(title="Dup Check", severity="ok"),
+                _FakeFinding(title="Coverage", severity="warning"),
             ]
         return _make_fake_result(findings=findings)
 
@@ -297,7 +301,7 @@ class TestResultDetailModal:
     async def test_compose_warning_health(self) -> None:
         """Findings with warnings should produce a warning health line."""
         app = _MinimalApp()
-        findings = [_FakeFinding(title="Issue", severity="warning", report_type="scalar")]
+        findings = [_FakeFinding(title="Issue", severity="warning")]
         mock_result = self._mock_result(findings=findings)
         async with app.run_test(size=(120, 40)) as pilot:
             modal = ResultDetailModal("task_warn", mock_result)
@@ -321,38 +325,97 @@ class TestResultDetailModal:
             await pilot.pause()
             assert idx in modal._expanded_findings
 
+    async def _expanded(self, pilot: Any, app: Any, finding: _FakeFinding) -> ResultDetailModal:
+        modal = ResultDetailModal("task", self._mock_result(findings=[finding]))
+        app.push_screen(modal)
+        await pilot.pause()
+        modal._toggle_finding(0)
+        await pilot.pause()
+        return modal
+
     async def test_expand_finding_with_table_data(self) -> None:
-        """Expanding a finding whose report_type yields table data."""
+        """A data table shows as a native DataTable, every cell printed as the report prints it."""
         app = _MinimalApp()
-        finding = _FakeFinding(
-            title="Counts",
-            severity="ok",
-            report_type="table",
-            data={"table_data": {"a": 10, "b": 5}, "table_headers": ("Label", "Count")},
+        counts = Table(
+            columns=[Column(key="label", header="Label"), Column(key="pct", header="%", format="{:.1f}%")],
+            rows=[{"label": "a", "pct": 62.5}, {"label": "b", "pct": 37.5}],
         )
-        mock_result = self._mock_result(findings=[finding])
         async with app.run_test(size=(120, 40)) as pilot:
-            modal = ResultDetailModal("task_tbl", mock_result)
+            modal = await self._expanded(pilot, app, _FakeFinding(title="Counts", severity="ok", blocks=[counts]))
+            (table,) = modal.query(DataTable)
+            assert [str(column.label) for column in table.columns.values()] == ["Label", "%"]
+            assert [str(cell) for cell in table.get_row_at(0)] == ["a", "62.5%"]
+            assert table.row_count == 2
+
+    async def test_bracketed_names_in_a_data_table_show_as_written(self) -> None:
+        """Class and split names are the user's own: a bracket in one is text, never markup."""
+        app = _MinimalApp()
+        names = Table(
+            columns=[Column(key="class", header="Class"), Column(key="split:[train]", header="[train]")],
+            rows=[{"class": "[person]", "split:[train]": "[/x] 3"}],
+        )
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = await self._expanded(pilot, app, _FakeFinding(title="Names", severity="info", blocks=[names]))
+            table = modal.query_one(DataTable)
+            assert [str(column.label) for column in table.columns.values()] == ["Class", "[train]"]
+            assert [str(cell) for cell in table.get_row_at(0)] == ["[person]", "[/x] 3"]
+
+    async def test_a_multi_line_cell_shows_every_line(self) -> None:
+        """A cell holding one factor per line gets a row tall enough for all of them."""
+        app = _MinimalApp()
+        factors = Table(
+            columns=[Column(key="split", header="Split"), Column(key="mi", header="Top High MI Factors")],
+            rows=[{"split": "train", "mi": "altitude\nweather\ntime"}],
+        )
+        finding = _FakeFinding(title="Bias", severity="info", blocks=[factors])
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = ResultDetailModal("task_bias", self._mock_result(findings=[finding]))
             app.push_screen(modal)
             await pilot.pause()
-            # Expand finding 0 to trigger DataTable path
             modal._toggle_finding(0)
             await pilot.pause()
-            assert 0 in modal._expanded_findings
+            table = modal.query_one(DataTable)
+            (row,) = table.ordered_rows
+            assert row.height == 3
 
-    async def test_populate_tables_no_matches_safe(self) -> None:
-        """_populate_tables should not crash when DataTable widget is missing."""
+    async def test_a_description_shows_above_a_data_table(self) -> None:
         app = _MinimalApp()
-        mock_result = self._mock_result()
+        counts = Table(columns=[Column(key="k", header="K")], rows=[{"k": "a"}])
+        finding = _FakeFinding(title="Counts", severity="ok", description="Two labels.", blocks=[counts])
         async with app.run_test(size=(120, 40)) as pilot:
-            modal = ResultDetailModal("task_a", mock_result)
-            app.push_screen(modal)
+            modal = await self._expanded(pilot, app, finding)
+            detail = [widget for widget in modal.query("#rd-scroll > *") if isinstance(widget, (_BlockText, DataTable))]
+            assert [type(widget) for widget in detail] == [_BlockText, _BlockTable]
+            assert isinstance(detail[0], _BlockText)
+            assert detail[0].text == "Two labels."
+
+    async def test_expanded_text_fits_the_modal_and_follows_a_resize(self) -> None:
+        app = _MinimalApp()
+        prose = " ".join(["calibrated"] * 40)
+        finding = _FakeFinding(title="Prose", severity="info", blocks=[Paragraph(text=prose)])
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = await self._expanded(pilot, app, finding)
+            (text,) = modal.query(_BlockText)
+            wide = text.text.splitlines()
+            assert max(len(line) for line in wide) <= text.content_size.width
+            await pilot.resize_terminal(80, 40)
             await pilot.pause()
-            # Manually add an index to expanded but do not rebuild content
-            # This means no DataTable widget exists for that index
-            modal._expanded_findings.add(99)
-            modal._populate_tables()  # should not raise
-            await pilot.pause()
+            narrow = text.text.splitlines()
+            assert len(narrow) > len(wide)
+            assert max(len(line) for line in narrow) <= text.content_size.width
+
+    async def test_a_modal_narrower_than_the_report_s_minimum_still_draws_its_text(self) -> None:
+        """Below 40 columns the text draws at 40, one row per line, and the modal scrolls it sideways."""
+        app = _MinimalApp()
+        finding = _FakeFinding(title="Prose", severity="info", blocks=[Paragraph(text=" ".join(["word"] * 30))])
+        async with app.run_test(size=(40, 30)) as pilot:
+            modal = await self._expanded(pilot, app, finding)
+            (text,) = modal.query(_BlockText)
+            lines = text.text.splitlines()
+            assert max(len(line) for line in lines) <= MIN_WIDTH
+            assert text.content_size.width == MIN_WIDTH
+            assert text.size.height == len(lines)
+            assert modal.query_one("#rd-scroll").max_scroll_x > 0
 
     async def test_rebuild_content_no_scroll_safe(self) -> None:
         """_rebuild_content should not crash if #rd-scroll is missing."""

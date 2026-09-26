@@ -37,6 +37,7 @@ from dataeval_flow.workflows.data_cleaning._workflow import (
     _serialize_outlier_issues,
     _split_outlier_issues,
 )
+from tests.finding_blocks import fields
 
 pytestmark = pytest.mark.required
 
@@ -368,10 +369,12 @@ class TestDataCleaningWorkflowExecute:
         assert meta["flagged_indices"] == [0, 1, 4]
         assert meta["removed_count"] == 3
         assert len(meta["clean_indices"]) == 7
-        # Preparatory Mode finding has data-driven brief key
+        # Preparatory Mode finding has a brief, and the flagged and retained counts as fields
         assert isinstance(result.output, DataCleaningOutput)
         prep_finding = next(f for f in result.output.report.findings if f.title == "Preparatory Mode")
-        assert prep_finding.data["brief"] == "3 flagged, 7 retained"  # type: ignore[index]
+        assert prep_finding.brief == "3 flagged, 7 retained"
+        assert prep_finding.description == "Preparatory mode: 3 items flagged for removal, 7 items retained."
+        assert fields(prep_finding) == {"Flagged": 3, "Retained": 7}
 
     @patch("dataeval_flow.workflows.data_cleaning._workflow._run_cleaning")
     @patch("dataeval_flow._metadata.Metadata")

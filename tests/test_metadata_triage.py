@@ -6,7 +6,10 @@ import numpy as np
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
+from dataeval_flow._binning_report import distribution_blocks
+from dataeval_flow._blocks import Code, Distribution, Proportion
 from dataeval_flow._policy import ResolvedPolicy, build_correction
+from dataeval_flow._triage import find_issues
 from dataeval_flow.config import ParseValueCorrectionConfig
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
@@ -16,6 +19,8 @@ from dataeval_flow.workflows.metadata_triage._outputs import (
     MetadataTriageReport,
     VerificationEntry,
 )
+from tests.finding_blocks import blocks_of, bullets, fields, paragraphs, rendered, sections
+from tests.test_triage import _numeric, _record
 
 
 def test_parameters_default_to_verifying():
@@ -344,7 +349,9 @@ def test_a_suggested_policy_yaml_becomes_a_reportable():
     raw = MetadataTriageRawOutput(dataset_size=10, suggested_policy_yaml="metadata:\n  - name: standard\n")
     (reportable,) = build_findings(raw, max_examples=20)
     assert reportable.title == "Suggested policy"
-    assert reportable.data["detail_lines"] == ["metadata:", "  - name: standard"]  # type: ignore[index]
+    (code,) = blocks_of(reportable, Code)
+    assert code.text == "metadata:\n  - name: standard"
+    assert code.language == "yaml"
 
 
 def test_a_verification_entry_becomes_a_reportable():
@@ -356,8 +363,8 @@ def test_a_verification_entry_becomes_a_reportable():
     )
     (reportable,) = build_findings(raw, max_examples=20)
     assert reportable.title == "Verified"
-    assert reportable.data["brief"] == "1 recovered"  # type: ignore[index]
-    assert reportable.data["detail_lines"] == ["weight: 8 bins, 0 unread"]  # type: ignore[index]
+    assert reportable.brief == "1 recovered"
+    assert fields(reportable) == {"weight": "8 bins, 0 unread"}
 
 
 def test_summarize_counts_by_category_and_by_severity():
@@ -389,7 +396,23 @@ def test_a_verification_error_becomes_a_reportable_when_the_list_is_empty():
     (reportable,) = build_findings(raw, max_examples=20)
     assert reportable.title == "Verification failed"
     assert reportable.severity == "warning"
-    assert reportable.data["detail_lines"] == ["boom"]  # type: ignore[index]
+    assert paragraphs(reportable) == ["boom"]
+
+
+def test_a_long_verification_error_wraps_within_the_width():
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    error = (
+        "ValueError: could not convert string to float: '6,000' while re-reading factor 'weight' under the "
+        "suggested policy; the parse_value correction dropped ',' but the column also holds '6 000'"
+    )
+    raw = MetadataTriageRawOutput(dataset_size=10, verification_error=error)
+    (reportable,) = build_findings(raw, max_examples=20)
+    assert rendered(reportable, width=80).splitlines()[3:] == [
+        "  ValueError: could not convert string to float: '6,000' while re-reading factor",
+        "  'weight' under the suggested policy; the parse_value correction dropped ','",
+        "  but the column also holds '6 000'",
+    ]
 
 
 def test_no_verification_and_no_error_adds_no_reportable():
@@ -418,3 +441,200 @@ def test_verification_failure_is_surfaced_not_silent():
     assert result.output.raw.verification == []
     assert result.output.raw.verification_error == "boom"
     assert any(f.title == "Verification failed" for f in result.output.report.findings)
+
+
+# ---------------------------------------------------------------------------
+# Report blocks: each finding's evidence, as the report draws it
+# ---------------------------------------------------------------------------
+
+
+def _unreadable_weight(values: list[str]) -> dict[str, Any]:
+    """A `weight` column read as numbers on most rows and as numerals wearing commas on the rest."""
+    return {
+        "reasons": ["mixed_types"],
+        "level": "unit",
+        "repairable": True,
+        "counts": {"numeric": 1842, "text": 58},
+        "distinct": {"text": values},
+        "sampled": False,
+    }
+
+
+def _floor(name: str) -> dict[str, Any]:
+    """A column a quarter of whose rows sit on its lowest value, -1."""
+    return _numeric(name, -1.0, 300.0, rows=200, distinct=78, quantiles={"0.0": -1.0, "0.25": -1.0})
+
+
+def test_every_finding_carries_its_evidence_as_blocks():
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    record = _record(
+        factors={**_floor("altitude"), **_numeric("object_id", 988, 113566, rows=1305, distinct=1305)},
+        unusable={"weight": _unreadable_weight(["6,000"])},
+        unmatched_bin_requests=["altitud"],
+    )
+    raw = MetadataTriageRawOutput(
+        dataset_size=200,
+        findings=find_issues(record),
+        suggested_policy_yaml="metadata:\n  - name: standard\n",
+        verification=[VerificationEntry(factor="weight", applied=True, recovered=True, detail="8 bins, 0 unread")],
+    )
+    failed = MetadataTriageRawOutput(dataset_size=200, verification_error="boom")
+    findings = [*build_findings(raw, max_examples=20), *build_findings(failed, max_examples=20)]
+
+    assert [f.title for f in findings] == [
+        "Unreadable factors",
+        "Unmatched bin requests",
+        "Columns dominated by one value",
+        "Degenerate factors",
+        "Unpinned continuous bins",
+        "Suggested policy",
+        "Verified",
+        "Verification failed",
+    ]
+    for finding in findings:
+        assert finding.brief
+        assert finding.blocks
+
+
+def test_a_shared_floor_value_is_a_section_listing_its_factors():
+    """One section per value, not per factor: the factors sharing it are the corroboration."""
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    factors = {
+        **_floor("speed"),
+        **_floor("altitude"),
+        **_floor("compass_heading"),
+        **_numeric("score", 0.0, 9999.0, rows=200, distinct=60, quantiles={"0.75": 9999.0, "1.0": 9999.0}),
+    }
+    floors = [f for f in find_issues(_record(factors=factors)) if f.category == "floor_mass"]
+    (finding,) = build_findings(MetadataTriageRawOutput(dataset_size=200, findings=floors), max_examples=20)
+
+    assert finding.brief == "4 factors"
+    assert [(s.title, s.brief) for s in sections(finding)] == [
+        ("-1.0", "appears in >=25% of rows across 3 factors"),
+        ("9999.0", "appears in >=25% of rows across 1 factor"),
+    ]
+    assert bullets(finding) == ["altitude", "compass_heading", "speed", "score"]
+    assert rendered(finding, width=80).splitlines()[3:] == [
+        "  -1.0 — appears in >=25% of rows across 3 factors",
+        "    - altitude",
+        "    - compass_heading",
+        "    - speed",
+        "",
+        "    A common extreme value across multiple factors may indicate a missing",
+        "    reading sentinel. Verify and remap to `.nan` if appropriate.",
+        "",
+        "    If this is a valid measurement, note the high concentration at this value.",
+        "    No automatic bin count is suggested for skewed distributions.",
+        "",
+        "  9999.0 — appears in >=25% of rows across 1 factor",
+        "    - score",
+        "",
+        "    This may indicate a missing reading sentinel. Remap to `.nan` if",
+        "    appropriate.",
+        "",
+        "    If this is a valid measurement, note the high concentration at this value.",
+        "    No automatic bin count is suggested for skewed distributions.",
+    ]
+
+
+def test_each_unpinned_factor_is_a_section_under_the_remedy_they_share():
+    """The remedy is stated once; each factor keeps its own heading and chart."""
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    drone = {
+        "type": "categorical",
+        "level": "unit",
+        "encoding": {"kind": "levels", "provenance": "derived", "levels": ["a", "b"]},
+        "fit": {"levels": [{"code": 0, "value": "a", "count": 30}, {"code": 1, "value": "b", "count": 30}]},
+    }
+    factors = {
+        **_numeric("temperature", -12.5, 41.0, rows=200, distinct=180, bins=8),
+        **_floor("altitude"),
+        "drone": drone,
+    }
+    findings = find_issues(_record(factors=factors))
+    raw = MetadataTriageRawOutput(dataset_size=200, findings=findings)
+    by_title = {f.title: f for f in build_findings(raw, max_examples=20)}
+    unbinned, unreviewed = by_title["Unpinned continuous bins"], by_title["Unpinned categorical vocabularies"]
+    info = {f.factor: f.detail["info"] for f in findings if "info" in f.detail}
+
+    assert paragraphs(unbinned) == [
+        (
+            "These bin counts were derived from this sample. Declaring them in configuration ensures consistent "
+            "binning across runs."
+        )
+    ]
+    assert [(s.title, s.brief) for s in sections(unbinned)] == [
+        ("altitude", "no bin count suggested: single value appears in >=25% of rows"),
+        ("temperature", "declare 8 bins"),
+    ]
+    assert [s.blocks for s in sections(unbinned)] == [
+        distribution_blocks(info["altitude"]),
+        distribution_blocks(info["temperature"]),
+    ]
+    assert [(s.title, s.brief) for s in sections(unreviewed)] == [("drone", "2 levels")]
+    assert sections(unreviewed)[0].blocks == distribution_blocks(info["drone"])
+
+
+def test_each_finding_is_a_section_holding_its_chart_examples_and_remedy():
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    values = [f"{6000 + 400 * i:,}" for i in range(25)]
+    histogram = {
+        "reasons": ["multi_dimensional"],
+        "level": None,
+        "repairable": False,
+        "counts": {},
+        "distinct": {},
+        "sampled": False,
+    }
+    record = _record(unusable={"weight": _unreadable_weight(values), "histogram": histogram})
+    raw = MetadataTriageRawOutput(dataset_size=1900, findings=find_issues(record))
+    (finding,) = build_findings(raw, max_examples=20)
+
+    weight, other = sections(finding)
+    assert (weight.title, weight.brief, weight.severity) == ("weight", "[blocking] mixed_types @ unit", "warning")
+    assert (other.title, other.brief, other.severity) == ("histogram", "[note] multi_dimensional", "info")
+    assert blocks_of(finding, Proportion) == [Proportion(parts=[("numeric", 1842), ("text", 58)])]
+    shown = ", ".join(repr(v) for v in values[:20])
+    assert fields(finding) == {"text reads": f"{shown} (+5 more)"}
+    assert paragraphs(finding) == [
+        "-> mixed types; remap or cast values to a single type",
+        "-> non-scalar data; cannot be processed as a metadata factor",
+    ]
+
+
+def test_an_identifier_draws_no_chart_where_a_thin_column_does():
+    """The chart for an identifier would be the arbitrary cut its finding exists to reject."""
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    thin = _numeric("mast", 0.0, 9.0, rows=200, distinct=10)
+    thin["mast"]["fit"]["bins"] = [{"code": 1, "count": 200, "min": 0.0, "max": 9.0}]
+    record = _record(factors={**_numeric("object_id", 988, 113566, rows=1305, distinct=1305), **thin})
+    raw = MetadataTriageRawOutput(dataset_size=1305, findings=find_issues(record))
+    (finding,) = [f for f in build_findings(raw, max_examples=20) if f.title == "Degenerate factors"]
+
+    charted = {s.title: [type(b) for b in s.blocks if isinstance(b, Distribution)] for s in sections(finding)}
+    assert charted == {"mast": [Distribution], "object_id": []}
+
+
+def test_a_box_plot_in_a_triage_finding_fits_the_width():
+    """The charts used to be drawn at the full width and then indented by hand, so a box plot
+    whose legend just fit beside it ran four columns past the line. Drawn in its section, it
+    wraps its legend onto a line of its own instead."""
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    quartiles = {"0.25": 48.25, "0.5": 103.8, "0.75": 176.4}
+    record = _record(factors=_numeric("altitude", 12.5, 298.6, rows=200, distinct=180, quantiles=quartiles))
+    (finding,) = build_findings(MetadataTriageRawOutput(dataset_size=200, findings=find_issues(record)), 20)
+
+    lines = rendered(finding, width=80).splitlines()
+    assert max(len(line) for line in lines) <= 80
+    assert lines[-4:] == [
+        "  altitude — declare 3 bins",
+        "    12.5 " + "█" * 40 + " 298.6",
+        "         ├" + "─" * 4 + "█" * 7 + "│" + "█" * 10 + "─" * 16 + "┤",
+        "         p25 48.25 · p50 103.8 · p75 176.4",
+    ]

@@ -10,6 +10,7 @@ from dataeval.core import LabelStatsResult, StatsResult
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import ValidationError
 
+from dataeval_flow._blocks import Fields
 from dataeval_flow._metadata import inject_intrinsic_factors
 from dataeval_flow._orchestrator import _run_target
 from dataeval_flow.config import ViewOperation
@@ -60,6 +61,7 @@ from dataeval_flow.workflows.data_analysis._workflow import (
     _labels_from_counts,
     _to_serializable,
 )
+from tests.finding_blocks import column, paragraphs, rendered, sections, tables
 
 pytestmark = pytest.mark.required
 
@@ -370,9 +372,26 @@ class TestFindingImageQuality:
             "test": _make_split_result(num_samples=30, image_quality=iq2),
         }
         finding = _finding_image_quality(splits, _DEFAULT_THRESHOLDS)
-        assert finding.report_type == "pivot_table"
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["table_data"]) == 2
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Split", "Items", "Outliers", "Rate", "Top Flags"]
+        assert column(table, "split") == ["train", "test"]
+        assert column(table, "items") == [200, 30]
+        assert column(table, "outliers") == [10, 3]
+        assert column(table, "top_flags") == ["brightness(6)", "contrast(2)"]
+
+    def test_rate_is_a_number_that_prints_as_before(self):
+        """The rate cell is the rounded percent, and its format prints it as ``f"{pct}%"`` did."""
+        splits = {
+            "train": _make_split_result(num_samples=200, image_quality=_make_image_quality(outlier_count=20)),
+            "test": _make_split_result(num_samples=125, image_quality=_make_image_quality(outlier_count=4)),
+        }
+        finding = _finding_image_quality(splits, _DEFAULT_THRESHOLDS)
+        table = tables(finding)[0]
+        rate = next(c for c in table.columns if c.key == "rate")
+        assert column(table, "rate") == [10.0, 3.2]
+        assert rate.format is not None
+        assert [rate.format.format(pct) for pct in (10.0, 3.2)] == ["10.0%", "3.2%"]
+        assert [f"{pct}%" for pct in (10.0, 3.2)] == ["10.0%", "3.2%"]
 
 
 # ===========================================================================
@@ -404,9 +423,17 @@ class TestFindingsRedundancy:
             "test": _make_split_result(num_samples=100, redundancy=rd2),
         }
         finding = _finding_redundancy(splits, _DEFAULT_THRESHOLDS)
-        assert finding.report_type == "pivot_table"
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["table_data"]) == 2
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Split", "Exact", "Near"]
+        assert column(table, "split") == ["train", "test"]
+        assert column(table, "exact") == ["6 (3.0%)", "0 (0.0%)"]
+        assert column(table, "near") == ["0 (0.0%)", "12 (12.0%)"]
+
+    def test_no_duplicates_has_no_table(self):
+        splits = {"train": _make_split_result(num_samples=200)}
+        finding = _finding_redundancy(splits, _DEFAULT_THRESHOLDS)
+        assert finding.brief == "No duplicates in any split"
+        assert finding.blocks == []
 
 
 # ===========================================================================
@@ -435,11 +462,79 @@ class TestFindingsLabelBalance:
             "test": _make_split_result(num_samples=15, label_health=lh2),
         }
         finding = _finding_label_balance(splits, _DEFAULT_THRESHOLDS)
-        assert finding.report_type == "pivot_table"
-        assert isinstance(finding.data, dict)
-        rows = finding.data["table_data"]
-        assert len(rows) == 2
-        assert "train" in finding.data["table_headers"]
+        table = tables(finding)[0]
+        assert len(table.rows) == 2
+        assert [c.header for c in table.columns] == ["Class", "train", "test"]
+        assert column(table, "class") == ["cat", "dog"]
+        assert column(table, "split:train") == ["50 (62%)", "30 (38%)"]
+        assert column(table, "split:test") == ["10 (67%)", "5 (33%)"]
+
+    def test_a_split_named_class_keeps_the_class_column(self):
+        """Split columns are keyed apart from the class column, so a source named "class" cannot overwrite it."""
+        lh1 = _make_label_health(class_distribution={"cat": 50, "dog": 30})
+        lh2 = _make_label_health(class_distribution={"cat": 10, "dog": 5})
+        splits = {
+            "class": _make_split_result(num_samples=80, label_health=lh1),
+            "test": _make_split_result(num_samples=15, label_health=lh2),
+        }
+        table = tables(_finding_label_balance(splits, _DEFAULT_THRESHOLDS))[0]
+        assert [c.header for c in table.columns] == ["Class", "class", "test"]
+        assert column(table, "class") == ["cat", "dog"]
+        assert column(table, "split:class") == ["50 (62%)", "30 (38%)"]
+
+    def test_imbalance_ratios_are_a_section_of_fields(self):
+        """Each split's ratio is a labelled value under an "Imbalance ratio" heading."""
+        lh1 = _make_label_health(class_distribution={"cat": 50, "dog": 30})
+        lh2 = _make_label_health(class_distribution={"cat": 10, "dog": 5})
+        splits = {
+            "train": _make_split_result(num_samples=80, label_health=lh1),
+            "test": _make_split_result(num_samples=15, label_health=lh2),
+        }
+        finding = _finding_label_balance(splits, _DEFAULT_THRESHOLDS)
+        [section] = sections(finding)
+        assert section.title == "Imbalance ratio"
+        assert section.brief is None
+        assert section.blocks == [Fields(items=[("train", "1.7:1"), ("test", "2.0:1")])]
+        assert paragraphs(finding) == []
+
+    def test_no_classes_in_any_split_draw_no_table_and_no_ratios(self):
+        """An unlabelled dataset has nothing to tabulate or compare, so only its unlabelled images are said."""
+        lh = LabelHealthResult(num_classes=0, class_distribution={}, empty_images=[0, 1])
+        splits = {"train": _make_split_result(num_samples=2, label_health=lh)}
+        finding = _finding_label_balance(splits, _DEFAULT_THRESHOLDS)
+        assert tables(finding) == []
+        assert sections(finding) == []
+        assert paragraphs(finding) == ["train: 2 images with no labels"]
+
+    def test_each_split_with_empty_images_gets_a_sentence(self):
+        lh1 = _make_label_health(class_distribution={"cat": 90, "dog": 70, "bird": 40}, empty_images=[3, 17, 42])
+        lh2 = _make_label_health(class_distribution={"cat": 20, "dog": 20, "bird": 10}, empty_images=[0])
+        splits = {
+            "train": _make_split_result(num_samples=200, label_health=lh1),
+            "test": _make_split_result(num_samples=50, label_health=lh2),
+        }
+        finding = _finding_label_balance(splits, _DEFAULT_THRESHOLDS)
+        assert paragraphs(finding) == ["train: 3 images with no labels", "test: 1 images with no labels"]
+        assert rendered(finding).splitlines() == [
+            "=" * 80,
+            "  LABEL BALANCE                                   3 classes, imbalance 2.2/2.0:1",
+            "=" * 80,
+            "  3 classes across 2 split(s).",
+            "",
+            "  Class     train      test",
+            "  -----  --------  --------",
+            "  cat    90 (45%)  20 (40%)",
+            "  dog    70 (35%)  20 (40%)",
+            "  bird   40 (20%)  10 (20%)",
+            "",
+            "  Imbalance ratio",
+            "    train: 2.2:1",
+            "    test:  2.0:1",
+            "",
+            "  train: 3 images with no labels",
+            "",
+            "  test: 1 images with no labels",
+        ]
 
 
 # ===========================================================================
@@ -454,6 +549,8 @@ class TestFindingsBias:
         assert finding.severity == "info"
         assert finding.description is not None
         assert "2" in finding.description
+        assert paragraphs(finding) == ["No high-MI or low-diversity factors in any split."]
+        assert tables(finding) == []
 
     def test_with_balance(self):
         bias = _make_bias(balance={"factors": [{"factor": "width", "score": 0.5}]})
@@ -466,6 +563,23 @@ class TestFindingsBias:
         splits = {"train": _make_split_result(bias=bias)}
         finding = _finding_bias(splits)
         assert finding.description is not None
+
+    def test_issues_table_keeps_one_factor_per_line(self):
+        """A split's factors share one cell, a line each; a split with none shows a dash."""
+        bias = _make_bias(
+            balance={
+                "balance": [{"factor_name": "width", "mi_value": 0.42}, {"factor_name": "height", "mi_value": 0.18}]
+            },
+            diversity={"factors": [{"factor_name": "brightness", "diversity_value": 0.21}]},
+        )
+        splits = {"train": _make_split_result(bias=bias), "test": _make_split_result()}
+        finding = _finding_bias(splits)
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Data Split", "Top High MI Factors", "Low Diversity Factors"]
+        assert column(table, "split") == ["train", "test"]
+        assert column(table, "high_mi") == ["width (MI=0.42)\nheight (MI=0.18)", "-"]
+        assert column(table, "low_diversity") == ["brightness (0.21)", "-"]
+        assert paragraphs(finding) == []
 
 
 # ===========================================================================
@@ -495,9 +609,18 @@ class TestFindingLabelOverlap:
             "a_vs_c": _make_cross_split_result(overlap={"shared_classes": ["cat"], "a_only": ["dog"], "c_only": []}),
         }
         finding = _finding_label_overlap(cross)
-        assert finding.report_type == "pivot_table"
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["table_data"]) == 2
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Pair", "Shared", "Exclusive", "Status"]
+        assert column(table, "pair") == ["a_vs_b", "a_vs_c"]
+        assert column(table, "shared") == [1, 1]
+        assert column(table, "exclusive") == [0, 1]
+        assert column(table, "status") == ["all shared", "1 exclusive"]
+
+    def test_one_pair_has_no_table(self):
+        cross = self._cross(overlap={"shared_classes": ["cat"], "train_only": ["dog"], "test_only": []})
+        finding = _finding_label_overlap(cross)
+        assert finding.brief == "1 exclusive classes across pairs"
+        assert finding.blocks == []
 
 
 class TestFindingLabelParity:
@@ -520,6 +643,13 @@ class TestFindingLabelParity:
     def test_no_parity_returns_none(self):
         cross = self._cross(parity=None)
         assert _finding_label_parity(cross) is None
+
+    def test_one_pair_has_no_table(self):
+        cross = self._cross(parity={"significant": True, "p_value": 0.001, "chi_squared": 20.0})
+        finding = _finding_label_parity(cross)
+        assert finding is not None
+        assert finding.brief == "1/1 pair(s) significantly different"
+        assert finding.blocks == []
 
 
 class TestFindingLeakage:
@@ -555,10 +685,23 @@ class TestFindingLeakage:
             ),
         }
         finding = _finding_leakage(cross)
-        assert finding.report_type == "pivot_table"
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["table_data"]) == 2
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Pair", "Exact", "Near"]
+        assert column(table, "pair") == ["a_vs_b", "a_vs_c"]
+        assert column(table, "exact") == [2, 1]
+        assert column(table, "near") == [5, 0]
         assert "3 exact" in (finding.description or "")
+
+    def test_one_pair_has_no_table(self):
+        cross = self._cross(leakage={"exact_count": 5, "near_count": 2, "exact_groups": [], "near_groups": []})
+        finding = _finding_leakage(cross)
+        assert finding.brief == "5 exact + 2 near cross-split duplicates"
+        assert finding.blocks == []
+
+    def test_no_leakage_has_no_table(self):
+        finding = _finding_leakage(self._cross())
+        assert finding.brief == "No cross-split duplicates"
+        assert finding.blocks == []
 
 
 # ===========================================================================
@@ -1710,6 +1853,9 @@ class TestWorkflowRun:
         assert result.metadata.mode == "preparatory"
         titles = [f.title for f in result.output.report.findings]  # type: ignore
         assert "Preparatory Mode" in titles
+        prep = next(f for f in result.output.report.findings if f.title == "Preparatory Mode")
+        assert prep.description == "Review per-split outlier and duplicate counts to identify items for removal."
+        assert paragraphs(prep) == ["Preparatory mode active."]
 
     @patch("dataeval_flow._embeddings.build_embeddings")
     @patch(f"{_WF}._assess_bias")
@@ -1900,23 +2046,60 @@ class TestExtractDiversityInsights:
 
 
 # ===========================================================================
-# _finding_label_parity — multi-pair pivot table
+# _finding_label_parity — multi-pair table
 # ===========================================================================
 
 
 class TestFindingLabelParityMultiPair:
-    def test_multi_pair_returns_pivot_table(self):
-        """Multiple pairs produce a pivot_table (line 924)."""
+    def test_multi_pair_returns_table(self):
+        """Multiple pairs produce a table (line 924)."""
         cross = {
             "a_vs_b": _make_cross_split_result(parity={"significant": True, "p_value": 0.001, "chi_squared": 20.0}),
             "a_vs_c": _make_cross_split_result(parity={"significant": False, "p_value": 0.5, "chi_squared": 1.0}),
         }
         finding = _finding_label_parity(cross)
         assert finding is not None
-        assert finding.report_type == "pivot_table"
         assert finding.severity == "warning"
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["table_data"]) == 2
+        assert finding.brief == "1/2 pair(s) significantly different"
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Pair", "p-value", "Significant"]
+        assert column(table, "pair") == ["a_vs_b", "a_vs_c"]
+        assert column(table, "significant") == ["yes", "no"]
+
+    def test_p_value_is_a_number_that_prints_as_before(self):
+        """The p-value cell is the raw float, and its format prints it as ``f"{p:.2g}"`` did."""
+        cross = {
+            "a_vs_b": _make_cross_split_result(parity={"significant": True, "p_value": 0.00123, "chi_squared": 20.0}),
+            "a_vs_c": _make_cross_split_result(parity={"significant": False, "p_value": 0.4567, "chi_squared": 1.0}),
+        }
+        finding = _finding_label_parity(cross)
+        assert finding is not None
+        table = tables(finding)[0]
+        p_value = next(c for c in table.columns if c.key == "p_value")
+        assert column(table, "p_value") == [0.00123, 0.4567]
+        assert p_value.format is not None
+        assert [p_value.format.format(p) for p in (0.00123, 0.4567)] == ["0.0012", "0.46"]
+        assert [f"{p:.2g}" for p in (0.00123, 0.4567)] == ["0.0012", "0.46"]
+
+    def test_a_numpy_p_value_prints_and_serializes_as_a_number(self):
+        """SciPy hands back numpy scalars: a float32 p-value prints as before and is a plain number in results.json."""
+        cross = {
+            "a_vs_b": _make_cross_split_result(
+                parity={"significant": True, "p_value": np.float32(0.00123), "chi_squared": 20.0}
+            ),
+            "a_vs_c": _make_cross_split_result(
+                parity={"significant": False, "p_value": np.float32(0.4567), "chi_squared": 1.0}
+            ),
+        }
+        finding = _finding_label_parity(cross)
+        assert finding is not None
+        assert column(tables(finding)[0], "p_value") == [0.00123, 0.4567]
+        assert rendered(finding).splitlines()[-2:] == [
+            "  a_vs_b   0.0012          yes",
+            "  a_vs_c     0.46           no",
+        ]
+        rows = finding.model_dump(mode="json")["blocks"][0]["rows"]
+        assert [row["p_value"] for row in rows] == [0.00123, 0.4567]
 
 
 # ===========================================================================
@@ -1974,26 +2157,44 @@ class TestFindingDistributionShift:
         result = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
         assert result is None
 
-    def test_single_pair_key_value(self):
-        """Single pair → key_value report (lines 1031-1040)."""
+    def test_single_pair_has_no_table(self):
+        """Single pair → the brief and description alone, no table (lines 1031-1040)."""
         cross = {"train_vs_test": _make_cross_split_result(divergence=0.6, divergence_method="mst")}
         finding = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
         assert finding is not None
-        assert finding.report_type == "key_value"
         assert finding.severity == "warning"
-        assert "mst" in str(finding.data)
+        assert finding.brief == "high divergence: 0.6000 (mst)"
+        assert finding.description == "High divergence: 0.6000 (mst)."
+        assert finding.blocks == []
 
-    def test_multi_pair_pivot_table(self):
-        """Multiple pairs → pivot_table report (lines 1042+)."""
+    def test_multi_pair_table(self):
+        """Multiple pairs → one table row per pair (lines 1042+)."""
         cross = {
             "a_vs_b": _make_cross_split_result(divergence=0.6, divergence_method="mst"),
             "a_vs_c": _make_cross_split_result(divergence=0.1, divergence_method="mst"),
         }
         finding = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
         assert finding is not None
-        assert finding.report_type == "pivot_table"
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["table_data"]) == 2
+        table = tables(finding)[0]
+        assert [c.header for c in table.columns] == ["Pair", "Divergence", "Method", "Level"]
+        assert column(table, "pair") == ["a_vs_b", "a_vs_c"]
+        assert column(table, "method") == ["mst", "mst"]
+        assert column(table, "level") == ["high", "low"]
+
+    def test_divergence_is_a_number_that_prints_as_before(self):
+        """The divergence cell is the raw float, and its format prints it as ``f"{d:.4f}"`` did."""
+        cross = {
+            "a_vs_b": _make_cross_split_result(divergence=0.61234, divergence_method="mst"),
+            "a_vs_c": _make_cross_split_result(divergence=0.08, divergence_method="mst"),
+        }
+        finding = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
+        assert finding is not None
+        table = tables(finding)[0]
+        divergence = next(c for c in table.columns if c.key == "divergence")
+        assert column(table, "divergence") == [0.61234, 0.08]
+        assert divergence.format is not None
+        assert [divergence.format.format(d) for d in (0.61234, 0.08)] == ["0.6123", "0.0800"]
+        assert [f"{d:.4f}" for d in (0.61234, 0.08)] == ["0.6123", "0.0800"]
 
     def test_high_divergence_brief(self):
         """High divergence in brief (lines 1023-1025)."""
@@ -2003,8 +2204,8 @@ class TestFindingDistributionShift:
         }
         finding = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
         assert finding is not None
-        assert isinstance(finding.data, dict)
-        assert "high divergence" in finding.data["brief"]
+        assert finding.brief is not None
+        assert "high divergence" in finding.brief
 
     def test_moderate_divergence_brief(self):
         """Moderate divergence in brief (lines 1026-1027)."""
@@ -2014,8 +2215,8 @@ class TestFindingDistributionShift:
         }
         finding = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
         assert finding is not None
-        assert isinstance(finding.data, dict)
-        assert "moderate divergence" in finding.data["brief"]
+        assert finding.brief is not None
+        assert "moderate divergence" in finding.brief
 
     def test_low_divergence_brief(self):
         """Low divergence in brief (lines 1028-1029)."""
@@ -2025,8 +2226,8 @@ class TestFindingDistributionShift:
         }
         finding = _finding_distribution_shift(cross, _DEFAULT_THRESHOLDS)
         assert finding is not None
-        assert isinstance(finding.data, dict)
-        assert "Low divergence" in finding.data["brief"]
+        assert finding.brief is not None
+        assert "Low divergence" in finding.brief
 
 
 # ===========================================================================

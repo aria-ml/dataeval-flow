@@ -15,6 +15,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, Outliers
 
 from dataeval_flow._binning import attach_binning
+from dataeval_flow._blocks import Fields
 from dataeval_flow._cache import active_cache, get_or_compute_metadata
 from dataeval_flow._embeddings import build_extractor
 from dataeval_flow._policy import policy_for
@@ -500,17 +501,13 @@ class DataCleaningWorkflow(Workflow[DataCleaningConfig, DataCleaningResult]):
             result_metadata.removed_count = len(flagged)
             findings.append(
                 Finding(
-                    report_type="key_value",
                     title="Preparatory Mode",
-                    data={
-                        "brief": f"{len(flagged)} flagged, {len(clean_indices)} retained",
-                        "flagged": len(flagged),
-                        "retained": len(clean_indices),
-                    },
+                    brief=f"{len(flagged)} flagged, {len(clean_indices)} retained",
                     description=(
                         f"Preparatory mode: {len(flagged)} items flagged for removal, "
                         f"{len(clean_indices)} items retained."
                     ),
+                    blocks=[Fields(items=[("Flagged", len(flagged)), ("Retained", len(clean_indices))])],
                 )
             )
 

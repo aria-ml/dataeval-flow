@@ -1,17 +1,14 @@
-"""Plain-text rendering of an evaluator result: the envelope, then DataEval's output as it came."""
+"""An evaluator result's report body: DataEval's output as it came, as report blocks."""
 
-__all__ = ["ROW_LIMIT", "render_output", "render_result_body", "render_rows", "serialized_of"]
+__all__ = ["ROW_LIMIT", "output_blocks", "render_result_body", "serialized_of", "table_blocks"]
 
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from dataeval_flow._result import _failure_lines
-from dataeval_flow._text_report import (
-    _WIDTH,
-    _flow_repr,
-    _format_value,
-    _section_header,
-)
+from dataeval_flow._blocks import Block, Column, Paragraph, Section, Table, Tree
+from dataeval_flow._blocks._draw import flow_repr
+from dataeval_flow._blocks._text import Frame, render_text
+from dataeval_flow._result import failure_section
 
 if TYPE_CHECKING:
     from dataeval_flow.evaluators._result import EvaluatorResult
@@ -25,8 +22,11 @@ _ARRAY_HEAD = 10
 
 
 def render_result_body(result: "EvaluatorResult[Any]", *, detailed: bool) -> list[str]:
-    """Render the result's report body: the output for a success, or ``FAILED`` plus each error otherwise."""
-    return render_output(serialized_of(result), detailed=detailed) if result.success else _failure_lines(result.errors)
+    """The result's report body as text: the output for a success, or ``FAILED`` plus each error otherwise."""
+    blocks = (
+        output_blocks(serialized_of(result), detailed=detailed) if result.success else [failure_section(result.errors)]
+    )
+    return render_text(blocks, Frame(indent="  ", depth=1))
 
 
 def serialized_of(result: "EvaluatorResult[Any]") -> dict[str, Any]:
@@ -34,29 +34,24 @@ def serialized_of(result: "EvaluatorResult[Any]") -> dict[str, Any]:
     return result._serialized or {}  # noqa: SLF001 - the result's JSON form has no public attribute by design
 
 
-def render_output(output: dict[str, Any], *, detailed: bool) -> list[str]:
-    """Render serialized DataEval output under an ``OUTPUT`` header."""
-    lines = _section_header("OUTPUT", _brief(output))
-    lines.extend(_render_shape(output, detailed=detailed))
-    return lines
+def output_blocks(output: dict[str, Any], *, detailed: bool) -> list[Block]:
+    """Serialized DataEval output under an ``OUTPUT`` section."""
+    return [Section(title="OUTPUT", brief=_brief(output) or None, blocks=_shape_blocks(output, detailed=detailed))]
 
 
-def render_rows(columns: Sequence[str], rows: Sequence[dict[str, Any]], *, limit: int | None) -> list[str]:
-    """Render table rows as aligned columns, eliding rows past *limit* and cutting wide cells."""
+def table_blocks(columns: Sequence[str], rows: Sequence[dict[str, Any]], *, limit: int | None) -> list[Block]:
+    """Table rows as left-aligned columns, eliding rows past *limit* and cutting wide cells."""
     if not rows:
-        return ["", "  (no rows)"]
+        return [Paragraph(text="(no rows)")]
     shown = rows if limit is None else rows[:limit]
-    cells = [[_cell(row.get(column)) for column in columns] for row in shown]
-    widths = [max(len(column), *(len(row[i]) for row in cells)) for i, column in enumerate(columns)]
-    lines = [
-        "",
-        "  " + "  ".join(column.ljust(width) for column, width in zip(columns, widths, strict=True)),
-        "  " + "  ".join("-" * width for width in widths),
-    ]
-    lines.extend("  " + "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)) for row in cells)
-    if limit is not None and len(rows) > limit:
-        lines.append(f"  … and {len(rows) - limit} more rows (run with -v, or read result.txt, to see them all)")
-    return [line.rstrip() for line in lines]
+    table = Table(
+        columns=[Column(key=column, header=column, align="left") for column in columns],
+        rows=[{column: _cell(row.get(column)) for column in columns} for row in shown],
+    )
+    if limit is None or len(rows) <= limit:
+        return [table]
+    more = f"… and {len(rows) - limit} more rows (run with -v, or read result.txt, to see them all)"
+    return [table, Paragraph(text=more)]
 
 
 def _brief(output: dict[str, Any]) -> str:
@@ -70,39 +65,44 @@ def _brief(output: dict[str, Any]) -> str:
     return ""
 
 
-def _render_shape(value: Any, *, detailed: bool) -> list[str]:
+def _shape_blocks(value: Any, *, detailed: bool) -> list[Block]:
     shape = value.get("shape") if isinstance(value, dict) else None
     if shape == "table":
-        return render_rows(value["columns"], value["rows"], limit=None if detailed else ROW_LIMIT)
+        return table_blocks(value["columns"], value["rows"], limit=None if detailed else ROW_LIMIT)
     if shape == "array":
-        return _render_array(value["data"])
+        return [_array(value["data"])]
     if shape == "mapping":
-        return _render_mapping(value["data"], detailed=detailed)
-    lines: list[str] = []
-    _format_value(lines, value, indent=2, max_width=_WIDTH)
-    return lines
+        return _mapping_blocks(value["data"], detailed=detailed)
+    return [Tree(value=value)]
 
 
-def _render_mapping(data: dict[str, Any], *, detailed: bool) -> list[str]:
-    lines: list[str] = []
+def _mapping_blocks(data: dict[str, Any], *, detailed: bool) -> list[Block]:
+    """Each nested table as its own section; the entries around them kept together in one tree."""
+    blocks: list[Block] = []
+    pending: dict[str, Any] = {}
     for key, value in data.items():
         if isinstance(value, dict) and value.get("shape") == "table":
-            lines.extend(["", f"  {key}:"])
-            lines.extend(render_rows(value["columns"], value["rows"], limit=None if detailed else ROW_LIMIT))
+            if pending:
+                blocks.append(Tree(value=pending))
+                pending = {}
+            limit = None if detailed else ROW_LIMIT
+            blocks.append(Section(title=key, blocks=table_blocks(value["columns"], value["rows"], limit=limit)))
         else:
-            _format_value(lines, {key: value}, indent=2, max_width=_WIDTH)
-    return lines
+            pending[key] = value
+    if pending:
+        blocks.append(Tree(value=pending))
+    return blocks
 
 
-def _render_array(values: Sequence[Any]) -> list[str]:
-    head = _flow_repr(list(values[:_ARRAY_HEAD]))
+def _array(values: Sequence[Any]) -> Paragraph:
+    head = flow_repr(list(values[:_ARRAY_HEAD]))
     more = f" … and {len(values) - _ARRAY_HEAD} more" if len(values) > _ARRAY_HEAD else ""
-    return ["", f"  {len(values)} values: {head}{more}"]
+    return Paragraph(text=f"{len(values)} values: {head}{more}")
 
 
 def _cell_repr(value: Any) -> str:
-    """Render a cell value like :func:`_flow_repr`, but keeps a contiguous int list
-    as its items, with no ``range(...)`` collapse. A table cell shows the actual values."""
+    """Render a cell value like :func:`flow_repr`, but keep a contiguous int list as its items,
+    with no ``range(...)`` collapse. A table cell shows the actual values."""
     if isinstance(value, dict):
         inner = ", ".join(f"{k}: {_cell_repr(v)}" for k, v in value.items())
         return "{" + inner + "}"

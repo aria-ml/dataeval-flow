@@ -239,11 +239,12 @@ docker run --gpus all \
 All runtime environment variables are optional; command-line options take
 precedence over them (see [Input Precedence](#input-precedence) below).
 
-| Variable          | Purpose                                         | Default                                                   |
-| ----------------- | ----------------------------------------------- | --------------------------------------------------------- |
-| `DATAEVAL_DATA`   | Input data root — datasets, models, and configs | `/dataeval` in the container; current directory otherwise |
-| `DATAEVAL_OUTPUT` | Directory for results and reports               | `/output` in the container                                |
-| `DATAEVAL_CACHE`  | Disk-backed computation cache (optional)        | `/cache` when that mount is present and writable          |
+| Variable                | Purpose                                         | Default                                                   |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| `DATAEVAL_DATA`         | Input data root — datasets, models, and configs | `/dataeval` in the container; current directory otherwise |
+| `DATAEVAL_OUTPUT`       | Directory for results and reports               | `/output` in the container                                |
+| `DATAEVAL_CACHE`        | Disk-backed computation cache (optional)        | `/cache` when that mount is present and writable          |
+| `DATAEVAL_REPORT_WIDTH` | Characters per line of the text report          | `80`; at least `40`                                       |
 
 No secret mounts or credentials are required — DataEval Flow uses no API keys,
 tokens, or passwords. (`DATAEVAL_FLOW_VERSION` and `DATAEVAL_NOX_UV_EXTRAS_OVERRIDE`

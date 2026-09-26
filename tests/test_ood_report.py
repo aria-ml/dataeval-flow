@@ -2,6 +2,7 @@
 
 import pytest
 
+from dataeval_flow._blocks import BulletList, Column, Fields, Paragraph, Table
 from dataeval_flow.workflows.ood_detection import OODDetectionHealthThresholds
 from dataeval_flow.workflows.ood_detection._outputs import FactorDeviationDict, OODDetectionRawOutput, OODSampleDict
 from dataeval_flow.workflows.ood_detection._report import (
@@ -11,10 +12,11 @@ from dataeval_flow.workflows.ood_detection._report import (
     _build_factor_predictors_finding,
     _build_unique_ood_finding,
     _compute_normalized_scores,
-    _score_histogram_lines,
+    _score_histogram_blocks,
     _severity_for_ood,
     build_findings,
 )
+from tests.finding_blocks import blocks_of, bullets, column, fields, rendered, sections, tables
 from tests.test_ood_workflow import _make_detector_result, _make_params
 
 pytestmark = pytest.mark.required
@@ -63,9 +65,7 @@ class TestBuildDetectorFinding:
 
         assert finding.title == "K-Neighbors"
         assert finding.severity == "warning"  # 15% > default 10%
-        assert finding.report_type == "key_value"
-        assert isinstance(finding.data, dict)
-        assert finding.data["ood_count"] == 15
+        assert fields(finding)["OOD count"] == 15
 
     def test_no_ood_finding(self):
         result = _make_detector_result(ood_count=0, total_count=100)
@@ -74,7 +74,7 @@ class TestBuildDetectorFinding:
 
         assert finding.severity == "ok"
 
-    def test_score_histogram_in_detail_lines(self):
+    def test_score_histogram_in_a_table(self):
         result = _make_detector_result(
             ood_count=2,
             total_count=5,
@@ -88,19 +88,73 @@ class TestBuildDetectorFinding:
         )
         t = OODDetectionHealthThresholds()
         finding = _build_detector_finding("K-Neighbors", result, t)
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["detail_lines"]) > 0
+        assert len(tables(finding)) == 1
+        assert len(tables(finding)[0].rows) > 0
+
+    def test_generic_pairs_are_labelled_fields_after_the_histogram(self):
+        result = _make_detector_result(
+            ood_count=1,
+            total_count=20,
+            threshold_score=0.4567891,
+            samples=[OODSampleDict(index=i, score=0.1 * i, is_ood=i == 5) for i in range(6)],
+        )
+        finding = _build_detector_finding("K-Neighbors", result, OODDetectionHealthThresholds())
+        assert finding.description == "K-Neighbors: 1/20 samples OOD (5.0%)"
+        assert [type(block) for block in finding.blocks] == [Table, Fields]
+        assert blocks_of(finding, Fields)[0].items == [
+            ("OOD count", 1),
+            ("Total count", 20),
+            ("OOD percentage", "5.0%"),
+            ("Threshold score", 0.456789),
+        ]
+
+    def test_rendered_histogram(self):
+        """A bin holding one sample against a peak of 38 draws a bar: the old truncation drew nothing."""
+        samples = [OODSampleDict(index=0, score=0.0, is_ood=False)]
+        samples += [OODSampleDict(index=i, score=0.05, is_ood=False) for i in range(1, 38)]
+        samples += [
+            OODSampleDict(index=38, score=0.35, is_ood=False),
+            OODSampleDict(index=39, score=0.75, is_ood=True),
+            OODSampleDict(index=40, score=0.75, is_ood=True),
+            OODSampleDict(index=41, score=1.0, is_ood=True),
+        ]
+        result = _make_detector_result(ood_count=3, total_count=42, threshold_score=0.35, samples=samples)
+        finding = _build_detector_finding("K-Neighbors", result, OODDetectionHealthThresholds())
+        assert rendered(finding).splitlines() == [
+            "=" * 80,
+            "  K-NEIGHBORS",
+            "=" * 80,
+            "  K-Neighbors: 3/42 samples OOD (7.1%)",
+            "",
+            "        Range  In  OOD  █ in-dist  ░ OOD",
+            "  -----------  --  ---  ------------------------------  -----------",
+            "  0.000-0.100  38    0  ██████████████████████████████",
+            "  0.100-0.200   0    0",
+            "  0.200-0.300   0    0",
+            "  0.300-0.400   1    0  █                               ← threshold",
+            "  0.400-0.500   0    0",
+            "  0.500-0.600   0    0",
+            "  0.600-0.700   0    0",
+            "  0.700-0.800   0    2  ░░",
+            "  0.800-0.900   0    0",
+            "  0.900-1.000   0    1  ░",
+            "",
+            "  OOD count:       3",
+            "  Total count:     42",
+            "  OOD percentage:  7.1%",
+            "  Threshold score: 0.35",
+        ]
 
 
 class TestBuildFactorPredictorsFinding:
     def test_basic(self):
         predictors = {"altitude": 0.84, "temperature": 0.12}
         finding = _build_factor_predictors_finding(predictors)
-        assert finding.report_type == "table"
         assert finding.title == "OOD Factor Predictors"
-        assert isinstance(finding.data, dict)
-        assert "table_data" in finding.data
-        assert finding.data["table_data"]["altitude"] == 0.84
+        (table,) = tables(finding)
+        assert [c.header for c in table.columns[:2]] == ["Factor", "MI (bits)"]
+        assert column(table, "name") == ["altitude", "temperature"]
+        assert column(table, "value") == [0.84, 0.12]
 
 
 class TestBuildFactorDeviationsFinding:
@@ -112,12 +166,9 @@ class TestBuildFactorDeviationsFinding:
         normalized = {2: 1.5, 5: 1.2}
         mutual_ood = {2, 5}
         finding = _build_factor_deviations_finding(devs, normalized, mutual_ood)
-        assert finding.report_type == "key_value"
-        assert isinstance(finding.data, dict)
-        assert "detail_lines" in finding.data
-        assert len(finding.data["detail_lines"]) == 2
+        assert len(bullets(finding)) == 2
         # Should be sorted by normalized score descending (index 2 first)
-        assert "Sample    2" in finding.data["detail_lines"][0]
+        assert "Sample    2" in bullets(finding)[0]
 
     def test_filters_to_mutual_ood(self):
         devs = [
@@ -127,22 +178,20 @@ class TestBuildFactorDeviationsFinding:
         normalized = {2: 1.5, 5: 1.2}
         mutual_ood = {2}  # Only index 2 agreed by all detectors
         finding = _build_factor_deviations_finding(devs, normalized, mutual_ood)
-        assert isinstance(finding.data, dict)
-        assert len(finding.data["detail_lines"]) == 1
+        assert len(bullets(finding)) == 1
 
 
-class TestScoreHistogramLines:
+class TestScoreHistogramBlocks:
     def test_no_samples(self):
         result = _make_detector_result(samples=[])
-        lines = _score_histogram_lines(result)
-        assert lines == []
+        blocks = _score_histogram_blocks(result)
+        assert blocks == []
 
     def test_all_same_score(self):
         samples = [OODSampleDict(index=i, score=0.5, is_ood=False) for i in range(5)]
         result = _make_detector_result(samples=samples)
-        lines = _score_histogram_lines(result)
-        assert len(lines) == 1
-        assert "0.5000" in lines[0]
+        blocks = _score_histogram_blocks(result)
+        assert blocks == [Paragraph(text="All scores = 0.5000")]
 
     def test_normal_histogram(self):
         samples = [
@@ -151,11 +200,41 @@ class TestScoreHistogramLines:
             OODSampleDict(index=2, score=0.9, is_ood=True),
         ]
         result = _make_detector_result(samples=samples)
-        lines = _score_histogram_lines(result)
-        # Header + separator + bins + legend
-        assert len(lines) > 5
-        assert any("threshold" in line for line in lines)
-        assert any("\u2588" in line for line in lines)  # in-dist bar
+        (table,) = _score_histogram_blocks(result)
+        assert isinstance(table, Table)
+        # One row per bin
+        assert len(table.rows) == 10
+        assert "\u2190 threshold" in column(table, "marker")
+        assert [1.0, 0.0] in column(table, "bar")  # an in-dist segment
+
+    def test_columns(self):
+        """Range right-aligned, the two counts, a stacked bar whose header is its legend, then the marker."""
+        samples = [OODSampleDict(index=0, score=0.1, is_ood=False), OODSampleDict(index=1, score=0.9, is_ood=True)]
+        (table,) = _score_histogram_blocks(_make_detector_result(samples=samples))
+        assert isinstance(table, Table)
+        assert table.columns == [
+            Column(key="range", header="Range", align="right"),
+            Column(key="in", header="In"),
+            Column(key="ood", header="OOD"),
+            Column(key="bar", kind="stacked", series=["in-dist", "OOD"]),
+            Column(key="marker", align="left"),
+        ]
+
+    def test_stacked_cells_hold_each_bins_in_dist_and_ood_counts(self):
+        samples = [
+            OODSampleDict(index=0, score=0.0, is_ood=False),
+            OODSampleDict(index=1, score=0.05, is_ood=False),
+            OODSampleDict(index=2, score=0.55, is_ood=False),
+            OODSampleDict(index=3, score=0.58, is_ood=True),
+            OODSampleDict(index=4, score=1.0, is_ood=True),
+        ]
+        (table,) = _score_histogram_blocks(_make_detector_result(threshold_score=0.55, samples=samples))
+        assert isinstance(table, Table)
+        assert column(table, "range") == [f"{i / 10:.3f}-{(i + 1) / 10:.3f}" for i in range(10)]
+        assert column(table, "in") == [2, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+        assert column(table, "ood") == [0, 0, 0, 0, 0, 1, 0, 0, 0, 1]
+        assert column(table, "bar") == [[i, o] for i, o in zip(column(table, "in"), column(table, "ood"), strict=True)]
+        assert column(table, "marker") == ["", "", "", "", "", "\u2190 threshold", "", "", "", ""]
 
 
 class TestComputeNormalizedScores:
@@ -222,9 +301,8 @@ class TestBuildAggregateFinding:
         assert finding.severity == "info"  # 3% between 1% info and 5% warning
         assert finding.description is not None
         assert "3/5" in finding.description
-        assert isinstance(finding.data, dict)
         # Sorted by score descending
-        assert "Sample    0" in finding.data["detail_lines"][0]
+        assert "Sample    0" in bullets(finding)[0]
 
     def test_warning_severity(self):
         mutual_ood = {0, 1}
@@ -232,6 +310,16 @@ class TestBuildAggregateFinding:
         thresholds = OODDetectionHealthThresholds(ood_pct_warning=1.0)
         finding = _build_aggregate_finding(mutual_ood, normalized_scores, 2, 10, thresholds)
         assert finding.severity == "warning"  # 20% > 1%
+
+    def test_samples_are_a_bullet_list(self):
+        finding = _build_aggregate_finding({0, 1}, {0: 1.5, 1: 2.25}, 4, 100, OODDetectionHealthThresholds())
+        assert finding.blocks == [BulletList(items=["Sample    1 (score=2.25x)", "Sample    0 (score=1.50x)"])]
+
+    def test_no_agreed_samples_lists_nothing(self):
+        finding = _build_aggregate_finding(set(), {}, 4, 100, OODDetectionHealthThresholds())
+        assert finding.description is not None
+        assert finding.description.startswith("0/4 OOD samples agreed by all detectors")
+        assert finding.blocks == []
 
 
 class TestBuildUniqueOODFinding:
@@ -246,19 +334,37 @@ class TestBuildUniqueOODFinding:
         assert finding.title == "Unique OOD Samples (single-detector only)"
         assert finding.description is not None
         assert "3 sample(s)" in finding.description
-        assert isinstance(finding.data, dict)
-        lines = finding.data["detail_lines"]
-        assert any("K-Neighbors" in line for line in lines)
-        assert any("Domain Classifier" in line for line in lines)
+        titles = [section.title for section in sections(finding)]
+        assert "K-Neighbors" in titles
+        assert "Domain Classifier" in titles
 
     def test_skips_empty_sets(self):
         unique_ood = {"kneighbors": set(), "domain_classifier": {5}}
         normalized_scores = {5: 1.1}
         names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
         finding = _build_unique_ood_finding(unique_ood, normalized_scores, names)
-        assert isinstance(finding.data, dict)
-        lines = finding.data["detail_lines"]
-        assert not any("K-Neighbors" in line for line in lines)
+        assert "K-Neighbors" not in [section.title for section in sections(finding)]
+
+    def test_each_detector_is_a_section_of_its_samples(self):
+        unique_ood = {"kneighbors": {3, 4}, "domain_classifier": {5}}
+        normalized_scores = {3: 1.8, 4: 1.3, 5: 1.1}
+        names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
+        finding = _build_unique_ood_finding(unique_ood, normalized_scores, names)
+        knn, dc = sections(finding)
+        assert (knn.title, knn.brief) == ("K-Neighbors", "2 unique sample(s)")
+        assert knn.blocks == [BulletList(items=["Sample    3 (score=1.80x)", "Sample    4 (score=1.30x)"])]
+        assert (dc.title, dc.brief) == ("Domain Classifier", "1 unique sample(s)")
+        assert dc.blocks == [BulletList(items=["Sample    5 (score=1.10x)"])]
+        assert rendered(finding).splitlines()[3:] == [
+            "  3 sample(s) flagged by only one detector",
+            "",
+            "  K-Neighbors — 2 unique sample(s)",
+            "    - Sample    3 (score=1.80x)",
+            "    - Sample    4 (score=1.30x)",
+            "",
+            "  Domain Classifier — 1 unique sample(s)",
+            "    - Sample    5 (score=1.10x)",
+        ]
 
 
 class TestBuildFindings:

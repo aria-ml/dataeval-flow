@@ -130,3 +130,34 @@ class TestFailOnWarning:
         """--no-fail-on-warning overrides DATAEVAL_FAIL_ON_WARNING."""
         monkeypatch.setenv("DATAEVAL_FAIL_ON_WARNING", "true")
         assert _parsed(["--no-fail-on-warning"]).fail_on_warning is False
+
+
+class TestReportWidth:
+    def test_defaults_to_eighty(self, monkeypatch):
+        monkeypatch.delenv("DATAEVAL_REPORT_WIDTH", raising=False)
+        assert _parsed([]).report_width == 80
+
+    def test_environment_sets_it(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_REPORT_WIDTH", "120")
+        assert _parsed([]).report_width == 120
+
+    def test_command_line_beats_environment(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_REPORT_WIDTH", "120")
+        assert _parsed(["--report-width", "100"]).report_width == 100
+
+    def test_a_malformed_environment_value_raises(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_REPORT_WIDTH", "wide")
+        with pytest.raises(ValueError, match="DATAEVAL_REPORT_WIDTH"):
+            _build_parser()
+
+    def test_a_too_narrow_environment_value_raises(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_REPORT_WIDTH", "30")
+        with pytest.raises(ValueError, match="at least 40"):
+            _build_parser()
+
+    def test_a_too_narrow_flag_is_a_usage_error(self, monkeypatch, capsys):
+        monkeypatch.delenv("DATAEVAL_REPORT_WIDTH", raising=False)
+        with pytest.raises(SystemExit) as exited:
+            _parsed(["--report-width", "30"])
+        assert exited.value.code == 2
+        assert "at least 40" in capsys.readouterr().err

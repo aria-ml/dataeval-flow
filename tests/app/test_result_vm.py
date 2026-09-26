@@ -8,7 +8,8 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow._app._viewmodel._result_vm import FindingSummary, ResultViewModel
+from dataeval_flow._app._viewmodel._result_vm import FindingSummary, ResultViewModel, table_data
+from dataeval_flow._blocks import Column, Fields, Paragraph, Section, Table
 from dataeval_flow.workflows import Finding
 
 pytestmark = pytest.mark.optional
@@ -62,16 +63,16 @@ class _FakeResult:
 def _make_finding(
     title: str = "Finding",
     severity: str = "ok",
-    report_type: str = "key_value",
-    data: dict[str, Any] | str | None = None,
+    brief: str = "test",
+    blocks: list[Any] | None = None,
     description: str | None = None,
 ) -> Finding:
     return Finding(
-        report_type=report_type,  # type: ignore[arg-type]
         severity=severity,  # type: ignore[arg-type]
         title=title,
-        data=data if data is not None else {"brief": "test"},
+        brief=brief,
         description=description,
+        blocks=blocks or [],
     )
 
 
@@ -179,8 +180,8 @@ class TestFindingSummaries:
     def test_returns_list(self) -> None:
         rvm = ResultViewModel(
             _make_result(
-                _make_finding("Outliers", severity="warning", report_type="key_value"),
-                _make_finding("Labels", severity="ok", report_type="table"),
+                _make_finding("Outliers", severity="warning"),
+                _make_finding("Labels", severity="ok"),
             )
         )
         summaries = rvm.finding_summaries()
@@ -188,14 +189,7 @@ class TestFindingSummaries:
         assert isinstance(summaries[0], FindingSummary)
         assert summaries[0].title == "Outliers"
         assert summaries[0].severity == "warning"
-        assert summaries[0].has_table is False
-        assert summaries[1].has_table is True
-
-    def test_table_types_have_table_flag(self) -> None:
-        for rt in ("table", "pivot_table", "classwise_table", "chunk_table"):
-            rvm = ResultViewModel(_make_result(_make_finding("X", report_type=rt, data={"brief": "x"})))
-            summaries = rvm.finding_summaries()
-            assert summaries[0].has_table is True, f"{rt} should have has_table=True"
+        assert summaries[1].brief == "test"
 
 
 class TestFindingMarkup:
@@ -209,122 +203,99 @@ class TestFindingMarkup:
         assert rvm.finding_summary_markup(0) == ""
         assert rvm.finding_summary_markup(-1) == ""
 
-    def test_detail_markup(self) -> None:
-        rvm = ResultViewModel(
-            _make_result(_make_finding("Outliers", report_type="key_value", data={"brief": "3 flagged"}))
+    def test_a_summary_too_long_for_one_line_keeps_its_brief_and_marker(self) -> None:
+        """A wrapped title keeps every line, so the brief and the marker on the last one still show."""
+        brief = "worst: motorcycle (12.5%), 3/10 classes over 3.0%"
+        rvm = ResultViewModel(_make_result(_make_finding("Classwise Outliers", severity="warning", brief=brief)))
+        lines = rvm.finding_summary_markup(0).split("\n")
+        assert len(lines) > 1
+        assert lines[-1].endswith(f"{brief}  [!!]")
+
+
+# ---------------------------------------------------------------------------
+# Finding blocks and the detail segments the modal draws
+# ---------------------------------------------------------------------------
+
+
+class TestFindingBlocks:
+    def test_the_description_leads_the_blocks(self) -> None:
+        values = Fields(items=[("Count", 3)])
+        rvm = ResultViewModel(_make_result(_make_finding("X", description="3 flagged.", blocks=[values])))
+        assert rvm.finding_blocks(0) == [Paragraph(text="3 flagged."), values]
+
+    def test_no_description_adds_no_paragraph_and_an_index_out_of_range_has_nothing(self) -> None:
+        rvm = ResultViewModel(_make_result(_make_finding("X")))
+        assert rvm.finding_blocks(0) == []
+        assert rvm.finding_blocks(3) == []
+        assert rvm.finding_segments(-1) == []
+
+
+class TestSegments:
+    """A finding's detail as the modal draws it: data tables on their own, everything else as text runs."""
+
+    _DATA = Table(
+        columns=[Column(key="name", header="Class"), Column(key="n", header="Count")],
+        rows=[{"name": "cat", "n": 10}, {"name": "dog", "n": 5}],
+    )
+
+    def _segments(self, *blocks: Any, description: str | None = None) -> list[Any]:
+        finding = _make_finding("X", description=description, blocks=list(blocks))
+        return ResultViewModel(_make_result(finding)).finding_segments(0)
+
+    def test_a_data_table_is_a_segment_of_its_own_between_runs_of_text(self) -> None:
+        values = Fields(items=[("Count", 3)])
+        assert self._segments(self._DATA, values, description="3 flagged.") == [
+            [Paragraph(text="3 flagged.")],
+            self._DATA,
+            [values],
+        ]
+
+    def test_a_table_with_a_chart_stays_in_the_text_so_its_bars_show(self) -> None:
+        chart = Table(
+            columns=[Column(key="name", header="Class"), Column(key="n", kind="bar")],
+            rows=[{"name": "cat", "n": 10}],
         )
-        detail = rvm.finding_detail_markup(0)
-        assert "OUTLIERS" in detail
+        assert self._segments(chart) == [[chart]]
 
-    def test_detail_markup_out_of_range(self) -> None:
-        rvm = ResultViewModel(_make_result())
-        assert rvm.finding_detail_markup(0) == ""
+    def test_a_table_inside_a_section_stays_with_its_section(self) -> None:
+        section = Section(title="Group", blocks=[self._DATA])
+        assert self._segments(section) == [[section]]
+
+    def test_a_table_without_rows_is_not_a_segment_of_its_own(self) -> None:
+        empty = Table(columns=[Column(key="k", header="K")], rows=[])
+        assert self._segments(empty) == [[empty]]
+
+    def test_image_outliers_split_around_their_per_metric_table(self) -> None:
+        """A real cleaning finding: its lede, then the table, then the note and labelled values after it."""
+        from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
+        from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningRawOutput
+        from dataeval_flow.workflows.data_cleaning._report import build_findings
+
+        issues = [
+            {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1},
+            {"item_index": 0, "metric_name": "contrast", "metric_value": 0.2},
+        ]
+        raw = DataCleaningRawOutput(dataset_size=29, img_outliers={"count": 2, "issues": issues})  # type: ignore[typeddict-item]
+        finding = next(
+            f for f in build_findings(raw, None, DataCleaningHealthThresholds()) if f.title == "Image Outliers"
+        )
+        lede, table, rest = ResultViewModel(_make_result(finding)).finding_segments(0)
+        assert lede == [Paragraph(text="1 images (3.4%) flagged as outliers.")]
+        assert isinstance(table, Table)
+        assert [type(block) for block in rest] == [Paragraph, Fields]
 
 
-# ---------------------------------------------------------------------------
-# Table extraction
-# ---------------------------------------------------------------------------
-
-
-class TestFindingTableData:
-    def test_out_of_range(self) -> None:
-        rvm = ResultViewModel(_make_result())
-        assert rvm.finding_table_data(0) is None
-
-    def test_non_dict_data(self) -> None:
-        rvm = ResultViewModel(_make_result(_make_finding("X", data="plain text")))
-        assert rvm.finding_table_data(0) is None
-
-    def test_simple_table(self) -> None:
-        data = {"table_data": {"cat": 10, "dog": 5}, "table_headers": ("Class", "Count")}
-        rvm = ResultViewModel(_make_result(_make_finding("Labels", report_type="table", data=data)))
-        result = rvm.finding_table_data(0)
-        assert result is not None
-        headers, rows = result
-        assert headers == ["Class", "Count"]
-        assert len(rows) == 2
-        assert rows[0] == ["cat", "10"]
-
-    def test_simple_table_default_headers(self) -> None:
-        data = {"table_data": {"a": 1}}
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="table", data=data)))
-        result = rvm.finding_table_data(0)
-        assert result is not None
-        headers, _ = result
-        assert headers == ["Name", "Value"]
-
-    def test_simple_table_empty(self) -> None:
-        data: dict[str, Any] = {"table_data": {}}
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="table", data=data)))
-        assert rvm.finding_table_data(0) is None
-
-    def test_pivot_table(self) -> None:
-        data = {
-            "table_headers": ["Class Name", "Count", "%"],
-            "table_data": [
-                {"class_name": "cat", "count": 10, "pct": 50.0},
-                {"class_name": "dog", "count": 10, "pct": 50.0},
+class TestTableData:
+    def test_cells_read_as_the_text_report_prints_them(self) -> None:
+        table = Table(
+            columns=[
+                Column(key="c", header="Class"),
+                Column(key="pct", header="%", format="{:.1f}%"),
+                Column(key="note", header="Note"),
             ],
-        }
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="pivot_table", data=data)))
-        result = rvm.finding_table_data(0)
-        assert result is not None
-        headers, rows = result
-        assert headers == ["Class Name", "Count", "%"]
-        assert rows[0] == ["cat", "10", "50.0%"]
-
-    def test_pivot_table_empty(self) -> None:
-        data: dict[str, Any] = {"table_headers": [], "table_data": []}
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="pivot_table", data=data)))
-        assert rvm.finding_table_data(0) is None
-
-    def test_classwise_table(self) -> None:
-        data = {
-            "table_rows": [
-                {"Class": "cat", "Distance": 0.1234, "Status": "OK"},
-                {"Class": "dog", "Distance": 0.5678, "Status": "DRIFT"},
-            ],
-        }
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="classwise_table", data=data)))
-        result = rvm.finding_table_data(0)
-        assert result is not None
-        headers, rows = result
-        assert headers == ["Class", "Distance", "Status"]
-        assert rows[0] == ["cat", "0.1234", "OK"]
-
-    def test_chunk_table(self) -> None:
-        data = {
-            "table_rows": [
-                {"Chunk": "1", "Distance": 0.5, "Status": "OK"},
-            ],
-        }
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="chunk_table", data=data)))
-        result = rvm.finding_table_data(0)
-        assert result is not None
-
-    def test_row_table_empty(self) -> None:
-        data: dict[str, Any] = {"table_rows": []}
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="classwise_table", data=data)))
-        assert rvm.finding_table_data(0) is None
-
-    def test_key_value_returns_none(self) -> None:
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="key_value")))
-        assert rvm.finding_table_data(0) is None
-
-    def test_text_returns_none(self) -> None:
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="text", data="hello")))
-        assert rvm.finding_table_data(0) is None
-
-    def test_pivot_table_none_value(self) -> None:
-        data = {
-            "table_headers": ["Name", "Count"],
-            "table_data": [{"Name": "x", "count": None}],
-        }
-        rvm = ResultViewModel(_make_result(_make_finding("X", report_type="pivot_table", data=data)))
-        result = rvm.finding_table_data(0)
-        assert result is not None
-        _, rows = result
-        assert rows[0][1] == ""
+            rows=[{"c": "cat", "pct": 50.0, "note": None}],
+        )
+        assert table_data(table) == (["Class", "%", "Note"], [["cat", "50.0%", ""]])
 
 
 # ---------------------------------------------------------------------------

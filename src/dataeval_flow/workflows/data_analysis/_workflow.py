@@ -34,6 +34,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, Outliers
 
 from dataeval_flow._binning import attach_binning
+from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Section, Table
 from dataeval_flow._cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow._cache import selection_repr as _sel_repr
 from dataeval_flow._policy import _ROW_LEVELS, derive_from, policy_for, resolve_policy
@@ -562,7 +563,7 @@ def _finding_image_quality(
     thresholds: DataAnalysisHealthThresholds,
 ) -> Finding:
     """Cross-split image quality comparison table."""
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     total_outliers = 0
     worst_pct = 0.0
 
@@ -572,7 +573,7 @@ def _finding_image_quality(
         pct = round((iq.outlier_count / max(n, 1)) * 100, 1)
         top = sorted(iq.outlier_summary.items(), key=lambda x: x[1], reverse=True)[:3]
         top_str = " ".join(f"{k}({v})" for k, v in top) if top else "-"
-        rows.append({"Split": name, "Items": n, "Outliers": iq.outlier_count, "Rate": f"{pct}%", "Top Flags": top_str})
+        rows.append({"split": name, "items": n, "outliers": iq.outlier_count, "rate": pct, "top_flags": top_str})
         total_outliers += iq.outlier_count
         worst_pct = max(worst_pct, pct)
 
@@ -584,16 +585,19 @@ def _finding_image_quality(
     parts = [f"{sr.image_quality.outlier_count}/{sr.num_samples}" for sr in splits.values()]
     brief = f"{total_outliers} outliers ({', '.join(parts)})"
 
+    columns = [
+        Column(key="split", header="Split"),
+        Column(key="items", header="Items"),
+        Column(key="outliers", header="Outliers"),
+        Column(key="rate", header="Rate", format="{:.1f}%"),
+        Column(key="top_flags", header="Top Flags"),
+    ]
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Image Quality",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Split", "Items", "Outliers", "Rate", "Top Flags"],
-        },
+        brief=brief,
         description=f"{total_outliers} images flagged across {len(splits)} split(s).",
+        blocks=[Table(columns=columns, rows=rows)],
     )
 
 
@@ -602,7 +606,7 @@ def _finding_redundancy(
     thresholds: DataAnalysisHealthThresholds,
 ) -> Finding:
     """Cross-split redundancy comparison table."""
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     any_dupes = False
     worst_sev: Literal["ok", "info", "warning"] = "ok"
 
@@ -613,9 +617,9 @@ def _finding_redundancy(
         near_pct = round((rd.near_duplicates_count / max(n, 1)) * 100, 1)
         rows.append(
             {
-                "Split": name,
-                "Exact": f"{rd.exact_duplicates_count} ({exact_pct}%)",
-                "Near": f"{rd.near_duplicates_count} ({near_pct}%)",
+                "split": name,
+                "exact": f"{rd.exact_duplicates_count} ({exact_pct}%)",
+                "near": f"{rd.near_duplicates_count} ({near_pct}%)",
             }
         )
         if rd.exact_duplicate_groups or rd.near_duplicate_groups:
@@ -627,10 +631,9 @@ def _finding_redundancy(
 
     if not any_dupes:
         return Finding(
-            report_type="key_value",
             severity="ok",
             title="Redundancy",
-            data={"brief": "No duplicates in any split"},
+            brief="No duplicates in any split",
             description="No duplicates detected.",
         )
 
@@ -638,16 +641,17 @@ def _finding_redundancy(
     total_near = sum(sr.redundancy.near_duplicates_count for sr in splits.values())
     brief = f"{total_exact} exact, {total_near} near duplicates"
 
+    columns = [
+        Column(key="split", header="Split"),
+        Column(key="exact", header="Exact"),
+        Column(key="near", header="Near"),
+    ]
     return Finding(
-        report_type="pivot_table",
         severity=worst_sev,
         title="Redundancy",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Split", "Exact", "Near"],
-        },
+        brief=brief,
         description=f"{total_exact} exact + {total_near} near duplicates across {len(splits)} split(s).",
+        blocks=[Table(columns=columns, rows=rows)],
     )
 
 
@@ -673,14 +677,14 @@ def _finding_label_balance(
             all_classes.setdefault(cls, {})[name] = count
 
     # Build rows sorted by total count descending, with % of split total
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     for cls in sorted(all_classes, key=lambda c: sum(all_classes[c].values()), reverse=True):
-        row: dict[str, Any] = {"Class": cls}
+        row: dict[str, Cell] = {"class": cls}
         for sn in split_names:
             count = all_classes[cls].get(sn, 0)
             total = split_totals.get(sn, 0)
             pct = round(count / total * 100) if total else 0
-            row[sn] = f"{count} ({pct}%)"
+            row[f"split:{sn}"] = f"{count} ({pct}%)"
         rows.append(row)
 
     # Determine severity
@@ -691,29 +695,28 @@ def _finding_label_balance(
     if any_empty or worst_ratio > thresholds.class_label_imbalance:
         severity = "warning"
 
-    # Footer with imbalance ratios
-    footer_lines: list[str] = []
-    footer_lines.append("Imbalance ratio:")
-    for n, r in imbalance_ratios.items():
-        footer_lines.append(f"  {n}: {r}:1")
-    for name, sr in splits.items():
-        empty = len(sr.label_health.empty_images)
-        if empty:
-            footer_lines.append(f"{name}: {empty} images with no labels")
+    # With no class in any split there is nothing to tabulate and no ratio to compare.
+    table: list[Block] = []
+    if rows:
+        # Split names are the user's own, so their keys are namespaced apart from the class column's.
+        split_columns = (Column(key=f"split:{sn}", header=sn) for sn in split_names)
+        columns = [Column(key="class", header="Class"), *split_columns]
+        ratios = Fields(items=[(n, f"{r}:1") for n, r in imbalance_ratios.items()])
+        table = [Table(columns=columns, rows=rows), Section(title="Imbalance ratio", blocks=[ratios])]
+    unlabelled = [
+        Paragraph(text=f"{name}: {len(sr.label_health.empty_images)} images with no labels")
+        for name, sr in splits.items()
+        if sr.label_health.empty_images
+    ]
 
     brief = f"{num_classes} classes, imbalance {'/'.join(f'{r}' for r in imbalance_ratios.values())}:1"
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Label Balance",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Class"] + split_names,
-            "footer_lines": footer_lines,
-        },
+        brief=brief,
         description=f"{num_classes} classes across {len(splits)} split(s).",
+        blocks=[*table, *unlabelled],
     )
 
 
@@ -776,43 +779,41 @@ def _finding_bias(
     if any_warning:
         brief += ", issues found"
 
-    # If no issues at all, return simple key_value
+    # If no issues at all, say so in a sentence rather than a table
     if not balance_by_split and not diversity_by_split:
         return Finding(
-            report_type="key_value",
             severity="info",
             title="Bias",
-            data={
-                "brief": brief,
-                "detail_lines": ["No high-MI or low-diversity factors in any split."],
-            },
+            brief=brief,
             description=f"{n_factors} metadata factors checked across {len(splits)} split(s).",
+            blocks=[Paragraph(text="No high-MI or low-diversity factors in any split.")],
         )
 
     # Build table rows: one row per split
     all_split_names = list(splits.keys())
-    rows: list[dict[str, str]] = []
+    rows: list[dict[str, Cell]] = []
     for sn in all_split_names:
         bal_items = balance_by_split.get(sn, [])
         div_items = diversity_by_split.get(sn, [])
         rows.append(
             {
-                "Data Split": sn,
-                "Top High MI Factors": "\n".join(bal_items) if bal_items else "-",
-                "Low Diversity Factors": "\n".join(div_items) if div_items else "-",
+                "split": sn,
+                "high_mi": "\n".join(bal_items) if bal_items else "-",
+                "low_diversity": "\n".join(div_items) if div_items else "-",
             }
         )
 
+    columns = [
+        Column(key="split", header="Data Split"),
+        Column(key="high_mi", header="Top High MI Factors"),
+        Column(key="low_diversity", header="Low Diversity Factors"),
+    ]
     return Finding(
-        report_type="pivot_table",
         severity="warning" if any_warning else "info",
         title="Bias",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Data Split", "Top High MI Factors", "Low Diversity Factors"],
-        },
+        brief=brief,
         description=f"{n_factors} metadata factors checked across {len(splits)} split(s).",
+        blocks=[Table(columns=columns, rows=rows)],
     )
 
 
@@ -820,7 +821,7 @@ def _finding_label_overlap(
     cross_split: dict[str, CrossSplitResult],
 ) -> Finding:
     """Aggregate label overlap across all split pairs."""
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     total_exclusive = 0
 
     for pair_name, csr in cross_split.items():
@@ -829,7 +830,7 @@ def _finding_label_overlap(
         exclusive = sum(len(v) for k, v in overlap.items() if k.endswith("_only") and isinstance(v, list))
         total_exclusive += exclusive
         status = f"{exclusive} exclusive" if exclusive else "all shared"
-        rows.append({"Pair": pair_name, "Shared": len(shared), "Exclusive": exclusive, "Status": status})
+        rows.append({"pair": pair_name, "shared": len(shared), "exclusive": exclusive, "status": status})
 
     if total_exclusive:
         brief = f"{total_exclusive} exclusive classes across pairs"
@@ -841,25 +842,22 @@ def _finding_label_overlap(
         brief = f"All {n} classes shared across splits"
         severity = "ok"
 
-    if len(rows) == 1:
-        return Finding(
-            report_type="key_value",
-            severity=severity,
-            title="Label Overlap",
-            data={"brief": brief},
-            description=brief + ".",
-        )
+    blocks: list[Block] = []
+    if len(rows) > 1:
+        columns = [
+            Column(key="pair", header="Pair"),
+            Column(key="shared", header="Shared"),
+            Column(key="exclusive", header="Exclusive"),
+            Column(key="status", header="Status"),
+        ]
+        blocks.append(Table(columns=columns, rows=rows))
 
     return Finding(
-        report_type="pivot_table",
         severity=severity,
         title="Label Overlap",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Pair", "Shared", "Exclusive", "Status"],
-        },
+        brief=brief,
         description=brief + ".",
+        blocks=blocks,
     )
 
 
@@ -867,7 +865,7 @@ def _finding_label_parity(
     cross_split: dict[str, CrossSplitResult],
 ) -> Finding | None:
     """Aggregate label parity across all split pairs."""
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     any_sig = False
 
     for pair_name, csr in cross_split.items():
@@ -877,33 +875,29 @@ def _finding_label_parity(
         sig = csr.label_health.label_parity.get("significant", False)
         if sig:
             any_sig = True
-        rows.append({"Pair": pair_name, "p-value": f"{p:.2g}", "Significant": "yes" if sig else "no"})
+        rows.append({"pair": pair_name, "p_value": p, "significant": "yes" if sig else "no"})
 
     if not rows:
         return None
 
-    n_sig = sum(1 for r in rows if r["Significant"] == "yes")
+    n_sig = sum(1 for r in rows if r["significant"] == "yes")
     brief = f"{n_sig}/{len(rows)} pair(s) significantly different" if any_sig else "No significant differences"
 
-    if len(rows) == 1:
-        return Finding(
-            report_type="key_value",
-            severity="warning" if any_sig else "ok",
-            title="Label Parity",
-            data={"brief": brief},
-            description=f"Chi-squared test: {brief}.",
-        )
+    blocks: list[Block] = []
+    if len(rows) > 1:
+        columns = [
+            Column(key="pair", header="Pair"),
+            Column(key="p_value", header="p-value", format="{:.2g}"),
+            Column(key="significant", header="Significant"),
+        ]
+        blocks.append(Table(columns=columns, rows=rows))
 
     return Finding(
-        report_type="pivot_table",
         severity="warning" if any_sig else "ok",
         title="Label Parity",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Pair", "p-value", "Significant"],
-        },
+        brief=brief,
         description=f"Chi-squared test: {brief}.",
+        blocks=blocks,
     )
 
 
@@ -911,7 +905,7 @@ def _finding_leakage(
     cross_split: dict[str, CrossSplitResult],
 ) -> Finding:
     """Aggregate duplicate leakage across all split pairs."""
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     total_exact = 0
     total_near = 0
 
@@ -921,15 +915,14 @@ def _finding_leakage(
         near = leakage.get("near_count", 0)
         total_exact += exact
         total_near += near
-        rows.append({"Pair": pair_name, "Exact": exact, "Near": near})
+        rows.append({"pair": pair_name, "exact": exact, "near": near})
 
     any_leakage = total_exact > 0 or total_near > 0
     if not any_leakage:
         return Finding(
-            report_type="key_value",
             severity="ok",
             title="Leakage",
-            data={"brief": "No cross-split duplicates"},
+            brief="No cross-split duplicates",
             description="No cross-split duplicates detected.",
         )
 
@@ -940,25 +933,21 @@ def _finding_leakage(
         parts.append(f"{total_near} near")
     brief = f"{' + '.join(parts)} cross-split duplicates"
 
-    if len(rows) == 1:
-        return Finding(
-            report_type="key_value",
-            severity="warning",
-            title="Leakage",
-            data={"brief": brief},
-            description=f"{brief} (data leakage).",
-        )
+    blocks: list[Block] = []
+    if len(rows) > 1:
+        columns = [
+            Column(key="pair", header="Pair"),
+            Column(key="exact", header="Exact"),
+            Column(key="near", header="Near"),
+        ]
+        blocks.append(Table(columns=columns, rows=rows))
 
     return Finding(
-        report_type="pivot_table",
         severity="warning",
         title="Leakage",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Pair", "Exact", "Near"],
-        },
+        brief=brief,
         description=f"{brief} (data leakage).",
+        blocks=blocks,
     )
 
 
@@ -976,7 +965,7 @@ def _finding_distribution_shift(
     thresholds: DataAnalysisHealthThresholds,
 ) -> Finding | None:
     """Aggregate distribution shift across all split pairs."""
-    rows: list[dict[str, Any]] = []
+    rows: list[dict[str, Cell]] = []
     worst_sev: Literal["ok", "info", "warning"] = "ok"
     sev_rank = {"ok": 0, "info": 1, "warning": 2}
 
@@ -987,13 +976,12 @@ def _finding_distribution_shift(
         level, sev = _divergence_level(ds.divergence, thresholds.distribution_shift)
         if sev_rank[sev] > sev_rank[worst_sev]:
             worst_sev = sev
-        row = {"Pair": pair_name, "Divergence": f"{ds.divergence:.4f}", "Method": ds.divergence_method, "Level": level}
-        rows.append(row)
+        rows.append({"pair": pair_name, "divergence": ds.divergence, "method": ds.divergence_method, "level": level})
 
     if not rows:
         return None
 
-    levels = [r["Level"] for r in rows]
+    levels = [r["level"] for r in rows]
     if "high" in levels:
         brief = f"{levels.count('high')}/{len(rows)} pair(s) high divergence"
     elif "moderate" in levels:
@@ -1003,25 +991,26 @@ def _finding_distribution_shift(
 
     if len(rows) == 1:
         r = rows[0]
-        brief = f"{r['Level']} divergence: {r['Divergence']} ({r['Method']})"
+        brief = f"{r['level']} divergence: {r['divergence']:.4f} ({r['method']})"
         return Finding(
-            report_type="key_value",
             severity=worst_sev,
             title="Distribution Shift",
-            data={"brief": brief},
+            brief=brief,
             description=f"{brief.capitalize()}.",
         )
 
+    columns = [
+        Column(key="pair", header="Pair"),
+        Column(key="divergence", header="Divergence", format="{:.4f}"),
+        Column(key="method", header="Method"),
+        Column(key="level", header="Level"),
+    ]
     return Finding(
-        report_type="pivot_table",
         severity=worst_sev,
         title="Distribution Shift",
-        data={
-            "brief": brief,
-            "table_data": rows,
-            "table_headers": ["Pair", "Divergence", "Method", "Level"],
-        },
+        brief=brief,
         description=brief + ".",
+        blocks=[Table(columns=columns, rows=rows)],
     )
 
 
@@ -1216,11 +1205,10 @@ class DataAnalysisWorkflow(Workflow[DataAnalysisConfig, DataAnalysisResult]):
         if config.mode == "preparatory":
             findings.append(
                 Finding(
-                    report_type="text",
                     severity="info",
                     title="Preparatory Mode",
-                    data="Preparatory mode active.",
                     description="Review per-split outlier and duplicate counts to identify items for removal.",
+                    blocks=[Paragraph(text="Preparatory mode active.")],
                 )
             )
 

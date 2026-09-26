@@ -1,12 +1,13 @@
 """A workflow's result: typed outputs, and the health verdict drawn from their findings."""
 
-__all__ = ["WorkflowResult"]
+__all__ = ["WorkflowResult", "finding_section"]
 
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
+from dataeval_flow._binning_report import binning_blocks
+from dataeval_flow._blocks import Block, Paragraph, Section, Summary, SummaryItem
 from dataeval_flow._kind import type_arguments
 from dataeval_flow._result import Result, ResultMetadata, TMetadata
-from dataeval_flow._text_report import _render_binning_section, _render_detail_section, _summary_line
 from dataeval_flow.workflows._base import Finding, WorkflowOutput
 
 if TYPE_CHECKING:
@@ -14,6 +15,17 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._task import TaskKind
 
 TOutput = TypeVar("TOutput", bound="WorkflowOutput[Any, Any]")
+
+
+def finding_section(finding: Finding) -> Section:
+    """The finding's detail section: its title, brief and severity, the description as the lede, then its blocks."""
+    lede: list[Block] = [Paragraph(text=finding.description)] if finding.description else []
+    return Section(
+        title=finding.title,
+        brief=finding.brief or None,
+        severity=finding.severity,
+        blocks=[*lede, *finding.blocks],
+    )
 
 
 class WorkflowResult(Result[TMetadata, TOutput]):
@@ -106,39 +118,28 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         """The report's summary."""
         return self.output.report.summary
 
-    def _report_output(self, *, detailed: bool) -> list[str]:
-        """Findings with the health line, their details when *detailed*, then the metadata binning."""
+    def _report_output(self, *, detailed: bool) -> list[Block]:
+        """The summary with the health line, every finding's section when *detailed*, then the metadata factors."""
         findings = self.findings
-        lines = self._summary_lines(findings)
+        blocks = self._summary_blocks(findings)
         if detailed:
-            lines.extend(self._detail_lines(findings))
-        lines.extend(
-            _render_binning_section(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed)
-        )
-        return lines
+            blocks.extend(finding_section(finding) for finding in findings)
+        blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))
+        return blocks
 
     def _dict_body(self) -> dict[str, object]:
         """The health roll-up, then the workflow's own output fields."""
         return {"health": self.health, **self.output.model_dump(mode="json")}
 
-    def _summary_lines(self, findings: list[Finding]) -> list[str]:
-        """Summary section with per-finding one-liners and health status."""
+    def _summary_blocks(self, findings: list[Finding]) -> list[Block]:
+        """One summary line per finding, then the health verdict."""
         if not findings:
-            return ["  No findings to report."]
-
+            return [Paragraph(text="No findings to report.")]
+        items = [SummaryItem(label=f.title, value=f.brief or "", severity=f.severity) for f in findings]
         warnings = self.warning_count
-        lines = ["", "  SUMMARY", "  -------"]
-        lines.extend(_summary_line(f) for f in findings)
-        lines.append("")
-        if warnings:
-            lines.append(f"  Health: {warnings} warning(s) [!!] — review flagged findings")
-        else:
-            lines.append("  Health: All checks passed [ok]")
-        return lines
-
-    def _detail_lines(self, findings: list[Finding]) -> list[str]:
-        """Expanded detail sections for each finding."""
-        lines: list[str] = []
-        for finding in findings:
-            lines.extend(_render_detail_section(finding))
-        return lines
+        health = (
+            f"Health: {warnings} warning(s) [!!] — review flagged findings"
+            if warnings
+            else "Health: All checks passed [ok]"
+        )
+        return [Section(title="SUMMARY", blocks=[Summary(items=items), Paragraph(text=health)])]

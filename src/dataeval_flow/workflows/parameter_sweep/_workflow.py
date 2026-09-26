@@ -11,6 +11,7 @@ import polars as pl
 from dataeval.flags import ImageStats
 from dataeval.quality import Duplicates, Outliers
 
+from dataeval_flow._blocks import Cell, Column, Table
 from dataeval_flow._cache import active_cache, get_or_compute_stats
 from dataeval_flow._embeddings import build_extractor
 from dataeval_flow._stats import HASH_FLAG_MAP, columns_for, restrict_columns, stats_policy_for
@@ -282,26 +283,23 @@ class ParameterSweepWorkflow(Workflow[ParameterSweepConfig, ParameterSweepResult
                 continue
 
             seen: set[tuple[Any, ...]] = set()
-            rows: list[dict[str, Any]] = []
+            rows: list[dict[str, Cell]] = []
             for r in results:
                 key = tuple(r.params[f] for f in relevant)
                 if key in seen:
                     continue
                 seen.add(key)
-                row: dict[str, Any] = {f: r.params[f] for f in relevant}
+                row: dict[str, Cell] = {f: r.params[f] for f in relevant}
                 row[outcome] = getattr(r, OUTCOME_FIELD[outcome])
                 rows.append(row)
 
+            columns = [Column(key=name, header=name) for name in [*relevant, outcome]]
             findings.append(
                 Finding(
-                    report_type="pivot_table",
                     title=f"{outcome} Sweep",
-                    data={
-                        "brief": f"{len(rows)} unique combinations",
-                        "table_data": rows,
-                        "table_headers": [*relevant, outcome],
-                    },
+                    brief=f"{len(rows)} unique combinations",
                     description=f"Effect of {', '.join(relevant)} on {outcome.lower()}.",
+                    blocks=[Table(columns=columns, rows=rows)],
                 )
             )
 

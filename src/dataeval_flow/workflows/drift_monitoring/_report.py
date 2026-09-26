@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 
+from dataeval_flow._blocks import Cell, Column, Fields, Scalar, Table
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows.drift_monitoring._config import (
     DriftMonitoringConfig,
@@ -62,6 +63,43 @@ def _max_consecutive_drifted(chunks: list[ChunkResultDict]) -> int:
     return max_run
 
 
+def _classwise_table(rows: list[ClasswiseDriftRowDict]) -> Table:
+    """Per class: its distance, its p-value when any class has one, a bar of the distance's size, and its status."""
+    columns = [Column(key="class_name", header="Class"), Column(key="distance", header="Distance", format="{:.4f}")]
+    if any(row["p_val"] is not None for row in rows):
+        columns.append(Column(key="p_val", header="PVal", format="{:.2f}"))
+    columns += [Column(key="abs_distance", kind="bar"), Column(key="status", header="Status", align="left")]
+    cells: list[dict[str, Cell]] = [
+        {
+            "class_name": row["class_name"],
+            "distance": round(row["distance"], 4),
+            "p_val": round(row["p_val"], 6) if row["p_val"] is not None else None,
+            "abs_distance": abs(round(row["distance"], 4)),
+            "status": "DRIFT" if row["drifted"] else "ok",
+        }
+        for row in rows
+    ]
+    return Table(columns=columns, rows=cells)
+
+
+def _chunk_table(chunks: list[ChunkResultDict]) -> Table:
+    """Per chunk: its distance, drawn as a bar against the drift thresholds, and its status."""
+    lowers = [c["lower_threshold"] for c in chunks if c["lower_threshold"] is not None]
+    uppers = [c["upper_threshold"] for c in chunks if c["upper_threshold"] is not None]
+    markers = [("Threshold", round(value, 4)) for value in (*lowers[:1], *uppers[:1])]
+    columns = [
+        Column(key="chunk", header="Chunk"),
+        Column(key="distance", header="Distance", format="{:.4f}"),
+        Column(key="distance", kind="bar", format="{:.4f}", markers=markers),
+        Column(key="status", header="Status", align="left"),
+    ]
+    cells: list[dict[str, Cell]] = [
+        {"chunk": c["key"], "distance": round(c["value"], 4), "status": "DRIFT" if c["drifted"] else "ok"}
+        for c in chunks
+    ]
+    return Table(columns=columns, rows=cells)
+
+
 def _build_detector_finding(
     name: str,
     result: DetectorResultDict,
@@ -71,16 +109,39 @@ def _build_detector_finding(
     """Build a finding for a single detector (non-chunked)."""
     drifted = result["drifted"]
     severity = _severity_for_detector(drifted, thresholds)
-    data: dict[str, Any] = {
-        "distance": round(result["distance"], 4),
-        "threshold": round(result["threshold"], 4),
-        "metric": result["metric_name"],
-    }
+
+    # Classwise breakdown → a per-class table in place of the detector's own values
+    if classwise_rows:
+        drifted_classes = [r["class_name"] for r in classwise_rows if r["drifted"]]
+        n_cls_drifted = len(drifted_classes)
+        n_total = len(classwise_rows)
+        description = f"Classes drifted: {', '.join(drifted_classes)}" if drifted_classes else "No classes drifted"
+        if n_cls_drifted > 0 and thresholds.classwise_any_drift_is_warning:
+            severity = "warning"
+
+        return Finding(
+            severity=severity,
+            title=name,
+            brief=f"{n_cls_drifted}/{n_total} classes drifted",
+            description=description,
+            blocks=[_classwise_table(classwise_rows)],
+        )
+
+    distance = round(result["distance"], 4)
+    threshold = round(result["threshold"], 4)
+    values: list[tuple[str, Scalar]] = [
+        ("Distance", distance),
+        ("Threshold", threshold),
+        ("Metric", result["metric_name"]),
+    ]
+    description = f"{name}: distance={distance}, threshold={threshold}"
 
     # Add p_val from details if available
     details = result.get("details", {})
     if isinstance(details, dict) and "p_val" in details:
-        data["p_val"] = round(float(details["p_val"]), 6)
+        p_val = round(float(details["p_val"]), 6)
+        values.append(("p-value", p_val))
+        description += f", p={p_val}"
 
     # Univariate: summarize feature drift
     if isinstance(details, dict) and "feature_drift" in details:
@@ -91,48 +152,13 @@ def _build_detector_finding(
         else:
             n_drifted = int(np.sum(fd))
             n_total = len(fd)
-        data["features_drifted"] = f"{n_drifted} / {n_total}"
-
-    description = f"{name}: distance={data['distance']}, threshold={data['threshold']}"
-    if "p_val" in data:
-        description += f", p={data['p_val']}"
-
-    # Classwise breakdown → render as a classwise_table instead of key_value
-    if classwise_rows:
-        drifted_classes = [r["class_name"] for r in classwise_rows if r["drifted"]]
-        n_cls_drifted = len(drifted_classes)
-        n_total = len(classwise_rows)
-        description = f"Classes drifted: {', '.join(drifted_classes)}" if drifted_classes else "No classes drifted"
-        if n_cls_drifted > 0 and thresholds.classwise_any_drift_is_warning:
-            severity = "warning"
-
-        table_rows = [
-            {
-                "Class": r["class_name"],
-                "Distance": round(r["distance"], 4),
-                "PVal": round(r["p_val"], 6) if r["p_val"] is not None else None,
-                "Status": "DRIFT" if r["drifted"] else "ok",
-            }
-            for r in classwise_rows
-        ]
-
-        data["table_rows"] = table_rows
-        data["brief"] = f"{n_cls_drifted}/{n_total} classes drifted"
-
-        return Finding(
-            report_type="classwise_table",
-            severity=severity,
-            title=name,
-            data=data,
-            description=description,
-        )
+        values.append(("Features drifted", f"{n_drifted} / {n_total}"))
 
     return Finding(
-        report_type="key_value",
         severity=severity,
         title=name,
-        data=data,
         description=description,
+        blocks=[Fields(items=values)],
     )
 
 
@@ -151,28 +177,13 @@ def _build_chunked_finding(
     pct = 100.0 * n_drifted / len(chunks) if chunks else 0.0
     max_consec = _max_consecutive_drifted(chunks)
 
-    rows: list[dict[str, Any]] = [
-        {
-            "Chunk": c["key"],
-            "Distance": round(c["value"], 4),
-            "UpperThreshold": round(c["upper_threshold"], 4) if c["upper_threshold"] is not None else None,
-            "LowerThreshold": round(c["lower_threshold"], 4) if c["lower_threshold"] is not None else None,
-            "Status": "DRIFT" if c["drifted"] else "ok",
-        }
-        for c in chunks
-    ]
-
     description = f"{n_drifted}/{len(chunks)} chunks drifted ({pct:.0f}%) | max consecutive: {max_consec}"
 
     return Finding(
-        report_type="chunk_table",
         severity=severity,
         title=name,
-        data={
-            "table_rows": rows,
-            "drift_flags": [c["drifted"] for c in chunks],
-        },
         description=description,
+        blocks=[_chunk_table(chunks)],
     )
 
 

@@ -70,10 +70,9 @@ class CountWorkflow(Workflow[CountConfig, CountResult]):
         counts = {source: len(context.dataset(source)) for source in context.sources}
         findings = [
             Finding(
-                report_type="key_value",
                 severity="warning" if n < config.minimum else "ok",
                 title=f"{source} items",
-                data={"items": n},
+                brief=f"{n} items",
             )
             for source, n in counts.items()
         ]

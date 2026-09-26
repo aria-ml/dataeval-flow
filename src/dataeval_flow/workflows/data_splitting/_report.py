@@ -4,31 +4,33 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Scalar, Table
 from dataeval_flow.workflows._base import Finding
+from dataeval_flow.workflows._tables import ranked_table
 from dataeval_flow.workflows.data_splitting._outputs import DataSplittingRawOutput, SplitInfo
 
 
-def _format_factor_table(
+def _factor_table(
     rows: list[dict[str, Any]],
     value_key: str,
-    value_label: str,
-) -> list[str]:
-    """Format a list of factor dicts as a text table for detail_lines."""
-    if not rows:
-        return []
-    w_name = max(6, *(len(str(r.get("factor_name", ""))) for r in rows))
-    lines = [
-        f"{'Factor':<{w_name}}  {value_label:>10}  Flag",
-        f"{'-' * w_name}  {'-' * 10}  ----",
+    value_header: str,
+    flag_key: str,
+) -> Table:
+    """Each factor's score to four places, marked ``[!!]`` where DataEval flagged it."""
+    cells: list[dict[str, Cell]] = [
+        {
+            "factor": str(row.get("factor_name", "")),
+            "value": row.get(value_key, 0.0),
+            "flag": "[!!]" if row.get(flag_key, False) else "",
+        }
+        for row in rows
     ]
-    for r in rows:
-        name = str(r.get("factor_name", ""))
-        val = r.get(value_key, 0.0)
-        flag_key = "is_imbalanced" if "is_imbalanced" in r else "is_low_diversity"
-        flagged = r.get(flag_key, False)
-        flag_str = " [!!]" if flagged else ""
-        lines.append(f"{name:<{w_name}}  {val:>10.4f}{flag_str}")
-    return lines
+    columns = [
+        Column(key="factor", header="Factor"),
+        Column(key="value", header=value_header, format="{:.4f}"),
+        Column(key="flag", header="Flag", align="left"),
+    ]
+    return Table(columns=columns, rows=cells)
 
 
 def _normalize_label_counts(
@@ -55,58 +57,59 @@ def _normalize_label_counts(
 # ---------------------------------------------------------------------------
 
 
+def _size_range(sizes: list[int]) -> int | str:
+    """The one size every fold shares, or the spread of sizes across the folds."""
+    lo, hi = min(sizes), max(sizes)
+    return lo if lo == hi else f"{lo}-{hi} (range {hi - lo})"
+
+
 def _build_split_sizes(raw: DataSplittingRawOutput) -> list[Finding]:
-    """Build split-size findings — consolidated pivot table for multi-fold."""
+    """Build split-size findings — one table for multi-fold."""
     if not raw.folds:
         return []
 
     test_size = len(raw.test_indices)
 
-    # Single fold: keep the original key_value format
+    # Single fold: labelled sizes
     if len(raw.folds) == 1:
         fold = raw.folds[0]
         return [
             Finding(
-                report_type="key_value",
                 severity="info",
                 title=f"Fold {fold.fold} split sizes",
-                data={
-                    "train": len(fold.train_indices),
-                    "val": len(fold.val_indices),
-                    "test": test_size,
-                },
+                blocks=[
+                    Fields(
+                        items=[("Train", len(fold.train_indices)), ("Val", len(fold.val_indices)), ("Test", test_size)]
+                    )
+                ],
             )
         ]
 
-    # Multi-fold: consolidated pivot table
-    rows: list[dict[str, Any]] = []
-    train_sizes: list[int] = []
-    val_sizes: list[int] = []
-    for fold_info in raw.folds:
-        t = len(fold_info.train_indices)
-        v = len(fold_info.val_indices)
-        train_sizes.append(t)
-        val_sizes.append(v)
-        rows.append({"Fold": str(fold_info.fold), "Train": t, "Val": v, "Test": test_size})
-
-    footer_lines: list[str] = []
-    for name, sizes in [("Train", train_sizes), ("Val", val_sizes)]:
-        lo, hi = min(sizes), max(sizes)
-        footer_lines.append(f"{name}: {lo}-{hi} (range {hi - lo})" if lo != hi else f"{name}: {lo}")
-    footer_lines.append(f"Test: {test_size} (shared across folds)")
+    # Multi-fold: one table, then each split's spread across the folds
+    rows: list[dict[str, Cell]] = [
+        {"fold": f.fold, "train": len(f.train_indices), "val": len(f.val_indices), "test": test_size} for f in raw.folds
+    ]
+    columns = [
+        Column(key="fold", header="Fold"),
+        Column(key="train", header="Train"),
+        Column(key="val", header="Val"),
+        Column(key="test", header="Test"),
+    ]
+    ranges = Fields(
+        items=[
+            ("Train", _size_range([len(f.train_indices) for f in raw.folds])),
+            ("Val", _size_range([len(f.val_indices) for f in raw.folds])),
+            ("Test", f"{test_size} (shared across folds)"),
+        ]
+    )
 
     return [
         Finding(
-            report_type="pivot_table",
             severity="info",
             title="Split sizes across folds",
-            data={
-                "brief": f"{len(raw.folds)} folds, test={test_size}",
-                "table_data": rows,
-                "table_headers": ["Fold", "Train", "Val", "Test"],
-                "footer_lines": footer_lines,
-            },
+            brief=f"{len(raw.folds)} folds, test={test_size}",
             description="Split sizes per fold. Test set is shared across folds.",
+            blocks=[Table(columns=columns, rows=rows), ranges],
         )
     ]
 
@@ -124,9 +127,14 @@ def _make_distribution_row(
     cls: str,
     splits: dict[str, dict[str, int]],
     split_totals: dict[str, int],
-) -> dict[str, Any]:
-    """Build one row of the cross-split distribution table."""
-    row: dict[str, Any] = {"Class": cls}
+) -> dict[str, Cell]:
+    """Build one row of the cross-split distribution table, keyed by each split's lowercased name.
+
+    A split's cell is its bare count when every split other than the full dataset holds the class at
+    the same whole-number percentage, and ``"count (pct%)"`` otherwise. The full dataset's cell always
+    shows its percentage.
+    """
+    row: dict[str, Cell] = {"class": cls}
     pcts: dict[str, int] = {}
     raw_counts: dict[str, int] = {}
     for sn, counts_map in splits.items():
@@ -140,9 +148,9 @@ def _make_distribution_row(
 
     for sn in splits:
         if all_same and sn != "Full":
-            row[sn] = str(raw_counts[sn])
+            row[sn.lower()] = raw_counts[sn]
         else:
-            row[sn] = f"{raw_counts[sn]} ({pcts[sn]}%)"
+            row[sn.lower()] = f"{raw_counts[sn]} ({pcts[sn]}%)"
     return row
 
 
@@ -161,14 +169,14 @@ def _build_distribution_rows(
     all_classes: list[str],
     splits: dict[str, dict[str, int]],
     split_totals: dict[str, int],
-) -> list[dict[str, Any]]:
+) -> list[dict[str, Cell]]:
     """Build the full row list including placeholder for omitted classes."""
     top, bottom, omitted = _truncate_classes(all_classes)
-    rows: list[dict[str, Any]] = [_make_distribution_row(cls, splits, split_totals) for cls in top]
+    rows: list[dict[str, Cell]] = [_make_distribution_row(cls, splits, split_totals) for cls in top]
     if omitted:
-        placeholder: dict[str, Any] = {"Class": f"... {omitted} more ..."}
+        placeholder: dict[str, Cell] = {"class": f"... {omitted} more ..."}
         for sn in splits:
-            placeholder[sn] = ""
+            placeholder[sn.lower()] = ""
         rows.append(placeholder)
         rows.extend(_make_distribution_row(cls, splits, split_totals) for cls in bottom)
     return rows
@@ -177,7 +185,7 @@ def _build_distribution_rows(
 def _build_cross_split_distribution(
     raw: DataSplittingRawOutput,
 ) -> list[Finding]:
-    """Build cross-split class distribution pivot table(s)."""
+    """Build cross-split class distribution table(s)."""
     # One name table for every split, so the per-split keys line up with the full ones.
     index2label = raw.label_stats_full.get("index2label")
     full_counts = _normalize_label_counts(raw.label_stats_full.get("label_counts_per_class"), index2label)
@@ -209,15 +217,13 @@ def _build_cross_split_distribution(
 
         max_dev, worst_class, worst_split = _max_proportion_deviation(splits, full_counts, split_totals)
 
-        headers = ["Class", "Train", "Val"]
-        if has_test:
-            headers.append("Test")
-        headers.append("Full")
-
-        footer_lines: list[str] = []
+        columns = [Column(key="class", header="Class"), *(Column(key=sn.lower(), header=sn) for sn in splits)]
+        blocks: list[Block] = [Table(columns=columns, rows=rows)]
         if max_dev > 0:
-            footer_lines.append(
-                f"Max proportion deviation from full dataset: {max_dev:.1f}pp ({worst_class} in {worst_split})"
+            blocks.append(
+                Paragraph(
+                    text=f"Max proportion deviation from full dataset: {max_dev:.1f}pp ({worst_class} in {worst_split})"
+                )
             )
 
         num_folds = len(folds_with_stats)
@@ -228,15 +234,10 @@ def _build_cross_split_distribution(
 
         findings.append(
             Finding(
-                report_type="pivot_table",
                 severity="info",
                 title=title,
-                data={
-                    "table_data": rows,
-                    "table_headers": headers,
-                    "footer_lines": footer_lines,
-                },
                 description="Per-class counts and proportions across splits.",
+                blocks=blocks,
             )
         )
 
@@ -360,31 +361,53 @@ def _build_stratification_check(raw: DataSplittingRawOutput) -> list[Finding]:
 
     brief = f"{status} - max deviation {global_max_dev}pp"
 
-    detail_lines: list[str] = [f"Max proportion deviation: {global_max_dev}pp"]
+    deviation: list[tuple[str, Scalar]] = [("Max proportion deviation", f"{global_max_dev}pp")]
     if global_max_dev > 0:
         full_pct = round(full_counts.get(global_worst_class, 0) / full_total * 100, 1)
         fold_label = f"fold {global_worst_fold} " if len(folds_with_stats) > 1 else ""
-        detail_lines.append(
-            f"  Worst: class '{global_worst_class}' in {fold_label}{global_worst_split} "
+        worst = (
+            f"class '{global_worst_class}' in {fold_label}{global_worst_split} "
             f"(deviation {global_max_dev}pp from {full_pct}% in full)"
         )
-    detail_lines.append("")
-    detail_lines.append(f"Folds checked: {len(folds_with_stats)}")
-    detail_lines.append(f"Classes checked: {len(full_counts)}")
+        deviation.append(("Worst", worst))
+    checked = Fields(items=[("Folds checked", len(folds_with_stats)), ("Classes checked", len(full_counts))])
 
     return [
         Finding(
-            report_type="key_value",
             severity=severity,
             title="Stratification quality",
-            data={
-                "brief": brief,
-                "detail_lines": detail_lines,
-            },
-            description="Checks whether class proportions in each split match the full dataset.\n"
-            "  Train proportions may differ if rebalancing was applied.",
+            brief=brief,
+            description="Checks whether class proportions in each split match the full dataset. "
+            "Train proportions may differ if rebalancing was applied.",
+            blocks=[Fields(items=deviation), checked],
         )
     ]
+
+
+# ---------------------------------------------------------------------------
+# Per-split coverage
+# ---------------------------------------------------------------------------
+
+
+def _coverage_finding(title: str, coverage: dict[str, Any], split_size: int) -> Finding:
+    """One split's coverage: a warning when more than 5% of the split is uncovered."""
+    uncovered = coverage.get("uncovered_indices", [])
+    pct = (len(uncovered) / split_size * 100) if split_size > 0 else 0
+    severity: Literal["ok", "info", "warning"] = "warning" if pct > 5 else "info"
+    return Finding(
+        severity=severity,
+        title=title,
+        blocks=[
+            Fields(
+                items=[
+                    ("Uncovered count", len(uncovered)),
+                    ("Split size", split_size),
+                    ("Uncovered %", round(pct, 2)),
+                    ("Coverage radius", coverage.get("coverage_radius")),
+                ]
+            )
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -409,14 +432,10 @@ def build_findings(
         severity: Literal["ok", "info", "warning"] = "warning" if ratio > 10 else "info"
         findings.append(
             Finding(
-                report_type="table",
                 severity=severity,
                 title="Class distribution (full dataset)",
-                data={
-                    "table_data": normalized,
-                    "table_headers": ("Class", "Count"),
-                },
                 description=f"Max/min class ratio: {ratio:.1f}:1" if min_count > 0 else "Some classes have 0 samples",
+                blocks=[ranked_table(normalized, headers=("Class", "Count"))],
             )
         )
 
@@ -434,11 +453,10 @@ def build_findings(
     if balance_data and isinstance(balance_data, list):
         findings.append(
             Finding(
-                report_type="key_value",
                 severity="info",
                 title="Pre-split balance (mutual information)",
-                data={"detail_lines": _format_factor_table(balance_data, "mi_value", "MI Score")},
                 description="Higher MI = stronger correlation between factor and class label.",
+                blocks=[_factor_table(balance_data, "mi_value", "MI Score", "is_imbalanced")],
             )
         )
 
@@ -447,11 +465,10 @@ def build_findings(
     if diversity_data and isinstance(diversity_data, list):
         findings.append(
             Finding(
-                report_type="key_value",
                 severity="info",
                 title="Pre-split diversity",
-                data={"detail_lines": _format_factor_table(diversity_data, "diversity_value", "Diversity")},
                 description="Values near 1.0 = high diversity. Low diversity factors are flagged.",
+                blocks=[_factor_table(diversity_data, "diversity_value", "Diversity", "is_low_diversity")],
             )
         )
 
@@ -459,41 +476,12 @@ def build_findings(
     for fold_info in raw.folds:
         for split_name, coverage in [("train", fold_info.coverage_train), ("val", fold_info.coverage_val)]:
             if coverage:
-                uncovered = coverage.get("uncovered_indices", [])
                 split_size = len(fold_info.train_indices) if split_name == "train" else len(fold_info.val_indices)
-                pct = (len(uncovered) / split_size * 100) if split_size > 0 else 0
-                cov_severity: Literal["ok", "info", "warning"] = "warning" if pct > 5 else "info"
                 findings.append(
-                    Finding(
-                        report_type="key_value",
-                        severity=cov_severity,
-                        title=f"Coverage: fold {fold_info.fold} {split_name}",
-                        data={
-                            "uncovered_count": len(uncovered),
-                            "split_size": split_size,
-                            "uncovered_pct": round(pct, 2),
-                            "coverage_radius": coverage.get("coverage_radius"),
-                        },
-                    )
+                    _coverage_finding(f"Coverage: fold {fold_info.fold} {split_name}", coverage, split_size)
                 )
 
     if raw.coverage_test:
-        uncovered = raw.coverage_test.get("uncovered_indices", [])
-        test_size = len(raw.test_indices)
-        pct = (len(uncovered) / test_size * 100) if test_size > 0 else 0
-        cov_severity = "warning" if pct > 5 else "info"
-        findings.append(
-            Finding(
-                report_type="key_value",
-                severity=cov_severity,
-                title="Coverage: test",
-                data={
-                    "uncovered_count": len(uncovered),
-                    "split_size": test_size,
-                    "uncovered_pct": round(pct, 2),
-                    "coverage_radius": raw.coverage_test.get("coverage_radius"),
-                },
-            )
-        )
+        findings.append(_coverage_finding("Coverage: test", raw.coverage_test, len(raw.test_indices)))
 
     return findings

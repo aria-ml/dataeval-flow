@@ -1,7 +1,11 @@
 """Tests for cleaning report."""
 
+from collections.abc import Sequence
+
 import pytest
 
+from dataeval_flow._blocks import Fields
+from dataeval_flow.workflows import Finding
 from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningRawOutput
 from dataeval_flow.workflows.data_cleaning._report import (
@@ -12,6 +16,7 @@ from dataeval_flow.workflows.data_cleaning._report import (
     build_findings,
     collect_flagged_indices,
 )
+from tests.finding_blocks import column, fields, paragraphs, rendered, sections, tables
 
 pytestmark = pytest.mark.required
 
@@ -68,20 +73,18 @@ class TestBuildFindings:
         findings = build_findings(raw, None, DataCleaningHealthThresholds())
         img_finding = next(f for f in findings if f.title == "Image Outliers")
         # 3 distinct images, not 6 total flags
-        assert img_finding.data["count"] == 3  # type: ignore[index]
-        assert img_finding.data["percentage"] == round(3 / 29 * 100, 1)  # type: ignore[index]
+        assert img_finding.brief == f"3 images ({round(3 / 29 * 100, 1)}%)"
+        assert fields(img_finding)["Percentage"] == round(3 / 29 * 100, 1)
         # Enriched per_metric breakdown
-        data = img_finding.data
-        assert isinstance(data, dict)
-        per_metric = data["per_metric"]
+        (table,) = tables(img_finding)
+        per_metric = dict(zip(column(table, "metric"), column(table, "count"), strict=True))
         assert per_metric["brightness"] == 2  # images 0 and 5
         assert per_metric["entropy"] == 2  # images 0 and 5
         assert per_metric["contrast"] == 2  # images 0 and 10
-        assert data["total_flags"] == 6
-        assert data["dataset_size"] == 29
-        # Data-driven renderer keys
-        assert data["brief"] == f"3 images ({round(3 / 29 * 100, 1)}%)"
-        assert data["multi_metric_subject"] == "images"
+        # 6 flags over 3 images: the raw issues hold the flags, and the note says some images repeat
+        assert len(raw.img_outliers["issues"]) == 6
+        assert paragraphs(img_finding) == ["(Some images trigger multiple metrics.)"]
+        assert fields(img_finding)["Dataset size"] == 29
 
     def test_target_outlier_finding(self):
         raw = DataCleaningRawOutput(
@@ -102,17 +105,16 @@ class TestBuildFindings:
         assert "Target Outliers" in titles
         target_finding = next(f for f in findings if f.title == "Target Outliers")
         # 3 distinct (item_id, target_id) pairs, not 4 total flags
-        assert target_finding.data["count"] == 3  # type: ignore[index]
+        assert target_finding.brief == "3 targets (0.0%)"
         # Enriched per_metric and total_flags
-        data = target_finding.data
-        assert isinstance(data, dict)
-        assert data["total_flags"] == 4
-        per_metric = data["per_metric"]
+        assert raw.target_outliers is not None
+        assert len(raw.target_outliers["issues"]) == 4
+        assert paragraphs(target_finding) == ["(Some targets trigger multiple metrics.)"]
+        (table,) = tables(target_finding)
+        per_metric = dict(zip(column(table, "metric"), column(table, "count"), strict=True))
         assert per_metric["brightness"] == 3  # (0,0), (0,1), (1,0)
         assert per_metric["contrast"] == 1  # (0,0)
-        # Data-driven renderer keys
-        assert data["brief"] == "3 targets (0.0%)"
-        assert data["multi_metric_subject"] == "targets"
+        assert fields(target_finding) == {"Percentage": 0.0, "Total targets": 0}
 
     def test_duplicate_finding(self):
         raw = DataCleaningRawOutput(
@@ -130,17 +132,13 @@ class TestBuildFindings:
         titles = [f.title for f in findings]
         assert "Duplicates" in titles
         dup_finding = next(f for f in findings if f.title == "Duplicates")
-        assert dup_finding.data["exact_affected"] == 2  # type: ignore[index]
-        assert dup_finding.data["near_affected"] == 2  # type: ignore[index]
-        assert dup_finding.data["near_methods"] == ["hash"]  # type: ignore[index]
-        assert dup_finding.data["near_orientations"] == {"same": 1}  # type: ignore[index]
-        # Data-driven renderer keys
-        data = dup_finding.data
-        assert isinstance(data, dict)
-        assert data["brief"] == "2 exact (2.0%), 2 near (2.0%)"
-        assert "detail_lines" in data
-        assert any("exact-duplicate" in line for line in data["detail_lines"])
-        assert any("near-duplicate" in line for line in data["detail_lines"])
+        assert fields(dup_finding)["Exact affected"] == 2
+        assert fields(dup_finding)["Near affected"] == 2
+        assert fields(dup_finding)["Methods"] == "hash"
+        assert fields(dup_finding)["Orientations"] == "1 same"
+        assert dup_finding.brief == "2 exact (2.0%), 2 near (2.0%)"
+        assert paragraphs(dup_finding) == ["1 exact-duplicate groups (2 images)"]
+        assert [section.title for section in sections(dup_finding)] == ["1 near-duplicate groups (2 images)"]
 
     def test_duplicate_finding_exact_only(self):
         """Exact-only duplicates: near fields are empty."""
@@ -151,17 +149,10 @@ class TestBuildFindings:
         )
         findings = build_findings(raw, None, DataCleaningHealthThresholds())
         dup_finding = next(f for f in findings if f.title == "Duplicates")
-        data = dup_finding.data
-        assert isinstance(data, dict)
-        assert data["exact_groups"] == 1
-        assert data["exact_affected"] == 3
-        assert data["near_groups"] == 0
-        assert data["near_affected"] == 0
-        assert data["near_methods"] == []
-        assert data["near_orientations"] == {}
-        assert data["brief"] == "3 exact (3.0%), 0 near (0.0%)"
-        assert any("exact-duplicate" in line for line in data["detail_lines"])
-        assert not any("near-duplicate" in line for line in data["detail_lines"])
+        assert fields(dup_finding) == {"Exact groups": 1, "Near groups": 0, "Exact affected": 3, "Near affected": 0}
+        assert dup_finding.brief == "3 exact (3.0%), 0 near (0.0%)"
+        assert paragraphs(dup_finding) == ["1 exact-duplicate groups (3 images)"]
+        assert sections(dup_finding) == []
 
     def test_duplicate_finding_null_orientation_skipped(self):
         """Near groups with orientation=None are not counted in orientations."""
@@ -181,12 +172,9 @@ class TestBuildFindings:
         )
         findings = build_findings(raw, None, DataCleaningHealthThresholds())
         dup_finding = next(f for f in findings if f.title == "Duplicates")
-        data = dup_finding.data
-        assert isinstance(data, dict)
-        assert data["near_orientations"] == {"same": 1}
-        # Data-driven renderer keys
-        assert data["brief"] == "0 exact (0.0%), 4 near (4.0%)"
-        assert any("near-duplicate" in line for line in data["detail_lines"])
+        assert fields(dup_finding)["Orientations"] == "1 same"
+        assert dup_finding.brief == "0 exact (0.0%), 4 near (4.0%)"
+        assert [section.title for section in sections(dup_finding)] == ["2 near-duplicate groups (4 images)"]
 
     def test_label_stats_finding(self):
         raw = DataCleaningRawOutput(
@@ -202,20 +190,15 @@ class TestBuildFindings:
         titles = [f.title for f in findings]
         assert "Label Distribution" in titles
         label_finding = next(f for f in findings if f.title == "Label Distribution")
-        assert label_finding.data["label_counts"] == {"cat": 50, "dog": 50}  # type: ignore[index]
-        assert label_finding.data["class_count"] == 2  # type: ignore[index]
-        assert label_finding.data["item_count"] == 100  # type: ignore[index]
-        assert label_finding.data["imbalance_ratio"] == 1.0  # type: ignore[index]
-        # Data-driven renderer keys
-        data = label_finding.data
-        assert isinstance(data, dict)
-        assert data["brief"] == "2 classes, 100 items, imbalance 1.0:1"
-        assert data["table_data"] == {"cat": 50, "dog": 50}
-        assert data["table_headers"] == ("Class", "Count")
-        assert data["footer_lines"] == ["Balanced: all classes have equal counts"]
+        # The class count, item count and imbalance ratio are in the brief
+        assert label_finding.brief == "2 classes, 100 items, imbalance 1.0:1"
+        (table,) = tables(label_finding)
+        assert dict(zip(column(table, "name"), column(table, "value"), strict=True)) == {"cat": 50, "dog": 50}
+        assert [col.header for col in table.columns] == ["Class", "Count", ""]
+        assert paragraphs(label_finding) == ["Balanced: all classes have equal counts"]
 
     def test_label_stats_finding_imbalanced(self):
-        """Imbalanced labels produce non-empty footer_lines."""
+        """Imbalanced labels produce a non-empty footer."""
         raw = DataCleaningRawOutput(
             dataset_size=100,
             img_outliers={"count": 0, "issues": []},
@@ -227,10 +210,8 @@ class TestBuildFindings:
         )
         findings = build_findings(raw, None, DataCleaningHealthThresholds())
         label_finding = next(f for f in findings if f.title == "Label Distribution")
-        data = label_finding.data
-        assert isinstance(data, dict)
-        assert data["imbalance_ratio"] == 4.0
-        assert data["footer_lines"] == ["Imbalance ratio: 4.0 (max/min)"]
+        assert label_finding.brief == "2 classes, 100 items, imbalance 4.0:1"
+        assert paragraphs(label_finding) == ["Imbalance ratio: 4.0 (max/min)"]
 
     def test_label_distribution_suppressed_when_no_classes(self):
         """Label distribution finding is suppressed when class_count == 0 (unlabeled dataset)."""
@@ -262,7 +243,7 @@ class TestBuildFindings:
         findings = build_findings(raw, None, DataCleaningHealthThresholds())
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.severity == "warning"
-        assert any("zero items" in line for line in label_finding.data["footer_lines"])  # type: ignore[union-attr]
+        assert paragraphs(label_finding) == ["Warning: one or more classes have zero items"]
 
     def test_label_title_with_inferred_directory_labels(self):
         """image_folder with inferred labels uses 'Label/Directory_Name Distribution' title."""
@@ -286,7 +267,7 @@ class TestBuildFindings:
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.title == "Label Distribution"
         # Footer should still show the label_source annotation
-        assert any("annotations" in line for line in label_finding.data["footer_lines"])  # type: ignore[union-attr]
+        assert paragraphs(label_finding) == ["Labels annotations", "Balanced: all classes have equal counts"]
 
     def test_clean_data_shows_ok_findings(self):
         """Clean data still produces Image Outliers and Classwise Outliers with severity='ok'."""
@@ -541,9 +522,9 @@ class TestClasswiseFinding:
         )
         finding = _classwise_finding(raw, DataCleaningHealthThresholds())
         assert finding.title == "Classwise Outliers"
-        assert finding.data["worst_class"] == "cat"  # type: ignore[index]
-        assert finding.data["worst_pct"] == 10.0  # type: ignore[index]
-        assert finding.data["count_basis"] == "image"  # type: ignore[index]
+        assert finding.brief == "worst: cat (10.0%), 2/2 classes over 3.0%"
+        assert raw.classwise_outliers is not None
+        assert raw.classwise_outliers.get("count_basis") == "image"
 
     def test_warning_when_total_exceeds_threshold(self):
         raw = DataCleaningRawOutput(
@@ -559,7 +540,7 @@ class TestClasswiseFinding:
         )
         finding = _classwise_finding(raw, DataCleaningHealthThresholds(classwise_outliers=5.0))
         assert finding.severity == "warning"
-        assert finding.data["classes_over_threshold"] == 1  # type: ignore[index]
+        assert finding.brief == "worst: a (40.0%), 1/1 classes over 5.0%"
 
 
 # ---------------------------------------------------------------------------
@@ -591,7 +572,7 @@ class TestCollectFlaggedIndicesTargetDups:
 # ---------------------------------------------------------------------------
 
 
-class TestDuplicateFindingDetailLines:
+class TestDuplicateFindingNearGroupDetail:
     def test_near_groups_methods_and_orientations(self):
         raw = DataCleaningRawOutput(
             dataset_size=100,
@@ -609,9 +590,9 @@ class TestDuplicateFindingDetailLines:
         )
         finding = _duplicate_finding(raw, DataCleaningHealthThresholds())
         assert finding is not None
-        detail_lines = finding.data["detail_lines"]  # type: ignore[index]
-        assert any("Methods:" in line for line in detail_lines)
-        assert any("Orientations:" in line for line in detail_lines)
+        (near,) = sections(finding)
+        assert near.title == "2 near-duplicate groups (4 images)"
+        assert near.blocks == [Fields(items=[("Methods", "dhash, phash"), ("Orientations", "1 flipped, 1 same")])]
 
 
 # ---------------------------------------------------------------------------
@@ -632,8 +613,7 @@ class TestLabelDistributionFindingImbalanceFooter:
         )
         finding = _label_distribution_finding(raw, DataCleaningHealthThresholds())
         assert finding is not None
-        footer_lines = finding.data["footer_lines"]  # type: ignore[index]
-        assert any("Imbalance ratio:" in line for line in footer_lines)
+        assert paragraphs(finding) == ["Imbalance ratio: 3.0 (max/min)"]
 
 
 # ---------------------------------------------------------------------------
@@ -672,5 +652,192 @@ class TestClasswiseFindingThresholdAndBrief:
             },
         )
         finding = _classwise_finding(raw, DataCleaningHealthThresholds(classwise_outliers=5.0))
-        brief = finding.data["brief"]  # type: ignore[index]
-        assert "all classes within 5.0%" in brief
+        assert finding.brief == "worst: cat (2.0%), all classes within 5.0%"
+
+
+# ---------------------------------------------------------------------------
+# Findings as report blocks
+# ---------------------------------------------------------------------------
+
+_RULE = "=" * 80
+
+
+def _detection_raw(**overrides: object) -> DataCleaningRawOutput:
+    """Multi-metric image and target outliers, both kinds of duplicate, imbalanced labels, a classwise pivot."""
+    values: dict[str, object] = {
+        "dataset_size": 29,
+        "img_outliers": {
+            "count": 6,
+            "issues": [
+                {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1},
+                {"item_index": 0, "metric_name": "entropy", "metric_value": 0.2},
+                {"item_index": 0, "metric_name": "contrast", "metric_value": 0.3},
+                {"item_index": 5, "metric_name": "brightness", "metric_value": 0.4},
+                {"item_index": 5, "metric_name": "entropy", "metric_value": 0.5},
+                {"item_index": 10, "metric_name": "contrast", "metric_value": 0.6},
+            ],
+        },
+        "target_outliers": {
+            "count": 4,
+            "issues": [
+                {"item_index": 0, "target_index": 0, "metric_name": "brightness", "metric_value": 0.1},
+                {"item_index": 0, "target_index": 0, "metric_name": "contrast", "metric_value": 0.2},
+                {"item_index": 0, "target_index": 1, "metric_name": "brightness", "metric_value": 0.3},
+                {"item_index": 1, "target_index": 0, "metric_name": "brightness", "metric_value": 0.4},
+            ],
+        },
+        "duplicates": {
+            "items": {
+                "exact": [[0, 1]],
+                "near": [
+                    {"indices": [2, 3], "methods": ["phash", "dhash"], "orientation": "same"},
+                    {"indices": [4, 6], "methods": ["phash"], "orientation": "flipped"},
+                ],
+            },
+            "targets": {},
+        },
+        "label_stats": {"item_count": 29, "class_count": 2, "label_counts_per_class": {"cat": 21, "dog": 8}},
+        "classwise_outliers": {
+            "count_basis": "annotation",
+            "rows": [
+                {"class_name": "cat", "count": 2, "pct": 9.5},
+                {"class_name": "dog", "count": 1, "pct": 12.0},
+                {"class_name": "Total", "count": 3, "pct": 10.3},
+            ],
+        },
+    }
+    values.update(overrides)
+    return DataCleaningRawOutput.model_validate(values)
+
+
+def _finding(title: str, raw: DataCleaningRawOutput, label_source: str | Sequence[str] | None = None) -> Finding:
+    """The finding titled *title* that default thresholds draw from *raw*."""
+    findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source=label_source)
+    return next(f for f in findings if f.title == title)
+
+
+class TestFindingBlocks:
+    def test_detection_findings_come_in_order(self):
+        """A detection dataset with outliers, duplicates and labels reports all five findings, in order."""
+        findings = build_findings(_detection_raw(), None, DataCleaningHealthThresholds(), label_source="annotations")
+        titles = [f.title for f in findings]
+        assert titles == ["Image Outliers", "Target Outliers", "Classwise Outliers", "Duplicates", "Label Distribution"]
+
+    def test_image_outliers_draw_the_per_metric_table_note_and_fields(self):
+        """The Count column fits its header without the adapter's `{:>5}`, so the table reads as it did."""
+        assert rendered(_finding("Image Outliers", _detection_raw())).splitlines() == [
+            _RULE,
+            "  IMAGE OUTLIERS" + "3 images (10.3%)".rjust(64),
+            _RULE,
+            "  3 images (10.3%) flagged as outliers.",
+            "",
+            "  Metric      Count",
+            "  ----------  -----",
+            "  brightness      2",
+            "  entropy         2",
+            "  contrast        2",
+            "",
+            "  (Some images trigger multiple metrics.)",
+            "",
+            "  Percentage:   10.3",
+            "  Dataset size: 29",
+        ]
+
+    def test_per_metric_counts_rank_largest_first(self):
+        finding = _finding("Target Outliers", _detection_raw())
+        (table,) = tables(finding)
+        assert column(table, "metric") == ["brightness", "contrast"]
+        assert column(table, "count") == [3, 1]
+        assert [(col.header, col.format) for col in table.columns] == [("Metric", None), ("Count", None)]
+
+    def test_target_outliers_count_targets_from_the_label_stats(self):
+        finding = _finding("Target Outliers", _detection_raw())
+        assert finding.brief == "3 targets (10.3%)"
+        assert fields(finding) == {"Percentage": 10.3, "Total targets": 29}
+
+    def test_one_metric_per_image_draws_no_note(self):
+        raw = _detection_raw(
+            img_outliers={
+                "count": 2,
+                "issues": [{"item_index": i, "metric_name": "brightness", "metric_value": 0.1} for i in range(2)],
+            }
+        )
+        finding = _finding("Image Outliers", raw)
+        assert paragraphs(finding) == []
+        assert fields(finding) == {"Percentage": 6.9, "Dataset size": 29}
+
+    def test_no_image_outliers_draw_only_the_fields(self):
+        raw = _detection_raw(img_outliers={"count": 0, "issues": []})
+        finding = _finding("Image Outliers", raw)
+        assert finding.blocks == [Fields(items=[("Percentage", 0.0), ("Dataset size", 29)])]
+
+    def test_classwise_table_keeps_raw_percentages_and_formats_them_as_before(self):
+        finding = _finding("Classwise Outliers", _detection_raw())
+        (table,) = tables(finding)
+        assert column(table, "class_name") == ["cat", "dog", "Total"]
+        assert column(table, "count") == [2, 1, 3]
+        assert column(table, "pct") == [9.5, 12.0, 10.3]
+        assert rendered(finding).splitlines()[3:] == [
+            "  Most outliers in dog (12.0%). 2/2 classes exceed 3.0% threshold.",
+            "",
+            "  Class Name  Count      %",
+            "  ----------  -----  -----",
+            "  cat             2   9.5%",
+            "  dog             1  12.0%",
+            "  Total           3  10.3%",
+        ]
+
+    def test_classwise_without_outliers_has_no_blocks(self):
+        finding = _finding("Classwise Outliers", _detection_raw(classwise_outliers=None))
+        assert finding.brief == "no outliers detected"
+        assert finding.description == "No outliers detected — classwise breakdown not applicable."
+        assert finding.blocks == []
+
+    def test_near_duplicates_draw_as_a_section_holding_methods_and_orientations(self):
+        assert rendered(_finding("Duplicates", _detection_raw())).splitlines()[3:] == [
+            "  1 exact duplicate groups, 2 near-duplicate groups found.",
+            "",
+            "  1 exact-duplicate groups (2 images)",
+            "",
+            "  2 near-duplicate groups (4 images)",
+            "    Methods:      dhash, phash",
+            "    Orientations: 1 flipped, 1 same",
+            "",
+            "  Exact groups:   1",
+            "  Near groups:    2",
+            "  Exact affected: 2",
+            "  Near affected:  4",
+        ]
+
+    def test_near_duplicates_without_methods_or_orientations_are_a_paragraph(self):
+        raw = _detection_raw(
+            duplicates={
+                "items": {"exact": [], "near": [{"indices": [7, 8], "methods": [], "orientation": None}]},
+                "targets": {},
+            }
+        )
+        finding = _finding("Duplicates", raw)
+        assert sections(finding) == []
+        assert paragraphs(finding) == ["1 near-duplicate groups (2 images)"]
+
+    def test_label_distribution_draws_a_ranked_table_and_one_paragraph_per_footer_line(self):
+        finding = _finding("Label Distribution", _detection_raw(), label_source=["annotations", "filepath"])
+        assert rendered(finding).splitlines()[3:] == [
+            "  2 classes, 29 items.",
+            "",
+            "  Class  Count",
+            "  -----  -----  ------------------------------",
+            "  cat       21  ██████████████████████████████",
+            "  dog        8  ███████████▍",
+            "",
+            "  Labels annotations, filepath",
+            "",
+            "  Imbalance ratio: 2.6 (max/min)",
+        ]
+
+    def test_label_distribution_without_counts_draws_nothing(self):
+        """Classes with no counted labels leave nothing to rank, so neither the table nor its footer shows."""
+        raw = _detection_raw(label_stats={"item_count": 4, "class_count": 2, "label_counts_per_class": {}})
+        finding = _finding("Label Distribution", raw, label_source="annotations")
+        assert finding.brief == "2 classes, 4 items, imbalance 0.0:1"
+        assert finding.blocks == []
