@@ -32,7 +32,10 @@ def _markers(column: Column) -> list[tuple[str, float]]:
 
 
 def _sci(value: Cell, text: str) -> str:
-    """*text*, unless it put a float in scientific notation: that always reads ``1.14e+05``, as ``fmt_num`` has it."""
+    """*text*, unless it put a float in scientific notation: that always reads ``1.20e-05``.
+
+    Three digits of mantissa, as ``fmt_num`` writes the small magnitudes it leaves in scientific notation.
+    """
     return f"{value:.2e}" if isinstance(value, float) and "e" in text else text
 
 

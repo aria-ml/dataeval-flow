@@ -43,6 +43,11 @@ def fmt_num(value: Any) -> str:
     a span printed that way reads ``[1.787e+15, 1.787e+15]`` however wide it is.  Large
     values therefore write out in full, which is the same trade DataEval makes when it
     names the bins these spans sit beside.
+
+    Between the two, from 9,999.5 where four figures first need an exponent up to a million,
+    a value is written as a whole number: ``19800`` is shorter than ``1.98e+04`` and keeps
+    every digit.  Only a magnitude below one still takes an exponent, the one compact form
+    it has.
     """
     if not isinstance(value, float):
         return str(value)
@@ -51,8 +56,10 @@ def fmt_num(value: Any) -> str:
     if abs(value) >= 1e6:
         return f"{value:.0f}" if value == int(value) else f"{value:.2f}"
     text = f"{value:.4g}"
-    # Where it does fall to scientific notation, a mantissa of three digits is enough.
-    return f"{value:.2e}" if "e" in text else text
+    if "e" not in text:
+        return text
+    # Below one the exponent stays, and a mantissa of three digits is enough.
+    return f"{value:.0f}" if abs(value) >= 1 else f"{value:.2e}"
 
 
 def resample(counts: Sequence[float], cells: int) -> list[float]:

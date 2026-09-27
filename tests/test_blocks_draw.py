@@ -1,11 +1,11 @@
-"""Glyph drawing: sparklines resampled by area, and the compact value text the configuration section uses."""
+"""Glyph drawing: sparklines resampled by area, box plots and their labels, and compact value and number text."""
 
 from typing import Any
 
 import pytest
 
 from dataeval_flow._blocks import Section, Tree
-from dataeval_flow._blocks._draw import compact_indices, flow_repr, format_value, ratio_line, shape_cells
+from dataeval_flow._blocks._draw import compact_indices, flow_repr, fmt_num, format_value, ratio_line, shape_cells
 from dataeval_flow._blocks._table import SPARKLINE_CELLS
 from dataeval_flow._blocks._text import Frame, render_text
 
@@ -63,6 +63,29 @@ class TestShapeCells:
 # ---------------------------------------------------------------------------
 # the configuration section
 # ---------------------------------------------------------------------------
+
+
+class TestFmtNum:
+    """A number written compactly, without losing the digits that distinguish it."""
+
+    @pytest.mark.parametrize(
+        ("value", "text"),
+        [
+            (5715.0, "5715"),
+            (13.16, "13.16"),
+            (9999.4, "9999"),
+            (9999.5, "10000"),
+            (19800.0, "19800"),
+            (57521.4, "57521"),
+            (-680264.0, "-680264"),
+            (999999.7, "1000000"),
+            (1787000000000000.0, "1787000000000000"),
+            (0.00001234, "1.23e-05"),
+        ],
+    )
+    def test_writes_each_magnitude_in_its_shortest_faithful_form(self, value, text):
+        """From 9,999.5, where four figures first need an exponent, up to a million, a whole number is shorter."""
+        assert fmt_num(value) == text
 
 
 class TestRenderConfigSection:
