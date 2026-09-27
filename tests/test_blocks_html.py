@@ -174,7 +174,7 @@ class TestTables:
         assert '<td class="chart" data-value="999.0,1.0"><span class="stack"><span class="seg s0"' in fragment
 
     def test_a_bar_column_is_scaled_once_per_table_not_once_per_cell(self, monkeypatch):
-        import dataeval_flow._blocks._html as html_module
+        import dataeval_flow._blocks._html_tables as html_module
 
         calls: list[str] = []
         scale = html_module._scale
