@@ -192,13 +192,17 @@ print("runnable :", latitude.suggestion.complete)
 # You can evaluate proposed bin counts using the distribution charts in the report:
 #
 # ```text
-#   frame: declare 5 bins
-#     178 ▂▂▂▁▁▁▃▁▂▁▄█▅▁ ▂▂▁                 ▁▁▁▁▁ 1.98e+04
-#         ├──────████┃█──────────────────────────┤  p25 3465 · p50 5715 · p75 6240
+#   frame — declare 5 bins
+#     ▁▂▂▂▃▁▁▁▁▁▁▂▃▁▁▁▃▂▁▂▅█▇▅▂▁  ▁▁▂▁▁▁                                ▁▁▁▁▁▁▁▁▁▁
+#     ├────── 3465 ████████│██ 6240 ─────────────────────────────────────────────┤
+#     178                5715                                                19800
 # ```
 #
-# The top line shows a fixed-width histogram, and the bottom line shows a box plot with quartiles,
-# median, and extreme values.
+# The top line shows the column's histogram, and beneath it is a box plot on the same axis. The
+# 25th and 75th percentiles are written into the whiskers on either side of the box, and the line
+# below gives the minimum, the median under its mark, and the maximum. When a box is too narrow to
+# label, the quartiles are named on a fourth line instead, as for `object_size`:
+# `p25 900 · p50 1806 · p75 5508`.
 #
 # ```{note}
 # You can use distribution plots to inspect raw sample quantiles rather than existing bins, ensuring
