@@ -39,7 +39,7 @@ cuda-pathfinder==1.6.0 ; sys_platform == 'linux' \
 cuda-toolkit==12.6.3 ; sys_platform == 'linux' \
     --hash=sha256:79d8605baeb6c2f695761e0efb54bc62dbc3c9e32eb0742df7669c07befaa8f7
     # via torch
-dataeval @ git+https://github.com/aria-ml/dataeval.git@43515a9d14cacf035bbad3e90e2e5ec22eee1fd4
+dataeval @ git+https://github.com/aria-ml/dataeval.git@1da6a8500305fdd1934db7936d6577264fb80fe1
     # via dataeval-flow
 datamaite==0.5.0 \
     --hash=sha256:3a8d8510dc227e27602f3cdf4294b7777d4bfdf719e8eb970a933958a26db8bd \

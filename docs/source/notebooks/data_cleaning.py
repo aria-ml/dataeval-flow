@@ -101,8 +101,6 @@ data_path = Path("./data/skysealand_datamaite_base")
 # :::
 
 # %%
-from dataeval.config import set_max_processes
-
 from dataeval_flow import PipelineConfig, run_task
 from dataeval_flow.config import (
     CocoDatasetConfig,
@@ -113,11 +111,6 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningHealthThresholds
-
-# Each worker decodes its own images, so peak memory is roughly workers x batch x image
-# size. Four keeps a 300-frame pass comfortable on a 16 GB machine; raise it if you have
-# the headroom.
-set_max_processes(4)
 
 advisory_workflow = DataCleaningConfig(
     name="skysealand_advisory_clean",
@@ -150,6 +143,7 @@ task = TaskConfig(
 
 # Build the pipeline configuration: datasets, sources, extractors, views, workflows, and tasks
 config = PipelineConfig(
+    seed=0,
     datasets=[
         CocoDatasetConfig(name="skysealand_base", path=str(data_path)),
     ],
@@ -318,6 +312,7 @@ task_prep = TaskConfig(
 )
 
 config_prep = PipelineConfig(
+    seed=0,
     datasets=config.datasets,
     views=config.views,
     sources=config.sources,

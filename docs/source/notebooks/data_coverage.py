@@ -408,11 +408,7 @@ print("unmatched:", list(check["unmatched"]))
 # evaluate fully.
 
 # %%
-from dataeval.config import set_max_processes
-
 from dataeval_flow.config.extractors import BoVWExtractorConfig
-
-set_max_processes(8)
 
 full_workflow = DataCoverageConfig(
     name="coverage-full",
@@ -441,6 +437,7 @@ task_full = TaskConfig(
 )
 
 config_full = PipelineConfig(
+    seed=0,
     metadata=config_metadata.metadata,
     datasets=config_metadata.datasets,
     sources=config_metadata.sources,
@@ -564,6 +561,7 @@ task_strict = TaskConfig(
 )
 
 config_strict = PipelineConfig(
+    seed=0,
     metadata=config_full.metadata,
     datasets=config_full.datasets,
     sources=config_full.sources,
@@ -576,7 +574,7 @@ result_strict = run_task(task_strict, config_strict, cache_dir=Path("./cache"))
 print(result_strict.report())
 
 # %% [markdown]
-# Exactly one additional warning triggers: Dimensional Completeness (0.578) falls below
+# Exactly one additional warning triggers: Dimensional Completeness (0.572) falls below
 # the strict 0.6 threshold.
 #
 # You can adjust individual health thresholds to match your domain tolerance without

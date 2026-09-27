@@ -227,6 +227,7 @@ drift_task = TaskConfig(
 )
 
 config = PipelineConfig(
+    seed=0,
     datasets=[reference_dataset, operational_dataset],
     sources=[
         SourceConfig(name="ref_src", dataset="reference"),
@@ -281,8 +282,8 @@ print(result.report())
 #
 # ### Reading the verdict
 #
-# In this run, all chunks trigger drift warnings across K-Neighbors and MMD, and
-# Univariate CVM flags 256 of 256 features.
+# In this run, every chunk triggers an MMD drift warning while K-Neighbors stays within
+# its threshold, and Univariate CVM flags 251 of 256 features.
 #
 # To determine whether this signal reflects genuine operational degradation or
 # routine campaign variation, you should run a baseline control.
@@ -305,6 +306,7 @@ control_task = TaskConfig(
 )
 
 control_config = PipelineConfig(
+    seed=0,
     datasets=[reference_dataset],
     views=[
         ViewConfig(
@@ -345,19 +347,19 @@ print(control_result.report())
 #
 # | Detector | Control (2015 vs 2017+2021) | Operational (per chunk) |
 # |---|---|---|
-# | **K-Neighbors** | 0.8425 | 0.83 to 0.94 |
-# | **MMD** | 0.2271 | 0.22 to 0.27 (chunk `[400:599]`: 0.5232) |
-# | **CVM** | 2.92 (218/256 features) | 14.46 (256/256 features) |
+# | **K-Neighbors** | 0.8585 | 0.54 to 0.69 |
+# | **MMD** | 0.2388 | 0.09 to 0.22 (chunk `[400:599]`: 0.3904) |
+# | **CVM** | 3.00 (222/256 features) | 9.32 (251/256 features) |
 #
-# K-Neighbors distances for operational data match the inter-campaign control baseline
-# (0.8425), showing that general collection shifts account for much of the observed
-# difference.
+# K-Neighbors distances for operational data stay below the inter-campaign control
+# baseline (0.8585), showing that general collection shifts account for much of the
+# observed difference.
 #
 # However, two metrics indicate notable shifts beyond baseline variation:
 #
-# - **MMD on chunk `[400:599]` (0.5232)**: More than double the control baseline,
+# - **MMD on chunk `[400:599]` (0.3904)**: Well above the control baseline (0.2388),
 #   indicating a substantial localized shift in the 2018 campaign.
-# - **CVM magnitude (14.46)**: Substantially larger than the control magnitude (2.92),
+# - **CVM magnitude (9.32)**: About three times the control magnitude (3.00),
 #   reflecting widespread feature-level divergence.
 #
 # You should always evaluate drift against baseline controls to distinguish normal
