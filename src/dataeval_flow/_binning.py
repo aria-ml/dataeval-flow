@@ -260,10 +260,12 @@ def _level_fit(df: pl.DataFrame, name: str, record: Mapping[str, Any]) -> dict[s
     }
 
 
-# Cells a recorded histogram is drawn into.  A fixed display resolution, not taken from
-# the factor's bin count: a chart drawn at the same cut cannot judge it, and factors cut
-# into different numbers of bins cannot be compared.
-_DISTRIBUTION_CELLS = 40
+# Cells a recorded histogram holds.  A fixed resolution, not taken from the factor's bin
+# count: a chart drawn at the same cut cannot judge it, and factors cut into different
+# numbers of bins cannot be compared.  Renderers merge it down to their width and never
+# stretch it, so it is finer than any chart at 80 columns, and four times the factor
+# table's forty-cell shape column, which it merges into exactly.
+_DISTRIBUTION_CELLS = 160
 
 # Order statistics recorded per numeric factor.  Bin-free by construction: they describe where
 # the values are, not where somebody cut them.

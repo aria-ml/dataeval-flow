@@ -930,3 +930,12 @@ def test_a_distribution_survives_a_column_holding_nan():
     assert dist["quantiles"]["0.0"] == 1.0
     assert dist["quantiles"]["1.0"] == 4.0
     assert sum(dist["histogram"]) == 45, "the NaN rows are excluded, not counted"
+
+
+def test_a_distribution_is_recorded_at_one_hundred_sixty_cells():
+    """Finer than any chart at 80 columns draws, and four times the factor table's shape column."""
+    md = Metadata.from_factors({"alt": np.linspace(0.0, 100.0, 60), "x": np.arange(60)})
+    dist = describe_binning(md)["factors"]["alt"]["distribution"]
+    assert dist["cells"] == 160
+    assert len(dist["histogram"]) == 160
+    assert sum(dist["histogram"]) == 60

@@ -289,6 +289,13 @@ class TestFactorTable:
         (row,) = _table_lines(_record(temp_c=info))[2:]
         assert "\u2588" + " " * 38 + "\u2588" in row
 
+    def test_a_finer_record_merges_into_the_same_shape_column(self):
+        """Recorded at four times the column's forty cells, the shape merges four to one and loses no mode."""
+        hist = [9, *([0] * 158), 9]
+        info = _binned(["-inf", 5.0, "inf"], {1: (9, 0.0, 1.0), 2: (9, 9.0, 10.0)}, "count", hist=hist)
+        (row,) = _table_lines(_record(temp_c=info))[2:]
+        assert "\u2588" + " " * 38 + "\u2588" in row
+
     def test_a_declared_edge_list_is_printed_because_the_row_cannot_imply_it(self):
         """A bin *count* places edges uniformly across the span, so bins and range recover
         them. A verbatim edge list is arbitrary by construction, and nothing else says where
