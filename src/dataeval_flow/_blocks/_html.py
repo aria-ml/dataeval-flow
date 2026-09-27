@@ -375,7 +375,8 @@ td.chart { width: 12rem; min-width: 8rem; }
 .stack { display: inline-flex; width: 12rem; vertical-align: middle; }
 svg.spark { width: 10rem; height: 1em; fill: var(--s0); vertical-align: middle; }
 svg.dist { width: 100%; max-width: 32rem; height: 4rem; fill: var(--s0); }
-svg.dist .box { fill: var(--s1); } svg.dist line { stroke: var(--ink); stroke-width: 0.05; }
+svg.dist .box { fill: var(--s1); }
+svg.dist line { stroke: var(--ink); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 figure { margin: 0.5rem 0; } figcaption { color: var(--muted); font-size: 0.85rem; }
 dl.fields { display: grid; grid-template-columns: max-content auto; gap: 0.1rem 1rem; margin: 0.5rem 0; }
 dl.fields dt { font-weight: 600; } dl.fields dd { margin: 0; }

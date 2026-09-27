@@ -230,6 +230,16 @@ class TestCharts:
         assert '<rect class="box"' in fragment
         assert "p25 1 · p50 2 · p75 3" in fragment
 
+    def test_a_distributions_lines_keep_their_width_however_fine_its_record(self):
+        """The svg stretches one unit per recorded cell to fit, so a stroke measured in those units thins as
+        the record grows finer: at 160 cells a median line of 0.05 units draws about 0.16px wide."""
+        quantiles = Quantiles(low=0.0, q1=1.0, median=2.0, q3=3.0, high=4.0)
+        page = html_page("Report", [Distribution(histogram=[1] * 160, quantiles=quantiles)])
+        rule = re.search(r"svg\.dist line \{([^}]*)\}", page)
+        assert rule is not None
+        assert "vector-effect: non-scaling-stroke" in rule.group(1)
+        assert re.search(r"stroke-width: [\d.]+px", rule.group(1))
+
     def test_a_distribution_without_quantiles_draws_the_counts_alone(self):
         fragment = render_html([Distribution(histogram=[5, 0, 7])])
         assert '<rect class="box"' not in fragment
