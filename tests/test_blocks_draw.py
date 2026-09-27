@@ -141,6 +141,31 @@ class TestBoxPlot:
             "0      20                            100",
         ]
 
+    @pytest.mark.parametrize(
+        ("quartiles", "box", "ends"),
+        [
+            (
+                (47.6712, 47.6734, 47.6755, 47.6771, 47.6798),
+                "├─────────── 47.67 ███████████████████│█████████████ 47.68 ────────────────┤",
+                "47.67                               47.68                              47.68",
+            ),
+            (
+                (1234.1, 1234.4, 1235.2, 1236.0, 1236.9),
+                "├─ 1234 █████████████████████│██████████████████████ 1236 ─────────────────┤",
+                "1234                       1235                                         1237",
+            ),
+            (
+                (37.12341, 37.12343, 37.12345, 37.12347, 37.12349),
+                "├─────────── 37.12 ███████████████████│██████████████████ 37.12 ───────────┤",
+                "37.12                               37.12                              37.12",
+            ),
+        ],
+        ids=["narrow float span", "large offset", "every value prints alike"],
+    )
+    def test_a_value_printing_like_its_end_is_still_written_where_the_box_stops_short(self, quartiles, box, ends):
+        """A narrow float span prints p25 like min, but only a box that reaches the end shows that value."""
+        assert _plot(*quartiles, histogram=[1] * 160, room=76)[1:] == [box, ends]
+
     def test_a_box_narrower_than_a_cell_names_its_quartiles(self):
         assert _plot(0.0, 0.2, 0.4, 0.7, 250.0, histogram=[40] + [1] * 39)[1:] == [
             "│──────────────────────────────────────┤",

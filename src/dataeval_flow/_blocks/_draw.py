@@ -227,14 +227,17 @@ def box_plot(
     box = "".join(cells)
     lo, p25, mid, p75, hi = (fmt_num(v) for v in (low, q1, median, q3, high))
     axis = _Row(width)
-    # A column with no span has one value to name, not two.
-    if not (axis.place(lo, 0, 0) and (hi == lo or axis.place(hi, width - 1, width - len(hi)))):
+    # A column with no span has one value to name, not two. Equal text alone is not enough: four
+    # significant figures print a narrow span's two ends alike, and both still need their label.
+    if not (axis.place(lo, 0, 0) and ((hi == lo and not span) or axis.place(hi, width - 1, width - len(hi)))):
         return [bars, box, *_named_lines((("min", lo), ("p25", p25), ("p50", mid), ("p75", p75), ("max", hi)), room)]
     bounds = axis.text()
     placed = axis.place(mid, _at(median), _at(median) - len(mid) // 2)
     # A quartile equal to its end is shown by the box reaching that end, and has no whisker to sit in.
-    placed = placed and (p25 == lo or _into_whisker(cells, p25, left - len(p25) - 2))
-    placed = placed and (p75 == hi or _into_whisker(cells, p75, right + 1))
+    # Only a box that does reach it says so: a narrow span prints a quartile like its end while the
+    # box stops short, and that quartile is written like any other.
+    placed = placed and ((p25 == lo and left == 0) or _into_whisker(cells, p25, left - len(p25) - 2))
+    placed = placed and ((p75 == hi and right == width - 1) or _into_whisker(cells, p75, right + 1))
     if placed:
         return [bars, "".join(cells), axis.text()]
     return [bars, box, bounds, *_named_lines((("p25", p25), ("p50", mid), ("p75", p75)), room)]
