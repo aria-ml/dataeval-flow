@@ -5,7 +5,15 @@ from typing import Any
 import pytest
 
 from dataeval_flow._blocks import Section, Tree
-from dataeval_flow._blocks._draw import compact_indices, flow_repr, fmt_num, format_value, ratio_line, shape_cells
+from dataeval_flow._blocks._draw import (
+    box_plot,
+    compact_indices,
+    flow_repr,
+    fmt_num,
+    format_value,
+    ratio_line,
+    shape_cells,
+)
 from dataeval_flow._blocks._table import SPARKLINE_CELLS
 from dataeval_flow._blocks._text import Frame, render_text
 
@@ -86,6 +94,118 @@ class TestFmtNum:
     def test_writes_each_magnitude_in_its_shortest_faithful_form(self, value, text):
         """From 9,999.5, where four figures first need an exponent, up to a million, a whole number is shorter."""
         assert fmt_num(value) == text
+
+
+_FLAT = [1] * 40
+
+
+def _plot(
+    low: float, q1: float, median: float, q3: float, high: float, histogram: list[int] = _FLAT, room: int = 80
+) -> list[str] | None:
+    return box_plot(histogram, low, q1, median, q3, high, room)
+
+
+class TestBoxPlot:
+    """A histogram over its box, each value beside the mark it names or named outright."""
+
+    def test_quartiles_sit_in_the_whiskers_and_the_median_under_its_mark(self):
+        assert _plot(0.0, 25.0, 50.0, 75.0, 100.0) == [
+            "████████████████████████████████████████",
+            "├───── 25 ██████████│█████████ 75 ─────┤",
+            "0                  50                100",
+        ]
+
+    def test_a_quartile_equal_to_its_end_is_left_to_the_box_reaching_it(self):
+        """SeaDrone's -1 sentinel: p25 is min, so there is no left whisker and nothing to write in it."""
+        assert _plot(-1.0, -1.0, 34.9, 46.5, 90.0)[1:] == [
+            "███████████████│█████ 46.5 ────────────┤",
+            "-1           34.9                     90",
+        ]
+
+    def test_a_box_spanning_the_range_carries_no_whisker_labels_and_stays_positional(self):
+        assert _plot(0.0, 0.0, 5.0, 10.0, 10.0)[1:] == [
+            "████████████████████│███████████████████",
+            "0                   5                 10",
+        ]
+
+    def test_a_median_mark_on_the_box_edge_survives_the_label_beside_it(self):
+        """yspeed's shape: the median and p75 share the box's last cell, and p75 is negative-adjacent."""
+        assert _plot(-7.5, -1.0, -0.1, 0.0, 8.6)[1:] == [
+            "├─────────── -1 ██│ 0 ─────────────────┤",
+            "-7.5            -0.1                 8.6",
+        ]
+
+    def test_a_p25_equal_to_the_median_is_labelled_in_both_places(self):
+        assert _plot(0.0, 20.0, 20.0, 60.0, 100.0)[1:] == [
+            "├─── 20 │███████████████ 60 ───────────┤",
+            "0      20                            100",
+        ]
+
+    def test_a_box_narrower_than_a_cell_names_its_quartiles(self):
+        assert _plot(0.0, 0.2, 0.4, 0.7, 250.0, histogram=[40] + [1] * 39)[1:] == [
+            "│──────────────────────────────────────┤",
+            "0                                    250",
+            "p25 0.2 · p50 0.4 · p75 0.7",
+        ]
+
+    def test_a_median_crowding_an_end_names_all_three_even_one_equal_to_that_end(self):
+        """The box is plainly visible, but `1` cannot sit beside `0`: the set is named, never split."""
+        assert _plot(0.0, 0.0, 1.0, 30.0, 100.0)[1:] == [
+            "│████████████──────────────────────────┤",
+            "0                                    100",
+            "p25 0 · p50 1 · p75 30",
+        ]
+
+    def test_a_whisker_too_short_for_its_label_names_all_three(self):
+        assert _plot(0.0, 3.0, 40.0, 60.0, 100.0)[1:] == [
+            "├███████████████│███████───────────────┤",
+            "0                                    100",
+            "p25 3 · p50 40 · p75 60",
+        ]
+
+    def test_a_record_too_short_to_label_names_its_quartiles(self):
+        assert _plot(0.0, 2.0, 4.0, 6.0, 8.0, histogram=[1, 2, 4, 2, 1]) == [
+            "▂▄█▄▂",
+            "├█│█┤",
+            "0   8",
+            "p25 2 · p50 4 · p75 6",
+        ]
+
+    def test_a_column_with_no_span_labels_its_one_value_once(self):
+        assert _plot(5.0, 5.0, 5.0, 5.0, 5.0)[2:] == ["5", "p25 5 · p50 5 · p75 5"]
+
+    def test_a_range_too_wide_for_the_room_names_all_five(self):
+        lines = _plot(1.787e15, 1.7872e15, 1.7875e15, 1.7879e15, 1.789e15, room=30)
+        assert lines[2:] == [
+            "min 1787000000000000",
+            "p25 1787200000000000",
+            "p50 1787500000000000",
+            "p75 1787900000000000",
+            "max 1789000000000000",
+        ]
+
+    def test_a_named_line_wraps_between_items(self):
+        lines = _plot(0.0, 0.2, 0.4, 0.7, 250.0, histogram=[40] + [1] * 19, room=20)
+        assert lines[3:] == ["p25 0.2 · p50 0.4", "p75 0.7"]
+
+    def test_an_item_longer_than_the_room_overflows_whole(self):
+        lines = _plot(1.787e15, 1.7872e15, 1.7875e15, 1.7879e15, 1.789e15, room=10)
+        assert lines[:2] == ["██████████", "├█│██────┤"]
+        assert lines[2:] == [
+            "min 1787000000000000",
+            "p25 1787200000000000",
+            "p50 1787500000000000",
+            "p75 1787900000000000",
+            "max 1789000000000000",
+        ]
+
+    @pytest.mark.parametrize(("cells", "room", "drawn"), [(40, 76, 40), (160, 76, 76), (160, 200, 160)])
+    def test_a_record_is_merged_to_the_room_but_never_stretched(self, cells, room, drawn):
+        lines = _plot(0.0, 25.0, 50.0, 75.0, 100.0, histogram=[1] * cells, room=room)
+        assert {len(line) for line in lines} == {drawn}
+
+    def test_an_empty_histogram_draws_nothing(self):
+        assert _plot(0.0, 1.0, 2.0, 3.0, 4.0, histogram=[0, 0]) is None
 
 
 class TestRenderConfigSection:

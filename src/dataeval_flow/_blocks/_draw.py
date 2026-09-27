@@ -33,6 +33,8 @@ _FRAC_BLOCKS = " ▏▎▍▌▋▊▉"
 # floors at index 1.
 _SPARK_BLOCKS = " ▁▂▃▄▅▆▇█"
 _INDENT_STEP = 2
+# Between the items of a line that names values rather than placing them.
+_NAMED_SEP = " · "
 
 
 def fmt_num(value: Any) -> str:
@@ -126,38 +128,116 @@ def hbar(value: float, peak: float, cells: int = BAR_CELLS) -> str:
     return bar or _FRAC_BLOCKS[1]
 
 
+class _Row:
+    """One row of labels beneath a chart, each covering the cell of the value it names."""
+
+    def __init__(self, width: int) -> None:
+        self._cells = [" "] * width
+        self._taken: list[tuple[int, int]] = []
+
+    def place(self, label: str, tick: int, prefer: int) -> bool:
+        """Put *label* over cell *tick*, starting as near *prefer* as it can; ``False`` if it cannot.
+
+        A label stays inside the row and keeps one blank cell from every label already placed, so
+        two numbers never read as one.  Among the starts that allow, the nearest to *prefer* wins,
+        and a tie goes left.
+        """
+        size, width = len(label), len(self._cells)
+        starts = range(max(0, tick - size + 1), min(tick, width - size) + 1)
+        for start in sorted(starts, key=lambda s: (abs(s - prefer), s)):
+            if all(start + size < begin or end < start for begin, end in self._taken):
+                self._taken.append((start, start + size))
+                self._cells[start : start + size] = label
+                return True
+        return False
+
+    def text(self) -> str:
+        """The row as drawn, without trailing blanks."""
+        return "".join(self._cells).rstrip()
+
+
+def _into_whisker(cells: list[str], label: str, start: int) -> bool:
+    """Write *label*, a space either side, over whisker *cells* from *start*; ``False`` if it does not fit.
+
+    It fits only where both caps, and the whisker cell beside each, stay visible: a label that
+    swallowed a whole whisker would leave nothing saying the whisker was there.
+    """
+    end = start + len(label) + 2
+    if start < 2 or end > len(cells) - 2:
+        return False
+    cells[start:end] = f" {label} "
+    return True
+
+
+def _named_lines(items: Sequence[tuple[str, str]], room: int) -> list[str]:
+    """``name value`` items joined by `` · ``, wrapped between items so no line passes *room*.
+
+    An item is never split: one wider than *room* overflows whole on a line of its own, as a
+    long token does in prose.
+    """
+    lines: list[str] = []
+    for item in (f"{name} {value}" for name, value in items):
+        if lines and len(lines[-1]) + len(_NAMED_SEP) + len(item) <= room:
+            lines[-1] += _NAMED_SEP + item
+        else:
+            lines.append(item)
+    return lines
+
+
 def box_plot(
-    histogram: Sequence[float], low: float, q1: float, median: float, q3: float, high: float
-) -> tuple[str, str, str] | None:
-    """A histogram line, the box beneath it, and the quartile legend, or ``None`` for an empty histogram."""
-    width = len(histogram)
-    if not width or not max(histogram):
+    histogram: Sequence[float], low: float, q1: float, median: float, q3: float, high: float, room: int
+) -> list[str] | None:
+    """The histogram, its box beneath, and the values that place them, or ``None`` for an empty histogram.
+
+    Drawn at most *room* cells wide and never wider than the record: a record is merged down to
+    fit, and stretching it would draw a bin's edges as shoulders it does not have.  Every row
+    shares one x-axis, so the chart starts at the frame's edge and stacked plots line up
+    whatever their labels.
+
+    The range sits under the box's ends and the median under its mark.  p25 and p75 are written
+    into the whiskers either side of the box; one equal to its end is left to the box reaching
+    it.  A set read as one is never split: when any quartile cannot sit beside its mark, all
+    three are named on a line of their own, and when the range itself cannot fit, all five are.
+    """
+    if not histogram or not max(histogram):
         return None
-    bars = _eighths(histogram)
+    width = min(len(histogram), max(CHART_MIN, room))
+    bars = _eighths(histogram if width == len(histogram) else resample(histogram, width))
     span = high - low
 
     def _at(value: float) -> int:
         return 0 if not span else min(max(int(round((value - low) / span * (width - 1))), 0), width - 1)
 
+    left, right = _at(q1), max(_at(q3), _at(q1))
     cells = ["─"] * width
     # Whisker caps first, box over them. A box that reaches an end *is* the finding: a quarter
     # of the rows sitting on the extreme leaves no whisker on that side, so the box has to be
-    # able to cover a cap rather than be overwritten by it. Both extremes are labelled either
-    # side of the line, so nothing is lost when a cap is covered.
+    # able to cover a cap rather than be overwritten by it. Both extremes are labelled beneath
+    # the line, so nothing is lost when a cap is covered.
     cells[0], cells[-1] = "├", "┤"
     # The box never rounds away either: on a heavily skewed column the interquartile range can
     # be a fraction of a cell, and a plot drawn as two bare whiskers reads as broken rather
     # than as skewed.
-    for i in range(_at(q1), max(_at(q3), _at(q1)) + 1):
+    for i in range(left, right + 1):
         cells[i] = "█"
     # Light rather than heavy: U+2503 is absent from Liberation Mono and several other
     # common monospace faces, and a glyph the font lacks is drawn from a fallback whose
     # advance width is its own, which shifts every cell after it out of alignment.
     cells[_at(median)] = "│"
-    lo_label, hi_label = fmt_num(low), fmt_num(high)
-    pad = " " * len(lo_label)
-    legend = f"p25 {fmt_num(q1)} · p50 {fmt_num(median)} · p75 {fmt_num(q3)}"
-    return f"{lo_label} {bars} {hi_label}", f"{pad} {''.join(cells)}", legend
+    box = "".join(cells)
+    lo, p25, mid, p75, hi = (fmt_num(v) for v in (low, q1, median, q3, high))
+    axis = _Row(width)
+    # A column with no span has one value to name, not two.
+    if not (axis.place(lo, 0, 0) and (hi == lo or axis.place(hi, width - 1, width - len(hi)))):
+        return [bars, box, *_named_lines((("min", lo), ("p25", p25), ("p50", mid), ("p75", p75), ("max", hi)), room)]
+    bounds = axis.text()
+    placed = axis.place(mid, _at(median), _at(median) - len(mid) // 2)
+    # A quartile equal to its end is shown by the box reaching that end, and has no whisker to sit in.
+    placed = placed and (p25 == lo or _into_whisker(cells, p25, left - len(p25) - 2))
+    placed = placed and (p75 == hi or _into_whisker(cells, p75, right + 1))
+    if placed:
+        return [bars, "".join(cells), axis.text()]
+    return [bars, box, bounds, *_named_lines((("p25", p25), ("p50", mid), ("p75", p75)), room)]
 
 
 def ratio_line(parts: Sequence[tuple[str, int]]) -> str:

@@ -622,8 +622,8 @@ def test_an_identifier_draws_no_chart_where_a_thin_column_does():
 
 def test_a_box_plot_in_a_triage_finding_fits_the_width():
     """The charts used to be drawn at the full width and then indented by hand, so a box plot
-    whose legend just fit beside it ran four columns past the line. Drawn in its section, it
-    wraps its legend onto a line of its own instead."""
+    whose legend just fit beside it ran four columns past the line. Drawn in its section, it fits:
+    the range sits beneath the box, and quartiles too long for forty cells' whiskers are named."""
     from dataeval_flow.workflows.metadata_triage._report import build_findings
 
     quartiles = {"0.25": 48.25, "0.5": 103.8, "0.75": 176.4}
@@ -632,9 +632,10 @@ def test_a_box_plot_in_a_triage_finding_fits_the_width():
 
     lines = rendered(finding, width=80).splitlines()
     assert max(len(line) for line in lines) <= 80
-    assert lines[-4:] == [
+    assert lines[-5:] == [
         "  altitude — declare 3 bins",
-        "    12.5 " + "█" * 40 + " 298.6",
-        "         ├" + "─" * 4 + "█" * 7 + "│" + "█" * 10 + "─" * 16 + "┤",
-        "         p25 48.25 · p50 103.8 · p75 176.4",
+        "    " + "█" * 40,
+        "    ├" + "─" * 4 + "█" * 7 + "│" + "█" * 10 + "─" * 16 + "┤",
+        "    12.5                               298.6",
+        "    p25 48.25 · p50 103.8 · p75 176.4",
     ]

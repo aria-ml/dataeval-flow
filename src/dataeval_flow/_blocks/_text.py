@@ -19,7 +19,6 @@ from dataeval_flow._blocks._draw import (
     fmt_num,
     format_value,
     ratio_line,
-    resample,
     shape_cells,
     sparkline,
 )
@@ -222,21 +221,13 @@ def _proportion(block: Proportion, frame: Frame) -> list[str]:
 
 
 def _distribution(block: Distribution, frame: Frame) -> list[str]:
-    """A box plot when the quantiles are known, a sparkline otherwise, resampled to fit the frame."""
+    """A box plot when the quantiles are known, a sparkline otherwise, fitted to the frame."""
     counts = block.histogram
     q = block.quantiles
     # A quantile that is not a number places nothing, so the plot falls back to the counts alone.
     if q is not None and all(math.isfinite(v) for v in (q.low, q.q1, q.median, q.q3, q.high)):
-        labels = len(fmt_num(q.low)) + len(fmt_num(q.high)) + 2
-        cells = min(len(counts), max(CHART_MIN, frame.room - labels))
-        histogram = counts if cells == len(counts) else resample(counts, cells)
-        drawn = box_plot(histogram, q.low, q.q1, q.median, q.q3, q.high)
-        if drawn is None:
-            return []
-        values, box, legend = drawn
-        # The legend always sits under the box, aligned with it, so every plot reads the same.
-        pad = " " * (len(fmt_num(q.low)) + 1)
-        return [frame.indent + values, frame.indent + box, frame.indent + pad + legend]
+        drawn = box_plot(counts, q.low, q.q1, q.median, q.q3, q.high, frame.room)
+        return [frame.indent + line for line in drawn] if drawn else []
     peak = max(counts, default=0)
     if not peak:
         return []

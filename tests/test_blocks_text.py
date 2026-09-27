@@ -175,11 +175,12 @@ class TestCharts:
         assert render_text([Distribution(histogram=[3, 0, 12, 7])]) == ["\u2582 \u2588\u2585        n=3\u201312"]
 
     def test_a_distribution_with_quantiles_is_a_box_plot(self):
-        quantiles = Quantiles(low=0.0, q1=2.0, median=4.0, q3=6.0, high=8.0)
-        values, box, legend = render_text([Distribution(histogram=[1, 2, 4, 2, 1], quantiles=quantiles)])
-        assert values == "0 \u2582\u2584\u2588\u2584\u2582 8"
-        assert box == "  \u251c\u2588\u2502\u2588\u2524"
-        assert legend == "  p25 2 \u00b7 p50 4 \u00b7 p75 6"
+        quantiles = Quantiles(low=0.0, q1=25.0, median=50.0, q3=75.0, high=100.0)
+        assert render_text([Distribution(histogram=[1] * 40, quantiles=quantiles)]) == [
+            "████████████████████████████████████████",
+            "├───── 25 ██████████│█████████ 75 ─────┤",
+            "0                  50                100",
+        ]
 
     def test_an_empty_histogram_draws_nothing(self):
         assert render_text([Distribution(histogram=[0, 0])]) == []
@@ -206,27 +207,60 @@ class TestWidth:
     def test_the_default_is_eighty_columns_and_the_floor_forty(self):
         assert (DEFAULT_WIDTH, MIN_WIDTH) == (80, 40)
 
-    def test_a_box_plot_fits_at_triage_depth_with_its_legend_on_its_own_line(self):
-        """A forty-cell histogram, its range labels and its quartile legend run past 80 columns."""
+    def test_a_box_plot_too_crowded_to_label_names_its_quartiles_within_the_width(self):
+        """At triage depth: the box is under a cell wide, so its quartiles are named on their own line."""
         quantiles = Quantiles(low=0.001234, q1=12.5, median=40.25, q3=118.75, high=65432.1)
         block = Distribution(histogram=[(i * 7) % 11 + 1 for i in range(40)], quantiles=quantiles)
         lines = render_text([block], Frame(width=80, indent="      "))
         assert all(len(line) <= 80 for line in lines), max(lines, key=len)
-        assert len(lines) == 3
-        assert lines[2].strip().startswith("p25 12.5")
+        assert lines[1:] == [
+            "      │──────────────────────────────────────┤",
+            "      0.001234                           65432",
+            "      p25 12.5 · p50 40.25 · p75 118.8",
+        ]
 
-    def test_a_box_plot_with_room_to_spare_still_puts_its_legend_below(self):
-        quantiles = Quantiles(low=0.0, q1=2.0, median=4.0, q3=6.0, high=8.0)
-        lines = render_text([Distribution(histogram=[1, 2, 4, 2, 1], quantiles=quantiles)], Frame(width=80))
-        assert len(lines) == 3
+    def test_box_plots_share_their_left_edge_whatever_their_labels(self):
+        """The range sits beneath the box, so a wide min label no longer pushes the chart right."""
+        narrow = Quantiles(low=-1.0, q1=-1.0, median=34.9, q3=46.5, high=90.0)
+        wide = Quantiles(low=-11.5, q1=-1.0, median=-0.5, q3=0.0, high=11.1)
+        drawn = [
+            render_text([Distribution(histogram=[1] * 40, quantiles=q)], Frame(indent="    ")) for q in (narrow, wide)
+        ]
+        assert drawn[0][0] == drawn[1][0] == "    " + "█" * 40
+        assert drawn[0][2].startswith("    -1 ")
+        assert drawn[1][2].startswith("    -11.5 ")
 
     def test_a_box_plot_too_wide_for_its_frame_is_resampled_not_cut(self):
         quantiles = Quantiles(low=0.0, q1=2.0, median=4.0, q3=6.0, high=8.0)
         block = Distribution(histogram=[1] * 40, quantiles=quantiles)
-        values = render_text([block], Frame(width=40))[0]
-        assert len(values) <= 40
-        assert values.startswith("0 ")
-        assert values.endswith(" 8")
+        assert render_text([block], Frame(width=40, indent="      ")) == [
+            "      ██████████████████████████████████",
+            "      ├──── 2 ████████│█████████ 6 ────┤",
+            "      0               4                8",
+        ]
+
+    def test_a_finer_record_fills_the_frame(self):
+        """A record of 160 cells is merged down to the room: the plot spans the frame, labels and all."""
+        quantiles = Quantiles(low=0.0, q1=25.0, median=50.0, q3=75.0, high=100.0)
+        lines = render_text([Distribution(histogram=[1] * 160, quantiles=quantiles)], Frame(width=80, indent="    "))
+        assert {len(line) for line in lines} == {80}
+
+    @pytest.mark.parametrize("width", [40, 80, 120])
+    @pytest.mark.parametrize(
+        "quartiles",
+        [
+            (0.0, 25.0, 50.0, 75.0, 100.0),
+            (-1.0, -1.0, 34.9, 46.5, 90.0),
+            (0.0, 0.2, 0.4, 0.7, 250.0),
+            (0.0, 0.0, 1.0, 30.0, 100.0),
+            (1.787e15, 1.7872e15, 1.7875e15, 1.7879e15, 1.789e15),
+        ],
+    )
+    def test_every_box_plot_line_fits_the_width(self, width, quartiles):
+        low, q1, median, q3, high = quartiles
+        quantiles = Quantiles(low=low, q1=q1, median=median, q3=q3, high=high)
+        lines = render_text([Distribution(histogram=[1] * 160, quantiles=quantiles)], Frame(width=width, indent="    "))
+        assert all(len(line) <= width for line in lines), max(lines, key=len)
 
     def test_a_long_sparkline_is_resampled_to_fit(self):
         lines = render_text([Distribution(histogram=list(range(1, 200)))], Frame(width=50, indent="  "))

@@ -702,9 +702,8 @@ def test_a_cut_factor_is_drawn_from_its_shape_not_its_bins():
     """The chart exists to judge the cut, so it must not be drawn at that cut."""
     q = {"0.0": -1.0, "0.25": -1.0, "0.5": 30.0, "0.75": 42.0, "1.0": 240.0}
     lines = _distribution(_shaped(q, [60, 20, 10, 5, 3, 2, 1, 1]))
-    assert len(lines) == 3
-    assert "p25 -1" in lines[2]
-    assert "│" in lines[1], "the median mark is drawn"
+    # Eight recorded cells leave the median no room beside -1, so the quartiles are named.
+    assert lines == ["█▃▁▁▁▁▁▁", "█│─────┤", "-1   240", "p25 -1 · p50 30 · p75 42"]
 
 
 def test_a_skewed_box_never_collapses_to_bare_whiskers():
