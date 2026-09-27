@@ -334,7 +334,7 @@ class TestFactorTable:
         assert _table_lines(_record(sensor={"type": "categorical", "level": "unit"})) == []
 
     def test_the_shape_column_gives_up_cells_before_the_table_gives_up_its_width(self):
-        """A span like `1.145e-06 – 0.07204` is nineteen characters beside a nineteen
+        """A span like `1.15e-06 – 0.07204` is nineteen characters beside a nineteen
         character factor name. The shape is the one column that can shrink without the
         table losing a fact. While it does, it stays one width across every row."""
         record = _record(
@@ -349,7 +349,7 @@ class TestFactorTable:
         lines = _table_lines(record)
         assert all(len(line) <= _WIDTH for line in lines), max(len(line) for line in lines)
         # The span is still printed in full: the fit came out of the shape, not the facts.
-        assert "1.145e-06 \u2013 0.07204" in lines[3]
+        assert "1.15e-06 \u2013 0.07204" in lines[3]
 
     def test_row_carries_level_bin_count_and_observed_span(self):
         (row,) = _table_lines(_record(height=self._height()))[2:]
@@ -702,8 +702,8 @@ def test_a_cut_factor_is_drawn_from_its_shape_not_its_bins():
     """The chart exists to judge the cut, so it must not be drawn at that cut."""
     q = {"0.0": -1.0, "0.25": -1.0, "0.5": 30.0, "0.75": 42.0, "1.0": 240.0}
     lines = _distribution(_shaped(q, [60, 20, 10, 5, 3, 2, 1, 1]))
-    assert len(lines) == 2
-    assert "p25 -1" in lines[1]
+    assert len(lines) == 3
+    assert "p25 -1" in lines[2]
     assert "│" in lines[1], "the median mark is drawn"
 
 

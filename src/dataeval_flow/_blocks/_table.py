@@ -31,12 +31,17 @@ def _markers(column: Column) -> list[tuple[str, float]]:
     return [(name, value) for name, value in column.markers if math.isfinite(value)]
 
 
+def _sci(value: Cell, text: str) -> str:
+    """*text*, unless it put a float in scientific notation: that always reads ``1.14e+05``, as ``fmt_num`` has it."""
+    return f"{value:.2e}" if isinstance(value, float) and "e" in text else text
+
+
 def _formatted(column: Column, value: float) -> str | None:
     """*value* through the column's template, or ``None`` when there is none or it does not fit."""
     if not column.format:
         return None
     try:
-        return column.format.format(value)
+        return _sci(value, column.format.format(value))
     except (ValueError, IndexError, KeyError, TypeError):
         return None  # a template that does not fit this value: the caller shows the value itself
 
@@ -47,7 +52,7 @@ def _text_lines(column: Column, value: Cell) -> list[str]:
         return [""]
     if _is_number(value) and (text := _formatted(column, value)) is not None:
         return [text]
-    return str(value).split("\n")
+    return _sci(value, str(value)).split("\n")
 
 
 def cell_text(column: Column, value: Cell) -> str:

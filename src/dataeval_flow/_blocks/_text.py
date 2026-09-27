@@ -234,9 +234,7 @@ def _distribution(block: Distribution, frame: Frame) -> list[str]:
         if drawn is None:
             return []
         values, box, legend = drawn
-        if len(box) + 2 + len(legend) <= frame.room:
-            return [frame.indent + values, f"{frame.indent}{box}  {legend}"]
-        # The legend moves under the box, aligned with it, rather than running off the line.
+        # The legend always sits under the box, aligned with it, so every plot reads the same.
         pad = " " * (len(fmt_num(q.low)) + 1)
         return [frame.indent + values, frame.indent + box, frame.indent + pad + legend]
     peak = max(counts, default=0)

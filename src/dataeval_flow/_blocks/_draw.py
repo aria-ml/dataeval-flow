@@ -50,7 +50,9 @@ def fmt_num(value: Any) -> str:
         return f"{value:g}"
     if abs(value) >= 1e6:
         return f"{value:.0f}" if value == int(value) else f"{value:.2f}"
-    return f"{value:.4g}"
+    text = f"{value:.4g}"
+    # Where it does fall to scientific notation, a mantissa of three digits is enough.
+    return f"{value:.2e}" if "e" in text else text
 
 
 def resample(counts: Sequence[float], cells: int) -> list[float]:
@@ -120,10 +122,7 @@ def hbar(value: float, peak: float, cells: int = BAR_CELLS) -> str:
 def box_plot(
     histogram: Sequence[float], low: float, q1: float, median: float, q3: float, high: float
 ) -> tuple[str, str, str] | None:
-    """A histogram line, the box beneath it, and the quartile legend, or ``None`` for an empty histogram.
-
-    The caller decides whether the legend fits beside the box or needs a line of its own.
-    """
+    """A histogram line, the box beneath it, and the quartile legend, or ``None`` for an empty histogram."""
     width = len(histogram)
     if not width or not max(histogram):
         return None

@@ -163,7 +163,7 @@ def _series(index: int) -> str:
 
 
 def _pct(value: float) -> str:
-    return f"{value:.4g}%"
+    return f"{fmt_num(value)}%"
 
 
 def _raw(value: Cell) -> str:

@@ -176,9 +176,10 @@ class TestCharts:
 
     def test_a_distribution_with_quantiles_is_a_box_plot(self):
         quantiles = Quantiles(low=0.0, q1=2.0, median=4.0, q3=6.0, high=8.0)
-        values, box = render_text([Distribution(histogram=[1, 2, 4, 2, 1], quantiles=quantiles)])
+        values, box, legend = render_text([Distribution(histogram=[1, 2, 4, 2, 1], quantiles=quantiles)])
         assert values == "0 \u2582\u2584\u2588\u2584\u2582 8"
-        assert box == "  \u251c\u2588\u2502\u2588\u2524  p25 2 \u00b7 p50 4 \u00b7 p75 6"
+        assert box == "  \u251c\u2588\u2502\u2588\u2524"
+        assert legend == "  p25 2 \u00b7 p50 4 \u00b7 p75 6"
 
     def test_an_empty_histogram_draws_nothing(self):
         assert render_text([Distribution(histogram=[0, 0])]) == []
@@ -214,10 +215,10 @@ class TestWidth:
         assert len(lines) == 3
         assert lines[2].strip().startswith("p25 12.5")
 
-    def test_a_box_plot_that_fits_keeps_its_legend_beside_the_box(self):
+    def test_a_box_plot_with_room_to_spare_still_puts_its_legend_below(self):
         quantiles = Quantiles(low=0.0, q1=2.0, median=4.0, q3=6.0, high=8.0)
         lines = render_text([Distribution(histogram=[1, 2, 4, 2, 1], quantiles=quantiles)], Frame(width=80))
-        assert len(lines) == 2
+        assert len(lines) == 3
 
     def test_a_box_plot_too_wide_for_its_frame_is_resampled_not_cut(self):
         quantiles = Quantiles(low=0.0, q1=2.0, median=4.0, q3=6.0, high=8.0)

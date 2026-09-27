@@ -243,7 +243,7 @@ class TestBuildFindings:
         assert column(table, "p_val") == [3e-4, 2e-8]
         text = rendered(findings[0])
         assert "0.0003" in text
-        assert "2e-08" in text
+        assert "2.00e-08" in text
 
 
 # ---------------------------------------------------------------------------
