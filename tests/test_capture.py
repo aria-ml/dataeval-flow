@@ -111,6 +111,9 @@ class TestReferences:
     def test_a_limit_of_zero_names_none(self):
         assert references([_finding(10)], 0) == []
 
+    def test_no_limit_names_every_item(self):
+        assert len(references([_finding(300), _finding(700, start=300)], None)) == 1000
+
 
 class TestCapture:
     def test_each_item_is_read_once_in_ascending_order(self):

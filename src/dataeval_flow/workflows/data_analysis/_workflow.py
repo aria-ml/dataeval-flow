@@ -45,7 +45,7 @@ from dataeval_flow.workflows._common import compute_metadata_summary as _compute
 from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows._context import WorkflowContext
 from dataeval_flow.workflows._outliers import flagged_table, limits_sentence, warn_if_unrecorded
-from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP, group_cells, groups_table, unlabelled_blocks
+from dataeval_flow.workflows._tables import group_cells, groups_table, table_limits, unlabelled_blocks
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisConfig, DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_analysis._outputs import (
     BiasResult,
@@ -1004,8 +1004,9 @@ def _leakage_groups(pair_name: str, leakage: Mapping[str, Any]) -> list[Block]:
     a, b = names if pair_name == f"{names[0]}_vs_{names[1]}" else names[::-1]
     # Stable, so groups of one size keep exact before near, and each kind its own order.
     groups.sort(key=lambda group: -sum(len(members) for members in group[2].values()))
+    limits = table_limits()
     rows: list[dict[str, Cell]] = []
-    for kind, number, group in groups[:ROW_CAP]:
+    for kind, number, group in groups[: limits.rows]:
         row: dict[str, Cell] = {"group": number, "kind": kind}
         for side, name in (("a", a), ("b", b)):
             row[side], row[f"{side}_image"] = group_cells([ItemRef(source=name, index=i) for i in group.get(name, [])])
@@ -1018,11 +1019,12 @@ def _leakage_groups(pair_name: str, leakage: Mapping[str, Any]) -> list[Block]:
         Column(key="b", header=b, align="left"),
         Column(key="b_image", kind="image"),
     ]
-    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
-    if len(groups) > ROW_CAP:
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+    if limits.rows is not None and len(groups) > limits.rows:
         blocks.append(
             Paragraph(
-                text=f"{len(groups):,} groups; the {ROW_CAP:,} largest are listed, and every one is in `output.raw`."
+                text=f"{len(groups):,} groups; the {limits.rows:,} largest are listed, and every one is in "
+                "`output.raw`."
             )
         )
     return [Section(title=f"{a} vs {b}", brief=f"{len(groups)} groups", blocks=blocks)]

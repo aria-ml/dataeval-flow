@@ -5410,9 +5410,23 @@
         },
         "max_images": {
           "default": 200,
-          "description": "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, and each finding's share between its tables; a share more than its items need goes to the rest. 0 embeds none.",
-          "minimum": 0,
+          "description": "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, and each finding's share between its tables; a share more than its items need goes to the rest. 0 embeds none, and -1 every item the report names.",
+          "minimum": -1,
           "title": "Max Images",
+          "type": "integer"
+        },
+        "max_rows": {
+          "default": 500,
+          "description": "Most rows a table of items lists, such as flagged images or duplicate groups; a paragraph after it names the rest, which the JSON's raw output holds. -1 lists every row.",
+          "minimum": -1,
+          "title": "Max Rows",
+          "type": "integer"
+        },
+        "preview_rows": {
+          "default": 10,
+          "description": "How many rows of a table of items the text report and the TUI show, before a line counting the rest; the HTML page shows every row. -1 shows every row.",
+          "minimum": -1,
+          "title": "Preview Rows",
           "type": "integer"
         }
       },

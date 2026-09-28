@@ -25,7 +25,7 @@ from typing_extensions import TypedDict
 
 from dataeval_flow._blocks import Block, Cell, Column, Flag, ItemRef, Paragraph, Table
 from dataeval_flow._blocks._table import fair_shares
-from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP
+from dataeval_flow.workflows._tables import table_limits
 
 _logger = logging.getLogger(__name__)
 
@@ -128,7 +128,9 @@ def flagged_table(
     # No subject ranks above another: how far past its limit a value lies doesn't say it's worse.
     subjects = sorted(flags)
     parts = [subjects] if groups is None else [[s for s in subjects if s[0] == group] for group in groups]
-    shares = fair_shares([len(part) for part in parts], ROW_CAP)
+    limits = table_limits()
+    cap = len(subjects) if limits.rows is None else limits.rows
+    shares = fair_shares([len(part) for part in parts], cap)
     rows: list[dict[str, Cell]] = []
     for subject in (subject for part, share in zip(parts, shares, strict=True) for subject in part[:share]):
         row: dict[str, Cell] = {column.key: value for column, value in zip(key_columns, subject, strict=True)}
@@ -146,7 +148,7 @@ def flagged_table(
         Column(key="flags", header="Flags"),
         Column(key="by", header="Flagged by", kind="flags"),
     ]
-    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
     if len(rows) < len(subjects):
         if groups is None:
             text = f"{len(subjects):,} {noun} flagged; the first {len(rows):,} are listed"

@@ -815,10 +815,28 @@ class TestResultConfig:
         config_file.write_text("seed: 1\n")
         assert load_config(config_file).result.max_images == 200
 
-    def test_none_is_a_limit_and_fewer_is_refused(self):
-        assert ResultConfig(max_images=0).max_images == 0
-        with pytest.raises(ValidationError):
-            ResultConfig(max_images=-1)
+    def test_tables_list_500_rows_and_preview_10_by_default(self):
+        assert (ResultConfig().max_rows, ResultConfig().preview_rows) == (500, 10)
+
+    @pytest.mark.parametrize(
+        ("fields", "valid"),
+        [
+            ({"max_images": 0}, True),
+            ({"max_images": -1}, True),
+            ({"max_images": -2}, False),
+            ({"max_rows": -1}, True),
+            ({"max_rows": 0}, False),
+            ({"preview_rows": 0}, True),
+            ({"preview_rows": -1}, True),
+            ({"preview_rows": -2}, False),
+        ],
+    )
+    def test_minus_one_lifts_a_limit(self, fields: dict[str, int], valid: bool):
+        if valid:
+            ResultConfig.model_validate(fields)
+        else:
+            with pytest.raises(ValidationError):
+                ResultConfig.model_validate(fields)
 
     def test_the_files_default_to_every_format_in_full_under_one_name(self):
         config = ResultConfig()

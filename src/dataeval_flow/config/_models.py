@@ -10,7 +10,16 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
-from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    field_validator,
+    model_validator,
+)
 
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._kind import input_problem
@@ -181,13 +190,37 @@ class ResultConfig(BaseModel):
     )
     max_images: int = Field(
         default=200,
-        ge=0,
+        ge=-1,
         description=(
             "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, "
             "and each finding's share between its tables; a share more than its items need goes to the rest. "
-            "0 embeds none."
+            "0 embeds none, and -1 every item the report names."
         ),
     )
+    max_rows: int = Field(
+        default=500,
+        ge=-1,
+        description=(
+            "Most rows a table of items lists, such as flagged images or duplicate groups; a paragraph after it "
+            "names the rest, which the JSON's raw output holds. -1 lists every row."
+        ),
+    )
+    preview_rows: int = Field(
+        default=10,
+        ge=-1,
+        description=(
+            "How many rows of a table of items the text report and the TUI show, before a line counting the rest; "
+            "the HTML page shows every row. -1 shows every row."
+        ),
+    )
+
+    @field_validator("max_rows")
+    @classmethod
+    def _lists_some_rows(cls, value: int) -> int:
+        """A table listing no row would say only that it left every one out."""
+        if value == 0:
+            raise ValueError("max_rows must be at least 1, or -1 for every row")
+        return value
 
 
 # ---------------------------------------------------------------------------

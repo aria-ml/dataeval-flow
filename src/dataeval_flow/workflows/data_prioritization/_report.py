@@ -6,7 +6,7 @@ from typing import Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Section, Table
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import PREVIEW
+from dataeval_flow.workflows._tables import table_limits
 from dataeval_flow.workflows.data_prioritization._config import (
     DataPrioritizationConfig,
     DataPrioritizationHealthThresholds,
@@ -95,7 +95,9 @@ def _ranked_blocks(result: PerDatasetPrioritizationDict) -> list[Block]:
             for position in positions
         ]
         if rows:
-            blocks.append(Section(title=title, blocks=[Table(columns=columns, rows=rows, preview=PREVIEW)]))
+            blocks.append(
+                Section(title=title, blocks=[Table(columns=columns, rows=rows, preview=table_limits().preview)])
+            )
     return blocks
 
 

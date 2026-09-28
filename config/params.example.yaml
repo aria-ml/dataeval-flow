@@ -49,7 +49,9 @@
 #   detail: full          # full | summary: how much of each report the text and HTML files hold
 #   per_task: false       # true: one set of files per task, <name>-<task>.<ext>
 #   width: 80             # the text report's width, at least 40; --report-width overrides it
-#   max_images: 200       # thumbnails each task's result embeds, shared evenly between its findings; 0 embeds none
+#   max_images: 200       # thumbnails each task's result embeds, shared evenly between its findings; 0: none, -1: all
+#   max_rows: 500         # rows a table of items (flagged images, duplicate groups, …) lists; -1: every row
+#   preview_rows: 10      # rows of such a table the text report and TUI show; -1: every row
 
 # -----------------------------------------------------------------------------
 # DATASETS

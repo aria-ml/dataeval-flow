@@ -103,7 +103,8 @@ holds everything the text report holds, laid out for reading on screen:
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
 Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
-across, and at most 200 per result. A pipeline's `result: max_images:` sets that limit, and `0` embeds none. The
+across, and at most 200 per result. A pipeline's `result: max_images:` sets that limit: `0` embeds none, and `-1`
+every item the report names. The
 limit is shared evenly between the findings that name items, and a finding's share between its tables, rows in
 order; a finding that needs fewer passes its spare to the rest. So with 200 and four such findings, each gets 50.
 A box's thumbnail is cropped from its image with a margin around it. `--no-report-images`,
@@ -219,7 +220,9 @@ A table's `rows` are objects keyed by each column's `key`. A column has:
 | `markers` (`[]`) | A bar column's labelled reference values, `[name, value]`, such as drift thresholds. |
 
 A table's `preview` says how many rows a renderer with little room, such as the text report, shows before a line
-counting the rest. `null` shows every row.
+counting the rest. `null` shows every row. A table of items, such as flagged images, previews 10 of at most 500 rows,
+with a paragraph naming the rest; a pipeline's `result: preview_rows:` and `result: max_rows:` change those, and `-1`
+lifts either.
 
 A cell is a string, number, boolean or `null`. In a `stacked` or `sparkline` column it is a list of numbers, in a
 `flags` column a list of flags, and in an `image` column an item reference, or a list of them for a group such as

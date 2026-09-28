@@ -2,25 +2,56 @@
 
 __all__ = [
     "GROUP_SHOWN",
-    "PREVIEW",
-    "ROW_CAP",
+    "TableLimits",
     "group_cells",
     "groups_table",
+    "limited_tables",
     "ranked_table",
+    "table_limits",
     "uncovered_blocks",
     "unlabelled_blocks",
 ]
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
 from dataeval_flow._blocks import Block, Cell, Column, ItemRef, Paragraph, Section, Table
 from dataeval_flow._blocks._items import item_name
 
-# A table of items lists at most this many rows, with a paragraph naming the rest, and a renderer with
-# little room shows the first few before a line counting the rest.
-ROW_CAP = 500
-PREVIEW = 10
+
+@dataclass(frozen=True)
+class TableLimits:
+    """How many rows a table of items lists, with a paragraph naming the rest, and how many of them a renderer
+    with little room shows first, before a line counting the rest; ``None`` for every row.
+    """
+
+    rows: int | None = 500
+    preview: int | None = 10
+
+
+# The limits of the run in progress, which the orchestrator sets from the pipeline's `result:` block. A
+# workflow run on its own, outside a pipeline, keeps the defaults.
+_LIMITS: ContextVar[TableLimits] = ContextVar("table_limits")
+_DEFAULT_LIMITS = TableLimits()
+
+
+def table_limits() -> TableLimits:
+    """The limits on the tables of items the run in progress builds."""
+    return _LIMITS.get(_DEFAULT_LIMITS)
+
+
+@contextmanager
+def limited_tables(limits: TableLimits) -> Iterator[None]:
+    """Build every table of items within *limits* until the block ends."""
+    token = _LIMITS.set(limits)
+    try:
+        yield
+    finally:
+        _LIMITS.reset(token)
+
 
 # A group's cell shows at most this many of its items.
 GROUP_SHOWN = 8
@@ -60,8 +91,9 @@ def groups_table(groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str
         return []
     # Stable, so groups of one size keep exact before near, and each kind its own order.
     ranked = sorted(groups, key=lambda group: -len(group[2]))
+    limits = table_limits()
     rows: list[dict[str, Cell]] = []
-    for kind, number, refs in ranked[:ROW_CAP]:
+    for kind, number, refs in ranked[: limits.rows]:
         items, shown = group_cells(refs)
         rows.append({"group": number, "kind": kind, "count": len(refs), "items": items, "image": shown})
     columns = [
@@ -71,11 +103,11 @@ def groups_table(groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str
         Column(key="items", header="Items", align="left"),
         Column(key="image", kind="image"),
     ]
-    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
-    if len(ranked) > ROW_CAP:
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+    if limits.rows is not None and len(ranked) > limits.rows:
         blocks.append(
             Paragraph(
-                text=f"{len(ranked):,} groups of {noun}; the {ROW_CAP:,} largest are listed, and every one is in "
+                text=f"{len(ranked):,} groups of {noun}; the {limits.rows:,} largest are listed, and every one is in "
                 "`output.raw`."
             )
         )
@@ -115,9 +147,10 @@ def uncovered_blocks(uncovered: Sequence[tuple[ItemRef, str | None, float | None
     if not uncovered:
         return []
     ranked = sorted(uncovered, key=lambda row: (-(row[2] or 0.0), row[0].index, row[0].target or 0))
+    limits = table_limits()
     rows: list[dict[str, Cell]] = [
         {"image": ref, "item": ref.index, "box": ref.target, "class": name, "distance": distance}
-        for ref, name, distance in ranked[:ROW_CAP]
+        for ref, name, distance in ranked[: limits.rows]
     ]
     columns = [
         Column(key="image", kind="image"),
@@ -134,12 +167,12 @@ def uncovered_blocks(uncovered: Sequence[tuple[ItemRef, str | None, float | None
         Paragraph(
             text="Farthest first, by each one's distance to its k-th nearest neighbour (k is `num_observations`)."
         ),
-        Table(columns=columns, rows=rows, preview=PREVIEW),
+        Table(columns=columns, rows=rows, preview=limits.preview),
     ]
-    if len(ranked) > ROW_CAP:
+    if limits.rows is not None and len(ranked) > limits.rows:
         blocks.append(
             Paragraph(
-                text=f"{len(ranked):,} {noun} uncovered; the {ROW_CAP:,} farthest are listed, and every one is in "
+                text=f"{len(ranked):,} {noun} uncovered; the {limits.rows:,} farthest are listed, and every one is in "
                 "`output.raw`."
             )
         )

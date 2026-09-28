@@ -47,6 +47,7 @@
 - Data coverage's `output.raw.coverage.uncovered` keeps each uncovered item, its box and class, and its distance
 - A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
 - The `result:` block also names the result files and picks their formats, detail, per-task split and text width
+- `result: max_rows:` and `preview_rows:` set a table of items' rows (500) and text preview (10); `-1` lifts a limit
 
 ### Changed
 

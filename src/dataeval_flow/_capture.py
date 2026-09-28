@@ -20,8 +20,10 @@ from dataeval_flow._preview import NotAnImageError, preview
 _logger = logging.getLogger(__name__)
 
 
-def references(blocks: Sequence[Block], limit: int) -> list[ItemRef]:
+def references(blocks: Sequence[Block], limit: int | None) -> list[ItemRef]:
     """The items the blocks' image columns name that get a thumbnail: at most *limit*, once each, in reading order.
+
+    ``None`` takes every item named.
 
     The limit is shared evenly between the top-level blocks that name items, a report's findings, and
     each finding's share between its tables in the same way; a share more than its items need goes to
@@ -29,8 +31,9 @@ def references(blocks: Sequence[Block], limit: int) -> list[ItemRef]:
     share keep their references, and just have no thumbnail.
     """
     findings = [[_named(table) for table in tables([block])] for block in blocks]
+    demands = [sum(map(len, named)) for named in findings]
     found: dict[ItemRef, None] = {}
-    for named, share in zip(findings, fair_shares([sum(map(len, f)) for f in findings], limit), strict=True):
+    for named, share in zip(findings, fair_shares(demands, sum(demands) if limit is None else limit), strict=True):
         for refs, part in zip(named, fair_shares([len(refs) for refs in named], share), strict=True):
             found.update(dict.fromkeys(refs[:part]))
     return list(found)
@@ -47,7 +50,7 @@ def capture(
     datasets: Mapping[str, Any],
     value_ranges: Mapping[str, tuple[float, float] | None],
     *,
-    limit: int,
+    limit: int | None,
 ) -> list[Asset]:
     """A thumbnail of each item the blocks name, at most *limit*, read from *datasets* by source name.
 

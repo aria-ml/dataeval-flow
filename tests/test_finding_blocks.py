@@ -5,9 +5,12 @@ import pytest
 from dataeval_flow._blocks import BulletList, Code, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.workflows import Finding
 from dataeval_flow.workflows._tables import (
+    TableLimits,
     group_cells,
     groups_table,
+    limited_tables,
     ranked_table,
+    table_limits,
     uncovered_blocks,
     unlabelled_blocks,
 )
@@ -179,3 +182,26 @@ class TestUncoveredBlocks:
 
     def test_no_items_is_no_section(self):
         assert uncovered_blocks([], "images") == []
+
+
+class TestTableLimits:
+    """A run's limits on per-item tables, which the orchestrator sets from the pipeline's ``result:`` block."""
+
+    _GROUPS = [("exact", n, _refs("s", n, n + 1000)) for n in range(3)]
+
+    def test_500_rows_previewing_10_outside_a_run(self):
+        assert table_limits() == TableLimits(rows=500, preview=10)
+
+    def test_a_run_s_limits_cap_the_rows_and_set_the_preview(self):
+        with limited_tables(TableLimits(rows=2, preview=1)):
+            table, note = groups_table(self._GROUPS, "images")
+        assert isinstance(table, Table)
+        assert (len(table.rows), table.preview) == (2, 1)
+        assert note == Paragraph(text="3 groups of images; the 2 largest are listed, and every one is in `output.raw`.")
+        assert table_limits() == TableLimits(), "the limits last only as long as the run"
+
+    def test_no_limit_lists_and_previews_every_row(self):
+        with limited_tables(TableLimits(rows=None, preview=None)):
+            (table,) = groups_table(self._GROUPS, "images")
+        assert isinstance(table, Table)
+        assert (len(table.rows), table.preview) == (3, None)

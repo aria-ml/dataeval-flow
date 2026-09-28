@@ -19,7 +19,7 @@ from dataeval_flow._blocks import (
 )
 from dataeval_flow._triage import TriageFinding
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP, group_cells
+from dataeval_flow.workflows._tables import group_cells, table_limits
 from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageRawOutput
 
 __all__ = ["Places", "build_findings", "minority_kind", "summarize"]
@@ -230,8 +230,9 @@ def _places_blocks(places: Sequence[tuple[str, int, Sequence[ItemRef]]], kind: s
 
     At most 500 values, with a paragraph counting the rest.
     """
+    limits = table_limits()
     rows: list[dict[str, Cell]] = []
-    for value, count, refs in places[:ROW_CAP]:
+    for value, count, refs in places[: limits.rows]:
         items, shown = group_cells(refs, total=count)
         rows.append({"value": value, "count": count, "items": items, "image": shown})
     columns = [
@@ -242,11 +243,11 @@ def _places_blocks(places: Sequence[tuple[str, int, Sequence[ItemRef]]], kind: s
     ]
     blocks: list[Block] = [
         Paragraph(text=f"Where the values that read as {kind} are:"),
-        Table(columns=columns, rows=rows, preview=PREVIEW),
+        Table(columns=columns, rows=rows, preview=limits.preview),
     ]
-    if len(places) > ROW_CAP:
+    if limits.rows is not None and len(places) > limits.rows:
         blocks.append(
-            Paragraph(text=f"{len(places):,} values read as {kind}; the {ROW_CAP:,} on the most rows are listed.")
+            Paragraph(text=f"{len(places):,} values read as {kind}; the {limits.rows:,} on the most rows are listed.")
         )
     return blocks
 

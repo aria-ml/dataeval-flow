@@ -598,6 +598,9 @@ result:
   detail: summary           # the text and HTML files' detail: full or summary (default: full)
   per_task: true            # one set of files per task: audit-<task>.json, … (default: false)
   width: 100                # the text report's width, at least 40 (default: 80)
+  max_images: 100           # thumbnails per task's result; 0: none, -1: every item named (default: 200)
+  max_rows: 1000            # rows a table of items lists; -1: every row (default: 500)
+  preview_rows: 20          # rows of it the text report shows; -1: every row (default: 10)
 ```
 
 `--report-width` and `DATAEVAL_REPORT_WIDTH` override `width`. The console keeps printing the summary, or the full
