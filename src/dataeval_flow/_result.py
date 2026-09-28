@@ -395,8 +395,9 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     def to_html(self, *, detailed: bool = True) -> str:
         """Return the report as one self-contained HTML page, drawn from the blocks the text report draws.
 
-        The page loads nothing, neither script nor URL, so it opens offline and prints (or saves as
-        PDF) the way it shows.
+        The page loads nothing from a URL. Its one inline script only adds sorting, filtering and
+        expand-all to a page complete without it, so it opens offline, reads the same with scripts
+        blocked, and prints (or saves as PDF) the way it shows.
 
         Parameters
         ----------

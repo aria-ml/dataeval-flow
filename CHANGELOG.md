@@ -38,6 +38,8 @@
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
+- `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
+- The HTML report shows a card per finding linked from its summary, sortable and filterable tables, and dark mode
 
 ### Changed
 
@@ -78,6 +80,9 @@
 - `ResultMetadata` is imported from `dataeval_flow`; the config mixins from `dataeval_flow.config`
 - A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
 - `Finding` drops `report_type` and `data`, and rejects unknown fields; `brief` and typed report `blocks` hold the evidence
+- Data cleaning lists each flagged image and box with every metric that flagged it, then each metric's limits
+- Data analysis keeps its flagged values in `image_quality.outliers` and lists every flagged image by split
+- The HTML report draws a bar chart's thresholds across its bars, labelled on a scale, instead of in a caption
 - The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
 
 ### Fixed

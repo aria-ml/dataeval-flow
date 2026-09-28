@@ -101,8 +101,8 @@ _FLAT = [1] * 40
 
 def _plot(
     low: float, q1: float, median: float, q3: float, high: float, histogram: list[int] = _FLAT, room: int = 80
-) -> list[str] | None:
-    return box_plot(histogram, low, q1, median, q3, high, room)
+) -> list[str]:
+    return box_plot(histogram, low, q1, median, q3, high, room) or [""]
 
 
 class TestBoxPlot:
@@ -230,7 +230,7 @@ class TestBoxPlot:
         assert {len(line) for line in lines} == {drawn}
 
     def test_an_empty_histogram_draws_nothing(self):
-        assert _plot(0.0, 1.0, 2.0, 3.0, 4.0, histogram=[0, 0]) is None
+        assert _plot(0.0, 1.0, 2.0, 3.0, 4.0, histogram=[0, 0]) == [""]
 
 
 class TestRenderConfigSection:

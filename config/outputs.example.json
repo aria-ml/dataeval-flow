@@ -2,7 +2,7 @@
   "kind": "workflow",
   "metadata": {
     "version": "1.0",
-    "timestamp": "2026-09-26T18:54:40.052342Z",
+    "timestamp": "2026-09-27T15:19:58.473104Z",
     "dataset_id": "dataset",
     "label_source": "protocol",
     "model_id": null,
@@ -65,8 +65,8 @@
       }
     },
     "tool": "dataeval-flow",
-    "tool_version": "0.2.3.dev261+g2f37e9a74",
-    "execution_time_s": 0.072,
+    "tool_version": "0.2.3.dev238+g115b0f449",
+    "execution_time_s": 0.081,
     "metadata_binning": {
       "auto_bin_method": "uniform_width",
       "encoding_digest": "01e7b720ff566d53",
@@ -131,47 +131,92 @@
         {
           "item_index": 7,
           "metric_name": "brightness",
-          "metric_value": 255.0
+          "metric_value": 255.0,
+          "direction": "upper",
+          "bound": 157.93633938921982,
+          "percentile": 98.75,
+          "population_mean": 67.4,
+          "population_std": 30.178779796406612
         },
         {
           "item_index": 7,
           "metric_name": "contrast",
-          "metric_value": 0.0
+          "metric_value": 0.0,
+          "direction": "lower",
+          "bound": 1.0101296115491878,
+          "percentile": 1.25,
+          "population_mean": 1.9511721312999726,
+          "population_std": 0.3136808399169283
         },
         {
           "item_index": 7,
           "metric_name": "darkness",
-          "metric_value": 255.0
+          "metric_value": 255.0,
+          "direction": "upper",
+          "bound": 224.41255580352308,
+          "percentile": 98.75,
+          "population_mean": 192.2125,
+          "population_std": 10.733351934507692
         },
         {
           "item_index": 7,
           "metric_name": "entropy",
-          "metric_value": 0.0
+          "metric_value": 0.0,
+          "direction": "lower",
+          "bound": 2.714849633076877,
+          "percentile": 1.25,
+          "population_mean": 5.225540769100189,
+          "population_std": 0.8368970453411039
         },
         {
           "item_index": 7,
           "metric_name": "kurtosis",
-          "metric_value": 0.0
+          "metric_value": 0.0,
+          "direction": "upper",
+          "bound": -0.5967598668390077,
+          "percentile": 98.75,
+          "population_mean": -1.1732185542583466,
+          "population_std": 0.1921528958064463
         },
         {
           "item_index": 7,
           "metric_name": "mean",
-          "metric_value": 255.0
+          "metric_value": 255.0,
+          "direction": "upper",
+          "bound": 190.5180498066442,
+          "percentile": 98.75,
+          "population_mean": 130.1447587966919,
+          "population_std": 20.124430336650768
         },
         {
           "item_index": 7,
           "metric_name": "sharpness",
-          "metric_value": 0.0
+          "metric_value": 0.0,
+          "direction": "lower",
+          "bound": 55.95073369952691,
+          "percentile": 1.25,
+          "population_mean": 108.21843948364258,
+          "population_std": 17.422568594705226
         },
         {
           "item_index": 7,
           "metric_name": "std",
-          "metric_value": 0.0
+          "metric_value": 0.0,
+          "direction": "lower",
+          "bound": 37.165460377415606,
+          "percentile": 1.25,
+          "population_mean": 72.0215253829956,
+          "population_std": 11.618688335193333
         },
         {
           "item_index": 7,
           "metric_name": "var",
-          "metric_value": 0.0
+          "metric_value": 0.0,
+          "direction": "lower",
+          "bound": 2690.423870992224,
+          "percentile": 1.25,
+          "population_mean": 5322.094128417969,
+          "population_std": 877.2234191419152
         }
       ],
       "count": 9
@@ -212,8 +257,122 @@
         "severity": "info",
         "title": "Image Outliers",
         "brief": "1 images (2.5%)",
-        "description": "1 images (2.5%) flagged as outliers.",
+        "description": "1 images (2.5%) flagged as outliers. Limits: the mean \u00b1 3 standard deviations (z-score).",
         "blocks": [
+          {
+            "type": "table",
+            "columns": [
+              {
+                "key": "item",
+                "header": "Item"
+              },
+              {
+                "key": "class",
+                "header": "Class",
+                "align": "left"
+              },
+              {
+                "key": "flags",
+                "header": "Flags"
+              },
+              {
+                "key": "by",
+                "header": "Flagged by",
+                "kind": "flags"
+              }
+            ],
+            "rows": [
+              {
+                "item": 7,
+                "class": "b",
+                "flags": 9,
+                "by": [
+                  {
+                    "name": "brightness",
+                    "value": 255.0,
+                    "direction": "upper",
+                    "bound": 157.93633938921982,
+                    "percentile": 98.75,
+                    "mean": 67.4,
+                    "std": 30.178779796406612
+                  },
+                  {
+                    "name": "contrast",
+                    "value": 0.0,
+                    "direction": "lower",
+                    "bound": 1.0101296115491878,
+                    "percentile": 1.25,
+                    "mean": 1.9511721312999726,
+                    "std": 0.3136808399169283
+                  },
+                  {
+                    "name": "darkness",
+                    "value": 255.0,
+                    "direction": "upper",
+                    "bound": 224.41255580352308,
+                    "percentile": 98.75,
+                    "mean": 192.2125,
+                    "std": 10.733351934507692
+                  },
+                  {
+                    "name": "entropy",
+                    "value": 0.0,
+                    "direction": "lower",
+                    "bound": 2.714849633076877,
+                    "percentile": 1.25,
+                    "mean": 5.225540769100189,
+                    "std": 0.8368970453411039
+                  },
+                  {
+                    "name": "kurtosis",
+                    "value": 0.0,
+                    "direction": "upper",
+                    "bound": -0.5967598668390077,
+                    "percentile": 98.75,
+                    "mean": -1.1732185542583466,
+                    "std": 0.1921528958064463
+                  },
+                  {
+                    "name": "mean",
+                    "value": 255.0,
+                    "direction": "upper",
+                    "bound": 190.5180498066442,
+                    "percentile": 98.75,
+                    "mean": 130.1447587966919,
+                    "std": 20.124430336650768
+                  },
+                  {
+                    "name": "sharpness",
+                    "value": 0.0,
+                    "direction": "lower",
+                    "bound": 55.95073369952691,
+                    "percentile": 1.25,
+                    "mean": 108.21843948364258,
+                    "std": 17.422568594705226
+                  },
+                  {
+                    "name": "std",
+                    "value": 0.0,
+                    "direction": "lower",
+                    "bound": 37.165460377415606,
+                    "percentile": 1.25,
+                    "mean": 72.0215253829956,
+                    "std": 11.618688335193333
+                  },
+                  {
+                    "name": "var",
+                    "value": 0.0,
+                    "direction": "lower",
+                    "bound": 2690.423870992224,
+                    "percentile": 1.25,
+                    "mean": 5322.094128417969,
+                    "std": 877.2234191419152
+                  }
+                ]
+              }
+            ],
+            "preview": 10
+          },
           {
             "type": "table",
             "columns": [
@@ -224,50 +383,102 @@
               {
                 "key": "count",
                 "header": "Count"
+              },
+              {
+                "key": "lower",
+                "header": "Lower",
+                "format": "{:.4g}"
+              },
+              {
+                "key": "upper",
+                "header": "Upper",
+                "format": "{:.4g}"
+              },
+              {
+                "key": "mean",
+                "header": "Mean",
+                "format": "{:.4g}"
+              },
+              {
+                "key": "std",
+                "header": "Std",
+                "format": "{:.4g}"
               }
             ],
             "rows": [
               {
                 "metric": "brightness",
-                "count": 1
+                "count": 1,
+                "lower": null,
+                "upper": 157.936339389,
+                "mean": 67.4,
+                "std": 30.178779796
               },
               {
                 "metric": "contrast",
-                "count": 1
+                "count": 1,
+                "lower": 1.010129612,
+                "upper": null,
+                "mean": 1.951172131,
+                "std": 0.31368084
               },
               {
                 "metric": "darkness",
-                "count": 1
+                "count": 1,
+                "lower": null,
+                "upper": 224.412555804,
+                "mean": 192.2125,
+                "std": 10.733351935
               },
               {
                 "metric": "entropy",
-                "count": 1
+                "count": 1,
+                "lower": 2.714849633,
+                "upper": null,
+                "mean": 5.225540769,
+                "std": 0.836897045
               },
               {
                 "metric": "kurtosis",
-                "count": 1
+                "count": 1,
+                "lower": null,
+                "upper": -0.596759867,
+                "mean": -1.173218554,
+                "std": 0.192152896
               },
               {
                 "metric": "mean",
-                "count": 1
+                "count": 1,
+                "lower": null,
+                "upper": 190.518049807,
+                "mean": 130.144758797,
+                "std": 20.124430337
               },
               {
                 "metric": "sharpness",
-                "count": 1
+                "count": 1,
+                "lower": 55.9507337,
+                "upper": null,
+                "mean": 108.218439484,
+                "std": 17.422568595
               },
               {
                 "metric": "std",
-                "count": 1
+                "count": 1,
+                "lower": 37.165460377,
+                "upper": null,
+                "mean": 72.021525383,
+                "std": 11.618688335
               },
               {
                 "metric": "var",
-                "count": 1
+                "count": 1,
+                "lower": 2690.423870992,
+                "upper": null,
+                "mean": 5322.094128418,
+                "std": 877.223419142
               }
             ]
-          },
-          {
-            "type": "paragraph",
-            "text": "(Some images trigger multiple metrics.)"
           },
           {
             "type": "fields",

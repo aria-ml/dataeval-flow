@@ -37,6 +37,9 @@ The report is laid out in this order:
 The report is 80 columns wide. Pass `width=` (at least 40) to draw it narrower or wider: prose wraps, and charts
 shrink to fit. From the CLI, `--report-width` sets it, or the `DATAEVAL_REPORT_WIDTH` environment variable.
 
+A long table, such as one row per flagged image, shows its first rows and a line counting the rest. Every row is in
+the HTML report and in the JSON.
+
 ### Severity and the health line
 
 Each finding carries a severity of `ok`, `info`, or `warning`. A finding becomes a `warning` when it breaches its
@@ -77,11 +80,31 @@ from pathlib import Path
 Path("report.html").write_text(result.to_html(), encoding="utf-8")
 ```
 
-The page holds everything the text report holds. Tables are HTML tables whose cells keep their raw values, bars
-are drawn in the table cells, histograms and sparklines as SVG, and each finding's severity shows as a badge. It
-loads nothing, neither script nor font nor URL, so it opens offline, attaches to a ticket as it is, and prints (or
-saves as PDF from the browser's print dialog) the way it shows. The page is UTF-8, so write it with
-`encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every task's report on one page.
+The page holds everything the text report holds, laid out for reading on screen:
+
+- The header gives the report's verdict, and the summary links each finding to its card. A page holding several
+  tasks' reports lists them first.
+- Each finding is a card that opens and closes, with *Expand all* and *Collapse all* above them.
+- A table's headers sort it on a click, and a table of more than ten rows gets a box that filters its rows. Cells
+  keep their raw values, so a column of numbers sorts as numbers, and a column of flags by how many each row holds.
+- An outlier's flags show as tags, each reading its value against the limit it crossed, such as
+  `brightness 0.99 > 0.84`, and listed by name. Hovering a tag, or reaching it with the keyboard, shows where the
+  value ranks in its population and the population's mean and standard deviation.
+- A threshold is a dashed line across a chart's bars, labelled on a scale below the table.
+- Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
+
+It loads nothing, neither font nor URL. One inline script adds the sorting, the filter boxes and the expand-all
+buttons. With scripts blocked, as some mail viewers and locked-down browsers block them, the page reads the same
+without those controls.
+
+The page prints (or saves as PDF from the browser's print dialog) in the light palette. Before it prints, its script
+opens every finding and shows every row a filter hid. With scripts blocked, each finding prints as the reader left
+it, open unless they closed it. Hover cards don't print. In data cleaning, each outlier finding's limits table gives
+each metric's limits and its population's mean and standard deviation, and says `varies` where its flags' figures
+differ. Percentiles, and data analysis's populations, show only in the hover cards and the JSON.
+
+The page is UTF-8, so write it with `encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every
+task's report on one page.
 
 ## The result envelope
 
@@ -155,7 +178,7 @@ defaults shown in parentheses:
 | `paragraph` | `text`: prose, where a backtick span is inline code and `\n` a line break |
 | `bullet_list` | `items`: strings |
 | `fields` | `items`: `[label, value]` pairs, in order; a value is a string, number, boolean or `null` |
-| `table` | `columns` and `rows`, below |
+| `table` | `columns` and `rows`, below; `preview` (`null`) |
 | `proportion` | `parts`: `[label, count]` pairs making up one whole |
 | `distribution` | `histogram`: counts per bin, in order; `quantiles` (`null`): `low`, `q1`, `median`, `q3`, `high` |
 | `code` | `text`; `language` (`null`) |
@@ -168,15 +191,37 @@ A table's `rows` are objects keyed by each column's `key`. A column has:
 | --- | --- |
 | `key` | The row key it reads. Two columns may share one, such as a count and its bar. |
 | `header` (`""`) | The column's heading. |
-| `kind` (`"text"`) | `text`, `bar`, `stacked` or `sparkline`. |
+| `kind` (`"text"`) | `text`, `bar`, `stacked`, `sparkline` or `flags`. |
 | `align` (`null`) | `left` or `right`; `null` puts the first column left and the rest right. |
 | `format` (`null`) | A Python `str.format` template for a numeric cell, such as `"{:.1f}%"`. |
 | `series` (`[]`) | A stacked column's segment names, in cell order. |
 | `markers` (`[]`) | A bar column's labelled reference values, `[name, value]`, such as drift thresholds. |
 
-A cell is a string, number, boolean or `null`, or, in a `stacked` or `sparkline` column, a list of numbers. A
-number stays a number, and its column's `format` says how it displays, so a reader can sort and chart it. A cell
-is a string only when it combines values, such as `"12 (30%)"`.
+A table's `preview` says how many rows a renderer with little room, such as the text report, shows before a line
+counting the rest. `null` shows every row.
+
+A cell is a string, number, boolean or `null`. In a `stacked` or `sparkline` column it is a list of numbers, and in
+a `flags` column a list of flags. A number stays a number, and its column's `format` says how it displays, so a
+reader can sort and chart it. A cell is a string only when it combines values, such as `"12 (30%)"`.
+
+A flag is one measurement against the population it was judged in, such as a metric that marked an image an outlier:
+
+| Field | Holds |
+| --- | --- |
+| `name` | What was measured, such as `brightness`. |
+| `value` | This item's value. |
+| `direction` | `upper` or `lower`: which limit the value crossed. |
+| `bound` | The limit it crossed, or `null` when unknown. |
+| `percentile` | Where the value ranks in its population, from 0 to 100, or `null` when unknown. |
+| `mean`, `std` | The population's mean and standard deviation, each `null` when unknown. |
+
+A figure is unknown when the run didn't record it, as a DataEval that predates these figures doesn't. A flag whose
+`bound` is `null` had its `direction` go unrecorded too, so don't read it. The reports show such a flag as its value
+alone, and the run logs a warning to upgrade DataEval.
+
+The reports show a flag as its value against its bound, `>` for an upper limit and `<` for a lower, and list a
+cell's flags by name. They don't rank one flag above another: a limit may be a plain value rather than a percentile,
+and a value further past its limit isn't a worse item for it.
 
 Flow defines the block types, and a later version may add one. A reader that meets a `type` it doesn't know should
 show a one-line placeholder naming it and carry on, rather than fail, so an older reader keeps working on a newer
