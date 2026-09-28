@@ -14,6 +14,7 @@ An evaluator's `type` is DataEval's module and class, in kebab case. To run one,
 | `bias.parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `quality.duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `quality.outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
+| `scope.representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -137,11 +138,33 @@ names. Configured by {py:class}`~dataeval_flow.evaluators.quality.OutliersConfig
 Output: a table with one row per flagged statistic (`item_index`, `metric_name`,
 `metric_value`, and `target_index` for per-target results).
 
+## Scope
+
+The scope evaluators read one source's labels, and, for coverage and prioritization, its embeddings through the
+task's extractor. `scope.representation` is explained in DataEval's
+[Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html), and the classes are
+documented in the
+[DataEval `dataeval.scope` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/scope/index.html).
+
+### `scope.representation`
+
+Which of an ontology's classes fall short of their share of the source, and what to acquire. It needs a dataset
+with labels, and fails, naming the source, without them. Configured by
+{py:class}`~dataeval_flow.evaluators.scope.RepresentationConfig`; runs `dataeval.scope.Representation`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `ontology` | (DataEval Flow) a name under `ontologies:`, an RDF file, or an inline hierarchy; becomes `Representation(ontology)` | a flat ontology synthesized from the dataset's `index2label` |
+| `expected` | `expected`: class name to its minimum share, a fraction | a uniform share for every leaf |
+
+Output: a table, the worklist, with one row per concept short of its target (`concept`, `label`, `parent`,
+`action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, and the `violations` and
+`dark_branches` tables.
+
 ## Planned
 
 These follow in later releases, under the same rules:
 
-- `scope.representation`: reads labels against an ontology
 - `scope.coverage`, `scope.prioritize`: read embeddings
 - `shift.drift-univariate`, `shift.drift-mmd`, `shift.drift-kneighbors`,
   `shift.drift-wasserstein`, `shift.drift-domain-classifier`: read reference and

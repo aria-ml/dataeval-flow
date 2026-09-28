@@ -61,6 +61,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     "bias.balance": frozenset({"plot_type"}),
     "bias.diversity": frozenset({"plot_type"}),
     "bias.parity": frozenset(),
+    "scope.representation": frozenset(),
 }
 
 

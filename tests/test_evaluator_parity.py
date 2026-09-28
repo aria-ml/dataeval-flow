@@ -26,6 +26,7 @@ _WIRING: dict[str, frozenset[str]] = {
     "bias.balance": frozenset(),
     "bias.diversity": frozenset(),
     "bias.parity": frozenset(),
+    "scope.representation": frozenset(),
 }
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.

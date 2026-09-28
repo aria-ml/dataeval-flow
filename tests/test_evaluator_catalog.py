@@ -20,6 +20,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "bias.balance": ("1", "refused"),
     "bias.diversity": ("1", "refused"),
     "bias.parity": ("1", "refused"),
+    "scope.representation": ("1", "refused"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

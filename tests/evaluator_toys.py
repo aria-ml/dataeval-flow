@@ -124,6 +124,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "bias.balance": lambda count: (ToyFactors(count=count), None),
     "bias.diversity": lambda count: (ToyFactors(count=count), None),
     "bias.parity": lambda count: (ToyFactors(count=count), None),
+    "scope.representation": lambda count: (ToyImages(count=count), None),
 }
 
 

@@ -59,6 +59,8 @@
   `annotation_divergences` and `factor_cardinality` under `extras`
 - `bias.balance`, `bias.diversity` and `bias.parity` evaluators, reading one source's metadata under its
   `metadata:` policy
+- `scope.representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
+  `index2label`
 
 ### Changed
 

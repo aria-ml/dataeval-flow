@@ -5675,6 +5675,61 @@
       "title": "RemapRuleConfig",
       "type": "object"
     },
+    "RepresentationConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.representation``, DataEval's Representation.\n\nCounts the source's class labels against an ontology's leaves, and lists what to acquire for every leaf to reach\nits expected share. Needs a dataset with labels. With no ``ontology``, a flat one is synthesized from the\ndataset's ``index2label``, which can only name the classes the dataset declares.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.representation`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: representation\n        type: scope.representation\n        ontology: vehicles\n        expected: {truck: 0.2}",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.representation",
+          "default": "scope.representation",
+          "description": "The evaluator type this entry configures: `scope.representation`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The label space to count against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children. Unset synthesizes a flat ontology from the dataset's `index2label`, which can only name the classes the dataset declares.",
+          "title": "Ontology"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. Named classes take this floor as their target in place of the uniform share, and are checked in `violations`; the others keep the uniform target. Unset expects a uniform share for every leaf.",
+          "title": "Expected"
+        }
+      },
+      "title": "RepresentationConfig",
+      "type": "object"
+    },
     "RescaleCorrectionConfig": {
       "additionalProperties": false,
       "description": "Convert values over a range by an affine rule \u2014 the units case.\n\nYAML example::\n\n    corrections:\n      - kind: rescale\n        factor: altitude\n        over: [0, 1000]\n        multiply: 0.3048",
@@ -6748,6 +6803,9 @@
               },
               {
                 "$ref": "#/$defs/OutliersConfig"
+              },
+              {
+                "$ref": "#/$defs/RepresentationConfig"
               }
             ]
           },

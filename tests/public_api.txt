@@ -76,6 +76,9 @@ dataeval_flow.evaluators.quality:OutliersConfig
 dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
 dataeval_flow.evaluators.quality:ThresholdSpec
+dataeval_flow.evaluators.scope:RepresentationConfig
+dataeval_flow.evaluators.scope:RepresentationEvaluator
+dataeval_flow.evaluators.scope:RepresentationResult
 dataeval_flow.workflows:DatasetContext
 dataeval_flow.workflows:Finding
 dataeval_flow.workflows:ResolvedOntology

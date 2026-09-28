@@ -3,6 +3,7 @@
 import dataeval_flow.evaluators
 import dataeval_flow.evaluators.bias
 import dataeval_flow.evaluators.quality
+import dataeval_flow.evaluators.scope
 
 
 def test_the_evaluator_framework_is_exported():
@@ -29,3 +30,10 @@ def test_the_bias_evaluators_are_exported():
         for suffix in ("Config", "Evaluator", "Result"):
             assert f"{kind}{suffix}" in dataeval_flow.evaluators.bias.__all__
             assert getattr(dataeval_flow.evaluators.bias, f"{kind}{suffix}")
+
+
+def test_the_scope_evaluators_are_exported():
+    for kind in ("Representation",):
+        for suffix in ("Config", "Evaluator", "Result"):
+            assert f"{kind}{suffix}" in dataeval_flow.evaluators.scope.__all__
+            assert getattr(dataeval_flow.evaluators.scope, f"{kind}{suffix}")
