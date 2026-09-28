@@ -90,6 +90,26 @@ class TestReport:
         assert "15 values" in text
         assert "… and 5 more" in text
 
+    def test_extras_render_by_shape(self):
+        output = {**_table(1), "extras": {"coverage_radius": 0.5, "uncovered_indices": list(range(15))}}
+        text = _result(output).report(detailed=False)
+        assert "Extras" in text
+        assert "coverage_radius: 0.5" in text
+        assert "… and 5 more" in text
+
+    def test_a_table_among_the_extras_is_its_own_section(self):
+        output = {**_table(1), "extras": {"violations": _table(2)}}
+        lines = [line.strip() for line in _result(output).report().splitlines()]
+        assert "violations" in lines
+
+    def test_a_long_list_in_a_mapping_is_cut_on_the_console(self):
+        output = {"shape": "mapping", "data": {"is_ood": [False] * 40}}
+        assert "… and 30 more" in _result(output).report(detailed=False)
+
+    def test_the_detailed_form_shows_a_long_list_whole(self):
+        output = {"shape": "mapping", "data": {"is_ood": [False] * 40}}
+        assert "… and 30 more" not in _result(output).report(detailed=True)
+
 
 class TestRenderResultBody:
     def test_a_success_renders_its_output(self):

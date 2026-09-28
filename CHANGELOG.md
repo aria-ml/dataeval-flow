@@ -52,6 +52,8 @@
 - `junit` and `markdown` formats: a JUnit report for CI test views and a Markdown summary, both naming failed tasks
 - Evaluators can read `metadata`, `labels` and `embeddings` inputs, and the task's resolved `ontology`, on
   `EvaluatorInputs`
+- `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` by `to_dict()`
+  and `export()` and shown in reports
 
 ### Changed
 
@@ -104,6 +106,8 @@
 - Data cleaning lists its duplicate groups with their items, largest first, and duplicate boxes on their own
 - OOD detection lists its samples in tables, naming each in its own test source, rather than as bullets
 - Pillow (`>=12.2.0`) is a core dependency, to encode thumbnails
+- An evaluator report's console form cuts a list of more than ten values inside its output to the first ten and a count;
+  `-v` and `result.txt` show it whole
 
 ### Fixed
 

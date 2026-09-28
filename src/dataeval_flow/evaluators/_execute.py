@@ -52,7 +52,7 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
     try:
         inputs, datasets = _prepare(context, config)
         output = evaluator.run(config, inputs)
-        serialized = serialize_output(output)
+        serialized = serialize_output(output, extras=evaluator.output_extras)
         # Recording the output reads its `meta()`, which an output that is not DataEval's may lack or break.
         metadata = EvaluatorMetadata(evaluator=evaluator.name, dataeval=DataEvalExecution.from_meta(output.meta()))
         single = len(datasets) == 1

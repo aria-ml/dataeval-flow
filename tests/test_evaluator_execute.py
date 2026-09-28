@@ -120,6 +120,22 @@ class _Boom(_StatNames):
         raise RuntimeError("boom")
 
 
+class _RadiusOutput(DataFrameOutput):
+    """A table with one result outside it, as `CoverageOutput` keeps its radius."""
+
+    def __init__(self, frame: pl.DataFrame, radius: float) -> None:
+        super().__init__(frame)
+        self.radius = radius
+
+
+class _Radius(_StatNames):
+    name: ClassVar[str] = "test.radius"
+    output_extras: ClassVar[tuple[str, ...]] = ("radius",)
+
+    def run(self, config: _HashParams, inputs: Sequence[EvaluatorInputs]) -> DataFrameOutput:
+        return _RadiusOutput(_stat_names(inputs).data(), radius=0.5)
+
+
 class _NeedsMetadata(Evaluator[_MetadataParams, DataFrameOutput]):
     name: ClassVar[str] = "test.metadata"
     description: ClassVar[str] = "Reads metadata"
@@ -242,6 +258,12 @@ class TestExecute:
             execute(_StatNames(), _context("src", cache=cache), _HashParams())
             execute(_StatNames(), _context("src", cache=cache), _HashParams())
         assert compute.call_count == 1
+
+    def test_the_declared_extras_are_written_and_reported(self):
+        result = execute(_Radius(), _context("src"), _HashParams())
+        assert result.success, result.errors
+        assert output_json(result)["extras"] == {"radius": 0.5}
+        assert "radius: 0.5" in result.report()
 
 
 class TestRegistry:

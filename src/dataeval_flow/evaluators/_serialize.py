@@ -1,7 +1,7 @@
 """DataEval output to JSON: a table, a mapping or an array, exactly as DataEval returned it.
 
-Only ``data()`` is serialized. Attributes that echo the inputs back (``calculation_results``,
-``cluster_result``) never are.
+Only ``data()``, and the attributes an evaluator names as its extras, are serialized. Attributes that echo the
+inputs back (``calculation_results``, ``cluster_result``) never are.
 """
 
 __all__ = ["serialize_output"]
@@ -22,25 +22,35 @@ if TYPE_CHECKING:
     from dataeval.types import Output
 
 
-def serialize_output(output: "Output[Any]") -> dict[str, Any]:
-    """Serialize a DataEval output by the shape of its ``data()``.
+def serialize_output(output: "Output[Any]", extras: Sequence[str] = ()) -> dict[str, Any]:
+    """Serialize a DataEval output by the shape of its ``data()``, with the attributes `extras` names beside it.
 
     Parameters
     ----------
     output : Output
         What a DataEval evaluator returned.
+    extras : Sequence[str], optional
+        Attributes of `output` that its ``data()`` leaves out, written under ``"extras"`` in this order; an attribute
+        that is ``None`` is written as ``None``. Nothing is added when it is empty.
 
     Returns
     -------
     dict
         ``{"shape": "table", "columns", "rows"}``, ``{"shape": "mapping", "data"}`` or
-        ``{"shape": "array", "data"}``.
+        ``{"shape": "array", "data"}``, plus ``"extras"`` when `extras` names any.
 
     Raises
     ------
     TypeError
-        When ``data()`` returns none of those shapes.
+        When ``data()`` returns none of those shapes, or an extra cannot be made JSON.
     """
+    serialized = _shaped(output)
+    if extras:
+        serialized["extras"] = {name: _plain(getattr(output, name)) for name in extras}
+    return serialized
+
+
+def _shaped(output: "Output[Any]") -> dict[str, Any]:
     data = output.data()
     if isinstance(data, pl.DataFrame):
         return _table(data)

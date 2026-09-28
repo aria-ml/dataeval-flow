@@ -35,8 +35,12 @@ def serialized_of(result: "EvaluatorResult[Any]") -> dict[str, Any]:
 
 
 def output_blocks(output: dict[str, Any], *, detailed: bool) -> list[Block]:
-    """Serialized DataEval output under an ``OUTPUT`` section."""
-    return [Section(title="Output", brief=_brief(output) or None, blocks=_shape_blocks(output, detailed=detailed))]
+    """Serialized DataEval output under an ``OUTPUT`` section, its extras in a section of their own."""
+    blocks = _shape_blocks(output, detailed=detailed)
+    extras = output.get("extras")
+    if extras:
+        blocks.append(Section(title="Extras", blocks=_mapping_blocks(extras, detailed=detailed)))
+    return [Section(title="Output", brief=_brief(output) or None, blocks=blocks)]
 
 
 def table_blocks(columns: Sequence[str], rows: Sequence[dict[str, Any]], *, limit: int | None) -> list[Block]:
@@ -83,14 +87,14 @@ def _mapping_blocks(data: dict[str, Any], *, detailed: bool) -> list[Block]:
     for key, value in data.items():
         if isinstance(value, dict) and value.get("shape") == "table":
             if pending:
-                blocks.append(Tree(value=pending))
+                blocks.append(Tree(value=pending if detailed else _elided(pending)))
                 pending = {}
             limit = None if detailed else ROW_LIMIT
             blocks.append(Section(title=key, blocks=table_blocks(value["columns"], value["rows"], limit=limit)))
         else:
             pending[key] = value
     if pending:
-        blocks.append(Tree(value=pending))
+        blocks.append(Tree(value=pending if detailed else _elided(pending)))
     return blocks
 
 
@@ -98,6 +102,16 @@ def _array(values: Sequence[Any]) -> Paragraph:
     head = flow_repr(list(values[:_ARRAY_HEAD]))
     more = f" … and {len(values) - _ARRAY_HEAD} more" if len(values) > _ARRAY_HEAD else ""
     return Paragraph(text=f"{len(values)} values: {head}{more}")
+
+
+def _elided(value: Any) -> Any:
+    """`value` with every list longer than `_ARRAY_HEAD` cut to its head and a count of the rest, at any depth."""
+    if isinstance(value, dict):
+        return {key: _elided(item) for key, item in value.items()}
+    if isinstance(value, list):
+        head = [_elided(item) for item in value[:_ARRAY_HEAD]]
+        return [*head, f"… and {len(value) - _ARRAY_HEAD} more"] if len(value) > _ARRAY_HEAD else head
+    return value
 
 
 def _cell_repr(value: Any) -> str:
