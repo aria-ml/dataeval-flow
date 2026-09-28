@@ -41,7 +41,7 @@
 #
 # - `data-cleaning` on the reference campaigns, whose outlier findings list every flagged image and every flagged
 #   bounding box with the metrics that flagged it;
-# - `drift-monitoring` of the operational archive against the reference, in chunks of 200 frames, so each chunk's
+# - `drift-monitoring` of the operational archive against the reference, in chunks of 50 frames, so each chunk's
 #   distance is drawn against the drift thresholds.
 #
 # {doc}`Monitor incoming data for drift <drift_monitoring>` walks through the same drift configuration in depth.
@@ -101,7 +101,9 @@ config = PipelineConfig(
         DriftMonitoringConfig(
             name="drift",
             detectors=[
-                DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
+                DriftDetectorKNeighbors(
+                    k=10, chunking=ChunkingConfig(chunk_size=50, incomplete="append", threshold_multiplier=4.0)
+                ),
             ],
         ),
     ],
@@ -190,8 +192,8 @@ show(clean.to_html())
 #
 # A bar chart with thresholds draws each one as a dashed line across the bars, and labels it on a scale below the
 # table. In the drift report, each chunk's distance is a bar, and the two dashed lines are the lower and upper drift
-# thresholds: a chunk whose distance falls outside them counts as drifted. No chunk drifted, so the finding is `ok`
-# and its card starts closed; open *K-Neighbors* to see the chart.
+# thresholds: a chunk whose distance falls outside them counts as drifted. The last two chunks drifted, one after
+# the other, so the finding is a warning and its card starts open.
 
 # %% tags=["remove_input"]
 show(drift.to_html())

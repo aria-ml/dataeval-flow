@@ -44,6 +44,7 @@
 #
 # - How to configure and execute the `drift-monitoring` workflow with `run_task()`.
 # - How to combine chunked and non-chunked detectors in a single pipeline.
+# - How the size of the reference limits the chunk size.
 # - How to interpret formatted drift reports and chunked metric trends.
 # - How K-Neighbors, MMD, and Univariate CVM detectors evaluate distribution shift.
 # - How feature representations influence drift sensitivity.
@@ -76,8 +77,8 @@
 #
 # :::{important}
 # Both splits are exported in chronological collection order. In the operational
-# archive, 345 frames from 2010 appear first, followed by 564 frames from 2018.
-# Sequential chunk boundaries align with these distinct collection campaigns.
+# archive, 345 frames from 2010 appear first, followed by 564 frames from 2018, so
+# sequential chunks follow the collection campaigns.
 # :::
 
 # %% tags=["remove_output"]
@@ -204,8 +205,19 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # detecting subtle distributional shifts. You will run it **without chunking**
 # to contrast an overall verdict with temporal chunk breakdowns from other detectors.
 #
-# **Chunking** is configured **per detector**. Specifying `chunk_size=200` over 909
-# operational frames yields windows that align with chronological collection campaigns.
+# **Chunking** is configured **per detector**. The chunk size applies to the reference
+# as well as the operational data: each reference chunk is scored against the rest of
+# the reference, and the drift bounds are the mean of those scores plus or minus
+# `threshold_multiplier` standard deviations. The reference must therefore split into
+# at least 3 chunks, and more chunks give a steadier spread. With 261 reference frames,
+# a `chunk_size` of 200 would leave only two reference chunks, and the detector refuses
+# to fit.
+#
+# You will use `chunk_size=50`. It splits the reference into five chunks and the
+# operational archive into 18 windows. The reference does not divide evenly, so
+# `incomplete="append"` merges its last 11 frames into the fifth chunk. Kept as a chunk
+# of their own, 11 frames would give a noisy score that widens every bound. The
+# operational data always merges its remainder into its last window.
 
 # %%
 from dataeval_flow import run_task
@@ -226,6 +238,8 @@ drift_task = TaskConfig(
     extractor="bovw",
 )
 
+chunking = ChunkingConfig(chunk_size=50, incomplete="append", threshold_multiplier=4.0)
+
 config = PipelineConfig(
     seed=0,
     datasets=[reference_dataset, operational_dataset],
@@ -239,8 +253,8 @@ config = PipelineConfig(
         DriftMonitoringConfig(
             name="milco-drift",
             detectors=[
-                DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
-                DriftDetectorMMD(n_permutations=100, chunking=ChunkingConfig(chunk_size=200, threshold_multiplier=4.0)),
+                DriftDetectorKNeighbors(k=10, chunking=chunking),
+                DriftDetectorMMD(n_permutations=100, chunking=chunking),
                 DriftDetectorUnivariate(test="cvm"),  # non-chunked overall test
             ],
             health_thresholds=DriftMonitoringHealthThresholds(
@@ -271,22 +285,48 @@ print(result.report())
 # %% [markdown]
 # ### What each chunk actually contains
 #
-# A `chunk_size=200` setting over 909 frames produces four windows:
-#
-# | Chunk | Campaign |
-# |---|---|
-# | `[0:199]` | 2010 campaign |
-# | `[200:399]` | 2010 up to index 344, followed by 2018 |
-# | `[400:599]` | 2018 campaign |
-# | `[600:908]` | 2018 campaign (includes remainder samples) |
+# Before you read the verdict, list the collection year and frame resolution in each
+# operational window:
+
+# %%
+operational_images = json.loads((operational_path / "annotations" / "instances.json").read_text())["images"]
+for chunk in result.output.raw.detectors["mmd"]["chunks"]:  # type: ignore[typeddict-item]
+    window = operational_images[chunk["start_index"] : chunk["end_index"] + 1]
+    years = Counter(Path(img["file_name"]).stem.split("_")[-1] for img in window)
+    sizes = Counter(f"{img['width']}x{img['height']}" for img in window)
+    print(f"{chunk['key']:<10} {dict(years)!s:<26} {dict(sorted(sizes.items()))}")
+
+# %% [markdown]
+# The 2010 campaign fills the windows through `[250:299]`, `[300:349]` holds its last 45
+# frames and the first 5 from 2018, and 2018 fills the rest. Every
+# window up to `[750:799]` mixes the two resolutions, with 21 to 32 of its 50 frames at
+# 1024x1024. From frame 800 on, every frame is 416x416.
 #
 # ### Reading the verdict
 #
-# In this run, every chunk triggers an MMD drift warning while K-Neighbors stays within
-# its threshold, and Univariate CVM flags 251 of 256 features.
+# In this run:
 #
-# To determine whether this signal reflects genuine operational degradation or
-# routine campaign variation, you should run a baseline control.
+# - **K-Neighbors** flags the last two windows, `[800:849]` and `[850:908]`. Two
+#   consecutive drifted windows meet `consecutive_chunks_warning=2`, so the finding is
+#   a warning.
+# - **MMD** flags only `[850:908]`. Its values for the 2018 windows `[350:399]` through
+#   `[600:649]` are 0.39 to 0.41, well above the 2010 windows (0.11 to 0.25) but just
+#   under the upper bound of 0.42.
+# - **CVM** tests the whole archive at once and flags 251 of 256 features.
+#
+# The windows that drift are the ones made only of 416x416 frames. Every frame is
+# resized to 256x256 before BoVW sees it, but a change in the mix of native
+# resolutions is still a change in how the data was collected. You should confirm a
+# finding like this against the collection records before you treat it as a change in
+# the seafloor.
+#
+# The bounds are wide because the reference's own chunks differ from one another. Its
+# five chunks span the 2015, 2017, and 2021 campaigns, so the bounds already allow for
+# campaign-to-campaign variation. A chunked detector can only flag what falls outside
+# the variation its reference already contains.
+#
+# To determine whether a signal reflects operational change or routine campaign
+# variation, you should run a baseline control.
 
 # %% [markdown]
 # ### Control: Evaluate baseline variation between reference campaigns
@@ -345,25 +385,31 @@ print(control_result.report())
 #
 # You should compare operational distances directly against the control:
 #
-# | Detector | Control (2015 vs 2017+2021) | Operational (per chunk) |
+# | Detector | Control (2015 vs 2017+2021) | Operational (per window) |
 # |---|---|---|
-# | **K-Neighbors** | 0.8585 | 0.54 to 0.69 |
-# | **MMD** | 0.2388 | 0.09 to 0.22 (chunk `[400:599]`: 0.3904) |
-# | **CVM** | 3.00 (222/256 features) | 9.32 (251/256 features) |
+# | **K-Neighbors** | 0.8585 | 0.52 to 0.83 |
+# | **MMD** | 0.2387 | 0.11 to 0.57 |
+# | **CVM** | 3.00 (225/256 features) | 9.31 (251/256 features) |
 #
-# K-Neighbors distances for operational data stay below the inter-campaign control
-# baseline (0.8585), showing that general collection shifts account for much of the
-# observed difference.
+# The control flags drift on all three detectors, so the reference campaigns already
+# differ from one another by enough for each test to detect. Against that baseline:
 #
-# However, two metrics indicate notable shifts beyond baseline variation:
+# - **K-Neighbors**: every operational window stays below the control's 0.8585,
+#   including the two flagged windows (0.79 and 0.83). A nearest-neighbor distance
+#   also depends on how many reference frames there are to be near, and the control's
+#   reference holds 120 frames against the full 261, so treat this comparison as rough.
+# - **MMD**: the 2010 windows (0.11 to 0.25) sit at or below the control's 0.2387. The 2018
+#   windows `[350:399]` through `[600:649]` (0.39 to 0.41) and the final window (0.57)
+#   are well above it.
+# - **CVM**: the operational distance is about three times the control's (9.31 against
+#   3.00).
 #
-# - **MMD on chunk `[400:599]` (0.3904)**: Well above the control baseline (0.2388),
-#   indicating a substantial localized shift in the 2018 campaign.
-# - **CVM magnitude (9.32)**: About three times the control magnitude (3.00),
-#   reflecting widespread feature-level divergence.
+# Taken together, the 2018 campaign differs from the reference by more than the
+# reference campaigns differ from each other, and its final 416x416 stretch differs
+# most. The 2010 campaign stays within routine campaign variation.
 #
 # You should always evaluate drift against baseline controls to distinguish normal
-# collection variance from severe operational drift.
+# collection variance from operational drift.
 
 # %% [markdown]
 # ### Inspect chunk-level details programmatically
@@ -374,6 +420,7 @@ print(control_result.report())
 import polars as pl
 
 pl.Config.set_tbl_hide_dataframe_shape(True)
+pl.Config.set_tbl_rows(-1)
 
 raw = result.output.raw
 print(f"Reference size: {raw.reference_size}")
@@ -442,7 +489,7 @@ for ax, method in zip(axes, chunked_methods, strict=True):
     ax.set_title(method, fontsize=12, fontweight="bold")
     ax.set_ylabel("Distance")
     ax.set_xlabel("Chunk")
-    ax.tick_params(axis="x", rotation=30)
+    ax.tick_params(axis="x", rotation=90, labelsize=8)
 
 fig.suptitle("Chunk-level drift: green = ok, red = drift detected", fontsize=13)
 plt.tight_layout()
@@ -467,6 +514,8 @@ print(json_str[:600] + "\n...")
 # - Configure the `drift-monitoring` workflow across reference and operational datasets.
 # - Use BoVW feature extractors to generate fixed-length descriptors from variable-sized sonar frames.
 # - Combine chunked and non-chunked detectors in a single workflow.
+# - Choose a chunk size the reference can support, and merge a short final reference chunk
+#   with `incomplete="append"`.
 # - Interpret formatted drift reports and per-chunk metric trends.
 # - Construct reference controls using `ViewConfig` to calibrate expected baseline variation.
 # - Evaluate operational drift against control baselines to identify genuine anomalies.
