@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
@@ -717,6 +718,27 @@ def test_a_column_dropped_for_naming_its_rows_is_placed_nowhere():
     metadata = MagicMock()
     assert _places(metadata, [finding], "train") == {}
     metadata.unusable_rows.assert_not_called()
+
+
+@pytest.mark.parametrize("error", [ValueError("kept no values"), AttributeError("no unusable_rows")])
+def test_a_factor_whose_rows_cannot_be_found_is_placed_nowhere_and_the_run_goes_on(
+    error: Exception, caplog: pytest.LogCaptureFixture
+):
+    """The places are a sample for looking at: failing to find them costs that factor its table, never the run."""
+    from dataeval_flow.workflows.metadata_triage._workflow import _places
+
+    finding = TriageFinding(
+        factor="latitude",
+        category="unreadable",
+        severity="blocking",
+        reasons=("mixed_types",),
+        repairable=True,
+        detail={"counts": {"numeric": 50, "text": 10}},
+    )
+    metadata = MagicMock()
+    metadata.unusable_rows.side_effect = error
+    assert _places(metadata, [finding], "train") == {}
+    assert "latitude" in caplog.text
 
 
 def test_a_tie_takes_text_for_the_problem_values():

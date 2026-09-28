@@ -199,8 +199,10 @@ def _places(metadata: Any, findings: "list[TriageFinding]", source: str) -> Plac
             continue
         try:
             frame = metadata.unusable_rows(finding.factor).filter(pl.col("kind") == kind)
-        except ValueError:
-            _logger.debug("No rows to place for %r", finding.factor, exc_info=True)
+        except Exception as error:  # noqa: BLE001 - the places are a sample; failing to find them never costs the run
+            _logger.warning(
+                "Could not find where %r's problem values sit, so none are pictured: %s", finding.factor, error
+            )
             continue
         keys = ["item_index", *(["target_index"] if "target_index" in frame.columns else [])]
         values = frame.group_by("value", maintain_order=True).agg(
