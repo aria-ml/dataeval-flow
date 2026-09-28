@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from dataeval_flow._blocks import Fields
+from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Section, Table
 from dataeval_flow.workflows._base import Finding
+from dataeval_flow.workflows._tables import PREVIEW
 from dataeval_flow.workflows.data_prioritization._config import (
     DataPrioritizationConfig,
     DataPrioritizationHealthThresholds,
@@ -62,6 +63,42 @@ def _build_cleaning_finding(
     )
 
 
+# The ranking's first and last this many items are listed.
+_ENDS = 25
+
+
+def _ranked_blocks(result: PerDatasetPrioritizationDict) -> list[Block]:
+    """The ranking's 25 highest-priority and 25 lowest-priority items: each one's rank, thumbnail, item and score.
+
+    Rank is the position in the ranking, which a stratified or class-balanced policy doesn't keep in score
+    order. Score shows where the method gives one. A ranking of 50 or fewer is split between the two.
+    """
+    indices = result["prioritized_indices"]
+    scores = result["scores"]
+    columns = [
+        Column(key="rank", header="Rank"),
+        Column(key="image", kind="image"),
+        Column(key="item", header="Item"),
+        *([Column(key="score", header="Score", format="{:.4g}")] if scores is not None else []),
+    ]
+    ends = [("Highest priority", range(min(_ENDS, len(indices))))]
+    ends.append(("Lowest priority", range(max(_ENDS, len(indices) - _ENDS), len(indices))))
+    blocks: list[Block] = []
+    for title, positions in ends:
+        rows: list[dict[str, Cell]] = [
+            {
+                "rank": position + 1,
+                "image": ItemRef(source=result["source_name"], index=indices[position]),
+                "item": indices[position],
+                "score": None if scores is None else scores[position],
+            }
+            for position in positions
+        ]
+        if rows:
+            blocks.append(Section(title=title, blocks=[Table(columns=columns, rows=rows, preview=PREVIEW)]))
+    return blocks
+
+
 def _build_prioritization_finding(
     result: PerDatasetPrioritizationDict,
     method: str,
@@ -87,7 +124,7 @@ def _build_prioritization_finding(
         title=f"Prioritization: {result['source_name']}",
         brief=f"{n_items} items",
         description=description,
-        blocks=[run],
+        blocks=[run, *_ranked_blocks(result)],
     )
 
 
