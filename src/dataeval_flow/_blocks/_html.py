@@ -1,7 +1,8 @@
 """Report blocks as HTML: one fragment per block, and one self-contained page to hold them.
 
-The page is what a person opens, forwards and prints, so it loads nothing: no script and no
-URL, which keeps it readable offline and printable as it shows, and so convertible to PDF.
+The page is what a person opens, forwards and prints, so it loads nothing: no URL, and one
+inline script that only adds to a page complete without it. That keeps it readable offline, in a
+viewer that blocks scripts, and in print, and so convertible to PDF.
 Every string a result supplies is escaped, attribute values included: class names and factor
 values are dataset content, and pages get shared.
 
@@ -13,11 +14,12 @@ way while every other block keeps the default.
 __all__ = ["DRAW", "Draw", "HtmlContext", "html_page", "render_html"]
 
 import math
+import re
 from collections.abc import Mapping, Sequence
 
 from dataeval_flow._blocks._draw import fmt_num, format_value
 from dataeval_flow._blocks._html_base import Draw, HtmlContext, badge, escape, inline, num, pct, series_class
-from dataeval_flow._blocks._html_style import STYLE
+from dataeval_flow._blocks._html_style import SCRIPT, STYLE
 from dataeval_flow._blocks._html_tables import draw_table
 from dataeval_flow._blocks._models import (
     Block,
@@ -33,6 +35,8 @@ from dataeval_flow._blocks._models import (
 )
 from dataeval_flow._blocks._text import DEFAULT_WIDTH
 
+_NOT_A_NAME = re.compile(r"[^a-z0-9]+")
+
 
 def render_html(blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = None) -> str:
     """*blocks* as an HTML fragment, one element per block, siblings on their own lines.
@@ -41,16 +45,96 @@ def render_html(blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = No
     HTML fragment and owns escaping its own output.
     """
     table = {**DRAW, **(draw or {})}
-    return _render(blocks, 0, table)
+    # On a page of several reports each is numbered, as the page's contents list numbers them.
+    several = len(_reports(blocks)) > 1
+    anchors: list[str | None] = []
+    count = 0
+    for block in blocks:
+        if several and isinstance(block, Section):
+            count += 1
+            anchors.append(f"r{count}")
+        else:
+            anchors.append(None)
+    return _render(blocks, 0, table, anchors, ())
 
 
-def _render(blocks: Sequence[Block], depth: int, table: Mapping[str, Draw]) -> str:
-    ctx = HtmlContext(depth=depth, render=lambda children: _render(children, depth + 1, table))
-    return "\n".join(part for block in blocks if (part := table[block.type](block, ctx)))
+def _render(
+    blocks: Sequence[Block],
+    depth: int,
+    table: Mapping[str, Draw],
+    anchors: Sequence[str | None] | None,
+    links: tuple[str, ...],
+) -> str:
+    def _children(
+        children: Sequence[Block],
+        *,
+        anchors: Sequence[str | None] | None = None,
+        links: tuple[str, ...] | None = None,
+    ) -> str:
+        # Children keep the report's links unless their container replaces them, as a report does.
+        return _render(children, depth + 1, table, anchors, outer if links is None else links)
+
+    outer = links
+
+    parts = (
+        table[block.type](block, HtmlContext(depth, _children, anchors[i] if anchors else None, links))
+        for i, block in enumerate(blocks)
+    )
+    return "\n".join(part for part in parts if part)
+
+
+def _reports(blocks: Sequence[Block]) -> list[Section]:
+    """The page's reports: the sections at its top level, one per result."""
+    return [block for block in blocks if isinstance(block, Section)]
+
+
+def _is_finding(block: Block) -> bool:
+    """Whether *block*, directly under a report, is one of its findings: a section carrying a verdict."""
+    return isinstance(block, Section) and block.severity is not None
+
+
+def _cards(report: Section, prefix: str) -> list[str | None]:
+    """The ``id`` of each of the report's findings' cards, aligned with its blocks; ``None`` for everything else.
+
+    A card is named after its finding's title, numbered from 2 where that name is taken, even by a
+    card whose own title ends in a number, and prefixed with its report's anchor where the page holds
+    several reports, so every ``id`` is its own.
+    """
+    taken: set[str] = set()
+    cards: list[str | None] = []
+    for block in report.blocks:
+        if not (isinstance(block, Section) and _is_finding(block)):
+            cards.append(None)
+            continue
+        name = f"{prefix}{_NOT_A_NAME.sub('-', block.title.lower()).strip('-') or 'finding'}"
+        card, number = name, 1
+        while card in taken:
+            number += 1
+            card = f"{name}-{number}"
+        taken.add(card)
+        cards.append(card)
+    return cards
+
+
+def _heading(title: str) -> str:
+    """A title as the page shows it: escaped, with each of its lines on its own line."""
+    return "<br>".join(escape(part.strip()) for part in title.split("\n"))
+
+
+def _contents(reports: Sequence[Section]) -> str:
+    """A list of the page's reports, each linking to its own, where the page holds more than one."""
+    if len(reports) < 2:
+        return ""
+    items = "".join(
+        f'<li><a href="#r{number}">{escape(" — ".join(part.strip() for part in report.title.split(chr(10))))}</a></li>'
+        for number, report in enumerate(reports, 1)
+    )
+    return f'<nav class="contents"><h2>Reports</h2><ol>{items}</ol></nav>'
 
 
 def html_page(title: str, blocks: Sequence[Block]) -> str:
-    """One complete page holding *blocks*: its own stylesheet, and nothing it has to fetch."""
+    """One complete page holding *blocks*: its own stylesheet and script, and nothing it has to fetch."""
+    contents = _contents(_reports(blocks))
     return "\n".join(
         [
             "<!doctype html>",
@@ -63,8 +147,10 @@ def html_page(title: str, blocks: Sequence[Block]) -> str:
             "</head>",
             "<body>",
             "<main>",
+            *([contents] if contents else []),
             render_html(blocks),
             "</main>",
+            f"<script>{SCRIPT}</script>",
             "</body>",
             "</html>",
             "",
@@ -76,14 +162,58 @@ def html_page(title: str, blocks: Sequence[Block]) -> str:
 
 
 def _section(block: Section, ctx: HtmlContext) -> str:
+    """A report at the top of the page, a finding's card under it, and a plain section anywhere else."""
+    if ctx.depth == 0:
+        return _report(block, ctx)
     level = min(ctx.depth + 1, 4)
-    title = "<br>".join(escape(part.strip()) for part in block.title.split("\n"))
     brief = f' <span class="brief">{escape(block.brief)}</span>' if block.brief else ""
     mark = f" {badge(block.severity)}" if block.severity else ""
-    classes = f"section {block.severity}" if block.severity else "section"
+    heading = f"<h{level}>{_heading(block.title)}{brief}{mark}</h{level}>"
     children = ctx.render(block.blocks)
     body = f"\n{children}" if children else ""
-    return f'<section class="{classes}"><h{level}>{title}{brief}{mark}</h{level}>{body}</section>'
+    if ctx.depth == 1 and block.severity:
+        card = f' id="{escape(ctx.anchor)}"' if ctx.anchor else ""
+        return f'<details class="card {block.severity}"{card} open><summary>{heading}</summary>{body}</details>'
+    classes = f"section {block.severity}" if block.severity else "section"
+    return f'<section class="{classes}">{heading}{body}</section>'
+
+
+def _health(report: Section) -> str:
+    """The report's verdict as a badge: its warnings counted, or passed; none for a report without findings.
+
+    Its findings are its cards or, in the short form, which has none, the lines of its summary.
+    """
+    verdicts = [block.severity for block in report.blocks if isinstance(block, Section) and _is_finding(block)] or [
+        item.severity
+        for block in report.blocks
+        if isinstance(block, Section)
+        for summary in block.blocks
+        if isinstance(summary, Summary)
+        for item in summary.items
+    ]
+    if not verdicts:
+        return ""
+    warnings = verdicts.count("warning")
+    if not warnings:
+        return '<span class="badge ok">passed</span>'
+    return f'<span class="badge warning">{warnings} warning{"s" if warnings != 1 else ""}</span>'
+
+
+def _report(block: Section, ctx: HtmlContext) -> str:
+    """A result's report: a header with its title and verdict, its envelope as the provenance line, then the rest."""
+    brief = f' <span class="brief">{escape(block.brief)}</span>' if block.brief else ""
+    verdict = badge(block.severity) if block.severity else _health(block)
+    head = f'<header class="report-head"><h1>{_heading(block.title)}{brief}</h1>{verdict}</header>'
+    cards = _cards(block, f"{ctx.anchor}-" if ctx.anchor else "")
+    rest = list(block.blocks)
+    provenance = ""
+    if rest and isinstance(first := rest[0], Fields):
+        provenance = _fields(first, ctx, css="fields provenance")
+        rest, cards = rest[1:], cards[1:]
+    children = ctx.render(rest, anchors=cards, links=tuple(card for card in cards if card))
+    body = "".join(f"\n{part}" for part in (provenance, children) if part)
+    opening = f'<article class="report" id="{escape(ctx.anchor)}">' if ctx.anchor else '<article class="report">'
+    return f"{opening}{head}{body}</article>"
 
 
 def _paragraph(block: Paragraph, _ctx: HtmlContext) -> str:
@@ -94,12 +224,12 @@ def _bullets(block: BulletList, _ctx: HtmlContext) -> str:
     return "<ul>" + "".join(f"<li>{inline(item)}</li>" for item in block.items) + "</ul>"
 
 
-def _fields(block: Fields, _ctx: HtmlContext) -> str:
+def _fields(block: Fields, _ctx: HtmlContext, css: str = "fields") -> str:
     rows = "".join(
         f"<dt>{escape(label)}</dt><dd>{'' if value is None else inline(str(value))}</dd>"
         for label, value in block.items
     )
-    return f'<dl class="fields">{rows}</dl>' if rows else ""
+    return f'<dl class="{css}">{rows}</dl>' if rows else ""
 
 
 def _code(block: Code, _ctx: HtmlContext) -> str:
@@ -113,12 +243,19 @@ def _tree(block: Tree, _ctx: HtmlContext) -> str:
     return f'<pre class="tree">{escape(chr(10).join(lines))}</pre>'
 
 
-def _summary(block: Summary, _ctx: HtmlContext) -> str:
+def _summary(block: Summary, ctx: HtmlContext) -> str:
+    """One row per item; each row links to its finding's card where the summary is a report's contents."""
+    cards = ctx.links if len(ctx.links) == len(block.items) else ()
     rows = "".join(
-        f"<tr><td>{escape(item.label)}</td><td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
-        for item in block.items
+        f"<tr><td>{_label(item.label, cards[index] if cards else None)}</td>"
+        f"<td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
+        for index, item in enumerate(block.items)
     )
     return f'<table class="summary"><tbody>{rows}</tbody></table>'
+
+
+def _label(text: str, card: str | None) -> str:
+    return f'<a href="#{escape(card)}">{escape(text)}</a>' if card else escape(text)
 
 
 # -- Charts -------------------------------------------------------------------------------------

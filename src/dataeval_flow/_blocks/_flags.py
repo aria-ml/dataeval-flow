@@ -5,7 +5,7 @@ a value lies. A limit may be a plain value rather than a percentile rule, and a 
 doesn't mean a worse item, so flags are listed by name and read as the comparison itself.
 """
 
-__all__ = ["flags_in", "ordered", "percentile_text", "tag_text"]
+__all__ = ["card", "flags_in", "ordered", "percentile_text", "tag_text"]
 
 import math
 from collections.abc import Sequence
@@ -49,3 +49,13 @@ def tag_text(flag: Flag) -> str:
         return f"{flag.name} {fmt_num(flag.value)}"
     sign = ">" if flag.direction == "upper" else "<"
     return f"{flag.name} {fmt_num(flag.value)} {sign} {fmt_num(flag.bound)}"
+
+
+def card(flag: Flag) -> tuple[str, list[tuple[str, str]]]:
+    """The flag's detail, as a heading and labelled rows: the limit it crossed, where it ranks, and its population."""
+    upper = flag.direction == "upper"
+    title = f"{flag.name} · {'above the upper' if upper else 'below the lower'} limit"
+    return title, [
+        ("Percentile", percentile_text(flag.percentile)),
+        ("Population", f"mean {fmt_num(flag.mean)} ± {fmt_num(flag.std)} (std)"),
+    ]

@@ -53,6 +53,27 @@ EVERY_BLOCK: list[Block] = [
     Code(text="metadata:\n  - name: standard\n", language="yaml"),
     Tree(value={"tasks": [{"name": "a", "sources": ["s1", "s2"]}], "seed": None}),
     Summary(items=[SummaryItem(label="Duplicates", value="3 groups", severity="warning")]),
+    Table(
+        columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
+        rows=[
+            {
+                "item": 41,
+                "flags": [
+                    Flag(
+                        name="brightness",
+                        value=0.99,
+                        direction="upper",
+                        bound=0.84,
+                        percentile=99.95,
+                        mean=0.5,
+                        std=0.1,
+                    )
+                ],
+            },
+            {"item": 7, "flags": []},
+        ],
+        preview=1,
+    ),
 ]
 
 

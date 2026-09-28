@@ -47,6 +47,17 @@ def _evaluator(*, success: bool = True) -> EvaluatorResult[object]:
     )
 
 
+def test_the_short_page_gives_the_verdict_the_full_page_gives():
+    """The short form has no finding cards, so its badge comes from the summary's lines."""
+    from dataeval_flow.workflows import Finding
+
+    result = _workflow()
+    assert result.output is not None
+    result.output.report.findings = [Finding(title="Duplicates", severity="warning", brief="3 groups")]
+    for detailed in (True, False):
+        assert '<span class="badge warning">1 warning</span></header>' in result.to_html(detailed=detailed)
+
+
 def test_the_base_cannot_be_built_on_its_own():
     with pytest.raises(TypeError, match="abstract"):
         Result(type="r", success=False, metadata=ResultMetadata())  # type: ignore[abstract]
@@ -94,7 +105,7 @@ class TestOneShape:
         assert page.startswith("<!doctype html>")
         assert f"<h1>{result._report_title()}</h1>" in page
         assert _well_formed(page)
-        assert "<script" not in page
+        assert page.count("<script>") == 1
 
     def test_a_failed_run_s_page_shows_its_errors(self, make, kind):
         page = make(success=False).to_html()

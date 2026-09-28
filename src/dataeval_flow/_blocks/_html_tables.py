@@ -4,10 +4,11 @@ __all__ = ["draw_table"]
 
 import math
 
-from dataeval_flow._blocks._draw import fmt_num
+from dataeval_flow._blocks._flags import card, flags_in, ordered, tag_text
 from dataeval_flow._blocks._html_base import HtmlContext, escape, num, pct, series_class
-from dataeval_flow._blocks._models import Cell, Column, Table
-from dataeval_flow._blocks._table import _finite, _formatted, _markers, _scale, cell_text, numbers
+from dataeval_flow._blocks._html_scale import draw_scale
+from dataeval_flow._blocks._models import Cell, Column, Flag, Table
+from dataeval_flow._blocks._table import _finite, _markers, _scale, cell_text, numbers
 
 _CHARTS = ("bar", "stacked", "sparkline")
 
@@ -37,6 +38,8 @@ def _header(column: Column) -> str:
 def _align(column: Column, index: int) -> str:
     if column.kind in _CHARTS:
         return "chart"
+    if column.kind == "flags":
+        return "flags"
     return column.align or ("left" if index == 0 else "right")
 
 
@@ -76,16 +79,38 @@ def _sparkline(value: Cell) -> str:
     return f'<svg class="spark" viewBox="0 0 {len(counts)} 1" preserveAspectRatio="none">{bars}</svg>'
 
 
-def _caption(table: Table) -> str:
-    """Each bar column's markers, named and formatted as its values are."""
-    parts: list[str] = []
-    for column in table.columns:
-        markers = _markers(column) if column.kind == "bar" else []
-        names = list(dict.fromkeys(name for name, _ in markers))
-        for name in names:
-            values = [_formatted(column, v) or fmt_num(v) for n, v in markers if n == name]
-            parts.append(f"{escape(name)}: {escape(', '.join(values))}")
-    return f"<caption>{' · '.join(parts)}</caption>" if parts else ""
+def _marks(column: Column, low: float, high: float) -> str:
+    """A bar column's markers as dashed lines through the bar, each where it falls on the column's scale."""
+    span = (high - low) or 1.0
+    return "".join(
+        f'<span class="mark" style="left:{pct(min(max((value - low) / span * 100, 0.0), 100.0))}"></span>'
+        for _, value in _markers(column)
+    )
+
+
+def _tag(flag: Flag) -> str:
+    """One flag as a tag reading as its value against its limit, with its card opening on hover or keyboard focus."""
+    title, rows = card(flag)
+    detail = "".join(
+        f'<span class="tip-row"><span>{escape(label)}</span><span>{escape(value)}</span></span>'
+        for label, value in rows
+    )
+    return (
+        f'<span class="tag" tabindex="0">{escape(tag_text(flag))}'
+        f'<span class="tip"><span class="tip-title">{escape(title)}</span>{detail}</span></span>'
+    )
+
+
+def _scale_row(table: Table, extents: list[tuple[float, float]]) -> str:
+    """The row closing a table whose bars have markers: each such column's scale, and blank cells elsewhere."""
+    marked = [column.kind == "bar" and bool(_markers(column)) for column in table.columns]
+    if not any(marked):
+        return ""
+    cells = "".join(
+        f'<td class="chart">{draw_scale(column, extents[i])}</td>' if marked[i] else "<td></td>"
+        for i, column in enumerate(table.columns)
+    )
+    return f'<tfoot><tr class="scale">{cells}</tr></tfoot>'
 
 
 def _extent(table: Table, column: Column) -> tuple[float, float]:
@@ -100,8 +125,13 @@ def _extent(table: Table, column: Column) -> tuple[float, float]:
 
 def _cell(column: Column, value: Cell, index: int, extent: tuple[float, float]) -> str:
     align = _align(column, index)
+    if column.kind == "flags":
+        flags = flags_in(value)
+        tags = " ".join(_tag(flag) for flag in ordered(flags))
+        return f'<td class="flags" data-sort="{len(flags)}">{tags}</td>'
     if column.kind == "bar":
-        content = _bar(value, *extent)
+        drawn = _bar(value, *extent) + _marks(column, *extent)
+        content = f'<span class="track">{drawn}</span>' if drawn else ""
     elif column.kind == "stacked":
         content = _stacked(value, extent[1])
     elif column.kind == "sparkline":
@@ -125,4 +155,7 @@ def draw_table(block: Table, _ctx: HtmlContext) -> str:
         "<tr>" + "".join(_cell(c, row.get(c.key), i, extents[i]) for i, c in enumerate(columns)) + "</tr>"
         for row in block.rows
     )
-    return f"<table>{_caption(block)}{head}<tbody>{body}</tbody></table>"
+    scale = _scale_row(block, extents)
+    # A scale's labels are placed for a 12rem chart column, so a table with one keeps its charts that wide.
+    opening = '<table class="scaled">' if scale else "<table>"
+    return f"{opening}{head}<tbody>{body}</tbody>{scale}</table>"

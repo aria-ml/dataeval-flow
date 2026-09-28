@@ -5,7 +5,7 @@ import math
 import pytest
 
 from dataeval_flow._blocks import Flag
-from dataeval_flow._blocks._flags import ordered, percentile_text, tag_text
+from dataeval_flow._blocks._flags import card, ordered, percentile_text, tag_text
 
 pytestmark = pytest.mark.required
 
@@ -45,3 +45,21 @@ class TestText:
     def test_the_percentile_keeps_the_digits_that_tell_the_ends_apart(self, percentile, expected):
         """One decimal, two within 1% of either end, and no trailing zeros."""
         assert percentile_text(percentile) == expected
+
+
+class TestCards:
+    """A flag's hover card: which limit it crossed, where it ranks, and the population it was judged in."""
+
+    def test_a_card_names_the_limit_crossed_and_the_population_behind_it(self):
+        assert card(_flag()) == (
+            "brightness · above the upper limit",
+            [("Percentile", "p99.95"), ("Population", "mean 0.52 ± 0.11 (std)")],
+        )
+
+    def test_a_lower_flag_names_the_lower_limit(self):
+        title, _ = card(_flag("entropy", "lower", value=1.2, bound=3.1))
+        assert title == "entropy · below the lower limit"
+
+    def test_an_unknown_percentile_says_so(self):
+        _, rows = card(_flag(percentile=math.nan))
+        assert rows[0] == ("Percentile", "p?")
