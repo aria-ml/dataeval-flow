@@ -4649,6 +4649,163 @@
       "title": "OODDetectorKNeighbors",
       "type": "object"
     },
+    "OODDomainClassifierConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.ood-domain-classifier``, DataEval's OODDomainClassifier.\n\nTrains a classifier to tell each test item from the reference under repeated cross-validation, and flags the\nitems it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-domain-classifier`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_ood\n        type: shift.ood-domain-classifier\n        n_repeats: 10",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.ood-domain-classifier",
+          "default": "shift.ood-domain-classifier",
+          "description": "The evaluator type this entry configures: `shift.ood-domain-classifier`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "n_folds": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cross-validation folds per repeat. Unset uses DataEval's default (5).",
+          "title": "N Folds"
+        },
+        "n_repeats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Times the fold split is repeated. Unset uses DataEval's default (5).",
+          "title": "N Repeats"
+        },
+        "n_std": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Standard deviations above the null mean where the threshold sits, used when `threshold_perc` is unset. Unset uses DataEval's default (2.0).",
+          "title": "N Std"
+        },
+        "hyperparameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "LightGBM hyperparameters for the classifier. Unset uses DataEval's.",
+          "title": "Hyperparameters"
+        },
+        "threshold_perc": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percentage of the reference treated as normal, 0 to 100; overrides `n_std`. Unset uses `n_std`.",
+          "title": "Threshold Perc"
+        }
+      },
+      "title": "OODDomainClassifierConfig",
+      "type": "object"
+    },
+    "OODKNeighborsConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: shift.ood-kneighbors\n        distance_metric: euclidean",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.ood-kneighbors",
+          "default": "shift.ood-kneighbors",
+          "description": "The evaluator type this entry configures: `shift.ood-kneighbors`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors each item is scored against. Unset uses DataEval's default (10).",
+          "title": "K"
+        },
+        "distance_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "cosine",
+                "euclidean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distance between embeddings. Unset uses DataEval's default (`cosine`).",
+          "title": "Distance Metric"
+        },
+        "threshold_perc": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percentage of the reference treated as normal, 0 to 100; higher is more permissive. Unset uses DataEval's default (95).",
+          "title": "Threshold Perc"
+        }
+      },
+      "title": "OODKNeighborsConfig",
+      "type": "object"
+    },
     "OnnxExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for ONNX models.\n\nYAML example::\n\n    extractors:\n      - name: resnet_extractor\n        model: onnx\n        model_path: \"./resnet50.onnx\"\n        output_name: \"flatten0\"\n        preprocessor: resnet_preprocess\n        batch_size: 64\n        image_height: 224\n        image_width: 224",
@@ -7776,6 +7933,12 @@
               },
               {
                 "$ref": "#/$defs/DriftWassersteinConfig"
+              },
+              {
+                "$ref": "#/$defs/OODDomainClassifierConfig"
+              },
+              {
+                "$ref": "#/$defs/OODKNeighborsConfig"
               }
             ]
           },

@@ -22,6 +22,8 @@ An evaluator's `type` is DataEval's module and class, in kebab case. To run one,
 | `shift.drift-mmd` | `dataeval.shift.DriftMMD` | embeddings | 2: the reference, then the data to test | required |
 | `shift.drift-univariate` | `dataeval.shift.DriftUnivariate` | embeddings | 2: the reference, then the data to test | required |
 | `shift.drift-wasserstein` | `dataeval.shift.DriftWasserstein` | embeddings | 3: the reference, a validation set, then the data to test | required |
+| `shift.ood-domain-classifier` | `dataeval.shift.OODDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
+| `shift.ood-kneighbors` | `dataeval.shift.OODKNeighbors` | embeddings | 2: the reference, then the data to test | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -293,9 +295,37 @@ better than `threshold` (AUROC). Configured by
 | `threshold` | `threshold`: an AUROC, or with `chunking` a `[lower, upper]` pair | DataEval's default (`0.55`) |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
-## Planned
+### `shift.ood-kneighbors`
 
-These follow in later releases, under the same rules:
+Each test item scored by its distance to its nearest reference neighbors, flagged beyond the distance
+`threshold_perc` percent of the reference stays within. Configured by
+{py:class}`~dataeval_flow.evaluators.shift.OODKNeighborsConfig`; runs `dataeval.shift.OODKNeighbors`.
 
-- `shift.ood-kneighbors`, `shift.ood-domain-classifier`: read reference and test
-  embeddings
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `k` | `k` | DataEval's default (`10`) |
+| `distance_metric` | `distance_metric`: `cosine` or `euclidean` | DataEval's default (`cosine`) |
+| `threshold_perc` | `threshold_perc`, 0 to 100 | DataEval's default (`95`) |
+
+Output: a mapping. `is_ood` and `instance_score` hold one value per test item, and `feature_score` is `null`.
+
+### `shift.ood-domain-classifier`
+
+A classifier trained to tell each test item from the reference under repeated cross-validation, flagging the items
+it separates well. Configured by {py:class}`~dataeval_flow.evaluators.shift.OODDomainClassifierConfig`; runs
+`dataeval.shift.OODDomainClassifier`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `n_folds` | `n_folds` | DataEval's default (`5`) |
+| `n_repeats` | `n_repeats` | DataEval's default (`5`) |
+| `n_std` | `n_std` (without `threshold_perc`) | DataEval's default (`2.0`) |
+| `hyperparameters` | `hyperparameters`: LightGBM's | DataEval's |
+| `threshold_perc` | `threshold_perc`, 0 to 100; overrides `n_std` | `n_std` sets the threshold |
+
+Output: a mapping. `is_ood` and `instance_score` hold one value per test item, and `feature_score` is `null`.
+
+## Not in the catalog yet
+
+`shift.drift-reconstruction`, `shift.ood-reconstruction` and `performance.sufficiency` train a PyTorch model,
+which a config file cannot describe yet.

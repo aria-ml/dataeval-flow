@@ -70,6 +70,8 @@ _ECHOES: dict[str, frozenset[str]] = {
     "shift.drift-mmd": frozenset(),
     "shift.drift-univariate": frozenset(),
     "shift.drift-wasserstein": frozenset(),
+    "shift.ood-domain-classifier": frozenset(),
+    "shift.ood-kneighbors": frozenset(),
 }
 
 

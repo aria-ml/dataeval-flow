@@ -22,6 +22,8 @@ _BUILTINS = {
     "shift.drift-mmd": "dataeval_flow.evaluators.shift._evaluator:DriftMMDEvaluator",
     "shift.drift-univariate": "dataeval_flow.evaluators.shift._evaluator:DriftUnivariateEvaluator",
     "shift.drift-wasserstein": "dataeval_flow.evaluators.shift._evaluator:DriftWassersteinEvaluator",
+    "shift.ood-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:OODDomainClassifierEvaluator",
+    "shift.ood-kneighbors": "dataeval_flow.evaluators.shift._evaluator:OODKNeighborsEvaluator",
 }
 
 

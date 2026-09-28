@@ -101,6 +101,12 @@ dataeval_flow.evaluators.shift:DriftUnivariateResult
 dataeval_flow.evaluators.shift:DriftWassersteinConfig
 dataeval_flow.evaluators.shift:DriftWassersteinEvaluator
 dataeval_flow.evaluators.shift:DriftWassersteinResult
+dataeval_flow.evaluators.shift:OODDomainClassifierConfig
+dataeval_flow.evaluators.shift:OODDomainClassifierEvaluator
+dataeval_flow.evaluators.shift:OODDomainClassifierResult
+dataeval_flow.evaluators.shift:OODKNeighborsConfig
+dataeval_flow.evaluators.shift:OODKNeighborsEvaluator
+dataeval_flow.evaluators.shift:OODKNeighborsResult
 dataeval_flow.workflows:DatasetContext
 dataeval_flow.workflows:Finding
 dataeval_flow.workflows:ResolvedOntology

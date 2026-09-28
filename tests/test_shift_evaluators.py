@@ -19,6 +19,10 @@ from dataeval_flow.evaluators.shift import (
     DriftUnivariateResult,
     DriftWassersteinConfig,
     DriftWassersteinResult,
+    OODDomainClassifierConfig,
+    OODDomainClassifierResult,
+    OODKNeighborsConfig,
+    OODKNeighborsResult,
 )
 from dataeval_flow.evaluators.shift._evaluator import chunked_arguments
 from tests.evaluator_toys import FLAT, output_json, shifted_sources
@@ -93,3 +97,34 @@ class TestChunkedDriftConfig:
     def test_a_misspelled_key_fails_the_load(self):
         with pytest.raises(ValidationError, match="chunk_counts"):
             DriftMMDConfig.model_validate({"chunking": {"chunk_counts": 4}})
+
+
+_OOD: list[tuple[Any, type]] = [
+    (OODKNeighborsConfig, OODKNeighborsResult),
+    (OODDomainClassifierConfig, OODDomainClassifierResult),
+]
+
+
+class TestOOD:
+    @pytest.mark.parametrize(("config_type", "result_type"), _OOD)
+    def test_each_test_item_is_scored(self, config_type: Any, result_type: type):
+        result = run(config_type(), shifted_sources(), extractor=FLAT)
+        assert isinstance(result, result_type)
+        assert result.success, result.errors
+        data = output_json(result)["data"]
+        assert len(data["is_ood"]) == 40
+        assert len(data["instance_score"]) == 40
+
+    def test_the_distance_metric_reaches_dataeval(self):
+        """Brightening barely turns an embedding, so cosine distance misses it and euclidean does not."""
+        cosine = output_json(run(OODKNeighborsConfig(distance_metric="cosine"), shifted_sources(), extractor=FLAT))
+        euclidean = output_json(
+            run(OODKNeighborsConfig(distance_metric="euclidean"), shifted_sources(), extractor=FLAT)
+        )
+        assert sum(euclidean["data"]["is_ood"]) > sum(cosine["data"]["is_ood"])
+        assert sum(euclidean["data"]["is_ood"]) >= 30
+
+    def test_the_console_report_cuts_the_per_item_lists(self):
+        result = run(OODKNeighborsConfig(), shifted_sources(), extractor=FLAT)
+        assert "… and 30 more" in result.report(detailed=False)
+        assert "… and 30 more" not in result.report(detailed=True)

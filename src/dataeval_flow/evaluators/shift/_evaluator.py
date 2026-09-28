@@ -10,8 +10,11 @@ __all__ = [
     "DriftMMDEvaluator",
     "DriftUnivariateEvaluator",
     "DriftWassersteinEvaluator",
+    "OODDomainClassifierEvaluator",
+    "OODKNeighborsEvaluator",
     "chunked_arguments",
     "detect_drift",
+    "detect_ood",
 ]
 
 from collections.abc import Mapping, Sequence
@@ -24,6 +27,9 @@ from dataeval.shift import (
     DriftOutput,
     DriftUnivariate,
     DriftWasserstein,
+    OODDomainClassifier,
+    OODKNeighbors,
+    OODOutput,
 )
 
 from dataeval_flow._input_spec import InputKind
@@ -37,6 +43,8 @@ from dataeval_flow.evaluators.shift._config import (
     DriftMMDConfig,
     DriftUnivariateConfig,
     DriftWassersteinConfig,
+    OODDomainClassifierConfig,
+    OODKNeighborsConfig,
 )
 
 _PREDICT: Mapping[InputKind, str] = {InputKind.EMBEDDINGS: "predict"}
@@ -133,3 +141,36 @@ class DriftDomainClassifierEvaluator(Evaluator[DriftDomainClassifierConfig, Drif
     def run(self, config: DriftDomainClassifierConfig, inputs: Sequence[EvaluatorInputs]) -> DriftOutput[Any]:
         """Fit on the reference's embeddings, and test the second source's."""
         return detect_drift(DriftDomainClassifier(**dataeval_arguments(config)), config.chunking, inputs)
+
+
+def detect_ood(detector: Any, inputs: Sequence[EvaluatorInputs]) -> OODOutput:
+    """Fit `detector` on the first source's embeddings, and flag the second source's items."""
+    reference, test = (require(i.embeddings, "embeddings", i.source) for i in inputs)
+    return detector.fit(reference).predict(test)
+
+
+class OODKNeighborsEvaluator(Evaluator[OODKNeighborsConfig, OODOutput]):
+    """``shift.ood-kneighbors``: which test items sit far from the reference, per DataEval's OODKNeighbors."""
+
+    name: ClassVar[str] = "shift.ood-kneighbors"
+    description: ClassVar[str] = "Test items far from their nearest reference neighbors (DataEval OODKNeighbors)"
+    dataeval_class: ClassVar[type] = OODKNeighbors
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
+
+    def run(self, config: OODKNeighborsConfig, inputs: Sequence[EvaluatorInputs]) -> OODOutput:
+        """Fit on the reference's embeddings, and score the second source's items."""
+        return detect_ood(OODKNeighbors(**dataeval_arguments(config)), inputs)
+
+
+class OODDomainClassifierEvaluator(Evaluator[OODDomainClassifierConfig, OODOutput]):
+    """``shift.ood-domain-classifier``: which test items a classifier tells apart, per DataEval's
+    OODDomainClassifier."""
+
+    name: ClassVar[str] = "shift.ood-domain-classifier"
+    description: ClassVar[str] = "Test items a classifier tells apart from the reference (DataEval OODDomainClassifier)"
+    dataeval_class: ClassVar[type] = OODDomainClassifier
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
+
+    def run(self, config: OODDomainClassifierConfig, inputs: Sequence[EvaluatorInputs]) -> OODOutput:
+        """Fit on the reference's embeddings, and score the second source's items."""
+        return detect_ood(OODDomainClassifier(**dataeval_arguments(config)), inputs)

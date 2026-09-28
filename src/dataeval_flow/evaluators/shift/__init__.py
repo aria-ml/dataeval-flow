@@ -17,6 +17,12 @@ __all__ = [
     "DriftWassersteinConfig",
     "DriftWassersteinEvaluator",
     "DriftWassersteinResult",
+    "OODDomainClassifierConfig",
+    "OODDomainClassifierEvaluator",
+    "OODDomainClassifierResult",
+    "OODKNeighborsConfig",
+    "OODKNeighborsEvaluator",
+    "OODKNeighborsResult",
 ]
 
 from dataeval_flow.evaluators.shift._config import (
@@ -26,6 +32,8 @@ from dataeval_flow.evaluators.shift._config import (
     DriftMMDConfig,
     DriftUnivariateConfig,
     DriftWassersteinConfig,
+    OODDomainClassifierConfig,
+    OODKNeighborsConfig,
 )
 from dataeval_flow.evaluators.shift._evaluator import (
     DriftDomainClassifierEvaluator,
@@ -33,6 +41,8 @@ from dataeval_flow.evaluators.shift._evaluator import (
     DriftMMDEvaluator,
     DriftUnivariateEvaluator,
     DriftWassersteinEvaluator,
+    OODDomainClassifierEvaluator,
+    OODKNeighborsEvaluator,
 )
 from dataeval_flow.evaluators.shift._result import (
     DriftDomainClassifierResult,
@@ -40,4 +50,6 @@ from dataeval_flow.evaluators.shift._result import (
     DriftMMDResult,
     DriftUnivariateResult,
     DriftWassersteinResult,
+    OODDomainClassifierResult,
+    OODKNeighborsResult,
 )

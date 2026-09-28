@@ -11,9 +11,11 @@ __all__ = [
     "DriftMMDConfig",
     "DriftUnivariateConfig",
     "DriftWassersteinConfig",
+    "OODDomainClassifierConfig",
+    "OODKNeighborsConfig",
 ]
 
-from typing import ClassVar, Literal, Self
+from typing import Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -26,6 +28,8 @@ from dataeval_flow.evaluators.shift._result import (
     DriftMMDResult,
     DriftUnivariateResult,
     DriftWassersteinResult,
+    OODDomainClassifierResult,
+    OODKNeighborsResult,
 )
 
 _CHUNKING_DESCRIPTION = (
@@ -310,3 +314,93 @@ class DriftDomainClassifierConfig(EvaluatorConfig[DriftDomainClassifierResult]):
         ),
     )
     chunking: ChunkedDriftConfig | None = Field(default=None, description=_CHUNKING_DESCRIPTION)
+
+
+class OODKNeighborsConfig(EvaluatorConfig[OODKNeighborsResult]):
+    """Config for ``shift.ood-kneighbors``, DataEval's OODKNeighbors.
+
+    Scores each item of the second source by its distance to its nearest neighbors in the first, and flags those
+    farther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the
+    reference, then the data to test.
+
+    Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
+    (``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-kneighbors`` prints the JSON Schema.
+
+    Example YAML::
+
+        evaluators:
+          - name: knn_ood
+            type: shift.ood-kneighbors
+            distance_metric: euclidean
+    """
+
+    type: str = Field(
+        default="shift.ood-kneighbors", description="The evaluator type this entry configures: `shift.ood-kneighbors`."
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+
+    k: int | None = Field(
+        default=None,
+        gt=0,
+        description="Nearest neighbors each item is scored against. Unset uses DataEval's default (10).",
+    )
+    distance_metric: Literal["cosine", "euclidean"] | None = Field(
+        default=None, description="Distance between embeddings. Unset uses DataEval's default (`cosine`)."
+    )
+    threshold_perc: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Percentage of the reference treated as normal, 0 to 100; higher is more permissive. Unset uses DataEval's "
+            "default (95)."
+        ),
+    )
+
+
+class OODDomainClassifierConfig(EvaluatorConfig[OODDomainClassifierResult]):
+    """Config for ``shift.ood-domain-classifier``, DataEval's OODDomainClassifier.
+
+    Trains a classifier to tell each test item from the reference under repeated cross-validation, and flags the
+    items it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.
+
+    Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
+    (``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-domain-classifier`` prints the JSON Schema.
+
+    Example YAML::
+
+        evaluators:
+          - name: classifier_ood
+            type: shift.ood-domain-classifier
+            n_repeats: 10
+    """
+
+    type: str = Field(
+        default="shift.ood-domain-classifier",
+        description="The evaluator type this entry configures: `shift.ood-domain-classifier`.",
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+
+    n_folds: int | None = Field(
+        default=None, ge=2, description="Cross-validation folds per repeat. Unset uses DataEval's default (5)."
+    )
+    n_repeats: int | None = Field(
+        default=None, gt=0, description="Times the fold split is repeated. Unset uses DataEval's default (5)."
+    )
+    n_std: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Standard deviations above the null mean where the threshold sits, used when `threshold_perc` is unset. "
+            "Unset uses DataEval's default (2.0)."
+        ),
+    )
+    hyperparameters: dict[str, Any] | None = Field(
+        default=None, description="LightGBM hyperparameters for the classifier. Unset uses DataEval's."
+    )
+    threshold_perc: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=100.0,
+        description="Percentage of the reference treated as normal, 0 to 100; overrides `n_std`. Unset uses `n_std`.",
+    )

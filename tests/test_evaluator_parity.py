@@ -34,6 +34,8 @@ _WIRING: dict[str, frozenset[str]] = {
     "shift.drift-mmd": frozenset({"extractor", "update_strategy", "sigma", "device"}),
     "shift.drift-univariate": frozenset({"extractor", "update_strategy"}),
     "shift.drift-wasserstein": frozenset({"extractor", "update_strategy"}),
+    "shift.ood-domain-classifier": frozenset({"extractor"}),
+    "shift.ood-kneighbors": frozenset({"extractor"}),
 }
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.

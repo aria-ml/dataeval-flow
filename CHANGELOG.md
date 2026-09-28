@@ -4,7 +4,7 @@
 
 ### Added
 
-- Top-level `evaluators:` key running a single DataEval evaluator, `quality.duplicates` or `quality.outliers`
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the fifteen types the Evaluator Catalog lists
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -66,6 +66,7 @@
   `index2label`
 - `scope.coverage` and `scope.prioritize` evaluators; a second `scope.prioritize` source is the reference its ranking
   is relative to
+- `shift.ood-kneighbors` and `shift.ood-domain-classifier` evaluators
 
 ### Changed
 

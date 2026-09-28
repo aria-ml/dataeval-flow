@@ -152,6 +152,8 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "shift.drift-mmd": lambda count: (shifted_sources(count), FLAT),
     "shift.drift-univariate": lambda count: (shifted_sources(count), FLAT),
     "shift.drift-wasserstein": lambda count: (shifted_sources(count, validation=True), FLAT),
+    "shift.ood-domain-classifier": lambda count: (shifted_sources(count), FLAT),
+    "shift.ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
 }
 
 

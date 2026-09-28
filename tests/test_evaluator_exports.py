@@ -43,7 +43,15 @@ def test_the_scope_evaluators_are_exported():
 def test_the_shift_evaluators_are_exported():
     shift = dataeval_flow.evaluators.shift
     assert "ChunkedDriftConfig" in shift.__all__
-    for kind in ("DriftUnivariate", "DriftMMD", "DriftKNeighbors", "DriftWasserstein", "DriftDomainClassifier"):
+    for kind in (
+        "DriftUnivariate",
+        "DriftMMD",
+        "DriftKNeighbors",
+        "DriftWasserstein",
+        "DriftDomainClassifier",
+        "OODKNeighbors",
+        "OODDomainClassifier",
+    ):
         for suffix in ("Config", "Evaluator", "Result"):
             assert f"{kind}{suffix}" in shift.__all__
             assert getattr(shift, f"{kind}{suffix}")
