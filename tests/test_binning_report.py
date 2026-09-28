@@ -15,7 +15,7 @@ from dataeval_flow._binning_report import (
     distribution_blocks,
     proportion_block,
 )
-from dataeval_flow._blocks import Fields
+from dataeval_flow._blocks import Fields, Section
 from dataeval_flow._blocks._draw import BAR_CELLS as _BAR_MAX
 from dataeval_flow._blocks._text import DEFAULT_WIDTH as _WIDTH
 from dataeval_flow._blocks._text import Frame, render_text
@@ -125,6 +125,14 @@ def _binned(
 def _record(**factors: object) -> dict[str, object]:
     """A binning record holding just the factors a test cares about."""
     return {"factors": dict(factors), "dropped": {}}
+
+
+def test_the_section_is_titled_as_a_finding_is():
+    """In title case, as every finding is; the text report capitalizes each section's title alike."""
+    (section,) = binning_blocks(_record(), ("a diagnostic",), detailed=False)
+    assert isinstance(section, Section)
+    assert section.title == "Metadata Factors"
+    assert _section(_record(), ("a diagnostic",))[1] == "  METADATA FACTORS"
 
 
 class TestFactorDetailLevels:

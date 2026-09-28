@@ -36,7 +36,7 @@ def serialized_of(result: "EvaluatorResult[Any]") -> dict[str, Any]:
 
 def output_blocks(output: dict[str, Any], *, detailed: bool) -> list[Block]:
     """Serialized DataEval output under an ``OUTPUT`` section."""
-    return [Section(title="OUTPUT", brief=_brief(output) or None, blocks=_shape_blocks(output, detailed=detailed))]
+    return [Section(title="Output", brief=_brief(output) or None, blocks=_shape_blocks(output, detailed=detailed))]
 
 
 def table_blocks(columns: Sequence[str], rows: Sequence[dict[str, Any]], *, limit: int | None) -> list[Block]:

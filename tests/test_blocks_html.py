@@ -103,9 +103,9 @@ def _report(*findings: Section, title: str = "Data cleaning") -> Section:
         title=title,
         blocks=[
             Fields(items=[("Dataset", "cifar10-train"), ("Duration", "4.1s")]),
-            Section(title="SUMMARY", blocks=[Summary(items=items), Paragraph(text="Health: 1 warning(s)")]),
+            Section(title="Summary", blocks=[Summary(items=items), Paragraph(text="Health: 1 warning(s)")]),
             *findings,
-            Section(title="CONFIGURATION", blocks=[Tree(value={"seed": 1})]),
+            Section(title="Configuration", blocks=[Tree(value={"seed": 1})]),
         ],
     )
 
@@ -154,7 +154,7 @@ class TestLayout:
     def test_the_cards_stand_for_the_summary(self):
         """Each card's title, brief and badge already say what its summary line says, and the header the health."""
         fragment = render_html([_report(_DUPLICATES, _LABELS)])
-        assert "SUMMARY" not in fragment
+        assert "<h2>Summary</h2>" not in fragment
         assert '<table class="summary">' not in fragment
         assert "Health:" not in fragment
 
@@ -168,11 +168,11 @@ class TestLayout:
         """Reference a reader opens when they need it, drawn apart from the findings and closed."""
         report = _report(_LABELS)
         report = report.model_copy(
-            update={"blocks": [*report.blocks[:-1], Section(title="METADATA FACTORS"), report.blocks[-1]]}
+            update={"blocks": [*report.blocks[:-1], Section(title="Metadata Factors"), report.blocks[-1]]}
         )
         fragment = render_html([report])
-        assert '<details class="panel"><summary><h2>METADATA FACTORS</h2></summary></details>' in fragment
-        assert '<details class="panel"><summary><h2>CONFIGURATION</h2></summary>' in fragment
+        assert '<details class="panel"><summary><h2>Metadata Factors</h2></summary></details>' in fragment
+        assert '<details class="panel"><summary><h2>Configuration</h2></summary>' in fragment
 
     def test_findings_that_share_a_title_get_their_own_cards(self):
         second = Section(title="Duplicates", brief="1 group", severity="info")
@@ -192,7 +192,7 @@ class TestLayout:
 
     def test_a_report_s_own_output_stays_open(self):
         """An evaluator's output and a failed run's errors are the report itself, so they never fold away."""
-        for title in ("OUTPUT", "FAILED"):
+        for title in ("Output", "Failed"):
             report = Section(title="Run", blocks=[Section(title=title, blocks=[Paragraph(text="12 rows")])])
             assert f'<section class="section"><h2>{title}</h2>' in render_html([report])
 

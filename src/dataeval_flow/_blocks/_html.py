@@ -97,7 +97,7 @@ def _is_summary(block: Block) -> bool:
 
 # The sections every report closes with, for reference: what the run read, and how it was configured.
 # ponytail: matched by title, as the flow names them; a flag on Section if a producer ever needs to choose.
-_REFERENCE = frozenset({"METADATA FACTORS", "CONFIGURATION"})
+_REFERENCE = frozenset({"Metadata Factors", "Configuration"})
 
 
 def _cards(report: Section, prefix: str) -> list[str | None]:

@@ -223,7 +223,7 @@ def failure_message(error: BaseException) -> str:
 
 def failure_section(errors: Sequence[str]) -> Section:
     """A failed run's report body: ``FAILED``, then each error."""
-    return Section(title="FAILED", blocks=[Paragraph(text=error) for error in errors])
+    return Section(title="Failed", blocks=[Paragraph(text=error) for error in errors])
 
 
 def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: Literal["json", "yaml"]) -> str | Path:
@@ -459,7 +459,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
             config = to_jsonable_python(self.metadata.resolved_config, fallback=str)
-            blocks.append(Section(title="CONFIGURATION", blocks=[Tree(value=config)]))
+            blocks.append(Section(title="Configuration", blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)
 
     def _report_envelope(self) -> list[Block]:

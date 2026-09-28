@@ -75,6 +75,20 @@ def test_the_page_shows_the_thumbnails_its_result_carries():
     assert thumbnail in results_html([_evaluator(), result])
 
 
+def test_the_page_titles_a_report_s_own_sections_as_it_titles_its_findings():
+    """Summary, Configuration, Output and Failed, in title case; the text report capitalizes every section alike."""
+    from dataeval_flow.workflows import Finding
+
+    result = _workflow()
+    result.output.report.findings = [Finding(title="Duplicates", severity="warning", brief="3 groups")]
+    result.metadata.resolved_config = {"seed": 1}
+    assert '<details class="panel"><summary><h2>Configuration</h2></summary>' in result.to_html()
+    assert '<section class="section"><h2>Summary</h2>' in result.to_html(detailed=False)
+    assert '<section class="section"><h2>Output' in _evaluator().to_html()
+    assert '<section class="section"><h2>Failed</h2>' in _workflow(success=False).to_html()
+    assert "  CONFIGURATION" in result.report().splitlines()
+
+
 def test_the_base_cannot_be_built_on_its_own():
     with pytest.raises(TypeError, match="abstract"):
         Result(type="r", success=False, metadata=ResultMetadata())  # type: ignore[abstract]
@@ -139,7 +153,7 @@ class TestOneShape:
 
     def test_a_failed_run_s_page_shows_its_errors(self, make, kind):
         page = make(success=False).to_html()
-        assert "<h2>FAILED</h2>" in page
+        assert "<h2>Failed</h2>" in page
         assert "<p>boom</p>" in page
 
     def test_an_empty_configuration_draws_no_section(self, make, kind):

@@ -351,7 +351,7 @@ def _split_comparability(per_split: Mapping[str, Any]) -> list[Block]:
 def binning_blocks(
     binning: Mapping[str, Any] | None, diagnostics: Sequence[str] = (), *, detailed: bool = False
 ) -> list[Block]:
-    """The METADATA FACTORS section: how factors were typed and binned, and any library diagnostics.
+    """The Metadata Factors section: how factors were typed and binned, and any library diagnostics.
 
     Empty when the run recorded neither.  A multi-split run shows one subsection per split;
     their factor tables share columns because they sit in one top-level section.
@@ -370,7 +370,7 @@ def binning_blocks(
         blocks.extend(_record_blocks(binning, detailed=detailed))
     if diagnostics:
         blocks.append(Section(title="Diagnostics", blocks=[BulletList(items=list(diagnostics))]))
-    return [Section(title="METADATA FACTORS", blocks=blocks)]
+    return [Section(title="Metadata Factors", blocks=blocks)]
 
 
 # -- Distribution charts: what makes a bin count arguable rather than arbitrary ------------------

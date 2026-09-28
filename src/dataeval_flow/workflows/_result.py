@@ -142,4 +142,4 @@ class WorkflowResult(Result[TMetadata, TOutput]):
             if warnings
             else "Health: All checks passed [ok]"
         )
-        return [Section(title="SUMMARY", blocks=[Summary(items=items), Paragraph(text=health)])]
+        return [Section(title="Summary", blocks=[Summary(items=items), Paragraph(text=health)])]
