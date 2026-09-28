@@ -20,7 +20,9 @@ class DuplicatesResult(EvaluatorResult[DuplicatesOutput[Any, Any]]):
     ------
     output
         DataEval's ``DuplicatesOutput``, so its own methods work: ``data()`` for the table of groups,
-        ``aggregate_by_image()``, ``aggregate_by_group()`` and the rest. Its JSON form is what ``to_dict()`` writes.
+        ``aggregate_by_image()``, ``aggregate_by_group()`` and the rest. Its JSON form is what ``to_dict()`` writes,
+        with ``annotation_divergences`` and ``factor_cardinality`` under ``extras``, ``null`` unless the annotation or
+        factor axis ran.
     metadata.evaluator
         The evaluator type, e.g. ``quality.duplicates``.
     metadata.dataeval

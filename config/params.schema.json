@@ -2542,6 +2542,108 @@
           "default": null,
           "description": "Enables cluster mode: embedding-space near duplicates at this sensitivity, merged with the hash groups. Needs an extractor on the task, and reads one source.",
           "title": "Cluster Sensitivity"
+        },
+        "redundancy_radius": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum Hamming distance, in bits, for a video frame to count as carrying nothing new over the frame before it; such stretches are reported as `redundant` groups. No effect on image datasets. Unset uses DataEval's default (4).",
+          "title": "Redundancy Radius"
+        },
+        "min_segment_frames": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shortest stretch, in frames, two videos may share and still be reported as a `segment` row. No effect on image datasets. Unset uses DataEval's default (30).",
+          "title": "Min Segment Frames"
+        },
+        "max_segment_gap": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frames a shared stretch may skip and still count as continuous; too large a value bridges a cut. No effect on image datasets. Unset uses DataEval's default (5).",
+          "title": "Max Segment Gap"
+        },
+        "segment_offset_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far two stretches may differ in offset and still be joined into one; raise it where two videos were sampled at slightly different rates. No effect on image datasets. Unset uses DataEval's default (0).",
+          "title": "Segment Offset Tolerance"
+        },
+        "verify_alignment": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean bits per frame two videos may differ by along a warped alignment and still be reported as an `aligned` row; around 8 is a reasonable start, and the cost is quadratic in the videos' lengths. No effect on image datasets. Unset skips warped matching.",
+          "title": "Verify Alignment"
+        },
+        "min_track_frames": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shortest stretch, in detections, two tracks may share and still be reported at `level: track`. Read only with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5).",
+          "title": "Min Track Frames"
+        },
+        "frame_sample": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a target rate in frames per second. No effect on image datasets. Unset reads every frame.",
+          "title": "Frame Sample"
         }
       },
       "title": "DuplicatesConfig",

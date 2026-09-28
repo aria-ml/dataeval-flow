@@ -42,6 +42,13 @@ runs `dataeval.quality.Duplicates`.
 | `merge_near_duplicates` | `merge_near_duplicates` | DataEval's default |
 | `hash_radius` | `hash_radius` | DataEval's default (`0`, documented to change in a future major release) |
 | `cluster_sensitivity` | `cluster_sensitivity`; setting it turns on cluster mode | cluster mode is off |
+| `redundancy_radius` | `redundancy_radius` (video) | DataEval's default (`4`) |
+| `min_segment_frames` | `min_segment_frames` (video) | DataEval's default (`30`) |
+| `max_segment_gap` | `max_segment_gap` (video) | DataEval's default (`5`) |
+| `segment_offset_tolerance` | `segment_offset_tolerance` (video) | DataEval's default (`0`) |
+| `verify_alignment` | `verify_alignment` (video) | warped matching is off |
+| `min_track_frames` | `min_track_frames` (video, with `per_target`) | DataEval's default (`5`) |
+| `frame_sample` | `frame_sample` (video): a stride in frames, or a rate in frames per second | every frame is read |
 | `cluster_algorithm` | `cluster_algorithm`: `kmeans` or `hdbscan` | DataEval's default |
 | `n_clusters` | `n_clusters` | DataEval chooses |
 | `per_image` | `from_stats(per_image=...)` | DataEval's default |
@@ -49,6 +56,8 @@ runs `dataeval.quality.Duplicates`.
 
 Output: a table with one row per duplicate group (`group_id`, `level`, `dup_type`,
 `item_indices`, `methods`, and `dataset_indices` when the task names several sources).
+`extras` holds `annotation_divergences` and `factor_cardinality`, `null` unless the annotation or factor axis
+ran.
 
 ### `quality.outliers`
 

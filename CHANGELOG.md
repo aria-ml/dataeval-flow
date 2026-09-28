@@ -54,6 +54,9 @@
   `EvaluatorInputs`
 - `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` by `to_dict()`
   and `export()` and shown in reports
+- `quality.duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
+  `segment_offset_tolerance`, `verify_alignment`, `min_track_frames`, `frame_sample`) and writes
+  `annotation_divergences` and `factor_cardinality` under `extras`
 
 ### Changed
 
