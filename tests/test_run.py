@@ -312,3 +312,52 @@ def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.Mon
     assert result.assets == []
     assert "assets" not in result.to_dict()
     assert '<span class="item">7</span>' in result.to_html()
+
+
+def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded() -> None:
+    """The detectors score one draw of a random view; each thumbnail is read from that draw, not a fresh one."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    from dataeval_flow._blocks._items import refs_in
+    from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, ViewOperation
+    from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectionResult, OODDetectorKNeighbors
+    from tests.finding_blocks import tables
+
+    class Mixed(ToyImages):
+        """Items 0 to 3 black, which the reference has never seen; the rest noise like the reference's."""
+
+        def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+            image, target, datum = super().__getitem__(index)
+            return (np.zeros_like(image) if index < 4 else image), target, datum
+
+    config = PipelineConfig(
+        datasets=[
+            DatasetProtocolConfig(name="ref", format="maite", dataset=ToyImages(seed=0, count=20)),
+            DatasetProtocolConfig(name="mixed", format="maite", dataset=Mixed(seed=1, count=16)),
+        ],
+        views=[ViewConfig(name="shuffled", operations=[ViewOperation(type="Shuffle", params={})])],
+        sources=[
+            SourceConfig(name="reference", dataset="ref"),
+            SourceConfig(name="test", dataset="mixed", view="shuffled"),
+        ],
+        extractors=[FlattenExtractorConfig(name="flat", batch_size=8)],
+        workflows=[
+            OODDetectionConfig(
+                name="ood", detectors=[OODDetectorKNeighbors(k=3), OODDetectorKNeighbors(k=5)], metadata_insights=False
+            )
+        ],
+        tasks=[TaskConfig(name="t", workflow="ood", sources=["reference", "test"], extractor="flat")],
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, OODDetectionResult)
+    (aggregate,) = [finding for finding in result.findings if finding.title.startswith("Aggregate")]
+    agreed = {ref for row in tables(aggregate)[0].rows for ref in refs_in(row.get("image"))}
+    shades = {
+        asset.item: int(np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max())
+        for asset in result.assets
+    }
+    assert len(agreed) == 4
+    assert {item: shades[item] < 8 for item in agreed} == dict.fromkeys(agreed, True)

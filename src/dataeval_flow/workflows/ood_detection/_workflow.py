@@ -592,7 +592,7 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
             )
 
         # --- 7. Build outputs ---
-        return self._build_workflow_result(
+        result = self._build_workflow_result(
             config,
             ref_embeddings,
             test_embeddings,
@@ -605,6 +605,10 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
             metadata_binning,
             parts=[(name, len(dataset)) for name, _, dataset in test_datasets],
         )
+        # The views the detectors scored: rebuilt later, a random view would draw other items, and a thumbnail
+        # would show a sample the detectors never scored.
+        result.sources = {ref_dc.name: ref_dataset, **{name: dataset for name, _, dataset in test_datasets}}
+        return result
 
     def _prepare_datasets(
         self,
