@@ -1,12 +1,13 @@
 """Table layout for the text renderer: column widths, chart cells, and the scale line under a bar."""
 
-__all__ = ["cell_text", "draw_table", "natural_widths", "shared_widths"]
+__all__ = ["cell_text", "draw_table", "natural_widths", "numbers", "shared_widths", "shown_rows"]
 
 import math
 from collections.abc import Mapping, Sequence
 from typing import Any, TypeGuard
 
 from dataeval_flow._blocks._draw import BAR_CELLS, CHART_MIN, fmt_num, hbar, shape_cells
+from dataeval_flow._blocks._flags import flags_in, ordered, tag_text
 from dataeval_flow._blocks._models import Block, Cell, Column, Section, Table
 
 _GAP = "  "
@@ -25,6 +26,17 @@ def _is_number(value: object) -> TypeGuard[int | float]:
 def _finite(value: object) -> TypeGuard[int | float]:
     """A number a chart can place: a NaN or an infinity has no position, so it draws blank."""
     return _is_number(value) and math.isfinite(value)
+
+
+def numbers(value: Cell) -> list[float] | None:
+    """A chart cell's numbers, a sparkline's counts or a stacked bar's segments; ``None`` where it holds none.
+
+    A list cell may hold flags instead, which no chart draws.
+    """
+    if not isinstance(value, list):
+        return None
+    floats = [float(v) for v in value if isinstance(v, int | float)]
+    return floats if len(floats) == len(value) else None
 
 
 def _markers(column: Column) -> list[tuple[str, float]]:
@@ -50,7 +62,12 @@ def _formatted(column: Column, value: float) -> str | None:
 
 
 def _text_lines(column: Column, value: Cell) -> list[str]:
-    """A text cell's display lines: formatted when numeric and a format is set, split on ``\\n``."""
+    """A text cell's display lines: formatted when numeric and a format is set, split on ``\\n``.
+
+    A flags cell prints one tag per line, by name.
+    """
+    if column.kind == "flags":
+        return [tag_text(flag) for flag in ordered(flags_in(value))] or [""]
     if value is None:
         return [""]
     if _is_number(value) and (text := _formatted(column, value)) is not None:
@@ -73,6 +90,11 @@ def _header(column: Column) -> str:
     return column.header
 
 
+def shown_rows(table: Table) -> list[dict[str, Cell]]:
+    """The rows a renderer with little room shows: the table's preview, or every row where it has none."""
+    return table.rows if table.preview is None else table.rows[: table.preview]
+
+
 def natural_widths(table: Table) -> tuple[int, ...]:
     """How wide each column needs to be to hold its header and cells before any shrinking."""
     widths: list[int] = []
@@ -82,7 +104,7 @@ def natural_widths(table: Table) -> tuple[int, ...]:
         elif column.kind in ("bar", "stacked"):
             widths.append(max(BAR_CELLS, len(_header(column))))
         else:
-            cells = [line for row in table.rows for line in _text_lines(column, row.get(column.key))]
+            cells = [line for row in shown_rows(table) for line in _text_lines(column, row.get(column.key))]
             widths.append(max([len(column.header), *(len(line) for line in cells)]))
     return tuple(widths)
 
@@ -162,9 +184,10 @@ def _bar(value: Cell, low: float, high: float, width: int) -> str:
 
 def _stacked(value: Cell, peak: float, width: int) -> str:
     """Segments drawn one glyph each, every nonzero segment keeping at least one cell."""
-    if not isinstance(value, list) or not peak or not all(math.isfinite(v) for v in value):
+    values = numbers(value)
+    if values is None or not peak or not all(math.isfinite(v) for v in values):
         return ""
-    counts = [max(1 if v > 0 else 0, round(v / peak * width)) for v in value]
+    counts = [max(1 if v > 0 else 0, round(v / peak * width)) for v in values]
     while sum(counts) > width:
         counts[counts.index(max(counts))] -= 1
     return "".join(_STACK_GLYPHS[i % len(_STACK_GLYPHS)] * n for i, n in enumerate(counts))
@@ -172,14 +195,14 @@ def _stacked(value: Cell, peak: float, width: int) -> str:
 
 def _stack_peak(table: Table, column: Column) -> float:
     """The largest finite row total a stacked column holds: the length its longest bar is drawn at."""
-    sums = [sum(v) for row in table.rows if isinstance(v := row.get(column.key), list)]
+    sums = [sum(v) for row in table.rows if (v := numbers(row.get(column.key))) is not None]
     return max((total for total in sums if math.isfinite(total)), default=0)
 
 
 def _chart(column: Column, value: Cell, width: int, scale: tuple[float, float]) -> str:
     """One chart cell. *scale* is the column's ``(low, high)``, measured once for every row."""
     if column.kind == "sparkline":
-        return shape_cells(value, width) if isinstance(value, list) else ""
+        return shape_cells(values, width) if (values := numbers(value)) is not None else ""
     if column.kind == "stacked":
         return _stacked(value, scale[1], width)
     return _bar(value, *scale, width)
@@ -230,7 +253,7 @@ def draw_table(
     shared = (layouts or {}).get(_signature(table))
     widths = _fit(columns, list(shared or natural_widths(table)), room)
     aligns = [
-        "left" if column.kind in _CHARTS else column.align or ("left" if index == 0 else "right")
+        "left" if column.kind in (*_CHARTS, "flags") else column.align or ("left" if index == 0 else "right")
         for index, column in enumerate(columns)
     ]
 
@@ -254,7 +277,8 @@ def draw_table(
         for index, column in enumerate(columns)
         if column.kind in ("bar", "stacked")
     }
-    for row in table.rows:
+    rows = shown_rows(table)
+    for row in rows:
         cells = [
             [_chart(column, row.get(column.key), width, scales.get(index, (0.0, 0.0)))]
             if column.kind in _CHARTS
@@ -263,6 +287,8 @@ def draw_table(
         ]
         depth = max(len(cell) for cell in cells)
         lines.extend(_join([cell[sub] if sub < len(cell) else "" for cell in cells]) for sub in range(depth))
+    if (hidden := len(table.rows) - len(rows)) > 0:
+        lines.append(f"{indent}… {hidden:,} more row{'s' if hidden != 1 else ''}, in the HTML and JSON reports")
     for index, column in enumerate(columns):
         if column.kind == "bar" and _markers(column):
             offset = len(indent) + sum(widths[:index]) + len(_GAP) * index

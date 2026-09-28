@@ -1,8 +1,9 @@
 """Tables in text: aligned columns, charts drawn from numbers, and a layout that shrinks charts before it overflows."""
 
 import pytest
+from pydantic import ValidationError
 
-from dataeval_flow._blocks import Column, Section, Table
+from dataeval_flow._blocks import Column, Flag, Section, Table
 from dataeval_flow._blocks._text import Frame, render_text
 
 pytestmark = pytest.mark.required
@@ -211,6 +212,13 @@ class TestSharedLayout:
 
 
 class TestDegenerateNumbers:
+    @pytest.mark.parametrize("kind", ["stacked", "sparkline"])
+    def test_a_chart_cell_holding_flags_draws_blank(self, kind):
+        """A list cell may hold flags, which no chart draws: the row prints without a chart rather than failing."""
+        flag = Flag(name="blur", value=0.1, direction="lower", bound=0.2, percentile=0.4, mean=0.5, std=0.1)
+        table = Table(columns=[Column(key="c", header="c"), Column(key="v", kind=kind)], rows=[{"c": "a", "v": [flag]}])
+        assert _draw(table)[-1] == "  a"
+
     def test_an_all_zero_bar_column_draws_blank_bars(self):
         table = Table(columns=[Column(key="c", header="c"), Column(key="n", kind="bar")], rows=[{"c": "a", "n": 0}])
         assert _draw(table)[-1] == "  a"
@@ -282,3 +290,60 @@ class TestNonFiniteNumbers:
             rows=[{"f": "a", "h": [1.0, float("nan"), 3.0]}],
         )
         assert _draw(table)[-1].startswith("  a  ")
+
+
+def _flag(name: str, value: float, direction: str, bound: float) -> Flag:
+    return Flag(name=name, value=value, direction=direction, bound=bound, percentile=50.0, mean=0.4, std=0.1)  # type: ignore[arg-type]
+
+
+class TestFlagsCells:
+    def test_a_flags_cell_prints_one_tag_per_line_by_name(self):
+        flags = [
+            _flag("contrast", 0.91, "upper", 0.77),
+            _flag("brightness", 0.99, "upper", 0.84),
+            _flag("entropy", 1.2, "lower", 3.1),
+        ]
+        table = Table(
+            columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
+            rows=[{"item": 41, "flags": flags}],
+        )
+        assert _draw(table) == [
+            "  Item  Flagged by",
+            "  ----  ----------------------",
+            "  41    brightness 0.99 > 0.84",
+            "        contrast 0.91 > 0.77",
+            "        entropy 1.2 < 3.1",
+        ]
+
+    def test_a_row_without_flags_prints_an_empty_cell(self):
+        table = Table(
+            columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
+            rows=[{"item": 7, "flags": []}],
+        )
+        assert _draw(table)[-1] == "  7"
+
+
+class TestPreviews:
+    def test_a_preview_shows_its_rows_then_counts_the_rest(self):
+        table = Table(columns=[Column(key="k", header="K")], rows=[{"k": str(i)} for i in range(25)], preview=10)
+        lines = _draw(table)
+        assert lines[2:12] == [f"  {i}" for i in range(10)]
+        assert lines[12:] == ["  … 15 more rows, in the HTML and JSON reports"]
+
+    def test_one_row_left_over_is_counted_in_the_singular(self):
+        table = Table(columns=[Column(key="k", header="K")], rows=[{"k": str(i)} for i in range(11)], preview=10)
+        assert _draw(table)[-1] == "  … 1 more row, in the HTML and JSON reports"
+
+    def test_a_preview_can_t_be_negative(self):
+        with pytest.raises(ValidationError):
+            Table(columns=[Column(key="k")], rows=[], preview=-1)
+
+    def test_the_rows_shown_set_the_widths(self):
+        """A long value past the preview doesn't widen the columns of the rows that are shown."""
+        rows = [{"k": "a", "v": 1}, {"k": "b", "v": 2}, {"k": "a very long name", "v": 3}]
+        table = Table(columns=[Column(key="k", header="K"), Column(key="v", header="V")], rows=rows, preview=2)
+        assert _draw(table)[2] == "  a  1"
+
+    def test_a_preview_no_shorter_than_the_table_shows_every_row_and_no_count(self):
+        table = Table(columns=[Column(key="k", header="K")], rows=[{"k": "a"}, {"k": "b"}], preview=2)
+        assert _draw(table) == ["  K", "  -", "  a", "  b"]

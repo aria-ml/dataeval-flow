@@ -18,7 +18,7 @@ from dataeval_flow._app._screens._detail import (
     _colorize_marker,
     _FindingHeader,
 )
-from dataeval_flow._blocks import Column, Paragraph, Section, Table
+from dataeval_flow._blocks import Column, Flag, Paragraph, Section, Table
 from dataeval_flow._blocks._text import MIN_WIDTH
 
 from .conftest import _MinimalApp, _wait_for_result
@@ -392,6 +392,20 @@ class TestResultDetailModal:
             table = modal.query_one(DataTable)
             assert [str(column.label) for column in table.columns.values()] == ["Class", "[train]"]
             assert [str(cell) for cell in table.get_row_at(0)] == ["[person]", "[/x] 3"]
+
+    async def test_a_flags_table_draws_its_tags_as_text(self) -> None:
+        """A cell of flags is more than text a ``DataTable`` holds, so the table draws with the report's text."""
+        flag = Flag(name="brightness", value=0.99, direction="upper", bound=0.84, percentile=99.95, mean=0.52, std=0.11)
+        table = Table(
+            columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
+            rows=[{"item": 41, "flags": [flag]}],
+        )
+        app = _MinimalApp()
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = await self._expanded(pilot, app, _FakeFinding(title="Outliers", severity="warning", blocks=[table]))
+            assert not modal.query(DataTable)
+            (text,) = modal.query(_BlockText)
+            assert "41    brightness 0.99 > 0.84" in text.text
 
     async def test_a_multi_line_cell_shows_every_line(self) -> None:
         """A cell holding one factor per line gets a row tall enough for all of them."""

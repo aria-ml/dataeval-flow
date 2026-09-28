@@ -10,6 +10,7 @@ __all__ = [
     "Column",
     "Distribution",
     "Fields",
+    "Flag",
     "Paragraph",
     "Proportion",
     "Quantiles",
@@ -54,8 +55,6 @@ def _native(value: Any) -> Any:
 
 
 Scalar = Annotated[str | int | float | bool | None, BeforeValidator(_native)]
-# A list cell holds a sparkline's counts or a stacked bar's segments.
-Cell = Annotated[str | int | float | bool | None | list[float], BeforeValidator(_native)]
 # A measured value a chart places: a drift threshold, a quantile.
 Number = Annotated[float, BeforeValidator(_native)]
 Severity = Literal["ok", "info", "warning"]
@@ -77,6 +76,22 @@ class _Block(BaseModel):
             for name, value in handler(self).items()
             if name == "type" or getattr(self, name) != fields[name].get_default(call_default_factory=True)
         }
+
+
+class Flag(_Block):
+    """One measurement against the population it was judged in: why an item was flagged, and how far out it lies."""
+
+    name: str = Field(description="What was measured, such as `brightness`.")
+    value: Number = Field(description="This item's value.")
+    direction: Literal["upper", "lower"] = Field(description="Which limit the value crossed.")
+    bound: Number = Field(description="The limit it crossed.")
+    percentile: Number = Field(description="Where the value ranks in its population, from 0 to 100.")
+    mean: Number = Field(description="The population's mean.")
+    std: Number = Field(description="The population's standard deviation.")
+
+
+# A list cell holds a sparkline's counts or a stacked bar's segments, or a flags column's flags.
+Cell = Annotated[str | int | float | bool | None | list[float] | list[Flag], BeforeValidator(_native)]
 
 
 class Section(_Block):
@@ -120,11 +135,12 @@ class Column(_Block):
 
     key: str = Field(description="The row key this column reads. Two columns may read one key: a count and its bar.")
     header: str = Field(default="", description="The column's heading. A table whose headings are all empty has none.")
-    kind: Literal["text", "bar", "stacked", "sparkline"] = Field(
+    kind: Literal["text", "bar", "stacked", "sparkline", "flags"] = Field(
         default="text",
         description=(
             "`text` shows the cell; `bar` draws a number as a bar; `stacked` draws a list of numbers as one "
-            "segmented bar; `sparkline` draws a list of counts as a small histogram."
+            "segmented bar; `sparkline` draws a list of counts as a small histogram; `flags` shows a list of "
+            "flags, by name, each as its value against the limit it crossed."
         ),
     )
     align: Literal["left", "right"] | None = Field(
@@ -144,6 +160,14 @@ class Table(_Block):
     columns: list[Column] = Field(description="The columns, in display order.")
     rows: list[dict[str, Cell]] = Field(
         description="One mapping per row, from column key to cell. A string cell may hold `\\n` for several lines."
+    )
+    preview: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "How many rows a renderer with little room shows first, followed by a line counting the rest. "
+            "Unset: every row."
+        ),
     )
 
 

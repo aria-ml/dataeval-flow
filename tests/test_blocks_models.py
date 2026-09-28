@@ -12,6 +12,7 @@ from dataeval_flow._blocks import (
     Column,
     Distribution,
     Fields,
+    Flag,
     Paragraph,
     Proportion,
     Quantiles,
@@ -171,3 +172,50 @@ class TestJsonForm:
     @pytest.mark.parametrize("block", EVERY_BLOCK, ids=lambda block: block.type)
     def test_the_compact_form_reads_back_to_the_same_block(self, block):
         assert _BLOCKS.validate_json(_BLOCKS.dump_json([block])) == [block]
+
+
+_FLAG = Flag(name="brightness", value=0.99, direction="upper", bound=0.84, percentile=99.95, mean=0.52, std=0.11)
+
+
+class TestFlagsAndPreviews:
+    """A flags cell holds measurements, not text, and a preview says how many rows a narrow renderer shows."""
+
+    def test_a_flag_is_its_measurements(self):
+        assert _FLAG.model_dump(mode="json") == {
+            "name": "brightness",
+            "value": 0.99,
+            "direction": "upper",
+            "bound": 0.84,
+            "percentile": 99.95,
+            "mean": 0.52,
+            "std": 0.11,
+        }
+
+    def test_a_flags_table_with_a_preview_round_trips(self):
+        table = Table(
+            columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
+            rows=[{"item": 41, "flags": [_FLAG]}],
+            preview=10,
+        )
+        assert _BLOCKS.validate_json(_BLOCKS.dump_json([table])) == [table]
+        assert table.model_dump(mode="json")["rows"][0]["flags"][0]["name"] == "brightness"
+
+    def test_a_list_of_numbers_is_still_a_chart_cell(self):
+        """Adding flags to the cell union leaves a sparkline's counts as numbers."""
+        (row,) = Table(columns=[Column(key="h", kind="sparkline")], rows=[{"h": [1, 2.5]}]).rows
+        assert row["h"] == [1.0, 2.5]
+
+    def test_a_float32_flag_keeps_the_digits_it_prints_with(self):
+        import numpy as np
+
+        flag = Flag.model_validate({**_FLAG.model_dump(), "value": np.float32(0.99), "bound": np.float32(0.84)})
+        assert (flag.value, flag.bound) == (0.99, 0.84)
+
+    def test_a_table_without_a_preview_leaves_it_out(self):
+        table = Table(columns=[Column(key="k")], rows=[{"k": "a"}])
+        assert table.preview is None
+        assert "preview" not in table.model_dump(mode="json")
+
+    def test_a_flag_names_its_direction(self):
+        with pytest.raises(ValidationError):
+            Flag.model_validate({**_FLAG.model_dump(), "direction": "sideways"})
