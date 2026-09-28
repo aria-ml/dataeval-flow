@@ -39,7 +39,7 @@
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
-- The HTML report shows a card per finding linked from its summary, sortable and filterable tables, and dark mode
+- The HTML report shows a card per finding, warnings open, with sortable and filterable tables and dark mode
 
 ### Changed
 

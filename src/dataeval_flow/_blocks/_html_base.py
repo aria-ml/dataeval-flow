@@ -17,17 +17,10 @@ _CODE_SPAN = re.compile(r"`([^`]+)`")
 class Render(Protocol):
     """Draws a container's child blocks one level deeper.
 
-    *anchors* gives each child the ``id`` it draws with, in order, where the container named them; *links*
-    replaces the card ids its descendants' summaries link to. Children inherit the links otherwise.
+    *anchors* gives each child the ``id`` it draws with, in order, where the container named them.
     """
 
-    def __call__(
-        self,
-        children: Sequence[Block],
-        *,
-        anchors: Sequence[str | None] | None = None,
-        links: tuple[str, ...] | None = None,
-    ) -> str: ...
+    def __call__(self, children: Sequence[Block], *, anchors: Sequence[str | None] | None = None) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -35,14 +28,12 @@ class HtmlContext:
     """Where a block is drawn: its section depth, and how to draw a container's child blocks one level deeper.
 
     ``anchor`` is the ``id`` this block draws with, where its container gave it one: a report on a page
-    of several, or a finding's card. ``links`` is the current report's card ids, in the order of its
-    findings, which the report's summary links its rows to.
+    of several, or a finding's card.
     """
 
     depth: int
     render: Render
     anchor: str | None = None
-    links: tuple[str, ...] = ()
 
 
 Draw = Callable[[Any, HtmlContext], str]

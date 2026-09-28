@@ -45,14 +45,15 @@ dl.fields.provenance { display: grid; grid-template-columns: max-content 1fr; ga
 dl.provenance dt { font-weight: 600; color: var(--ink); }
 dl.provenance dd { margin: 0; overflow-wrap: anywhere; }
 section.section > h2 { border-bottom: 1px solid var(--rule); padding-bottom: 0.2rem; }
-details.card { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--info);
-  border-radius: 7px; padding: 0.3rem 1rem 0.6rem; margin: 0.9rem 0; }
+details.card, details.panel { background: var(--card); border: 1px solid var(--rule);
+  border-left: 4px solid var(--info); border-radius: 7px; padding: 0.3rem 1rem 0.6rem; margin: 0.9rem 0; }
 details.card.ok { border-left-color: var(--ok); } details.card.warning { border-left-color: var(--warning); }
-details.card > summary { cursor: pointer; list-style: none; }
-details.card > summary::-webkit-details-marker { display: none; }
-details.card > summary h2 { display: inline; font-size: 1.1rem; margin: 0; }
-details.card > summary::before { content: "▸"; color: var(--muted); margin-right: 0.4rem; }
-details.card[open] > summary::before { content: "▾"; }
+details.panel { border-left-color: var(--rule); margin-top: 1.5rem; }
+:is(details.card, details.panel) > summary { cursor: pointer; list-style: none; }
+:is(details.card, details.panel) > summary::-webkit-details-marker { display: none; }
+:is(details.card, details.panel) > summary h2 { display: inline; font-size: 1.1rem; margin: 0; }
+:is(details.card, details.panel) > summary::before { content: "▸"; color: var(--muted); margin-right: 0.4rem; }
+:is(details.card, details.panel)[open] > summary::before { content: "▾"; }
 .brief { font-weight: normal; color: var(--muted); margin-left: 0.5rem; }
 .badge { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; border-radius: 1rem; padding: 0.05rem 0.55rem;
   margin-left: 0.5rem; color: #fff; background: var(--info); vertical-align: middle; }

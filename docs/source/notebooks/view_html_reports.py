@@ -165,10 +165,11 @@ show(clean.to_html())
 #
 # Try each of these on the page above:
 #
-# - **The verdict.** The header gives the report's verdict: the number of warnings, or `passed`. Below it, the
-#   summary lists every finding with its severity, and each row links to that finding's card.
-# - **The cards.** Each finding is a card that opens and closes. *Expand all* and *Collapse all*, top right, act on
-#   every card at once.
+# - **The verdict.** The header gives the report's verdict: the number of warnings, or `passed`.
+# - **The cards.** Each finding is a card headed by its title, its value and its severity, so the cards read as the
+#   report's summary. A warning starts open, and the rest start closed as one line each. *Expand all* and
+#   *Collapse all*, top right, act on every card at once.
+# - **Reference.** The metadata factors and the configuration close the report as panels, closed until opened.
 # - **Sorting.** Click a column's header to sort the table by it: ascending, descending, then back to the original
 #   order. A column of numbers sorts as numbers. The *Flagged by* column sorts by how many flags each row holds.
 # - **Filtering.** A table of more than ten rows gets a box above it. Type in it to keep the rows whose visible
@@ -184,7 +185,8 @@ show(clean.to_html())
 #
 # A bar chart with thresholds draws each one as a dashed line across the bars, and labels it on a scale below the
 # table. In the drift report, each chunk's distance is a bar, and the two dashed lines are the lower and upper drift
-# thresholds: a chunk whose distance falls outside them counts as drifted.
+# thresholds: a chunk whose distance falls outside them counts as drifted. No chunk drifted, so the finding is `ok`
+# and its card starts closed; open *K-Neighbors* to see the chart.
 
 # %% tags=["remove_input"]
 show(drift.to_html(), height=780)
@@ -206,7 +208,7 @@ show(clean.to_html(detailed=False), height=360)
 # ## Printing, dark mode, and blocked scripts
 #
 # - **Printing.** The page prints (or saves as PDF from the browser's print dialog) in its light palette. Before it
-#   prints, it opens every card and shows every row a filter hid.
+#   prints, it opens every card and panel and shows every row a filter hid.
 # - **Dark mode.** The page follows the system's setting. It has no toggle of its own.
 # - **Scripts blocked.** One inline script adds the sorting, the filter boxes and the *Expand all* buttons. Where
 #   scripts are blocked, as some mail viewers and locked-down browsers block them, the page shows the same report

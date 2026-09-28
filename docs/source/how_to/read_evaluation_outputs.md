@@ -83,9 +83,11 @@ Path("report.html").write_text(result.to_html(), encoding="utf-8")
 {doc}`View a report as HTML <../notebooks/view_html_reports>` shows the page rendered, so you can try it. The page
 holds everything the text report holds, laid out for reading on screen:
 
-- The header gives the report's verdict, and the summary links each finding to its card. A page holding several
-  tasks' reports lists them first.
-- Each finding is a card that opens and closes, with *Expand all* and *Collapse all* above them.
+- The header gives the report's verdict. A page holding several tasks' reports lists them first.
+- Each finding is a card that opens and closes, headed by its title, its value and its severity, so the cards read
+  as the report's summary. A warning starts open and the rest start closed. *Expand all* and *Collapse all* sit
+  above them.
+- The metadata factors and the configuration close the report as panels of their own, closed until opened.
 - A table's headers sort it on a click, and a table of more than ten rows gets a box that filters its rows. Cells
   keep their raw values, so a column of numbers sorts as numbers, and a column of flags by how many each row holds.
 - An outlier's flags show as tags, each reading its value against the limit it crossed, such as
@@ -99,8 +101,8 @@ buttons. With scripts blocked, as some mail viewers and locked-down browsers blo
 without those controls.
 
 The page prints (or saves as PDF from the browser's print dialog) in the light palette. Before it prints, its script
-opens every finding and shows every row a filter hid. With scripts blocked, each finding prints as the reader left
-it, open unless they closed it. Hover cards don't print. In data cleaning, each outlier finding's limits table gives
+opens every finding and shows every row a filter hid. With scripts blocked, each finding and panel prints as the
+reader left it. Hover cards don't print. In data cleaning, each outlier finding's limits table gives
 each metric's limits and its population's mean and standard deviation, and says `varies` where its flags' figures
 differ. Percentiles, and data analysis's populations, show only in the hover cards and the JSON.
 

@@ -55,7 +55,7 @@ def render_html(blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = No
             anchors.append(f"r{count}")
         else:
             anchors.append(None)
-    return _render(blocks, 0, table, anchors, ())
+    return _render(blocks, 0, table, anchors)
 
 
 def _render(
@@ -63,21 +63,12 @@ def _render(
     depth: int,
     table: Mapping[str, Draw],
     anchors: Sequence[str | None] | None,
-    links: tuple[str, ...],
 ) -> str:
-    def _children(
-        children: Sequence[Block],
-        *,
-        anchors: Sequence[str | None] | None = None,
-        links: tuple[str, ...] | None = None,
-    ) -> str:
-        # Children keep the report's links unless their container replaces them, as a report does.
-        return _render(children, depth + 1, table, anchors, outer if links is None else links)
-
-    outer = links
+    def _children(children: Sequence[Block], *, anchors: Sequence[str | None] | None = None) -> str:
+        return _render(children, depth + 1, table, anchors)
 
     parts = (
-        table[block.type](block, HtmlContext(depth, _children, anchors[i] if anchors else None, links))
+        table[block.type](block, HtmlContext(depth, _children, anchors[i] if anchors else None))
         for i, block in enumerate(blocks)
     )
     return "\n".join(part for part in parts if part)
@@ -91,6 +82,16 @@ def _reports(blocks: Sequence[Block]) -> list[Section]:
 def _is_finding(block: Block) -> bool:
     """Whether *block*, directly under a report, is one of its findings: a section carrying a verdict."""
     return isinstance(block, Section) and block.severity is not None
+
+
+def _is_summary(block: Block) -> bool:
+    """Whether *block*, directly under a report, is its summary: the section holding its findings' lines."""
+    return isinstance(block, Section) and any(isinstance(child, Summary) for child in block.blocks)
+
+
+# The sections every report closes with, for reference: what the run read, and how it was configured.
+# ponytail: matched by title, as the flow names them; a flag on Section if a producer ever needs to choose.
+_REFERENCE = frozenset({"METADATA FACTORS", "CONFIGURATION"})
 
 
 def _cards(report: Section, prefix: str) -> list[str | None]:
@@ -172,8 +173,12 @@ def _section(block: Section, ctx: HtmlContext) -> str:
     children = ctx.render(block.blocks)
     body = f"\n{children}" if children else ""
     if ctx.depth == 1 and block.severity:
+        # A warning is open on arrival, as it asks for a look; the rest read as one line until opened.
         card = f' id="{escape(ctx.anchor)}"' if ctx.anchor else ""
-        return f'<details class="card {block.severity}"{card} open><summary>{heading}</summary>{body}</details>'
+        opened = " open" if block.severity == "warning" else ""
+        return f'<details class="card {block.severity}"{card}{opened}><summary>{heading}</summary>{body}</details>'
+    if ctx.depth == 1 and block.title in _REFERENCE:
+        return f'<details class="panel"><summary>{heading}</summary>{body}</details>'
     classes = f"section {block.severity}" if block.severity else "section"
     return f'<section class="{classes}">{heading}{body}</section>'
 
@@ -200,7 +205,12 @@ def _health(report: Section) -> str:
 
 
 def _report(block: Section, ctx: HtmlContext) -> str:
-    """A result's report: a header with its title and verdict, its envelope as the provenance line, then the rest."""
+    """A result's report: a header with its title and verdict, its envelope as the provenance, then the rest.
+
+    Where it has finding cards, they stand for its summary: each card's title, brief and badge say what
+    its summary line says, and the header's badge says what the health line does. The short form has no
+    cards, so its summary stays.
+    """
     brief = f' <span class="brief">{escape(block.brief)}</span>' if block.brief else ""
     verdict = badge(block.severity) if block.severity else _health(block)
     head = f'<header class="report-head"><h1>{_heading(block.title)}{brief}</h1>{verdict}</header>'
@@ -210,7 +220,10 @@ def _report(block: Section, ctx: HtmlContext) -> str:
     if rest and isinstance(first := rest[0], Fields):
         provenance = _fields(first, ctx, css="fields provenance")
         rest, cards = rest[1:], cards[1:]
-    children = ctx.render(rest, anchors=cards, links=tuple(card for card in cards if card))
+    if any(_is_finding(child) for child in rest):
+        kept = [i for i, child in enumerate(rest) if not _is_summary(child)]
+        rest, cards = [rest[i] for i in kept], [cards[i] for i in kept]
+    children = ctx.render(rest, anchors=cards)
     body = "".join(f"\n{part}" for part in (provenance, children) if part)
     opening = f'<article class="report" id="{escape(ctx.anchor)}">' if ctx.anchor else '<article class="report">'
     return f"{opening}{head}{body}</article>"
@@ -243,19 +256,12 @@ def _tree(block: Tree, _ctx: HtmlContext) -> str:
     return f'<pre class="tree">{escape(chr(10).join(lines))}</pre>'
 
 
-def _summary(block: Summary, ctx: HtmlContext) -> str:
-    """One row per item; each row links to its finding's card where the summary is a report's contents."""
-    cards = ctx.links if len(ctx.links) == len(block.items) else ()
+def _summary(block: Summary, _ctx: HtmlContext) -> str:
     rows = "".join(
-        f"<tr><td>{_label(item.label, cards[index] if cards else None)}</td>"
-        f"<td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
-        for index, item in enumerate(block.items)
+        f"<tr><td>{escape(item.label)}</td><td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
+        for item in block.items
     )
     return f'<table class="summary"><tbody>{rows}</tbody></table>'
-
-
-def _label(text: str, card: str | None) -> str:
-    return f'<a href="#{escape(card)}">{escape(text)}</a>' if card else escape(text)
 
 
 # -- Charts -------------------------------------------------------------------------------------

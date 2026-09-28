@@ -113,7 +113,7 @@ _LABELS = Section(title="Label Distribution", brief="10 classes", severity="ok")
 
 
 class TestLayout:
-    """A report reads as a header, its summary as the contents, and each finding as a card."""
+    """A report reads as a header, then a card per finding, then its reference sections folded away."""
 
     def test_the_header_holds_the_title_and_the_health(self):
         fragment = render_html([_report(_DUPLICATES, _LABELS)])
@@ -129,7 +129,9 @@ class TestLayout:
         """`to_html(detailed=False)` has the summary but no cards: its lines carry the same verdicts."""
         short = _report(_DUPLICATES, _LABELS)
         short = short.model_copy(update={"blocks": [b for b in short.blocks if b not in (_DUPLICATES, _LABELS)]})
-        assert '<span class="badge warning">1 warning</span></header>' in render_html([short])
+        fragment = render_html([short])
+        assert '<span class="badge warning">1 warning</span></header>' in fragment
+        assert '<table class="summary">' in fragment, "with no cards, the summary is the report"
 
     def test_a_report_without_findings_has_no_health_badge(self):
         fragment = render_html([Section(title="Evaluator", blocks=[Paragraph(text="12 rows")])])
@@ -147,17 +149,34 @@ class TestLayout:
             "\n<p>3 groups.</p></details>"
         ) in fragment
 
-    def test_the_summary_links_each_finding_to_its_card(self):
+    def test_the_cards_stand_for_the_summary(self):
+        """Each card's title, brief and badge already say what its summary line says, and the header the health."""
         fragment = render_html([_report(_DUPLICATES, _LABELS)])
-        assert '<td><a href="#duplicates">Duplicates</a></td>' in fragment
-        assert '<td><a href="#label-distribution">Label Distribution</a></td>' in fragment
+        assert "SUMMARY" not in fragment
+        assert '<table class="summary">' not in fragment
+        assert "Health:" not in fragment
+
+    def test_only_a_warning_starts_open(self):
+        """The findings that need a look are open on arrival; the rest are one line each until opened."""
+        fragment = render_html([_report(_DUPLICATES, _LABELS)])
+        assert '<details class="card warning" id="duplicates" open>' in fragment
+        assert '<details class="card ok" id="label-distribution"><summary>' in fragment
+
+    def test_the_metadata_factors_and_the_configuration_fold_away(self):
+        """Reference a reader opens when they need it, drawn apart from the findings and closed."""
+        report = _report(_LABELS)
+        report = report.model_copy(
+            update={"blocks": [*report.blocks[:-1], Section(title="METADATA FACTORS"), report.blocks[-1]]}
+        )
+        fragment = render_html([report])
+        assert '<details class="panel"><summary><h2>METADATA FACTORS</h2></summary></details>' in fragment
+        assert '<details class="panel"><summary><h2>CONFIGURATION</h2></summary>' in fragment
 
     def test_findings_that_share_a_title_get_their_own_cards(self):
         second = Section(title="Duplicates", brief="1 group", severity="info")
         fragment = render_html([_report(_DUPLICATES, second)])
         assert 'id="duplicates"' in fragment
         assert 'id="duplicates-2"' in fragment
-        assert '<a href="#duplicates-2">Duplicates</a>' in fragment
 
     def test_a_card_never_takes_an_id_another_already_has(self):
         """ "Outliers 2" names `outliers-2`, so the second "Outliers" moves on to `outliers-3`."""
@@ -169,10 +188,11 @@ class TestLayout:
             "outliers-3",
         ]
 
-    def test_sections_that_are_not_findings_stay_sections(self):
-        fragment = render_html([_report(_LABELS)])
-        assert '<section class="section"><h2>SUMMARY</h2>' in fragment
-        assert '<section class="section"><h2>CONFIGURATION</h2>' in fragment
+    def test_a_report_s_own_output_stays_open(self):
+        """An evaluator's output and a failed run's errors are the report itself, so they never fold away."""
+        for title in ("OUTPUT", "FAILED"):
+            report = Section(title="Run", blocks=[Section(title=title, blocks=[Paragraph(text="12 rows")])])
+            assert f'<section class="section"><h2>{title}</h2>' in render_html([report])
 
     def test_a_page_of_several_reports_lists_them_first_and_keeps_every_anchor_its_own(self):
         page = html_page("Results", [_report(_DUPLICATES, title="train"), _report(_DUPLICATES, title="test")])
@@ -182,7 +202,7 @@ class TestLayout:
         ) in page
         assert '<article class="report" id="r1">' in page
         assert 'id="r1-duplicates"' in page
-        assert '<a href="#r2-duplicates">Duplicates</a>' in page
+        assert 'id="r2-duplicates"' in page
         assert _well_formed(page)
 
     def test_a_page_of_one_report_has_no_contents_list(self):
