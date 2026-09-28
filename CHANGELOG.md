@@ -103,6 +103,7 @@
 
 ### Fixed
 
+- Classwise drift names each class from the datasets' `index2label`, where it showed the bare class index
 - The config builder keeps a pipeline's `result:`, `logging:`, `seed:` and `deterministic:` when it saves a
   config, where it dropped them, and the TUI runs with them
 - The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it

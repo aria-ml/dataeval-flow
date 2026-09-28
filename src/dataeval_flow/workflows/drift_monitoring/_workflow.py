@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time as _time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar
 
 import numpy as np
@@ -200,6 +200,14 @@ def _extract_labels(dataset: AnnotatedDataset[Any]) -> NDArray[np.intp] | None:
         return None
 
 
+def _index2label(datasets: Sequence[Any]) -> dict[int, str]:
+    """Merge ``index2label`` class names across datasets; earlier ones (the reference) win."""
+    names: dict[int, str] = {}
+    for ds in reversed(datasets):
+        names.update({int(k): v for k, v in (getattr(ds, "metadata", None) or {}).get("index2label", {}).items()})
+    return names
+
+
 # ---------------------------------------------------------------------------
 # Embedding extraction helpers
 # ---------------------------------------------------------------------------
@@ -243,8 +251,13 @@ def _run_classwise_drift(
     test_labels: NDArray[np.intp],
     params: DriftMonitoringConfig,
     detector_names: dict[str, str],
+    index2label: Mapping[int, str] | None = None,
 ) -> list[ClasswiseDriftDict]:
-    """Run drift detection per class (only for detectors with classwise=True)."""
+    """Run drift detection per class (only for detectors with classwise=True).
+
+    Rows are named from ``index2label``, falling back to the class index.
+    """
+    index2label = index2label or {}
     unique_classes = np.unique(np.concatenate([ref_labels, test_labels]))
     results: list[ClasswiseDriftDict] = []
 
@@ -284,7 +297,7 @@ def _run_classwise_drift(
 
                 rows.append(
                     ClasswiseDriftRowDict(
-                        class_name=str(int(cls)),
+                        class_name=index2label.get(int(cls), str(int(cls))),
                         drifted=output.drifted,
                         distance=float(output.distance),
                         p_val=float(p_val) if p_val is not None else None,
@@ -382,6 +395,7 @@ def _handle_classwise(
     ref_labels: NDArray[np.intp] | None,
     test_label_parts: list[NDArray[np.intp]],
     detector_names: dict[str, str],
+    index2label: Mapping[int, str] | None = None,
 ) -> list[ClasswiseDriftDict] | None:
     """Run classwise drift detection if enabled and labels are available."""
     if not _any_classwise(params.detectors):
@@ -402,6 +416,7 @@ def _handle_classwise(
         test_labels,
         params,
         detector_names,
+        index2label,
     )
     _logger.info("[4/4] Classwise detection complete in %.1fs", _time.monotonic() - t0)
     return results
@@ -437,7 +452,13 @@ class DriftMonitoringWorkflow(Workflow[DriftMonitoringConfig, DriftMonitoringRes
 
         # --- 5. Classwise drift ---
         classwise_results = _handle_classwise(
-            config, ref_embeddings, test_embeddings, ref_labels, test_label_parts, detector_names
+            config,
+            ref_embeddings,
+            test_embeddings,
+            ref_labels,
+            test_label_parts,
+            detector_names,
+            _index2label([ref_dataset, *(ds for _, _, ds in test_datasets)]),
         )
 
         # --- 6. Build outputs ---

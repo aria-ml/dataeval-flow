@@ -32,6 +32,7 @@ from dataeval_flow.workflows.drift_monitoring._workflow import (
     _build_detector,
     _detector_display_name,
     _extract_labels,
+    _index2label,
     _run_classwise_drift,
     _serialize_chunked_result,
     _serialize_result,
@@ -341,6 +342,27 @@ class TestRunClasswiseDrift:
         # Class 2 should be skipped (1 sample in test)
         row_names = [r["class_name"] for r in results[0]["rows"]]
         assert "2" not in row_names
+
+    def test_class_names_from_index2label(self):
+        ref = _make_embeddings(100)
+        test = _make_embeddings(50, seed=99)
+        ref_labels = np.array([0] * 50 + [1] * 50, dtype=np.intp)
+        test_labels = np.array([0] * 25 + [1] * 25, dtype=np.intp)
+
+        params = _make_params(detectors=[{"method": "kneighbors", "k": 5, "classwise": True}])
+        results = _run_classwise_drift(ref, test, ref_labels, test_labels, params, {}, index2label={0: "tank"})
+
+        # Unnamed classes fall back to their index
+        assert [r["class_name"] for r in results[0]["rows"]] == ["tank", "1"]
+
+    def test_index2label_merges_sources_reference_first(self):
+        class _Named:
+            def __init__(self, names: dict[Any, str]) -> None:
+                self.metadata = {"index2label": names}
+
+        # Reference wins on overlap; a test source fills gaps; string keys (JSON) coerce; no metadata is fine
+        datasets = [_Named({0: "tank"}), _Named({"0": "car", "1": "truck"}), object()]
+        assert _index2label(datasets) == {0: "tank", 1: "truck"}
 
     def test_multiple_detectors(self):
         ref = _make_embeddings(100)
