@@ -294,7 +294,7 @@ class TestFailOnWarning:
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=1)):
-            assert run(config, tmp_path / "out", data_dir=tmp_path, fail_on_warning=True) == 2
+            assert run(config, tmp_path / "out", data_dir=tmp_path, fail_on_warning=True) == 3
 
     def test_flag_is_a_no_op_without_warnings(self, tmp_path: Path):
         import dataeval_flow._orchestrator as orch
@@ -332,6 +332,15 @@ class TestNothingSucceeded:
             assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
 
         assert not (tmp_path / "out" / "results").exists()
+
+    def test_it_says_which_files_it_left_unwritten(self, tmp_path: Path, caplog):
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path, extra="result:\n  fail_on: never\n")
+        with patch.object(orch, "_run_single_task", side_effect=[_failed_result(), _failed_result()]):
+            assert run(config, tmp_path / "out", data_dir=tmp_path) == 0
+        assert "No task succeeded, so no file was written for: json, text, html." in caplog.text
 
 
 def _with_exports(path: Path, source: str) -> Path:
@@ -513,7 +522,7 @@ def _failed_result() -> object:
 
 
 class TestGate:
-    """What makes the run's exit code non-zero: 1 for a failed task, 2 for health warnings, as the config says."""
+    """What makes the run's exit code non-zero: 1 for a failed task, 3 for health warnings, as the config says."""
 
     @staticmethod
     def _exit(tmp_path: Path, extra: str, results: list[object], **kwargs: object) -> int:
@@ -528,7 +537,7 @@ class TestGate:
         assert self._exit(tmp_path, "", [_failed_result(), _fake_result()]) == 1
 
     def test_the_config_can_gate_on_warnings(self, tmp_path: Path):
-        assert self._exit(tmp_path, "result:\n  fail_on: warning\n", [_fake_result(warnings=1), _fake_result()]) == 2
+        assert self._exit(tmp_path, "result:\n  fail_on: warning\n", [_fake_result(warnings=1), _fake_result()]) == 3
 
     def test_a_failed_task_outranks_a_warning(self, tmp_path: Path):
         results = [_failed_result(), _fake_result(warnings=1)]
@@ -536,6 +545,16 @@ class TestGate:
 
     def test_never_reports_without_failing(self, tmp_path: Path):
         assert self._exit(tmp_path, "result:\n  fail_on: never\n", [_failed_result(), _fake_result(warnings=1)]) == 0
+
+    def test_never_holds_when_the_config_runs_no_task(self, tmp_path: Path):
+        import dataeval_flow._export as export_mod
+        from dataeval_flow._runner import run
+
+        path = tmp_path / "config.yaml"
+        path.write_text("result:\n  fail_on: never\ndatasets: []\nsources: []\n")
+        _with_exports(path, "src")
+        with patch.object(export_mod, "write_exports", return_value=1):
+            assert run(path, tmp_path / "out", data_dir=tmp_path) == 0
 
     def test_the_command_line_beats_the_config(self, tmp_path: Path):
         extra = "result:\n  fail_on: warning\n"
@@ -561,8 +580,9 @@ class TestCIFiles:
         root = ET.parse(self._results(tmp_path, "junit") / "result.xml").getroot()  # noqa: S314 - the run's own file
         assert (root.tag, root.get("tests"), root.get("failures"), root.get("errors")) == ("testsuites", "3", "1", "1")
         task_a, task_b = root.findall("testsuite")
-        assert (task_a.get("name"), task_a.get("time")) == ("task_a", "1.5")
+        assert (task_a.get("name"), task_a.get("time")) == ("task_a", "1.500")
         duplicates, balance = task_a.findall("testcase")
+        assert (duplicates.get("time"), balance.get("time")) == ("1.500", None), "a CI sums its cases' times"
         assert (duplicates.get("name"), duplicates.get("classname")) == ("Duplicates", "task_a")
         failure = duplicates.find("failure")
         assert failure is not None
@@ -579,11 +599,11 @@ class TestCIFiles:
 
     def test_markdown_has_each_task_s_findings_and_failures(self, tmp_path: Path):
         text = (self._results(tmp_path, "markdown") / "result.md").read_text()
-        assert "## task_a" in text
+        assert "## task\\_a" in text
         assert "| warning | Duplicates | 2 groups \\| 4 images |" in text
         assert "| ok | Label Balance | 2 classes |" in text
-        assert "## task_b: failed" in text
-        assert "- `ValueError: boom`" in text
+        assert "## task\\_b: failed" in text
+        assert "```\nValueError: boom\nand more\n```" in text
 
     def test_a_run_where_every_task_fails_still_reports_them_in_junit(self, tmp_path: Path):
         import dataeval_flow._orchestrator as orch
@@ -593,3 +613,62 @@ class TestCIFiles:
         with patch.object(orch, "_run_single_task", side_effect=[_failed_result(), _failed_result()]):
             assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
         assert sorted(path.name for path in (tmp_path / "out" / "results").iterdir()) == ["result.xml"]
+
+
+class TestCIReports:
+    """The JUnit and Markdown files hold whatever a task's text or errors hold, and stay readable."""
+
+    def test_junit_stays_valid_xml_whatever_an_error_holds(self):
+        import xml.etree.ElementTree as ET
+
+        from dataeval_flow._ci_reports import junit_report
+
+        failed = _failed_result()
+        failed.errors = ["RuntimeError: \x1b[31mboom\x00"]  # type: ignore[attr-defined]
+        root = ET.fromstring(junit_report({"task\x07": failed}))  # type: ignore[dict-item]  # noqa: S314 - our own output
+        assert root.find("testsuite").get("name") == "task"  # type: ignore[union-attr]
+        assert root.find("testsuite/testcase/error").get("message") == "RuntimeError: [31mboom"  # type: ignore[union-attr]
+
+    def test_junit_tells_a_task_s_findings_of_one_title_apart(self):
+        import xml.etree.ElementTree as ET
+
+        from dataeval_flow._ci_reports import junit_report
+        from dataeval_flow.workflows import Finding
+
+        result = _findings_result(warnings=False)
+        result.findings = [Finding(severity="ok", title="Outliers", brief=b) for b in "ab"]  # type: ignore[attr-defined]
+        root = ET.fromstring(junit_report({"task": result}))  # type: ignore[dict-item]  # noqa: S314 - our own output
+        assert [case.get("name") for case in root.iter("testcase")] == ["Outliers", "Outliers (2)"]
+
+    def test_junit_times_a_long_run_in_seconds(self):
+        import xml.etree.ElementTree as ET
+
+        from dataeval_flow._ci_reports import junit_report
+
+        result = _findings_result(warnings=True)
+        result.metadata.execution_time_s = 1234567.891  # type: ignore[attr-defined]
+        root = ET.fromstring(junit_report({"task": result}))  # type: ignore[dict-item]  # noqa: S314 - our own output
+        assert root.find("testsuite").get("time") == "1234567.891"  # type: ignore[union-attr]
+
+    def test_markdown_keeps_a_failed_task_s_errors_verbatim(self):
+        from dataeval_flow._ci_reports import markdown_summary
+
+        failed = _failed_result()
+        failed.errors = ["SyntaxError: ```x```\n\n# field"]  # type: ignore[attr-defined]
+        assert "````\nSyntaxError: ```x```\n\n# field\n````" in markdown_summary({"task": failed})  # type: ignore[dict-item]
+
+    def test_markdown_shows_names_and_findings_as_written(self):
+        from dataeval_flow._ci_reports import markdown_summary
+        from dataeval_flow.workflows import Finding
+
+        result = _findings_result(warnings=False)
+        result.findings = [Finding(severity="ok", title="Missing <NA>", brief="*none*")]  # type: ignore[attr-defined]
+        text = markdown_summary({"clean_*train*": result})  # type: ignore[dict-item]
+        assert "## clean\\_\\*train\\*" in text
+        assert "| ok | Missing \\<NA\\> | \\*none\\* |" in text
+
+    def test_markdown_names_an_evaluator_without_pointing_at_a_file(self):
+        from dataeval_flow._ci_reports import markdown_summary
+
+        text = markdown_summary({"dups": _fake_evaluator_result()})
+        assert "`quality.duplicates` ran; an evaluator has no findings to list." in text

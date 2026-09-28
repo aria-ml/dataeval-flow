@@ -43,7 +43,7 @@ def _samples_blocks(
 ) -> list[Block]:
     """The samples, most out of distribution first: each one's thumbnail, item, source and score, and its factors.
 
-    At most 500, with a paragraph counting the rest.
+    At most ``result: max_rows``, 500 by default, with a paragraph counting the rest.
     """
     ranked = sorted(indices, key=lambda index: (-normalized_scores.get(index, 0.0), index))
     if not ranked:

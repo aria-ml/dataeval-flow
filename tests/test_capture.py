@@ -114,6 +114,15 @@ class TestReferences:
     def test_no_limit_names_every_item(self):
         assert len(references([_finding(300), _finding(700, start=300)], None)) == 1000
 
+    def test_findings_naming_the_same_items_still_fill_the_limit(self):
+        assert len(references([_finding(300), _finding(300)], 200)) == 200
+        assert len(references([_finding(300), _finding(10)], 200)) == 200, "an unusable share goes round again"
+
+    def test_an_item_another_finding_took_costs_nothing(self):
+        """A finding listing the same items in another order still gets thumbnails in its first rows."""
+        backwards = Section(title="Finding", blocks=[_images(*(_ref(i) for i in reversed(range(300))))])
+        assert set(references([_finding(300), backwards], 200)) == {_ref(i) for i in [*range(100), *range(200, 300)]}
+
 
 class TestCapture:
     def test_each_item_is_read_once_in_ascending_order(self):

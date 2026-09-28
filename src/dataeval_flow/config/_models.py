@@ -21,6 +21,7 @@ from pydantic import (
     model_validator,
 )
 
+from dataeval_flow._blocks._table import DEFAULT_PREVIEW, DEFAULT_ROWS
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._kind import input_problem
 from dataeval_flow.config._schemas import (
@@ -161,8 +162,11 @@ class ResultConfig(BaseModel):
 
     name: str = Field(
         default="result",
-        pattern=r"^[^/\\]+$",
-        description="The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
+        pattern=r"^\w[\w.-]*$",
+        description=(
+            "The results' file name, without its extension: `result.json`, `result.txt`, `result.html`. Letters, "
+            "digits, `_`, `.` and `-`, starting with a letter, digit or `_`."
+        ),
     )
     formats: list[Literal["json", "text", "html", "junit", "markdown"]] = Field(
         default_factory=lambda: ["json", "text", "html"],
@@ -187,7 +191,7 @@ class ResultConfig(BaseModel):
         default="failure",
         description=(
             "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health "
-            "threshold (`warning`: 2), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` "
+            "threshold (`warning`: 3), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` "
             "override it."
         ),
     )
@@ -209,7 +213,7 @@ class ResultConfig(BaseModel):
         ),
     )
     max_rows: int = Field(
-        default=500,
+        default=DEFAULT_ROWS,
         ge=-1,
         description=(
             "Most rows a table of items lists, such as flagged images or duplicate groups; a paragraph after it "
@@ -217,13 +221,27 @@ class ResultConfig(BaseModel):
         ),
     )
     preview_rows: int = Field(
-        default=10,
+        default=DEFAULT_PREVIEW,
         ge=-1,
         description=(
             "How many rows of a table of items the text report and the TUI show, before a line counting the rest; "
             "the HTML page shows every row. -1 shows every row."
         ),
     )
+
+    @field_validator("name")
+    @classmethod
+    def _not_the_descriptor(cls, value: str) -> str:
+        """``encoding.json`` beside the results is the run's encoding descriptor, which would overwrite them."""
+        if value == "encoding":
+            raise ValueError("name 'encoding' is taken by the run's encoding descriptor, encoding.json")
+        return value
+
+    @field_validator("formats")
+    @classmethod
+    def _each_once(cls, value: list[Any]) -> list[Any]:
+        """A format named twice, as merging a config folder's files can, is written once."""
+        return list(dict.fromkeys(value))
 
     @field_validator("max_rows")
     @classmethod
@@ -297,7 +315,10 @@ class PipelineConfig(BaseModel):
 
     # What each result carries
     result: ResultConfig = Field(
-        default_factory=ResultConfig, description="What each task's result carries: the thumbnails its report embeds"
+        default_factory=ResultConfig,
+        description=(
+            "What each task's result carries, and the files and exit code the `dataeval-flow` command makes of it"
+        ),
     )
 
     # Reproducibility [CR-7-S-1]
@@ -462,4 +483,16 @@ class PipelineConfig(BaseModel):
                 if name in seen:
                     raise ValueError(f"Duplicate name '{name}' in {section_name}")
                 seen.add(name)
+        return self
+
+    @model_validator(mode="after")
+    def _check_per_task_names(self) -> "PipelineConfig":
+        """Refuse a task name no file can carry, where ``result: per_task`` names each task's files after it."""
+        if self.result.per_task:
+            for task in self.tasks or ():
+                if "/" in task.name or "\\" in task.name:
+                    raise ValueError(
+                        f"Task '{task.name}' can't name its result files, as `result: per_task` would: "
+                        "a task name there can't hold '/' or '\\'"
+                    )
         return self

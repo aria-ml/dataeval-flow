@@ -140,7 +140,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=env_bool("DATAEVAL_FAIL_ON_WARNING"),
         help=(
-            "Exit 2 when a task succeeds but reports findings that breached their "
+            "Exit 3 when a task succeeds but reports findings that breached their "
             "health thresholds (default: $DATAEVAL_FAIL_ON_WARNING, else the config's result: fail_on). "
             "Use --no-fail-on-warning to override the environment."
         ),

@@ -110,6 +110,8 @@ def _write_results(collected: _Collected, results_dir: Path, settings: ResultCon
                 path = results_dir / f"{stem}.{_EXTENSIONS[kind]}"
                 path.write_text(text, encoding="utf-8")
                 written.append(path.name)
+    if not collected.reported and (unwritten := [kind for kind in settings.formats if kind in _SUCCEEDED_ONLY]):
+        _logger.warning("  No task succeeded, so no file was written for: %s.", ", ".join(unwritten))
     return written
 
 
@@ -121,7 +123,7 @@ def _file_text(kind: str, names: Sequence[str], collected: _Collected, detailed:
     if kind in ("junit", "markdown"):
         results = {name: collected.everything[name] for name in names}
         return junit_report(results) if kind == "junit" else markdown_summary(results)
-    succeeded = [name for name in names if name in collected.reported]
+    succeeded = [name for name in names if name in collected.reported]  # json, text and html
     if not succeeded:
         return None
     if kind == "json":
@@ -148,6 +150,8 @@ def _gate(fail_on: str, fail_on_warning: bool | None) -> str:
 
 # The extension of each format's file.
 _EXTENSIONS = {"json": "json", "text": "txt", "html": "html", "junit": "xml", "markdown": "md"}
+# The formats that hold only the tasks that succeeded.
+_SUCCEEDED_ONLY = ("json", "text", "html")
 
 
 def run(
@@ -184,10 +188,9 @@ def run(
         Which tasks to run.  ``None`` (the default) runs every enabled task;
         naming tasks runs those, in the order given, whether or not they are enabled.
         A task named twice runs once.
-    fail_on_warning : bool
-        Return a non-zero exit code when a task that otherwise succeeded reports
-        findings at ``severity="warning"``.  Off by default: whether a pipeline should
-        stop for a warning is the caller's decision.
+    fail_on_warning : bool | None
+        ``True`` returns 3 when a task that otherwise succeeded reports findings at ``severity="warning"``, and
+        ``False`` doesn't. ``None`` (the default) leaves it to the config's ``result: fail_on``.
     report_width : int | None
         Characters per line of the text report, on the console and in ``result.txt``; at least 40. ``None`` (the
         default) takes the config's ``result: width``.
@@ -198,8 +201,8 @@ def run(
     Returns
     -------
     int
-        0 if every task succeeded (and, under ``fail_on_warning``, raised no
-        warnings); 1 otherwise.
+        0 if nothing the gate fails on happened, or the gate is ``fail_on: never``; 1 if a task failed or
+        an export couldn't be written; 3 if the gate fails on warnings and a task raised one.
 
     Raises
     ------
@@ -227,7 +230,8 @@ def run(
         # An export names a source, not a task, so a config that runs nothing still has a
         # corpus to write.
         _logger.info("No tasks defined in config.")
-        return 1 if _write_declared_exports(config, output_dir, resolved_data) else 0
+        export_failures = _write_declared_exports(config, output_dir, resolved_data)
+        return 1 if export_failures and _gate(config.result.fail_on, fail_on_warning) != "never" else 0
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
@@ -261,7 +265,7 @@ def run(
         if gate == "warning":
             _logger.error("  Failing on health warnings (fail_on: warning, or --fail-on-warning).")
             flush_logs()
-            return 2
+            return 3
 
     return 0
 
@@ -319,7 +323,7 @@ def _write_encoding_descriptor(binning: dict[str, dict], results_dir: Path) -> N
     if len(distinct) > 1:
         _logger.warning(
             "  Tasks %s encoded their factors differently, so no single encoding.json was "
-            "written. Extract one with `dataeval-flow encoding <result.json> --task <name>`.",
+            "written. Extract one from the JSON results with `dataeval-flow encoding <results.json> --task <name>`.",
             sorted(descriptors),
         )
         return

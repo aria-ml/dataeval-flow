@@ -28,6 +28,10 @@ __all__ = ["ConfigState"]
 
 _logger = logging.getLogger(__name__)
 
+# The pipeline's settings outside its sections, such as `result:` and `seed:`, which the builder doesn't
+# edit but keeps, so saving a config never drops them.
+_SETTINGS = [key for key in PipelineConfig.model_fields if key not in SECTION_KEYS]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -70,6 +74,7 @@ class ConfigState:
 
     def __init__(self) -> None:
         self._data: dict[str, list[dict[str, Any]]] = {s: [] for s in SECTION_KEYS}
+        self._settings: dict[str, Any] = {}
 
     # -- Queries -----------------------------------------------------------
 
@@ -123,7 +128,12 @@ class ConfigState:
     def load_dict(self, data: dict[str, Any] | BaseModel) -> None:
         """Populate state from a raw dict or a ``PipelineConfig``."""
         if isinstance(data, BaseModel):
+            # Only the settings the config set: a saved file needn't spell out every default.
+            settings = data.model_dump(exclude_unset=True, exclude_none=True)
             data = data.model_dump(exclude_none=True)
+        else:
+            settings = data
+        self._settings = {key: copy.deepcopy(settings[key]) for key in _SETTINGS if key in settings}
         self._data = {s: [] for s in SECTION_KEYS}
         for section in SECTION_KEYS:
             for item in data.get(section) or []:
@@ -133,7 +143,7 @@ class ConfigState:
 
     def to_dict(self) -> dict[str, Any]:
         """Export state as a plain dict suitable for YAML serialization."""
-        result: dict[str, Any] = {}
+        result: dict[str, Any] = copy.deepcopy(self._settings)
         for section in SECTION_KEYS:
             items = self._data[section]
             if items:

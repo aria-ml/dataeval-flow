@@ -113,7 +113,7 @@ def flagged_table(
     *key* names the subject an issue is about, such as its item, or its item and box; *key_columns*
     show those values, in the key's order, and read row keys ``key_columns[i].key``. *classes*, where
     given, names each subject's class, and *ref* its item, whose thumbnail leads the row. The table
-    lists at most 500 subjects, and a paragraph after it says how many it left out.
+    lists at most ``result: max_rows``, 500 by default, and a paragraph after it says how many it left out.
 
     *groups*, where given, are the values the key's first element takes, such as splits, in the order
     the rows run. Each group lists an equal share of the 500, a small group's spare going to the rest,

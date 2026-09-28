@@ -858,11 +858,43 @@ class TestResultConfig:
 
     @pytest.mark.parametrize(
         "fields",
-        [{"formats": []}, {"formats": ["pdf"]}, {"name": "out/result"}, {"name": "a\\b"}, {"name": ""}, {"width": 39}],
+        [
+            {"formats": []},
+            {"formats": ["pdf"]},
+            {"name": "out/result"},
+            {"name": "a\\b"},
+            {"name": ""},
+            {"name": "."},
+            {"name": ".."},
+            {"name": "-audit"},
+            {"name": "encoding"},
+            {"width": 39},
+        ],
     )
     def test_a_file_setting_that_cannot_be_written_is_refused(self, fields: dict[str, object]):
         with pytest.raises(ValidationError):
             ResultConfig.model_validate(fields)
+
+    def test_a_format_named_twice_is_written_once(self):
+        assert ResultConfig(formats=["json", "junit", "json"]).formats == ["json", "junit"]
+
+    @pytest.mark.parametrize("per_task", [True, False])
+    def test_per_task_refuses_a_task_name_no_file_can_carry(self, tmp_path: Path, per_task: bool):
+        """Each task's files are named after it, so a name holding a path separator is refused before anything runs."""
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text(
+            f"result:\n  per_task: {str(per_task).lower()}\n"
+            "datasets:\n  - name: ds\n    format: image_folder\n    path: ./d\n"
+            "sources:\n  - name: src\n    dataset: ds\n"
+            "workflows:\n  - name: wf\n    type: data-cleaning\n    outlier_method: iqr\n"
+            "    outlier_flags: [dimension]\n"
+            "tasks:\n  - name: train/clean\n    workflow: wf\n    sources: src\n"
+        )
+        if per_task:
+            with pytest.raises(ValueError, match="train/clean"):
+                load_config(config_file)
+        else:
+            assert load_config(config_file).tasks[0].name == "train/clean"  # type: ignore[index]
 
 
 class TestWorkflowConfig:

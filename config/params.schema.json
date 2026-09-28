@@ -5366,8 +5366,8 @@
       "properties": {
         "name": {
           "default": "result",
-          "description": "The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
-          "pattern": "^[^/\\\\]+$",
+          "description": "The results' file name, without its extension: `result.json`, `result.txt`, `result.html`. Letters, digits, `_`, `.` and `-`, starting with a letter, digit or `_`.",
+          "pattern": "^\\w[\\w.-]*$",
           "title": "Name",
           "type": "string"
         },
@@ -5405,7 +5405,7 @@
         },
         "fail_on": {
           "default": "failure",
-          "description": "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health threshold (`warning`: 2), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it.",
+          "description": "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health threshold (`warning`: 3), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it.",
           "enum": [
             "never",
             "failure",
@@ -6089,7 +6089,7 @@
     },
     "result": {
       "$ref": "#/$defs/ResultConfig",
-      "description": "What each task's result carries: the thumbnails its report embeds"
+      "description": "What each task's result carries, and the files and exit code the `dataeval-flow` command makes of it"
     },
     "seed": {
       "anyOf": [

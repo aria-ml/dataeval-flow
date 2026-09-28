@@ -20,6 +20,7 @@ from typing import Any
 
 from dataeval_flow._blocks import Block, Cell, Column, ItemRef, Paragraph, Section, Table
 from dataeval_flow._blocks._items import item_name
+from dataeval_flow._blocks._table import DEFAULT_PREVIEW, DEFAULT_ROWS
 
 
 @dataclass(frozen=True)
@@ -28,8 +29,8 @@ class TableLimits:
     with little room shows first, before a line counting the rest; ``None`` for every row.
     """
 
-    rows: int | None = 500
-    preview: int | None = 10
+    rows: int | None = DEFAULT_ROWS
+    preview: int | None = DEFAULT_PREVIEW
 
 
 # The limits of the run in progress, which the orchestrator sets from the pipeline's `result:` block. A
@@ -85,7 +86,8 @@ def groups_table(groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str
     """Duplicate groups, largest first: each one's kind, size, and up to eight of its items, named and pictured.
 
     *groups* are each group's kind (``exact`` or ``near``), its number among its kind in ``output.raw``,
-    where every one of its items is, and its items. At most 500 are listed, with a paragraph naming the rest.
+    where every one of its items is, and its items. At most ``result: max_rows``, 500 by default, are listed,
+    with a paragraph naming the rest.
     """
     if not groups:
         return []
@@ -142,7 +144,7 @@ def uncovered_blocks(uncovered: Sequence[tuple[ItemRef, str | None, float | None
     *uncovered* are each item's reference, its class where known, and its distance to its k-th nearest
     neighbour where known; *noun* names them (``images``, ``detection crops``). Each row shows the item's
     thumbnail and name, its box where it is one, its class and its distance, and a column none of them
-    has is left out. At most 500 are listed, with a paragraph counting the rest.
+    has is left out. At most ``result: max_rows``, 500 by default, are listed, with a paragraph counting the rest.
     """
     if not uncovered:
         return []

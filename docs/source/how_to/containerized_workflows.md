@@ -540,12 +540,13 @@ docker run --rm \
 | --- | --- |
 | `0` | Every task succeeded, with no warnings the gate fails on; or `fail_on: never` |
 | `1` | A task failed, or an export couldn't be written |
-| `2` | Every task succeeded, but a task raised warnings and the gate fails on them |
+| `2` | The command line was mistyped: an unknown flag, or a value it refuses |
+| `3` | Every task succeeded, but a task raised warnings and the gate fails on them |
 
 `fail_on` in the `result:` block sets the gate: `failure` (the default), `warning`, or `never`,
 which reports without ever failing the job. `--fail-on-warning` and `--no-fail-on-warning`, or
-`DATAEVAL_FAIL_ON_WARNING`, override it. Since a warning exits `2`, a job can tell a data-quality
-gate from a crash:
+`DATAEVAL_FAIL_ON_WARNING`, override it. Since a warning exits `3`, a job can tell a data-quality
+gate from a crash or a mistyped flag:
 
 ```yaml
 # .gitlab-ci.yml
@@ -553,7 +554,7 @@ data-quality:
   script:
     - python -m dataeval_flow --output output
   allow_failure:
-    exit_codes: [2]     # a warning marks the job, a failed task fails the pipeline
+    exit_codes: [3]     # a warning marks the job, a failed task fails the pipeline
   artifacts:
     when: always
     paths: [output/results/]
@@ -561,11 +562,12 @@ data-quality:
       junit: output/results/result.xml
 ```
 
-with `formats: [json, html, junit, markdown]` in the pipeline's `result:` block. The JUnit report
-makes each task a test suite and each finding a test case, failing where the finding is a
-warning, so the merge request's test view lists the checks the data didn't pass. The Markdown
-summary is each task's findings as a table, ready for `$GITHUB_STEP_SUMMARY` or a merge-request
-comment. Both also name any task that failed.
+with `fail_on: warning` and `formats: [json, html, junit, markdown]` in the pipeline's `result:`
+block. With `per_task: true`, each task writes its own report, so `junit:` takes a glob,
+`output/results/result-*.xml`. The JUnit report makes each task a test suite and each finding a
+test case, failing where the finding is a warning, so the merge request's test view lists the
+checks the data didn't pass. The Markdown summary is each task's findings as a table, ready for
+`$GITHUB_STEP_SUMMARY` or a merge-request comment. Both also name any task that failed.
 
 Results are written either way — the gate decides the exit code, not whether the run's
 artifacts survive.

@@ -366,8 +366,9 @@ dataeval-flow --config params.yaml --output ./results --fail-on-warning
 ```
 
 **Exit codes:** `0` when every task succeeded, `1` when any task failed. Health
-warnings are reported but are not fatal unless you pass `--fail-on-warning`, which
-turns them into an exit code of `1` as well. Every run's `result.json` carries a
+warnings are reported but are not fatal unless you pass `--fail-on-warning`, or set
+`fail_on: warning` in the pipeline's `result:` block, which turns them into an exit
+code of `3`: apart from a failed task, and from a mistyped flag's `2`. Every run's `result.json` carries a
 `health` block per task (`status`, `warnings`, `findings`) so a pipeline can gate
 on findings without parsing the text report.
 

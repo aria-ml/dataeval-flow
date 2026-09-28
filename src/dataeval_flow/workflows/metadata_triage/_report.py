@@ -228,7 +228,7 @@ def _finding_section(
 def _places_blocks(places: Sequence[tuple[str, int, Sequence[ItemRef]]], kind: str) -> list[Block]:
     """Each problem value, most rows first: how many rows hold it, and up to eight of their items, named and pictured.
 
-    At most 500 values, with a paragraph counting the rest.
+    At most ``result: max_rows``, 500 by default values, with a paragraph counting the rest.
     """
     limits = table_limits()
     rows: list[dict[str, Cell]] = []

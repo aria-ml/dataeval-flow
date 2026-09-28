@@ -70,7 +70,8 @@ ENVIRONMENT VARIABLES
   DATAEVAL_VERBOSITY Verbosity 0-3, as -v/-vv/-vvv (default: 0).
   DATAEVAL_TASKS     Comma-separated task names to run (default: every enabled task).
   DATAEVAL_FAIL_ON_WARNING
-                     Exit non-zero on health warnings: true/false (default: false).
+                     Exit 3 on health warnings: true/false (default: the config's
+                     result: fail_on, which fails on failed tasks only).
   DATAEVAL_LOG_FORMAT
                      Console format: structured or plain (default: structured).
                      'structured' prefixes each record with an ISO-8601 UTC

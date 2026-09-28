@@ -1,6 +1,8 @@
 """Table layout for the text renderer: column widths, chart cells, and the scale line under a bar."""
 
 __all__ = [
+    "DEFAULT_PREVIEW",
+    "DEFAULT_ROWS",
     "cell_text",
     "draw_table",
     "fair_shares",
@@ -26,6 +28,10 @@ SPARKLINE_CELLS = 40
 # Segment glyphs for a stacked bar, in series order.
 _STACK_GLYPHS = "█░▒▓"
 _CHARTS = ("bar", "stacked", "sparkline")
+# Most rows a table of items lists, and how many of them a renderer with little room shows first, unless
+# the pipeline's `result:` block says otherwise.
+DEFAULT_ROWS = 500
+DEFAULT_PREVIEW = 10
 
 
 def _is_number(value: object) -> TypeGuard[int | float]:

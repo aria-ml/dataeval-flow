@@ -54,7 +54,8 @@
 ### Changed
 
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
-- A run that fails only on health warnings exits `2` (was `1`), so CI can tell a data-quality gate from a crash
+- A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
+  mistyped flag, which exits `2`
 - Data analysis lists each split's unlabelled images in a table naming up to eight, where it wrote a sentence
 - `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
@@ -102,6 +103,8 @@
 
 ### Fixed
 
+- The config builder keeps a pipeline's `result:`, `logging:`, `seed:` and `deterministic:` when it saves a
+  config, where it dropped them, and the TUI runs with them
 - The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it
 - Data prioritization's `sources` and data splitting's `dataset` are the views they ran on, not views drawn anew
 - Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded

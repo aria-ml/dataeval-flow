@@ -10,6 +10,7 @@ __all__ = ["capture", "references"]
 
 import logging
 from collections.abc import Mapping, Sequence
+from itertools import islice
 from typing import Any
 
 from dataeval_flow._blocks import Asset, Block, ItemRef, Table
@@ -27,16 +28,22 @@ def references(blocks: Sequence[Block], limit: int | None) -> list[ItemRef]:
 
     The limit is shared evenly between the top-level blocks that name items, a report's findings, and
     each finding's share between its tables in the same way; a share more than its items need goes to
-    the rest. A table gives its share row by row, then item by item within a group's cell. Rows past a
-    share keep their references, and just have no thumbnail.
+    the rest. A table gives its share row by row, then item by item within a group's cell, and an item
+    already taken costs it nothing. Where findings name the same items, whatever that leaves unspent is
+    shared again between the items still without one. Rows past a share keep their references, and
+    just have no thumbnail.
     """
     findings = [[_named(table) for table in tables([block])] for block in blocks]
-    demands = [sum(map(len, named)) for named in findings]
     found: dict[ItemRef, None] = {}
-    for named, share in zip(findings, fair_shares(demands, sum(demands) if limit is None else limit), strict=True):
-        for refs, part in zip(named, fair_shares([len(refs) for refs in named], share), strict=True):
-            found.update(dict.fromkeys(refs[:part]))
-    return list(found)
+    while True:
+        waiting = [[[ref for ref in refs if ref not in found] for refs in named] for named in findings]
+        demands = [sum(map(len, named)) for named in waiting]
+        budget = sum(demands) if limit is None else min(sum(demands), limit - len(found))
+        if budget <= 0:
+            return list(found)
+        for named, share in zip(waiting, fair_shares(demands, budget), strict=True):
+            for refs, part in zip(named, fair_shares(list(map(len, named)), share), strict=True):
+                found.update(dict.fromkeys(islice((ref for ref in refs if ref not in found), part)))
 
 
 def _named(table: Table) -> list[ItemRef]:

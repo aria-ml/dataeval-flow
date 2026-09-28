@@ -199,6 +199,26 @@ class TestConfigState:
         out = state.to_dict()
         assert out["datasets"] == data["datasets"]
 
+    def test_the_pipeline_s_settings_survive_a_load_and_save(self) -> None:
+        """Keys outside the sections, a CI gate among them, are kept, not dropped on save."""
+        settings = {
+            "result": {"fail_on": "warning", "preview_rows": 3},
+            "seed": 7,
+            "deterministic": True,
+            "logging": {"app_level": "DEBUG"},
+        }
+        state = ConfigState()
+        state.load_dict({**settings, "datasets": [{"name": "ds1", "format": "huggingface"}]})
+        assert {key: state.to_dict()[key] for key in settings} == settings
+
+    def test_a_loaded_config_keeps_only_the_settings_it_set(self, tmp_path: Path) -> None:
+        path = tmp_path / "params.yaml"
+        path.write_text("result:\n  fail_on: warning\n")
+        state = ConfigState()
+        state.load_file(path)
+        assert state.to_dict() == {"result": {"fail_on": "warning"}}
+        assert state.to_pipeline_config().result.fail_on == "warning"
+
     def test_snapshot_restore(self) -> None:
         state = ConfigState()
         state.add("datasets", {"name": "ds1"})

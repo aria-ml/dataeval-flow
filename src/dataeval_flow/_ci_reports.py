@@ -8,42 +8,58 @@ that failed, which the JSON, text and HTML files leave out.
 
 __all__ = ["junit_report", "markdown_summary"]
 
+import re
 import xml.etree.ElementTree as ET
+from collections import Counter
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from dataeval_flow._result import Result
 
+# Characters XML 1.0 can't hold, such as a terminal colour code's escape, which ElementTree writes as they are.
+_NOT_XML = re.compile("[^\t\n\r\x20-퟿-�\U00010000-\U0010ffff]")
+# Markdown's inline punctuation, escaped so a name or a finding's text shows as written.
+_MARKDOWN = re.compile(r"([\\`*_\[\]<>#|~])")
+
 
 def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
     """Each task as a test suite, and each of its findings as a test case, failing where it's a warning.
 
     A task that failed is one test case, ``run``, in error with its errors. A task with no findings, an
-    evaluator's among them, is one passing test case, ``run``.
+    evaluator's among them, is one passing test case, ``run``. A title a task's findings repeat is numbered,
+    ``Outliers (2)``, since a CI tells its cases apart by name, and the task's time goes on its first case
+    too, since a CI adds up its cases' times.
     """
     from dataeval_flow.workflows._result import WorkflowResult
 
     root = ET.Element("testsuites", name="dataeval-flow")
     for task, result in results.items():
         suite = ET.SubElement(root, "testsuite", name=task)
-        seconds = getattr(result.metadata, "execution_time_s", None)
-        if isinstance(seconds, int | float):
-            suite.set("time", f"{seconds:g}")
         if not result.success:
             error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name="run"), "error")
             error.set("message", result.errors[0] if result.errors else "failed")
             error.text = "\n".join(result.errors) or None
         elif isinstance(result, WorkflowResult) and result.findings:
+            titles: Counter[str] = Counter()
             for finding in result.findings:
-                case = ET.SubElement(suite, "testcase", classname=task, name=finding.title)
+                titles[finding.title] += 1
+                name = finding.title if titles[finding.title] == 1 else f"{finding.title} ({titles[finding.title]})"
+                case = ET.SubElement(suite, "testcase", classname=task, name=name)
                 if finding.severity == "warning":
                     failure = ET.SubElement(case, "failure", message=finding.brief or finding.title, type="warning")
                     failure.text = finding.description or None
         else:
             ET.SubElement(suite, "testcase", classname=task, name="run")
+        seconds = getattr(result.metadata, "execution_time_s", None)
+        if isinstance(seconds, int | float):
+            for timed in (suite, suite[0]):
+                timed.set("time", f"{seconds:.3f}")
         _count(suite, suite)
     _count(root, *root)
+    for element in root.iter():
+        element.text = element.text and _NOT_XML.sub("", element.text)
+        element.attrib.update({key: _NOT_XML.sub("", value) for key, value in element.attrib.items()})
     ET.indent(root)
     return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
 
@@ -63,20 +79,23 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
     lines = ["# dataeval-flow results", ""]
     for task, result in results.items():
         if not result.success:
-            lines += [f"## {task}: failed", "", *(f"- `{error}`" for error in result.errors), ""]
+            errors = "\n".join(result.errors)
+            # A fence longer than any run of backticks the errors hold, so they show as written.
+            fence = "`" * max([3, *(len(run) + 1 for run in re.findall("`+", errors))])
+            lines += [f"## {_inline(task)}: failed", "", fence, errors, fence, ""]
             continue
-        lines += [f"## {task}", ""]
+        lines += [f"## {_inline(task)}", ""]
         if isinstance(result, WorkflowResult):
             warnings = result.warning_count
             health = "passed" if not warnings else f"{warnings} warning{'s' if warnings != 1 else ''}"
             lines += [f"**Health:** {health}", "", "| Severity | Finding | Result |", "| --- | --- | --- |"]
-            lines += [f"| {f.severity} | {_cell(f.title)} | {_cell(f.brief or '')} |" for f in result.findings]
+            lines += [f"| {f.severity} | {_inline(f.title)} | {_inline(f.brief or '')} |" for f in result.findings]
         else:
-            lines.append(f"`{result.type}` ran; its output is in the JSON results.")
+            lines.append(f"`{result.type}` ran; an evaluator has no findings to list.")
         lines.append("")
     return "\n".join(lines)
 
 
-def _cell(text: str) -> str:
-    """*text* as one Markdown table cell: pipes escaped, and on one line."""
-    return " ".join(text.replace("|", "\\|").split())
+def _inline(text: str) -> str:
+    """*text* on one line, as a heading or a table cell shows it: Markdown's punctuation escaped."""
+    return _MARKDOWN.sub(r"\\\1", " ".join(text.split()))
