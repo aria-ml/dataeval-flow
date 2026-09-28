@@ -887,6 +887,11 @@ class TestTheme:
         for hidden in (".controls", ".filter", ".tip"):
             assert hidden in printed.split("display: none", 1)[0]
 
+    def test_a_thumbnail_has_an_edge_so_a_white_or_a_black_image_shows_on_either_palette(self):
+        """Data cleaning flags images for being too bright or too dark, which a cell's own shade would swallow."""
+        thumbnail = STYLE.split("details.thumb img {", 1)[1].split("}", 1)[0]
+        assert "outline: 1px solid var(--rule); outline-offset: -1px;" in thumbnail
+
     def test_a_thumbnail_prints_at_its_own_size_even_when_enlarged(self):
         printed = self._print_rules()
         assert "details.thumb[open] > summary::before { display: none; }" in printed

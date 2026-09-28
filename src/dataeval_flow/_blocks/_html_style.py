@@ -105,7 +105,7 @@ details.thumb { display: inline-block; width: 48px; height: 48px; margin: 0 2px 
 details.thumb > summary { display: block; list-style: none; cursor: zoom-in; }
 details.thumb > summary::-webkit-details-marker { display: none; }
 details.thumb img { display: block; width: 48px; height: 48px; object-fit: contain; border-radius: 3px;
-  background: var(--soft); }
+  background: var(--soft); outline: 1px solid var(--rule); outline-offset: -1px; }
 details.thumb[open] > summary::before { content: ""; position: fixed; inset: 0; z-index: 20;
   background: rgb(0 0 0 / 0.6); cursor: zoom-out; }
 details.thumb[open] img { position: fixed; z-index: 21; top: 50%; left: 50%; transform: translate(-50%, -50%);
