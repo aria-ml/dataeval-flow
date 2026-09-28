@@ -815,6 +815,14 @@ class TestResultConfig:
         config_file.write_text("seed: 1\n")
         assert load_config(config_file).result.max_images == 200
 
+    def test_a_run_fails_on_a_failed_task_by_default(self):
+        assert ResultConfig().fail_on == "failure"
+        with pytest.raises(ValidationError):
+            ResultConfig.model_validate({"fail_on": "error"})
+
+    def test_ci_reads_a_junit_report_and_a_markdown_summary(self):
+        assert ResultConfig(formats=["junit", "markdown"]).formats == ["junit", "markdown"]
+
     def test_tables_list_500_rows_and_preview_10_by_default(self):
         assert (ResultConfig().max_rows, ResultConfig().preview_rows) == (500, 10)
 

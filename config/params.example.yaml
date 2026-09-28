@@ -45,9 +45,10 @@
 # -----------------------------------------------------------------------------
 # result:
 #   name: result          # the files' name: result.json, result.txt, result.html
-#   formats: [json, text, html]   # which files --output writes
+#   formats: [json, text, html]   # which files --output writes: json, text, html, junit (.xml), markdown (.md)
 #   detail: full          # full | summary: how much of each report the text and HTML files hold
 #   per_task: false       # true: one set of files per task, <name>-<task>.<ext>
+#   fail_on: failure      # what exits non-zero: failure (1), warning (2 on health warnings), never
 #   width: 80             # the text report's width, at least 40; --report-width overrides it
 #   max_images: 200       # thumbnails each task's result embeds, shared evenly between its findings; 0: none, -1: all
 #   max_rows: 500         # rows a table of items (flagged images, duplicate groups, …) lists; -1: every row

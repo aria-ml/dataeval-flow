@@ -118,9 +118,9 @@ class TestTaskSelection:
 
 
 class TestFailOnWarning:
-    def test_defaults_false(self, monkeypatch):
+    def test_unset_leaves_it_to_the_config(self, monkeypatch):
         monkeypatch.delenv("DATAEVAL_FAIL_ON_WARNING", raising=False)
-        assert _parsed([]).fail_on_warning is False
+        assert _parsed([]).fail_on_warning is None
 
     def test_environment_enables(self, monkeypatch):
         monkeypatch.setenv("DATAEVAL_FAIL_ON_WARNING", "true")
@@ -183,3 +183,4 @@ class TestReportWidth:
             _parsed(["--report-width", "30"])
         assert exited.value.code == 2
         assert "at least 40" in capsys.readouterr().err
+

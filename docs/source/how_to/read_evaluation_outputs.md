@@ -62,8 +62,8 @@ result.warning_count  # 2
 result.health  # {"status": "warning", "warnings": 2, "findings": 7}
 ```
 
-From the CLI, `--fail-on-warning` turns that roll-up into an exit code, so a pipeline can stop on a
-run whose findings breached their thresholds:
+From the CLI, `--fail-on-warning`, or `fail_on: warning` in the pipeline's `result:` block, turns that roll-up
+into an exit code, `2`, so a pipeline can stop on a run whose findings breached their thresholds:
 
 ```bash
 dataeval-flow --config params.yaml --output ./results --fail-on-warning

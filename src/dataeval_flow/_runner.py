@@ -43,6 +43,8 @@ class _Collected:
     warned: list[str] = field(default_factory=list)
     merged: dict[str, dict] = field(default_factory=dict)
     reported: dict[str, Result[Any, Any]] = field(default_factory=dict)
+    # Every task's result, failed or not, in the order the tasks ran: what the CI reports name.
+    everything: dict[str, Result[Any, Any]] = field(default_factory=dict)
     # Each task's text report as printed, and whether in full, so a file wanting the same needn't draw it again.
     printed: dict[str, tuple[bool, str]] = field(default_factory=dict)
     binning: dict[str, dict] = field(default_factory=dict)
@@ -61,6 +63,7 @@ def _collect_results(
     collected = _Collected()
 
     for name, result in results.items():
+        collected.everything[name] = result
         if not result.success:
             _logger.error("  FAILED: %s", name)
             for error in result.errors:
@@ -91,28 +94,41 @@ def _collect_results(
 
 
 def _write_results(collected: _Collected, results_dir: Path, settings: ResultConfig, width: int) -> list[str]:
-    """Write the results in each configured format, one file for the run or one per task; return the names written."""
-    tasks = list(collected.reported)
+    """Write the results in each configured format, one file for the run or one per task; return the names written.
+
+    The JSON, text and HTML files hold the tasks that succeeded, and none is written where no task did. The
+    JUnit and Markdown files, which a CI job reads, name the failed tasks too.
+    """
+    tasks = list(collected.everything)
     groups = [(f"{settings.name}-{task}", [task]) for task in tasks] if settings.per_task else [(settings.name, tasks)]
     written: list[str] = []
     for stem, names in groups:
         for kind in settings.formats:
-            path = results_dir / f"{stem}.{_EXTENSIONS[kind]}"
-            path.write_text(_file_text(kind, names, collected, settings.detail == "full", width), encoding="utf-8")
-            written.append(path.name)
+            text = _file_text(kind, names, collected, settings.detail == "full", width)
+            if text is not None:
+                results_dir.mkdir(parents=True, exist_ok=True)
+                path = results_dir / f"{stem}.{_EXTENSIONS[kind]}"
+                path.write_text(text, encoding="utf-8")
+                written.append(path.name)
     return written
 
 
-def _file_text(kind: str, names: Sequence[str], collected: _Collected, detailed: bool, width: int) -> str:
-    """The named tasks' results as one file of *kind*: the JSON record, the text report, or the HTML page."""
+def _file_text(kind: str, names: Sequence[str], collected: _Collected, detailed: bool, width: int) -> str | None:
+    """The named tasks' results as one file of *kind*, or ``None`` where it would hold nothing."""
+    from dataeval_flow._ci_reports import junit_report, markdown_summary
     from dataeval_flow._result import results_html
 
-    results = [collected.reported[name] for name in names]
+    if kind in ("junit", "markdown"):
+        results = {name: collected.everything[name] for name in names}
+        return junit_report(results) if kind == "junit" else markdown_summary(results)
+    succeeded = [name for name in names if name in collected.reported]
+    if not succeeded:
+        return None
     if kind == "json":
-        return json_mod.dumps({name: collected.merged[name] for name in names}, indent=2)
+        return json_mod.dumps({name: collected.merged[name] for name in succeeded}, indent=2)
     if kind == "text":
-        return "\n".join(_text(name, collected, detailed, width) for name in names)
-    return results_html(results, detailed=detailed)
+        return "\n".join(_text(name, collected, detailed, width) for name in succeeded)
+    return results_html([collected.reported[name] for name in succeeded], detailed=detailed)
 
 
 def _text(name: str, collected: _Collected, detailed: bool, width: int) -> str:
@@ -121,8 +137,17 @@ def _text(name: str, collected: _Collected, detailed: bool, width: int) -> str:
     return printed if printed_detailed == detailed else collected.reported[name].report(detailed=detailed, width=width)
 
 
+def _gate(fail_on: str, fail_on_warning: bool | None) -> str:
+    """What fails the run: the config's ``fail_on``, unless ``--fail-on-warning`` or its variable says otherwise."""
+    if fail_on_warning is None:
+        return fail_on
+    if fail_on_warning:
+        return "warning"
+    return "failure" if fail_on == "warning" else fail_on
+
+
 # The extension of each format's file.
-_EXTENSIONS = {"json": "json", "text": "txt", "html": "html"}
+_EXTENSIONS = {"json": "json", "text": "txt", "html": "html", "junit": "xml", "markdown": "md"}
 
 
 def run(
@@ -132,7 +157,7 @@ def run(
     verbosity: int = 0,
     cache_dir: Path | None = None,
     tasks: str | Sequence[str] | None = None,
-    fail_on_warning: bool = False,
+    fail_on_warning: bool | None = None,
     report_width: int | None = None,
     report_images: bool = True,
 ) -> int:
@@ -212,12 +237,12 @@ def run(
     collected = _collect_results(results, verbosity=verbosity, report_width=width)
 
     # --- Write file artifacts (only when output_dir is set) ---
-    if output_dir is not None and collected.merged:
+    if output_dir is not None:
         results_dir = output_dir / "results"
-        results_dir.mkdir(parents=True, exist_ok=True)
-        written = _write_results(collected, results_dir, config.result, width)
-        _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
-        _write_encoding_descriptor(collected.binning, results_dir)
+        if written := _write_results(collected, results_dir, config.result, width):
+            _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
+        if collected.merged:
+            _write_encoding_descriptor(collected.binning, results_dir)
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)
 
@@ -225,17 +250,18 @@ def run(
     warned = collected.warned
     _logger.info("Done. %d/%d succeeded.", len(results) - failures, len(results))
 
-    if failures or export_failures:
+    gate = _gate(config.result.fail_on, fail_on_warning)
+    if (failures or export_failures) and gate != "never":
         return 1
 
     if warned:
         # Printed either way: a warning that breached a threshold is worth stating even
         # when it is not fatal.
         _logger.warning("  Health warnings raised by: %s", ", ".join(warned))
-        if fail_on_warning:
-            _logger.error("  Failing on health warnings (--fail-on-warning).")
+        if gate == "warning":
+            _logger.error("  Failing on health warnings (fail_on: warning, or --fail-on-warning).")
             flush_logs()
-            return 1
+            return 2
 
     return 0
 

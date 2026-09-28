@@ -48,10 +48,13 @@
 - A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
 - The `result:` block also names the result files and picks their formats, detail, per-task split and text width
 - `result: max_rows:` and `preview_rows:` set a table of items' rows (500) and text preview (10); `-1` lifts a limit
+- `result: fail_on:` gates the exit code on `failure`, `warning` or `never`; `--fail-on-warning` still overrides it
+- `junit` and `markdown` formats: a JUnit report for CI test views and a Markdown summary, both naming failed tasks
 
 ### Changed
 
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
+- A run that fails only on health warnings exits `2` (was `1`), so CI can tell a data-quality gate from a crash
 - Data analysis lists each split's unlabelled images in a table naming up to eight, where it wrote a sentence
 - `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`

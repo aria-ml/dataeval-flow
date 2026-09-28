@@ -523,8 +523,9 @@ With no `--task`, every task the config marks `enabled` runs.
 ### Failing the pipeline on health warnings
 
 By default the run exits `0` whenever every task *ran*, whatever its findings say. A
-warning is a prompt to look, not a failure. `--fail-on-warning` makes findings that
-breached their health thresholds fatal, so a CI job can gate on data quality:
+warning is a prompt to look, not a failure. `--fail-on-warning`, or `fail_on: warning` in the
+pipeline's `result:` block, makes findings that breached their health thresholds fatal, so a CI
+job can gate on data quality:
 
 ```bash
 docker run --rm \
@@ -537,8 +538,34 @@ docker run --rm \
 
 | Exit code | Meaning |
 | --- | --- |
-| `0` | Every task succeeded; no warnings, or warnings without `--fail-on-warning` |
-| `1` | A task failed, or `--fail-on-warning` was set and a task raised warnings |
+| `0` | Every task succeeded, with no warnings the gate fails on; or `fail_on: never` |
+| `1` | A task failed, or an export couldn't be written |
+| `2` | Every task succeeded, but a task raised warnings and the gate fails on them |
+
+`fail_on` in the `result:` block sets the gate: `failure` (the default), `warning`, or `never`,
+which reports without ever failing the job. `--fail-on-warning` and `--no-fail-on-warning`, or
+`DATAEVAL_FAIL_ON_WARNING`, override it. Since a warning exits `2`, a job can tell a data-quality
+gate from a crash:
+
+```yaml
+# .gitlab-ci.yml
+data-quality:
+  script:
+    - python -m dataeval_flow --output output
+  allow_failure:
+    exit_codes: [2]     # a warning marks the job, a failed task fails the pipeline
+  artifacts:
+    when: always
+    paths: [output/results/]
+    reports:
+      junit: output/results/result.xml
+```
+
+with `formats: [json, html, junit, markdown]` in the pipeline's `result:` block. The JUnit report
+makes each task a test suite and each finding a test case, failing where the finding is a
+warning, so the merge request's test view lists the checks the data didn't pass. The Markdown
+summary is each task's findings as a table, ready for `$GITHUB_STEP_SUMMARY` or a merge-request
+comment. Both also name any task that failed.
 
 Results are written either way — the gate decides the exit code, not whether the run's
 artifacts survive.
@@ -594,9 +621,10 @@ A pipeline's `result:` block shapes these files. Every key is optional:
 ```yaml
 result:
   name: audit               # audit.json, audit.txt, audit.html (default: result)
-  formats: [json, html]     # which files to write: json, text, html (default: all three)
+  formats: [json, html]     # json, text, html, junit (.xml), markdown (.md) (default: json, text, html)
   detail: summary           # the text and HTML files' detail: full or summary (default: full)
   per_task: true            # one set of files per task: audit-<task>.json, … (default: false)
+  fail_on: warning          # what fails the job: failure, warning or never (default: failure)
   width: 100                # the text report's width, at least 40 (default: 80)
   max_images: 100           # thumbnails per task's result; 0: none, -1: every item named (default: 200)
   max_rows: 1000            # rows a table of items lists; -1: every row (default: 500)

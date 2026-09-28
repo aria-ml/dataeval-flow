@@ -5372,12 +5372,14 @@
           "type": "string"
         },
         "formats": {
-          "description": "Which files to write: the JSON record, the text report, the HTML page.",
+          "description": "Which files to write: the JSON record, the text report, the HTML page, a JUnit report (`.xml`) for a CI's test view, and a Markdown summary (`.md`) for a job summary or a merge-request comment.",
           "items": {
             "enum": [
               "json",
               "text",
-              "html"
+              "html",
+              "junit",
+              "markdown"
             ],
             "type": "string"
           },
@@ -5400,6 +5402,17 @@
           "description": "Write each task's results to files of its own, `<name>-<task>.<ext>`, not one for the run.",
           "title": "Per Task",
           "type": "boolean"
+        },
+        "fail_on": {
+          "default": "failure",
+          "description": "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health threshold (`warning`: 2), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it.",
+          "enum": [
+            "never",
+            "failure",
+            "warning"
+          ],
+          "title": "Fail On",
+          "type": "string"
         },
         "width": {
           "default": 80,

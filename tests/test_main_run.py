@@ -489,10 +489,11 @@ class TestTaskFlag:
 
 
 class TestFailOnWarningFlag:
-    def test_defaults_off(self):
+    def test_unset_leaves_it_to_the_config(self, monkeypatch: pytest.MonkeyPatch):
         from dataeval_flow.__main__ import _build_parser
 
-        assert _build_parser().parse_args([]).fail_on_warning is False
+        monkeypatch.delenv("DATAEVAL_FAIL_ON_WARNING", raising=False)
+        assert _build_parser().parse_args([]).fail_on_warning is None
 
     def test_flag_sets_it(self):
         from dataeval_flow.__main__ import _build_parser

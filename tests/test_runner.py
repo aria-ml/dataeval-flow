@@ -294,7 +294,7 @@ class TestFailOnWarning:
 
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=1)):
-            assert run(config, tmp_path / "out", data_dir=tmp_path, fail_on_warning=True) == 1
+            assert run(config, tmp_path / "out", data_dir=tmp_path, fail_on_warning=True) == 2
 
     def test_flag_is_a_no_op_without_warnings(self, tmp_path: Path):
         import dataeval_flow._orchestrator as orch
@@ -490,3 +490,106 @@ class TestResultFiles:
     def test_the_command_line_width_beats_the_config(self, tmp_path: Path):
         _, result = self._run(tmp_path, "result:\n  width: 100\n", report_width=72)
         assert {call.kwargs["width"] for call in result.report.call_args_list} == {72}  # type: ignore[attr-defined]
+
+
+def _findings_result(*, warnings: bool) -> object:
+    """A fake workflow result with real findings: a warning where *warnings*, and one passing finding."""
+    from dataeval_flow.workflows import Finding
+
+    result = _fake_result(warnings=1 if warnings else 0)
+    passing = Finding(severity="ok", title="Label Balance", brief="2 classes")
+    flagged = Finding(severity="warning", title="Duplicates", brief="2 groups | 4 images", description="Look at them.")
+    result.findings = [flagged, passing] if warnings else [passing]
+    result.metadata.execution_time_s = 1.5
+    return result
+
+
+def _failed_result() -> object:
+    result = _fake_result()
+    result.success = False
+    result.errors = ["ValueError: boom", "and more"]
+    result.findings = []
+    return result
+
+
+class TestGate:
+    """What makes the run's exit code non-zero: 1 for a failed task, 2 for health warnings, as the config says."""
+
+    @staticmethod
+    def _exit(tmp_path: Path, extra: str, results: list[object], **kwargs: object) -> int:
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path, extra=extra)
+        with patch.object(orch, "_run_single_task", side_effect=results):
+            return run(config, tmp_path / "out", data_dir=tmp_path, **kwargs)  # type: ignore[arg-type]
+
+    def test_a_failed_task_exits_1(self, tmp_path: Path):
+        assert self._exit(tmp_path, "", [_failed_result(), _fake_result()]) == 1
+
+    def test_the_config_can_gate_on_warnings(self, tmp_path: Path):
+        assert self._exit(tmp_path, "result:\n  fail_on: warning\n", [_fake_result(warnings=1), _fake_result()]) == 2
+
+    def test_a_failed_task_outranks_a_warning(self, tmp_path: Path):
+        results = [_failed_result(), _fake_result(warnings=1)]
+        assert self._exit(tmp_path, "result:\n  fail_on: warning\n", results) == 1
+
+    def test_never_reports_without_failing(self, tmp_path: Path):
+        assert self._exit(tmp_path, "result:\n  fail_on: never\n", [_failed_result(), _fake_result(warnings=1)]) == 0
+
+    def test_the_command_line_beats_the_config(self, tmp_path: Path):
+        extra = "result:\n  fail_on: warning\n"
+        assert self._exit(tmp_path, extra, [_fake_result(warnings=1), _fake_result()], fail_on_warning=False) == 0
+
+
+class TestCIFiles:
+    """A JUnit report for CI's test views, and a Markdown summary for a job summary or a merge-request comment."""
+
+    @staticmethod
+    def _results(tmp_path: Path, formats: str) -> Path:
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path, extra=f"result:\n  formats: [{formats}]\n")
+        with patch.object(orch, "_run_single_task", side_effect=[_findings_result(warnings=True), _failed_result()]):
+            run(config, tmp_path / "out", data_dir=tmp_path)
+        return tmp_path / "out" / "results"
+
+    def test_junit_has_a_suite_per_task_and_a_case_per_finding(self, tmp_path: Path):
+        import xml.etree.ElementTree as ET
+
+        root = ET.parse(self._results(tmp_path, "junit") / "result.xml").getroot()  # noqa: S314 - the run's own file
+        assert (root.tag, root.get("tests"), root.get("failures"), root.get("errors")) == ("testsuites", "3", "1", "1")
+        task_a, task_b = root.findall("testsuite")
+        assert (task_a.get("name"), task_a.get("time")) == ("task_a", "1.5")
+        duplicates, balance = task_a.findall("testcase")
+        assert (duplicates.get("name"), duplicates.get("classname")) == ("Duplicates", "task_a")
+        failure = duplicates.find("failure")
+        assert failure is not None
+        assert (failure.get("message"), failure.text) == ("2 groups | 4 images", "Look at them.")
+        assert list(balance) == []
+        (run_case,) = task_b.findall("testcase")
+        error = run_case.find("error")
+        assert error is not None
+        assert (run_case.get("name"), error.get("message"), error.text) == (
+            "run",
+            "ValueError: boom",
+            "ValueError: boom\nand more",
+        )
+
+    def test_markdown_has_each_task_s_findings_and_failures(self, tmp_path: Path):
+        text = (self._results(tmp_path, "markdown") / "result.md").read_text()
+        assert "## task_a" in text
+        assert "| warning | Duplicates | 2 groups \\| 4 images |" in text
+        assert "| ok | Label Balance | 2 classes |" in text
+        assert "## task_b: failed" in text
+        assert "- `ValueError: boom`" in text
+
+    def test_a_run_where_every_task_fails_still_reports_them_in_junit(self, tmp_path: Path):
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path, extra="result:\n  formats: [json, junit]\n")
+        with patch.object(orch, "_run_single_task", side_effect=[_failed_result(), _failed_result()]):
+            assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
+        assert sorted(path.name for path in (tmp_path / "out" / "results").iterdir()) == ["result.xml"]

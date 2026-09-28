@@ -164,10 +164,13 @@ class ResultConfig(BaseModel):
         pattern=r"^[^/\\]+$",
         description="The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
     )
-    formats: list[Literal["json", "text", "html"]] = Field(
+    formats: list[Literal["json", "text", "html", "junit", "markdown"]] = Field(
         default_factory=lambda: ["json", "text", "html"],
         min_length=1,
-        description="Which files to write: the JSON record, the text report, the HTML page.",
+        description=(
+            "Which files to write: the JSON record, the text report, the HTML page, a JUnit report (`.xml`) for a CI's "
+            "test view, and a Markdown summary (`.md`) for a job summary or a merge-request comment."
+        ),
     )
     detail: Literal["full", "summary"] = Field(
         default="full",
@@ -179,6 +182,14 @@ class ResultConfig(BaseModel):
     per_task: bool = Field(
         default=False,
         description="Write each task's results to files of its own, `<name>-<task>.<ext>`, not one for the run.",
+    )
+    fail_on: Literal["never", "failure", "warning"] = Field(
+        default="failure",
+        description=(
+            "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health "
+            "threshold (`warning`: 2), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` "
+            "override it."
+        ),
     )
     width: int = Field(
         default=DEFAULT_WIDTH,
