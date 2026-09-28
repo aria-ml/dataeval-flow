@@ -54,6 +54,7 @@ from maite_datasets.object_detection import MILCO
 from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow.config import (
     CocoDatasetConfig,
+    MetadataPolicyConfig,
     PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
@@ -77,6 +78,8 @@ MILCO(root=data_root, image_set="operational", as_datamaite=True)
 # %%
 config = PipelineConfig(
     seed=0,
+    # `original_id` numbers each frame, so it names the frames rather than describing them.
+    metadata=[MetadataPolicyConfig(name="milco", exclude=["original_id"])],
     datasets=[
         CocoDatasetConfig(name="reference", path=str(data_root / "milco_datamaite_train")),
         CocoDatasetConfig(name="operational", path=str(data_root / "milco_datamaite_operational")),
@@ -94,7 +97,7 @@ config = PipelineConfig(
     ],
     extractors=[BoVWExtractorConfig(name="bovw", vocab_size=256, batch_size=32, preprocessor="sonar")],
     workflows=[
-        DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"]),
+        DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"], metadata="milco"),
         DriftMonitoringConfig(
             name="drift",
             detectors=[
@@ -191,7 +194,7 @@ show(clean.to_html())
 # and its card starts closed; open *K-Neighbors* to see the chart.
 
 # %% tags=["remove_input"]
-show(drift.to_html(), height=780)
+show(drift.to_html())
 
 # %% [markdown]
 # Labels that would overlap take a second or third line, and any that still don't fit are listed under the scale,
@@ -204,7 +207,7 @@ show(drift.to_html(), height=780)
 # header's verdict and the summary table, without the cards:
 
 # %% tags=["remove_input"]
-show(clean.to_html(detailed=False), height=360)
+show(clean.to_html(detailed=False))
 
 # %% [markdown]
 # ## Printing, dark mode, and blocked scripts
