@@ -179,6 +179,8 @@ show(clean.to_html())
 #   standard deviation.
 # - **Limits.** Under the flagged images, the limits table gives each metric's lower and upper limit and its
 #   population, so the page keeps them when printed without hover cards.
+# - **Thumbnails.** Each flagged image and each duplicate group shows its sonar frames in its row. Click one to
+#   enlarge it, and click anywhere, or press Esc, to put it back.
 
 # %% [markdown]
 # ## Thresholds on a scale

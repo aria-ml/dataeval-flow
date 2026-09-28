@@ -40,6 +40,9 @@
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
 - The HTML report shows a card per finding, warnings open, with sortable and filterable tables and dark mode
+- Reports carry a thumbnail of each item their findings name, in `Result.assets`; the HTML report shows them
+- `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` turn a run's thumbnails off
+- `image` table columns, each cell an item reference or a group of them
 
 ### Changed
 
@@ -84,6 +87,9 @@
 - Data analysis keeps its flagged values in `image_quality.outliers` and lists every flagged image by split
 - The HTML report draws a bar chart's thresholds across its bars, labelled on a scale, instead of in a caption
 - The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
+- Data cleaning lists its duplicate groups with their items, largest first, and duplicate boxes on their own
+- OOD detection lists its samples in tables, naming each in its own test source, rather than as bullets
+- Pillow (`>=12.2.0`) is a core dependency, to encode thumbnails
 
 ### Fixed
 

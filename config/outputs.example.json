@@ -2,7 +2,7 @@
   "kind": "workflow",
   "metadata": {
     "version": "1.0",
-    "timestamp": "2026-09-27T15:19:58.473104Z",
+    "timestamp": "2026-09-28T06:12:42.893978Z",
     "dataset_id": "dataset",
     "label_source": "protocol",
     "model_id": null,
@@ -65,8 +65,8 @@
       }
     },
     "tool": "dataeval-flow",
-    "tool_version": "0.2.3.dev238+g115b0f449",
-    "execution_time_s": 0.081,
+    "tool_version": "0.2.3.dev259+g1574a5ce2.d20260928",
+    "execution_time_s": 0.077,
     "metadata_binning": {
       "auto_bin_method": "uniform_width",
       "encoding_digest": "01e7b720ff566d53",
@@ -263,6 +263,10 @@
             "type": "table",
             "columns": [
               {
+                "key": "image",
+                "kind": "image"
+              },
+              {
                 "key": "item",
                 "header": "Item"
               },
@@ -284,6 +288,10 @@
             "rows": [
               {
                 "item": 7,
+                "image": {
+                  "source": "dataset",
+                  "index": 7
+                },
                 "class": "b",
                 "flags": 9,
                 "by": [
@@ -559,6 +567,68 @@
             ]
           },
           {
+            "type": "table",
+            "columns": [
+              {
+                "key": "group",
+                "header": "Group"
+              },
+              {
+                "key": "kind",
+                "header": "Kind",
+                "align": "left"
+              },
+              {
+                "key": "count",
+                "header": "Count"
+              },
+              {
+                "key": "items",
+                "header": "Items",
+                "align": "left"
+              },
+              {
+                "key": "image",
+                "kind": "image"
+              }
+            ],
+            "rows": [
+              {
+                "group": 0,
+                "kind": "exact",
+                "count": 2,
+                "items": "0, 5",
+                "image": [
+                  {
+                    "source": "dataset",
+                    "index": 0
+                  },
+                  {
+                    "source": "dataset",
+                    "index": 5
+                  }
+                ]
+              },
+              {
+                "group": 0,
+                "kind": "near",
+                "count": 2,
+                "items": "3, 9",
+                "image": [
+                  {
+                    "source": "dataset",
+                    "index": 3
+                  },
+                  {
+                    "source": "dataset",
+                    "index": 9
+                  }
+                ]
+              }
+            ],
+            "preview": 10
+          },
+          {
             "type": "fields",
             "items": [
               [
@@ -625,5 +695,57 @@
         ]
       }
     ]
-  }
+  },
+  "assets": [
+    {
+      "item": {
+        "source": "dataset",
+        "index": 0
+      },
+      "media_type": "image/webp",
+      "width": 16,
+      "height": 16,
+      "data": "UklGRiABAABXRUJQVlA4IBQBAADwBQCdASoQABAAAUAmJbACdD2QOsA53b2APJVLE75r37X5AviP+2e4H+nf+Z4ED9Ky2mg7ueACkAD8/4gv7vg64C4dP7K8p+h//Fm8+VUpXD28XfEZs7haGF44RrzwaQYdyzpj7+WtXGfUnJzGqcCl1PA2mHE6ebA511jr/EGTW2/JFoPdXThbRkDVAP/X8W5jmb77/CWXH8P6/1RZsM+Fo2cidJqQ7ecvzjR+gKMBXbww3FtEIX8/y+++eW0cDXaHDAvvjx/oGWw2Ptmmb/wFoCXsz0xX2gHUevLY5V5rXnGEef2f8zKERX1mtueMn7iFk91X1RHZDc73V8DkZC4vjuTLIYyvUu8KeOVf8XagivNSWgA="
+    },
+    {
+      "item": {
+        "source": "dataset",
+        "index": 3
+      },
+      "media_type": "image/webp",
+      "width": 16,
+      "height": 16,
+      "data": "UklGRigBAABXRUJQVlA4IBwBAAAwBgCdASoQABAAAUAmJbACdDKpPYA/YD9o/aQKW54gviz/a+4B+nP+M6wH6V+w7+oB6Zg5MKzO6rP4APwzBQjAGjrrZrdI5NgOX5j/lzog6g3+Wn5M/MCluQJrtGJCmHZz7CKlvznn/1pbRpv9oiJMgfWhAy4NcEBJ9spizdvfXT9e1lmrz6/i+unh7txwMgyKJ+Zr4u+a2d4e3+Wy/ViLipWiR33un2Nj7j+VROaU2oPfENwLSTlf/C+xSUr5KmbSToRgbZL2uj9Uegdeqaolt8aXx7UkB26/0H95xn/8vOlroAnjnx0Z/NU4raNpLSP5nnNPDoe81mUfcDT2nton9emrxPHwkLB78ll2Frv4zKZTfOcSX8YfssxQAA=="
+    },
+    {
+      "item": {
+        "source": "dataset",
+        "index": 5
+      },
+      "media_type": "image/webp",
+      "width": 16,
+      "height": 16,
+      "data": "UklGRiABAABXRUJQVlA4IBQBAADwBQCdASoQABAAAUAmJbACdD2QOsA53b2APJVLE75r37X5AviP+2e4H+nf+Z4ED9Ky2mg7ueACkAD8/4gv7vg64C4dP7K8p+h//Fm8+VUpXD28XfEZs7haGF44RrzwaQYdyzpj7+WtXGfUnJzGqcCl1PA2mHE6ebA511jr/EGTW2/JFoPdXThbRkDVAP/X8W5jmb77/CWXH8P6/1RZsM+Fo2cidJqQ7ecvzjR+gKMBXbww3FtEIX8/y+++eW0cDXaHDAvvjx/oGWw2Ptmmb/wFoCXsz0xX2gHUevLY5V5rXnGEef2f8zKERX1mtueMn7iFk91X1RHZDc73V8DkZC4vjuTLIYyvUu8KeOVf8XagivNSWgA="
+    },
+    {
+      "item": {
+        "source": "dataset",
+        "index": 7
+      },
+      "media_type": "image/webp",
+      "width": 16,
+      "height": 16,
+      "data": "UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAAUAmJaQAA3AA/vz0AAA="
+    },
+    {
+      "item": {
+        "source": "dataset",
+        "index": 9
+      },
+      "media_type": "image/webp",
+      "width": 16,
+      "height": 16,
+      "data": "UklGRigBAABXRUJQVlA4IBwBAAAwBgCdASoQABAAAUAmJbACdDKpPYA/YD9o/aQKW54gviz/a+4B+nP+M6wH6V+w7+oB6Zg5MKzO6rP4APwzBQjAGjrrZrdI5NgOX5j/lzog6g3+Wn5M/MCluQJrtGJCmHZz7CKlvznn/1pbRpv9oiJMgfWhAy4NcEBJ9spizdvfXT9e1lmrz6/i+unh7txwMgyKJ+Zr4u+a2d4e3+Wy/ViLipWiR33un2Nj7j+VROaU2oPfENwLSTlf/C+xSUr5KmbSToRgbZL2uj9Uegdeqaolt8aXx7UkB26/0H95xn/8vOlroAnjnx0Z/NU4raNpLSP5nnNPDoe81mUfcDT2nton9emrxPHwkLB78ll2Frv4zKZTfOcSX8YfssxQAA=="
+    }
+  ]
 }

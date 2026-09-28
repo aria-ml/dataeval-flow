@@ -38,7 +38,8 @@ The report is 80 columns wide. Pass `width=` (at least 40) to draw it narrower o
 shrink to fit. From the CLI, `--report-width` sets it, or the `DATAEVAL_REPORT_WIDTH` environment variable.
 
 A long table, such as one row per flagged image, shows its first rows and a line counting the rest. Every row is in
-the HTML report and in the JSON.
+the HTML report and in the JSON. Text has no pictures, so a table's thumbnails are left out, and the row's other
+cells, such as its *Item*, name each item.
 
 ### Severity and the health line
 
@@ -94,7 +95,15 @@ holds everything the text report holds, laid out for reading on screen:
   `brightness 0.99 > 0.84`, and listed by name. Hovering a tag, or reaching it with the keyboard, shows where the
   value ranks in its population and the population's mean and standard deviation.
 - A threshold is a dashed line across a chart's bars, labelled on a scale below the table.
+- Each flagged image or box, duplicate group and OOD sample shows its thumbnail in its row. Click one to enlarge it
+  over the page, and click anywhere, or press Esc, to put it back. An item without a thumbnail is named instead.
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
+
+Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
+across, from the first 50 rows of each table and at most 200 per result. A box's thumbnail is cropped from its
+image with a margin around it. `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0`, or `report_images=False` on
+`run()`, `run_task()` and `run_tasks()` turn them off, and then the run reads no item for them. Only images have
+thumbnails for now; any other kind of item is named.
 
 It loads nothing, neither font nor URL. One inline script adds the sorting, the filter boxes and the expand-all
 buttons. With scripts blocked, as some mail viewers and locked-down browsers block them, the page reads the same
@@ -102,7 +111,8 @@ without those controls.
 
 The page prints (or saves as PDF from the browser's print dialog) in the light palette. Before it prints, its script
 opens every finding and shows every row a filter hid. With scripts blocked, each finding and panel prints as the
-reader left it. Hover cards don't print. In data cleaning, each outlier finding's limits table gives
+reader left it. Hover cards don't print, and thumbnails print at their own size. In data cleaning, each outlier
+finding's limits table gives
 each metric's limits and its population's mean and standard deviation, and says `varies` where its flags' figures
 differ. Percentiles, and data analysis's populations, show only in the hover cards and the JSON.
 
@@ -131,7 +141,8 @@ dataeval-flow --config params.yaml --data . --output ./results
 
 ### Envelope shape
 
-The serialized envelope has five top-level keys, and a `kind` of `"workflow"`:
+The serialized envelope has five top-level keys, a sixth, `assets`, where its report pictures any items, and a `kind`
+of `"workflow"`:
 
 ```json
 {
@@ -146,7 +157,8 @@ The serialized envelope has five top-level keys, and a `kind` of `"workflow"`:
 `metadata` is the provenance envelope, `health` the roll-up of the findings' severities, `raw` the typed numeric
 outputs, and `report` the same findings the text report renders — summary string plus a list of findings, each
 with a `title`, `severity`, `brief`, `description`, and `blocks`: its evidence as typed report blocks, one object
-per block with its `type`. `kind` distinguishes this from an evaluator's envelope, covered next.
+per block with its `type`. `assets` holds the thumbnails, as the end of the next section describes. `kind`
+distinguishes this from an evaluator's envelope, covered next.
 
 ### Findings and their report blocks
 
@@ -194,7 +206,7 @@ A table's `rows` are objects keyed by each column's `key`. A column has:
 | --- | --- |
 | `key` | The row key it reads. Two columns may share one, such as a count and its bar. |
 | `header` (`""`) | The column's heading. |
-| `kind` (`"text"`) | `text`, `bar`, `stacked`, `sparkline` or `flags`. |
+| `kind` (`"text"`) | `text`, `bar`, `stacked`, `sparkline`, `flags` or `image`. |
 | `align` (`null`) | `left` or `right`; `null` puts the first column left and the rest right. |
 | `format` (`null`) | A Python `str.format` template for a numeric cell, such as `"{:.1f}%"`. |
 | `series` (`[]`) | A stacked column's segment names, in cell order. |
@@ -203,9 +215,18 @@ A table's `rows` are objects keyed by each column's `key`. A column has:
 A table's `preview` says how many rows a renderer with little room, such as the text report, shows before a line
 counting the rest. `null` shows every row.
 
-A cell is a string, number, boolean or `null`. In a `stacked` or `sparkline` column it is a list of numbers, and in
-a `flags` column a list of flags. A number stays a number, and its column's `format` says how it displays, so a
-reader can sort and chart it. A cell is a string only when it combines values, such as `"12 (30%)"`.
+A cell is a string, number, boolean or `null`. In a `stacked` or `sparkline` column it is a list of numbers, in a
+`flags` column a list of flags, and in an `image` column an item reference, or a list of them for a group such as
+duplicates. A number stays a number, and its column's `format` says how it displays, so a reader can sort and chart
+it. A cell is a string only when it combines values, such as `"12 (30%)"`.
+
+An item reference names one item as the run saw it:
+
+| Field | Holds |
+| --- | --- |
+| `source` | The source it was read from, as the task or `run()` named it. |
+| `index` | Its index in that source, after the source's view. |
+| `target` (`null`) | A detection box, by its index in the item's annotation; `null` for the whole item. |
 
 A flag is one measurement against the population it was judged in, such as a metric that marked an image an outlier:
 
@@ -229,6 +250,24 @@ and a value further past its limit isn't a worse item for it.
 Flow defines the block types, and a later version may add one. A reader that meets a `type` it doesn't know should
 show a one-line placeholder naming it and carry on, rather than fail, so an older reader keeps working on a newer
 result.
+
+A result's `assets` are the thumbnails of the items its image cells name, one per item:
+
+| Field | Holds |
+| --- | --- |
+| `item` | The item reference it shows. |
+| `media_type` | What `data` holds: `image/webp`, the one kind Flow makes today. |
+| `width`, `height` | Its size in pixels, at most 192 on the long side. |
+| `data` | The thumbnail, base64-encoded. |
+
+```json
+{"item": {"source": "train", "index": 41}, "media_type": "image/webp", "width": 192, "height": 144,
+ "data": "UklGRjAAAABXRUJQ..."}
+```
+
+An item named in a cell may have no asset: thumbnails were turned off, the item was past a cap, or it couldn't be
+read. Show its name instead, as the reports do. A later version may make other kinds of preview, so show the name
+too for a `media_type` you can't draw.
 
 `health.status` is `"warning"` where any finding breached its threshold and `"ok"` otherwise. It answers a
 different question from whether the workflow *ran*: a task that failed produces errors, not warnings.

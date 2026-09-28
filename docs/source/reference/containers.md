@@ -81,12 +81,13 @@ or secret-management mechanism are required**.
 
 All runtime environment variables are optional.
 
-| Variable                | Purpose                                     | Default                                                                   |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------- |
-| `DATAEVAL_DATA`         | Input data root (datasets, models, configs) | `/dataeval` in the container; current working directory otherwise         |
-| `DATAEVAL_OUTPUT`       | Output directory for results and reports    | `/output` in the container                                                |
-| `DATAEVAL_CACHE`        | Disk-backed computation cache directory     | Auto-set to `/cache` when that mount is present and writable (see below)  |
-| `DATAEVAL_REPORT_WIDTH` | Characters per line of the text report      | `80`; at least `40`                                                       |
+| Variable                 | Purpose                                     | Default                                                                  |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------ |
+| `DATAEVAL_DATA`          | Input data root (datasets, models, configs) | `/dataeval` in the container; current working directory otherwise        |
+| `DATAEVAL_OUTPUT`        | Output directory for results and reports    | `/output` in the container                                               |
+| `DATAEVAL_CACHE`         | Disk-backed computation cache directory     | Auto-set to `/cache` when that mount is present and writable (see below) |
+| `DATAEVAL_REPORT_WIDTH`  | Characters per line of the text report      | `80`; at least `40`                                                      |
+| `DATAEVAL_REPORT_IMAGES` | Thumbnails of the items reports name        | On; `0`, `false` or `no` turns them off                                  |
 
 `DATAEVAL_DATA` and `DATAEVAL_OUTPUT` are baked into the image as `/dataeval` and
 `/output`. `DATAEVAL_CACHE` is **not**. The entrypoint sets it to `/cache`
@@ -110,15 +111,16 @@ a GPU; neither is intended as a caller-facing knob.
 
 ## Command-line options
 
-| Option                | Purpose                                | Default                                            |
-| --------------------- | -------------------------------------- | -------------------------------------------------- |
-| `-c`, `--config PATH` | Config file or folder                  | Auto-discover YAML/JSON at the data root           |
-| `-d`, `--data PATH`   | Input data root                        | `$DATAEVAL_DATA`, else the container default / CWD |
-| `-o`, `--output PATH` | Output directory for artifacts         | `$DATAEVAL_OUTPUT`, else `/output`                 |
-| `-k`, `--cache PATH`  | Disk-backed computation cache          | `$DATAEVAL_CACHE`, else `/cache` if mounted        |
-| `-v`, `--verbose`     | Increase verbosity (repeatable)        | Off — see below                                    |
-| `--report-width N`    | Characters per line of the text report | `$DATAEVAL_REPORT_WIDTH`, else `80`                |
-| `-h`, `--help`        | Print the interface help and exit      | —                                                  |
+| Option                 | Purpose                                | Default                                            |
+| ---------------------- | -------------------------------------- | -------------------------------------------------- |
+| `-c`, `--config PATH`  | Config file or folder                  | Auto-discover YAML/JSON at the data root           |
+| `-d`, `--data PATH`    | Input data root                        | `$DATAEVAL_DATA`, else the container default / CWD |
+| `-o`, `--output PATH`  | Output directory for artifacts         | `$DATAEVAL_OUTPUT`, else `/output`                 |
+| `-k`, `--cache PATH`   | Disk-backed computation cache          | `$DATAEVAL_CACHE`, else `/cache` if mounted        |
+| `-v`, `--verbose`      | Increase verbosity (repeatable)        | Off — see below                                    |
+| `--report-width N`     | Characters per line of the text report | `$DATAEVAL_REPORT_WIDTH`, else `80`                |
+| `--[no-]report-images` | Thumbnails of the items reports name   | `$DATAEVAL_REPORT_IMAGES`, else on                 |
+| `-h`, `--help`         | Print the interface help and exit      | —                                                  |
 
 `--verbose` is a counting flag: `-v` prints the text report to stdout, `-vv` adds `INFO`
 logs, and `-vvv` adds `DEBUG` logs. Artifacts are written to the output directory
