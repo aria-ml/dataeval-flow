@@ -393,6 +393,7 @@ class TestMain:
         args.task = None
         args.fail_on_warning = False
         args.report_width = 72
+        args.report_images = False
         mock_parse.return_value = args
         mock_run_tasks.return_value = 0
 
@@ -408,6 +409,7 @@ class TestMain:
             tasks=None,
             fail_on_warning=False,
             report_width=72,
+            report_images=False,
         )
 
     @patch("dataeval_flow._runner.run")

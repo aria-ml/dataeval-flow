@@ -822,6 +822,23 @@ class TestRunAll:
 
 
 class TestExecuteTaskWorker:
+    @pytest.mark.parametrize(("value", "expected"), [(None, True), ("0", False), ("true", True)])
+    def test_the_environment_says_whether_a_run_keeps_thumbnails(self, monkeypatch, value, expected) -> None:
+        if value is None:
+            monkeypatch.delenv("DATAEVAL_REPORT_IMAGES", raising=False)
+        else:
+            monkeypatch.setenv("DATAEVAL_REPORT_IMAGES", value)
+        app = FlowApp()
+        task_cfg = MagicMock()
+        task_cfg.name = "t1"
+        config = MagicMock(tasks=[task_cfg])
+        with (
+            patch.object(app, "call_from_thread"),
+            patch("dataeval_flow._orchestrator._run_single_task", return_value=MagicMock()) as run_one,
+        ):
+            app._execute_task_worker("t1", config)
+        assert run_one.call_args.kwargs["report_images"] is expected
+
     def test_execute_task_worker_success(self) -> None:
         app = FlowApp()
         mock_config = MagicMock()

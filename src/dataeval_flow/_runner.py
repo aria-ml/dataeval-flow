@@ -98,6 +98,7 @@ def run(
     tasks: str | Sequence[str] | None = None,
     fail_on_warning: bool = False,
     report_width: int = DEFAULT_WIDTH,
+    report_images: bool = True,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
 
@@ -128,6 +129,9 @@ def run(
         stop for a warning is the caller's decision.
     report_width : int
         Characters per line of the text report, on the console and in ``result.txt``; at least 40.
+    report_images : bool
+        Whether results keep thumbnails of the items their reports name, which ``result.html`` shows and
+        ``result.json`` holds. ``False`` reads no item and keeps none.
 
     Returns
     -------
@@ -166,7 +170,7 @@ def run(
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
-    results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir)
+    results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images)
 
     collected = _collect_results(results, verbosity=verbosity, report_width=report_width)
 

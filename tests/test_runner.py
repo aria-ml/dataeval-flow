@@ -178,6 +178,20 @@ def _fake_result(*, warnings: int = 0):
     return result
 
 
+class TestReportImages:
+    """The runner's switch reaches every task it runs."""
+
+    @pytest.mark.parametrize("report_images", [True, False])
+    def test_the_switch_reaches_each_task(self, tmp_path: Path, report_images: bool):
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path)
+        with patch.object(orch, "_run_single_task", return_value=_fake_result()) as run_one:
+            run(config, None, data_dir=tmp_path, report_images=report_images)
+        assert {call.kwargs["report_images"] for call in run_one.call_args_list} == {report_images}
+
+
 class TestRunTaskPairing:
     """A disabled task must not misalign results against the tasks that produced them."""
 

@@ -147,6 +147,13 @@ CSS = """
 # ---------------------------------------------------------------------------
 
 
+def _report_images() -> bool:
+    """Whether a run keeps its report's thumbnails: ``$DATAEVAL_REPORT_IMAGES``, else on, as the CLI reads it."""
+    from dataeval_flow._env import env_bool
+
+    return env_bool("DATAEVAL_REPORT_IMAGES") is not False
+
+
 class LoadingScreen(ModalScreen[None]):
     CSS = """
     LoadingScreen { align: center middle; }
@@ -536,7 +543,9 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
         try:
             task_cfg = next(t for t in config.tasks if t.name == task_name)
-            result = _run_single_task(task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir)
+            result = _run_single_task(
+                task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir, report_images=_report_images()
+            )
 
             def _on_done() -> None:
                 self._vm.mark_task_completed(task_name, result)
@@ -572,7 +581,9 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
             try:
                 task_cfg = next(t for t in config.tasks if t.name == task_name)
-                result = _run_single_task(task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir)
+                result = _run_single_task(
+                    task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir, report_images=_report_images()
+                )
 
                 def _on_done(name: str = task_name, res: Any = result) -> None:
                     self._vm.mark_task_completed(name, res)

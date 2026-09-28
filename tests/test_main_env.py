@@ -132,6 +132,28 @@ class TestFailOnWarning:
         assert _parsed(["--no-fail-on-warning"]).fail_on_warning is False
 
 
+class TestReportImages:
+    def test_defaults_on(self, monkeypatch):
+        monkeypatch.delenv("DATAEVAL_REPORT_IMAGES", raising=False)
+        assert _parsed([]).report_images is True
+
+    @pytest.mark.parametrize("value", ["0", "false", "no"])
+    def test_environment_turns_it_off(self, monkeypatch, value):
+        monkeypatch.setenv("DATAEVAL_REPORT_IMAGES", value)
+        assert _parsed([]).report_images is False
+
+    def test_command_line_beats_environment(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_REPORT_IMAGES", "0")
+        assert _parsed(["--report-images"]).report_images is True
+        monkeypatch.delenv("DATAEVAL_REPORT_IMAGES")
+        assert _parsed(["--no-report-images"]).report_images is False
+
+    def test_a_malformed_environment_value_raises(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_REPORT_IMAGES", "maybe")
+        with pytest.raises(ValueError, match="DATAEVAL_REPORT_IMAGES"):
+            _build_parser()
+
+
 class TestReportWidth:
     def test_defaults_to_eighty(self, monkeypatch):
         monkeypatch.delenv("DATAEVAL_REPORT_WIDTH", raising=False)

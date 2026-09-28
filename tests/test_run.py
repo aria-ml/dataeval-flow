@@ -298,3 +298,17 @@ def test_an_ood_run_reads_each_sample_s_thumbnail_from_its_own_test_source() -> 
     for asset in night:
         assert np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max() < 8
     assert {asset.item.source for asset in result.assets} <= {"day", "night"}
+
+
+def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.MonkeyPatch) -> None:
+    import dataeval_flow._capture as capture_module
+
+    def refuse(*_args: Any) -> list[Any]:
+        raise AssertionError("captured with images off")
+
+    monkeypatch.setattr(capture_module, "capture", refuse)
+    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    result = run(config, ToyImages(count=40, near_duplicate=True), report_images=False)
+    assert result.assets == []
+    assert "assets" not in result.to_dict()
+    assert '<span class="item">7</span>' in result.to_html()

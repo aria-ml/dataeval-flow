@@ -125,6 +125,16 @@ def _build_parser() -> argparse.ArgumentParser:
             f"(default: $DATAEVAL_REPORT_WIDTH, else {DEFAULT_WIDTH})."
         ),
     )
+    report_images = env_bool("DATAEVAL_REPORT_IMAGES")
+    parser.add_argument(
+        "--report-images",
+        action=argparse.BooleanOptionalAction,
+        default=True if report_images is None else report_images,
+        help=(
+            "Keep a thumbnail of each item a report names, which result.html shows and result.json holds "
+            "(default: $DATAEVAL_REPORT_IMAGES, else on). Use --no-report-images to read no item for them."
+        ),
+    )
     parser.add_argument(
         "--fail-on-warning",
         action=argparse.BooleanOptionalAction,
@@ -416,6 +426,7 @@ def main() -> NoReturn:
                 tasks=args.task,
                 fail_on_warning=args.fail_on_warning,
                 report_width=args.report_width,
+                report_images=args.report_images,
             )
         )
     except (FileNotFoundError, ValueError, ImportError) as e:

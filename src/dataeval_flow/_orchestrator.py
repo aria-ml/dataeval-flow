@@ -334,6 +334,8 @@ def _run_single_task(
     config: "PipelineConfig",
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
+    *,
+    report_images: bool = True,
 ) -> "Result[Any, Any]":
     """Run a single resolved task against a pipeline config.
 
@@ -491,7 +493,7 @@ def _run_single_task(
     _ensure_result_datasets(result, dataset_contexts)
 
     # 9. Thumbnails of the items the report names, read while the run's datasets are at hand.
-    if result.success:
+    if report_images and result.success:
         _capture_assets(result, dataset_contexts)
 
     # 10. Populate metadata envelope
@@ -820,6 +822,7 @@ def run_tasks(
     *,
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
+    report_images: bool = True,
 ) -> "dict[str, Result[Any, Any]]":
     """Run tasks from a pipeline configuration.
 
@@ -841,6 +844,9 @@ def run_tasks(
         Root directory for resolving relative paths in configs.
     cache_dir : Path | None, keyword-only
         Directory for disk-backed computation cache.
+    report_images : bool, keyword-only
+        Whether each result keeps thumbnails of the items its report names, for the HTML report. ``False``
+        reads no item and keeps none.
 
     Returns
     -------
@@ -868,7 +874,9 @@ def run_tasks(
     results: dict[str, Result[Any, Any]] = {}
     for task in to_run:
         _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
-        results[task.name] = _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir)
+        results[task.name] = _run_single_task(
+            task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images
+        )
     return results
 
 
@@ -878,6 +886,7 @@ def run_task(
     *,
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
+    report_images: bool = True,
 ) -> "Result[Any, Any]":
     """Run a single task.
 
@@ -896,6 +905,9 @@ def run_task(
         Root directory for resolving relative paths in configs.
     cache_dir : Path | None, keyword-only
         Directory for disk-backed computation cache.
+    report_images : bool, keyword-only
+        Whether the result keeps thumbnails of the items its report names, for the HTML report. ``False``
+        reads no item and keeps none.
 
     Returns
     -------
@@ -905,4 +917,4 @@ def run_task(
         result of the same class.
     """
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
-    return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir)
+    return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images)

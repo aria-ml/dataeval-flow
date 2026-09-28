@@ -27,6 +27,7 @@ def run(
     extractor: "ExtractorConfig | FeatureExtractor | None" = None,
     definitions: "Sequence[MetadataPolicyConfig | StatsPolicyConfig | OntologyConfig | PreprocessorConfig]" = (),
     cache_dir: Path | None = None,
+    report_images: bool = True,
 ) -> R:
     """Run one workflow or evaluator on datasets already in memory.
 
@@ -48,6 +49,9 @@ def run(
         The named policies, ontologies and preprocessors `config` and `extractor` refer to by name.
     cache_dir : Path, optional
         Directory for the disk cache. ``None`` keeps the cache in memory.
+    report_images : bool
+        Whether the result keeps thumbnails of the items its report names, for its HTML report. ``False``
+        reads no item and keeps none.
 
     Returns
     -------
@@ -127,7 +131,7 @@ def run(
         ontologies=pools.get("ontologies"),
         preprocessors=pools.get("preprocessors"),
     )
-    return cast("R", run_task(task, pipeline, cache_dir=cache_dir))
+    return cast("R", run_task(task, pipeline, cache_dir=cache_dir, report_images=report_images))
 
 
 def _pools(definitions: Sequence[object]) -> dict[str, list[Any]]:
