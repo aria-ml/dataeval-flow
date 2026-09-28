@@ -266,8 +266,7 @@ def results_html(results: Sequence["Result[Any, Any]"]) -> str:
     # The runner writes one page for the whole run, from the documents each result draws.
     documents = [result._document(detailed=True) for result in results]  # noqa: SLF001 - one page, many reports
     title = _page_title(documents[0]) if len(documents) == 1 else "dataeval-flow results"
-    # One run's source names one dataset, so two tasks naming one item name the same image.
-    return html_page(title, documents, [asset for result in results for asset in result.assets])
+    return html_page(title, documents, [result.assets for result in results])
 
 
 class Result(ABC, Generic[TMetadata, TOutput]):
@@ -416,7 +415,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
             A complete HTML document.
         """
         document = self._document(detailed=detailed)
-        return html_page(_page_title(document), [document], self.assets)
+        return html_page(_page_title(document), [document], [self.assets])
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.

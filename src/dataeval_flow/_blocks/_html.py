@@ -41,13 +41,15 @@ _NOT_A_NAME = re.compile(r"[^a-z0-9]+")
 
 
 def render_html(
-    blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = None, assets: Sequence[Asset] = ()
+    blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = None, assets: Sequence[Sequence[Asset]] = ()
 ) -> str:
     """*blocks* as an HTML fragment, one element per block, siblings on their own lines.
 
     *draw* replaces the drawing of a block type by its ``type`` tag. A replacement returns an
-    HTML fragment and owns escaping its own output. *assets* are the thumbnails an image cell
-    shows; an item without one is named instead.
+    HTML fragment and owns escaping its own output. ``assets[i]`` are the thumbnails
+    ``blocks[i]``'s image cells show, as each result's report shows its own: two tasks may read
+    one source through two draws of a random view, so one index can be two images. An item
+    without a thumbnail is named instead, as is every item of a block past the end of *assets*.
     """
     table = {**DRAW, **(draw or {})}
     # On a page of several reports each is numbered, as the page's contents list numbers them.
@@ -60,7 +62,12 @@ def render_html(
             anchors.append(f"r{count}")
         else:
             anchors.append(None)
-    return _render(blocks, 0, table, anchors, {asset.item: asset for asset in assets})
+    scopes = [{asset.item: asset for asset in owned} for owned in assets]
+    parts = (
+        _render([block], 0, table, [anchor], scopes[i] if i < len(scopes) else {})
+        for i, (block, anchor) in enumerate(zip(blocks, anchors, strict=True))
+    )
+    return "\n".join(part for part in parts if part)
 
 
 def _render(
@@ -139,10 +146,10 @@ def _contents(reports: Sequence[Section]) -> str:
     return f'<nav class="contents"><h2>Reports</h2><ol>{items}</ol></nav>'
 
 
-def html_page(title: str, blocks: Sequence[Block], assets: Sequence[Asset] = ()) -> str:
+def html_page(title: str, blocks: Sequence[Block], assets: Sequence[Sequence[Asset]] = ()) -> str:
     """One complete page holding *blocks*: its own stylesheet and script, and nothing it has to fetch.
 
-    *assets* are the thumbnails its image cells show, embedded as ``data:`` URIs.
+    ``assets[i]`` are the thumbnails ``blocks[i]``'s image cells show, embedded as ``data:`` URIs.
     """
     contents = _contents(_reports(blocks))
     return "\n".join(

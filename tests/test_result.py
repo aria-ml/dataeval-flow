@@ -89,6 +89,24 @@ def test_the_page_titles_a_report_s_own_sections_as_it_titles_its_findings():
     assert "  CONFIGURATION" in result.report().splitlines()
 
 
+def test_a_page_of_several_results_shows_each_its_own_thumbnails():
+    """Each task draws its own random view, so one source's index may be two images: each report shows its own."""
+    from dataeval_flow._blocks import Asset, Column, ItemRef, Table
+    from dataeval_flow.workflows import Finding
+
+    ref = ItemRef(source="train", index=4)
+    results = []
+    for data in ("QUFB", "QkJC"):
+        result = _workflow()
+        result.output.report.findings = [
+            Finding(title="Outliers", blocks=[Table(columns=[Column(key="i", kind="image")], rows=[{"i": ref}])])
+        ]
+        result.assets = [Asset(item=ref, media_type="image/webp", width=4, height=4, data=data)]
+        results.append(result)
+    page = results_html(results)
+    assert page.index("base64,QUFB") < page.index('id="r2"') < page.index("base64,QkJC")
+
+
 def test_the_base_cannot_be_built_on_its_own():
     with pytest.raises(TypeError, match="abstract"):
         Result(type="r", success=False, metadata=ResultMetadata())  # type: ignore[abstract]

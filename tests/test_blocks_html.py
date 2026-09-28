@@ -466,7 +466,7 @@ class TestImageCells:
 
     def test_a_thumbnail_enlarges_on_a_click_with_no_script_and_no_link(self):
         """A ``<details>`` opens without a script and leaves the address bar and history alone."""
-        fragment = render_html([self._TABLE], assets=[_asset(self._ONE)])
+        fragment = render_html([self._TABLE], assets=[[_asset(self._ONE)]])
         assert (
             '<td class="image" data-sort="41"><details class="thumb"><summary title="train 41">'
             '<img src="data:image/webp;base64,UklGRg==" alt="train 41"></summary></details></td>'
@@ -475,14 +475,14 @@ class TestImageCells:
         assert " id=" not in fragment
 
     def test_an_item_without_a_thumbnail_is_named(self):
-        fragment = render_html([self._TABLE], assets=[_asset(self._ONE)])
+        fragment = render_html([self._TABLE], assets=[[_asset(self._ONE)]])
         assert (
             '<td class="image" data-sort="3"><span class="item">3</span> <span class="item">17 box 2</span></td>'
             in (fragment)
         )
 
     def test_a_group_shows_each_of_its_items_in_one_cell(self):
-        fragment = render_html([self._TABLE], assets=[_asset(ref, data=f"D{ref.index}") for ref in self._GROUP])
+        fragment = render_html([self._TABLE], assets=[[_asset(ref, data=f"D{ref.index}") for ref in self._GROUP]])
         (cell,) = re.findall(r'<td class="image" data-sort="3">.*?</td>', fragment)
         assert cell.count('<details class="thumb">') == 2
         assert 'alt="train 17 box 2"' in cell
@@ -490,21 +490,32 @@ class TestImageCells:
     def test_each_image_s_data_appears_once_per_cell_that_shows_it(self):
         """The enlarged view is the same ``<img>``, so a thumbnail costs the page one copy of its data."""
         table = Table(columns=[Column(key="image", kind="image")], rows=[{"image": self._ONE}, {"image": self._ONE}])
-        assert render_html([table], assets=[_asset(self._ONE, data="ONCE")]).count("ONCE") == 2
+        assert render_html([table], assets=[[_asset(self._ONE, data="ONCE")]]).count("ONCE") == 2
 
     def test_a_kind_the_page_cannot_draw_names_the_item(self):
         """A later previewer may make other media; a renderer that can't draw one names the item, as for none."""
-        fragment = render_html([self._TABLE], assets=[_asset(self._ONE, media_type="text/plain")])
+        fragment = render_html([self._TABLE], assets=[[_asset(self._ONE, media_type="text/plain")]])
         assert '<span class="item">41</span>' in fragment
 
     def test_the_image_column_has_no_heading_of_its_own(self):
         assert '<th class="image"></th><th class="right">Item</th>' in render_html([self._TABLE])
 
     def test_an_image_table_is_well_formed(self):
-        assert _well_formed(render_html([self._TABLE], assets=[_asset(self._ONE)]))
+        assert _well_formed(render_html([self._TABLE], assets=[[_asset(self._ONE)]]))
+
+    def test_each_report_on_a_page_shows_its_own_result_s_thumbnails(self):
+        """Two tasks may read one source through two draws of a random view: one index, two different images."""
+        ref = ItemRef(source="train", index=4)
+        reports = [
+            Section(title=title, blocks=[Table(columns=[Column(key="i", kind="image")], rows=[{"i": ref}])])
+            for title in ("A", "B")
+        ]
+        page = html_page("Results", reports, [[_asset(ref, data="AAAA")], [_asset(ref, data="BBBB")]])
+        assert page.count("AAAA") == page.count("BBBB") == 1
+        assert page.index("AAAA") < page.index('id="r2"') < page.index("BBBB")
 
     def test_the_page_embeds_its_thumbnails(self):
-        page = html_page("R", [self._TABLE], [_asset(self._ONE)])
+        page = html_page("R", [self._TABLE], [[_asset(self._ONE)]])
         assert 'src="data:image/webp;base64,UklGRg=="' in page
         assert "http" not in page
 
@@ -582,7 +593,7 @@ class TestEscaping:
                 item=ItemRef(source=self._EVIL, index=2), media_type=f"image/{self._EVIL}", width=1, height=1, data=""
             ),
         ]
-        fragment = render_html(blocks, assets=assets)
+        fragment = render_html(blocks, assets=[assets] * len(blocks))
         assert "<script" not in fragment
         assert 'data-value="&lt;script&gt;alert(&quot;1&quot;)&lt;/script&gt;"' in fragment
         assert _well_formed(fragment)
@@ -614,7 +625,7 @@ class TestScript:
         """The script adds its buttons and filter boxes, so a page with scripts blocked shows none that do nothing."""
         ref = ItemRef(source="s", index=0)
         thumbs = Table(columns=[Column(key="i", kind="image")], rows=[{"i": ref}])
-        page = html_page("R", [_report(_DUPLICATES), self._TABLE, thumbs], [_asset(ref)])
+        page = html_page("R", [_report(_DUPLICATES), self._TABLE, thumbs], [[], [], [_asset(ref)]])
         assert '<details class="thumb">' in page
         markup = page.replace(f"<script>{SCRIPT}</script>", "")
         assert "<button" not in markup
@@ -843,7 +854,7 @@ def _drive(tmp_path: Any, table: Table, scenario: str, assets: list[Asset] | Non
 
     node = _node()
     parser = _Tree()
-    parser.feed(render_html([table], assets=assets or []))
+    parser.feed(render_html([table], assets=[assets or []]))
     (element,) = parser.stack[0]["children"]
     for name, content in (("page.js", SCRIPT), ("tree.json", json.dumps(element)), ("harness.js", _HARNESS + scenario)):
         (tmp_path / name).write_text(content)
