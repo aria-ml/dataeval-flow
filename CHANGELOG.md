@@ -121,6 +121,8 @@
 - Pillow (`>=12.2.0`) is a core dependency, to encode thumbnails
 - An evaluator report's console form cuts a list of more than ten values inside its output to the first ten and a count;
   `-v` and `result.txt` show it whole
+- `data-coverage` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
+  per-dimension rescale had shifted `dispersion` and the coverage radius
 
 ### Fixed
 
