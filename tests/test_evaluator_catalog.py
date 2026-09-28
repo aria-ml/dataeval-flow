@@ -23,6 +23,11 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "scope.representation": ("1", "refused"),
     "scope.coverage": ("1", "required"),
     "scope.prioritize": ("1-2", "required"),
+    "shift.drift-domain-classifier": ("2", "required"),
+    "shift.drift-kneighbors": ("2", "required"),
+    "shift.drift-mmd": ("2", "required"),
+    "shift.drift-univariate": ("2", "required"),
+    "shift.drift-wasserstein": ("3", "required"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

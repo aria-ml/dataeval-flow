@@ -29,6 +29,11 @@ _WIRING: dict[str, frozenset[str]] = {
     "scope.representation": frozenset(),
     "scope.coverage": frozenset({"extractor", "batch_size"}),
     "scope.prioritize": frozenset({"extractor", "batch_size"}),
+    "shift.drift-domain-classifier": frozenset({"extractor", "update_strategy"}),
+    "shift.drift-kneighbors": frozenset({"extractor", "update_strategy"}),
+    "shift.drift-mmd": frozenset({"extractor", "update_strategy", "sigma", "device"}),
+    "shift.drift-univariate": frozenset({"extractor", "update_strategy"}),
+    "shift.drift-wasserstein": frozenset({"extractor", "update_strategy"}),
 }
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
@@ -115,3 +120,16 @@ def test_every_field_takes_values_dataeval_accepts(name: str):
             continue
         refused = [sample for sample in _samples(info.annotation) if _refuses(dataeval[field], sample)]
         assert not refused, f"{name}.{field}: DataEval's {dataeval[field]} refuses {refused}"
+
+
+@pytest.mark.parametrize(
+    "detector", ["DriftUnivariate", "DriftMMD", "DriftKNeighbors", "DriftWasserstein", "DriftDomainClassifier"]
+)
+def test_chunking_mirrors_chunked(detector: str):
+    """`chunking:` takes what `chunked()` does, less `chunker`, an object a config file cannot build."""
+    import dataeval.shift
+
+    from dataeval_flow.evaluators.shift import ChunkedDriftConfig
+
+    parameters = set(inspect.signature(getattr(dataeval.shift, detector).chunked).parameters) - {"self", "chunker"}
+    assert set(ChunkedDriftConfig.model_fields) == parameters, f"chunked() takes {sorted(parameters)}"

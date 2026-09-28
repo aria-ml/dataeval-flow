@@ -65,6 +65,11 @@ _ECHOES: dict[str, frozenset[str]] = {
     "scope.representation": frozenset(),
     "scope.coverage": frozenset({"class_axis"}),
     "scope.prioritize": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
+    "shift.drift-domain-classifier": frozenset(),
+    "shift.drift-kneighbors": frozenset(),
+    "shift.drift-mmd": frozenset(),
+    "shift.drift-univariate": frozenset(),
+    "shift.drift-wasserstein": frozenset(),
 }
 
 

@@ -17,6 +17,11 @@ An evaluator's `type` is DataEval's module and class, in kebab case. To run one,
 | `scope.representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `scope.coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `scope.prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
+| `shift.drift-domain-classifier` | `dataeval.shift.DriftDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
+| `shift.drift-kneighbors` | `dataeval.shift.DriftKNeighbors` | embeddings | 2: the reference, then the data to test | required |
+| `shift.drift-mmd` | `dataeval.shift.DriftMMD` | embeddings | 2: the reference, then the data to test | required |
+| `shift.drift-univariate` | `dataeval.shift.DriftUnivariate` | embeddings | 2: the reference, then the data to test | required |
+| `shift.drift-wasserstein` | `dataeval.shift.DriftWasserstein` | embeddings | 3: the reference, a validation set, then the data to test | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -202,12 +207,95 @@ ranking is then relative to it, as when choosing what to label next beside data 
 
 Output: an array of the first source's item indices in ranked order. `extras` holds each item's `scores`.
 
+## Shift
+
+The shift evaluators compare a task's sources through its extractor, by position: the first source is the
+reference, and the last is the data to test. They are explained in DataEval's
+[Distribution Shift explanation](https://dataeval.readthedocs.io/en/latest/concepts/DistributionShift.html), and
+their classes are documented in the
+[DataEval `dataeval.shift` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/shift/index.html).
+
+Every drift type takes `chunking:`, a {py:class}`~dataeval_flow.evaluators.shift.ChunkedDriftConfig`. It tests
+each chunk of the data against the spread of the reference's chunks, rather than the data as a whole.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `chunk_size` | `chunked(chunk_size=...)` | set this or `chunk_count` |
+| `chunk_count` | `chunked(chunk_count=...)` | set this or `chunk_size` |
+| `threshold` | `chunked(threshold=...)`: a method, bounds, or `[method, bounds]` | the detector's default |
+| `incomplete` | `chunked(incomplete=...)`: `keep`, `drop` or `append` the reference's short final chunk; with `chunk_size` only | DataEval's default (`keep`) |
+
+Each drift type's output is a mapping: `drifted`, `distance`, `threshold`, `metric_name`, `feature_names`, and
+`details`. `details` holds the test's statistics, or, with `chunking`, a table with one row per chunk.
+
+### `shift.drift-univariate`
+
+Each embedding dimension tested on its own, drift declared when any drifts after a multiple-testing correction.
+Configured by {py:class}`~dataeval_flow.evaluators.shift.DriftUnivariateConfig`; runs
+`dataeval.shift.DriftUnivariate`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `method` | `method`: `ks`, `cvm`, `mwu`, `anderson` or `bws` | DataEval's default (`ks`) |
+| `p_val` | `p_val` | DataEval's default (`0.05`) |
+| `correction` | `correction`: `bonferroni` or `fdr` | DataEval's default (`bonferroni`) |
+| `alternative` | `alternative`: `two-sided`, `less` or `greater` | DataEval's default (`two-sided`) |
+| `n_features` | `n_features` | inferred from the embeddings |
+| `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
+
+### `shift.drift-mmd`
+
+The maximum mean discrepancy between the two sources, tested against a permutation estimate of its no-drift
+distribution. Configured by {py:class}`~dataeval_flow.evaluators.shift.DriftMMDConfig`; runs
+`dataeval.shift.DriftMMD`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `p_val` | `p_val` | DataEval's default (`0.05`) |
+| `n_permutations` | `n_permutations` | DataEval's default (`100`) |
+| `permutation_batch_size` | `permutation_batch_size`: a count, or `auto` | DataEval's default (`auto`) |
+| `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
+
+### `shift.drift-kneighbors`
+
+The data's distances to their nearest reference neighbors, compared with the reference's own. Configured by
+{py:class}`~dataeval_flow.evaluators.shift.DriftKNeighborsConfig`; runs `dataeval.shift.DriftKNeighbors`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `k` | `k` | DataEval's default (`10`) |
+| `distance_metric` | `distance_metric`: `cosine` or `euclidean` | DataEval's default (`euclidean`) |
+| `p_val` | `p_val` (without chunking) | DataEval's default (`0.05`) |
+| `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
+
+### `shift.drift-wasserstein`
+
+Each dimension's Wasserstein distance from the reference to the data, against its distance to an in-distribution
+validation set: the task's middle source, which DataEval requires. Configured by
+{py:class}`~dataeval_flow.evaluators.shift.DriftWassersteinConfig`; runs `dataeval.shift.DriftWasserstein`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `ratio_threshold` | `ratio_threshold` | DataEval's default (`1.4`) |
+| `n_features` | `n_features` | inferred from the embeddings |
+| `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
+
+### `shift.drift-domain-classifier`
+
+A classifier trained to tell the reference from the data under cross-validation. Drift is declared when it does
+better than `threshold` (AUROC). Configured by
+{py:class}`~dataeval_flow.evaluators.shift.DriftDomainClassifierConfig`; runs
+`dataeval.shift.DriftDomainClassifier`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `n_folds` | `n_folds` | DataEval's default (`5`) |
+| `threshold` | `threshold`: an AUROC, or with `chunking` a `[lower, upper]` pair | DataEval's default (`0.55`) |
+| `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
+
 ## Planned
 
 These follow in later releases, under the same rules:
 
-- `shift.drift-univariate`, `shift.drift-mmd`, `shift.drift-kneighbors`,
-  `shift.drift-wasserstein`, `shift.drift-domain-classifier`: read reference and
-  test embeddings, with an optional `chunking:` block
 - `shift.ood-kneighbors`, `shift.ood-domain-classifier`: read reference and test
   embeddings

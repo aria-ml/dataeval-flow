@@ -37,6 +37,7 @@ class SourceCount(StrEnum):
     ONE_OR_MORE = "1+"
     ONE_OR_TWO = "1-2"
     TWO = "2"
+    THREE = "3"
     TWO_OR_MORE = "2+"
 
     def allows(self, count: int) -> bool:
@@ -55,6 +56,7 @@ _SOURCE_BOUNDS: dict[SourceCount, tuple[int, int | None]] = {
     SourceCount.ONE_OR_MORE: (1, None),
     SourceCount.ONE_OR_TWO: (1, 2),
     SourceCount.TWO: (2, 2),
+    SourceCount.THREE: (3, 3),
     SourceCount.TWO_OR_MORE: (2, None),
 }
 
@@ -63,6 +65,7 @@ _SOURCE_PHRASES: dict[SourceCount, str] = {
     SourceCount.ONE_OR_MORE: "one or more sources",
     SourceCount.ONE_OR_TWO: "one or two sources",
     SourceCount.TWO: "exactly two sources",
+    SourceCount.THREE: "exactly three sources",
     SourceCount.TWO_OR_MORE: "two or more sources",
 }
 

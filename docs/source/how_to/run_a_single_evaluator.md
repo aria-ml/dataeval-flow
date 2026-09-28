@@ -11,7 +11,8 @@ dataeval-flow evaluators
 
 Each line names an evaluator type, what it consumes, and how many sources its task
 takes. `dataeval-flow evaluators quality.duplicates` prints that evaluator's
-parameters.
+parameters. The [Evaluator Catalog](../reference/evaluators.md) lists every type, what it consumes, and how many
+sources its task takes.
 
 ## 2. Define the evaluator
 
@@ -66,6 +67,24 @@ tasks:
 BoVW needs no model file, so it works out of the box; an ONNX model is the
 higher-fidelity choice once you have one — see
 [Use an ONNX model for embeddings](../notebooks/onnx_embeddings.py).
+
+An evaluator that compares sources reads them by position. A drift check takes the reference first, then the
+data to test:
+
+```yaml
+evaluators:
+  - name: mmd
+    type: shift.drift-mmd
+
+tasks:
+  - name: drift_check
+    evaluator: mmd
+    sources: [train, operational]
+    extractor: bovw_ext
+```
+
+`shift.drift-wasserstein` takes three sources: the reference, an in-distribution validation set, then the data to
+test.
 
 The config refuses, when it loads, a task that names the wrong number of sources or
 leaves out an extractor its evaluator needs.

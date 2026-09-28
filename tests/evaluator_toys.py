@@ -30,9 +30,18 @@ class ToyImages:
     """A MAITE-shaped image classification dataset with one planted duplicate and one planted outlier.
 
     ``ToyImages(labeled=False)`` gives every item an empty target, as a dataset without labels has.
+    ``ToyImages(bright=True)`` lifts every pixel by 100, out of the distribution of the rest.
     """
 
-    def __init__(self, count: int = 12, seed: int = 0, *, near_duplicate: bool = False, labeled: bool = True) -> None:
+    def __init__(
+        self,
+        count: int = 12,
+        seed: int = 0,
+        *,
+        near_duplicate: bool = False,
+        labeled: bool = True,
+        bright: bool = False,
+    ) -> None:
         rng = np.random.default_rng(seed)
         self._images = [rng.integers(0, 255, (3, 16, 16), dtype=np.uint8) for _ in range(count)]
         if count > 7:
@@ -43,6 +52,8 @@ class ToyImages:
             self._images[9][0, 0, 0] ^= 1
         self._labeled = labeled
         self.metadata: DatasetMetadata = {"id": f"toy-{seed}-{count}", "index2label": {0: "a", 1: "b"}}
+        if bright:
+            self._images = [np.clip(image.astype(np.int16) + 100, 0, 255).astype(np.uint8) for image in self._images]
 
     def __len__(self) -> int:
         return len(self._images)
@@ -106,6 +117,15 @@ def toy_pipeline(
     )
 
 
+def shifted_sources(count: int = 40, *, validation: bool = False) -> dict[str, ToyImages]:
+    """A reference, then test images brightened out of its distribution; between them, a validation set on request."""
+    sources = {"reference": ToyImages(count=count)}
+    if validation:
+        sources["validation"] = ToyImages(count=count, seed=2)
+    sources["test"] = ToyImages(count=count, seed=1, bright=True)
+    return sources
+
+
 def exact_groups(rows: Sequence[dict[str, Any]]) -> set[tuple[int, ...]]:
     """The item-level exact-duplicate groups in a ``quality.duplicates`` table, as sorted index tuples."""
     return {tuple(sorted(row["item_indices"])) for row in rows if row["dup_type"] == "exact" and row["level"] == "item"}
@@ -127,6 +147,11 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "scope.representation": lambda count: (ToyImages(count=count), None),
     "scope.coverage": lambda count: (ToyImages(count=count), FLAT),
     "scope.prioritize": lambda count: (ToyImages(count=count), FLAT),
+    "shift.drift-domain-classifier": lambda count: (shifted_sources(count), FLAT),
+    "shift.drift-kneighbors": lambda count: (shifted_sources(count), FLAT),
+    "shift.drift-mmd": lambda count: (shifted_sources(count), FLAT),
+    "shift.drift-univariate": lambda count: (shifted_sources(count), FLAT),
+    "shift.drift-wasserstein": lambda count: (shifted_sources(count, validation=True), FLAT),
 }
 
 

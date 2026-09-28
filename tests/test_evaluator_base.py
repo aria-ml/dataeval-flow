@@ -51,6 +51,10 @@ class TestSourceCount:
         assert SourceCount.ONE.phrase == "exactly one source"
         assert all(rule.phrase for rule in SourceCount)
 
+    def test_three_sources_is_exactly_three(self):
+        assert [SourceCount.THREE.allows(count) for count in (2, 3, 4)] == [False, True, False]
+        assert SourceCount.THREE.phrase == "exactly three sources"
+
 
 class TestInputKind:
     def test_only_embedding_kinds_need_an_extractor(self):

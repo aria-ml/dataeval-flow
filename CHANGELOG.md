@@ -38,6 +38,9 @@
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
+- `shift.drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
+  `chunking:`; Wasserstein takes a validation source between the reference and the data to test
+- `SourceCount.THREE`, for an entry that takes exactly three sources
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
 - The HTML report shows a card per finding, warnings open, with sortable and filterable tables and dark mode
 - Reports carry a thumbnail of each item their findings name, in `Result.assets`; the HTML report shows them

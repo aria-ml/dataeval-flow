@@ -5,7 +5,7 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["DuplicatesConfig", "OutliersConfig", "ThresholdSpec"]
+__all__ = ["DuplicatesConfig", "OutliersConfig"]
 
 import functools
 import operator
@@ -18,21 +18,12 @@ from pydantic import Field, model_validator
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import StatsConfigMixin
 from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.quality._result import DuplicatesResult, OutliersResult
 
 if TYPE_CHECKING:
     from dataeval.flags import ImageStats
     from dataeval.quality import Duplicates, Outliers
-
-# One bound, or a (lower, upper) pair.
-Bounds = float | tuple[float | None, float | None]
-# Limits a bound is clipped to, as (lower, upper).
-Limits = tuple[float | None, float | None]
-# DataEval's ``ThresholdLike``, less the ``Threshold`` objects a config cannot build: a
-# method name, bounds, or ``[method, bounds]``, ``[method, bounds, limits]``, ``[bounds, limits]``.
-ThresholdSpec = (
-    str | Bounds | tuple[str, Bounds | None] | tuple[str, Bounds | None, Limits] | tuple[Bounds | None, Limits]
-)
 
 _QUALITY_INPUTS = InputSpec(
     required=frozenset({InputKind.STATS}),
