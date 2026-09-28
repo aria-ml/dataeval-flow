@@ -80,7 +80,8 @@ from pathlib import Path
 Path("report.html").write_text(result.to_html(), encoding="utf-8")
 ```
 
-The page holds everything the text report holds, laid out for reading on screen:
+{doc}`View a report as HTML <../notebooks/view_html_reports>` shows the page rendered, so you can try it. The page
+holds everything the text report holds, laid out for reading on screen:
 
 - The header gives the report's verdict, and the summary links each finding to its card. A page holding several
   tasks' reports lists them first.

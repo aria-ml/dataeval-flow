@@ -86,6 +86,7 @@ configure_metadata_binning
 
 run_a_single_evaluator
 read_evaluation_outputs
+../notebooks/view_html_reports
 export_a_dataset
 reuse_results_with_cache
 containerized_workflows
@@ -99,6 +100,9 @@ containerized_workflows
   - Run one DataEval evaluator, such as finding duplicates, and read its output with no health verdict.
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
+- - {doc}`View a report as HTML <../notebooks/view_html_reports>`
+  - Render a result as one self-contained page with cards, sortable and filterable tables, and each flag's
+    measurements on hover.
 - - {doc}`Export a dataset <export_a_dataset>`
   - Write a conformed or merged source out as a dataset on disk, with the provenance that produced it.
 - - {doc}`Reuse results with the disk cache <reuse_results_with_cache>`
