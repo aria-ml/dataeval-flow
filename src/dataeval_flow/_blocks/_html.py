@@ -290,7 +290,15 @@ def _summary(block: Summary, _ctx: HtmlContext) -> str:
         f"<tr><td>{escape(item.label)}</td><td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
         for item in block.items
     )
-    return f'<table class="summary"><tbody>{rows}</tbody></table>'
+    if not rows:
+        return ""
+    warnings = sum(item.severity == "warning" for item in block.items)
+    health = (
+        f'<p class="health warning">{warnings} warning{"s" if warnings != 1 else ""} — review the flagged findings</p>'
+        if warnings
+        else '<p class="health ok">All checks passed</p>'
+    )
+    return f'<table class="summary"><tbody>{rows}</tbody></table>{health}'
 
 
 # -- Charts -------------------------------------------------------------------------------------

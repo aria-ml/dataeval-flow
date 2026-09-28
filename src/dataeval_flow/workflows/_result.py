@@ -136,10 +136,4 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         if not findings:
             return [Paragraph(text="No findings to report.")]
         items = [SummaryItem(label=f.title, value=f.brief or "", severity=f.severity) for f in findings]
-        warnings = self.warning_count
-        health = (
-            f"Health: {warnings} warning(s) [!!] — review flagged findings"
-            if warnings
-            else "Health: All checks passed [ok]"
-        )
-        return [Section(title="Summary", blocks=[Summary(items=items), Paragraph(text=health)])]
+        return [Section(title="Summary", blocks=[Summary(items=items)])]

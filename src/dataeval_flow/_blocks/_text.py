@@ -5,7 +5,7 @@ every line carries, and how deeply the block is nested.  A section hands its chi
 so a paragraph three sections deep wraps to the width that is left without anyone computing it.
 """
 
-__all__ = ["DEFAULT_WIDTH", "MIN_WIDTH", "Frame", "render_text"]
+__all__ = ["DEFAULT_WIDTH", "MIN_WIDTH", "Frame", "render_text", "summary_line"]
 
 import math
 import textwrap
@@ -182,7 +182,7 @@ def _tree(block: Tree, frame: Frame) -> list[str]:
 # -- Summaries and charts -------------------------------------------------------------------------
 
 
-def _summary_line(item: SummaryItem, frame: Frame) -> list[str]:
+def summary_line(item: SummaryItem, frame: Frame) -> list[str]:
     """``label ....... value  [!!]``, ending two columns short of the width.
 
     A label too long for the line wraps, and its last line carries the leader, value and marker.
@@ -212,7 +212,16 @@ def _summary_line(item: SummaryItem, frame: Frame) -> list[str]:
 
 
 def _summary(block: Summary, frame: Frame) -> list[str]:
-    return [line for item in block.items for line in _summary_line(item, frame)]
+    if not block.items:
+        return []
+    warnings = sum(item.severity == "warning" for item in block.items)
+    health = (
+        f"Health: {warnings} warning(s) [!!] — review flagged findings"
+        if warnings
+        else "Health: All checks passed [ok]"
+    )
+    lines = [line for item in block.items for line in summary_line(item, frame)]
+    return [*lines, "", *_wrap(health, frame.indent, frame.indent, frame.width)]
 
 
 def _proportion(block: Proportion, frame: Frame) -> list[str]:

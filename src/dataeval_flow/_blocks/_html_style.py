@@ -71,6 +71,9 @@ th[aria-sort="ascending"]::after { content: " ▲"; } th[aria-sort="descending"]
 th:focus-visible, .tag:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
 .left, th.flags, td.flags { text-align: left; } .right { text-align: right; }
 table.summary td a { color: var(--ink); font-weight: 600; }
+p.health { margin: 0.6rem 0; padding: 0.4rem 0.8rem; font-weight: 600; background: var(--soft);
+  border-left: 4px solid var(--info); border-radius: 4px; }
+p.health.ok { border-left-color: var(--ok); } p.health.warning { border-left-color: var(--warning); }
 .filter { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0 0.2rem; }
 .filter input { font: inherit; font-size: 0.8rem; min-width: 14rem; padding: 0.15rem 0.5rem;
   color: var(--ink); background: var(--soft); border: 1px solid var(--rule); border-radius: 4px; }

@@ -32,7 +32,7 @@ _SEVERITY_MARKUP: dict[str, str] = {
     "warning": "[bold red][!!][/bold red]",
 }
 
-# Plain-text markers emitted by _summary_line() → Rich-markup replacements
+# Plain-text markers emitted by summary_line() → Rich-markup replacements
 _MARKER_COLORS: list[tuple[str, str]] = [
     ("  [!!]", "  [bold red]\\[!!][/bold red]"),
     ("  [ok]", "  [green]\\[ok][/green]"),

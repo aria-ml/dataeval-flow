@@ -103,7 +103,7 @@ def _report(*findings: Section, title: str = "Data cleaning") -> Section:
         title=title,
         blocks=[
             Fields(items=[("Dataset", "cifar10-train"), ("Duration", "4.1s")]),
-            Section(title="Summary", blocks=[Summary(items=items), Paragraph(text="Health: 1 warning(s)")]),
+            Section(title="Summary", blocks=[Summary(items=items)]),
             *findings,
             Section(title="Configuration", blocks=[Tree(value={"seed": 1})]),
         ],
@@ -178,7 +178,7 @@ class TestLayout:
         fragment = render_html([_report(_DUPLICATES, _LABELS)])
         assert "<h2>Summary</h2>" not in fragment
         assert '<table class="summary">' not in fragment
-        assert "Health:" not in fragment
+        assert 'class="health' not in fragment
 
     def test_only_a_warning_starts_open(self):
         """The findings that need a look are open on arrival; the rest are one line each until opened."""
@@ -411,13 +411,18 @@ class TestCharts:
         assert '<rect class="box"' not in fragment
         assert "n=5–7" in fragment
 
-    def test_a_summary_is_a_table_of_badges(self):
+    def test_a_summary_is_a_table_of_badges_then_its_health(self):
         item = SummaryItem(label="Duplicates", value="3 groups", severity="warning")
         fragment = render_html([Summary(items=[item])])
         assert fragment == (
             '<table class="summary"><tbody><tr><td>Duplicates</td><td>3 groups</td>'
             '<td><span class="badge warning">warning</span></td></tr></tbody></table>'
+            '<p class="health warning">1 warning — review the flagged findings</p>'
         )
+
+    def test_a_summary_without_warnings_passes(self):
+        fragment = render_html([Summary(items=[SummaryItem(label="Labels", severity="ok")])])
+        assert fragment.endswith('<p class="health ok">All checks passed</p>')
 
 
 class TestFlagsCells:

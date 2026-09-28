@@ -9,9 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, TypeGuard
 
-from dataeval_flow._blocks import Block, Paragraph, Summary, SummaryItem, Table
+from dataeval_flow._blocks import Block, Paragraph, SummaryItem, Table
 from dataeval_flow._blocks._table import cell_text
-from dataeval_flow._blocks._text import Frame, render_text
+from dataeval_flow._blocks._text import Frame, summary_line
 
 __all__ = ["FindingSummary", "ResultViewModel", "Segment", "table_data"]
 
@@ -168,7 +168,7 @@ class ResultViewModel:
         if 0 <= idx < len(self._findings):
             finding = self._findings[idx]
             item = SummaryItem(label=finding.title, value=finding.brief or "", severity=finding.severity)
-            return "\n".join(render_text([Summary(items=[item])], Frame(indent="  ")))
+            return "\n".join(line.rstrip() for line in summary_line(item, Frame(indent="  ")))
         return ""
 
     def finding_blocks(self, idx: int) -> list[Block]:

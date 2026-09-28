@@ -265,7 +265,7 @@ class SummaryItem(_Block):
 
 
 class Summary(_Block):
-    """One line per finding, with a verdict marker each."""
+    """One line per finding, with a verdict marker each, then the health verdict their warnings add up to."""
 
     type: Literal["summary"] = Field(default="summary", description=_TYPE)
     items: list[SummaryItem] = Field(description="The lines, in order.")
