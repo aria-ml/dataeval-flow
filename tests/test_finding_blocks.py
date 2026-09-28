@@ -4,7 +4,13 @@ import pytest
 
 from dataeval_flow._blocks import BulletList, Code, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.workflows import Finding
-from dataeval_flow.workflows._tables import group_cells, groups_table, ranked_table, unlabelled_blocks
+from dataeval_flow.workflows._tables import (
+    group_cells,
+    groups_table,
+    ranked_table,
+    uncovered_blocks,
+    unlabelled_blocks,
+)
 from tests.finding_blocks import bullets, codes, column, fields, paragraphs, rendered, sections, tables, walk
 
 pytestmark = pytest.mark.required
@@ -144,3 +150,27 @@ class TestUnlabelledBlocks:
 
     def test_no_unlabelled_images_is_no_section(self):
         assert unlabelled_blocks({"train": []}, header="Source") == []
+
+
+class TestUncoveredBlocks:
+    def test_items_run_farthest_first_under_their_heading(self):
+        (section,) = uncovered_blocks(
+            [(ItemRef(source="s", index=2), "cat", 0.1), (ItemRef(source="s", index=7), "dog", 0.8)], "images"
+        )
+        assert isinstance(section, Section)
+        assert section.title == "Uncovered images"
+        (table,) = [block for block in section.blocks if isinstance(block, Table)]
+        assert [c.header for c in table.columns] == ["", "Item", "Class", "Distance"]
+        assert [(row["item"], row["class"], row["distance"]) for row in table.rows] == [
+            (7, "dog", 0.8),
+            (2, "cat", 0.1),
+        ]
+
+    def test_a_column_no_item_has_is_left_out(self):
+        (section,) = uncovered_blocks([(ItemRef(source="s", index=3), None, None)], "images")
+        assert isinstance(section, Section)
+        (table,) = [block for block in section.blocks if isinstance(block, Table)]
+        assert [c.header for c in table.columns] == ["", "Item"]
+
+    def test_no_items_is_no_section(self):
+        assert uncovered_blocks([], "images") == []

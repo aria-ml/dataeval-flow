@@ -29,6 +29,7 @@ __all__ = [
     "OntologyStructure",
     "RepresentationRow",
     "RepresentationViolation",
+    "UncoveredItem",
 ]
 
 
@@ -70,6 +71,19 @@ class ClassCoverageRow(BaseModel):
     assessable: bool = Field(description="Whether the class had enough samples for per-class signals")
 
 
+class UncoveredItem(BaseModel):
+    """One observation in a sparse region of the embedding space: the item, or the box it was cropped from."""
+
+    index: int = Field(description="The item's index in the source, after the run's view")
+    target: int | None = Field(
+        default=None, description="For a detection crop, the box's index in the item's annotation; None for an image"
+    )
+    class_name: str | None = Field(default=None, description="The observation's class, where the dataset names one")
+    radius: float = Field(
+        description="Its distance to its `num_observations`-th nearest neighbour, which the uncovered set is cut on"
+    )
+
+
 class CoverageAssessment(BaseModel):
     """Embedding-space coverage analysis results."""
 
@@ -106,6 +120,9 @@ class CoverageAssessment(BaseModel):
     per_class: list[ClassCoverageRow] = Field(
         default_factory=list,
         description="Per-class variety signals, lowest dispersion first",
+    )
+    uncovered: list[UncoveredItem] = Field(
+        default_factory=list, description="Each uncovered observation, in the order DataEval found them"
     )
 
 
