@@ -53,9 +53,10 @@ class Evaluator(ABC, Generic[ConfigT, OutputT]):
 
     For each task that runs the evaluator, Flow builds an instance with no arguments, applies each source's view,
     prepares every input kind the config wants under that source's cache, and calls :meth:`run` once with one
-    :class:`EvaluatorInputs` per source. Flow prepares ``stats`` (with the stats policy they were measured under)
-    and ``clusters`` (with the embeddings they were built from); a run that wants another kind fails, saying no
-    producer exists for it. Flow guarantees that:
+    :class:`EvaluatorInputs` per source. Flow prepares every :class:`~dataeval_flow.InputKind`: ``stats``,
+    ``clusters``, ``metadata``, ``labels`` and ``embeddings``. :class:`EvaluatorInputs` says which fields each
+    sets. A config with an ``ontology`` field has it resolved, as a workflow's is, onto
+    ``EvaluatorInputs.ontology``. Flow guarantees that:
 
     - ``config`` is an instance of ``config_type``, validated when it was built or loaded;
     - the task meets ``config.inputs``, so ``inputs`` holds one entry per source the evaluator takes;

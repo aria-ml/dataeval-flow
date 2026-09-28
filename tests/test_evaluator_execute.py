@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar
 from unittest.mock import patch
 
+import numpy as np
 import polars as pl
 import pytest
 from dataeval.flags import ImageStats
@@ -14,6 +15,7 @@ import dataeval_flow._cache as cache_module
 from dataeval_flow import InputKind, InputSpec, SourceCount
 from dataeval_flow.__main__ import _evaluator_entry
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._policy import ResolvedPolicy
 from dataeval_flow.config import ViewOperation
 from dataeval_flow.evaluators import (
     Evaluator,
@@ -23,9 +25,10 @@ from dataeval_flow.evaluators import (
     get_evaluator,
     list_evaluators,
 )
-from dataeval_flow.evaluators._execute import execute
-from dataeval_flow.workflows import DatasetContext, WorkflowContext
-from tests.evaluator_toys import ToyImages, output_json
+from dataeval_flow.evaluators._execute import _prepare, execute
+from dataeval_flow.workflows import DatasetContext, ResolvedOntology, WorkflowContext
+from dataeval_flow.workflows._ontology import synthesize_ontology
+from tests.evaluator_toys import FLAT, ToyImages, output_json
 
 
 class _ToyResult(EvaluatorResult[DataFrameOutput]):
@@ -70,6 +73,20 @@ class _ClusterParams(EvaluatorConfig[_ToyResult]):
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.CLUSTERS}), sources=SourceCount.ONE)
     cluster_algorithm: str | None = None
     n_clusters: int | None = None
+
+
+class _Probe(EvaluatorConfig[_ToyResult]):
+    """Wants whichever kinds a test names, so each producer can be read on its own."""
+
+    type: str = "test.probe"
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset(), optional=frozenset(InputKind), sources=SourceCount.ONE_OR_MORE
+    )
+    wants: frozenset[InputKind] = frozenset()
+    ontology: dict[str, Any] | str | None = None
+
+    def wanted_kinds(self) -> frozenset[InputKind]:
+        return self.wants
 
 
 def _stat_names(inputs: Sequence[EvaluatorInputs]) -> DataFrameOutput:
@@ -191,7 +208,14 @@ class TestExecute:
         assert result.errors == ["RuntimeError: boom"]
         assert "boom" in caplog.text
 
-    def test_a_kind_without_a_producer_fails_the_result(self):
+    def test_a_metadata_consumer_arrives_with_metadata(self):
+        result = execute(_NeedsMetadata(), _context("src"), _MetadataParams())
+        assert result.success, result.errors
+
+    def test_a_kind_without_a_producer_fails_the_result(self, monkeypatch: pytest.MonkeyPatch):
+        import dataeval_flow.evaluators._execute as execute_module
+
+        monkeypatch.setattr(execute_module, "PRODUCERS", {})
         result = execute(_NeedsMetadata(), _context("src"), _MetadataParams())
         assert not result.success
         assert "No producer for metadata" in result.errors[0]
@@ -240,3 +264,68 @@ class TestRegistry:
             "consumes": "stats",
             "sources": "1+",
         }
+
+
+def _probe(*kinds: InputKind, **values: Any) -> _Probe:
+    return _Probe(wants=frozenset(kinds), **values)
+
+
+class TestProducers:
+    def test_metadata_arrives_with_the_policy_it_was_built_under(self):
+        context = _context("src")
+        context.metadata_policy = ResolvedPolicy(factor_source="coded")
+        (inputs,), _ = _prepare(context, _probe(InputKind.METADATA))
+        assert inputs.metadata is not None
+        assert inputs.metadata_policy is context.metadata_policy
+        assert inputs.labels is None
+        assert inputs.embeddings is None
+
+    def test_labels_arrive_with_their_names(self):
+        (inputs,), _ = _prepare(_context("src"), _probe(InputKind.LABELS))
+        assert inputs.labels is not None
+        assert inputs.labels.tolist() == [0, 1] * 6
+        assert inputs.index2label == {0: "a", 1: "b"}
+        assert inputs.metadata is None
+
+    def test_a_dataset_without_labels_arrives_with_none(self):
+        (inputs,), _ = _prepare(_context("src", dataset=ToyImages(labeled=False)), _probe(InputKind.LABELS))
+        assert inputs.labels is not None
+        assert len(inputs.labels) == 0
+
+    def test_embeddings_have_one_row_per_item(self):
+        (inputs,), _ = _prepare(_context("src", extractor=FLAT, batch_size=8), _probe(InputKind.EMBEDDINGS))
+        assert isinstance(inputs.embeddings, np.ndarray)
+        assert inputs.embeddings.shape[0] == 12
+        assert inputs.clusters is None
+
+    def test_embeddings_without_an_extractor_name_the_source(self):
+        with pytest.raises(ValueError, match="Source 'src' has no extractor"):
+            _prepare(_context("src"), _probe(InputKind.EMBEDDINGS))
+
+    def test_each_source_gets_its_own_inputs_in_task_order(self):
+        inputs, _ = _prepare(_context("a", "b"), _probe(InputKind.LABELS))
+        assert [i.source for i in inputs] == ["a", "b"]
+
+
+class TestOntology:
+    def test_a_task_without_one_leaves_it_unset(self):
+        (inputs,), _ = _prepare(_context("src"), _probe())
+        assert inputs.ontology is None
+
+    def test_the_tasks_ontology_reaches_every_source(self):
+        ontology, _ = synthesize_ontology({0: "a", 1: "b"})
+        context = _context("a", "b")
+        context.ontology = ResolvedOntology(ontology=ontology, source="index2label")
+        inputs, _ = _prepare(context, _probe())
+        assert all(i.ontology is ontology for i in inputs)
+
+    def test_a_context_built_by_hand_resolves_the_configs_own(self):
+        """As `policy_for` does for a metadata policy: a configured value is never silently dropped."""
+        (inputs,), _ = _prepare(_context("src"), _probe(ontology={"animal": ["a", "b"]}))
+        assert inputs.ontology is not None
+
+    def test_one_that_failed_to_resolve_fails_the_run(self):
+        context = _context("src")
+        context.ontology = ResolvedOntology(ontology=None, source="missing.ttl", error="could not read 'missing.ttl'")
+        with pytest.raises(ValueError, match="could not be resolved: could not read 'missing.ttl'"):
+            _prepare(context, _probe())

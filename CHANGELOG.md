@@ -50,6 +50,8 @@
 - `result: max_rows:` and `preview_rows:` set a table of items' rows (500) and text preview (10); `-1` lifts a limit
 - `result: fail_on:` gates the exit code on `failure`, `warning` or `never`; `--fail-on-warning` still overrides it
 - `junit` and `markdown` formats: a JUnit report for CI test views and a Markdown summary, both naming failed tasks
+- Evaluators can read `metadata`, `labels` and `embeddings` inputs, and the task's resolved `ontology`, on
+  `EvaluatorInputs`
 
 ### Changed
 

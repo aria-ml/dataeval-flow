@@ -20,11 +20,17 @@ if TYPE_CHECKING:
 
     from dataeval_flow import Result
 
+# Flatten carries no batch size, and DataEval refuses to embed without one.
+FLAT = FlattenExtractorConfig(name="flat", batch_size=8)
+
 
 class ToyImages:
-    """A MAITE-shaped image classification dataset with one planted duplicate and one planted outlier."""
+    """A MAITE-shaped image classification dataset with one planted duplicate and one planted outlier.
 
-    def __init__(self, count: int = 12, seed: int = 0, *, near_duplicate: bool = False) -> None:
+    ``ToyImages(labeled=False)`` gives every item an empty target, as a dataset without labels has.
+    """
+
+    def __init__(self, count: int = 12, seed: int = 0, *, near_duplicate: bool = False, labeled: bool = True) -> None:
         rng = np.random.default_rng(seed)
         self._images = [rng.integers(0, 255, (3, 16, 16), dtype=np.uint8) for _ in range(count)]
         if count > 7:
@@ -33,12 +39,15 @@ class ToyImages:
         if near_duplicate and count > 9:
             self._images[9] = self._images[3].copy()
             self._images[9][0, 0, 0] ^= 1
+        self._labeled = labeled
         self.metadata: DatasetMetadata = {"id": f"toy-{seed}-{count}", "index2label": {0: "a", 1: "b"}}
 
     def __len__(self) -> int:
         return len(self._images)
 
     def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        if not self._labeled:
+            return self._images[index], np.zeros(0, dtype=np.float32), {"id": index}
         target = np.zeros(2, dtype=np.float32)
         target[index % 2] = 1.0
         return self._images[index], target, {"id": index}
@@ -59,7 +68,7 @@ def toy_pipeline(
             DatasetProtocolConfig(name="toy", format="maite", dataset=dataset if dataset is not None else ToyImages())
         ],
         sources=[SourceConfig(name=name, dataset="toy") for name in sources],
-        extractors=[FlattenExtractorConfig(name="flat")] if extractor else None,
+        extractors=[FLAT] if extractor else None,
         evaluators=list(evaluators) or None,
         workflows=list(workflows) or None,
         tasks=list(tasks) or None,
