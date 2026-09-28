@@ -569,6 +569,33 @@ class TestDriftMonitoringWorkflowExecute:
         assert "chunks" in det_result
         assert len(det_result["chunks"]) == 4  # type: ignore[reportTypedDictNotRequiredAccess]  # 100 / 25
 
+    @pytest.mark.parametrize(("incomplete", "fits"), [("keep", True), ("append", False)])
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
+    def test_incomplete_decides_the_reference_split(self, mock_get_emb: MagicMock, incomplete: str, fits: bool):
+        """110 reference samples in chunks of 50 leave 10 over: kept, they make a third chunk; appended, only two.
+
+        Two reference chunks are too few for a z-score threshold, so DataEval refuses the fit.
+        """
+        mock_get_emb.side_effect = [_make_embeddings(110, seed=1), _make_embeddings(100, seed=2)]
+        params = _make_params(
+            detectors=[{"method": "univariate", "chunking": {"chunk_size": 50, "incomplete": incomplete}}],
+        )
+        result = self._make_workflow().run(params, self._make_context())
+
+        assert ("univariate" in result.output.raw.detectors) is fits
+        assert any("into 2 chunks" in error for error in result.errors) is not fits
+
+    @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
+    def test_chunk_count_sets_the_chunk_size_from_the_reference(self, mock_get_emb: MagicMock):
+        """chunk_count splits the reference; the test data is then cut into chunks of that size."""
+        mock_get_emb.side_effect = [_make_embeddings(200, seed=1), _make_embeddings(100, seed=2)]
+        params = _make_params(detectors=[{"method": "univariate", "chunking": {"chunk_count": 4}}])
+        result = self._make_workflow().run(params, self._make_context())
+
+        assert not result.errors
+        chunks = result.output.raw.detectors["univariate"]["chunks"]  # type: ignore[reportTypedDictNotRequiredAccess]
+        assert len(chunks) == 2  # 200 / 4 = 50 per chunk, so 100 test samples make 2
+
     @patch("dataeval_flow.workflows.drift_monitoring._workflow._get_embeddings_for_context")
     @patch("dataeval_flow.workflows.drift_monitoring._workflow._extract_labels")
     def test_classwise_execution(self, mock_labels: MagicMock, mock_get_emb: MagicMock):

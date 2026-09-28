@@ -33,23 +33,36 @@ class ChunkingConfig(BaseModel):
     When present, the test data is split into sequential chunks and each
     chunk is tested for drift independently.  This answers "when did drift
     start?" and "did it recover?".
+
+    The reference is split the same way, and each chunk's drift bounds are the
+    spread of the reference chunks' scores, so the reference must split into at
+    least 3 chunks.  A detector whose reference splits into fewer does not run,
+    and the result's errors say why.
     """
 
     chunk_size: int | None = Field(
         default=None,
         gt=0,
-        description="Fixed number of samples per chunk. Mutually exclusive with chunk_count.",
+        description=(
+            "Fixed number of samples per chunk, in the reference and the test data alike. "
+            "The reference needs at least 3 chunks. Mutually exclusive with chunk_count."
+        ),
     )
     chunk_count: int | None = Field(
         default=None,
         gt=0,
-        description="Split test data into this many equal chunks. Mutually exclusive with chunk_size.",
+        description=(
+            "Split the reference into this many equal chunks (at least 3); the test data is then "
+            "cut into chunks of the same size. Mutually exclusive with chunk_size."
+        ),
     )
     incomplete: Literal["keep", "drop", "append"] = Field(
         default="keep",
         description=(
-            "How to handle a final chunk smaller than chunk_size. "
-            "'keep': retain as-is, 'drop': discard, 'append': merge into last full chunk."
+            "What chunk_size does with the reference's final chunk when it falls short. "
+            "'keep': score it as a chunk of its own, 'drop': leave it out of the baseline, "
+            "'append': merge it into the chunk before. A short chunk's score is noisier and widens "
+            "the bounds. The test data always merges its remainder into its last chunk."
         ),
     )
     threshold_multiplier: float = Field(

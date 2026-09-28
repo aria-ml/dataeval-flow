@@ -269,8 +269,8 @@
 #         correction: bonferroni      # bonferroni | fdr
 #         classwise: false            # per-class drift detection (requires labels)
 #         chunking:                   # optional temporal drift analysis
-#           chunk_size: 500           # or chunk_count (mutually exclusive)
-#           incomplete: keep          # keep | drop | append
+#           chunk_size: 500           # or chunk_count (mutually exclusive); the reference needs >= 3 chunks
+#           incomplete: keep          # keep | drop | append the reference's short final chunk
 #
 #   - name: clean
 #     type: data-cleaning

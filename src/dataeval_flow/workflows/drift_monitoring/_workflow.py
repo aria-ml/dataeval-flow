@@ -350,11 +350,12 @@ def _run_all_detectors(
             if det_config.chunking is not None:
                 from dataeval.utils.thresholds import ZScoreThreshold
 
-                chunk_threshold = ZScoreThreshold(multiplier=det_config.chunking.threshold_multiplier)
+                chunking = det_config.chunking
                 chunked = detector.chunked(
-                    chunk_size=det_config.chunking.chunk_size,
-                    chunk_count=det_config.chunking.chunk_count,
-                    threshold=chunk_threshold,
+                    chunk_size=chunking.chunk_size,
+                    chunk_count=chunking.chunk_count,
+                    threshold=ZScoreThreshold(multiplier=chunking.threshold_multiplier),
+                    incomplete=chunking.incomplete if chunking.chunk_size is not None else None,
                 )
                 chunked.fit(ref_embeddings)
                 output = chunked.predict(test_embeddings)
