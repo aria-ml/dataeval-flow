@@ -1,6 +1,6 @@
 """Table layout for the text renderer: column widths, chart cells, and the scale line under a bar."""
 
-__all__ = ["cell_text", "draw_table", "natural_widths", "numbers", "shared_widths", "shown_rows"]
+__all__ = ["cell_text", "draw_table", "natural_widths", "numbers", "shared_widths", "shown_rows", "tables"]
 
 import math
 from collections.abc import Mapping, Sequence
@@ -120,14 +120,14 @@ def _signature(table: Table) -> tuple[Any, ...]:
     return tuple((column.key, column.kind, column.header) for column in table.columns)
 
 
-def _tables(blocks: Sequence[Block]) -> list[Table]:
+def tables(blocks: Sequence[Block]) -> list[Table]:
     """Every table among *blocks*, in document order, including those inside sections."""
     found: list[Table] = []
     for block in blocks:
         if isinstance(block, Table):
             found.append(block)
         elif isinstance(block, Section):
-            found.extend(_tables(block.blocks))
+            found.extend(tables(block.blocks))
     return found
 
 
@@ -138,7 +138,7 @@ def shared_widths(blocks: Sequence[Block]) -> dict[tuple[Any, ...], tuple[int, .
     same columns, so each group is laid out at the widest any of its tables needs.
     """
     groups: dict[tuple[Any, ...], list[tuple[int, ...]]] = {}
-    for table in map(_without_images, _tables(blocks)):
+    for table in map(_without_images, tables(blocks)):
         groups.setdefault(_signature(table), []).append(natural_widths(table))
     return {sig: tuple(map(max, *widths)) for sig, widths in groups.items() if len(widths) > 1}
 

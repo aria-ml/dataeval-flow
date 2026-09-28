@@ -490,7 +490,11 @@ def _run_single_task(
     # notably on failure paths, where callers still need the inputs to debug.
     _ensure_result_datasets(result, dataset_contexts)
 
-    # 9. Populate metadata envelope
+    # 9. Thumbnails of the items the report names, read while the run's datasets are at hand.
+    if result.success:
+        _capture_assets(result, dataset_contexts)
+
+    # 10. Populate metadata envelope
     _populate_result_metadata(
         result,
         resolved_sources,
@@ -576,6 +580,21 @@ def _ensure_result_datasets(
         result.dataset = next(iter(resolved.values()))
     else:
         result.sources = resolved
+
+
+def _capture_assets(result: "Result[Any, Any]", dataset_contexts: "Mapping[str, DatasetContext]") -> None:
+    """Keep a thumbnail of each item *result*'s report names, read from the datasets the run read.
+
+    A failure here costs the report its thumbnails, never the result: the run has already finished.
+    """
+    from dataeval_flow._capture import capture
+
+    try:
+        datasets = result.sources if result.sources is not None else {next(iter(dataset_contexts)): result.dataset}
+        ranges = {name: context.value_range for name, context in dataset_contexts.items()}
+        result.assets = capture(result._document(detailed=True).blocks, datasets, ranges)  # noqa: SLF001
+    except Exception:
+        _logger.warning("Could not capture the report's thumbnails, so it names its items instead.", exc_info=True)
 
 
 def _populate_result_metadata(
