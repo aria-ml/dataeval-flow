@@ -1,12 +1,13 @@
 """Data cleaning workflow outputs."""
 
-from typing import Literal, NotRequired
+from typing import Literal
 
 from pydantic import Field
 from typing_extensions import TypedDict
 
 from dataeval_flow._result import ResultMetadata
 from dataeval_flow.workflows._base import WorkflowOutput, WorkflowRawOutput, WorkflowReport
+from dataeval_flow.workflows._outliers import OutlierIssueRecord, OutlierIssuesDict
 from dataeval_flow.workflows._result import WorkflowResult
 
 __all__ = [
@@ -29,26 +30,6 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # TypedDicts for serialized evaluator outputs
 # ---------------------------------------------------------------------------
-
-
-class OutlierIssueRecord(TypedDict):
-    """Single outlier issue from DataEval OutliersOutput.
-
-    ``target_index`` is present for target-level outliers (object detection datasets)
-    and absent or ``None`` for image-level outliers.
-    """
-
-    item_index: int
-    metric_name: str
-    metric_value: float
-    target_index: NotRequired[int | None]
-
-
-class OutlierIssuesDict(TypedDict):
-    """Serialized outlier issues (image or target level)."""
-
-    issues: list[OutlierIssueRecord]
-    count: int
 
 
 class SourceIndexDict(TypedDict):

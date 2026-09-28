@@ -63,3 +63,16 @@ class TestCards:
     def test_an_unknown_percentile_says_so(self):
         _, rows = card(_flag(percentile=math.nan))
         assert rows[0] == ("Percentile", "p?")
+
+    def test_a_flag_whose_limit_is_unknown_names_no_limit(self):
+        """DataEval recorded no limit, so the card doesn't say which one the value crossed."""
+        title, _ = card(_flag(bound=math.nan))
+        assert title == "brightness · outside its limits"
+
+    def test_an_unknown_population_figure_reads_as_unknown_and_an_unknown_population_is_left_out(self):
+        nan = math.nan
+        unknown_std = Flag(name="b", value=1.0, direction="upper", bound=0.5, percentile=99.0, mean=0.2, std=nan)
+        _, rows = card(unknown_std)
+        assert rows[1] == ("Population", "mean 0.2 ± ? (std)")
+        _, rows = card(unknown_std.model_copy(update={"mean": nan}))
+        assert rows == [("Percentile", "p99")]

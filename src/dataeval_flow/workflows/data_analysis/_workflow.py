@@ -44,6 +44,7 @@ from dataeval_flow.workflows._base import Finding, Workflow, effective_value_ran
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows._context import WorkflowContext
+from dataeval_flow.workflows._outliers import flagged_table, limits_sentence, warn_if_unrecorded
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisConfig, DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_analysis._outputs import (
     BiasResult,
@@ -262,6 +263,7 @@ def _assess_image_quality(
         outlier_count=outlier_count,
         outlier_rate=outlier_count / max(data.dataset_len, 1),
         outlier_summary=_to_serializable(outlier_by_metric),
+        outliers=outlier_df.to_dicts(),  # type: ignore[arg-type]  # DataEval's columns, as OutlierIssueRecord names them
     )
 
 
@@ -561,8 +563,11 @@ def _assess_distribution_shift(
 def _finding_image_quality(
     splits: dict[str, SplitResult],
     thresholds: DataAnalysisHealthThresholds,
+    *,
+    outlier_method: str | None = None,
+    outlier_threshold: float | None = None,
 ) -> Finding:
-    """Cross-split image quality comparison table."""
+    """Cross-split image quality comparison table, stating the outlier method and threshold where it flagged any."""
     rows: list[dict[str, Cell]] = []
     total_outliers = 0
     worst_pct = 0.0
@@ -592,12 +597,27 @@ def _finding_image_quality(
         Column(key="rate", header="Rate", format="{:.1f}%"),
         Column(key="top_flags", header="Top Flags"),
     ]
+    # Every flagged image across the splits, each with the flags it raised: split by split in run order, as
+    # the table above runs, each split listing its share of the rows.
+    issues = [{**issue, "split": name} for name, sr in splits.items() for issue in sr.image_quality.outliers]
+    warn_if_unrecorded(issues)
+    flagged = flagged_table(
+        issues,
+        key=lambda issue: (issue["split"], issue["item_index"]),
+        key_columns=[Column(key="split", header="Split"), Column(key="item", header="Item")],
+        classes=None,
+        noun="images",
+        groups=list(splits),
+    )
+    description = f"{total_outliers} images flagged across {len(splits)} split(s)."
+    if total_outliers and (limits := limits_sentence(outlier_method, outlier_threshold)):
+        description = f"{description} {limits}"
     return Finding(
         severity=severity,
         title="Image Quality",
         brief=brief,
-        description=f"{total_outliers} images flagged across {len(splits)} split(s).",
-        blocks=[Table(columns=columns, rows=rows)],
+        description=description,
+        blocks=[Table(columns=columns, rows=rows), *flagged],
     )
 
 
@@ -1018,12 +1038,17 @@ def _build_findings(
     splits: dict[str, SplitResult],
     cross_split: dict[str, CrossSplitResult],
     thresholds: DataAnalysisHealthThresholds,
+    *,
+    outlier_method: str | None = None,
+    outlier_threshold: float | None = None,
 ) -> list[Finding]:
-    """Generate human-readable findings from analysis results."""
+    """Generate human-readable findings from analysis results, and the outlier method and threshold they used."""
     findings: list[Finding] = []
 
     # Per-split metrics as cross-split comparison tables
-    findings.append(_finding_image_quality(splits, thresholds))
+    findings.append(
+        _finding_image_quality(splits, thresholds, outlier_method=outlier_method, outlier_threshold=outlier_threshold)
+    )
     findings.append(_finding_redundancy(splits, thresholds))
     findings.append(_finding_label_balance(splits, thresholds))
     findings.append(_finding_bias(splits))
@@ -1191,7 +1216,13 @@ class DataAnalysisWorkflow(Workflow[DataAnalysisConfig, DataAnalysisResult]):
 
         # ── Phase 4: Assemble outputs & findings ────────────────────
         _logger.info("[data-analysis] Building report (%d total samples)", total_samples)
-        findings = _build_findings(split_results, cross_split, config.health_thresholds)
+        findings = _build_findings(
+            split_results,
+            cross_split,
+            config.health_thresholds,
+            outlier_method=config.outlier_method,
+            outlier_threshold=config.outlier_threshold,
+        )
 
         # Workflow-specific metadata
         result_metadata = DataAnalysisMetadata(

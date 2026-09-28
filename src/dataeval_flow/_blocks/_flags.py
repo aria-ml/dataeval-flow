@@ -51,11 +51,20 @@ def tag_text(flag: Flag) -> str:
     return f"{flag.name} {fmt_num(flag.value)} {sign} {fmt_num(flag.bound)}"
 
 
+def _known(value: float) -> str:
+    return fmt_num(value) if math.isfinite(value) else "?"
+
+
 def card(flag: Flag) -> tuple[str, list[tuple[str, str]]]:
-    """The flag's detail, as a heading and labelled rows: the limit it crossed, where it ranks, and its population."""
-    upper = flag.direction == "upper"
-    title = f"{flag.name} · {'above the upper' if upper else 'below the lower'} limit"
-    return title, [
-        ("Percentile", percentile_text(flag.percentile)),
-        ("Population", f"mean {fmt_num(flag.mean)} ± {fmt_num(flag.std)} (std)"),
-    ]
+    """The flag's detail, as a heading and labelled rows: the limit it crossed, where it ranks, and its population.
+
+    A flag whose limit is unknown names no limit, and a population with neither figure known is left out.
+    """
+    if not math.isfinite(flag.bound):
+        crossed = "outside its limits"
+    else:
+        crossed = "above the upper limit" if flag.direction == "upper" else "below the lower limit"
+    rows = [("Percentile", percentile_text(flag.percentile))]
+    if math.isfinite(flag.mean) or math.isfinite(flag.std):
+        rows.append(("Population", f"mean {_known(flag.mean)} ± {_known(flag.std)} (std)"))
+    return f"{flag.name} · {crossed}", rows

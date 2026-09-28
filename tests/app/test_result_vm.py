@@ -265,8 +265,8 @@ class TestSegments:
         empty = Table(columns=[Column(key="k", header="K")], rows=[])
         assert self._segments(empty) == [[empty]]
 
-    def test_image_outliers_split_around_their_per_metric_table(self) -> None:
-        """A real cleaning finding: its lede, then the table, then the note and labelled values after it."""
+    def test_image_outliers_draw_their_flags_as_text_and_their_limits_as_a_data_table(self) -> None:
+        """A real cleaning finding: its lede and flags table as text, its limits table native, then its values."""
         from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
         from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningRawOutput
         from dataeval_flow.workflows.data_cleaning._report import build_findings
@@ -279,10 +279,15 @@ class TestSegments:
         finding = next(
             f for f in build_findings(raw, None, DataCleaningHealthThresholds()) if f.title == "Image Outliers"
         )
-        lede, table, rest = ResultViewModel(_make_result(finding)).finding_segments(0)
-        assert lede == [Paragraph(text="1 images (3.4%) flagged as outliers.")]
-        assert isinstance(table, Table)
-        assert [type(block) for block in rest] == [Paragraph, Fields]
+        text, limits, rest = ResultViewModel(_make_result(finding)).finding_segments(0)
+        assert isinstance(text, list)
+        lede, flagged = text
+        assert lede == Paragraph(text="1 images (3.4%) flagged as outliers.")
+        assert isinstance(flagged, Table)
+        assert flagged.columns[-1].kind == "flags"
+        assert isinstance(limits, Table)
+        assert limits.columns[0].header == "Metric"
+        assert [type(block) for block in rest] == [Fields]
 
 
 class TestTableData:

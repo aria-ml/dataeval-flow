@@ -23,6 +23,7 @@ __all__ = [
     "Tree",
 ]
 
+import math
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import (
@@ -57,6 +58,8 @@ def _native(value: Any) -> Any:
 Scalar = Annotated[str | int | float | bool | None, BeforeValidator(_native)]
 # A measured value a chart places: a drift threshold, a quantile.
 Number = Annotated[float, BeforeValidator(_native)]
+# A figure a run may not have recorded: NaN, which JSON writes as `null` and which reads back as NaN.
+Unknown = Annotated[float, BeforeValidator(lambda value: math.nan if value is None else _native(value))]
 Severity = Literal["ok", "info", "warning"]
 
 _TYPE = "The block's kind, which says how its other fields read. Readers skip a kind they do not know."
@@ -79,15 +82,20 @@ class _Block(BaseModel):
 
 
 class Flag(_Block):
-    """One measurement against the population it was judged in: why an item was flagged, and how far out it lies."""
+    """One measurement against the population it was judged in: why an item was flagged, and the limit it crossed.
+
+    A figure that wasn't recorded is NaN, which JSON writes as ``null`` and which reads back as NaN.
+    """
 
     name: str = Field(description="What was measured, such as `brightness`.")
     value: Number = Field(description="This item's value.")
     direction: Literal["upper", "lower"] = Field(description="Which limit the value crossed.")
-    bound: Number = Field(description="The limit it crossed.")
-    percentile: Number = Field(description="Where the value ranks in its population, from 0 to 100.")
-    mean: Number = Field(description="The population's mean.")
-    std: Number = Field(description="The population's standard deviation.")
+    bound: Unknown = Field(description="The limit it crossed; `null` when unknown.")
+    percentile: Unknown = Field(
+        description="Where the value ranks in its population, from 0 to 100; `null` when unknown."
+    )
+    mean: Unknown = Field(description="The population's mean; `null` when unknown.")
+    std: Unknown = Field(description="The population's standard deviation; `null` when unknown.")
 
 
 # A list cell holds a sparkline's counts or a stacked bar's segments, or a flags column's flags.

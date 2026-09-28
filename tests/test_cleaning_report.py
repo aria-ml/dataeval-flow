@@ -1,11 +1,17 @@
 """Tests for cleaning report."""
 
+import logging
+import math
+import re
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 
-from dataeval_flow._blocks import Fields
+from dataeval_flow._blocks import Fields, Section
+from dataeval_flow._blocks._html import render_html
 from dataeval_flow.workflows import Finding
+from dataeval_flow.workflows._result import finding_section
 from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningRawOutput
 from dataeval_flow.workflows.data_cleaning._report import (
@@ -75,15 +81,16 @@ class TestBuildFindings:
         # 3 distinct images, not 6 total flags
         assert img_finding.brief == f"3 images ({round(3 / 29 * 100, 1)}%)"
         assert fields(img_finding)["Percentage"] == round(3 / 29 * 100, 1)
-        # Enriched per_metric breakdown
-        (table,) = tables(img_finding)
-        per_metric = dict(zip(column(table, "metric"), column(table, "count"), strict=True))
+        # One row per image with every flag it raised, then each metric with the images it flagged
+        flagged, limits = tables(img_finding)
+        assert column(flagged, "item") == [0, 5, 10]
+        assert column(flagged, "flags") == [3, 2, 1]
+        per_metric = dict(zip(column(limits, "metric"), column(limits, "count"), strict=True))
         assert per_metric["brightness"] == 2  # images 0 and 5
         assert per_metric["entropy"] == 2  # images 0 and 5
         assert per_metric["contrast"] == 2  # images 0 and 10
-        # 6 flags over 3 images: the raw issues hold the flags, and the note says some images repeat
         assert len(raw.img_outliers["issues"]) == 6
-        assert paragraphs(img_finding) == ["(Some images trigger multiple metrics.)"]
+        assert paragraphs(img_finding) == []
         assert fields(img_finding)["Dataset size"] == 29
 
     def test_target_outlier_finding(self):
@@ -109,9 +116,10 @@ class TestBuildFindings:
         # Enriched per_metric and total_flags
         assert raw.target_outliers is not None
         assert len(raw.target_outliers["issues"]) == 4
-        assert paragraphs(target_finding) == ["(Some targets trigger multiple metrics.)"]
-        (table,) = tables(target_finding)
-        per_metric = dict(zip(column(table, "metric"), column(table, "count"), strict=True))
+        assert paragraphs(target_finding) == []
+        flagged, limits = tables(target_finding)
+        assert list(zip(column(flagged, "item"), column(flagged, "box"), strict=True)) == [(0, 0), (0, 1), (1, 0)]
+        per_metric = dict(zip(column(limits, "metric"), column(limits, "count"), strict=True))
         assert per_metric["brightness"] == 3  # (0,0), (0,1), (1,0)
         assert per_metric["contrast"] == 1  # (0,0)
         assert fields(target_finding) == {"Percentage": 0.0, "Total targets": 0}
@@ -662,6 +670,22 @@ class TestClasswiseFindingThresholdAndBrief:
 _RULE = "=" * 80
 
 
+def _issue(
+    item: int, metric: str, value: float, direction: str, bound: float, percentile: float, mean: float, std: float
+) -> dict[str, object]:
+    """One outlier issue as DataEval writes it: the flagged value, and the population it was judged in."""
+    return {
+        "item_index": item,
+        "metric_name": metric,
+        "metric_value": value,
+        "direction": direction,
+        "bound": bound,
+        "percentile": percentile,
+        "population_mean": mean,
+        "population_std": std,
+    }
+
+
 def _detection_raw(**overrides: object) -> DataCleaningRawOutput:
     """Multi-metric image and target outliers, both kinds of duplicate, imbalanced labels, a classwise pivot."""
     values: dict[str, object] = {
@@ -669,21 +693,21 @@ def _detection_raw(**overrides: object) -> DataCleaningRawOutput:
         "img_outliers": {
             "count": 6,
             "issues": [
-                {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1},
-                {"item_index": 0, "metric_name": "entropy", "metric_value": 0.2},
-                {"item_index": 0, "metric_name": "contrast", "metric_value": 0.3},
-                {"item_index": 5, "metric_name": "brightness", "metric_value": 0.4},
-                {"item_index": 5, "metric_name": "entropy", "metric_value": 0.5},
-                {"item_index": 10, "metric_name": "contrast", "metric_value": 0.6},
+                _issue(0, "brightness", 0.1, "lower", 0.2, 0.05, 0.5, 0.1),
+                _issue(0, "entropy", 1.2, "lower", 3.1, 0.3, 5.0, 1.0),
+                _issue(0, "contrast", 0.05, "lower", 0.1, 1.2, 0.4, 0.1),
+                _issue(5, "brightness", 0.95, "upper", 0.8, 99.85, 0.5, 0.1),
+                _issue(5, "entropy", 7.9, "upper", 6.9, 99.6, 5.0, 1.0),
+                _issue(10, "contrast", 0.75, "upper", 0.7, 99.1, 0.4, 0.1),
             ],
         },
         "target_outliers": {
             "count": 4,
             "issues": [
-                {"item_index": 0, "target_index": 0, "metric_name": "brightness", "metric_value": 0.1},
-                {"item_index": 0, "target_index": 0, "metric_name": "contrast", "metric_value": 0.2},
-                {"item_index": 0, "target_index": 1, "metric_name": "brightness", "metric_value": 0.3},
-                {"item_index": 1, "target_index": 0, "metric_name": "brightness", "metric_value": 0.4},
+                {**_issue(0, "brightness", 0.1, "lower", 0.2, 0.4, 0.5, 0.1), "target_index": 0},
+                {**_issue(0, "contrast", 0.9, "upper", 0.7, 99.9, 0.4, 0.1), "target_index": 0},
+                {**_issue(0, "brightness", 0.95, "upper", 0.8, 99.7, 0.5, 0.1), "target_index": 1},
+                {**_issue(1, "brightness", 0.12, "lower", 0.2, 0.8, 0.5, 0.1), "target_index": 0},
             ],
         },
         "duplicates": {
@@ -723,32 +747,90 @@ class TestFindingBlocks:
         titles = [f.title for f in findings]
         assert titles == ["Image Outliers", "Target Outliers", "Classwise Outliers", "Duplicates", "Label Distribution"]
 
-    def test_image_outliers_draw_the_per_metric_table_note_and_fields(self):
-        """The Count column fits its header without the adapter's `{:>5}`, so the table reads as it did."""
+    def test_image_outliers_draw_each_image_s_flags_then_each_metric_s_limits(self):
+        """Each image in item order with its flags by name, each its value against its limit; then the limits."""
         assert rendered(_finding("Image Outliers", _detection_raw())).splitlines() == [
             _RULE,
             "  IMAGE OUTLIERS" + "3 images (10.3%)".rjust(64),
             _RULE,
             "  3 images (10.3%) flagged as outliers.",
             "",
-            "  Metric      Count",
-            "  ----------  -----",
-            "  brightness      2",
-            "  entropy         2",
-            "  contrast        2",
+            "  Item  Flags  Flagged by",
+            "  ----  -----  ---------------------",
+            "  0         3  brightness 0.1 < 0.2",
+            "               contrast 0.05 < 0.1",
+            "               entropy 1.2 < 3.1",
+            "  5         2  brightness 0.95 > 0.8",
+            "               entropy 7.9 > 6.9",
+            "  10        1  contrast 0.75 > 0.7",
             "",
-            "  (Some images trigger multiple metrics.)",
+            "  Metric      Count  Lower  Upper  Mean  Std",
+            "  ----------  -----  -----  -----  ----  ---",
+            "  brightness      2    0.2    0.8   0.5  0.1",
+            "  contrast        2    0.1    0.7   0.4  0.1",
+            "  entropy         2    3.1    6.9     5    1",
             "",
             "  Percentage:   10.3",
             "  Dataset size: 29",
         ]
 
+    def test_the_limits_sentence_names_the_method(self):
+        findings = build_findings(_detection_raw(), None, DataCleaningHealthThresholds(), outlier_method="modzscore")
+        finding = next(f for f in findings if f.title == "Image Outliers")
+        assert finding.description == (
+            "3 images (10.3%) flagged as outliers. "
+            "Limits: a modified z-score of 3.5, measured from the median by the MAD."
+        )
+
+    def test_each_flagged_image_names_its_class(self):
+        from types import SimpleNamespace
+
+        metadata = SimpleNamespace(
+            multi_target=False,
+            index2label={0: "cat", 1: "dog"},
+            item_indices=list(range(11)),
+            class_labels=[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        )
+        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds())
+        flagged, _ = tables(next(f for f in findings if f.title == "Image Outliers"))
+        assert column(flagged, "class") == ["cat", "dog", "dog"]
+
+    def test_a_dataset_without_labels_has_no_class_column(self):
+        from types import SimpleNamespace
+
+        metadata = SimpleNamespace(multi_target=False, index2label={}, item_indices=[], class_labels=[])
+        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds())
+        flagged, _ = tables(next(f for f in findings if f.title == "Image Outliers"))
+        assert "class" not in [c.key for c in flagged.columns]
+
+    def test_each_flagged_box_names_its_class_and_its_images_name_none(self):
+        from types import SimpleNamespace
+
+        import polars as pl
+
+        boxes = pl.DataFrame({"item_index": [0, 0, 1], "target_index": [0, 1, 0], "class_label": [1, 0, 0]})
+        metadata = SimpleNamespace(
+            multi_target=True, index2label={0: "cat", 1: "dog"}, label_level="target", rows_at=lambda _level: boxes
+        )
+        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds())
+        images, _ = tables(next(f for f in findings if f.title == "Image Outliers"))
+        flagged_boxes, _ = tables(next(f for f in findings if f.title == "Target Outliers"))
+        assert "class" not in [c.key for c in images.columns]
+        assert column(flagged_boxes, "class") == ["dog", "cat", "cat"]
+
     def test_per_metric_counts_rank_largest_first(self):
         finding = _finding("Target Outliers", _detection_raw())
-        (table,) = tables(finding)
+        _, table = tables(finding)
         assert column(table, "metric") == ["brightness", "contrast"]
         assert column(table, "count") == [3, 1]
-        assert [(col.header, col.format) for col in table.columns] == [("Metric", None), ("Count", None)]
+        assert [(col.header, col.format) for col in table.columns] == [
+            ("Metric", None),
+            ("Count", None),
+            ("Lower", "{:.4g}"),
+            ("Upper", "{:.4g}"),
+            ("Mean", "{:.4g}"),
+            ("Std", "{:.4g}"),
+        ]
 
     def test_target_outliers_count_targets_from_the_label_stats(self):
         finding = _finding("Target Outliers", _detection_raw())
@@ -765,6 +847,27 @@ class TestFindingBlocks:
         finding = _finding("Image Outliers", raw)
         assert paragraphs(finding) == []
         assert fields(finding) == {"Percentage": 6.9, "Dataset size": 29}
+
+    def test_outliers_recorded_without_their_limits_warn_once_for_the_whole_report(self, caplog):
+        """Image and box outliers alike came from the one DataEval, so one warning says to upgrade it."""
+        old = {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1}
+        raw = _detection_raw(
+            img_outliers={"count": 1, "issues": [old]},
+            target_outliers={"count": 1, "issues": [{**old, "target_index": 0}]},
+        )
+        with caplog.at_level(logging.WARNING, logger="dataeval_flow.workflows._outliers"):
+            build_findings(raw, None, DataCleaningHealthThresholds())
+        (record,) = caplog.records
+        assert record.getMessage().startswith("2 outlier flag(s) came without the limits they crossed")
+
+    def test_an_outlier_record_holding_null_context_is_read_as_unknown(self):
+        """A frame merged with one lacking the context columns fills them with null, which the output accepts."""
+        unrecorded = dict.fromkeys(("direction", "bound", "percentile", "population_mean", "population_std"))
+        issue = {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1, **unrecorded}
+        finding = _finding("Image Outliers", _detection_raw(img_outliers={"count": 1, "issues": [issue]}))
+        flagged, _ = tables(finding)
+        (flag,) = flagged.rows[0]["by"]  # type: ignore[misc]
+        assert math.isnan(flag.bound)  # type: ignore[union-attr]
 
     def test_no_image_outliers_draw_only_the_fields(self):
         raw = _detection_raw(img_outliers={"count": 0, "issues": []})
@@ -841,3 +944,17 @@ class TestFindingBlocks:
         finding = _finding("Label Distribution", raw, label_source="annotations")
         assert finding.brief == "2 classes, 4 items, imbalance 0.0:1"
         assert finding.blocks == []
+
+
+_GOLDEN = Path(__file__).parent / "golden"
+
+
+class TestGoldenRender:
+    """One finding drawn in full, so any change to how a report reads shows here first."""
+
+    def test_image_outliers_draw_as_their_golden_html_card(self):
+        """After checking a change is intended, write ``card`` to the golden file to accept it."""
+        section = finding_section(_finding("Image Outliers", _detection_raw()))
+        page = render_html([Section(title="Report", blocks=[section])])
+        (card,) = re.findall(r"<details.*?</details>", page, re.S)
+        assert card == (_GOLDEN / "cleaning_image_outliers_card.html").read_text(encoding="utf-8").rstrip("\n")

@@ -484,7 +484,14 @@ class DataCleaningWorkflow(Workflow[DataCleaningConfig, DataCleaningResult]):
         )
 
         # 5. Generate findings from raw results
-        findings = build_findings(raw, metadata, config.health_thresholds, label_source=dc.label_source)
+        findings = build_findings(
+            raw,
+            metadata,
+            config.health_thresholds,
+            label_source=dc.label_source,
+            outlier_method=config.outlier_method,
+            outlier_threshold=config.outlier_threshold,
+        )
 
         # 6. Preparatory mode: compute clean indices (exclude flagged items)
         result_metadata = DataCleaningMetadata(

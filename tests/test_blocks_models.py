@@ -1,5 +1,6 @@
 """Report blocks as data: every block survives JSON unchanged, and nothing else validates as one."""
 
+import math
 from typing import get_args
 
 import pytest
@@ -22,6 +23,7 @@ from dataeval_flow._blocks import (
     Table,
     Tree,
 )
+from dataeval_flow._blocks._flags import flags_in
 
 pytestmark = pytest.mark.required
 
@@ -220,6 +222,19 @@ class TestFlagsAndPreviews:
         )
         assert _BLOCKS.validate_json(_BLOCKS.dump_json([table])) == [table]
         assert table.model_dump(mode="json")["rows"][0]["flags"][0]["name"] == "brightness"
+
+    def test_a_flag_s_unknown_figures_write_as_null_and_read_back_as_unknown(self):
+        """A run that didn't record a limit leaves it NaN; its JSON's `null` reads back in rather than failing."""
+        nan = float("nan")
+        unknown = _FLAG.model_copy(update={"bound": nan, "percentile": nan, "mean": nan, "std": nan})
+        table = Table(columns=[Column(key="flags", kind="flags")], rows=[{"flags": [unknown]}])
+        written = _BLOCKS.dump_json([table])
+        assert b'"bound":null,"percentile":null,"mean":null,"std":null' in written
+        (read,) = _BLOCKS.validate_json(written)
+        assert isinstance(read, Table)
+        (flag,) = flags_in(read.rows[0]["flags"])
+        assert (flag.name, flag.value, flag.direction) == ("brightness", 0.99, "upper")
+        assert all(math.isnan(figure) for figure in (flag.bound, flag.percentile, flag.mean, flag.std))
 
     def test_a_list_of_numbers_is_still_a_chart_cell(self):
         """Adding flags to the cell union leaves a sparkline's counts as numbers."""

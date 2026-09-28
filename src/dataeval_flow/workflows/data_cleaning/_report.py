@@ -7,6 +7,13 @@ from typing import Any, Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Scalar, Section, Table
 from dataeval_flow.workflows._base import Finding, render_label_source
+from dataeval_flow.workflows._outliers import (
+    OutlierIssueRecord,
+    flagged_table,
+    limits_sentence,
+    limits_table,
+    warn_if_unrecorded,
+)
 from dataeval_flow.workflows._tables import ranked_table
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import (
@@ -15,23 +22,44 @@ from dataeval_flow.workflows.data_cleaning._outputs import (
 )
 
 
-def _outlier_blocks(
-    per_metric: Mapping[str, int], *, flags: int, flagged: int, subject: str, pairs: list[tuple[str, Scalar]]
-) -> list[Block]:
-    """How many *subject* each metric flagged, most first, then the finding's labelled values.
+def _item(issue: Mapping[str, Any]) -> tuple[Cell, ...]:
+    return (issue["item_index"],)
 
-    *flags* counts every (subject, metric) flag and *flagged* the distinct subjects, so more flags than
-    subjects means some subject tripped several metrics.
+
+def _box(issue: Mapping[str, Any]) -> tuple[Cell, ...]:
+    return (issue["item_index"], issue.get("target_index"))
+
+
+def _classes(metadata: Any) -> tuple[dict[tuple[Cell, ...], str] | None, dict[tuple[Cell, ...], str] | None]:
+    """Each item's class and each box's, keyed as the outlier tables key their rows; ``None`` where unknown.
+
+    A classification item has one class. A detection image has one per box, so only its boxes are
+    named, and its image rows have no Class column. A dataset without labels has none either.
     """
-    blocks: list[Block] = []
-    if per_metric:
-        ranked = sorted(per_metric.items(), key=lambda item: -item[1])
-        rows: list[dict[str, Cell]] = [{"metric": metric, "count": n} for metric, n in ranked]
-        blocks.append(
-            Table(columns=[Column(key="metric", header="Metric"), Column(key="count", header="Count")], rows=rows)
-        )
-        if flags > flagged:
-            blocks.append(Paragraph(text=f"(Some {subject} trigger multiple metrics.)"))
+    if metadata is None:
+        return None, None
+    index2label = metadata.index2label
+    if metadata.multi_target:
+        rows = metadata.rows_at(metadata.label_level).select("item_index", "target_index", "class_label")
+        return None, {(int(i), int(t)): index2label.get(int(c), str(c)) for i, t, c in rows.iter_rows()} or None
+    labels = zip(metadata.item_indices, metadata.class_labels, strict=True)
+    return {(int(i),): index2label.get(int(c), str(c)) for i, c in labels} or None, None
+
+
+def _outlier_blocks(
+    issues: Sequence[OutlierIssueRecord],
+    *,
+    boxes: bool,
+    classes: Mapping[tuple[Cell, ...], str] | None,
+    noun: str,
+    pairs: list[tuple[str, Scalar]],
+) -> list[Block]:
+    """Each flagged image or box with every flag it raised, each metric with its limits, then the labelled values."""
+    key = _box if boxes else _item
+    key_columns = [Column(key="item", header="Item"), *([Column(key="box", header="Box")] if boxes else [])]
+    blocks: list[Block] = flagged_table(issues, key=key, key_columns=key_columns, classes=classes, noun=noun)
+    if issues:
+        blocks.append(limits_table(issues, key=key))
     blocks.append(Fields(items=pairs))
     return blocks
 
@@ -195,25 +223,31 @@ def _classwise_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealt
 
 def build_findings(
     raw: DataCleaningRawOutput,
-    metadata: Any,  # noqa: ARG001 - reserved for future metadata-based findings
+    metadata: Any,
     thresholds: DataCleaningHealthThresholds,
     label_source: str | Sequence[str] | None = None,
+    *,
+    outlier_method: str | None = None,
+    outlier_threshold: float | None = None,
 ) -> list[Finding]:
-    """Generate human-readable findings from raw results."""
+    """Generate human-readable findings from raw results.
+
+    *metadata* names each flagged item's class where it has labels. *outlier_method* and
+    *outlier_threshold* are what the outliers were detected with, which the findings state.
+    """
     findings: list[Finding] = []
+    item_classes, box_classes = _classes(metadata)
+    limits = limits_sentence(outlier_method, outlier_threshold)
 
     # Outlier findings — count distinct images, not total flags
     outlier_issues = raw.img_outliers.get("issues", [])
     outlier_image_count = len({issue["item_index"] for issue in outlier_issues})
     pct = (outlier_image_count / raw.dataset_size) * 100 if raw.dataset_size else 0
-    # Per-metric breakdown: count distinct images per metric
-    _per_metric_sets: dict[str, set[int]] = {}
-    for issue in outlier_issues:
-        _per_metric_sets.setdefault(issue["metric_name"], set()).add(issue["item_index"])
-    per_metric = {k: len(v) for k, v in _per_metric_sets.items()}
     if outlier_image_count > 0:
         img_severity: Literal["ok", "info", "warning"] = "warning" if pct > thresholds.image_outliers else "info"
         img_description = f"{outlier_image_count} images ({pct:.1f}%) flagged as outliers."
+        if limits:
+            img_description = f"{img_description} {limits}"
     else:
         img_severity = "ok"
         img_description = "No images flagged as outliers."
@@ -224,10 +258,10 @@ def build_findings(
             brief=f"{outlier_image_count} images ({round(pct, 1)}%)",
             description=img_description,
             blocks=_outlier_blocks(
-                per_metric,
-                flags=len(outlier_issues),
-                flagged=outlier_image_count,
-                subject="images",
+                outlier_issues,
+                boxes=False,
+                classes=item_classes,
+                noun="images",
                 pairs=[("Percentage", round(pct, 1)), ("Dataset size", raw.dataset_size)],
             ),
         )
@@ -235,17 +269,13 @@ def build_findings(
 
     # Target outlier findings — count distinct (item, target) pairs
     target_issues = raw.target_outliers.get("issues", []) if raw.target_outliers else []
+    warn_if_unrecorded([*outlier_issues, *target_issues])
     target_pair_count = len({(issue["item_index"], issue.get("target_index")) for issue in target_issues})
     if target_pair_count > 0:
         # Total target count from label stats for percentage
         total_targets = sum(raw.label_stats.get("label_counts_per_class", {}).values()) if raw.label_stats else 0
         target_pct = round((target_pair_count / total_targets) * 100, 1) if total_targets > 0 else 0.0
-        # Per-metric breakdown for targets
-        _target_metric_sets: dict[str, set[tuple[int, int | None]]] = {}
-        for issue in target_issues:
-            key = (issue["item_index"], issue.get("target_index"))
-            _target_metric_sets.setdefault(issue["metric_name"], set()).add(key)
-        target_per_metric = {k: len(v) for k, v in _target_metric_sets.items()}
+        target_description = f"{target_pair_count} bounding-box targets ({target_pct}%) flagged as outliers."
         tgt_severity: Literal["ok", "info", "warning"] = (
             "warning" if target_pct > thresholds.target_outliers else "info"
         )
@@ -254,12 +284,12 @@ def build_findings(
                 severity=tgt_severity,
                 title="Target Outliers",
                 brief=f"{target_pair_count} targets ({target_pct}%)",
-                description=f"{target_pair_count} bounding-box targets ({target_pct}%) flagged as outliers.",
+                description=f"{target_description} {limits}" if limits else target_description,
                 blocks=_outlier_blocks(
-                    target_per_metric,
-                    flags=len(target_issues),
-                    flagged=target_pair_count,
-                    subject="targets",
+                    target_issues,
+                    boxes=True,
+                    classes=box_classes,
+                    noun="targets",
                     pairs=[("Percentage", target_pct), ("Total targets", total_targets)],
                 ),
             )

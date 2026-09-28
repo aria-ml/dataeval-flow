@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from dataeval_flow._result import ResultMetadata
 from dataeval_flow.workflows._base import WorkflowOutput, WorkflowRawOutput, WorkflowReport
+from dataeval_flow.workflows._outliers import OutlierIssueRecord
 from dataeval_flow.workflows._result import WorkflowResult
 
 __all__ = [
@@ -37,6 +38,13 @@ class ImageQualityResult(BaseModel):
     outlier_count: int = Field(description="Number of items flagged as outliers")
     outlier_rate: float = Field(description="Fraction of items flagged as outliers")
     outlier_summary: dict[str, int] = Field(description="Count of outlier items per metric name")
+    outliers: list[OutlierIssueRecord] = Field(
+        default_factory=list,
+        description=(
+            "Every flagged value, one row per image and metric, as DataEval's `Outliers` reports it: its "
+            "`item_index`, `metric_name` and `metric_value`, and the population it was judged in."
+        ),
+    )
 
 
 class RedundancyResult(BaseModel):

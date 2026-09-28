@@ -124,12 +124,28 @@ def _make_image_quality(
     outlier_count: int = 0,
     outlier_rate: float = 0.0,
     outlier_summary: dict[str, int] | None = None,
+    outliers: list[dict[str, object]] | None = None,
 ) -> ImageQualityResult:
     return ImageQualityResult(
         outlier_count=outlier_count,
         outlier_rate=outlier_rate,
         outlier_summary=outlier_summary or {},
+        outliers=outliers or [],  # type: ignore[arg-type]
     )
+
+
+def _outlier(item: int, metric: str, percentile: float, direction: str = "upper") -> dict[str, object]:
+    """One flagged value as DataEval writes it, with the population it was judged in."""
+    return {
+        "item_index": item,
+        "metric_name": metric,
+        "metric_value": 0.9,
+        "direction": direction,
+        "bound": 0.8,
+        "percentile": percentile,
+        "population_mean": 0.5,
+        "population_std": 0.1,
+    }
 
 
 def _make_redundancy(
@@ -364,6 +380,18 @@ class TestFindingImageQuality:
         assert finding.description is not None
         assert "10" in finding.description
 
+    def test_the_outlier_method_and_threshold_are_stated_once(self):
+        iq = _make_image_quality(outlier_count=10, outlier_summary={"brightness": 6})
+        splits = {"train": _make_split_result(num_samples=200, image_quality=iq)}
+        findings = _build_findings(splits, {}, _DEFAULT_THRESHOLDS, outlier_method="iqr", outlier_threshold=2.0)
+        assert findings[0].description == (
+            "10 images flagged across 1 split(s). Limits: 2 × the IQR beyond the quartiles."
+        )
+
+    def test_nothing_flagged_states_no_limits(self):
+        finding = _finding_image_quality(self._splits(), _DEFAULT_THRESHOLDS, outlier_method="zscore")
+        assert finding.description == "0 images flagged across 1 split(s)."
+
     def test_cross_split_table(self):
         iq1 = _make_image_quality(outlier_count=10, outlier_rate=0.05, outlier_summary={"brightness": 6})
         iq2 = _make_image_quality(outlier_count=3, outlier_rate=0.1, outlier_summary={"contrast": 2})
@@ -378,6 +406,54 @@ class TestFindingImageQuality:
         assert column(table, "items") == [200, 30]
         assert column(table, "outliers") == [10, 3]
         assert column(table, "top_flags") == ["brightness(6)", "contrast(2)"]
+
+    def test_each_flagged_image_is_listed_with_its_split_and_its_flags(self):
+        train = _make_image_quality(
+            outlier_count=2, outliers=[_outlier(4, "brightness", 99.0), _outlier(9, "contrast", 99.95)]
+        )
+        test = _make_image_quality(
+            outlier_count=1, outliers=[_outlier(2, "brightness", 99.6), _outlier(2, "entropy", 0.3, "lower")]
+        )
+        splits = {
+            "train": _make_split_result(num_samples=200, image_quality=train),
+            "test": _make_split_result(num_samples=30, image_quality=test),
+        }
+        summary, flagged = tables(_finding_image_quality(splits, _DEFAULT_THRESHOLDS))
+        assert [c.header for c in flagged.columns] == ["Split", "Item", "Flags", "Flagged by"]
+        assert [(row["split"], row["item"], row["flags"]) for row in flagged.rows] == [
+            ("train", 4, 1),
+            ("train", 9, 1),
+            ("test", 2, 2),
+        ]
+        assert flagged.preview == 10
+
+    def test_every_split_lists_its_share_of_the_flagged_images_in_run_order(self):
+        """600 flagged in each of three splits: no split crowds out another, and the note names each one's rest."""
+        splits = {
+            name: _make_split_result(
+                num_samples=1000,
+                image_quality=_make_image_quality(
+                    outlier_count=600, outliers=[_outlier(item, "brightness", 99.0) for item in range(600)]
+                ),
+            )
+            for name in ("train", "val", "test")
+        }
+        finding = _finding_image_quality(splits, _DEFAULT_THRESHOLDS)
+        _, flagged = tables(finding)
+        listed = [row["split"] for row in flagged.rows]
+        assert [(split, listed.count(split)) for split in dict.fromkeys(listed)] == [
+            ("train", 166),
+            ("val", 167),
+            ("test", 167),
+        ]
+        assert paragraphs(finding)[-1] == (
+            "1,800 images flagged; 500 are listed, leaving out 434 of 600 in train, 433 of 600 in val, "
+            "433 of 600 in test, and every one is in `output.raw`."
+        )
+
+    def test_no_flagged_image_lists_none(self):
+        (table,) = tables(_finding_image_quality(self._splits(), _DEFAULT_THRESHOLDS))
+        assert column(table, "split") == ["train"]
 
     def test_rate_is_a_number_that_prints_as_before(self):
         """The rate cell is the rounded percent, and its format prints it as ``f"{pct}%"`` did."""
@@ -1310,6 +1386,16 @@ class TestAssessImageQuality:
         assert result.outlier_count == 2
         assert result.outlier_rate == 0.2
         assert "brightness" in result.outlier_summary
+
+    @patch(f"{_WF}.Outliers")
+    def test_it_keeps_every_flagged_value_with_its_population(self, mock_outliers_cls):
+        """The rows DataEval returns are the evidence the finding lists, so they're kept, not only counted."""
+        from dataeval.flags import ImageStats
+
+        rows = [_outlier(0, "brightness", 99.95), _outlier(1, "contrast", 0.3, "lower")]
+        mock_outliers_cls.return_value.from_stats.return_value.data.return_value = pl.DataFrame(rows)
+        result = _assess_image_quality(self._make_split_data(10), ImageStats.VISUAL, "modzscore")
+        assert result.outliers == rows
 
 
 # ===========================================================================
