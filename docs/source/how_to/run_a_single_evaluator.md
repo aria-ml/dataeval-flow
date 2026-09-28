@@ -155,5 +155,6 @@ reference page.
 - [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md) — when to use an
   evaluator instead of a workflow
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator and parameter
+- [Evaluator recipes](evaluator_recipes.md) — one worked example per evaluator family
 - [Read evaluation outputs](read_evaluation_outputs.md) — the result envelope both
   kinds share

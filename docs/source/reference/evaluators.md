@@ -3,7 +3,8 @@
 Each evaluator runs one DataEval evaluator and reports its determinations, with no
 health status (see [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md)).
 An evaluator's `type` is DataEval's module and class, in kebab case. To run one, see
-[Run a single evaluator](../how_to/run_a_single_evaluator.md).
+[Run a single evaluator](../how_to/run_a_single_evaluator.md); for a worked example per
+family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 
 ## At a glance
 

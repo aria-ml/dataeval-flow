@@ -67,6 +67,8 @@
 - `scope.coverage` and `scope.prioritize` evaluators; a second `scope.prioritize` source is the reference its ranking
   is relative to
 - `shift.ood-kneighbors` and `shift.ood-domain-classifier` evaluators
+- An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
+  output
 
 ### Changed
 
