@@ -9,6 +9,9 @@ An evaluator's `type` is DataEval's module and class, in kebab case. To run one,
 
 | Type | DataEval class | Consumes | Sources | Extractor |
 | --- | --- | --- | --- | --- |
+| `bias.balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
+| `bias.diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
+| `bias.parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `quality.duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `quality.outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 
@@ -21,6 +24,61 @@ Parameter names are DataEval's argument names, unchanged. A parameter you leave 
 is not passed, so DataEval's own default applies. An unknown parameter fails the
 config load, as does any value DataEval itself refuses, such as an unknown threshold
 method. Print any evaluator's JSON Schema with `dataeval-flow evaluators <type>`.
+
+## Bias
+
+The bias evaluators read one source's metadata, built under the metadata policy `metadata:` names, and need no
+extractor. They are explained in DataEval's
+[Dataset Bias explanation](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html), and their classes
+are documented in the
+[DataEval `dataeval.bias` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/bias/index.html).
+
+### `bias.balance`
+
+How much each metadata factor tells about the class label, and each pair of factors about each other.
+Configured by {py:class}`~dataeval_flow.evaluators.bias.BalanceConfig`; runs `dataeval.bias.Balance`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+| `num_neighbors` | `num_neighbors` | DataEval's default (`5`) |
+| `class_imbalance_threshold` | `class_imbalance_threshold` | DataEval's default (`0.3`) |
+| `factor_correlation_threshold` | `factor_correlation_threshold` | DataEval's default (`0.5`) |
+| `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
+| `factor_source` | `factor_source`: `coded`, `values` or `auto` | the policy's `factor_source`, else DataEval's default (`auto`) |
+
+Output: a mapping of three tables. `balance` has each factor's mutual information with the class labels, `factors`
+each factor pair's, and `classwise` each class's against each factor.
+
+### `bias.diversity`
+
+How evenly each metadata factor's values are spread, overall and within each class. Configured by
+{py:class}`~dataeval_flow.evaluators.bias.DiversityConfig`; runs `dataeval.bias.Diversity`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+| `method` | `method`: `simpson` or `shannon` | DataEval's default (`simpson`) |
+| `threshold` | `threshold` | DataEval's default (`0.5`) |
+| `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
+
+Output: a mapping of two tables. `factors` has each factor's diversity and whether it is low, and `classwise` each
+class's.
+
+### `bias.parity`
+
+Which metadata factors are associated with the class label. Configured by
+{py:class}`~dataeval_flow.evaluators.bias.ParityConfig`; runs `dataeval.bias.Parity`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+| `score_threshold` | `score_threshold` | DataEval's default (`0.3`) |
+| `p_value_threshold` | `p_value_threshold` | DataEval's default (`0.05`) |
+| `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
+
+Output: a mapping. `factors` is a table of each factor's Cramér's V, p-value and significance, and
+`insufficient_data` lists the factor values with too few samples per class.
 
 ## Quality
 
@@ -83,7 +141,6 @@ Output: a table with one row per flagged statistic (`item_index`, `metric_name`,
 
 These follow in later releases, under the same rules:
 
-- `bias.balance`, `bias.diversity`, `bias.parity`: read the metadata policy
 - `scope.representation`: reads labels against an ontology
 - `scope.coverage`, `scope.prioritize`: read embeddings
 - `shift.drift-univariate`, `shift.drift-mmd`, `shift.drift-kneighbors`,

@@ -55,6 +55,23 @@ class ToyImages:
         return self._images[index], target, {"id": index}
 
 
+class ToyFactors:
+    """Images across three classes, each with two metadata factors: `site` follows the class, and `angle` does not."""
+
+    def __init__(self, count: int = 60) -> None:
+        rng = np.random.default_rng(0)
+        self._images = [rng.integers(0, 255, (3, 8, 8), dtype=np.uint8) for _ in range(count)]
+        self.metadata: DatasetMetadata = {"id": f"factors-{count}", "index2label": {0: "cat", 1: "dog", 2: "bird"}}
+
+    def __len__(self) -> int:
+        return len(self._images)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        target = np.zeros(3, dtype=np.float32)
+        target[index % 3] = 1.0
+        return self._images[index], target, {"site": ["north", "south", "east"][index % 3], "angle": float(index % 7)}
+
+
 def toy_pipeline(
     *,
     evaluators: Sequence[Any] = (),
@@ -104,6 +121,9 @@ def output_json(result: "Result[Any, Any]") -> dict[str, Any]:
 _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "quality.duplicates": lambda count: (ToyImages(count=count), None),
     "quality.outliers": lambda count: (ToyImages(count=count), None),
+    "bias.balance": lambda count: (ToyFactors(count=count), None),
+    "bias.diversity": lambda count: (ToyFactors(count=count), None),
+    "bias.parity": lambda count: (ToyFactors(count=count), None),
 }
 
 

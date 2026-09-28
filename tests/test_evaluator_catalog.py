@@ -17,6 +17,9 @@ from tests.evaluator_toys import toy_run, toy_task_run
 _CATALOG: dict[str, tuple[str, str]] = {
     "quality.duplicates": ("1+", "optional"),
     "quality.outliers": ("1+", "optional"),
+    "bias.balance": ("1", "refused"),
+    "bias.diversity": ("1", "refused"),
+    "bias.parity": ("1", "refused"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

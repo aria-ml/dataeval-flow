@@ -23,6 +23,9 @@ _NAMES = [cls.name for cls in list_evaluators()]
 _WIRING: dict[str, frozenset[str]] = {
     "quality.duplicates": frozenset({"extractor", "batch_size"}),
     "quality.outliers": frozenset({"extractor", "batch_size"}),
+    "bias.balance": frozenset(),
+    "bias.diversity": frozenset(),
+    "bias.parity": frozenset(),
 }
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.

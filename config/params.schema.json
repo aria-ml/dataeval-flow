@@ -161,6 +161,120 @@
       "title": "AggregatorConfig",
       "type": "object"
     },
+    "BalanceConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``bias.balance``, DataEval's Balance.\n\nMeasures the mutual information between each metadata factor and the class labels, and between pairs of factors.\nA factor that predicts the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.balance`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: balance\n        type: bias.balance\n        metadata: standard\n        class_imbalance_threshold: 0.2",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias.balance",
+          "default": "bias.balance",
+          "description": "The evaluator type this entry configures: `bias.balance`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "num_neighbors": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neighborhood size for the estimator that scores measured factors; no effect on factors read as codes. Unset uses DataEval's default (5).",
+          "title": "Num Neighbors"
+        },
+        "class_imbalance_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Normalized mutual information above which a class counts as imbalanced against a factor. Unset uses DataEval's default (0.3).",
+          "title": "Class Imbalance Threshold"
+        },
+        "factor_correlation_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Normalized mutual information above which two factors count as highly correlated. Unset uses DataEval's default (0.5).",
+          "title": "Factor Correlation Threshold"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Factor, or factors, to condition on instead of the class labels; several are combined into one composite axis. Unset reads the class labels.",
+          "title": "Label"
+        },
+        "factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor to score: `coded` reads the codes binning produced, `values` the measurements, and `auto` decides per factor, reading codes wherever a cut was declared or accepted. Unset reads the metadata policy's `factor_source` where `metadata:` names a policy that sets one, else DataEval's default (`auto`).",
+          "title": "Factor Source"
+        }
+      },
+      "title": "BalanceConfig",
+      "type": "object"
+    },
     "BoVWExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for Bag-of-Visual-Words.\n\nYAML example::\n\n    extractors:\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
@@ -2008,6 +2122,90 @@
         "dataset"
       ],
       "title": "DemoDatasetConfig",
+      "type": "object"
+    },
+    "DiversityConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``bias.diversity``, DataEval's Diversity.\n\nMeasures how evenly each metadata factor's values are spread, overall and within each class. A factor whose\nvalues crowd into few bins under-represents the rest.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.diversity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: diversity\n        type: bias.diversity\n        method: shannon",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias.diversity",
+          "default": "bias.diversity",
+          "description": "The evaluator type this entry configures: `bias.diversity`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "simpson",
+                "shannon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The diversity index: `simpson`, rescaled so 1 is an even spread and 0 all values in one bin, or `shannon`. Unset uses DataEval's default (`simpson`).",
+          "title": "Method"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Diversity at or below which a factor counts as low. Unset uses DataEval's default (0.5).",
+          "title": "Threshold"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Factor, or factors, to condition on instead of the class labels; several are combined into one composite axis. Unset reads the class labels.",
+          "title": "Label"
+        }
+      },
+      "title": "DiversityConfig",
       "type": "object"
     },
     "DriftDetectorDomainClassifier": {
@@ -4904,6 +5102,88 @@
       "title": "ParameterSweepConfig",
       "type": "object"
     },
+    "ParityConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``bias.parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: bias.parity\n        p_value_threshold: 0.01",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias.parity",
+          "default": "bias.parity",
+          "description": "The evaluator type this entry configures: `bias.parity`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "score_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cram\u00e9r's V above which a factor significant under `p_value_threshold` counts as highly correlated with the class labels. Unset uses DataEval's default (0.3).",
+          "title": "Score Threshold"
+        },
+        "p_value_threshold": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "p-value below which a factor's association is significant. Unset uses DataEval's default (0.05).",
+          "title": "P Value Threshold"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Factor, or factors, to condition on instead of the class labels; several are combined into one composite axis. Unset reads the class labels.",
+          "title": "Label"
+        }
+      },
+      "title": "ParityConfig",
+      "type": "object"
+    },
     "ParseDateTimeCorrectionConfig": {
       "additionalProperties": false,
       "description": "Read text as a timestamp, and optionally bucket it into a period.\n\nA timestamp holds a different value on nearly every row, so it names its rows rather\nthan grouping them and is dropped for cardinality. Reading it as the month or the hour\nit falls in is what gives it a vocabulary.\n\nYAML example::\n\n    corrections:\n      - kind: parse_datetime\n        factor: captured_at\n        every: month_of_year",
@@ -6454,6 +6734,15 @@
         {
           "items": {
             "oneOf": [
+              {
+                "$ref": "#/$defs/BalanceConfig"
+              },
+              {
+                "$ref": "#/$defs/DiversityConfig"
+              },
+              {
+                "$ref": "#/$defs/ParityConfig"
+              },
               {
                 "$ref": "#/$defs/DuplicatesConfig"
               },

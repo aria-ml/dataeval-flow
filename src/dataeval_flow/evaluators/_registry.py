@@ -9,6 +9,9 @@ from dataeval_flow.evaluators._evaluator import Evaluator
 __all__ = ["EVALUATORS", "get_evaluator", "list_evaluators"]
 
 _BUILTINS = {
+    "bias.balance": "dataeval_flow.evaluators.bias._evaluator:BalanceEvaluator",
+    "bias.diversity": "dataeval_flow.evaluators.bias._evaluator:DiversityEvaluator",
+    "bias.parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
     "quality.duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
     "quality.outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
 }

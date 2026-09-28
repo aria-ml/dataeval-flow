@@ -60,6 +60,15 @@ dataeval_flow.evaluators:EvaluatorInputs
 dataeval_flow.evaluators:EvaluatorResult
 dataeval_flow.evaluators:get_evaluator
 dataeval_flow.evaluators:list_evaluators
+dataeval_flow.evaluators.bias:BalanceConfig
+dataeval_flow.evaluators.bias:BalanceEvaluator
+dataeval_flow.evaluators.bias:BalanceResult
+dataeval_flow.evaluators.bias:DiversityConfig
+dataeval_flow.evaluators.bias:DiversityEvaluator
+dataeval_flow.evaluators.bias:DiversityResult
+dataeval_flow.evaluators.bias:ParityConfig
+dataeval_flow.evaluators.bias:ParityEvaluator
+dataeval_flow.evaluators.bias:ParityResult
 dataeval_flow.evaluators.quality:DuplicatesConfig
 dataeval_flow.evaluators.quality:DuplicatesEvaluator
 dataeval_flow.evaluators.quality:DuplicatesResult
