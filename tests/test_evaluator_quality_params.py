@@ -61,6 +61,26 @@ class TestDuplicatesConfig:
         with pytest.raises(ValidationError, match="merge_near_duplicate"):
             DuplicatesConfig.model_validate({"name": "d", "type": "quality.duplicates", "merge_near_duplicate": True})
 
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("redundancy_radius", 2),
+            ("min_segment_frames", 10),
+            ("max_segment_gap", 1),
+            ("segment_offset_tolerance", 1),
+            ("verify_alignment", 8),
+            ("min_track_frames", 3),
+            ("frame_sample", 5),
+            ("frame_sample", 2.0),
+        ],
+    )
+    def test_video_parameters_reach_dataeval(self, field: str, value: float):
+        assert DuplicatesConfig.model_validate({field: value}).constructor_kwargs()[field] == value
+
+    def test_a_frame_sample_of_zero_is_refused(self):
+        with pytest.raises(ValidationError):
+            DuplicatesConfig(frame_sample=0)
+
 
 class TestOutliersConfig:
     @pytest.mark.parametrize(

@@ -10,6 +10,7 @@ __all__ = [
     "ThresholdSpec",
 ]
 
-from dataeval_flow.evaluators.quality._config import DuplicatesConfig, OutliersConfig, ThresholdSpec
+from dataeval_flow.evaluators._threshold import ThresholdSpec
+from dataeval_flow.evaluators.quality._config import DuplicatesConfig, OutliersConfig
 from dataeval_flow.evaluators.quality._evaluator import DuplicatesEvaluator, OutliersEvaluator
 from dataeval_flow.evaluators.quality._result import DuplicatesResult, OutliersResult

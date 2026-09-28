@@ -69,6 +69,11 @@ class TestTaskKinds:
         assert TaskConfig(name="t", workflow="e", sources="a", kind="evaluator").source_names == ["a"]
         assert TaskConfig(name="t", workflow="e", sources=["a", "b"], kind="evaluator").source_names == ["a", "b"]
 
+    def test_a_source_named_twice_is_refused(self):
+        """Sources are read by name, so the repeat would collapse to one, a role short for a two-source evaluator."""
+        with pytest.raises(ValidationError, match="names source 'a' more than once"):
+            TaskConfig.model_validate({"name": "t", "evaluator": "dupes", "sources": ["a", "a"]})
+
 
 class TestTheFileShape:
     """A task is saved and described the way a config file names it: `workflow:` or `evaluator:`, no `kind`."""

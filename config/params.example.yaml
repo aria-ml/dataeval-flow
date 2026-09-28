@@ -293,6 +293,22 @@
 #     outlier_flags: [visual]
 
 # -----------------------------------------------------------------------------
+# EVALUATORS — Named evaluator instances (type + params)
+# -----------------------------------------------------------------------------
+# Each evaluator instance binds an evaluator type to specific parameters, run on its
+# own with no health verdict. Tasks reference these by `evaluator:` instead of
+# `workflow:`. See docs/source/reference/evaluators.md for every type and parameter.
+#
+# evaluators:
+#   - name: dupes
+#     type: quality.duplicates
+#     flags: [hash_basic, hash_d4]
+#
+#   - name: balance
+#     type: bias.balance          # reads metadata; a task naming an extractor is refused
+#     class_imbalance_threshold: 0.2
+
+# -----------------------------------------------------------------------------
 # TASKS — Lightweight composition by name
 # -----------------------------------------------------------------------------
 # Each task references a workflow instance, sources, and optional extractor.
@@ -307,6 +323,10 @@
 #     workflow: strict_clean
 #     sources: my_dataset_full
 #     extractor: resnet_extractor
+#
+#   - name: find_dupes
+#     evaluator: dupes
+#     sources: my_dataset_full
 
 # -----------------------------------------------------------------------------
 # EXPORTS — Write a source out as a dataset (optional)

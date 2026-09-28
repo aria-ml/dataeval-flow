@@ -12,19 +12,25 @@ from dataeval_flow.config._schemas._task import AutoBinMethod, FactorSource
 class MetadataConfigMixin(BaseModel):
     """Mixin for configs that read dataset metadata: which metadata policy they read it under.
 
-    Provides binning and exclusion settings for metadata analysis. Mix into any workflow or
-    evaluator config whose runs build metadata (``data-cleaning``'s does).
+    Mix into any workflow or evaluator config whose runs build metadata (``data-cleaning``'s and ``bias.balance``'s
+    do). Flow resolves the named policy before the dataset is read, and builds the metadata under it.
     """
 
     metadata: str | None = Field(
         default=None,
         description=(
-            "Name of a policy defined under the top-level `metadata:` key. Preferred over "
-            "the `metadata_*` fields below, which are kept for compatibility: a policy is "
-            "defined once and shared, so workflows meant to be compared read their factors "
-            "under one encoding rather than each spelling out its own."
+            "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so "
+            "entries meant to be compared read their factors under one encoding. Leave unset for DataEval's "
+            "defaults."
         ),
     )
+
+
+class _LegacyMetadataMixin(BaseModel):
+    """The older per-workflow spelling of a metadata policy, kept on the workflow configs that carried it.
+
+    Refused alongside ``metadata``, which supersedes it. Evaluator configs never take it.
+    """
 
     metadata_auto_bin_method: AutoBinMethod | None = Field(
         default=None,

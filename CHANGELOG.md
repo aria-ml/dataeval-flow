@@ -4,7 +4,7 @@
 
 ### Added
 
-- Top-level `evaluators:` key running a single DataEval evaluator, `quality.duplicates` or `quality.outliers`
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the fifteen types the Evaluator Catalog lists
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -38,6 +38,9 @@
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
+- `shift.drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
+  `chunking:`; Wasserstein takes a validation source between the reference and the data to test
+- `SourceCount.THREE`, for an entry that takes exactly three sources
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
 - The HTML report shows a card per finding, warnings open, with sortable and filterable tables and dark mode
 - Reports carry a thumbnail of each item their findings name, in `Result.assets`; the HTML report shows them
@@ -50,9 +53,27 @@
 - `result: max_rows:` and `preview_rows:` set a table of items' rows (500) and text preview (10); `-1` lifts a limit
 - `result: fail_on:` gates the exit code on `failure`, `warning` or `never`; `--fail-on-warning` still overrides it
 - `junit` and `markdown` formats: a JUnit report for CI test views and a Markdown summary, both naming failed tasks
+- Evaluators can read `metadata`, `labels` and `embeddings` inputs, and the task's resolved `ontology`, on
+  `EvaluatorInputs`
+- `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` by `to_dict()`
+  and `export()` and shown in reports
+- `quality.duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
+  `segment_offset_tolerance`, `verify_alignment`, `min_track_frames`, `frame_sample`) and writes
+  `annotation_divergences` and `factor_cardinality` under `extras`
+- `bias.balance`, `bias.diversity` and `bias.parity` evaluators, reading one source's metadata under its
+  `metadata:` policy
+- `scope.representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
+  `index2label`
+- `scope.coverage` and `scope.prioritize` evaluators; a second `scope.prioritize` source is the reference its ranking
+  is relative to
+- `shift.ood-kneighbors` and `shift.ood-domain-classifier` evaluators
+- An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
+  output
 
 ### Changed
 
+- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
+  older `metadata_*` fields stay on the workflows that took them
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
 - A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
   mistyped flag, which exits `2`
@@ -100,6 +121,10 @@
 - Data cleaning lists its duplicate groups with their items, largest first, and duplicate boxes on their own
 - OOD detection lists its samples in tables, naming each in its own test source, rather than as bullets
 - Pillow (`>=12.2.0`) is a core dependency, to encode thumbnails
+- An evaluator report's console form cuts a list of more than ten values inside its output to the first ten and a count;
+  `-v` and `result.txt` show it whole
+- `data-coverage` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
+  per-dimension rescale had shifted `dispersion` and the coverage radius
 
 ### Fixed
 
@@ -127,6 +152,8 @@
 - Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
 - GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
 - Container images no longer ship the standalone interpreter's bundled `pip`, which nothing in the image used
+- A task naming one source twice is refused when the config loads; the repeat was dropped, leaving the task a
+  source short
 
 ### Removed
 

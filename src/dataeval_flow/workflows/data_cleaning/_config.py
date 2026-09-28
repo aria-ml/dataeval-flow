@@ -6,7 +6,7 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
 from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
 from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningResult
 
@@ -96,7 +96,11 @@ class DataCleaningHealthThresholds(BaseModel):
 
 
 class DataCleaningConfig(
-    WorkflowConfig[DataCleaningResult], MetadataConfigMixin, _LegacyValueRangeMixin, StatsConfigMixin
+    WorkflowConfig[DataCleaningResult],
+    MetadataConfigMixin,
+    _LegacyMetadataMixin,
+    _LegacyValueRangeMixin,
+    StatsConfigMixin,
 ):
     """The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.
 

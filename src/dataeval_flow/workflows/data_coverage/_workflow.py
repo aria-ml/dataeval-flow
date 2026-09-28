@@ -292,7 +292,8 @@ def _run_embedding_analysis(
         if dc.cache is not None:
             stack.enter_context(active_cache(dc.cache, emb_key))
         embeddings_obj = get_or_compute_embeddings(emb_dataset, dc.extractor, dc.transforms, dc.batch_size)
-    all_embeddings = normalize_unit_interval(np.array(embeddings_obj))
+    # As extracted: Coverage rescales them itself (force_unit_interval), as `scope.coverage` hands them over.
+    all_embeddings = np.asarray(embeddings_obj)
 
     # dataeval's coverage functions require strictly more embeddings than
     # num_observations. Skip only this assessment; the ValueError must not abort label,
@@ -309,7 +310,10 @@ def _run_embedding_analysis(
         )
         _logger.warning("[data-coverage] Skipping embedding coverage — %s.", skipped_reason)
 
-    completeness_result = _run_completeness(all_embeddings) if params.run_completeness else None
+    # Completeness reads them rescaled per dimension, as it always has.
+    completeness_result = (
+        _run_completeness(normalize_unit_interval(all_embeddings)) if params.run_completeness else None
+    )
     return coverage_result, completeness_result, skipped_reason
 
 

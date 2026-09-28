@@ -161,6 +161,120 @@
       "title": "AggregatorConfig",
       "type": "object"
     },
+    "BalanceConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``bias.balance``, DataEval's Balance.\n\nMeasures the mutual information between each metadata factor and the class labels, and between pairs of factors.\nA factor that predicts the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.balance`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: balance\n        type: bias.balance\n        metadata: standard\n        class_imbalance_threshold: 0.2",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias.balance",
+          "default": "bias.balance",
+          "description": "The evaluator type this entry configures: `bias.balance`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "num_neighbors": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neighborhood size for the estimator that scores measured factors; no effect on factors read as codes. Unset uses DataEval's default (5).",
+          "title": "Num Neighbors"
+        },
+        "class_imbalance_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Normalized mutual information above which a class counts as imbalanced against a factor. Unset uses DataEval's default (0.3).",
+          "title": "Class Imbalance Threshold"
+        },
+        "factor_correlation_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Normalized mutual information above which two factors count as highly correlated. Unset uses DataEval's default (0.5).",
+          "title": "Factor Correlation Threshold"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Factor, or factors, to condition on instead of the class labels; several are combined into one composite axis. Unset reads the class labels.",
+          "title": "Label"
+        },
+        "factor_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "coded",
+                "values",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which representation of each factor to score: `coded` reads the codes binning produced, `values` the measurements, and `auto` decides per factor, reading codes wherever a cut was declared or accepted. Unset reads the metadata policy's `factor_source` where `metadata:` names a policy that sets one, else DataEval's default (`auto`).",
+          "title": "Factor Source"
+        }
+      },
+      "title": "BalanceConfig",
+      "type": "object"
+    },
     "BoVWExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for Bag-of-Visual-Words.\n\nYAML example::\n\n    extractors:\n      - name: bovw_extractor\n        model: bovw\n        vocab_size: 1024\n        batch_size: 32",
@@ -213,6 +327,295 @@
         }
       },
       "title": "BoVWExtractorConfig",
+      "type": "object"
+    },
+    "ChunkedDriftConfig": {
+      "additionalProperties": false,
+      "description": "How a drift detector splits its data into chunks: the arguments of DataEval's ``chunked()``.\n\nNamed for DataEval's ``ChunkedDrift``, which ``chunked()`` returns. Set it as a drift entry's ``chunking:`` to\ntest each chunk of the data against the spread of the reference's chunks, rather than the data as a whole. Give\n``chunk_size`` or ``chunk_count``.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd_chunked\n        type: shift.drift-mmd\n        chunking:\n          chunk_count: 10\n          threshold: [zscore, 2.5]",
+      "properties": {
+        "chunk_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items per chunk. Set this or `chunk_count`; given both, DataEval uses this.",
+          "title": "Chunk Size"
+        },
+        "chunk_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of equal chunks. Set this or `chunk_size`.",
+          "title": "Chunk Count"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far a chunk's drift metric must sit from the reference chunks' to count as drift: a method (`zscore`, `modzscore`, `iqr`, `adaptive`, `constant`), bounds, or `[method, bounds]`. Unset uses the detector's default.",
+          "title": "Threshold"
+        },
+        "incomplete": {
+          "anyOf": [
+            {
+              "enum": [
+                "keep",
+                "drop",
+                "append"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What `chunk_size` does with the reference's final chunk when it falls short: `keep` scores it as a chunk of its own, `drop` leaves it out of the baseline, and `append` merges it into the chunk before. The data to test always merges its remainder into its last chunk. Needs `chunk_size`. Unset uses DataEval's default (`keep`).",
+          "title": "Incomplete"
+        }
+      },
+      "title": "ChunkedDriftConfig",
       "type": "object"
     },
     "ChunkingConfig": {
@@ -372,6 +775,114 @@
       "title": "CocoDatasetConfig",
       "type": "object"
     },
+    "CoverageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: scope.coverage\n        num_observations: 30",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.coverage",
+          "default": "scope.coverage",
+          "description": "The evaluator type this entry configures: `scope.coverage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "naive",
+                "adaptive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`).",
+          "title": "Method"
+        },
+        "num_observations": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neighbors an item needs within the radius to count as covered, fewer than the source's items; 20 to 50 is typical. Unset uses DataEval's default (20).",
+          "title": "Num Observations"
+        },
+        "percent": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of items to flag as uncovered, for the `adaptive` method only. Unset uses DataEval's default (0.01).",
+          "title": "Percent"
+        },
+        "min_class_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs for its dispersion, isotropy and near-duplicate fraction to be assessed; smaller classes are reported with `assessable` false. Unset uses DataEval's default (20).",
+          "title": "Min Class Samples"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs for its isotropy to be reported. Unset uses one more than the embedding size.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A nearest-neighbor pair counts as a near duplicate when its distance is below this fraction of the class's median nearest-neighbor distance. Unset uses DataEval's default (0.5).",
+          "title": "Near Duplicate Factor"
+        }
+      },
+      "title": "CoverageConfig",
+      "type": "object"
+    },
     "DataAnalysisConfig": {
       "description": "The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
       "properties": {
@@ -411,19 +922,6 @@
           "deprecated": true,
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
-        },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
-          "title": "Metadata"
         },
         "metadata_auto_bin_method": {
           "anyOf": [
@@ -494,6 +992,19 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -717,19 +1228,6 @@
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
-          "title": "Metadata"
-        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -799,6 +1297,19 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -1096,19 +1607,6 @@
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
-          "title": "Metadata"
-        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -1178,6 +1676,19 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -2010,6 +2521,90 @@
       "title": "DemoDatasetConfig",
       "type": "object"
     },
+    "DiversityConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``bias.diversity``, DataEval's Diversity.\n\nMeasures how evenly each metadata factor's values are spread, overall and within each class. A factor whose\nvalues crowd into few bins under-represents the rest.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.diversity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: diversity\n        type: bias.diversity\n        method: shannon",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias.diversity",
+          "default": "bias.diversity",
+          "description": "The evaluator type this entry configures: `bias.diversity`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "simpson",
+                "shannon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The diversity index: `simpson`, rescaled so 1 is an even spread and 0 all values in one bin, or `shannon`. Unset uses DataEval's default (`simpson`).",
+          "title": "Method"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Diversity at or below which a factor counts as low. Unset uses DataEval's default (0.5).",
+          "title": "Threshold"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Factor, or factors, to condition on instead of the class labels; several are combined into one composite axis. Unset reads the class labels.",
+          "title": "Label"
+        }
+      },
+      "title": "DiversityConfig",
+      "type": "object"
+    },
     "DriftDetectorDomainClassifier": {
       "additionalProperties": false,
       "description": "Binary domain classifier (LightGBM) approach.\n\nTrains a binary classifier to distinguish reference from test data.\nAn AUROC significantly above 0.5 indicates the distributions are\ndistinguishable \u2014 i.e. drift has occurred.",
@@ -2266,6 +2861,234 @@
       "title": "DriftDetectorUnivariate",
       "type": "object"
     },
+    "DriftDomainClassifierConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.drift-domain-classifier``, DataEval's DriftDomainClassifier.\n\nTrains a classifier to tell the reference from the test data under cross-validation, and declares drift when it\ntells them apart better than ``threshold`` (AUROC). Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-domain-classifier`` prints the JSON\nSchema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_drift\n        type: shift.drift-domain-classifier\n        threshold: 0.6",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.drift-domain-classifier",
+          "default": "shift.drift-domain-classifier",
+          "description": "The evaluator type this entry configures: `shift.drift-domain-classifier`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "n_folds": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cross-validation folds. Unset uses DataEval's default (5).",
+          "title": "N Folds"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "AUROC above which drift is declared; with `chunking`, a (lower, upper) pair of AUROC bounds. Unset uses DataEval's default (0.55).",
+          "title": "Threshold"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        }
+      },
+      "title": "DriftDomainClassifierConfig",
+      "type": "object"
+    },
+    "DriftKNeighborsConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.drift-kneighbors``, DataEval's DriftKNeighbors.\n\nCompares the test data's distances to their nearest reference neighbors with the reference's own. Needs an\nextractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_drift\n        type: shift.drift-kneighbors\n        k: 5",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.drift-kneighbors",
+          "default": "shift.drift-kneighbors",
+          "description": "The evaluator type this entry configures: `shift.drift-kneighbors`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors. Unset uses DataEval's default (10).",
+          "title": "K"
+        },
+        "distance_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "cosine",
+                "euclidean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distance between embeddings. Unset uses DataEval's default (`euclidean`).",
+          "title": "Distance Metric"
+        },
+        "p_val": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significance threshold for drift, without chunking. Unset uses DataEval's default (0.05).",
+          "title": "P Val"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        }
+      },
+      "title": "DriftKNeighborsConfig",
+      "type": "object"
+    },
+    "DriftMMDConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.drift-mmd``, DataEval's DriftMMD.\n\nMeasures the maximum mean discrepancy between the two sources' embeddings, and tests it against a permutation\nestimate of its no-drift distribution. Needs an extractor on the task, and two sources: the reference, then the\ndata to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-mmd`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd\n        type: shift.drift-mmd\n        n_permutations: 500",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.drift-mmd",
+          "default": "shift.drift-mmd",
+          "description": "The evaluator type this entry configures: `shift.drift-mmd`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "p_val": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significance threshold for drift. Unset uses DataEval's default (0.05).",
+          "title": "P Val"
+        },
+        "n_permutations": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Permutations in the test that estimates the no-drift distribution; more is more accurate and slower. Unset uses DataEval's default (100).",
+          "title": "N Permutations"
+        },
+        "permutation_batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Permutations computed per batch, to bound memory: a count, or `auto`, which sizes it from free GPU memory on CUDA and computes all at once on CPU. Unset uses DataEval's default (`auto`).",
+          "title": "Permutation Batch Size"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        }
+      },
+      "title": "DriftMMDConfig",
+      "type": "object"
+    },
     "DriftMonitoringConfig": {
       "description": "The settings of one ``drift-monitoring`` entry: the detectors run against the reference, and when they warn.\n\nAt least one detector must be configured.  Chunking and classwise\nanalysis are optional extensions.\n\nExample YAML::\n\n    workflows:\n      - name: drift_knn\n        type: drift-monitoring\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
@@ -2394,6 +3217,182 @@
         }
       },
       "title": "DriftMonitoringHealthThresholds",
+      "type": "object"
+    },
+    "DriftUnivariateConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.drift-univariate``, DataEval's DriftUnivariate.\n\nTests each embedding dimension of the second source against the first's with a univariate statistical test, and\ndeclares drift when any dimension drifts after a multiple-testing correction. Needs an extractor on the task, and\ntwo sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-univariate`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: ks\n        type: shift.drift-univariate\n        p_val: 0.01\n\n    tasks:\n      - name: drift_check\n        evaluator: ks\n        sources: [train, operational]\n        extractor: bovw_ext",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.drift-univariate",
+          "default": "shift.drift-univariate",
+          "description": "The evaluator type this entry configures: `shift.drift-univariate`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "ks",
+                "cvm",
+                "mwu",
+                "anderson",
+                "bws"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The statistical test: `ks` (Kolmogorov-Smirnov), `cvm` (Cram\u00e9r-von Mises), `mwu` (Mann-Whitney U), `anderson` (Anderson-Darling) or `bws` (Baumgartner-Weiss-Schindler). Unset uses DataEval's default (`ks`).",
+          "title": "Method"
+        },
+        "p_val": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significance threshold for drift. Unset uses DataEval's default (0.05).",
+          "title": "P Val"
+        },
+        "correction": {
+          "anyOf": [
+            {
+              "enum": [
+                "bonferroni",
+                "fdr"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Multiple-testing correction across dimensions: `bonferroni`, conservative, or `fdr` (Benjamini-Hochberg). Unset uses DataEval's default (`bonferroni`).",
+          "title": "Correction"
+        },
+        "alternative": {
+          "anyOf": [
+            {
+              "enum": [
+                "two-sided",
+                "less",
+                "greater"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Alternative hypothesis, for the `ks`, `mwu` and `bws` tests; `cvm` and `anderson` are always two-sided. Unset uses DataEval's default (`two-sided`).",
+          "title": "Alternative"
+        },
+        "n_features": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Embedding dimensions to test. Unset infers them from the embeddings.",
+          "title": "N Features"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        }
+      },
+      "title": "DriftUnivariateConfig",
+      "type": "object"
+    },
+    "DriftWassersteinConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.drift-wasserstein``, DataEval's DriftWasserstein.\n\nCompares each embedding dimension's Wasserstein distance from the reference to the test data with its distance to\nan in-distribution validation set, and declares drift where the ratio passes ``ratio_threshold``. Needs an\nextractor on the task, and three sources: the reference, the validation set, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-wasserstein`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: wasserstein\n        type: shift.drift-wasserstein\n\n    tasks:\n      - name: drift_check\n        evaluator: wasserstein\n        sources: [train, validation, operational]\n        extractor: bovw_ext",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.drift-wasserstein",
+          "default": "shift.drift-wasserstein",
+          "description": "The evaluator type this entry configures: `shift.drift-wasserstein`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ratio_threshold": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ratio of a dimension's distance to the test data over its distance to the validation set, above which it drifts: 1.4 flags distances 40% above the baseline. Unset uses DataEval's default (1.4).",
+          "title": "Ratio Threshold"
+        },
+        "n_features": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Embedding dimensions to compare. Unset infers them from the embeddings.",
+          "title": "N Features"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        }
+      },
+      "title": "DriftWassersteinConfig",
       "type": "object"
     },
     "DuplicatesConfig": {
@@ -2542,6 +3541,108 @@
           "default": null,
           "description": "Enables cluster mode: embedding-space near duplicates at this sensitivity, merged with the hash groups. Needs an extractor on the task, and reads one source.",
           "title": "Cluster Sensitivity"
+        },
+        "redundancy_radius": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum Hamming distance, in bits, for a video frame to count as carrying nothing new over the frame before it; such stretches are reported as `redundant` groups. No effect on image datasets. Unset uses DataEval's default (4).",
+          "title": "Redundancy Radius"
+        },
+        "min_segment_frames": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shortest stretch, in frames, two videos may share and still be reported as a `segment` row. No effect on image datasets. Unset uses DataEval's default (30).",
+          "title": "Min Segment Frames"
+        },
+        "max_segment_gap": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frames a shared stretch may skip and still count as continuous; too large a value bridges a cut. No effect on image datasets. Unset uses DataEval's default (5).",
+          "title": "Max Segment Gap"
+        },
+        "segment_offset_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far two stretches may differ in offset and still be joined into one; raise it where two videos were sampled at slightly different rates. No effect on image datasets. Unset uses DataEval's default (0).",
+          "title": "Segment Offset Tolerance"
+        },
+        "verify_alignment": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean bits per frame two videos may differ by along a warped alignment and still be reported as an `aligned` row; around 8 is a reasonable start, and the cost is quadratic in the videos' lengths. No effect on image datasets. Unset skips warped matching.",
+          "title": "Verify Alignment"
+        },
+        "min_track_frames": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shortest stretch, in detections, two tracks may share and still be reported at `level: track`. Read only with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5).",
+          "title": "Min Track Frames"
+        },
+        "frame_sample": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a target rate in frames per second. No effect on image datasets. Unset reads every frame.",
+          "title": "Frame Sample"
         }
       },
       "title": "DuplicatesConfig",
@@ -3078,19 +4179,6 @@
     "MetadataTriageConfig": {
       "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
       "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
-          "title": "Metadata"
-        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -3160,6 +4248,19 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3272,19 +4373,6 @@
           "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
           "title": "Value Range"
         },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. Preferred over the `metadata_*` fields below, which are kept for compatibility: a policy is defined once and shared, so workflows meant to be compared read their factors under one encoding rather than each spelling out its own.",
-          "title": "Metadata"
-        },
         "metadata_auto_bin_method": {
           "anyOf": [
             {
@@ -3354,6 +4442,19 @@
           "default": null,
           "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
           "title": "Metadata Factor Source"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3546,6 +4647,163 @@
         }
       },
       "title": "OODDetectorKNeighbors",
+      "type": "object"
+    },
+    "OODDomainClassifierConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.ood-domain-classifier``, DataEval's OODDomainClassifier.\n\nTrains a classifier to tell each test item from the reference under repeated cross-validation, and flags the\nitems it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-domain-classifier`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_ood\n        type: shift.ood-domain-classifier\n        n_repeats: 10",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.ood-domain-classifier",
+          "default": "shift.ood-domain-classifier",
+          "description": "The evaluator type this entry configures: `shift.ood-domain-classifier`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "n_folds": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cross-validation folds per repeat. Unset uses DataEval's default (5).",
+          "title": "N Folds"
+        },
+        "n_repeats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Times the fold split is repeated. Unset uses DataEval's default (5).",
+          "title": "N Repeats"
+        },
+        "n_std": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Standard deviations above the null mean where the threshold sits, used when `threshold_perc` is unset. Unset uses DataEval's default (2.0).",
+          "title": "N Std"
+        },
+        "hyperparameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "LightGBM hyperparameters for the classifier. Unset uses DataEval's.",
+          "title": "Hyperparameters"
+        },
+        "threshold_perc": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percentage of the reference treated as normal, 0 to 100; overrides `n_std`. Unset uses `n_std`.",
+          "title": "Threshold Perc"
+        }
+      },
+      "title": "OODDomainClassifierConfig",
+      "type": "object"
+    },
+    "OODKNeighborsConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``shift.ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: shift.ood-kneighbors\n        distance_metric: euclidean",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift.ood-kneighbors",
+          "default": "shift.ood-kneighbors",
+          "description": "The evaluator type this entry configures: `shift.ood-kneighbors`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors each item is scored against. Unset uses DataEval's default (10).",
+          "title": "K"
+        },
+        "distance_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "cosine",
+                "euclidean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distance between embeddings. Unset uses DataEval's default (`cosine`).",
+          "title": "Distance Metric"
+        },
+        "threshold_perc": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percentage of the reference treated as normal, 0 to 100; higher is more permissive. Unset uses DataEval's default (95).",
+          "title": "Threshold Perc"
+        }
+      },
+      "title": "OODKNeighborsConfig",
       "type": "object"
     },
     "OnnxExtractorConfig": {
@@ -4802,6 +6060,88 @@
       "title": "ParameterSweepConfig",
       "type": "object"
     },
+    "ParityConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``bias.parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: bias.parity\n        p_value_threshold: 0.01",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias.parity",
+          "default": "bias.parity",
+          "description": "The evaluator type this entry configures: `bias.parity`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "score_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cram\u00e9r's V above which a factor significant under `p_value_threshold` counts as highly correlated with the class labels. Unset uses DataEval's default (0.3).",
+          "title": "Score Threshold"
+        },
+        "p_value_threshold": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "p-value below which a factor's association is significant. Unset uses DataEval's default (0.05).",
+          "title": "P Value Threshold"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Factor, or factors, to condition on instead of the class labels; several are combined into one composite axis. Unset reads the class labels.",
+          "title": "Label"
+        }
+      },
+      "title": "ParityConfig",
+      "type": "object"
+    },
     "ParseDateTimeCorrectionConfig": {
       "additionalProperties": false,
       "description": "Read text as a timestamp, and optionally bucket it into a period.\n\nA timestamp holds a different value on nearly every row, so it names its rows rather\nthan grouping them and is dropped for cardinality. Reading it as the month or the hour\nit falls in is what gives it a vocabulary.\n\nYAML example::\n\n    corrections:\n      - kind: parse_datetime\n        factor: captured_at\n        every: month_of_year",
@@ -4955,6 +6295,154 @@
         "steps"
       ],
       "title": "PreprocessorConfig",
+      "type": "object"
+    },
+    "PrioritizeConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.prioritize``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.prioritize`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: scope.prioritize\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.prioritize",
+          "default": "scope.prioritize",
+          "description": "The evaluator type this entry configures: `scope.prioritize`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "knn",
+                "kmeans_distance",
+                "kmeans_complexity",
+                "hdbscan_distance",
+                "hdbscan_complexity"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How items are ranked: `knn`, by distance to their nearest neighbors; `kmeans_distance` or `hdbscan_distance`, by distance to their cluster's center; `kmeans_complexity` or `hdbscan_complexity`, by weighted sampling over the cluster structure. Unset uses DataEval's default (`knn`).",
+          "title": "Method"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors, for `knn`. Unset uses the square root of the item count.",
+          "title": "K"
+        },
+        "c": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clusters, for the clustering methods. Unset uses the square root of the item count.",
+          "title": "C"
+        },
+        "n_init": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "K-means initializations, for the `kmeans_*` methods: a count, or `auto`. Unset uses DataEval's default (`auto`).",
+          "title": "N Init"
+        },
+        "max_cluster_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Largest cluster, for the `hdbscan_*` methods. Unset leaves it unbounded.",
+          "title": "Max Cluster Size"
+        },
+        "order": {
+          "anyOf": [
+            {
+              "enum": [
+                "easy_first",
+                "hard_first"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Unset uses DataEval's default (`easy_first`).",
+          "title": "Order"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "difficulty",
+                "stratified",
+                "class_balanced"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the ranking is reordered: `difficulty` keeps it, `stratified` balances it across difficulty bins, and `class_balanced` across class labels, which needs a dataset with one label per item. Unset uses DataEval's default (`difficulty`).",
+          "title": "Policy"
+        },
+        "num_bins": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Difficulty bins, for the `stratified` policy. Unset uses DataEval's default (50).",
+          "title": "Num Bins"
+        }
+      },
+      "title": "PrioritizeConfig",
       "type": "object"
     },
     "ReductionOptionsConfig": {
@@ -5291,6 +6779,61 @@
         }
       },
       "title": "RemapRuleConfig",
+      "type": "object"
+    },
+    "RepresentationConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.representation``, DataEval's Representation.\n\nCounts the source's class labels against an ontology's leaves, and lists what to acquire for every leaf to reach\nits expected share. Needs a dataset with labels. With no ``ontology``, a flat one is synthesized from the\ndataset's ``index2label``, which can only name the classes the dataset declares.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.representation`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: representation\n        type: scope.representation\n        ontology: vehicles\n        expected: {truck: 0.2}",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.representation",
+          "default": "scope.representation",
+          "description": "The evaluator type this entry configures: `scope.representation`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The label space to count against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children. Unset synthesizes a flat ontology from the dataset's `index2label`, which can only name the classes the dataset declares.",
+          "title": "Ontology"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. Named classes take this floor as their target in place of the uniform share, and are checked in `violations`; the others keep the uniform target. Unset expects a uniform share for every leaf.",
+          "title": "Expected"
+        }
+      },
+      "title": "RepresentationConfig",
       "type": "object"
     },
     "RescaleCorrectionConfig": {
@@ -6353,10 +7896,49 @@
           "items": {
             "oneOf": [
               {
+                "$ref": "#/$defs/BalanceConfig"
+              },
+              {
+                "$ref": "#/$defs/DiversityConfig"
+              },
+              {
+                "$ref": "#/$defs/ParityConfig"
+              },
+              {
                 "$ref": "#/$defs/DuplicatesConfig"
               },
               {
                 "$ref": "#/$defs/OutliersConfig"
+              },
+              {
+                "$ref": "#/$defs/CoverageConfig"
+              },
+              {
+                "$ref": "#/$defs/PrioritizeConfig"
+              },
+              {
+                "$ref": "#/$defs/RepresentationConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftDomainClassifierConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftKNeighborsConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftMMDConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftUnivariateConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftWassersteinConfig"
+              },
+              {
+                "$ref": "#/$defs/OODDomainClassifierConfig"
+              },
+              {
+                "$ref": "#/$defs/OODKNeighborsConfig"
               }
             ]
           },

@@ -73,6 +73,7 @@ class DuplicatesEvaluator(Evaluator[DuplicatesConfig, DuplicatesOutput[Any, Any]
     description: ClassVar[str] = "Exact and near duplicate groups (DataEval Duplicates)"
     dataeval_class: ClassVar[type] = Duplicates
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
+    output_extras: ClassVar[tuple[str, ...]] = ("annotation_divergences", "factor_cardinality")
 
     def run(self, config: DuplicatesConfig, inputs: Sequence[EvaluatorInputs]) -> DuplicatesOutput[Any, Any]:
         """Find duplicates in the prepared inputs."""

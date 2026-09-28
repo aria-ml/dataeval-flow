@@ -67,6 +67,16 @@ class _ListOutput(Output[list]):
         return self._values
 
 
+class _WithExtras(_Array):
+    """An array output with results beside it, as `CoverageOutput` keeps its radius."""
+
+    def __init__(self) -> None:
+        super().__init__(np.arange(3))
+        self.radius = 0.5
+        self.uncovered = np.array([2])
+        self.digests: dict[int, str] | None = None
+
+
 def test_a_frame_is_a_table():
     frame = pl.DataFrame({"group_id": [0], "item_indices": [[0, 5]], "dup_type": ["exact"]})
     out = serialize_output(DataFrameOutput(frame))
@@ -168,3 +178,14 @@ def test_a_plain_list_from_data_is_an_array():
     serialized = serialize_output(output)
     assert serialized == {"shape": "array", "data": [1, 2, 3]}
     assert json.loads(json.dumps(serialized)) == serialized
+
+
+def test_extras_are_written_beside_the_shape():
+    serialized = serialize_output(_WithExtras(), extras=("radius", "uncovered", "digests"))
+    assert serialized["data"] == [0, 1, 2]
+    assert serialized["extras"] == {"radius": 0.5, "uncovered": [2], "digests": None}
+    json.dumps(serialized)
+
+
+def test_without_extras_nothing_is_added():
+    assert "extras" not in serialize_output(_WithExtras())

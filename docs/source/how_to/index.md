@@ -85,6 +85,7 @@ configure_metadata_binning
 :hidden:
 
 run_a_single_evaluator
+evaluator_recipes
 read_evaluation_outputs
 ../notebooks/view_html_reports
 export_a_dataset
@@ -98,6 +99,9 @@ containerized_workflows
 
 - - {doc}`Run a single evaluator <run_a_single_evaluator>`
   - Run one DataEval evaluator, such as finding duplicates, and read its output with no health verdict.
+- - {doc}`Evaluator recipes <evaluator_recipes>`
+  - One worked example per evaluator family: bias, representation, coverage, prioritization, drift and
+    out-of-distribution.
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
 - - {doc}`View a report as HTML <../notebooks/view_html_reports>`

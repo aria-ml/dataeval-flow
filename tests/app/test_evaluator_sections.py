@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import pytest
 from textual.widgets import Input, Select
 
 from dataeval_flow._app._model._introspect import FieldKind
@@ -11,6 +12,7 @@ from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens import SectionModal
 from dataeval_flow._app._screens._base import _select_value
 from dataeval_flow._app._viewmodel._rendering import _item_to_yaml_snippet, snippet_task_with_execution
+from dataeval_flow.evaluators._registry import _BUILTINS
 
 from .conftest import _MinimalApp
 
@@ -152,3 +154,13 @@ class TestTriStateBoolFields:
 
             assert result is not None
             assert "merge_near_duplicates" not in result
+
+
+def test_every_builtin_evaluator_is_offered():
+    assert set(get_variant_choices("evaluators") or []) >= set(_BUILTINS)
+
+
+@pytest.mark.parametrize("name", sorted(_BUILTINS))
+def test_every_builtin_evaluator_has_a_form(name: str):
+    """Each type's form builds, nested `chunking:` and mapping fields included."""
+    assert get_fields("evaluators", name, ConfigState())

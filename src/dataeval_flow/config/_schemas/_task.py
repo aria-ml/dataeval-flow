@@ -1,7 +1,7 @@
 """Task configuration schema."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -82,6 +82,20 @@ class TaskConfig(BaseModel):
                 raise ValueError(f"Task '{name}' names an evaluator, so its kind cannot be '{fields['kind']}'.")
             fields.update(workflow=evaluator, kind="evaluator")
         return fields
+
+    @model_validator(mode="after")
+    def _each_source_once(self) -> Self:
+        """Refuse a source named twice: sources are read by name, so the repeat would silently drop to one."""
+        seen: set[str] = set()
+        for source in self.source_names:
+            if source in seen:
+                raise ValueError(
+                    f"Task '{self.name}' names source '{source}' more than once. Its sources are read by name, so "
+                    "the repeat would be dropped; to compare a source with itself, define a second source reading "
+                    "the same dataset."
+                )
+            seen.add(source)
+        return self
 
     @model_serializer(mode="wrap")
     def _write_target_key(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:

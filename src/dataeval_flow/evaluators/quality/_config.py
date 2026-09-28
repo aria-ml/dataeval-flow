@@ -5,34 +5,25 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["DuplicatesConfig", "OutliersConfig", "ThresholdSpec"]
+__all__ = ["DuplicatesConfig", "OutliersConfig"]
 
 import functools
 import operator
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Generic, Literal, Self, TypeVar
 
 from pydantic import Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import StatsConfigMixin
 from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.quality._result import DuplicatesResult, OutliersResult
 
 if TYPE_CHECKING:
     from dataeval.flags import ImageStats
     from dataeval.quality import Duplicates, Outliers
-
-# One bound, or a (lower, upper) pair.
-Bounds = float | tuple[float | None, float | None]
-# Limits a bound is clipped to, as (lower, upper).
-Limits = tuple[float | None, float | None]
-# DataEval's ``ThresholdLike``, less the ``Threshold`` objects a config cannot build: a
-# method name, bounds, or ``[method, bounds]``, ``[method, bounds, limits]``, ``[bounds, limits]``.
-ThresholdSpec = (
-    str | Bounds | tuple[str, Bounds | None] | tuple[str, Bounds | None, Limits] | tuple[Bounds | None, Limits]
-)
 
 _QUALITY_INPUTS = InputSpec(
     required=frozenset({InputKind.STATS}),
@@ -162,6 +153,63 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
             "groups. Needs an extractor on the task, and reads one source."
         ),
     )
+    redundancy_radius: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Maximum Hamming distance, in bits, for a video frame to count as carrying nothing new over the frame "
+            "before it; such stretches are reported as `redundant` groups. No effect on image datasets. Unset uses "
+            "DataEval's default (4)."
+        ),
+    )
+    min_segment_frames: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Shortest stretch, in frames, two videos may share and still be reported as a `segment` row. No effect "
+            "on image datasets. Unset uses DataEval's default (30)."
+        ),
+    )
+    max_segment_gap: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Frames a shared stretch may skip and still count as continuous; too large a value bridges a cut. No "
+            "effect on image datasets. Unset uses DataEval's default (5)."
+        ),
+    )
+    segment_offset_tolerance: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "How far two stretches may differ in offset and still be joined into one; raise it where two videos were "
+            "sampled at slightly different rates. No effect on image datasets. Unset uses DataEval's default (0)."
+        ),
+    )
+    verify_alignment: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Mean bits per frame two videos may differ by along a warped alignment and still be reported as an "
+            "`aligned` row; around 8 is a reasonable start, and the cost is quadratic in the videos' lengths. No "
+            "effect on image datasets. Unset skips warped matching."
+        ),
+    )
+    min_track_frames: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Shortest stretch, in detections, two tracks may share and still be reported at `level: track`. Read only "
+            "with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5)."
+        ),
+    )
+    frame_sample: Annotated[int, Field(ge=1)] | Annotated[float, Field(gt=0)] | None = Field(
+        default=None,
+        description=(
+            "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a "
+            "target rate in frames per second. No effect on image datasets. Unset reads every frame."
+        ),
+    )
 
     def cluster_mode(self) -> bool:
         """Whether ``cluster_sensitivity`` is set."""
@@ -190,6 +238,13 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
             "cluster_sensitivity": self.cluster_sensitivity,
             "cluster_algorithm": self.cluster_algorithm,
             "n_clusters": self.n_clusters,
+            "redundancy_radius": self.redundancy_radius,
+            "min_segment_frames": self.min_segment_frames,
+            "max_segment_gap": self.max_segment_gap,
+            "segment_offset_tolerance": self.segment_offset_tolerance,
+            "verify_alignment": self.verify_alignment,
+            "min_track_frames": self.min_track_frames,
+            "frame_sample": self.frame_sample,
         }
         return {key: value for key, value in values.items() if value is not None}
 

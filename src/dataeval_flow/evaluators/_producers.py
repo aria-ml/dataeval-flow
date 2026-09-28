@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
+import numpy as np
+
 from dataeval_flow._input_spec import InputKind
 from dataeval_flow.evaluators._base import EvaluatorConfig
 
@@ -25,6 +27,8 @@ class _ClusterConsumer(Protocol):
 class ProducerContext:
     """What a producer reads: one source's dataset after its view, and the run it belongs to."""
 
+    source: str
+    """The source's name, as the task names it."""
     dataset: "AnnotatedDataset[Any]"
     dataset_context: "DatasetContext"
     workflow_context: "WorkflowContext"
@@ -73,8 +77,34 @@ def produce_clusters(pc: ProducerContext) -> dict[str, Any]:
     return {"embeddings": embeddings, "clusters": clusters}
 
 
-# The producer for each kind this build can produce. Later phases add metadata, labels and embeddings.
+def produce_metadata(pc: ProducerContext) -> dict[str, Any]:
+    """The source's metadata under the task's metadata policy, read as every workflow reads it. Sets both."""
+    context = pc.workflow_context
+    return {"metadata": context.metadata(pc.source), "metadata_policy": context.metadata_policy}
+
+
+def produce_labels(pc: ProducerContext) -> dict[str, Any]:
+    """The source's class labels and their names, from one read of its metadata.
+
+    ``WorkflowContext.labels`` reads the same metadata, so reading it once here keeps an uncached run to one walk.
+    """
+    metadata = pc.workflow_context.metadata(pc.source)
+    return {
+        "labels": np.asarray(metadata.class_labels, dtype=np.intp),
+        "index2label": dict(metadata.index2label or {}),
+    }
+
+
+def produce_embeddings(pc: ProducerContext) -> dict[str, Any]:
+    """The task's extractor over the source, cached, with one fitted stateful extractor for the whole task."""
+    return {"embeddings": np.asarray(pc.workflow_context.embeddings(pc.source))}
+
+
+# The producer for each input kind.
 PRODUCERS: Mapping[InputKind, Producer] = {
     InputKind.STATS: produce_stats,
     InputKind.CLUSTERS: produce_clusters,
+    InputKind.METADATA: produce_metadata,
+    InputKind.LABELS: produce_labels,
+    InputKind.EMBEDDINGS: produce_embeddings,
 }

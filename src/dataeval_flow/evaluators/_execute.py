@@ -15,6 +15,7 @@ from dataeval_flow.evaluators._result import DataEvalExecution, EvaluatorMetadat
 from dataeval_flow.evaluators._serialize import serialize_output
 
 if TYPE_CHECKING:
+    from dataeval import Ontology
     from dataeval.protocols import AnnotatedDataset
 
     from dataeval_flow.evaluators._evaluator import Evaluator
@@ -51,7 +52,7 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
     try:
         inputs, datasets = _prepare(context, config)
         output = evaluator.run(config, inputs)
-        serialized = serialize_output(output)
+        serialized = serialize_output(output, extras=evaluator.output_extras)
         # Recording the output reads its `meta()`, which an output that is not DataEval's may lack or break.
         metadata = EvaluatorMetadata(evaluator=evaluator.name, dataeval=DataEvalExecution.from_meta(output.meta()))
         single = len(datasets) == 1
@@ -72,7 +73,10 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
 def _prepare(
     context: "WorkflowContext", config: "EvaluatorConfig[Any]"
 ) -> "tuple[list[EvaluatorInputs], dict[str, AnnotatedDataset[Any]]]":
-    """Apply each source's view, then run every wanted producer under that source's cache."""
+    """Apply each source's view, then run every wanted producer under that source's cache.
+
+    Every source's inputs carry the task's ontology, resolved once before any source is read.
+    """
     from dataeval_flow._cache import active_cache, selection_repr
     from dataeval_flow._view import build_view
 
@@ -81,12 +85,14 @@ def _prepare(
     if missing:
         raise ValueError(f"No producer for {', '.join(missing)} in this build")
 
+    ontology = _task_ontology(context, config)
+
     inputs: list[EvaluatorInputs] = []
     datasets: dict[str, AnnotatedDataset[Any]] = {}
     for name, dc in context.dataset_contexts.items():
         dataset = build_view(dc.dataset, list(dc.view_operations)) if dc.view_operations else dc.dataset
         datasets[name] = dataset
-        pc = ProducerContext(dataset=dataset, dataset_context=dc, workflow_context=context, config=config)
+        pc = ProducerContext(source=name, dataset=dataset, dataset_context=dc, workflow_context=context, config=config)
         produced: dict[str, Any] = {}
         with contextlib.ExitStack() as stack:
             if dc.cache is not None:
@@ -94,5 +100,23 @@ def _prepare(
             for kind in InputKind:
                 if kind in wanted:
                     produced.update(PRODUCERS[kind](pc))
-        inputs.append(EvaluatorInputs(source=name, **produced))
+        inputs.append(EvaluatorInputs(source=name, ontology=ontology, **produced))
     return inputs, datasets
+
+
+def _task_ontology(context: "WorkflowContext", config: "EvaluatorConfig[Any]") -> "Ontology | None":
+    """The ontology the task names, resolved; ``None`` where it names none. One that fails to resolve fails the run.
+
+    The orchestrator resolves it onto the context. A context built by hand carries none, so the config's own value is
+    resolved here, as ``policy_for`` resolves a metadata policy, rather than silently dropped.
+    """
+    resolved = context.ontology
+    if resolved is None and getattr(config, "ontology", None) is not None:
+        from dataeval_flow._orchestrator import _resolve_ontology
+
+        resolved = _resolve_ontology(config, None, None)
+    if resolved is None:
+        return None
+    if resolved.error is not None:
+        raise ValueError(f"The task's ontology could not be resolved: {resolved.error}")
+    return resolved.ontology

@@ -42,6 +42,10 @@ class Evaluator(ABC, Generic[ConfigT, OutputT]):
     - ``dataeval_methods: ClassVar[Mapping[InputKind, str]]``: the DataEval method :meth:`run` calls for each
       input kind its config reads, e.g. ``{InputKind.STATS: "from_stats"}``. Flow calls neither of these two; they
       state which DataEval API the evaluator depends on, readable without running it.
+    - ``output_extras: ClassVar[tuple[str, ...]]``, optional: attributes of the output that its ``data()`` leaves
+      out and a reader needs, such as a coverage radius. ``to_dict()`` and ``export()`` write each under
+      ``"extras"``, as ``null`` where it is ``None``, and the report shows them. Leave it unset when ``data()``
+      holds every result.
     - :meth:`run`: the call to DataEval, the only place besides ``dataeval_methods`` that names a DataEval method.
 
     A concrete evaluator without ``name``, ``description``, ``dataeval_class`` or ``dataeval_methods``, not
@@ -53,16 +57,18 @@ class Evaluator(ABC, Generic[ConfigT, OutputT]):
 
     For each task that runs the evaluator, Flow builds an instance with no arguments, applies each source's view,
     prepares every input kind the config wants under that source's cache, and calls :meth:`run` once with one
-    :class:`EvaluatorInputs` per source. Flow prepares ``stats`` (with the stats policy they were measured under)
-    and ``clusters`` (with the embeddings they were built from); a run that wants another kind fails, saying no
-    producer exists for it. Flow guarantees that:
+    :class:`EvaluatorInputs` per source. Flow prepares every :class:`~dataeval_flow.InputKind`: ``stats``,
+    ``clusters``, ``metadata``, ``labels`` and ``embeddings``. :class:`EvaluatorInputs` says which fields each
+    sets. A config with an ``ontology`` field has it resolved, as a workflow's is, onto
+    ``EvaluatorInputs.ontology``. Flow guarantees that:
 
     - ``config`` is an instance of ``config_type``, validated when it was built or loaded;
     - the task meets ``config.inputs``, so ``inputs`` holds one entry per source the evaluator takes;
     - an exception raised while preparing the inputs, in :meth:`run`, or while serializing or recording its output
       becomes a failed result of the config's result class that records the error;
-    - the output :meth:`run` returns becomes the result's ``output`` as it is, its ``data()`` is serialized for
-      ``to_dict()`` and ``export()``, and its ``meta()`` is recorded in the envelope.
+    - the output :meth:`run` returns becomes the result's ``output`` as it is, its ``data()``, and each attribute
+      ``output_extras`` names, are serialized for ``to_dict()`` and ``export()``, and its ``meta()`` is recorded
+      in the envelope.
 
     Examples
     --------
@@ -114,6 +120,7 @@ class Evaluator(ABC, Generic[ConfigT, OutputT]):
     config_type: ClassVar["type[EvaluatorConfig[Any]]"]
     dataeval_class: ClassVar[type]
     dataeval_methods: ClassVar[Mapping[InputKind, str]]
+    output_extras: ClassVar[tuple[str, ...]] = ()
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Bind ``config_type`` from the type arguments, and require identity on a concrete evaluator."""

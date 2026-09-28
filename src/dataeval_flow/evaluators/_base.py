@@ -45,7 +45,9 @@ class EvaluatorConfig(KindConfig, Generic[R]):
     :meth:`stats_request` to measure only the families it reads, and mix in
     :class:`~dataeval_flow.config.StatsConfigMixin` to measure under a stats policy the pipeline names. One that
     reads ``clusters`` declares the fields Flow clusters with: ``cluster_algorithm`` (``"kmeans"``,
-    ``"hdbscan"``, or ``None`` for DataEval's default) and ``n_clusters`` (``int | None``).
+    ``"hdbscan"``, or ``None`` for DataEval's default) and ``n_clusters`` (``int | None``). One that reads
+    ``metadata`` may mix in :class:`~dataeval_flow.config.MetadataConfigMixin` to read it under a metadata policy
+    the pipeline names.
 
     A config has no entry point of its own: Flow finds it through its evaluator's ``config_type`` (see
     :class:`Evaluator`).

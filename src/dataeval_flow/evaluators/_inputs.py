@@ -6,9 +6,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    import numpy as np
+    from dataeval import Metadata, Ontology
     from dataeval.core import ClusterResult, StatsResult
     from numpy.typing import NDArray
 
+    from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._stats import ResolvedStatsPolicy
 
 
@@ -17,9 +22,10 @@ class EvaluatorInputs:
     """What Flow prepared from one source for an evaluator's run. Only the kinds the run wants are set.
 
     :meth:`Evaluator.run` receives one per source, in the order the task names the sources. Flow builds them after
-    applying the source's view; an evaluator only reads them. They carry ``stats`` (with the stats policy they
-    were measured under) and ``clusters`` (with the embeddings they were built from) only: a run that wants another
-    kind fails, saying no producer exists for it.
+    applying the source's view; an evaluator only reads them. Each input kind the run wants sets its fields:
+    ``stats`` sets ``stats`` and ``stats_policy``; ``clusters`` sets ``clusters`` and ``embeddings``;
+    ``embeddings`` sets ``embeddings``; ``metadata`` sets ``metadata`` and ``metadata_policy``; ``labels`` sets
+    ``labels`` and ``index2label``. ``ontology`` is the task's, set on every source whatever the run wants.
     """
 
     source: str
@@ -40,5 +46,21 @@ class EvaluatorInputs:
     clusters: "ClusterResult | None" = None
     """DataEval's clusters over the source's embeddings, when the run wants ``clusters``."""
     embeddings: "NDArray[Any] | None" = None
-    """The source's embeddings, one row per item, set with ``clusters``: clusters are built from them, and DataEval
-    may read both."""
+    """The source's embeddings from the task's extractor, one row per item, when the run wants ``embeddings`` or
+    ``clusters``: clusters are built from them, and DataEval may read both."""
+    metadata: "Metadata | None" = None
+    """DataEval's ``Metadata`` for the source, built under the task's metadata policy, when the run wants
+    ``metadata``."""
+    metadata_policy: "ResolvedPolicy | None" = None
+    """The metadata policy ``metadata`` was built under, set with ``metadata``; ``None`` where the task names none and
+    DataEval's defaults applied. An evaluator may read its ``factor_source``: how the bias statistics read each factor.
+    Its other attributes are internal."""
+    labels: "NDArray[np.intp] | None" = None
+    """The source's class labels, as its metadata reads them, when the run wants ``labels``: one per item for an
+    image-classification dataset, one per target for a detection dataset, and empty for a dataset whose targets carry
+    none."""
+    index2label: "Mapping[int, str] | None" = None
+    """The source's class names by label, set with ``labels``; empty where the dataset declares none."""
+    ontology: "Ontology | None" = None
+    """The ontology the task's ``ontology:`` names, resolved; ``None`` where the task names none. The same on every
+    source."""
