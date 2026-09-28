@@ -43,10 +43,13 @@
 - Reports carry a thumbnail of each item their findings name, in `Result.assets`; the HTML report shows them
 - `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` turn a run's thumbnails off
 - `image` table columns, each cell an item reference or a group of them
+- Data analysis, coverage, prioritization, splitting and metadata triage picture the items their findings name
+- Data coverage's `output.raw.coverage.uncovered` keeps each uncovered item, its box and class, and its distance
 
 ### Changed
 
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
+- Data analysis lists each split's unlabelled images in a table naming up to eight, where it wrote a sentence
 - `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
@@ -94,6 +97,7 @@
 ### Fixed
 
 - The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it
+- Data prioritization's `sources` and data splitting's `dataset` are the views they ran on, not views drawn anew
 - Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
 - Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once

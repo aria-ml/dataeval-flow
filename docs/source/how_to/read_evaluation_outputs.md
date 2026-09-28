@@ -95,8 +95,10 @@ holds everything the text report holds, laid out for reading on screen:
   `brightness 0.99 > 0.84`, and listed by name. Hovering a tag, or reaching it with the keyboard, shows where the
   value ranks in its population and the population's mean and standard deviation.
 - A threshold is a dashed line across a chart's bars, labelled on a scale below the table.
-- Each flagged image or box, duplicate group and OOD sample shows its thumbnail in its row. Click one to enlarge it
-  over the page, and click anywhere, or press Esc, to put it back. An item without a thumbnail is named instead.
+- Each item a finding names shows its thumbnail in its row: a flagged image or box, a duplicate group, an OOD sample,
+  an uncovered item, a prioritized item at either end of its ranking, an unlabelled image, and the items that hold a
+  metadata value that doesn't read like the rest. Click one to enlarge it over the page, and click anywhere, or press
+  Esc, to put it back. An item without a thumbnail is named instead.
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
 Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
@@ -332,6 +334,7 @@ flagged = result.output.raw.img_outliers
 
 # data-coverage
 onto_findings = result.output.raw.ontology
+uncovered = result.output.raw.coverage.uncovered  # each uncovered item, its box and class, and its distance
 ```
 
 Each workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the
