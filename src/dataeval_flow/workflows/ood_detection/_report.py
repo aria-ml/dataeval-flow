@@ -318,13 +318,16 @@ def build_findings(
     findings: list[Finding] = []
     multi_detector = len(raw.detectors) > 1
 
-    # Per-detector findings
-    for method_key, result in raw.detectors.items():
-        name = detector_names.get(method_key, method_key)
-        findings.append(_build_detector_finding(name, result, params.health_thresholds))
-
     # Compute normalized scores for cross-detector comparison
     normalized_scores, mutual_ood, unique_ood = _compute_normalized_scores(raw.detectors)
+
+    # Per-detector findings. A lone detector has no aggregate to list its samples, so its own finding does.
+    for method_key, result in raw.detectors.items():
+        name = detector_names.get(method_key, method_key)
+        finding = _build_detector_finding(name, result, params.health_thresholds)
+        if not multi_detector:
+            finding.blocks.extend(_samples_blocks(mutual_ood, normalized_scores, locate))
+        findings.append(finding)
 
     # Aggregate + unique findings (only when multiple detectors)
     if multi_detector:

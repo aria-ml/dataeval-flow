@@ -536,6 +536,35 @@ class TestBuildFindings:
         assert "Aggregate OOD (all detectors agree)" in titles
         assert "Unique OOD Samples (single-detector only)" not in titles
 
+    def test_a_lone_detector_lists_its_samples_in_its_own_finding(self):
+        """With no aggregate to list them, a lone detector's finding shows its OOD samples, most out first."""
+        scores = [0.7, 0.1, 0.9, 0.2]
+        samples = [OODSampleDict(index=i, score=score, is_ood=score > 0.5) for i, score in enumerate(scores)]
+        detector = _make_detector_result(ood_count=2, total_count=4, threshold_score=0.5, samples=samples)
+        raw = OODDetectionRawOutput(
+            dataset_size=8, reference_size=4, test_size=4, detectors={"kneighbors": detector}, ood_indices=[0, 2]
+        )
+        (finding,) = build_findings(raw, _make_params(), {"kneighbors": "K-Neighbors"}, parts=[("test", 4)])
+        listed = tables(finding)[-1]
+        assert [(row["image"], row["score"]) for row in listed.rows] == [
+            (ItemRef(source="test", index=2), 1.8),
+            (ItemRef(source="test", index=0), 1.4),
+        ]
+
+    def test_with_several_detectors_the_aggregate_lists_the_samples_and_each_detector_none(self):
+        samples = [OODSampleDict(index=0, score=0.9, is_ood=True), OODSampleDict(index=1, score=0.1, is_ood=False)]
+        detector = _make_detector_result(ood_count=1, total_count=2, threshold_score=0.5, samples=samples)
+        raw = OODDetectionRawOutput(
+            dataset_size=4,
+            reference_size=2,
+            test_size=2,
+            detectors={"kneighbors": detector, "domain_classifier": {**detector, "method": "domain_classifier"}},
+            ood_indices=[0],
+        )
+        names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
+        for finding in build_findings(raw, _make_params(), names, parts=[("test", 2)])[:2]:
+            assert all(column.kind != "image" for table in tables(finding) for column in table.columns)
+
     def test_each_sample_is_named_in_the_test_source_it_came_from(self):
         """Test sources are scored joined end to end; each sample's thumbnail reads from its own source."""
         samples = [OODSampleDict(index=i, score=0.9 if i in (1, 3) else 0.1, is_ood=i in (1, 3)) for i in range(4)]
