@@ -15,6 +15,8 @@ _BUILTINS = {
     "quality.duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
     "quality.outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
     "scope.representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
+    "scope.coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
+    "scope.prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",
 }
 
 

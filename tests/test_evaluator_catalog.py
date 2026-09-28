@@ -21,6 +21,8 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "bias.diversity": ("1", "refused"),
     "bias.parity": ("1", "refused"),
     "scope.representation": ("1", "refused"),
+    "scope.coverage": ("1", "required"),
+    "scope.prioritize": ("1-2", "required"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

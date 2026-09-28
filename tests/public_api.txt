@@ -76,6 +76,12 @@ dataeval_flow.evaluators.quality:OutliersConfig
 dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
 dataeval_flow.evaluators.quality:ThresholdSpec
+dataeval_flow.evaluators.scope:CoverageConfig
+dataeval_flow.evaluators.scope:CoverageEvaluator
+dataeval_flow.evaluators.scope:CoverageResult
+dataeval_flow.evaluators.scope:PrioritizeConfig
+dataeval_flow.evaluators.scope:PrioritizeEvaluator
+dataeval_flow.evaluators.scope:PrioritizeResult
 dataeval_flow.evaluators.scope:RepresentationConfig
 dataeval_flow.evaluators.scope:RepresentationEvaluator
 dataeval_flow.evaluators.scope:RepresentationResult

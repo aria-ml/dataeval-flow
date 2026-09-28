@@ -61,6 +61,8 @@
   `metadata:` policy
 - `scope.representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
   `index2label`
+- `scope.coverage` and `scope.prioritize` evaluators; a second `scope.prioritize` source is the reference its ranking
+  is relative to
 
 ### Changed
 

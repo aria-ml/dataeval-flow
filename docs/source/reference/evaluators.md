@@ -15,6 +15,8 @@ An evaluator's `type` is DataEval's module and class, in kebab case. To run one,
 | `quality.duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `quality.outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `scope.representation` | `dataeval.scope.Representation` | labels | 1 | refused |
+| `scope.coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
+| `scope.prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -161,11 +163,49 @@ Output: a table, the worklist, with one row per concept short of its target (`co
 `action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, and the `violations` and
 `dark_branches` tables.
 
+### `scope.coverage`
+
+Which items sit in sparse regions of the embedding space, uncovered by the rest of the data, broken down by class.
+With no label per item (a dataset without labels, or a detection dataset's labels per target), it runs over every
+item as one class, `0`, and logs a warning. `data-coverage` crops detections first; this evaluator does not.
+Configured by {py:class}`~dataeval_flow.evaluators.scope.CoverageConfig`; runs `dataeval.scope.Coverage`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `method` | `method`: `naive` or `adaptive` | DataEval's default (`adaptive`) |
+| `num_observations` | `num_observations`; must be fewer than the source's items | DataEval's default (`20`) |
+| `percent` | `percent` (`adaptive` only) | DataEval's default (`0.01`) |
+| `min_class_samples` | `min_class_samples` | DataEval's default (`20`) |
+| `isotropy_min_samples` | `isotropy_min_samples` | one more than the embedding size |
+| `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
+
+Output: a table with one row per class (`class`, `count`, `uncovered`, `uncovered_fraction`, `dispersion`,
+`isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius` and
+`critical_value_radii`.
+
+### `scope.prioritize`
+
+The first source's items ranked from easiest to hardest, or the reverse. A second source is the reference: the
+ranking is then relative to it, as when choosing what to label next beside data already labeled. Configured by
+{py:class}`~dataeval_flow.evaluators.scope.PrioritizeConfig`; runs `dataeval.scope.Prioritize`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `method` | `method`: `knn`, `kmeans_distance`, `kmeans_complexity`, `hdbscan_distance` or `hdbscan_complexity` | DataEval's default (`knn`) |
+| `k` | `k` (`knn`) | the square root of the item count |
+| `c` | `c` (clustering methods) | the square root of the item count |
+| `n_init` | `n_init` (`kmeans_*`): a count, or `auto` | DataEval's default (`auto`) |
+| `max_cluster_size` | `max_cluster_size` (`hdbscan_*`) | unbounded |
+| `order` | `order`: `easy_first` or `hard_first` | DataEval's default (`easy_first`) |
+| `policy` | `policy`: `difficulty`, `stratified` or `class_balanced` | DataEval's default (`difficulty`) |
+| `num_bins` | `num_bins` (`stratified`) | DataEval's default (`50`) |
+
+Output: an array of the first source's item indices in ranked order. `extras` holds each item's `scores`.
+
 ## Planned
 
 These follow in later releases, under the same rules:
 
-- `scope.coverage`, `scope.prioritize`: read embeddings
 - `shift.drift-univariate`, `shift.drift-mmd`, `shift.drift-kneighbors`,
   `shift.drift-wasserstein`, `shift.drift-domain-classifier`: read reference and
   test embeddings, with an optional `chunking:` block

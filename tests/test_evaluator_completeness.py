@@ -30,6 +30,7 @@ _VIEWS: dict[str, frozenset[str]] = {
         }
     ),
     "quality.outliers": frozenset({"outliers"}),
+    "scope.prioritize": frozenset({"indices"}),
 }
 
 # Attributes that echo the inputs or settings back, most kept by DataEval for re-detection. Never serialized.
@@ -62,6 +63,8 @@ _ECHOES: dict[str, frozenset[str]] = {
     "bias.diversity": frozenset({"plot_type"}),
     "bias.parity": frozenset(),
     "scope.representation": frozenset(),
+    "scope.coverage": frozenset({"class_axis"}),
+    "scope.prioritize": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
 }
 
 

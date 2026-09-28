@@ -486,6 +486,114 @@
       "title": "CocoDatasetConfig",
       "type": "object"
     },
+    "CoverageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: scope.coverage\n        num_observations: 30",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.coverage",
+          "default": "scope.coverage",
+          "description": "The evaluator type this entry configures: `scope.coverage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "naive",
+                "adaptive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`).",
+          "title": "Method"
+        },
+        "num_observations": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neighbors an item needs within the radius to count as covered, fewer than the source's items; 20 to 50 is typical. Unset uses DataEval's default (20).",
+          "title": "Num Observations"
+        },
+        "percent": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of items to flag as uncovered, for the `adaptive` method only. Unset uses DataEval's default (0.01).",
+          "title": "Percent"
+        },
+        "min_class_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs for its dispersion, isotropy and near-duplicate fraction to be assessed; smaller classes are reported with `assessable` false. Unset uses DataEval's default (20).",
+          "title": "Min Class Samples"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs for its isotropy to be reported. Unset uses one more than the embedding size.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A nearest-neighbor pair counts as a near duplicate when its distance is below this fraction of the class's median nearest-neighbor distance. Unset uses DataEval's default (0.5).",
+          "title": "Near Duplicate Factor"
+        }
+      },
+      "title": "CoverageConfig",
+      "type": "object"
+    },
     "DataAnalysisConfig": {
       "description": "The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
       "properties": {
@@ -5339,6 +5447,154 @@
       "title": "PreprocessorConfig",
       "type": "object"
     },
+    "PrioritizeConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.prioritize``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.prioritize`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: scope.prioritize\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.prioritize",
+          "default": "scope.prioritize",
+          "description": "The evaluator type this entry configures: `scope.prioritize`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "knn",
+                "kmeans_distance",
+                "kmeans_complexity",
+                "hdbscan_distance",
+                "hdbscan_complexity"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How items are ranked: `knn`, by distance to their nearest neighbors; `kmeans_distance` or `hdbscan_distance`, by distance to their cluster's center; `kmeans_complexity` or `hdbscan_complexity`, by weighted sampling over the cluster structure. Unset uses DataEval's default (`knn`).",
+          "title": "Method"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors, for `knn`. Unset uses the square root of the item count.",
+          "title": "K"
+        },
+        "c": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clusters, for the clustering methods. Unset uses the square root of the item count.",
+          "title": "C"
+        },
+        "n_init": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "K-means initializations, for the `kmeans_*` methods: a count, or `auto`. Unset uses DataEval's default (`auto`).",
+          "title": "N Init"
+        },
+        "max_cluster_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Largest cluster, for the `hdbscan_*` methods. Unset leaves it unbounded.",
+          "title": "Max Cluster Size"
+        },
+        "order": {
+          "anyOf": [
+            {
+              "enum": [
+                "easy_first",
+                "hard_first"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Unset uses DataEval's default (`easy_first`).",
+          "title": "Order"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "difficulty",
+                "stratified",
+                "class_balanced"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the ranking is reordered: `difficulty` keeps it, `stratified` balances it across difficulty bins, and `class_balanced` across class labels, which needs a dataset with one label per item. Unset uses DataEval's default (`difficulty`).",
+          "title": "Policy"
+        },
+        "num_bins": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Difficulty bins, for the `stratified` policy. Unset uses DataEval's default (50).",
+          "title": "Num Bins"
+        }
+      },
+      "title": "PrioritizeConfig",
+      "type": "object"
+    },
     "ReductionOptionsConfig": {
       "additionalProperties": false,
       "description": "Parameters a particular reduction takes.\n\nDeclared per reduction, and DataEval refuses one a reduction does not take rather than\nletting it sit there inert \u2014 which is why ``tolerance`` is not a field of the aggregator\nitself. ``longest_run`` is the only reduction declaring options today.",
@@ -6803,6 +7059,12 @@
               },
               {
                 "$ref": "#/$defs/OutliersConfig"
+              },
+              {
+                "$ref": "#/$defs/CoverageConfig"
+              },
+              {
+                "$ref": "#/$defs/PrioritizeConfig"
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"
