@@ -531,6 +531,7 @@ class TestScript:
         assert reach not in SCRIPT
 
     def test_the_script_does_what_the_page_needs(self):
+        assert 'querySelectorAll("details.card, details.panel")' in SCRIPT, "the buttons open the panels too"
         for need in ("aria-sort", "Expand all", "Collapse all", "beforeprint", "afterprint", "Filter rows"):
             assert need in SCRIPT
 

@@ -85,9 +85,9 @@ holds everything the text report holds, laid out for reading on screen:
 
 - The header gives the report's verdict. A page holding several tasks' reports lists them first.
 - Each finding is a card that opens and closes, headed by its title, its value and its severity, so the cards read
-  as the report's summary. A warning starts open and the rest start closed. *Expand all* and *Collapse all* sit
-  above them.
+  as the report's summary. A warning starts open and the rest start closed.
 - The metadata factors and the configuration close the report as panels of their own, closed until opened.
+- *Expand all* and *Collapse all*, above the report, open or close every card and panel at once.
 - A table's headers sort it on a click, and a table of more than ten rows gets a box that filters its rows. Cells
   keep their raw values, so a column of numbers sorts as numbers, and a column of flags by how many each row holds.
 - An outlier's flags show as tags, each reading its value against the limit it crossed, such as

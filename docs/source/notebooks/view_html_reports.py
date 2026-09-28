@@ -168,7 +168,7 @@ show(clean.to_html())
 # - **The verdict.** The header gives the report's verdict: the number of warnings, or `passed`.
 # - **The cards.** Each finding is a card headed by its title, its value and its severity, so the cards read as the
 #   report's summary. A warning starts open, and the rest start closed as one line each. *Expand all* and
-#   *Collapse all*, top right, act on every card at once.
+#   *Collapse all*, top right, act on every card and panel at once.
 # - **Reference.** The metadata factors and the configuration close the report as panels, closed until opened.
 # - **Sorting.** Click a column's header to sort the table by it: ascending, descending, then back to the original
 #   order. A column of numbers sorts as numbers. The *Flagged by* column sorts by how many flags each row holds.

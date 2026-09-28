@@ -114,7 +114,7 @@ _PRINT = """
   main { max-width: none; padding: 0; }
   a { color: inherit; text-decoration: none; }
   tr, pre, figure, dl, .proportion { break-inside: avoid; }
-  h1, h2, h3, h4, details.card > summary { break-after: avoid; }
+  h1, h2, h3, h4, :is(details.card, details.panel) > summary { break-after: avoid; }
 """
 
 STYLE = (
@@ -235,9 +235,9 @@ SCRIPT = """
     window.addEventListener("afterprint", update);
   };
 
-  // Expand all and Collapse all, above the reports, when the page has findings to open and close.
+  // Expand all and Collapse all, above the reports, when the page has findings or panels to open and close.
   const addExpanders = () => {
-    const cards = document.querySelectorAll("details.card");
+    const cards = document.querySelectorAll("details.card, details.panel");
     const main = document.querySelector("main");
     if (!cards.length || !main) return;
     const bar = document.createElement("div");
