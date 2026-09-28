@@ -272,3 +272,29 @@ def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> N
     page = result.to_html()
     assert page.count('<details class="thumb">') == 5
     assert 'alt="dataset 7"' in page
+
+
+def test_an_ood_run_reads_each_sample_s_thumbnail_from_its_own_test_source() -> None:
+    """Test sources are scored joined end to end; night's black images, all out of distribution, are night's own."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectorKNeighbors
+
+    class Dark(ToyImages):
+        def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+            image, target, datum = super().__getitem__(index)
+            return np.zeros_like(image), target, datum
+
+    config = OODDetectionConfig(
+        detectors=[OODDetectorKNeighbors(k=3), OODDetectorKNeighbors(k=5)], metadata_insights=False
+    )
+    data = {"reference": ToyImages(seed=0, count=20), "day": ToyImages(seed=1, count=12), "night": Dark(count=4)}
+    result = run(config, data, extractor=FlattenExtractorConfig(batch_size=8))
+    night = [asset for asset in result.assets if asset.item.source == "night"]
+    assert sorted(asset.item.index for asset in night) == [0, 1, 2, 3]
+    for asset in night:
+        assert np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max() < 8
+    assert {asset.item.source for asset in result.assets} <= {"day", "night"}

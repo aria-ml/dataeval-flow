@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import bisect
+import itertools
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Literal
 
-from dataeval_flow._blocks import Block, BulletList, Cell, Column, Fields, Paragraph, Section, Table
+from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import ranked_table
+from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP, ranked_table
 from dataeval_flow.workflows.ood_detection._config import (
     OODDetectionConfig,
     OODDetectionHealthThresholds,
@@ -16,6 +19,63 @@ from dataeval_flow.workflows.ood_detection._outputs import (
     FactorDeviationDict,
     OODDetectionRawOutput,
 )
+
+
+def locator(parts: Sequence[tuple[str, int]]) -> Callable[[int], ItemRef]:
+    """Where an index into the test sources, joined end to end in order, falls: its source, and its index there.
+
+    *parts* are each test source's name and length, in the order the run joined them.
+    """
+    starts = list(itertools.accumulate((length for _, length in parts), initial=0))
+
+    def locate(index: int) -> ItemRef:
+        at = bisect.bisect_right(starts, index) - 1
+        return ItemRef(source=parts[at][0], index=index - starts[at])
+
+    return locate
+
+
+def _samples_blocks(
+    indices: Collection[int],
+    normalized_scores: Mapping[int, float],
+    locate: Callable[[int], ItemRef],
+    factors: Mapping[int, str] | None = None,
+) -> list[Block]:
+    """The samples, most out of distribution first: each one's thumbnail, item, source and score, and its factors.
+
+    At most 500, with a paragraph counting the rest.
+    """
+    ranked = sorted(indices, key=lambda index: (-normalized_scores.get(index, 0.0), index))
+    if not ranked:
+        return []
+    rows: list[dict[str, Cell]] = []
+    for index in ranked[:ROW_CAP]:
+        ref = locate(index)
+        row: dict[str, Cell] = {
+            "image": ref,
+            "item": ref.index,
+            "source": ref.source,
+            "score": normalized_scores.get(index, 0.0),
+        }
+        if factors is not None:
+            row["factors"] = factors.get(index, "")
+        rows.append(row)
+    columns = [
+        Column(key="image", kind="image"),
+        Column(key="item", header="Item"),
+        Column(key="source", header="Source", align="left"),
+        Column(key="score", header="Score", format="{:.2f}x"),
+        *([Column(key="factors", header="Top factors", align="left")] if factors is not None else []),
+    ]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
+    if len(ranked) > ROW_CAP:
+        blocks.append(
+            Paragraph(
+                text=f"{len(ranked):,} samples; the {ROW_CAP:,} most out of distribution are listed, and every one "
+                "is in `output.raw`."
+            )
+        )
+    return blocks
 
 
 def _severity_for_ood(
@@ -171,36 +231,25 @@ def _build_factor_deviations_finding(
     deviations: list[FactorDeviationDict],
     normalized_scores: dict[int, float],
     mutual_ood: set[int],
+    locate: Callable[[int], ItemRef],
 ) -> Finding:
     """Build a finding for per-sample metadata deviations.
 
-    Only includes samples that all detectors agree are OOD, sorted by
-    normalized OOD score (descending).
+    Only includes samples that all detectors agree are OOD, most out of distribution first, each with
+    its three most deviating factors.
     """
-    # Filter to mutually agreed OOD samples
-    agreed_devs = [d for d in deviations if d["index"] in mutual_ood]
-
-    # Sort by normalized score (most OOD first)
-    agreed_devs.sort(key=lambda d: normalized_scores.get(d["index"], 0.0), reverse=True)
-
-    detail_lines: list[str] = []
-    for dev in agreed_devs[:10]:  # Cap display at 10 samples
-        norm = normalized_scores.get(dev["index"], 0.0)
-        top_factors = list(dev["deviations"].items())[:3]
-        factors_str = ", ".join(f"{k}={v:.2f}" for k, v in top_factors)
-        detail_lines.append(f"Sample {dev['index']:4d} (score={norm:.2f}x): {factors_str}")
-
-    n_agreed = len(agreed_devs)
-    n_total = len(deviations)
-
+    factors = {
+        d["index"]: ", ".join(f"{k}={v:.2f}" for k, v in list(d["deviations"].items())[:3])
+        for d in deviations
+        if d["index"] in mutual_ood
+    }
     return Finding(
         severity="info",
         title="OOD Sample Metadata Deviations",
         description=(
-            f"{n_agreed}/{n_total} OOD samples agreed by all detectors "
-            f"(sorted by normalized score, showing top {min(10, n_agreed)})"
+            f"{len(factors)}/{len(deviations)} OOD samples agreed by all detectors, most out of distribution first"
         ),
-        blocks=[BulletList(items=detail_lines)] if detail_lines else [],
+        blocks=_samples_blocks(factors, normalized_scores, locate, factors),
     )
 
 
@@ -210,14 +259,9 @@ def _build_aggregate_finding(
     total_ood: int,
     test_size: int,
     thresholds: OODDetectionHealthThresholds,
+    locate: Callable[[int], ItemRef],
 ) -> Finding:
     """Build a finding for the aggregate (mutually agreed) OOD result."""
-    sorted_indices = sorted(mutual_ood, key=lambda i: normalized_scores.get(i, 0.0), reverse=True)
-    detail_lines: list[str] = []
-    for idx in sorted_indices[:10]:
-        norm = normalized_scores.get(idx, 0.0)
-        detail_lines.append(f"Sample {idx:4d} (score={norm:.2f}x)")
-
     n_mutual = len(mutual_ood)
     ood_pct = (n_mutual / test_size * 100) if test_size else 0.0
     severity = _severity_for_ood(ood_pct, thresholds)
@@ -226,10 +270,10 @@ def _build_aggregate_finding(
         severity=severity,
         title="Aggregate OOD (all detectors agree)",
         description=(
-            f"{n_mutual}/{total_ood} OOD samples agreed by all detectors ({ood_pct:.1f}%) "
-            f"(sorted by normalized score, showing top {min(10, n_mutual)})"
+            f"{n_mutual}/{total_ood} OOD samples agreed by all detectors ({ood_pct:.1f}%), most out of distribution "
+            "first. A score is a multiple of the detector's threshold, averaged over the detectors."
         ),
-        blocks=[BulletList(items=detail_lines)] if detail_lines else [],
+        blocks=_samples_blocks(mutual_ood, normalized_scores, locate),
     )
 
 
@@ -237,6 +281,7 @@ def _build_unique_ood_finding(
     unique_ood: dict[str, set[int]],
     normalized_scores: dict[int, float],
     detector_names: dict[str, str],
+    locate: Callable[[int], ItemRef],
 ) -> Finding:
     """Build a single finding listing OOD samples unique to each detector."""
     groups: list[Block] = []
@@ -244,11 +289,8 @@ def _build_unique_ood_finding(
         if not unique_indices:
             continue
         name = detector_names.get(method_key, method_key)
-        sorted_indices = sorted(unique_indices, key=lambda i: normalized_scores.get(i, 0.0), reverse=True)
-        items = [f"Sample {idx:4d} (score={normalized_scores.get(idx, 0.0):.2f}x)" for idx in sorted_indices[:10]]
-        groups.append(
-            Section(title=name, brief=f"{len(unique_indices)} unique sample(s)", blocks=[BulletList(items=items)])
-        )
+        samples = _samples_blocks(unique_indices, normalized_scores, locate)
+        groups.append(Section(title=name, brief=f"{len(unique_indices)} unique sample(s)", blocks=samples))
 
     total_unique = sum(len(v) for v in unique_ood.values())
 
@@ -264,8 +306,15 @@ def build_findings(
     raw: OODDetectionRawOutput,
     params: OODDetectionConfig,
     detector_names: dict[str, str],
+    *,
+    parts: Sequence[tuple[str, int]],
 ) -> list[Finding]:
-    """Build all report findings from raw results."""
+    """Build all report findings from raw results.
+
+    *parts* are the test sources' names and lengths, in the order the run joined them, which name
+    each sample's item for its thumbnail.
+    """
+    locate = locator(parts)
     findings: list[Finding] = []
     multi_detector = len(raw.detectors) > 1
 
@@ -281,16 +330,18 @@ def build_findings(
     if multi_detector:
         total_ood = len(raw.ood_indices)
         findings.append(
-            _build_aggregate_finding(mutual_ood, normalized_scores, total_ood, raw.test_size, params.health_thresholds)
+            _build_aggregate_finding(
+                mutual_ood, normalized_scores, total_ood, raw.test_size, params.health_thresholds, locate
+            )
         )
         if any(unique_ood.values()):
-            findings.append(_build_unique_ood_finding(unique_ood, normalized_scores, detector_names))
+            findings.append(_build_unique_ood_finding(unique_ood, normalized_scores, detector_names, locate))
 
     # Metadata insights findings
     if raw.factor_predictors:
         findings.append(_build_factor_predictors_finding(raw.factor_predictors))
 
     if raw.factor_deviations:
-        findings.append(_build_factor_deviations_finding(raw.factor_deviations, normalized_scores, mutual_ood))
+        findings.append(_build_factor_deviations_finding(raw.factor_deviations, normalized_scores, mutual_ood, locate))
 
     return findings

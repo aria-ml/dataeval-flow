@@ -1177,6 +1177,7 @@ class TestOODRecordsItsEncoding:
             None,
             None,
             {"encoding_digest": "2b6530cc3015f1fe", "factors": {}, "dropped": {}},
+            parts=[("test", 4)],
         )
         assert result.metadata.encoding_digest == "2b6530cc3015f1fe"
 
@@ -1188,7 +1189,7 @@ class TestOODRecordsItsEncoding:
         params = _make_params()
         embeddings = np.zeros((4, 3), dtype=np.float32)
         result = OODDetectionWorkflow()._build_workflow_result(
-            params, embeddings, embeddings, {}, {}, [], [], None, None, None
+            params, embeddings, embeddings, {}, {}, [], [], None, None, None, parts=[("test", 4)]
         )
         assert result.metadata.encoding_digest is None
 

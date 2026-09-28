@@ -603,6 +603,7 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
             factor_devs,
             factor_preds,
             metadata_binning,
+            parts=[(name, len(dataset)) for name, _, dataset in test_datasets],
         )
 
     def _prepare_datasets(
@@ -680,8 +681,10 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
         factor_deviations: list[FactorDeviationDict] | None,
         factor_predictors_result: dict[str, float] | None,
         metadata_binning: dict[str, Any] | None = None,
+        *,
+        parts: list[tuple[str, int]],
     ) -> OODDetectionResult:
-        """Build the final workflow result from raw outputs."""
+        """Build the final workflow result from raw outputs; *parts* are the test sources' names and lengths."""
         raw = OODDetectionRawOutput(
             dataset_size=len(ref_embeddings) + len(test_embeddings),
             reference_size=len(ref_embeddings),
@@ -692,7 +695,7 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
             factor_predictors=factor_predictors_result,
         )
 
-        findings = build_findings(raw, config, detector_names)
+        findings = build_findings(raw, config, detector_names, parts=parts)
 
         summary = f"OOD detection complete. Reference: {raw.reference_size} items, Test: {raw.test_size} items."
 

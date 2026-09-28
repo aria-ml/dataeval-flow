@@ -2,7 +2,7 @@
 
 import pytest
 
-from dataeval_flow._blocks import BulletList, Column, Fields, Paragraph, Table
+from dataeval_flow._blocks import Column, Fields, ItemRef, Paragraph, Table
 from dataeval_flow.workflows.ood_detection import OODDetectionHealthThresholds
 from dataeval_flow.workflows.ood_detection._outputs import FactorDeviationDict, OODDetectionRawOutput, OODSampleDict
 from dataeval_flow.workflows.ood_detection._report import (
@@ -15,8 +15,9 @@ from dataeval_flow.workflows.ood_detection._report import (
     _score_histogram_blocks,
     _severity_for_ood,
     build_findings,
+    locator,
 )
-from tests.finding_blocks import blocks_of, bullets, column, fields, rendered, sections, tables
+from tests.finding_blocks import blocks_of, column, fields, paragraphs, rendered, sections, tables
 from tests.test_ood_workflow import _make_detector_result, _make_params
 
 pytestmark = pytest.mark.required
@@ -157,28 +158,50 @@ class TestBuildFactorPredictorsFinding:
         assert column(table, "value") == [0.84, 0.12]
 
 
-class TestBuildFactorDeviationsFinding:
-    def test_basic(self):
-        devs = [
-            FactorDeviationDict(index=2, deviations={"altitude": 5.0, "temp": 2.0}),
-            FactorDeviationDict(index=5, deviations={"altitude": 3.0}),
+def _one_source(index: int) -> ItemRef:
+    return ItemRef(source="test", index=index)
+
+
+class TestLocator:
+    """An index into the test sources joined end to end names an item in one of them."""
+
+    def test_each_index_falls_in_its_own_source(self):
+        locate = locator([("day", 3), ("night", 2)])
+        assert [locate(i) for i in range(5)] == [
+            ItemRef(source="day", index=0),
+            ItemRef(source="day", index=1),
+            ItemRef(source="day", index=2),
+            ItemRef(source="night", index=0),
+            ItemRef(source="night", index=1),
         ]
-        normalized = {2: 1.5, 5: 1.2}
-        mutual_ood = {2, 5}
-        finding = _build_factor_deviations_finding(devs, normalized, mutual_ood)
-        assert len(bullets(finding)) == 2
-        # Should be sorted by normalized score descending (index 2 first)
-        assert "Sample    2" in bullets(finding)[0]
+
+    def test_an_empty_source_takes_no_index(self):
+        assert locator([("empty", 0), ("full", 2)])(0) == ItemRef(source="full", index=0)
+
+
+class TestBuildFactorDeviationsFinding:
+    def test_each_agreed_sample_is_a_row_with_its_top_factors_most_out_of_distribution_first(self):
+        devs = [
+            FactorDeviationDict(index=5, deviations={"altitude": 3.0}),
+            FactorDeviationDict(index=2, deviations={"altitude": 5.0, "temp": 2.0, "hour": 1.5, "lat": 0.2}),
+        ]
+        finding = _build_factor_deviations_finding(devs, {2: 1.5, 5: 1.2}, {2, 5}, _one_source)
+        (table,) = tables(finding)
+        assert [column.header for column in table.columns] == ["", "Item", "Source", "Score", "Top factors"]
+        assert [(row["item"], row["factors"]) for row in table.rows] == [
+            (2, "altitude=5.00, temp=2.00, hour=1.50"),
+            (5, "altitude=3.00"),
+        ]
+        assert table.rows[0]["image"] == ItemRef(source="test", index=2)
 
     def test_filters_to_mutual_ood(self):
         devs = [
             FactorDeviationDict(index=2, deviations={"altitude": 5.0}),
             FactorDeviationDict(index=5, deviations={"altitude": 3.0}),
         ]
-        normalized = {2: 1.5, 5: 1.2}
-        mutual_ood = {2}  # Only index 2 agreed by all detectors
-        finding = _build_factor_deviations_finding(devs, normalized, mutual_ood)
-        assert len(bullets(finding)) == 1
+        finding = _build_factor_deviations_finding(devs, {2: 1.5, 5: 1.2}, {2}, _one_source)
+        assert column(tables(finding)[0], "item") == [2]
+        assert finding.description == "1/2 OOD samples agreed by all detectors, most out of distribution first"
 
 
 class TestScoreHistogramBlocks:
@@ -293,44 +316,58 @@ class TestComputeNormalizedScores:
 
 class TestBuildAggregateFinding:
     def test_basic(self):
-        mutual_ood = {0, 1, 2}
-        normalized_scores = {0: 2.0, 1: 1.5, 2: 1.2}
         thresholds = OODDetectionHealthThresholds(ood_pct_warning=5.0)
-        finding = _build_aggregate_finding(mutual_ood, normalized_scores, 5, 100, thresholds)
+        finding = _build_aggregate_finding({0, 1, 2}, {0: 2.0, 1: 1.5, 2: 1.2}, 5, 100, thresholds, _one_source)
         assert finding.title == "Aggregate OOD (all detectors agree)"
         assert finding.severity == "info"  # 3% between 1% info and 5% warning
         assert finding.description is not None
-        assert "3/5" in finding.description
-        # Sorted by score descending
-        assert "Sample    0" in bullets(finding)[0]
+        assert finding.description.startswith("3/5 OOD samples agreed by all detectors (3.0%), most out of")
 
     def test_warning_severity(self):
-        mutual_ood = {0, 1}
-        normalized_scores = {0: 2.0, 1: 1.5}
         thresholds = OODDetectionHealthThresholds(ood_pct_warning=1.0)
-        finding = _build_aggregate_finding(mutual_ood, normalized_scores, 2, 10, thresholds)
+        finding = _build_aggregate_finding({0, 1}, {0: 2.0, 1: 1.5}, 2, 10, thresholds, _one_source)
         assert finding.severity == "warning"  # 20% > 1%
 
-    def test_samples_are_a_bullet_list(self):
-        finding = _build_aggregate_finding({0, 1}, {0: 1.5, 1: 2.25}, 4, 100, OODDetectionHealthThresholds())
-        assert finding.blocks == [BulletList(items=["Sample    1 (score=2.25x)", "Sample    0 (score=1.50x)"])]
+    def test_samples_are_a_table_most_out_of_distribution_first(self):
+        finding = _build_aggregate_finding(
+            {0, 1}, {0: 1.5, 1: 2.25}, 4, 100, OODDetectionHealthThresholds(), _one_source
+        )
+        (table,) = tables(finding)
+        assert table.rows == [
+            {"image": ItemRef(source="test", index=1), "item": 1, "source": "test", "score": 2.25},
+            {"image": ItemRef(source="test", index=0), "item": 0, "source": "test", "score": 1.5},
+        ]
+        assert table.preview == 10
+        assert rendered(finding).splitlines()[-4:] == [
+            "  Item  Source  Score",
+            "  ----  ------  -----",
+            "  1     test    2.25x",
+            "  0     test    1.50x",
+        ]
+
+    def test_past_500_samples_a_paragraph_counts_the_rest(self):
+        scores = {i: 1.0 + i / 1000 for i in range(600)}
+        finding = _build_aggregate_finding(set(scores), scores, 600, 600, OODDetectionHealthThresholds(), _one_source)
+        (table,) = tables(finding)
+        assert len(table.rows) == 500
+        assert table.rows[0]["item"] == 599
+        assert paragraphs(finding) == [
+            "600 samples; the 500 most out of distribution are listed, and every one is in `output.raw`."
+        ]
 
     def test_no_agreed_samples_lists_nothing(self):
-        finding = _build_aggregate_finding(set(), {}, 4, 100, OODDetectionHealthThresholds())
+        finding = _build_aggregate_finding(set(), {}, 4, 100, OODDetectionHealthThresholds(), _one_source)
         assert finding.description is not None
         assert finding.description.startswith("0/4 OOD samples agreed by all detectors")
         assert finding.blocks == []
 
 
 class TestBuildUniqueOODFinding:
+    _NAMES = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
+
     def test_basic(self):
-        unique_ood = {
-            "kneighbors": {3, 4},
-            "domain_classifier": {5},
-        }
-        normalized_scores = {3: 1.8, 4: 1.3, 5: 1.1}
-        names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
-        finding = _build_unique_ood_finding(unique_ood, normalized_scores, names)
+        unique_ood = {"kneighbors": {3, 4}, "domain_classifier": {5}}
+        finding = _build_unique_ood_finding(unique_ood, {3: 1.8, 4: 1.3, 5: 1.1}, self._NAMES, _one_source)
         assert finding.title == "Unique OOD Samples (single-detector only)"
         assert finding.description is not None
         assert "3 sample(s)" in finding.description
@@ -340,30 +377,30 @@ class TestBuildUniqueOODFinding:
 
     def test_skips_empty_sets(self):
         unique_ood = {"kneighbors": set(), "domain_classifier": {5}}
-        normalized_scores = {5: 1.1}
-        names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
-        finding = _build_unique_ood_finding(unique_ood, normalized_scores, names)
+        finding = _build_unique_ood_finding(unique_ood, {5: 1.1}, self._NAMES, _one_source)
         assert "K-Neighbors" not in [section.title for section in sections(finding)]
 
     def test_each_detector_is_a_section_of_its_samples(self):
         unique_ood = {"kneighbors": {3, 4}, "domain_classifier": {5}}
-        normalized_scores = {3: 1.8, 4: 1.3, 5: 1.1}
-        names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
-        finding = _build_unique_ood_finding(unique_ood, normalized_scores, names)
+        finding = _build_unique_ood_finding(unique_ood, {3: 1.8, 4: 1.3, 5: 1.1}, self._NAMES, _one_source)
         knn, dc = sections(finding)
         assert (knn.title, knn.brief) == ("K-Neighbors", "2 unique sample(s)")
-        assert knn.blocks == [BulletList(items=["Sample    3 (score=1.80x)", "Sample    4 (score=1.30x)"])]
+        (knn_table,) = [block for block in knn.blocks if isinstance(block, Table)]
+        assert column(knn_table, "item") == [3, 4]
         assert (dc.title, dc.brief) == ("Domain Classifier", "1 unique sample(s)")
-        assert dc.blocks == [BulletList(items=["Sample    5 (score=1.10x)"])]
         assert rendered(finding).splitlines()[3:] == [
             "  3 sample(s) flagged by only one detector",
             "",
             "  K-Neighbors — 2 unique sample(s)",
-            "    - Sample    3 (score=1.80x)",
-            "    - Sample    4 (score=1.30x)",
+            "    Item  Source  Score",
+            "    ----  ------  -----",
+            "    3     test    1.80x",
+            "    4     test    1.30x",
             "",
             "  Domain Classifier — 1 unique sample(s)",
-            "    - Sample    5 (score=1.10x)",
+            "    Item  Source  Score",
+            "    ----  ------  -----",
+            "    5     test    1.10x",
         ]
 
 
@@ -380,7 +417,7 @@ class TestBuildFindings:
         )
         params = _make_params()
         names = {"kneighbors": "K-Neighbors"}
-        findings = build_findings(raw, params, names)
+        findings = build_findings(raw, params, names, parts=[("test", 100)])
 
         # Should have detector finding only (no metadata insights, single detector)
         assert len(findings) == 1
@@ -400,7 +437,7 @@ class TestBuildFindings:
         )
         params = _make_params()
         names = {"kneighbors": "K-Neighbors"}
-        findings = build_findings(raw, params, names)
+        findings = build_findings(raw, params, names, parts=[("test", 100)])
 
         # detector + factor predictors + factor deviations
         assert len(findings) == 3
@@ -415,7 +452,7 @@ class TestBuildFindings:
         )
         params = _make_params()
         names = {"kneighbors": "K-Neighbors"}
-        findings = build_findings(raw, params, names)
+        findings = build_findings(raw, params, names, parts=[("test", 100)])
 
         # Only detector finding, no OOD samples table
         assert len(findings) == 1
@@ -453,7 +490,7 @@ class TestBuildFindings:
         )
         params = _make_params()
         names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
-        findings = build_findings(raw, params, names)
+        findings = build_findings(raw, params, names, parts=[("test", 100)])
 
         titles = [f.title for f in findings]
         # 2 detectors + aggregate + unique = 4
@@ -493,8 +530,27 @@ class TestBuildFindings:
         )
         params = _make_params()
         names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
-        findings = build_findings(raw, params, names)
+        findings = build_findings(raw, params, names, parts=[("test", 100)])
 
         titles = [f.title for f in findings]
         assert "Aggregate OOD (all detectors agree)" in titles
         assert "Unique OOD Samples (single-detector only)" not in titles
+
+    def test_each_sample_is_named_in_the_test_source_it_came_from(self):
+        """Test sources are scored joined end to end; each sample's thumbnail reads from its own source."""
+        samples = [OODSampleDict(index=i, score=0.9 if i in (1, 3) else 0.1, is_ood=i in (1, 3)) for i in range(4)]
+        detector = _make_detector_result(ood_count=2, total_count=4, threshold_score=0.5, samples=samples)
+        raw = OODDetectionRawOutput(
+            dataset_size=8,
+            reference_size=4,
+            test_size=4,
+            detectors={"kneighbors": detector, "domain_classifier": {**detector, "method": "domain_classifier"}},
+            ood_indices=[1, 3],
+        )
+        names = {"kneighbors": "K-Neighbors", "domain_classifier": "Domain Classifier"}
+        findings = build_findings(raw, _make_params(), names, parts=[("day", 2), ("night", 2)])
+        (aggregate,) = [f for f in findings if f.title.startswith("Aggregate")]
+        assert [row["image"] for row in tables(aggregate)[0].rows] == [
+            ItemRef(source="day", index=1),
+            ItemRef(source="night", index=1),
+        ]
