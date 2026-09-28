@@ -3,11 +3,13 @@
 __all__ = ["draw_table"]
 
 import math
+from collections.abc import Mapping
 
 from dataeval_flow._blocks._flags import card, flags_in, ordered, tag_text
 from dataeval_flow._blocks._html_base import HtmlContext, escape, num, pct, series_class
 from dataeval_flow._blocks._html_scale import draw_scale
-from dataeval_flow._blocks._models import Cell, Column, Flag, Table
+from dataeval_flow._blocks._items import item_name, refs_in
+from dataeval_flow._blocks._models import Asset, Cell, Column, Flag, ItemRef, Table
 from dataeval_flow._blocks._table import _finite, _markers, _scale, cell_text, numbers
 
 _CHARTS = ("bar", "stacked", "sparkline")
@@ -38,8 +40,8 @@ def _header(column: Column) -> str:
 def _align(column: Column, index: int) -> str:
     if column.kind in _CHARTS:
         return "chart"
-    if column.kind == "flags":
-        return "flags"
+    if column.kind in ("flags", "image"):
+        return column.kind
     return column.align or ("left" if index == 0 else "right")
 
 
@@ -101,6 +103,20 @@ def _tag(flag: Flag) -> str:
     )
 
 
+def _thumb(ref: ItemRef, assets: Mapping[ItemRef, Asset]) -> str:
+    """The item's thumbnail, which a click enlarges and a second click, anywhere, puts back; its name where it has none.
+
+    A ``<details>`` rather than a link to itself: it opens without a script, adds nothing to the
+    browser's history, and needs no ``id``, so a page embedded in another never follows it away.
+    """
+    asset = assets.get(ref)
+    if asset is None or not asset.media_type.startswith("image/"):
+        return f'<span class="item">{escape(item_name(ref))}</span>'
+    label = escape(f"{ref.source} {item_name(ref)}")
+    source = f"data:{escape(asset.media_type)};base64,{escape(asset.data)}"
+    return f'<details class="thumb"><summary title="{label}"><img src="{source}" alt="{label}"></summary></details>'
+
+
 def _scale_row(table: Table, extents: list[tuple[float, float]]) -> str:
     """The row closing a table whose bars have markers: each such column's scale, and blank cells elsewhere."""
     marked = [column.kind == "bar" and bool(_markers(column)) for column in table.columns]
@@ -123,8 +139,12 @@ def _extent(table: Table, column: Column) -> tuple[float, float]:
     return 0.0, 0.0
 
 
-def _cell(column: Column, value: Cell, index: int, extent: tuple[float, float]) -> str:
+def _cell(column: Column, value: Cell, index: int, extent: tuple[float, float], assets: Mapping[ItemRef, Asset]) -> str:
     align = _align(column, index)
+    if column.kind == "image":
+        refs = refs_in(value)
+        order = f' data-sort="{refs[0].index}"' if refs else ""
+        return f'<td class="image"{order}>{" ".join(_thumb(ref, assets) for ref in refs)}</td>'
     if column.kind == "flags":
         flags = flags_in(value)
         tags = " ".join(_tag(flag) for flag in ordered(flags))
@@ -141,7 +161,7 @@ def _cell(column: Column, value: Cell, index: int, extent: tuple[float, float]) 
     return f'<td class="{align}" data-value="{_raw(value)}">{content}</td>'
 
 
-def draw_table(block: Table, _ctx: HtmlContext) -> str:
+def draw_table(block: Table, ctx: HtmlContext) -> str:
     if not block.rows:
         return ""
     columns = block.columns
@@ -152,7 +172,7 @@ def draw_table(block: Table, _ctx: HtmlContext) -> str:
     # Once per column, not per cell: a scale reads every row, so per cell a table would cost rows squared.
     extents = [_extent(block, column) for column in columns]
     body = "".join(
-        "<tr>" + "".join(_cell(c, row.get(c.key), i, extents[i]) for i, c in enumerate(columns)) + "</tr>"
+        "<tr>" + "".join(_cell(c, row.get(c.key), i, extents[i], ctx.assets) for i, c in enumerate(columns)) + "</tr>"
         for row in block.rows
     )
     scale = _scale_row(block, extents)

@@ -58,6 +58,23 @@ def test_the_short_page_gives_the_verdict_the_full_page_gives():
         assert '<span class="badge warning">1 warning</span></header>' in result.to_html(detailed=detailed)
 
 
+def test_the_page_shows_the_thumbnails_its_result_carries():
+    """One run's results share one page, and each shows the thumbnails its own result captured."""
+    from dataeval_flow._blocks import Asset, Column, ItemRef, Table
+    from dataeval_flow.workflows import Finding
+
+    ref = ItemRef(source="train", index=4)
+    result = _workflow()
+    result.output.report.findings = [
+        Finding(title="Outliers", blocks=[Table(columns=[Column(key="i", kind="image")], rows=[{"i": ref}])])
+    ]
+    assert '<span class="item">4</span>' in result.to_html()
+    result.assets = [Asset(item=ref, media_type="image/webp", width=4, height=4, data="QUJD")]
+    thumbnail = '<img src="data:image/webp;base64,QUJD" alt="train 4">'
+    assert thumbnail in result.to_html()
+    assert thumbnail in results_html([_evaluator(), result])
+
+
 def test_the_base_cannot_be_built_on_its_own():
     with pytest.raises(TypeError, match="abstract"):
         Result(type="r", success=False, metadata=ResultMetadata())  # type: ignore[abstract]

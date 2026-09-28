@@ -4,12 +4,12 @@ __all__ = ["Draw", "HtmlContext", "Render", "badge", "escape", "inline", "num", 
 
 import html
 import re
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from dataeval_flow._blocks._draw import fmt_num
-from dataeval_flow._blocks._models import Block
+from dataeval_flow._blocks._models import Asset, Block, ItemRef
 
 _CODE_SPAN = re.compile(r"`([^`]+)`")
 
@@ -28,12 +28,13 @@ class HtmlContext:
     """Where a block is drawn: its section depth, and how to draw a container's child blocks one level deeper.
 
     ``anchor`` is the ``id`` this block draws with, where its container gave it one: a report on a page
-    of several, or a finding's card.
+    of several, or a finding's card. ``assets`` are the page's thumbnails, by the item each shows.
     """
 
     depth: int
     render: Render
     anchor: str | None = None
+    assets: Mapping[ItemRef, Asset] = field(default_factory=dict)
 
 
 Draw = Callable[[Any, HtmlContext], str]

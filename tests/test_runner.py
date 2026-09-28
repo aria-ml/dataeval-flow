@@ -174,6 +174,7 @@ def _fake_result(*, warnings: int = 0):
     result.to_dict.return_value = {"metadata": {}}
     result.metadata = MagicMock(metadata_binning=None)
     result.warning_count = warnings
+    result.assets = []
     return result
 
 

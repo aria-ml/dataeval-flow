@@ -1,8 +1,8 @@
 """The page's stylesheet and its one script, kept apart from the drawing code as the text they are.
 
 The script only adds to a page that is complete without it: it makes tables sortable and long ones
-filterable, adds expand-all and collapse-all for the findings, and opens every finding and shows every
-filtered-out row before printing.
+filterable, adds expand-all and collapse-all for the findings, lets Esc put back an enlarged thumbnail,
+and opens every finding and shows every filtered-out row before printing.
 It loads nothing and builds every control from text, so no result string is ever read as markup.
 """
 
@@ -98,6 +98,18 @@ tr.scale td { border-bottom: 0; padding-top: 0; }
 .tip-title { display: block; font-weight: 600; margin-bottom: 0.2rem; }
 .tip-row { display: flex; justify-content: space-between; gap: 1rem; }
 .tip-row > span:first-child { color: var(--muted); }
+td.image { text-align: left; }
+td.image .item { color: var(--muted); }
+details.thumb { display: inline-block; width: 48px; height: 48px; margin: 0 2px 2px 0; vertical-align: middle; }
+details.thumb > summary { display: block; list-style: none; cursor: zoom-in; }
+details.thumb > summary::-webkit-details-marker { display: none; }
+details.thumb img { display: block; width: 48px; height: 48px; object-fit: contain; border-radius: 3px;
+  background: var(--soft); }
+details.thumb[open] > summary::before { content: ""; position: fixed; inset: 0; z-index: 20;
+  background: rgb(0 0 0 / 0.6); cursor: zoom-out; }
+details.thumb[open] img { position: fixed; z-index: 21; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 192px; height: 192px; image-rendering: pixelated; background: var(--card); cursor: zoom-out;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.5); }
 svg.spark { width: 10rem; height: 1em; fill: var(--s0); vertical-align: middle; }
 svg.dist { width: 100%; max-width: 32rem; height: 4rem; fill: var(--s0); }
 svg.dist .box { fill: var(--s1); }
@@ -115,6 +127,8 @@ _PRINT = """
   a { color: inherit; text-decoration: none; }
   tr, pre, figure, dl, .proportion { break-inside: avoid; }
   h1, h2, h3, h4, :is(details.card, details.panel) > summary { break-after: avoid; }
+  details.thumb[open] > summary::before { display: none; }
+  details.thumb[open] img { position: static; transform: none; width: 48px; height: 48px; box-shadow: none; }
 """
 
 STYLE = (
@@ -252,10 +266,17 @@ SCRIPT = """
     main.prepend(bar);
   };
 
-  // Every finding prints open, and those the reader had closed close again afterwards.
+  // Esc puts back an enlarged thumbnail, as a click anywhere does.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    document.querySelectorAll("details.thumb[open]").forEach((thumb) => { thumb.open = false; });
+  });
+
+  // Every finding prints open, and those the reader had closed close again afterwards. Thumbnails print
+  // as they are, since an enlarged one would cover the page.
   let closed = [];
   window.addEventListener("beforeprint", () => {
-    closed = Array.from(document.querySelectorAll("details:not([open])"));
+    closed = Array.from(document.querySelectorAll("details:not([open]):not(.thumb)"));
     closed.forEach((details) => { details.open = true; });
   });
   window.addEventListener("afterprint", () => {

@@ -22,11 +22,13 @@ from dataeval_flow._blocks._html_base import Draw, HtmlContext, badge, escape, i
 from dataeval_flow._blocks._html_style import SCRIPT, STYLE
 from dataeval_flow._blocks._html_tables import draw_table
 from dataeval_flow._blocks._models import (
+    Asset,
     Block,
     BulletList,
     Code,
     Distribution,
     Fields,
+    ItemRef,
     Paragraph,
     Proportion,
     Section,
@@ -38,11 +40,14 @@ from dataeval_flow._blocks._text import DEFAULT_WIDTH
 _NOT_A_NAME = re.compile(r"[^a-z0-9]+")
 
 
-def render_html(blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = None) -> str:
+def render_html(
+    blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = None, assets: Sequence[Asset] = ()
+) -> str:
     """*blocks* as an HTML fragment, one element per block, siblings on their own lines.
 
     *draw* replaces the drawing of a block type by its ``type`` tag. A replacement returns an
-    HTML fragment and owns escaping its own output.
+    HTML fragment and owns escaping its own output. *assets* are the thumbnails an image cell
+    shows; an item without one is named instead.
     """
     table = {**DRAW, **(draw or {})}
     # On a page of several reports each is numbered, as the page's contents list numbers them.
@@ -55,7 +60,7 @@ def render_html(blocks: Sequence[Block], *, draw: Mapping[str, Draw] | None = No
             anchors.append(f"r{count}")
         else:
             anchors.append(None)
-    return _render(blocks, 0, table, anchors)
+    return _render(blocks, 0, table, anchors, {asset.item: asset for asset in assets})
 
 
 def _render(
@@ -63,12 +68,13 @@ def _render(
     depth: int,
     table: Mapping[str, Draw],
     anchors: Sequence[str | None] | None,
+    assets: Mapping[ItemRef, Asset],
 ) -> str:
     def _children(children: Sequence[Block], *, anchors: Sequence[str | None] | None = None) -> str:
-        return _render(children, depth + 1, table, anchors)
+        return _render(children, depth + 1, table, anchors, assets)
 
     parts = (
-        table[block.type](block, HtmlContext(depth, _children, anchors[i] if anchors else None))
+        table[block.type](block, HtmlContext(depth, _children, anchors[i] if anchors else None, assets))
         for i, block in enumerate(blocks)
     )
     return "\n".join(part for part in parts if part)
@@ -133,8 +139,11 @@ def _contents(reports: Sequence[Section]) -> str:
     return f'<nav class="contents"><h2>Reports</h2><ol>{items}</ol></nav>'
 
 
-def html_page(title: str, blocks: Sequence[Block]) -> str:
-    """One complete page holding *blocks*: its own stylesheet and script, and nothing it has to fetch."""
+def html_page(title: str, blocks: Sequence[Block], assets: Sequence[Asset] = ()) -> str:
+    """One complete page holding *blocks*: its own stylesheet and script, and nothing it has to fetch.
+
+    *assets* are the thumbnails its image cells show, embedded as ``data:`` URIs.
+    """
     contents = _contents(_reports(blocks))
     return "\n".join(
         [
@@ -149,7 +158,7 @@ def html_page(title: str, blocks: Sequence[Block]) -> str:
             "<body>",
             "<main>",
             *([contents] if contents else []),
-            render_html(blocks),
+            render_html(blocks, assets=assets),
             "</main>",
             f"<script>{SCRIPT}</script>",
             "</body>",

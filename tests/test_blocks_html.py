@@ -7,6 +7,7 @@ from typing import Any, get_args
 import pytest
 
 from dataeval_flow._blocks import (
+    Asset,
     Block,
     BulletList,
     Code,
@@ -14,6 +15,7 @@ from dataeval_flow._blocks import (
     Distribution,
     Fields,
     Flag,
+    ItemRef,
     Paragraph,
     Proportion,
     Quantiles,
@@ -30,7 +32,7 @@ from tests.test_blocks_models import EVERY_BLOCK
 
 pytestmark = pytest.mark.required
 
-_VOID = {"meta", "br", "rect", "line"}
+_VOID = {"meta", "br", "rect", "line", "img"}
 
 
 class _Balance(HTMLParser):
@@ -428,6 +430,63 @@ class TestFlagsCells:
         assert _well_formed(render_html([self._TABLE]))
 
 
+def _asset(ref: ItemRef, data: str = "UklGRg==", media_type: str = "image/webp") -> Asset:
+    return Asset(item=ref, media_type=media_type, width=16, height=12, data=data)
+
+
+class TestImageCells:
+    _ONE = ItemRef(source="train", index=41)
+    _GROUP = [ItemRef(source="train", index=3), ItemRef(source="train", index=17, target=2)]
+    _TABLE = Table(
+        columns=[Column(key="image", kind="image"), Column(key="item", header="Item")],
+        rows=[{"image": _ONE, "item": 41}, {"image": _GROUP, "item": 3}],
+    )
+
+    def test_a_thumbnail_enlarges_on_a_click_with_no_script_and_no_link(self):
+        """A ``<details>`` opens without a script and leaves the address bar and history alone."""
+        fragment = render_html([self._TABLE], assets=[_asset(self._ONE)])
+        assert (
+            '<td class="image" data-sort="41"><details class="thumb"><summary title="train 41">'
+            '<img src="data:image/webp;base64,UklGRg==" alt="train 41"></summary></details></td>'
+        ) in fragment
+        assert "href" not in fragment
+        assert " id=" not in fragment
+
+    def test_an_item_without_a_thumbnail_is_named(self):
+        fragment = render_html([self._TABLE], assets=[_asset(self._ONE)])
+        assert (
+            '<td class="image" data-sort="3"><span class="item">3</span> <span class="item">17 box 2</span></td>'
+            in (fragment)
+        )
+
+    def test_a_group_shows_each_of_its_items_in_one_cell(self):
+        fragment = render_html([self._TABLE], assets=[_asset(ref, data=f"D{ref.index}") for ref in self._GROUP])
+        (cell,) = re.findall(r'<td class="image" data-sort="3">.*?</td>', fragment)
+        assert cell.count('<details class="thumb">') == 2
+        assert 'alt="train 17 box 2"' in cell
+
+    def test_each_image_s_data_appears_once_per_cell_that_shows_it(self):
+        """The enlarged view is the same ``<img>``, so a thumbnail costs the page one copy of its data."""
+        table = Table(columns=[Column(key="image", kind="image")], rows=[{"image": self._ONE}, {"image": self._ONE}])
+        assert render_html([table], assets=[_asset(self._ONE, data="ONCE")]).count("ONCE") == 2
+
+    def test_a_kind_the_page_cannot_draw_names_the_item(self):
+        """A later previewer may make other media; a renderer that can't draw one names the item, as for none."""
+        fragment = render_html([self._TABLE], assets=[_asset(self._ONE, media_type="text/plain")])
+        assert '<span class="item">41</span>' in fragment
+
+    def test_the_image_column_has_no_heading_of_its_own(self):
+        assert '<th class="image"></th><th class="right">Item</th>' in render_html([self._TABLE])
+
+    def test_an_image_table_is_well_formed(self):
+        assert _well_formed(render_html([self._TABLE], assets=[_asset(self._ONE)]))
+
+    def test_the_page_embeds_its_thumbnails(self):
+        page = html_page("R", [self._TABLE], [_asset(self._ONE)])
+        assert 'src="data:image/webp;base64,UklGRg=="' in page
+        assert "http" not in page
+
+
 class TestLabelPlacement:
     """Scale labels are placed without measuring text, on up to three lines, and never overlap."""
 
@@ -487,8 +546,20 @@ class TestEscaping:
                 columns=[Column(key="n", kind="bar", markers=[(self._EVIL, 1.0)])],
                 rows=[{"n": 2.0}],
             ),
+            Table(
+                columns=[Column(key="i", kind="image")],
+                rows=[{"i": ItemRef(source=self._EVIL, index=1)}, {"i": ItemRef(source=self._EVIL, index=2)}],
+            ),
         ]
-        fragment = render_html(blocks)
+        assets = [
+            Asset(
+                item=ItemRef(source=self._EVIL, index=1), media_type="image/webp", width=1, height=1, data=self._EVIL
+            ),
+            Asset(
+                item=ItemRef(source=self._EVIL, index=2), media_type=f"image/{self._EVIL}", width=1, height=1, data=""
+            ),
+        ]
+        fragment = render_html(blocks, assets=assets)
         assert "<script" not in fragment
         assert 'data-value="&lt;script&gt;alert(&quot;1&quot;)&lt;/script&gt;"' in fragment
         assert _well_formed(fragment)
@@ -518,7 +589,10 @@ class TestScript:
 
     def test_the_page_s_own_markup_has_no_controls(self):
         """The script adds its buttons and filter boxes, so a page with scripts blocked shows none that do nothing."""
-        page = html_page("R", [_report(_DUPLICATES), self._TABLE])
+        ref = ItemRef(source="s", index=0)
+        thumbs = Table(columns=[Column(key="i", kind="image")], rows=[{"i": ref}])
+        page = html_page("R", [_report(_DUPLICATES), self._TABLE, thumbs], [_asset(ref)])
+        assert '<details class="thumb">' in page
         markup = page.replace(f"<script>{SCRIPT}</script>", "")
         assert "<button" not in markup
         assert "<input" not in markup
@@ -532,8 +606,27 @@ class TestScript:
 
     def test_the_script_does_what_the_page_needs(self):
         assert 'querySelectorAll("details.card, details.panel")' in SCRIPT, "the buttons open the panels too"
-        for need in ("aria-sort", "Expand all", "Collapse all", "beforeprint", "afterprint", "Filter rows"):
+        assert 'querySelectorAll("details:not([open]):not(.thumb))' not in SCRIPT
+        assert 'querySelectorAll("details:not([open]):not(.thumb)")' in SCRIPT, "printing opens no thumbnail"
+        for need in ("aria-sort", "Expand all", "Collapse all", "beforeprint", "afterprint", "Filter rows", "Escape"):
             assert need in SCRIPT
+
+    def test_esc_puts_back_an_enlarged_thumbnail(self, tmp_path):
+        ref = ItemRef(source="s", index=0)
+        table = Table(columns=[Column(key="i", kind="image")], rows=[{"i": ref}, {"i": ref}])
+        _drive(
+            tmp_path,
+            table,
+            """
+            const [first, second] = body.rows.map((row) => row.cells[0].childNodes[0]);
+            first.open = true;
+            fire(document, "keydown", { key: "Enter" });
+            check("another key", first.open, true);
+            fire(document, "keydown", { key: "Escape" });
+            check("esc", [first.open, Boolean(second.open)], [false, false]);
+            """,
+            assets=[_asset(ref)],
+        )
 
     def test_the_script_parses(self, tmp_path):
         import subprocess
@@ -621,7 +714,7 @@ const listen = (target) => Object.assign(target, {
   on: {},
   addEventListener(type, fn) { (this.on[type] ??= []).push(fn); },
 });
-const fire = (target, type) => (target.on[type] ?? []).forEach((fn) => fn({}));
+const fire = (target, type, event = {}) => (target.on[type] ?? []).forEach((fn) => fn(event));
 const text = (data) => ({ nodeType: 3, data });
 const element = ({ tag, attrs = {}, children = [] }) => {
   const classes = (attrs.class ?? "").split(" ").filter(Boolean);
@@ -654,12 +747,18 @@ const element = ({ tag, attrs = {}, children = [] }) => {
 };
 
 const table = element(JSON.parse(tree));
+const descendants = (node) =>
+  node.childNodes.filter((child) => child.nodeType === 1).flatMap((child) => [child, ...descendants(child)]);
+const selected = {
+  "main table:not(.summary)": () => [table],
+  "details.thumb[open]": () => descendants(table).filter((node) => node.classList.contains("thumb") && node.open),
+};
 global.window = listen({});
-global.document = {
-  querySelectorAll: (selector) => (selector === "main table:not(.summary)" ? [table] : []),
+global.document = listen({
+  querySelectorAll: (selector) => (selected[selector] ?? (() => []))(),
   querySelector: () => null,
   createElement: (tag) => element({ tag }),
-};
+});
 eval(source);
 
 const body = table.tBodies[0];
@@ -714,14 +813,14 @@ def _node() -> str:
     return node
 
 
-def _drive(tmp_path: Any, table: Table, scenario: str) -> None:
+def _drive(tmp_path: Any, table: Table, scenario: str, assets: list[Asset] | None = None) -> None:
     """Run the page's script on *table* as rendered, then *scenario*, whose every `check` must hold."""
     import json
     import subprocess
 
     node = _node()
     parser = _Tree()
-    parser.feed(render_html([table]))
+    parser.feed(render_html([table], assets=assets or []))
     (element,) = parser.stack[0]["children"]
     for name, content in (("page.js", SCRIPT), ("tree.json", json.dumps(element)), ("harness.js", _HARNESS + scenario)):
         (tmp_path / name).write_text(content)
@@ -753,6 +852,11 @@ class TestTheme:
         printed = self._print_rules()
         for hidden in (".controls", ".filter", ".tip"):
             assert hidden in printed.split("display: none", 1)[0]
+
+    def test_a_thumbnail_prints_at_its_own_size_even_when_enlarged(self):
+        printed = self._print_rules()
+        assert "details.thumb[open] > summary::before { display: none; }" in printed
+        assert "details.thumb[open] img { position: static;" in printed
 
     def test_tags_share_one_style_with_no_shade_of_severity(self):
         """A tag is a fact, the value against its limit, so every tag looks alike."""
