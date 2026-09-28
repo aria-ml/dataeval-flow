@@ -5,14 +5,14 @@ from typing import ClassVar
 from pydantic import Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, _LegacyMetadataMixin
 from dataeval_flow.workflows._base import WorkflowConfig
 from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageResult
 
 __all__ = ["MetadataTriageConfig"]
 
 
-class MetadataTriageConfig(WorkflowConfig[MetadataTriageResult], MetadataConfigMixin):
+class MetadataTriageConfig(WorkflowConfig[MetadataTriageResult], MetadataConfigMixin, _LegacyMetadataMixin):
     """The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.
 
     Deliberately thin.  There is no ``suggest`` toggle — suggesting is what the workflow is

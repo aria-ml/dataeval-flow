@@ -6,7 +6,7 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
 from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
 from dataeval_flow.workflows.data_analysis._outputs import DataAnalysisResult
 
@@ -72,7 +72,11 @@ class DataAnalysisHealthThresholds(BaseModel):
 
 
 class DataAnalysisConfig(
-    WorkflowConfig[DataAnalysisResult], MetadataConfigMixin, _LegacyValueRangeMixin, StatsConfigMixin
+    WorkflowConfig[DataAnalysisResult],
+    MetadataConfigMixin,
+    _LegacyMetadataMixin,
+    _LegacyValueRangeMixin,
+    StatsConfigMixin,
 ):
     """The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.
 

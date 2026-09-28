@@ -53,6 +53,8 @@
 
 ### Changed
 
+- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
+  older `metadata_*` fields stay on the workflows that took them
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
 - A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
   mistyped flag, which exits `2`

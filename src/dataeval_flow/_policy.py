@@ -695,8 +695,8 @@ def resolve_policy(
     Parameters
     ----------
     params : MetadataConfigMixin
-        The workflow's parameters, which either name a policy or carry the older
-        per-workflow fields.
+        The entry's parameters, which either name a policy or, on a workflow config, carry the older
+        ``metadata_*`` fields (``_LegacyMetadataMixin``).
     config : PipelineConfig | None
         The pipeline the policy pool lives on.  Required only when a policy is named.
     data_dir : Path | None
@@ -734,14 +734,14 @@ def resolve_policy(
         descriptor_path = named.encoding
     else:
         source = "This workflow"
-        auto_bin_method = params.metadata_auto_bin_method
-        exclude = tuple(params.metadata_exclude or ())
-        bins = dict(params.metadata_continuous_factor_bins or {})
+        auto_bin_method = getattr(params, "metadata_auto_bin_method", None)
+        exclude = tuple(getattr(params, "metadata_exclude", None) or ())
+        bins = dict(getattr(params, "metadata_continuous_factor_bins", None) or {})
         factor_levels, strict = None, False
         partial_factors = False
         declared_corrections = ()
         declared_aggregations = ()
-        factor_source, reference_split = params.metadata_factor_source, None
+        factor_source, reference_split = getattr(params, "metadata_factor_source", None), None
         intrinsic_factors = ()
         descriptor_path = None
 

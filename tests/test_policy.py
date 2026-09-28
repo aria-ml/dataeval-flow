@@ -16,6 +16,11 @@ import pytest
 from dataeval_flow import PipelineConfig
 from dataeval_flow._policy import ResolvedPolicy, policy_for, policy_key, resolve_policy
 from dataeval_flow.config import MetadataConfigMixin
+from dataeval_flow.config._schemas._mixins import _LegacyMetadataMixin
+
+
+class _Legacy(MetadataConfigMixin, _LegacyMetadataMixin):
+    """A workflow config's metadata fields: the policy reference and the older spelling."""
 
 
 def _descriptor(tmp_path: Path, factors: dict, name: str = "policy.json", corrections: Any = None) -> Path:
@@ -45,7 +50,7 @@ class TestResolvingTheOlderSpelling:
     """The per-workflow `metadata_*` fields keep working."""
 
     def test_reads_them_when_no_policy_is_named(self):
-        params = MetadataConfigMixin(
+        params = _Legacy(
             metadata_auto_bin_method="clusters",
             metadata_exclude=["id"],
             metadata_continuous_factor_bins={"temp_c": [0.0, 1.0]},
@@ -86,7 +91,7 @@ class TestResolvingANamedPolicy:
 
     def test_naming_a_policy_and_the_older_fields_is_refused(self):
         """Two sources disagreeing about one factor has no good resolution."""
-        params = MetadataConfigMixin(metadata="standard", metadata_auto_bin_method="clusters")
+        params = _Legacy(metadata="standard", metadata_auto_bin_method="clusters")
         with pytest.raises(ValueError, match="also sets"):
             resolve_policy(params, _config())
 
@@ -403,14 +408,14 @@ class TestPolicyFor:
         class _Ctx:
             metadata_policy = ResolvedPolicy(auto_bin_method="clusters")
 
-        params = MetadataConfigMixin(metadata_auto_bin_method="uniform_count")
+        params = _Legacy(metadata_auto_bin_method="uniform_count")
         assert policy_for(_Ctx(), params).auto_bin_method == "clusters"
 
     def test_falls_back_to_the_parameters(self):
         class _Ctx:
             metadata_policy = None
 
-        params = MetadataConfigMixin(metadata_auto_bin_method="uniform_count")
+        params = _Legacy(metadata_auto_bin_method="uniform_count")
         assert policy_for(_Ctx(), params).auto_bin_method == "uniform_count"
 
 
@@ -1090,3 +1095,21 @@ class TestDeriveFromCarriesTheReading:
 
         plain = Metadata.from_factors({"w": ["a", "b"] * 4}, class_labels=np.zeros(8, dtype=int))
         assert derive_from(ResolvedPolicy(), plain, {}).correction_specs == ()
+
+
+class TestTheMixins:
+    def test_the_metadata_mixin_is_one_policy_name_like_the_stats_mixin(self):
+        """Each mixin names one policy; the older metadata fields live on the workflows that took them."""
+        from dataeval_flow.config import StatsConfigMixin
+
+        assert set(MetadataConfigMixin.model_fields) == {"metadata"}
+        assert set(StatsConfigMixin.model_fields) == {"stats"}
+
+    @pytest.mark.parametrize(
+        "workflow", ["data-analysis", "data-cleaning", "data-coverage", "ood-detection", "metadata-triage"]
+    )
+    def test_the_workflows_that_took_the_older_fields_still_do(self, workflow: str):
+        from dataeval_flow.workflows import get_workflow
+
+        fields = set(get_workflow(workflow).config_type.model_fields)
+        assert {"metadata", *_LegacyMetadataMixin.model_fields} <= fields

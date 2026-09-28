@@ -6,7 +6,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
 from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
 from dataeval_flow.workflows.ood_detection._outputs import OODDetectionResult
 
@@ -135,7 +135,11 @@ class OODDetectionHealthThresholds(BaseModel):
 
 
 class OODDetectionConfig(
-    WorkflowConfig[OODDetectionResult], MetadataConfigMixin, _LegacyValueRangeMixin, StatsConfigMixin
+    WorkflowConfig[OODDetectionResult],
+    MetadataConfigMixin,
+    _LegacyMetadataMixin,
+    _LegacyValueRangeMixin,
+    StatsConfigMixin,
 ):
     """The settings of one ``ood-detection`` entry: the OOD detectors scored against the reference, and when they warn.
 

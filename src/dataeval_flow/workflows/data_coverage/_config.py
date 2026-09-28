@@ -5,7 +5,7 @@ from typing import Annotated, Any, ClassVar, Literal
 from pydantic import BaseModel, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
 from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
 from dataeval_flow.workflows.data_coverage._outputs import DataCoverageResult
 
@@ -110,7 +110,11 @@ class DataCoverageHealthThresholds(BaseModel):
 
 
 class DataCoverageConfig(
-    WorkflowConfig[DataCoverageResult], MetadataConfigMixin, _LegacyValueRangeMixin, StatsConfigMixin
+    WorkflowConfig[DataCoverageResult],
+    MetadataConfigMixin,
+    _LegacyMetadataMixin,
+    _LegacyValueRangeMixin,
+    StatsConfigMixin,
 ):
     """The settings of one ``data-coverage`` entry: the coverage, distribution and gap analyses, and when they warn.
 
