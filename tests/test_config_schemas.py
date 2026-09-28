@@ -820,6 +820,24 @@ class TestResultConfig:
         with pytest.raises(ValidationError):
             ResultConfig(max_images=-1)
 
+    def test_the_files_default_to_every_format_in_full_under_one_name(self):
+        config = ResultConfig()
+        assert (config.name, config.formats, config.detail, config.per_task, config.width) == (
+            "result",
+            ["json", "text", "html"],
+            "full",
+            False,
+            80,
+        )
+
+    @pytest.mark.parametrize(
+        "fields",
+        [{"formats": []}, {"formats": ["pdf"]}, {"name": "out/result"}, {"name": "a\\b"}, {"name": ""}, {"width": 39}],
+    )
+    def test_a_file_setting_that_cannot_be_written_is_refused(self, fields: dict[str, object]):
+        with pytest.raises(ValidationError):
+            ResultConfig.model_validate(fields)
+
 
 class TestWorkflowConfig:
     """Workflow config entries, alone and in a pipeline."""

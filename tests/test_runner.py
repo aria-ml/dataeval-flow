@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -133,8 +134,8 @@ class TestWriteEncodingDescriptor:
 # ---------------------------------------------------------------------------
 
 
-def _write_config(tmp_path: Path, *, disable: str | None = None) -> Path:
-    """A two-task config, optionally with one task disabled."""
+def _write_config(tmp_path: Path, *, disable: str | None = None, extra: str = "") -> Path:
+    """A two-task config, optionally with one task disabled, and *extra* YAML appended."""
     lines = [
         "datasets:",
         "  - name: ds",
@@ -156,7 +157,7 @@ def _write_config(tmp_path: Path, *, disable: str | None = None) -> Path:
         if name == disable:
             lines.append("    enabled: false")
     path = tmp_path / "config.yaml"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n" + extra)
     return path
 
 
@@ -441,3 +442,51 @@ class TestEvaluatorResultsCarryNoVerdict:
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_evaluator_result(success=False)):
             assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
+
+
+class TestResultFiles:
+    """The pipeline's ``result:`` block chooses the files ``--output`` writes, their detail and their width."""
+
+    @staticmethod
+    def _run(tmp_path: Path, extra: str, **kwargs: object) -> tuple[Path, object]:
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        result = _fake_result()
+        config = _write_config(tmp_path, extra=extra)
+        with patch.object(orch, "_run_single_task", return_value=result):
+            assert run(config, tmp_path / "out", data_dir=tmp_path, **kwargs) == 0  # type: ignore[arg-type]
+        return tmp_path / "out" / "results", result
+
+    def test_all_three_formats_under_one_name_by_default(self, tmp_path: Path):
+        results, _ = self._run(tmp_path, "")
+        assert sorted(path.name for path in results.glob("result*")) == ["result.html", "result.json", "result.txt"]
+
+    def test_the_name_and_formats_choose_the_files(self, tmp_path: Path):
+        results, _ = self._run(tmp_path, "result:\n  name: audit\n  formats: [text]\n")
+        assert sorted(path.name for path in results.iterdir() if path.name.startswith(("audit", "result"))) == [
+            "audit.txt"
+        ]
+
+    def test_per_task_writes_each_task_s_own_files(self, tmp_path: Path):
+        results, _ = self._run(tmp_path, "result:\n  per_task: true\n  formats: [json, html]\n")
+        assert sorted(path.name for path in results.glob("result*")) == [
+            "result-task_a.html",
+            "result-task_a.json",
+            "result-task_b.html",
+            "result-task_b.json",
+        ]
+        assert list(json.loads((results / "result-task_b.json").read_text())) == ["task_b"]
+
+    def test_summary_detail_writes_the_summary(self, tmp_path: Path):
+        _, result = self._run(tmp_path, "result:\n  detail: summary\n")
+        assert result.report.call_args_list[-1].kwargs["detailed"] is False  # type: ignore[attr-defined]
+        assert {call.kwargs["detailed"] for call in result._document.call_args_list} == {False}  # type: ignore[attr-defined]
+
+    def test_the_config_sets_the_width(self, tmp_path: Path):
+        _, result = self._run(tmp_path, "result:\n  width: 100\n")
+        assert {call.kwargs["width"] for call in result.report.call_args_list} == {100}  # type: ignore[attr-defined]
+
+    def test_the_command_line_width_beats_the_config(self, tmp_path: Path):
+        _, result = self._run(tmp_path, "result:\n  width: 100\n", report_width=72)
+        assert {call.kwargs["width"] for call in result.report.call_args_list} == {72}  # type: ignore[attr-defined]

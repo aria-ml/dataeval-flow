@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
 
+from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._kind import input_problem
 from dataeval_flow.config._schemas import (
     DatasetConfig,
@@ -134,14 +135,50 @@ class LoggingConfig(BaseModel):
 
 
 class ResultConfig(BaseModel):
-    """What each task's result carries, under a pipeline's ``result:`` key.
+    """What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.
+
+    ``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and
+    prints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.
 
     YAML example::
 
         result:
+          name: audit
+          formats: [text, html]
+          detail: summary
+          per_task: true
           max_images: 100
     """
 
+    name: str = Field(
+        default="result",
+        pattern=r"^[^/\\]+$",
+        description="The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
+    )
+    formats: list[Literal["json", "text", "html"]] = Field(
+        default_factory=lambda: ["json", "text", "html"],
+        min_length=1,
+        description="Which files to write: the JSON record, the text report, the HTML page.",
+    )
+    detail: Literal["full", "summary"] = Field(
+        default="full",
+        description=(
+            "How much of each report the text and HTML files hold: every finding in `full`, the summary table in "
+            "`summary`. The JSON always holds everything."
+        ),
+    )
+    per_task: bool = Field(
+        default=False,
+        description="Write each task's results to files of its own, `<name>-<task>.<ext>`, not one for the run.",
+    )
+    width: int = Field(
+        default=DEFAULT_WIDTH,
+        ge=MIN_WIDTH,
+        description=(
+            "Characters per line of the text report, on the console and in its file. `--report-width` and "
+            "`DATAEVAL_REPORT_WIDTH` override it."
+        ),
+    )
     max_images: int = Field(
         default=200,
         ge=0,

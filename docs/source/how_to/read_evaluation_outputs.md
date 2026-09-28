@@ -35,7 +35,8 @@ The report is laid out in this order:
 6. **Resolved configuration** — the configuration as actually executed. Always rendered, at both detail levels.
 
 The report is 80 columns wide. Pass `width=` (at least 40) to draw it narrower or wider: prose wraps, and charts
-shrink to fit. From the CLI, `--report-width` sets it, or the `DATAEVAL_REPORT_WIDTH` environment variable.
+shrink to fit. From the CLI, `--report-width` sets it, else the `DATAEVAL_REPORT_WIDTH` environment variable, else
+the pipeline's `result: width`.
 
 A long table, such as one row per flagged image, shows its first rows and a line counting the rest. Every row is in
 the HTML report and in the JSON. Text has no pictures, so a table's thumbnails are left out, and the row's other
@@ -121,7 +122,8 @@ each metric's limits and its population's mean and standard deviation, and says 
 differ. Percentiles, and data analysis's populations, show only in the hover cards and the JSON.
 
 The page is UTF-8, so write it with `encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every
-task's report on one page.
+task's report on one page, unless the pipeline's `result:` block says otherwise (see
+{doc}`Run workflows in a container <containerized_workflows>`).
 
 ## The result envelope
 

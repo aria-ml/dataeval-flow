@@ -155,9 +155,9 @@ class TestReportImages:
 
 
 class TestReportWidth:
-    def test_defaults_to_eighty(self, monkeypatch):
+    def test_unset_leaves_it_to_the_config(self, monkeypatch):
         monkeypatch.delenv("DATAEVAL_REPORT_WIDTH", raising=False)
-        assert _parsed([]).report_width == 80
+        assert _parsed([]).report_width is None
 
     def test_environment_sets_it(self, monkeypatch):
         monkeypatch.setenv("DATAEVAL_REPORT_WIDTH", "120")

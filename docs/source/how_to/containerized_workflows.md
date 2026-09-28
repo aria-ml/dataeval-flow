@@ -589,6 +589,20 @@ to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is omitted when a
 run's tasks encoded their factors differently, since no single descriptor describes it.
 
+A pipeline's `result:` block shapes these files. Every key is optional:
+
+```yaml
+result:
+  name: audit               # audit.json, audit.txt, audit.html (default: result)
+  formats: [json, html]     # which files to write: json, text, html (default: all three)
+  detail: summary           # the text and HTML files' detail: full or summary (default: full)
+  per_task: true            # one set of files per task: audit-<task>.json, … (default: false)
+  width: 100                # the text report's width, at least 40 (default: 80)
+```
+
+`--report-width` and `DATAEVAL_REPORT_WIDTH` override `width`. The console keeps printing the summary, or the full
+report with `-v`, whatever `detail` says.
+
 ```bash
 jq -r 'keys[]' workspace/output/results/result.json
 jq -r '.clean_my_data.report.findings[] | "\(.severity)\t\(.title)"' \

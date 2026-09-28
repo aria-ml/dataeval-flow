@@ -261,10 +261,10 @@ def _page_title(document: Section) -> str:
     return " — ".join(part.strip() for part in document.title.split("\n"))
 
 
-def results_html(results: Sequence["Result[Any, Any]"]) -> str:
-    """Every result's full report on one page, as a run's ``result.html`` holds all of its tasks."""
+def results_html(results: Sequence["Result[Any, Any]"], *, detailed: bool = True) -> str:
+    """Every result's report on one page, as a run's ``result.html`` holds all of its tasks; *detailed* as `to_html`."""
     # The runner writes one page for the whole run, from the documents each result draws.
-    documents = [result._document(detailed=True) for result in results]  # noqa: SLF001 - one page, many reports
+    documents = [result._document(detailed=detailed) for result in results]  # noqa: SLF001 - one page, many reports
     title = _page_title(documents[0]) if len(documents) == 1 else "dataeval-flow results"
     return html_page(title, documents, [result.assets for result in results])
 

@@ -5362,8 +5362,52 @@
       "type": "object"
     },
     "ResultConfig": {
-      "description": "What each task's result carries, under a pipeline's ``result:`` key.\n\nYAML example::\n\n    result:\n      max_images: 100",
+      "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: audit\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
       "properties": {
+        "name": {
+          "default": "result",
+          "description": "The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
+          "pattern": "^[^/\\\\]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "formats": {
+          "description": "Which files to write: the JSON record, the text report, the HTML page.",
+          "items": {
+            "enum": [
+              "json",
+              "text",
+              "html"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Formats",
+          "type": "array"
+        },
+        "detail": {
+          "default": "full",
+          "description": "How much of each report the text and HTML files hold: every finding in `full`, the summary table in `summary`. The JSON always holds everything.",
+          "enum": [
+            "full",
+            "summary"
+          ],
+          "title": "Detail",
+          "type": "string"
+        },
+        "per_task": {
+          "default": false,
+          "description": "Write each task's results to files of its own, `<name>-<task>.<ext>`, not one for the run.",
+          "title": "Per Task",
+          "type": "boolean"
+        },
+        "width": {
+          "default": 80,
+          "description": "Characters per line of the text report, on the console and in its file. `--report-width` and `DATAEVAL_REPORT_WIDTH` override it.",
+          "minimum": 40,
+          "title": "Width",
+          "type": "integer"
+        },
         "max_images": {
           "default": 200,
           "description": "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, and each finding's share between its tables; a share more than its items need goes to the rest. 0 embeds none.",

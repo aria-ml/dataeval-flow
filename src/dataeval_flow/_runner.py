@@ -13,7 +13,7 @@ from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 
 if TYPE_CHECKING:
     from dataeval_flow._result import Result
-    from dataeval_flow.config._models import PipelineConfig
+    from dataeval_flow.config._models import PipelineConfig, ResultConfig
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -42,8 +42,9 @@ class _Collected:
     failures: int = 0
     warned: list[str] = field(default_factory=list)
     merged: dict[str, dict] = field(default_factory=dict)
-    text_parts: list[str] = field(default_factory=list)
-    reported: list[Result[Any, Any]] = field(default_factory=list)
+    reported: dict[str, Result[Any, Any]] = field(default_factory=dict)
+    # Each task's text report as printed, and whether in full, so a file wanting the same needn't draw it again.
+    printed: dict[str, tuple[bool, str]] = field(default_factory=dict)
     binning: dict[str, dict] = field(default_factory=dict)
 
 
@@ -68,14 +69,14 @@ def _collect_results(
             flush_logs()
             continue
 
-        # --- Text report: summary (no flag) or full detail (-v); the file always holds the detail ---
-        detailed = result.report(detailed=True, width=report_width)
-        print(detailed if verbosity >= 1 else result.report(detailed=False, width=report_width))
+        # --- Text report: summary (no flag) or full detail (-v) ---
+        text = result.report(detailed=verbosity >= 1, width=report_width)
+        print(text)
+        collected.printed[name] = (verbosity >= 1, text)
 
         # --- Collect for file output ---
         collected.merged[name] = result.to_dict()
-        collected.text_parts.append(detailed)
-        collected.reported.append(result)
+        collected.reported[name] = result
         if record := getattr(result.metadata, "metadata_binning", None):
             collected.binning[name] = record
 
@@ -89,6 +90,41 @@ def _collect_results(
     return collected
 
 
+def _write_results(collected: _Collected, results_dir: Path, settings: ResultConfig, width: int) -> list[str]:
+    """Write the results in each configured format, one file for the run or one per task; return the names written."""
+    tasks = list(collected.reported)
+    groups = [(f"{settings.name}-{task}", [task]) for task in tasks] if settings.per_task else [(settings.name, tasks)]
+    written: list[str] = []
+    for stem, names in groups:
+        for kind in settings.formats:
+            path = results_dir / f"{stem}.{_EXTENSIONS[kind]}"
+            path.write_text(_file_text(kind, names, collected, settings.detail == "full", width), encoding="utf-8")
+            written.append(path.name)
+    return written
+
+
+def _file_text(kind: str, names: Sequence[str], collected: _Collected, detailed: bool, width: int) -> str:
+    """The named tasks' results as one file of *kind*: the JSON record, the text report, or the HTML page."""
+    from dataeval_flow._result import results_html
+
+    results = [collected.reported[name] for name in names]
+    if kind == "json":
+        return json_mod.dumps({name: collected.merged[name] for name in names}, indent=2)
+    if kind == "text":
+        return "\n".join(_text(name, collected, detailed, width) for name in names)
+    return results_html(results, detailed=detailed)
+
+
+def _text(name: str, collected: _Collected, detailed: bool, width: int) -> str:
+    """A task's text report, reusing the one printed where it holds the same detail."""
+    printed_detailed, printed = collected.printed[name]
+    return printed if printed_detailed == detailed else collected.reported[name].report(detailed=detailed, width=width)
+
+
+# The extension of each format's file.
+_EXTENSIONS = {"json": "json", "text": "txt", "html": "html"}
+
+
 def run(
     config_arg: Path | str | None,
     output_dir: Path | None = None,
@@ -97,7 +133,7 @@ def run(
     cache_dir: Path | None = None,
     tasks: str | Sequence[str] | None = None,
     fail_on_warning: bool = False,
-    report_width: int = DEFAULT_WIDTH,
+    report_width: int | None = None,
     report_images: bool = True,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
@@ -127,8 +163,9 @@ def run(
         Return a non-zero exit code when a task that otherwise succeeded reports
         findings at ``severity="warning"``.  Off by default: whether a pipeline should
         stop for a warning is the caller's decision.
-    report_width : int
-        Characters per line of the text report, on the console and in ``result.txt``; at least 40.
+    report_width : int | None
+        Characters per line of the text report, on the console and in ``result.txt``; at least 40. ``None`` (the
+        default) takes the config's ``result: width``.
     report_images : bool
         Whether results keep thumbnails of the items their reports name, which ``result.html`` shows and
         ``result.json`` holds. ``False`` reads no item and keeps none.
@@ -146,12 +183,11 @@ def run(
     """
     from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_flow._orchestrator import run_tasks
-    from dataeval_flow._result import results_html
     from dataeval_flow.config._loader import get_data_dir
 
     # Checked before the tasks run: a width the report refuses would otherwise surface only
     # after every task had finished, and before any of their results were written.
-    if report_width < MIN_WIDTH:
+    if report_width is not None and report_width < MIN_WIDTH:
         raise ValueError(f"report_width must be at least {MIN_WIDTH}, got {report_width}")
 
     setup_logging(output_dir, verbosity)
@@ -172,16 +208,15 @@ def run(
     # with the task that produced it.
     results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images)
 
-    collected = _collect_results(results, verbosity=verbosity, report_width=report_width)
+    width = config.result.width if report_width is None else report_width
+    collected = _collect_results(results, verbosity=verbosity, report_width=width)
 
     # --- Write file artifacts (only when output_dir is set) ---
     if output_dir is not None and collected.merged:
         results_dir = output_dir / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
-        (results_dir / "result.json").write_text(json_mod.dumps(collected.merged, indent=2), encoding="utf-8")
-        (results_dir / "result.txt").write_text("\n".join(collected.text_parts), encoding="utf-8")
-        (results_dir / "result.html").write_text(results_html(collected.reported), encoding="utf-8")
-        _logger.info("  Wrote result.json, result.txt and result.html to %s", results_dir)
+        written = _write_results(collected, results_dir, config.result, width)
+        _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
         _write_encoding_descriptor(collected.binning, results_dir)
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)

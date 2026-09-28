@@ -44,6 +44,11 @@
 # RESULT (optional)
 # -----------------------------------------------------------------------------
 # result:
+#   name: result          # the files' name: result.json, result.txt, result.html
+#   formats: [json, text, html]   # which files --output writes
+#   detail: full          # full | summary: how much of each report the text and HTML files hold
+#   per_task: false       # true: one set of files per task, <name>-<task>.<ext>
+#   width: 80             # the text report's width, at least 40; --report-width overrides it
 #   max_images: 200       # thumbnails each task's result embeds, shared evenly between its findings; 0 embeds none
 
 # -----------------------------------------------------------------------------

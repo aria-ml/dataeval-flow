@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dataeval_flow._blocks import Section
+from dataeval_flow.config import ResultConfig
 
 pytestmark = pytest.mark.required
 
@@ -20,6 +21,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = []
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         assert run(Path("/fake/config"), Path("/fake/output")) == 0
@@ -41,6 +43,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [task1, task2]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         result1 = MagicMock()
@@ -84,6 +87,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [task]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         result = MagicMock()
@@ -114,6 +118,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [task]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         result = MagicMock()
@@ -140,6 +145,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [MagicMock()]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
         result = MagicMock()
         result.success = True
@@ -178,6 +184,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [task]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         result = MagicMock()
@@ -206,6 +213,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [task1]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         result = MagicMock()
@@ -231,6 +239,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = [task]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         result = MagicMock()
@@ -259,6 +268,7 @@ class TestRunTasks:
         config = MagicMock()
         config.tasks = []
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         run(None, Path("/fake/output"))
@@ -344,6 +354,7 @@ class TestCacheDir:
         config = MagicMock()
         config.tasks = [task]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         r1 = MagicMock(success=False, errors=["e"])
@@ -366,6 +377,7 @@ class TestCacheDir:
         config = MagicMock()
         config.tasks = [task]
         config.logging = None
+        config.result = ResultConfig()
         mock_load.return_value = config
 
         r1 = MagicMock(success=False, errors=["e"])
