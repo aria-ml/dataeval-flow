@@ -39,6 +39,7 @@ nav.contents h2 { font-size: 1rem; margin: 0.5rem 0; }
 .report-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap;
   border-bottom: 2px solid var(--ink); padding-bottom: 0.3rem; }
 .report-head h1 { margin: 0; }
+.report-head .facts { flex-basis: 100%; margin: 0.15rem 0 0; color: var(--muted); }
 dl.fields.provenance { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem;
   margin: 0.6rem 0 1.2rem; padding: 0.5rem 0.8rem; background: var(--soft); border-radius: 6px;
   color: var(--muted); font-size: 0.85rem; }

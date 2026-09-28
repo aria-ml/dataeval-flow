@@ -147,7 +147,8 @@ class TestOneShape:
         result = make()
         page = result.to_html()
         assert page.startswith("<!doctype html>")
-        assert f"<h1>{result._report_title()}</h1>" in page
+        heading = {"workflow": "Data cleaning complete", "evaluator": "quality.duplicates"}[kind]
+        assert f"<h1>{heading}</h1>" in page
         assert _well_formed(page)
         assert page.count("<script>") == 1
 

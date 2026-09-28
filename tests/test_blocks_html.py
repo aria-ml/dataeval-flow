@@ -124,6 +124,28 @@ class TestLayout:
             in fragment
         )
 
+    def test_a_title_s_first_sentence_heads_the_report_and_the_rest_reads_as_its_facts(self):
+        """A run's title is a sentence of facts: the page heads it with the first, and lines up the rest beneath."""
+        fragment = render_html(
+            [_report(_DUPLICATES, title="Data cleaning complete. Dataset: 261 items. Mode: advisory.")]
+        )
+        assert (
+            '<header class="report-head"><h1>Data cleaning complete</h1><span class="badge warning">1 warning</span>'
+            '<p class="facts">Dataset: 261 items · Mode: advisory</p></header>'
+        ) in fragment
+
+    @pytest.mark.parametrize(
+        ("title", "heading"),
+        [
+            ("Dataset splitting: 1000 items → 5 fold(s)", "Dataset splitting: 1000 items → 5 fold(s)"),
+            ("12 factors, 3 findings (1 blocking).", "12 factors, 3 findings (1 blocking)"),
+            ("quality.duplicates", "quality.duplicates"),
+        ],
+    )
+    def test_a_title_of_one_sentence_heads_the_report_whole(self, title, heading):
+        fragment = render_html([Section(title=title, blocks=[Paragraph(text="12 rows")])])
+        assert f'<header class="report-head"><h1>{heading}</h1></header>' in fragment
+
     def test_a_report_with_no_warning_has_passed(self):
         assert '<span class="badge ok">passed</span></header>' in render_html([_report(_LABELS)])
 
@@ -531,6 +553,7 @@ class TestEscaping:
     def test_dataset_strings_are_escaped_in_text_and_in_attributes(self):
         blocks: list[Block] = [
             Section(title=self._EVIL, brief=self._EVIL, blocks=[Paragraph(text=self._EVIL)]),
+            Section(title=f"Run. {self._EVIL}. {self._EVIL}."),
             Fields(items=[(self._EVIL, self._EVIL)]),
             Table(columns=[Column(key="c", header=self._EVIL)], rows=[{"c": self._EVIL}]),
             BulletList(items=[self._EVIL]),
