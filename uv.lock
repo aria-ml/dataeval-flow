@@ -755,6 +755,7 @@ dependencies = [
     { name = "datamaite", extra = ["ic", "od"] },
     { name = "maite" },
     { name = "numpy" },
+    { name = "pillow" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
@@ -901,6 +902,7 @@ requires-dist = [
     { name = "onnxruntime-gpu", marker = "extra != 'onnx-cu126' and extra == 'onnx-cu130'", specifier = ">=1.27" },
     { name = "onnxruntime-gpu", marker = "extra == 'onnx-cu126' and extra != 'onnx-cu130'", specifier = ">=1.20,<1.27" },
     { name = "opencv-python-headless", marker = "extra == 'opencv'", specifier = ">=4.8.0,<4.13.0" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "pydantic", specifier = ">=2.11" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "textual", marker = "extra == 'app'", specifier = ">=3.0" },
