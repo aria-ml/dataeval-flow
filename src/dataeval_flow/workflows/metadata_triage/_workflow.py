@@ -4,12 +4,16 @@ import logging
 from dataclasses import replace
 from typing import Any, ClassVar
 
+import polars as pl
+
 from dataeval_flow._binning import attach_binning, describe_binning
+from dataeval_flow._blocks import ItemRef
 from dataeval_flow._metadata import build_metadata, expand_declared_bins
 from dataeval_flow._policy import build_correction, policy_for
 from dataeval_flow._triage import TriageFinding, find_issues, incomplete_factors, render_stanza, to_policy_stanza
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._context import WorkflowContext
+from dataeval_flow.workflows._tables import GROUP_SHOWN
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
 from dataeval_flow.workflows.metadata_triage._outputs import (
     MetadataTriageMetadata,
@@ -19,7 +23,7 @@ from dataeval_flow.workflows.metadata_triage._outputs import (
     MetadataTriageResult,
     VerificationEntry,
 )
-from dataeval_flow.workflows.metadata_triage._report import build_findings, summarize
+from dataeval_flow.workflows.metadata_triage._report import Places, build_findings, minority_kind, summarize
 
 __all__ = ["MetadataTriageWorkflow"]
 
@@ -38,7 +42,7 @@ class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult
 
         policy = policy_for(context, config)
 
-        dc = next(iter(context.dataset_contexts.values()))
+        source, dc = next(iter(context.dataset_contexts.items()))
         dataset = dc.dataset
         if dc.view_operations:
             dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
@@ -74,7 +78,7 @@ class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult
         attach_binning(result_metadata, metadata, policy)
         report = MetadataTriageReport(
             summary=(f"{raw.factor_count} factors, {len(findings)} findings ({result_metadata.blocking} blocking)."),
-            findings=build_findings(raw, config.max_examples),
+            findings=build_findings(raw, config.max_examples, _places(metadata, findings, source)),
         )
         return MetadataTriageResult(
             type=self.name,
@@ -178,6 +182,44 @@ class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult
                 )
             )
         return entries
+
+
+def _places(metadata: Any, findings: "list[TriageFinding]", source: str) -> Places:
+    """Where each mixed column's problem values sit: its minority kind's values, most rows first, with their items.
+
+    Up to eight items per value, each named in *source*, or by its box where the column sits below the item.
+    A column dropped for naming its rows has none: every value is distinct, and none is a problem.
+    """
+    places: dict[str, list[tuple[str, int, list[ItemRef]]]] = {}
+    for finding in findings:
+        kind = minority_kind(finding.detail.get("counts") or {})
+        if finding.category != "unreadable" or not finding.repairable or kind is None:
+            continue
+        if "cardinality_over_budget" in finding.reasons:
+            continue
+        try:
+            frame = metadata.unusable_rows(finding.factor).filter(pl.col("kind") == kind)
+        except ValueError:
+            _logger.debug("No rows to place for %r", finding.factor, exc_info=True)
+            continue
+        keys = ["item_index", *(["target_index"] if "target_index" in frame.columns else [])]
+        values = frame.group_by("value", maintain_order=True).agg(
+            pl.len().alias("count"), *(pl.col(key).head(GROUP_SHOWN) for key in keys)
+        )
+        places[finding.factor] = [
+            (
+                row["value"],
+                row["count"],
+                [
+                    ItemRef(source=source, index=index, target=target)
+                    for index, target in zip(
+                        row["item_index"], row.get("target_index") or [None] * len(row["item_index"]), strict=True
+                    )
+                ],
+            )
+            for row in values.sort("count", descending=True, maintain_order=True).iter_rows(named=True)
+        ]
+    return places
 
 
 def _unapplied(finding: "TriageFinding") -> "VerificationEntry":

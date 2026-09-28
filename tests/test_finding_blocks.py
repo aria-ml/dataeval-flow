@@ -96,6 +96,11 @@ class TestGroupCells:
         assert items == "0, 1, 2, 3, 4, 5, 6, 7, … 12 more"
         assert shown == _refs("train", *range(8))
 
+    def test_a_group_s_size_counts_the_rest_where_only_its_first_items_are_given(self):
+        items, shown = group_cells(_refs("train", 3, 10), total=9)
+        assert items == "3, 10, … 7 more"
+        assert shown == _refs("train", 3, 10)
+
     def test_boxes_are_named_with_their_item(self):
         boxes = [ItemRef(source="train", index=3, target=0), ItemRef(source="train", index=9, target=2)]
         assert group_cells(boxes)[0] == "3 box 0, 9 box 2"

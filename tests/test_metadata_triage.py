@@ -1,15 +1,16 @@
 """Tests for the metadata-triage workflow."""
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import numpy as np
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
 from dataeval_flow._binning_report import distribution_blocks
-from dataeval_flow._blocks import Code, Distribution, Proportion
+from dataeval_flow._blocks import Code, Distribution, ItemRef, Proportion
 from dataeval_flow._policy import ResolvedPolicy, build_correction
-from dataeval_flow._triage import find_issues
+from dataeval_flow._triage import TriageFinding, find_issues
 from dataeval_flow.config import ParseValueCorrectionConfig
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
@@ -19,7 +20,7 @@ from dataeval_flow.workflows.metadata_triage._outputs import (
     MetadataTriageReport,
     VerificationEntry,
 )
-from tests.finding_blocks import blocks_of, bullets, fields, paragraphs, rendered, sections
+from tests.finding_blocks import blocks_of, bullets, column, fields, paragraphs, rendered, sections, tables
 from tests.test_triage import _numeric, _record
 
 
@@ -639,3 +640,100 @@ def test_a_box_plot_in_a_triage_finding_fits_the_width():
         "    12.5                               298.6",
         "    p25 48.25 · p50 103.8 · p75 176.4",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Where each problem value sits, for its items' thumbnails
+# ---------------------------------------------------------------------------
+
+
+class _LatitudeDataset:
+    """Classification items whose ``latitude`` reads as a number, except where it reads ``'N'`` or ``'S'``."""
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "latitude", "index2label": {0: "cat", 1: "dog"}})
+
+    def __len__(self) -> int:
+        return 60
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        latitude: Any = "N" if index % 7 == 3 else "S" if index == 20 else float(index)
+        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, {"id": index, "latitude": latitude}
+
+
+class _OcclusionDataset:
+    """Detections, two boxes an image, whose ``occlusion`` reads ``'high'`` on every fifth image's second box."""
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "occlusion", "index2label": {0: "cat", 1: "dog"}})
+
+    def __len__(self) -> int:
+        return 30
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        from tests.test_coverage_workflow import _Target
+
+        occlusion: list[Any] = [0.1 * index, "high" if index % 5 == 0 else 0.2]
+        target = _Target([[2, 2, 20, 20], [8, 8, 30, 30]], [0, 1])
+        return np.zeros((3, 32, 32), dtype=np.uint8), target, {"id": index, "occlusion": occlusion}
+
+
+def _unreadable(dataset: Any) -> Any:
+    context = WorkflowContext(dataset_contexts={"train": DatasetContext(name="train", dataset=dataset)})
+    result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
+    return next(f for f in result.output.report.findings if f.title == "Unreadable factors")
+
+
+def test_each_problem_value_is_listed_most_rows_first_with_up_to_eight_of_its_items():
+    finding = _unreadable(_LatitudeDataset())
+    assert "Where the values that read as text are:" in paragraphs(finding)
+    (table,) = tables(finding)
+    assert [c.header for c in table.columns] == ["Value", "Count", "Items", ""]
+    assert [(row["value"], row["count"], row["items"]) for row in table.rows] == [
+        ("N", 9, "3, 10, 17, 24, 31, 38, 45, 52, … 1 more"),
+        ("S", 1, "20"),
+    ]
+    assert column(table, "image")[1] == [ItemRef(source="train", index=20)]
+
+
+def test_a_value_below_the_item_is_placed_by_its_box():
+    (table,) = tables(_unreadable(_OcclusionDataset()))
+    assert column(table, "value") == ["high"]
+    assert column(table, "image")[0] == [ItemRef(source="train", index=i, target=1) for i in (0, 5, 10, 15, 20, 25)]
+
+
+def test_a_column_dropped_for_naming_its_rows_is_placed_nowhere():
+    """Every value of an identifier is distinct, and none is a problem, so no row is looked up."""
+    from dataeval_flow.workflows.metadata_triage._workflow import _places
+
+    finding = TriageFinding(
+        factor="serial",
+        category="unreadable",
+        severity="blocking",
+        reasons=("cardinality_over_budget",),
+        repairable=True,
+        detail={"counts": {"numeric": 40, "text": 20}},
+    )
+    metadata = MagicMock()
+    assert _places(metadata, [finding], "train") == {}
+    metadata.unusable_rows.assert_not_called()
+
+
+def test_a_tie_takes_text_for_the_problem_values():
+    from dataeval_flow.workflows.metadata_triage._report import minority_kind
+
+    assert minority_kind({"numeric": 5, "text": 5}) == "text"
+    assert minority_kind({"numeric": 2, "text": 5}) == "numeric"
+    assert minority_kind({"text": 5}) is None
+
+
+def test_past_500_problem_values_a_paragraph_counts_the_rest():
+    from dataeval_flow.workflows.metadata_triage._report import build_findings
+
+    record = _record(unusable={"weight": _unreadable_weight(["6,000"])})
+    raw = MetadataTriageRawOutput(dataset_size=1900, findings=find_issues(record))
+    places = {"weight": [(f"{n:,}", 1, [ItemRef(source="train", index=n)]) for n in range(1000, 1502)]}
+    (finding,) = build_findings(raw, max_examples=20, places=places)
+    (table,) = tables(finding)
+    assert len(table.rows) == 500
+    assert "502 values read as text; the 500 on the most rows are listed." in paragraphs(finding)

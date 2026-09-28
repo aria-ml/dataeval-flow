@@ -1,6 +1,7 @@
 """Table shapes more than one workflow reports its findings in."""
 
 __all__ = [
+    "GROUP_SHOWN",
     "PREVIEW",
     "ROW_CAP",
     "group_cells",
@@ -37,14 +38,15 @@ def ranked_table(values: Mapping[Any, float], *, headers: tuple[str, str]) -> Ta
     return Table(columns=columns, rows=rows)
 
 
-def group_cells(refs: Sequence[ItemRef]) -> tuple[str, list[ItemRef]]:
+def group_cells(refs: Sequence[ItemRef], total: int | None = None) -> tuple[str, list[ItemRef]]:
     """Up to eight of a group's items: named for text (``0, 5, … 12 more``), and as references for thumbnails.
 
     Text leaves image columns out, so the names are what tell a text reader which items a group holds.
+    *total* is the group's size where *refs* are only its first few.
     """
     shown = list(refs[:GROUP_SHOWN])
     names = ", ".join(item_name(ref) for ref in shown)
-    more = len(refs) - len(shown)
+    more = (len(refs) if total is None else total) - len(shown)
     return (f"{names}, … {more:,} more" if more else names), shown
 
 
