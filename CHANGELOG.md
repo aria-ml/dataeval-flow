@@ -129,6 +129,8 @@
 - Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
 - GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
 - Container images no longer ship the standalone interpreter's bundled `pip`, which nothing in the image used
+- A task naming one source twice is refused when the config loads; the repeat was dropped, leaving the task a
+  source short
 
 ### Removed
 
