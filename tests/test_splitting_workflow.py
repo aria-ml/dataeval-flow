@@ -461,6 +461,8 @@ class TestExecuteWithSelectionAndRebalance:
         mock_build_sel.assert_called_once()
         # The split should operate on the selected dataset (len 80)
         assert result.output.raw.dataset_size == 80
+        # and the result carries that view, so each item the report pictures is read from the view it split.
+        assert result.dataset is selected_dataset
 
     @patch("dataeval_flow.workflows.data_splitting._workflow._run_coverage", return_value=None)
     @patch("dataeval_flow._metadata.build_metadata")

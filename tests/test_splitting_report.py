@@ -2,7 +2,7 @@
 
 import pytest
 
-from dataeval_flow._blocks import Fields
+from dataeval_flow._blocks import Fields, ItemRef
 from dataeval_flow.workflows import Finding
 from dataeval_flow.workflows.data_splitting._outputs import DataSplittingRawOutput, SplitInfo
 from dataeval_flow.workflows.data_splitting._report import (
@@ -10,7 +10,7 @@ from dataeval_flow.workflows.data_splitting._report import (
     _normalize_label_counts,
     build_findings,
 )
-from tests.finding_blocks import blocks_of, column, fields, paragraphs, rendered, tables
+from tests.finding_blocks import blocks_of, column, fields, paragraphs, rendered, sections, tables
 
 pytestmark = pytest.mark.required
 
@@ -33,7 +33,7 @@ class TestBuildFindings:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         label_finding = next(f for f in findings if "Class distribution" in f.title)
         assert label_finding.severity == "info"
 
@@ -45,7 +45,7 @@ class TestBuildFindings:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         label_finding = next(f for f in findings if "Class distribution" in f.title)
         assert label_finding.severity == "warning"  # 55/5 = 11:1 > 10
 
@@ -60,7 +60,7 @@ class TestBuildFindings:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         label_finding = next(f for f in findings if "Class distribution" in f.title)
         (table,) = tables(label_finding)
         assert column(table, "name") == ["Coverall", "Mask"]
@@ -73,7 +73,7 @@ class TestBuildFindings:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         label_finding = next(f for f in findings if "Class distribution" in f.title)
         assert label_finding.severity == "warning"
 
@@ -83,7 +83,7 @@ class TestBuildFindings:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         size_finding = next(f for f in findings if "split sizes" in f.title)
         assert fields(size_finding)["Train"] == 70
         assert fields(size_finding)["Val"] == 10
@@ -102,7 +102,7 @@ class TestBuildFindings:
                 )
             ],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cov_finding = next(f for f in findings if "Coverage" in f.title)
         assert cov_finding.severity == "warning"  # 10/70 = 14.3% > 5%
 
@@ -120,7 +120,7 @@ class TestBuildFindings:
                 )
             ],
         )
-        cov_finding = next(f for f in build_findings(raw) if f.title == "Coverage: fold 0 train")
+        cov_finding = next(f for f in build_findings(raw, source="data") if f.title == "Coverage: fold 0 train")
         (block,) = blocks_of(cov_finding, Fields)
         assert block.items == [
             ("Uncovered count", 10),
@@ -143,7 +143,7 @@ class TestBuildFindings:
                 "coverage_test": {"uncovered_indices": [0], "coverage_radius": 0.4},
             }
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         assert len(findings) == 7
         for finding in findings:
             assert finding.blocks, finding.title
@@ -179,7 +179,9 @@ class TestFactorTable:
                 ]
             },
         )
-        balance = next(f for f in build_findings(raw) if f.title == "Pre-split balance (mutual information)")
+        balance = next(
+            f for f in build_findings(raw, source="data") if f.title == "Pre-split balance (mutual information)"
+        )
         assert balance.description == "Higher MI = stronger correlation between factor and class label."
         assert _body(balance) == [
             "  Higher MI = stronger correlation between factor and class label.",
@@ -201,7 +203,7 @@ class TestFactorTable:
                 ]
             },
         )
-        diversity = next(f for f in build_findings(raw) if f.title == "Pre-split diversity")
+        diversity = next(f for f in build_findings(raw, source="data") if f.title == "Pre-split diversity")
         assert _body(diversity) == [
             "  Values near 1.0 = high diversity. Low diversity factors are flagged.",
             "",
@@ -226,7 +228,7 @@ class TestBuildFindingsCoverageTest:
             coverage_test={"uncovered_indices": [0], "coverage_radius": 0.4},
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cov_finding = next(f for f in findings if f.title == "Coverage: test")
         assert cov_finding.severity == "info"  # 1/20 = 5%
         assert fields(cov_finding)["Uncovered count"] == 1
@@ -239,7 +241,7 @@ class TestBuildFindingsCoverageTest:
             coverage_test={"uncovered_indices": list(range(5)), "coverage_radius": 0.4},
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cov_finding = next(f for f in findings if f.title == "Coverage: test")
         assert cov_finding.severity == "warning"  # 5/20 = 25% > 5%
 
@@ -251,9 +253,54 @@ class TestBuildFindingsCoverageTest:
             coverage_test={"uncovered_indices": [], "coverage_radius": 0.4},
             folds=[SplitInfo(fold=0, train_indices=list(range(80)), val_indices=list(range(20)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cov_finding = next(f for f in findings if f.title == "Coverage: test")
         assert fields(cov_finding)["Uncovered %"] == 0
+
+
+class TestThumbnails:
+    """Each uncovered item is named by its index in the dataset, which its position in its split maps to."""
+
+    def test_a_fold_s_uncovered_items_are_listed_farthest_first_with_their_class(self) -> None:
+        raw = DataSplittingRawOutput(
+            dataset_size=20,
+            folds=[
+                SplitInfo(
+                    fold=0,
+                    train_indices=[10, 11, 12, 13, 14],
+                    val_indices=[0, 1],
+                    coverage_train={
+                        "uncovered_indices": [1, 3],
+                        "critical_value_radii": [0.1, 0.5, 0.2, 0.9, 0.3],
+                        "coverage_radius": 0.4,
+                    },
+                )
+            ],
+        )
+        classes = ["cat" if index % 2 else "dog" for index in range(20)]
+        finding = next(
+            f for f in build_findings(raw, source="data", classes=classes) if f.title == "Coverage: fold 0 train"
+        )
+        assert [section.title for section in sections(finding)] == ["Uncovered images"]
+        (table,) = tables(finding)
+        assert [c.header for c in table.columns] == ["", "Item", "Class", "Distance"]
+        assert [(row["item"], row["class"], row["distance"]) for row in table.rows] == [
+            (13, "cat", 0.9),
+            (11, "cat", 0.5),
+        ]
+        assert column(table, "image") == [ItemRef(source="data", index=13), ItemRef(source="data", index=11)]
+
+    def test_the_test_split_s_positions_map_through_its_indices_and_a_class_is_named_only_where_given(self) -> None:
+        raw = DataSplittingRawOutput(
+            dataset_size=20,
+            test_indices=[4, 8, 15],
+            coverage_test={"uncovered_indices": [2], "coverage_radius": 0.4},
+            folds=[SplitInfo(fold=0, train_indices=list(range(12)), val_indices=[12, 13])],
+        )
+        finding = next(f for f in build_findings(raw, source="data") if f.title == "Coverage: test")
+        (table,) = tables(finding)
+        assert [c.header for c in table.columns] == ["", "Item"]
+        assert column(table, "image") == [ItemRef(source="data", index=15)]
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +388,7 @@ class TestConsolidatedSplitSizes:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         size_finding = next(f for f in findings if "split sizes" in f.title.lower())
         assert tables(size_finding) == []
         (block,) = blocks_of(size_finding, Fields)
@@ -358,7 +405,7 @@ class TestConsolidatedSplitSizes:
                 SplitInfo(fold=2, train_indices=list(range(160)), val_indices=list(range(80))),
             ],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         size_findings = [f for f in findings if "split sizes" in f.title.lower()]
         assert len(size_findings) == 1
         f = size_findings[0]
@@ -377,7 +424,7 @@ class TestConsolidatedSplitSizes:
                 SplitInfo(fold=2, train_indices=list(range(160)), val_indices=list(range(80))),
             ],
         )
-        (f,) = [f for f in build_findings(raw) if f.title == "Split sizes across folds"]
+        (f,) = [f for f in build_findings(raw, source="data") if f.title == "Split sizes across folds"]
         assert f.brief == "3 folds, test=60"
         (table,) = tables(f)
         assert [(c.key, c.header) for c in table.columns] == [
@@ -413,7 +460,7 @@ class TestConsolidatedSplitSizes:
                 SplitInfo(fold=1, train_indices=list(range(155)), val_indices=list(range(80))),
             ],
         )
-        (f,) = [f for f in build_findings(raw) if f.title == "Split sizes across folds"]
+        (f,) = [f for f in build_findings(raw, source="data") if f.title == "Split sizes across folds"]
         assert fields(f) == {"Train": "155-160 (range 5)", "Val": 80, "Test": "60 (shared across folds)"}
 
 
@@ -431,7 +478,7 @@ class TestCrossSplitDistribution:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross = next(f for f in findings if "across splits" in f.title)
         (table,) = tables(cross)
         headers = [c.header for c in table.columns]
@@ -452,7 +499,7 @@ class TestCrossSplitDistribution:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        cross = next(f for f in build_findings(raw) if "across splits" in f.title)
+        cross = next(f for f in build_findings(raw, source="data") if "across splits" in f.title)
         (table,) = tables(cross)
         assert [(c.key, c.header) for c in table.columns] == [
             ("class", "Class"),
@@ -469,7 +516,7 @@ class TestCrossSplitDistribution:
             folds=[({"a": 36, "b": 24}, {"a": 24, "b": 16})],
             test_counts=None,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross = next(f for f in findings if "across splits" in f.title)
         (table,) = tables(cross)
         assert "Test" not in [c.header for c in table.columns]
@@ -486,7 +533,7 @@ class TestCrossSplitDistribution:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross_findings = [f for f in findings if "across splits" in f.title]
         assert len(cross_findings) == 1  # Only fold 0
         assert "of 3" in cross_findings[0].title
@@ -498,7 +545,7 @@ class TestCrossSplitDistribution:
         train = {k: int(v * 0.7) for k, v in full.items()}
         val = {k: v - int(v * 0.7) for k, v in full.items()}
         raw = _make_raw(full_counts=full, folds=[(train, val)])
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross = next(f for f in findings if "across splits" in f.title)
         (table,) = tables(cross)
         rows = table.rows
@@ -516,7 +563,7 @@ class TestCrossSplitDistribution:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross = next(f for f in findings if "across splits" in f.title)
         (table,) = tables(cross)
         row_a = next(r for r in table.rows if r["class"] == "a")
@@ -536,7 +583,7 @@ class TestCrossSplitDistribution:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross = next(f for f in findings if "across splits" in f.title)
         (table,) = tables(cross)
         row_a = next(r for r in table.rows if r["class"] == "a")
@@ -552,7 +599,7 @@ class TestCrossSplitDistribution:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        cross = next(f for f in build_findings(raw) if "across splits" in f.title)
+        cross = next(f for f in build_findings(raw, source="data") if "across splits" in f.title)
         assert paragraphs(cross) == ["Max proportion deviation from full dataset: 30.0pp (a in Train)"]
         assert _body(cross) == [
             "  Per-class counts and proportions across splits.",
@@ -573,7 +620,7 @@ class TestCrossSplitDistribution:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         cross_findings = [f for f in findings if "across splits" in f.title]
         assert len(cross_findings) == 0
 
@@ -592,7 +639,7 @@ class TestStratificationQuality:
             test_counts={"a": 50, "b": 50},
             test_size=100,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         stratification = next(f for f in findings if "Stratification" in f.title)
         assert stratification.severity == "ok"
 
@@ -605,7 +652,7 @@ class TestStratificationQuality:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         stratification = next(f for f in findings if "Stratification" in f.title)
         assert stratification.severity == "warning"
         assert stratification.brief == "WARNING - max deviation 30.0pp"
@@ -618,7 +665,7 @@ class TestStratificationQuality:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        stratification = next(f for f in build_findings(raw) if "Stratification" in f.title)
+        stratification = next(f for f in build_findings(raw, source="data") if "Stratification" in f.title)
         assert stratification.description == (
             "Checks whether class proportions in each split match the full dataset. "
             "Train proportions may differ if rebalancing was applied."
@@ -649,7 +696,7 @@ class TestStratificationQuality:
             test_counts={"a": 50, "b": 50},
             test_size=100,
         )
-        stratification = next(f for f in build_findings(raw) if "Stratification" in f.title)
+        stratification = next(f for f in build_findings(raw, source="data") if "Stratification" in f.title)
         assert fields(stratification) == {"Max proportion deviation": "0.0pp", "Folds checked": 1, "Classes checked": 2}
 
     def test_info_severity(self) -> None:
@@ -661,7 +708,7 @@ class TestStratificationQuality:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         stratification = next(f for f in findings if "Stratification" in f.title)
         assert stratification.severity == "info"
 
@@ -673,7 +720,7 @@ class TestStratificationQuality:
             test_indices=list(range(20)),
             folds=[SplitInfo(fold=0, train_indices=list(range(70)), val_indices=list(range(10)))],
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         strat_findings = [f for f in findings if "Stratification" in f.title]
         assert len(strat_findings) == 0
 
@@ -689,7 +736,7 @@ class TestStratificationQuality:
             test_counts={"a": 5, "b": 5},
             test_size=10,
         )
-        findings = build_findings(raw)
+        findings = build_findings(raw, source="data")
         stratification = next(f for f in findings if "Stratification" in f.title)
         # fold 2 train: a=28/34=82.4%, full a=50% → dev=32.4pp
         assert stratification.severity == "warning"
