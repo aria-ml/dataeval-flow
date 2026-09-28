@@ -494,7 +494,7 @@ def _run_single_task(
 
     # 9. Thumbnails of the items the report names, read while the run's datasets are at hand.
     if report_images and result.success:
-        _capture_assets(result, dataset_contexts)
+        _capture_assets(result, dataset_contexts, config.result.max_images)
 
     # 10. Populate metadata envelope
     _populate_result_metadata(
@@ -584,8 +584,8 @@ def _ensure_result_datasets(
         result.sources = resolved
 
 
-def _capture_assets(result: "Result[Any, Any]", dataset_contexts: "Mapping[str, DatasetContext]") -> None:
-    """Keep a thumbnail of each item *result*'s report names, read from the datasets the run read.
+def _capture_assets(result: "Result[Any, Any]", dataset_contexts: "Mapping[str, DatasetContext]", limit: int) -> None:
+    """Keep a thumbnail of each item *result*'s report names, at most *limit*, read from the datasets the run read.
 
     A failure here costs the report its thumbnails, never the result: the run has already finished.
     """
@@ -594,7 +594,7 @@ def _capture_assets(result: "Result[Any, Any]", dataset_contexts: "Mapping[str, 
     try:
         datasets = result.sources if result.sources is not None else {next(iter(dataset_contexts)): result.dataset}
         ranges = {name: context.value_range for name, context in dataset_contexts.items()}
-        result.assets = capture(result._document(detailed=True).blocks, datasets, ranges)  # noqa: SLF001
+        result.assets = capture(result._document(detailed=True).blocks, datasets, ranges, limit=limit)  # noqa: SLF001
     except Exception:
         _logger.warning("Could not capture the report's thumbnails, so it names its items instead.", exc_info=True)
 

@@ -45,6 +45,7 @@
 - `image` table columns, each cell an item reference or a group of them
 - Data analysis, coverage, prioritization, splitting and metadata triage picture the items their findings name
 - Data coverage's `output.raw.coverage.uncovered` keeps each uncovered item, its box and class, and its distance
+- A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
 
 ### Changed
 

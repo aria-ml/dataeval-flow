@@ -41,6 +41,12 @@
 #   lib_level: WARNING    # third-party: torch, datasets, PIL (DEBUG|INFO|WARNING|ERROR)
 
 # -----------------------------------------------------------------------------
+# RESULT (optional)
+# -----------------------------------------------------------------------------
+# result:
+#   max_images: 200       # thumbnails each task's result embeds, shared evenly between its findings; 0 embeds none
+
+# -----------------------------------------------------------------------------
 # DATASETS
 # -----------------------------------------------------------------------------
 # Named dataset definitions. Sources reference these by name.

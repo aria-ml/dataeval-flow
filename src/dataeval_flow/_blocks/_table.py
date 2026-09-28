@@ -1,6 +1,15 @@
 """Table layout for the text renderer: column widths, chart cells, and the scale line under a bar."""
 
-__all__ = ["cell_text", "draw_table", "natural_widths", "numbers", "shared_widths", "shown_rows", "tables"]
+__all__ = [
+    "cell_text",
+    "draw_table",
+    "fair_shares",
+    "natural_widths",
+    "numbers",
+    "shared_widths",
+    "shown_rows",
+    "tables",
+]
 
 import math
 from collections.abc import Mapping, Sequence
@@ -129,6 +138,16 @@ def tables(blocks: Sequence[Block]) -> list[Table]:
         elif isinstance(block, Section):
             found.extend(tables(block.blocks))
     return found
+
+
+def fair_shares(sizes: Sequence[int], cap: int) -> list[int]:
+    """How much of *cap* each group of *sizes* gets: an equal share each, a small group's spare going to the rest."""
+    shares = [0] * len(sizes)
+    left = cap
+    for rank, index in enumerate(sorted(range(len(sizes)), key=lambda i: sizes[i])):
+        shares[index] = min(sizes[index], left // (len(sizes) - rank))
+        left -= shares[index]
+    return shares
 
 
 def shared_widths(blocks: Sequence[Block]) -> dict[tuple[Any, ...], tuple[int, ...]]:

@@ -303,7 +303,7 @@ def test_an_ood_run_reads_each_sample_s_thumbnail_from_its_own_test_source() -> 
 def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.MonkeyPatch) -> None:
     import dataeval_flow._capture as capture_module
 
-    def refuse(*_args: Any) -> list[Any]:
+    def refuse(*_args: Any, **_kwargs: Any) -> list[Any]:
         raise AssertionError("captured with images off")
 
     monkeypatch.setattr(capture_module, "capture", refuse)

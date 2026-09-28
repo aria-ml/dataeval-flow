@@ -129,6 +129,31 @@ class LoggingConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Results
+# ---------------------------------------------------------------------------
+
+
+class ResultConfig(BaseModel):
+    """What each task's result carries, under a pipeline's ``result:`` key.
+
+    YAML example::
+
+        result:
+          max_images: 100
+    """
+
+    max_images: int = Field(
+        default=200,
+        ge=0,
+        description=(
+            "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, "
+            "and each finding's share between its tables; a share more than its items need goes to the rest. "
+            "0 embeds none."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Pipeline (top-level)
 # ---------------------------------------------------------------------------
 
@@ -187,6 +212,11 @@ class PipelineConfig(BaseModel):
     logging: LoggingConfig | None = Field(
         default=None,
         description="Log levels for dataeval-flow and the libraries it calls, applied when the CLI runs the pipeline",
+    )
+
+    # What each result carries
+    result: ResultConfig = Field(
+        default_factory=ResultConfig, description="What each task's result carries: the thumbnails its report embeds"
     )
 
     # Reproducibility [CR-7-S-1]

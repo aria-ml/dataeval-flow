@@ -12,6 +12,7 @@ from dataeval_flow.config import (
     DemoDatasetConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
+    ResultConfig,
     SourceConfig,
     YoloDatasetConfig,
 )
@@ -799,6 +800,25 @@ class TestLoggingConfig:
 
         with pytest.raises(ValidationError):
             load_config(config_file)
+
+
+class TestResultConfig:
+    """What each task's result carries, under the pipeline's ``result:`` key."""
+
+    def test_the_most_thumbnails_a_result_embeds_is_read_from_the_config(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("result:\n  max_images: 50\n")
+        assert load_config(config_file).result.max_images == 50
+
+    def test_a_result_embeds_200_by_default(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("seed: 1\n")
+        assert load_config(config_file).result.max_images == 200
+
+    def test_none_is_a_limit_and_fewer_is_refused(self):
+        assert ResultConfig(max_images=0).max_images == 0
+        with pytest.raises(ValidationError):
+            ResultConfig(max_images=-1)
 
 
 class TestWorkflowConfig:

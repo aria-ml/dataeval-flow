@@ -102,10 +102,12 @@ holds everything the text report holds, laid out for reading on screen:
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
 Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
-across, from the first 50 rows of each table and at most 200 per result. A box's thumbnail is cropped from its
-image with a margin around it. `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0`, or `report_images=False` on
-`run()`, `run_task()` and `run_tasks()` turn them off, and then the run reads no item for them. Only images have
-thumbnails for now; any other kind of item is named.
+across, and at most 200 per result. A pipeline's `result: max_images:` sets that limit, and `0` embeds none. The
+limit is shared evenly between the findings that name items, and a finding's share between its tables, rows in
+order; a finding that needs fewer passes its spare to the rest. So with 200 and four such findings, each gets 50.
+A box's thumbnail is cropped from its image with a margin around it. `--no-report-images`,
+`DATAEVAL_REPORT_IMAGES=0`, or `report_images=False` on `run()`, `run_task()` and `run_tasks()` turn them off, and
+then the run reads no item for them. Only images have thumbnails for now; any other kind of item is named.
 
 It loads nothing, neither font nor URL. One inline script adds the sorting, the filter boxes and the expand-all
 buttons. With scripts blocked, as some mail viewers and locked-down browsers block them, the page reads the same

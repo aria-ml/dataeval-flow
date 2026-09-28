@@ -5361,6 +5361,20 @@
       "title": "RescaleCorrectionConfig",
       "type": "object"
     },
+    "ResultConfig": {
+      "description": "What each task's result carries, under a pipeline's ``result:`` key.\n\nYAML example::\n\n    result:\n      max_images: 100",
+      "properties": {
+        "max_images": {
+          "default": 200,
+          "description": "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, and each finding's share between its tables; a share more than its items need goes to the rest. 0 embeds none.",
+          "minimum": 0,
+          "title": "Max Images",
+          "type": "integer"
+        }
+      },
+      "title": "ResultConfig",
+      "type": "object"
+    },
     "SourceConfig": {
       "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one corpus.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
       "properties": {
@@ -6001,6 +6015,10 @@
       ],
       "default": null,
       "description": "Log levels for dataeval-flow and the libraries it calls, applied when the CLI runs the pipeline"
+    },
+    "result": {
+      "$ref": "#/$defs/ResultConfig",
+      "description": "What each task's result carries: the thumbnails its report embeds"
     },
     "seed": {
       "anyOf": [
