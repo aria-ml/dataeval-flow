@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow._blocks import Column, Flag, Section, Table
+from dataeval_flow._blocks import Column, Flag, ItemRef, Section, Table
 from dataeval_flow._blocks._text import Frame, render_text
 
 pytestmark = pytest.mark.required
@@ -11,6 +11,32 @@ pytestmark = pytest.mark.required
 
 def _draw(table: Table, width: int = 90, indent: str = "  ") -> list[str]:
     return render_text([table], Frame(width=width, indent=indent, depth=2))
+
+
+class TestImageColumns:
+    """Text has no thumbnails, so it leaves an image column out: the row's other cells name its items."""
+
+    def test_an_image_column_is_left_out(self):
+        table = Table(
+            columns=[Column(key="image", kind="image"), Column(key="item", header="Item"), Column(key="n", header="N")],
+            rows=[{"image": ItemRef(source="train", index=41), "item": 41, "n": 2}],
+        )
+        assert _draw(table) == ["  Item  N", "  ----  -", "  41    2"]
+
+    def test_a_table_of_images_alone_draws_nothing(self):
+        table = Table(columns=[Column(key="image", kind="image")], rows=[{"image": ItemRef(source="t", index=0)}])
+        assert _draw(table) == []
+
+    def test_tables_that_differ_by_an_image_column_still_share_their_widths(self):
+        """One per split, say, with and without thumbnails: laid out alike, since text shows neither's images."""
+        with_images = Table(
+            columns=[Column(key="image", kind="image"), Column(key="item", header="Item")],
+            rows=[{"image": ItemRef(source="a", index=1), "item": 1}],
+        )
+        without = Table(columns=[Column(key="item", header="Item")], rows=[{"item": 123456}])
+        finding = Section(title="Finding", blocks=[with_images, without])
+        lines = render_text([Section(title="Report", blocks=[finding])], Frame(width=90))
+        assert [line.strip() for line in lines if line.strip().startswith("-")] == ["------", "------"]
 
 
 class TestTextColumns:

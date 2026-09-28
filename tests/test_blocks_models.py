@@ -7,6 +7,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from dataeval_flow._blocks import (
+    Asset,
     Block,
     BulletList,
     Code,
@@ -14,6 +15,7 @@ from dataeval_flow._blocks import (
     Distribution,
     Fields,
     Flag,
+    ItemRef,
     Paragraph,
     Proportion,
     Quantiles,
@@ -255,3 +257,48 @@ class TestFlagsAndPreviews:
     def test_a_flag_names_its_direction(self):
         with pytest.raises(ValidationError):
             Flag.model_validate({**_FLAG.model_dump(), "direction": "sideways"})
+
+
+class TestItemsAndAssets:
+    """An image cell names items as the run saw them; a result carries each one's thumbnail, keyed by it."""
+
+    def test_a_whole_item_leaves_its_target_out(self):
+        assert ItemRef(source="train", index=41).model_dump(mode="json") == {"source": "train", "index": 41}
+
+    def test_a_box_names_its_target(self):
+        ref = ItemRef(source="train", index=41, target=3)
+        assert ref.model_dump(mode="json") == {"source": "train", "index": 41, "target": 3}
+
+    def test_one_item_named_twice_is_one_key(self):
+        """Frozen, so hashable: capture keeps one thumbnail for an item that two cells name."""
+        assert len({ItemRef(source="train", index=41), ItemRef(source="train", index=41)}) == 1
+        assert ItemRef(source="train", index=41) != ItemRef(source="test", index=41)
+
+    def test_a_numpy_index_reads_as_an_int(self):
+        import numpy as np
+
+        assert ItemRef(source="train", index=np.int64(41)).index == 41  # type: ignore[arg-type]
+
+    def test_an_image_table_of_items_and_groups_round_trips(self):
+        """A cell holds one item, or a group's items, as a duplicates table does."""
+        group = [ItemRef(source="train", index=3), ItemRef(source="train", index=17, target=0)]
+        table = Table(
+            columns=[Column(key="image", kind="image"), Column(key="count", header="Count")],
+            rows=[{"image": ItemRef(source="train", index=41), "count": 1}, {"image": group, "count": 2}],
+        )
+        assert _BLOCKS.validate_json(_BLOCKS.dump_json([table])) == [table]
+        assert table.model_dump(mode="json")["rows"][1]["image"] == [
+            {"source": "train", "index": 3},
+            {"source": "train", "index": 17, "target": 0},
+        ]
+
+    def test_an_asset_is_its_item_and_its_encoded_preview(self):
+        asset = Asset(item=ItemRef(source="train", index=41), media_type="image/webp", width=48, height=32, data="UklG")
+        assert asset.model_dump(mode="json") == {
+            "item": {"source": "train", "index": 41},
+            "media_type": "image/webp",
+            "width": 48,
+            "height": 32,
+            "data": "UklG",
+        }
+        assert Asset.model_validate_json(asset.model_dump_json()) == asset

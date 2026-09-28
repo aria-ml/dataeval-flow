@@ -257,6 +257,15 @@ class TestSegments:
         )
         assert self._segments(chart) == [[chart]]
 
+    def test_a_table_with_thumbnails_stays_in_the_text_which_leaves_them_out(self) -> None:
+        from dataeval_flow._blocks import ItemRef
+
+        thumbs = Table(
+            columns=[Column(key="image", kind="image"), Column(key="item", header="Item")],
+            rows=[{"image": ItemRef(source="s", index=7), "item": 7}],
+        )
+        assert self._segments(thumbs) == [[thumbs]]
+
     def test_a_table_inside_a_section_stays_with_its_section(self) -> None:
         section = Section(title="Group", blocks=[self._DATA])
         assert self._segments(section) == [[section]]

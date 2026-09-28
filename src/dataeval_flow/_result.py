@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, TypeVar
 from pydantic import BaseModel, Field
 from pydantic_core import to_jsonable_python
 
-from dataeval_flow._blocks import Block, Fields, Paragraph, Scalar, Section, Tree
+from dataeval_flow._blocks import Asset, Block, Fields, Paragraph, Scalar, Section, Tree
 from dataeval_flow._blocks._html import html_page
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH, Frame, render_text
 
@@ -310,6 +310,10 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         The dataset a one-source task read, after its view.
     sources : dict[str, AnnotatedDataset] or None
         The datasets a task of several sources read, after their views, by source name.
+    assets : list
+        Thumbnails of the items the report names, which Flow captures once the run is done. The HTML
+        report shows them, and :meth:`to_dict` writes them under ``assets``. Empty where the report names
+        no items, or thumbnails were turned off.
 
     Subclassing
     -----------
@@ -352,6 +356,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         self.errors: list[str] = list(errors)
         self.dataset = dataset
         self.sources = sources
+        self.assets: list[Asset] = []
 
     @classmethod
     def failed(cls, *, type: str, errors: Sequence[str]) -> Self:  # noqa: A002
@@ -413,9 +418,15 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         return html_page(_page_title(document), [document])
 
     def to_dict(self) -> dict[str, object]:
-        """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors."""
+        """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.
+
+        The thumbnails of the items its report names close it, as ``assets``, where it has any.
+        """
         body = self._dict_body() if self.success else {"errors": list(self.errors)}
-        return {"kind": self.kind, "metadata": self.metadata.model_dump(mode="json"), **body}
+        payload: dict[str, object] = {"kind": self.kind, "metadata": self.metadata.model_dump(mode="json"), **body}
+        if self.assets:
+            payload["assets"] = [asset.model_dump(mode="json") for asset in self.assets]
+        return payload
 
     @overload
     def export(self, path: str | Path, *, fmt: Literal["json", "yaml"] = "json") -> Path: ...

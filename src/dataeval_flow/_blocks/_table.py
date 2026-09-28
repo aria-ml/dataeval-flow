@@ -109,6 +109,13 @@ def natural_widths(table: Table) -> tuple[int, ...]:
     return tuple(widths)
 
 
+def _without_images(table: Table) -> Table:
+    """The table as text draws it: without its image columns, since a row's other cells name its items."""
+    if all(column.kind != "image" for column in table.columns):
+        return table
+    return table.model_copy(update={"columns": [column for column in table.columns if column.kind != "image"]})
+
+
 def _signature(table: Table) -> tuple[Any, ...]:
     return tuple((column.key, column.kind, column.header) for column in table.columns)
 
@@ -131,7 +138,7 @@ def shared_widths(blocks: Sequence[Block]) -> dict[tuple[Any, ...], tuple[int, .
     same columns, so each group is laid out at the widest any of its tables needs.
     """
     groups: dict[tuple[Any, ...], list[tuple[int, ...]]] = {}
-    for table in _tables(blocks):
+    for table in map(_without_images, _tables(blocks)):
         groups.setdefault(_signature(table), []).append(natural_widths(table))
     return {sig: tuple(map(max, *widths)) for sig, widths in groups.items() if len(widths) > 1}
 
@@ -245,9 +252,11 @@ def draw_table(
     """Draw *table* as aligned columns within *room* characters after *indent*.
 
     Cells never wrap: a wrapped row reads as another row.  When the row is too wide, chart
-    columns shrink; past their minimum, the table overflows.
+    columns shrink; past their minimum, the table overflows. Image columns are left out: a row's other
+    cells name its items.
     """
-    if not table.rows:
+    table = _without_images(table)
+    if not table.rows or not table.columns:
         return []
     columns = table.columns
     shared = (layouts or {}).get(_signature(table))

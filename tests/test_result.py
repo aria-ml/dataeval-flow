@@ -84,6 +84,19 @@ class TestOneShape:
         result = make()
         assert json.loads(result.export()) == result.to_dict()
 
+    def test_assets_close_the_dict_where_there_are_any(self, make, kind):
+        from dataeval_flow._blocks import Asset, ItemRef
+
+        result = make()
+        assert result.assets == []
+        assert "assets" not in result.to_dict()
+        asset = Asset(item=ItemRef(source="s", index=4), media_type="image/webp", width=16, height=16, data="UklG")
+        result.assets = [asset]
+        payload = result.to_dict()
+        assert list(payload)[-1] == "assets"
+        assert payload["assets"] == [asset.model_dump(mode="json")]
+        assert json.loads(result.export())["assets"][0]["item"] == {"source": "s", "index": 4}
+
     def test_a_failed_run_reports_its_errors(self, make, kind):
         lines = make(success=False).report().splitlines()
         at = lines.index("  FAILED")

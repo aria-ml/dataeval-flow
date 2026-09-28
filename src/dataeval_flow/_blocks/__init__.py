@@ -9,6 +9,7 @@ object per block with its ``type`` tag.
 """
 
 from dataeval_flow._blocks._models import (
+    Asset,
     Block,
     BulletList,
     Cell,
@@ -17,6 +18,7 @@ from dataeval_flow._blocks._models import (
     Distribution,
     Fields,
     Flag,
+    ItemRef,
     Paragraph,
     Proportion,
     Quantiles,
@@ -29,6 +31,7 @@ from dataeval_flow._blocks._models import (
 )
 
 __all__ = [
+    "Asset",
     "Block",
     "BulletList",
     "Cell",
@@ -37,6 +40,7 @@ __all__ = [
     "Distribution",
     "Fields",
     "Flag",
+    "ItemRef",
     "Paragraph",
     "Proportion",
     "Quantiles",

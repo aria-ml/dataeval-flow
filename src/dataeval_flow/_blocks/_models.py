@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "Asset",
     "Block",
     "BulletList",
     "Cell",
@@ -11,6 +12,7 @@ __all__ = [
     "Distribution",
     "Fields",
     "Flag",
+    "ItemRef",
     "Paragraph",
     "Proportion",
     "Quantiles",
@@ -98,8 +100,40 @@ class Flag(_Block):
     std: Unknown = Field(description="The population's standard deviation; `null` when unknown.")
 
 
-# A list cell holds a sparkline's counts or a stacked bar's segments, or a flags column's flags.
-Cell = Annotated[str | int | float | bool | None | list[float] | list[Flag], BeforeValidator(_native)]
+class ItemRef(_Block):
+    """One dataset item as the run saw it: an index into one source, after the source's view.
+
+    Frozen, so it is hashable: a result's assets are keyed by it, and one item named twice is one item.
+    """
+
+    source: str = Field(description="The source the item was read from, as the run's config or `run()` named it.")
+    index: int = Field(description="The item's index in that source, after the source's view.")
+    target: int | None = Field(
+        default=None, description="A detection box, by its index in the item's annotation; `null` for the whole item."
+    )
+
+    def __hash__(self) -> int:
+        # Pydantic hashes a frozen model already; spelled out so that a type checker sees it too.
+        return hash((self.source, self.index, self.target))
+
+
+class Asset(_Block):
+    """A preview of one item, such as its thumbnail, carried in the result so that a report can show it."""
+
+    item: ItemRef = Field(description="The item this previews.")
+    media_type: str = Field(
+        description="What `data` holds, such as `image/webp`. A reader that can't draw it names the item instead."
+    )
+    width: int = Field(description="The preview's width, in pixels.")
+    height: int = Field(description="The preview's height, in pixels.")
+    data: str = Field(description="The preview itself, base64-encoded.")
+
+
+# A list cell holds a sparkline's counts or a stacked bar's segments, a flags column's flags, or an image
+# column's group of items.
+Cell = Annotated[
+    str | int | float | bool | None | list[float] | list[Flag] | ItemRef | list[ItemRef], BeforeValidator(_native)
+]
 
 
 class Section(_Block):
@@ -143,12 +177,13 @@ class Column(_Block):
 
     key: str = Field(description="The row key this column reads. Two columns may read one key: a count and its bar.")
     header: str = Field(default="", description="The column's heading. A table whose headings are all empty has none.")
-    kind: Literal["text", "bar", "stacked", "sparkline", "flags"] = Field(
+    kind: Literal["text", "bar", "stacked", "sparkline", "flags", "image"] = Field(
         default="text",
         description=(
             "`text` shows the cell; `bar` draws a number as a bar; `stacked` draws a list of numbers as one "
             "segmented bar; `sparkline` draws a list of counts as a small histogram; `flags` shows a list of "
-            "flags, by name, each as its value against the limit it crossed."
+            "flags, by name, each as its value against the limit it crossed; `image` shows an item's thumbnail, "
+            "or a group's, from an item reference or a list of them."
         ),
     )
     align: Literal["left", "right"] | None = Field(
