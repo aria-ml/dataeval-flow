@@ -5,10 +5,11 @@ from typing import Any, Literal
 
 import yaml
 
-from dataeval_flow._blocks import Block, Cell, Code, Column, Fields, Paragraph, Table
+from dataeval_flow._blocks import Block, Cell, Code, Column, Fields, ItemRef, Paragraph, Table
 from dataeval_flow.workflows._base import Finding
+from dataeval_flow.workflows._tables import uncovered_blocks, unlabelled_blocks
 from dataeval_flow.workflows.data_coverage._config import DataCoverageHealthThresholds
-from dataeval_flow.workflows.data_coverage._outputs import DataCoverageRawOutput, LabelSpaceCoverage
+from dataeval_flow.workflows.data_coverage._outputs import DataCoverageRawOutput, LabelSpaceCoverage, UncoveredItem
 
 __all__ = ["build_findings"]
 
@@ -18,9 +19,18 @@ def _table(columns: list[Column], rows: list[dict[str, Cell]]) -> list[Block]:
     return [Table(columns=columns, rows=rows)] if rows else []
 
 
+def _uncovered_blocks(uncovered: list[UncoveredItem], units: str, source: str) -> list[Block]:
+    """The uncovered observations, farthest first, each named in *source* as its item or the box it was cut from."""
+    return uncovered_blocks(
+        [(ItemRef(source=source, index=row.index, target=row.target), row.class_name, row.radius) for row in uncovered],
+        units,
+    )
+
+
 def _finding_coverage(  # noqa: C901
     raw: DataCoverageRawOutput,
     thresholds: DataCoverageHealthThresholds,
+    source: str,
 ) -> Finding | None:
     """Embedding-space coverage finding, broken down by class."""
     cov = raw.coverage
@@ -128,6 +138,7 @@ def _finding_coverage(  # noqa: C901
                     ("Observations", f"{observed} {units}"),
                 ]
             ),
+            *_uncovered_blocks(cov.uncovered, units, source),
         ],
     )
 
@@ -169,6 +180,7 @@ def _finding_completeness(
 def _finding_label_distribution(
     raw: DataCoverageRawOutput,
     thresholds: DataCoverageHealthThresholds,
+    source: str,
 ) -> Finding:
     """Label distribution finding."""
     ld = raw.label_distribution
@@ -221,7 +233,11 @@ def _finding_label_distribution(
         title="Label Distribution",
         brief=brief,
         description=description,
-        blocks=[*(Paragraph(text=note) for note in notes), *_table(columns, rows)],
+        blocks=[
+            *(Paragraph(text=note) for note in notes),
+            *_table(columns, rows),
+            *unlabelled_blocks({source: ld.empty_images}, header="Source"),
+        ],
     )
 
 
@@ -711,12 +727,14 @@ def _finding_ontology_structure(raw: DataCoverageRawOutput) -> Finding | None:
 def build_findings(
     raw: DataCoverageRawOutput,
     thresholds: DataCoverageHealthThresholds,
+    *,
+    source: str,
 ) -> list[Finding]:
-    """Build all findings for the data coverage report."""
+    """Build all findings for the data coverage report, naming each item it pictures in *source*."""
     findings: list[Finding] = []
 
     # Embedding-based (conditional)
-    cov_finding = _finding_coverage(raw, thresholds)
+    cov_finding = _finding_coverage(raw, thresholds, source)
     if cov_finding is not None:
         findings.append(cov_finding)
 
@@ -725,7 +743,7 @@ def build_findings(
         findings.append(comp_finding)
 
     # Always present
-    findings.append(_finding_label_distribution(raw, thresholds))
+    findings.append(_finding_label_distribution(raw, thresholds, source))
     findings.append(_finding_metadata_distribution(raw))
 
     # Gap analysis (conditional)

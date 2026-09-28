@@ -216,7 +216,7 @@
       "type": "object"
     },
     "ChunkingConfig": {
-      "description": "Configuration for chunked (temporal) drift analysis.\n\nWhen present, the test data is split into sequential chunks and each\nchunk is tested for drift independently.  This answers \"when did drift\nstart?\" and \"did it recover?\".",
+      "description": "Configuration for chunked (temporal) drift analysis.\n\nWhen present, the test data is split into sequential chunks and each\nchunk is tested for drift independently.  This answers \"when did drift\nstart?\" and \"did it recover?\".\n\nThe reference is split the same way, and each chunk's drift bounds are the\nspread of the reference chunks' scores, so the reference must split into at\nleast 3 chunks.  A detector whose reference splits into fewer does not run,\nand the result's errors say why.",
       "properties": {
         "chunk_size": {
           "anyOf": [
@@ -229,7 +229,7 @@
             }
           ],
           "default": null,
-          "description": "Fixed number of samples per chunk. Mutually exclusive with chunk_count.",
+          "description": "Fixed number of samples per chunk, in the reference and the test data alike. The reference needs at least 3 chunks. Mutually exclusive with chunk_count.",
           "title": "Chunk Size"
         },
         "chunk_count": {
@@ -243,12 +243,12 @@
             }
           ],
           "default": null,
-          "description": "Split test data into this many equal chunks. Mutually exclusive with chunk_size.",
+          "description": "Split the reference into this many equal chunks (at least 3); the test data is then cut into chunks of the same size. Mutually exclusive with chunk_size.",
           "title": "Chunk Count"
         },
         "incomplete": {
           "default": "keep",
-          "description": "How to handle a final chunk smaller than chunk_size. 'keep': retain as-is, 'drop': discard, 'append': merge into last full chunk.",
+          "description": "What chunk_size does with the reference's final chunk when it falls short. 'keep': score it as a chunk of its own, 'drop': leave it out of the baseline, 'append': merge it into the chunk before. A short chunk's score is noisier and widens the bounds. The test data always merges its remainder into its last chunk.",
           "enum": [
             "keep",
             "drop",
@@ -5361,6 +5361,91 @@
       "title": "RescaleCorrectionConfig",
       "type": "object"
     },
+    "ResultConfig": {
+      "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: audit\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
+      "properties": {
+        "name": {
+          "default": "result",
+          "description": "The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
+          "pattern": "^[^/\\\\]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "formats": {
+          "description": "Which files to write: the JSON record, the text report, the HTML page, a JUnit report (`.xml`) for a CI's test view, and a Markdown summary (`.md`) for a job summary or a merge-request comment.",
+          "items": {
+            "enum": [
+              "json",
+              "text",
+              "html",
+              "junit",
+              "markdown"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Formats",
+          "type": "array"
+        },
+        "detail": {
+          "default": "full",
+          "description": "How much of each report the text and HTML files hold: every finding in `full`, the summary table in `summary`. The JSON always holds everything.",
+          "enum": [
+            "full",
+            "summary"
+          ],
+          "title": "Detail",
+          "type": "string"
+        },
+        "per_task": {
+          "default": false,
+          "description": "Write each task's results to files of its own, `<name>-<task>.<ext>`, not one for the run.",
+          "title": "Per Task",
+          "type": "boolean"
+        },
+        "fail_on": {
+          "default": "failure",
+          "description": "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health threshold (`warning`: 2), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it.",
+          "enum": [
+            "never",
+            "failure",
+            "warning"
+          ],
+          "title": "Fail On",
+          "type": "string"
+        },
+        "width": {
+          "default": 80,
+          "description": "Characters per line of the text report, on the console and in its file. `--report-width` and `DATAEVAL_REPORT_WIDTH` override it.",
+          "minimum": 40,
+          "title": "Width",
+          "type": "integer"
+        },
+        "max_images": {
+          "default": 200,
+          "description": "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, and each finding's share between its tables; a share more than its items need goes to the rest. 0 embeds none, and -1 every item the report names.",
+          "minimum": -1,
+          "title": "Max Images",
+          "type": "integer"
+        },
+        "max_rows": {
+          "default": 500,
+          "description": "Most rows a table of items lists, such as flagged images or duplicate groups; a paragraph after it names the rest, which the JSON's raw output holds. -1 lists every row.",
+          "minimum": -1,
+          "title": "Max Rows",
+          "type": "integer"
+        },
+        "preview_rows": {
+          "default": 10,
+          "description": "How many rows of a table of items the text report and the TUI show, before a line counting the rest; the HTML page shows every row. -1 shows every row.",
+          "minimum": -1,
+          "title": "Preview Rows",
+          "type": "integer"
+        }
+      },
+      "title": "ResultConfig",
+      "type": "object"
+    },
     "SourceConfig": {
       "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one corpus.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
       "properties": {
@@ -6001,6 +6086,10 @@
       ],
       "default": null,
       "description": "Log levels for dataeval-flow and the libraries it calls, applied when the CLI runs the pipeline"
+    },
+    "result": {
+      "$ref": "#/$defs/ResultConfig",
+      "description": "What each task's result carries: the thumbnails its report embeds"
     },
     "seed": {
       "anyOf": [

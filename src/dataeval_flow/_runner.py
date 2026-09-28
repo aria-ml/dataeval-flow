@@ -13,7 +13,7 @@ from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 
 if TYPE_CHECKING:
     from dataeval_flow._result import Result
-    from dataeval_flow.config._models import PipelineConfig
+    from dataeval_flow.config._models import PipelineConfig, ResultConfig
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -42,8 +42,11 @@ class _Collected:
     failures: int = 0
     warned: list[str] = field(default_factory=list)
     merged: dict[str, dict] = field(default_factory=dict)
-    text_parts: list[str] = field(default_factory=list)
-    reported: list[Result[Any, Any]] = field(default_factory=list)
+    reported: dict[str, Result[Any, Any]] = field(default_factory=dict)
+    # Every task's result, failed or not, in the order the tasks ran: what the CI reports name.
+    everything: dict[str, Result[Any, Any]] = field(default_factory=dict)
+    # Each task's text report as printed, and whether in full, so a file wanting the same needn't draw it again.
+    printed: dict[str, tuple[bool, str]] = field(default_factory=dict)
     binning: dict[str, dict] = field(default_factory=dict)
 
 
@@ -60,6 +63,7 @@ def _collect_results(
     collected = _Collected()
 
     for name, result in results.items():
+        collected.everything[name] = result
         if not result.success:
             _logger.error("  FAILED: %s", name)
             for error in result.errors:
@@ -68,14 +72,14 @@ def _collect_results(
             flush_logs()
             continue
 
-        # --- Text report: summary (no flag) or full detail (-v); the file always holds the detail ---
-        detailed = result.report(detailed=True, width=report_width)
-        print(detailed if verbosity >= 1 else result.report(detailed=False, width=report_width))
+        # --- Text report: summary (no flag) or full detail (-v) ---
+        text = result.report(detailed=verbosity >= 1, width=report_width)
+        print(text)
+        collected.printed[name] = (verbosity >= 1, text)
 
         # --- Collect for file output ---
         collected.merged[name] = result.to_dict()
-        collected.text_parts.append(detailed)
-        collected.reported.append(result)
+        collected.reported[name] = result
         if record := getattr(result.metadata, "metadata_binning", None):
             collected.binning[name] = record
 
@@ -89,6 +93,63 @@ def _collect_results(
     return collected
 
 
+def _write_results(collected: _Collected, results_dir: Path, settings: ResultConfig, width: int) -> list[str]:
+    """Write the results in each configured format, one file for the run or one per task; return the names written.
+
+    The JSON, text and HTML files hold the tasks that succeeded, and none is written where no task did. The
+    JUnit and Markdown files, which a CI job reads, name the failed tasks too.
+    """
+    tasks = list(collected.everything)
+    groups = [(f"{settings.name}-{task}", [task]) for task in tasks] if settings.per_task else [(settings.name, tasks)]
+    written: list[str] = []
+    for stem, names in groups:
+        for kind in settings.formats:
+            text = _file_text(kind, names, collected, settings.detail == "full", width)
+            if text is not None:
+                results_dir.mkdir(parents=True, exist_ok=True)
+                path = results_dir / f"{stem}.{_EXTENSIONS[kind]}"
+                path.write_text(text, encoding="utf-8")
+                written.append(path.name)
+    return written
+
+
+def _file_text(kind: str, names: Sequence[str], collected: _Collected, detailed: bool, width: int) -> str | None:
+    """The named tasks' results as one file of *kind*, or ``None`` where it would hold nothing."""
+    from dataeval_flow._ci_reports import junit_report, markdown_summary
+    from dataeval_flow._result import results_html
+
+    if kind in ("junit", "markdown"):
+        results = {name: collected.everything[name] for name in names}
+        return junit_report(results) if kind == "junit" else markdown_summary(results)
+    succeeded = [name for name in names if name in collected.reported]
+    if not succeeded:
+        return None
+    if kind == "json":
+        return json_mod.dumps({name: collected.merged[name] for name in succeeded}, indent=2)
+    if kind == "text":
+        return "\n".join(_text(name, collected, detailed, width) for name in succeeded)
+    return results_html([collected.reported[name] for name in succeeded], detailed=detailed)
+
+
+def _text(name: str, collected: _Collected, detailed: bool, width: int) -> str:
+    """A task's text report, reusing the one printed where it holds the same detail."""
+    printed_detailed, printed = collected.printed[name]
+    return printed if printed_detailed == detailed else collected.reported[name].report(detailed=detailed, width=width)
+
+
+def _gate(fail_on: str, fail_on_warning: bool | None) -> str:
+    """What fails the run: the config's ``fail_on``, unless ``--fail-on-warning`` or its variable says otherwise."""
+    if fail_on_warning is None:
+        return fail_on
+    if fail_on_warning:
+        return "warning"
+    return "failure" if fail_on == "warning" else fail_on
+
+
+# The extension of each format's file.
+_EXTENSIONS = {"json": "json", "text": "txt", "html": "html", "junit": "xml", "markdown": "md"}
+
+
 def run(
     config_arg: Path | str | None,
     output_dir: Path | None = None,
@@ -96,8 +157,8 @@ def run(
     verbosity: int = 0,
     cache_dir: Path | None = None,
     tasks: str | Sequence[str] | None = None,
-    fail_on_warning: bool = False,
-    report_width: int = DEFAULT_WIDTH,
+    fail_on_warning: bool | None = None,
+    report_width: int | None = None,
     report_images: bool = True,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
@@ -127,8 +188,9 @@ def run(
         Return a non-zero exit code when a task that otherwise succeeded reports
         findings at ``severity="warning"``.  Off by default: whether a pipeline should
         stop for a warning is the caller's decision.
-    report_width : int
-        Characters per line of the text report, on the console and in ``result.txt``; at least 40.
+    report_width : int | None
+        Characters per line of the text report, on the console and in ``result.txt``; at least 40. ``None`` (the
+        default) takes the config's ``result: width``.
     report_images : bool
         Whether results keep thumbnails of the items their reports name, which ``result.html`` shows and
         ``result.json`` holds. ``False`` reads no item and keeps none.
@@ -146,12 +208,11 @@ def run(
     """
     from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
     from dataeval_flow._orchestrator import run_tasks
-    from dataeval_flow._result import results_html
     from dataeval_flow.config._loader import get_data_dir
 
     # Checked before the tasks run: a width the report refuses would otherwise surface only
     # after every task had finished, and before any of their results were written.
-    if report_width < MIN_WIDTH:
+    if report_width is not None and report_width < MIN_WIDTH:
         raise ValueError(f"report_width must be at least {MIN_WIDTH}, got {report_width}")
 
     setup_logging(output_dir, verbosity)
@@ -172,17 +233,16 @@ def run(
     # with the task that produced it.
     results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images)
 
-    collected = _collect_results(results, verbosity=verbosity, report_width=report_width)
+    width = config.result.width if report_width is None else report_width
+    collected = _collect_results(results, verbosity=verbosity, report_width=width)
 
     # --- Write file artifacts (only when output_dir is set) ---
-    if output_dir is not None and collected.merged:
+    if output_dir is not None:
         results_dir = output_dir / "results"
-        results_dir.mkdir(parents=True, exist_ok=True)
-        (results_dir / "result.json").write_text(json_mod.dumps(collected.merged, indent=2), encoding="utf-8")
-        (results_dir / "result.txt").write_text("\n".join(collected.text_parts), encoding="utf-8")
-        (results_dir / "result.html").write_text(results_html(collected.reported), encoding="utf-8")
-        _logger.info("  Wrote result.json, result.txt and result.html to %s", results_dir)
-        _write_encoding_descriptor(collected.binning, results_dir)
+        if written := _write_results(collected, results_dir, config.result, width):
+            _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
+        if collected.merged:
+            _write_encoding_descriptor(collected.binning, results_dir)
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)
 
@@ -190,17 +250,18 @@ def run(
     warned = collected.warned
     _logger.info("Done. %d/%d succeeded.", len(results) - failures, len(results))
 
-    if failures or export_failures:
+    gate = _gate(config.result.fail_on, fail_on_warning)
+    if (failures or export_failures) and gate != "never":
         return 1
 
     if warned:
         # Printed either way: a warning that breached a threshold is worth stating even
         # when it is not fatal.
         _logger.warning("  Health warnings raised by: %s", ", ".join(warned))
-        if fail_on_warning:
-            _logger.error("  Failing on health warnings (--fail-on-warning).")
+        if gate == "warning":
+            _logger.error("  Failing on health warnings (fail_on: warning, or --fail-on-warning).")
             flush_logs()
-            return 1
+            return 2
 
     return 0
 

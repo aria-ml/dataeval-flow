@@ -9,7 +9,7 @@ from typing import Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP, ranked_table
+from dataeval_flow.workflows._tables import ranked_table, table_limits
 from dataeval_flow.workflows.ood_detection._config import (
     OODDetectionConfig,
     OODDetectionHealthThresholds,
@@ -48,8 +48,9 @@ def _samples_blocks(
     ranked = sorted(indices, key=lambda index: (-normalized_scores.get(index, 0.0), index))
     if not ranked:
         return []
+    limits = table_limits()
     rows: list[dict[str, Cell]] = []
-    for index in ranked[:ROW_CAP]:
+    for index in ranked[: limits.rows]:
         ref = locate(index)
         row: dict[str, Cell] = {
             "image": ref,
@@ -67,11 +68,11 @@ def _samples_blocks(
         Column(key="score", header="Score", format="{:.2f}x"),
         *([Column(key="factors", header="Top factors", align="left")] if factors is not None else []),
     ]
-    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
-    if len(ranked) > ROW_CAP:
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+    if limits.rows is not None and len(ranked) > limits.rows:
         blocks.append(
             Paragraph(
-                text=f"{len(ranked):,} samples; the {ROW_CAP:,} most out of distribution are listed, and every one "
+                text=f"{len(ranked):,} samples; the {limits.rows:,} most out of distribution are listed, and every one "
                 "is in `output.raw`."
             )
         )

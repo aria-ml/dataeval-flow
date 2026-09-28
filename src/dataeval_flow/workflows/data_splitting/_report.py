@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Literal
 
-from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Scalar, Table
+from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Scalar, Table
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import ranked_table
+from dataeval_flow.workflows._tables import ranked_table, uncovered_blocks
 from dataeval_flow.workflows.data_splitting._outputs import DataSplittingRawOutput, SplitInfo
 
 
@@ -389,10 +390,27 @@ def _build_stratification_check(raw: DataSplittingRawOutput) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 
-def _coverage_finding(title: str, coverage: dict[str, Any], split_size: int) -> Finding:
-    """One split's coverage: a warning when more than 5% of the split is uncovered."""
-    uncovered = coverage.get("uncovered_indices", [])
+def _coverage_finding(
+    title: str, coverage: dict[str, Any], members: Sequence[int], source: str, classes: Sequence[str] | None
+) -> Finding:
+    """One split's coverage, and its uncovered items: a warning when more than 5% of the split is uncovered.
+
+    Coverage numbers each item by its position in the split, which *members*, the split's indices into
+    the dataset, turn back into the dataset's own.
+    """
+    uncovered: list[int] = coverage.get("uncovered_indices", [])
+    split_size = len(members)
     pct = (len(uncovered) / split_size * 100) if split_size > 0 else 0
+    radii = coverage.get("critical_value_radii") or []
+    items = [
+        (
+            ItemRef(source=source, index=members[position]),
+            None if classes is None else classes[members[position]],
+            float(radii[position]) if position < len(radii) else None,
+        )
+        for position in uncovered
+        if 0 <= position < split_size
+    ]
     severity: Literal["ok", "info", "warning"] = "warning" if pct > 5 else "info"
     return Finding(
         severity=severity,
@@ -405,7 +423,8 @@ def _coverage_finding(title: str, coverage: dict[str, Any], split_size: int) -> 
                     ("Uncovered %", round(pct, 2)),
                     ("Coverage radius", coverage.get("coverage_radius")),
                 ]
-            )
+            ),
+            *uncovered_blocks(items, "images"),
         ],
     )
 
@@ -417,8 +436,14 @@ def _coverage_finding(title: str, coverage: dict[str, Any], split_size: int) -> 
 
 def build_findings(
     raw: DataSplittingRawOutput,
+    *,
+    source: str,
+    classes: Sequence[str] | None = None,
 ) -> list[Finding]:
-    """Build human-readable findings from raw outputs."""
+    """Build human-readable findings from raw outputs.
+
+    Each uncovered item is named in *source*, with its class from *classes*, one per item, where given.
+    """
     findings: list[Finding] = []
 
     # --- 1. Full-dataset label distribution ---
@@ -476,12 +501,11 @@ def build_findings(
     for fold_info in raw.folds:
         for split_name, coverage in [("train", fold_info.coverage_train), ("val", fold_info.coverage_val)]:
             if coverage:
-                split_size = len(fold_info.train_indices) if split_name == "train" else len(fold_info.val_indices)
-                findings.append(
-                    _coverage_finding(f"Coverage: fold {fold_info.fold} {split_name}", coverage, split_size)
-                )
+                members = fold_info.train_indices if split_name == "train" else fold_info.val_indices
+                title = f"Coverage: fold {fold_info.fold} {split_name}"
+                findings.append(_coverage_finding(title, coverage, members, source, classes))
 
     if raw.coverage_test:
-        findings.append(_coverage_finding("Coverage: test", raw.coverage_test, len(raw.test_indices)))
+        findings.append(_coverage_finding("Coverage: test", raw.coverage_test, raw.test_indices, source, classes))
 
     return findings

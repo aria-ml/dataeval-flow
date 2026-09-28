@@ -35,7 +35,8 @@ The report is laid out in this order:
 6. **Resolved configuration** — the configuration as actually executed. Always rendered, at both detail levels.
 
 The report is 80 columns wide. Pass `width=` (at least 40) to draw it narrower or wider: prose wraps, and charts
-shrink to fit. From the CLI, `--report-width` sets it, or the `DATAEVAL_REPORT_WIDTH` environment variable.
+shrink to fit. From the CLI, `--report-width` sets it, else the `DATAEVAL_REPORT_WIDTH` environment variable, else
+the pipeline's `result: width`.
 
 A long table, such as one row per flagged image, shows its first rows and a line counting the rest. Every row is in
 the HTML report and in the JSON. Text has no pictures, so a table's thumbnails are left out, and the row's other
@@ -61,8 +62,8 @@ result.warning_count  # 2
 result.health  # {"status": "warning", "warnings": 2, "findings": 7}
 ```
 
-From the CLI, `--fail-on-warning` turns that roll-up into an exit code, so a pipeline can stop on a
-run whose findings breached their thresholds:
+From the CLI, `--fail-on-warning`, or `fail_on: warning` in the pipeline's `result:` block, turns that roll-up
+into an exit code, `2`, so a pipeline can stop on a run whose findings breached their thresholds:
 
 ```bash
 dataeval-flow --config params.yaml --output ./results --fail-on-warning
@@ -95,15 +96,20 @@ holds everything the text report holds, laid out for reading on screen:
   `brightness 0.99 > 0.84`, and listed by name. Hovering a tag, or reaching it with the keyboard, shows where the
   value ranks in its population and the population's mean and standard deviation.
 - A threshold is a dashed line across a chart's bars, labelled on a scale below the table.
-- Each flagged image or box, duplicate group and OOD sample shows its thumbnail in its row. Click one to enlarge it
-  over the page, and click anywhere, or press Esc, to put it back. An item without a thumbnail is named instead.
+- Each item a finding names shows its thumbnail in its row: a flagged image or box, a duplicate group, an OOD sample,
+  an uncovered item, a prioritized item at either end of its ranking, an unlabelled image, and the items that hold a
+  metadata value that doesn't read like the rest. Click one to enlarge it over the page, and click anywhere, or press
+  Esc, to put it back. An item without a thumbnail is named instead.
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
 Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
-across, from the first 50 rows of each table and at most 200 per result. A box's thumbnail is cropped from its
-image with a margin around it. `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0`, or `report_images=False` on
-`run()`, `run_task()` and `run_tasks()` turn them off, and then the run reads no item for them. Only images have
-thumbnails for now; any other kind of item is named.
+across, and at most 200 per result. A pipeline's `result: max_images:` sets that limit: `0` embeds none, and `-1`
+every item the report names. The
+limit is shared evenly between the findings that name items, and a finding's share between its tables, rows in
+order; a finding that needs fewer passes its spare to the rest. So with 200 and four such findings, each gets 50.
+A box's thumbnail is cropped from its image with a margin around it. `--no-report-images`,
+`DATAEVAL_REPORT_IMAGES=0`, or `report_images=False` on `run()`, `run_task()` and `run_tasks()` turn them off, and
+then the run reads no item for them. Only images have thumbnails for now; any other kind of item is named.
 
 It loads nothing, neither font nor URL. One inline script adds the sorting, the filter boxes and the expand-all
 buttons. With scripts blocked, as some mail viewers and locked-down browsers block them, the page reads the same
@@ -117,7 +123,8 @@ each metric's limits and its population's mean and standard deviation, and says 
 differ. Percentiles, and data analysis's populations, show only in the hover cards and the JSON.
 
 The page is UTF-8, so write it with `encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every
-task's report on one page.
+task's report on one page, unless the pipeline's `result:` block says otherwise (see
+{doc}`Run workflows in a container <containerized_workflows>`).
 
 ## The result envelope
 
@@ -213,7 +220,9 @@ A table's `rows` are objects keyed by each column's `key`. A column has:
 | `markers` (`[]`) | A bar column's labelled reference values, `[name, value]`, such as drift thresholds. |
 
 A table's `preview` says how many rows a renderer with little room, such as the text report, shows before a line
-counting the rest. `null` shows every row.
+counting the rest. `null` shows every row. A table of items, such as flagged images, previews 10 of at most 500 rows,
+with a paragraph naming the rest; a pipeline's `result: preview_rows:` and `result: max_rows:` change those, and `-1`
+lifts either.
 
 A cell is a string, number, boolean or `null`. In a `stacked` or `sparkline` column it is a list of numbers, in a
 `flags` column a list of flags, and in an `image` column an item reference, or a list of them for a group such as
@@ -332,6 +341,7 @@ flagged = result.output.raw.img_outliers
 
 # data-coverage
 onto_findings = result.output.raw.ontology
+uncovered = result.output.raw.coverage.uncovered  # each uncovered item, its box and class, and its distance
 ```
 
 Each workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the

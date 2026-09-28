@@ -27,6 +27,8 @@ __all__ = [
     "SourceConfig",
     # Logging
     "LoggingConfig",
+    # Results
+    "ResultConfig",
     # Metadata policy — corrections and aggregation
     "AggregatorConfig",
     "MetadataPolicyConfig",
@@ -53,7 +55,7 @@ __all__ = [
     "ViewOperation",
 ]
 
-from dataeval_flow.config._models import LoggingConfig, SourceConfig
+from dataeval_flow.config._models import LoggingConfig, ResultConfig, SourceConfig
 from dataeval_flow.config._schemas import (
     AggregatorConfig,
     CocoDatasetConfig,

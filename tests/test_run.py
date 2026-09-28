@@ -303,7 +303,7 @@ def test_an_ood_run_reads_each_sample_s_thumbnail_from_its_own_test_source() -> 
 def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.MonkeyPatch) -> None:
     import dataeval_flow._capture as capture_module
 
-    def refuse(*_args: Any) -> list[Any]:
+    def refuse(*_args: Any, **_kwargs: Any) -> list[Any]:
         raise AssertionError("captured with images off")
 
     monkeypatch.setattr(capture_module, "capture", refuse)
@@ -361,3 +361,25 @@ def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded
     }
     assert len(agreed) == 4
     assert {item: shades[item] < 8 for item in agreed} == dict.fromkeys(agreed, True)
+
+
+def test_the_result_block_limits_a_run_s_tables() -> None:
+    """``max_rows`` and ``preview_rows`` reach the tables a real workflow builds, for that run alone."""
+    from dataeval_flow.config import ResultConfig
+    from dataeval_flow.workflows._tables import TableLimits, table_limits
+    from dataeval_flow.workflows.data_cleaning import DataCleaningResult
+    from tests.finding_blocks import paragraphs, tables
+
+    config = toy_pipeline(
+        workflows=[DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"])],
+        tasks=[TaskConfig(name="t", workflow="clean", sources="src")],
+        dataset=ToyImages(count=40, near_duplicate=True),
+    )
+    config.result = ResultConfig(max_rows=1, preview_rows=-1, max_images=0)
+    result = run_tasks(config)["t"]
+    assert isinstance(result, DataCleaningResult)
+    (duplicates,) = [finding for finding in result.findings if finding.title == "Duplicates"]
+    (groups,) = tables(duplicates)
+    assert (len(groups.rows), groups.preview) == (1, None)
+    assert "2 groups of images; the 1 largest are listed, and every one is in `output.raw`." in paragraphs(duplicates)
+    assert table_limits() == TableLimits()

@@ -34,7 +34,7 @@ from dataeval.protocols import AnnotatedDataset
 from dataeval.quality import Duplicates, Outliers
 
 from dataeval_flow._binning import attach_binning
-from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Section, Table
+from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow._cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow._cache import selection_repr as _sel_repr
 from dataeval_flow._policy import _ROW_LEVELS, derive_from, policy_for, resolve_policy
@@ -45,6 +45,7 @@ from dataeval_flow.workflows._common import compute_metadata_summary as _compute
 from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows._context import WorkflowContext
 from dataeval_flow.workflows._outliers import flagged_table, limits_sentence, warn_if_unrecorded
+from dataeval_flow.workflows._tables import group_cells, groups_table, table_limits, unlabelled_blocks
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisConfig, DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_analysis._outputs import (
     BiasResult,
@@ -608,6 +609,7 @@ def _finding_image_quality(
         classes=None,
         noun="images",
         groups=list(splits),
+        ref=lambda key: ItemRef.model_validate({"source": key[0], "index": key[1]}),
     )
     description = f"{total_outliers} images flagged across {len(splits)} split(s)."
     if total_outliers and (limits := limits_sentence(outlier_method, outlier_threshold)):
@@ -671,8 +673,23 @@ def _finding_redundancy(
         title="Redundancy",
         brief=brief,
         description=f"{total_exact} exact + {total_near} near duplicates across {len(splits)} split(s).",
-        blocks=[Table(columns=columns, rows=rows)],
+        blocks=[Table(columns=columns, rows=rows), *_split_groups(splits)],
     )
+
+
+def _split_groups(splits: dict[str, SplitResult]) -> list[Block]:
+    """Each split's duplicate groups under its name, largest first, with up to eight of each group's images."""
+    blocks: list[Block] = []
+    for name, sr in splits.items():
+        rd = sr.redundancy
+        groups = [
+            (kind, number, [ItemRef(source=name, index=index) for index in members])
+            for kind, kind_groups in (("exact", rd.exact_groups), ("near", rd.near_groups))
+            for number, members in enumerate(kind_groups)
+        ]
+        if groups:
+            blocks.append(Section(title=name, brief=f"{len(groups)} groups", blocks=groups_table(groups, "images")))
+    return blocks
 
 
 def _finding_label_balance(
@@ -723,11 +740,7 @@ def _finding_label_balance(
         columns = [Column(key="class", header="Class"), *split_columns]
         ratios = Fields(items=[(n, f"{r}:1") for n, r in imbalance_ratios.items()])
         table = [Table(columns=columns, rows=rows), Section(title="Imbalance ratio", blocks=[ratios])]
-    unlabelled = [
-        Paragraph(text=f"{name}: {len(sr.label_health.empty_images)} images with no labels")
-        for name, sr in splits.items()
-        if sr.label_health.empty_images
-    ]
+    unlabelled = unlabelled_blocks({name: sr.label_health.empty_images for name, sr in splits.items()}, header="Split")
 
     brief = f"{num_classes} classes, imbalance {'/'.join(f'{r}' for r in imbalance_ratios.values())}:1"
 
@@ -961,6 +974,8 @@ def _finding_leakage(
             Column(key="near", header="Near"),
         ]
         blocks.append(Table(columns=columns, rows=rows))
+    for pair_name, csr in cross_split.items():
+        blocks.extend(_leakage_groups(pair_name, csr.redundancy.duplicate_leakage))
 
     return Finding(
         severity="warning",
@@ -969,6 +984,50 @@ def _finding_leakage(
         description=f"{brief} (data leakage).",
         blocks=blocks,
     )
+
+
+def _leakage_groups(pair_name: str, leakage: Mapping[str, Any]) -> list[Block]:
+    """One pair's cross-split groups, largest first: each group's images in the one split beside the other's.
+
+    A pair is keyed ``a_vs_b``, and each of its groups holds both splits' items by name, so the two names
+    are read off the groups, in the order the key gives them. A group is numbered by its place among its
+    kind in ``output.raw``, where every one of its items is.
+    """
+    groups: list[tuple[str, int, Mapping[str, Sequence[int]]]] = [
+        (kind, number, group)
+        for kind in ("exact", "near")
+        for number, group in enumerate(leakage.get(f"{kind}_groups", []))
+    ]
+    names = list(dict.fromkeys(name for _, _, group in groups for name in group))
+    if len(names) != 2:
+        return []
+    a, b = names if pair_name == f"{names[0]}_vs_{names[1]}" else names[::-1]
+    # Stable, so groups of one size keep exact before near, and each kind its own order.
+    groups.sort(key=lambda group: -sum(len(members) for members in group[2].values()))
+    limits = table_limits()
+    rows: list[dict[str, Cell]] = []
+    for kind, number, group in groups[: limits.rows]:
+        row: dict[str, Cell] = {"group": number, "kind": kind}
+        for side, name in (("a", a), ("b", b)):
+            row[side], row[f"{side}_image"] = group_cells([ItemRef(source=name, index=i) for i in group.get(name, [])])
+        rows.append(row)
+    columns = [
+        Column(key="group", header="Group"),
+        Column(key="kind", header="Kind", align="left"),
+        Column(key="a", header=a, align="left"),
+        Column(key="a_image", kind="image"),
+        Column(key="b", header=b, align="left"),
+        Column(key="b_image", kind="image"),
+    ]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+    if limits.rows is not None and len(groups) > limits.rows:
+        blocks.append(
+            Paragraph(
+                text=f"{len(groups):,} groups; the {limits.rows:,} largest are listed, and every one is in "
+                "`output.raw`."
+            )
+        )
+    return [Section(title=f"{a} vs {b}", brief=f"{len(groups)} groups", blocks=blocks)]
 
 
 def _divergence_level(div: float, threshold: float) -> tuple[str, Literal["ok", "info", "warning"]]:

@@ -10,8 +10,18 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
-from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    field_validator,
+    model_validator,
+)
 
+from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._kind import input_problem
 from dataeval_flow.config._schemas import (
     DatasetConfig,
@@ -129,6 +139,102 @@ class LoggingConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Results
+# ---------------------------------------------------------------------------
+
+
+class ResultConfig(BaseModel):
+    """What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.
+
+    ``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and
+    prints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.
+
+    YAML example::
+
+        result:
+          name: audit
+          formats: [text, html]
+          detail: summary
+          per_task: true
+          max_images: 100
+    """
+
+    name: str = Field(
+        default="result",
+        pattern=r"^[^/\\]+$",
+        description="The results' file name, without its extension: `result.json`, `result.txt`, `result.html`.",
+    )
+    formats: list[Literal["json", "text", "html", "junit", "markdown"]] = Field(
+        default_factory=lambda: ["json", "text", "html"],
+        min_length=1,
+        description=(
+            "Which files to write: the JSON record, the text report, the HTML page, a JUnit report (`.xml`) for a CI's "
+            "test view, and a Markdown summary (`.md`) for a job summary or a merge-request comment."
+        ),
+    )
+    detail: Literal["full", "summary"] = Field(
+        default="full",
+        description=(
+            "How much of each report the text and HTML files hold: every finding in `full`, the summary table in "
+            "`summary`. The JSON always holds everything."
+        ),
+    )
+    per_task: bool = Field(
+        default=False,
+        description="Write each task's results to files of its own, `<name>-<task>.<ext>`, not one for the run.",
+    )
+    fail_on: Literal["never", "failure", "warning"] = Field(
+        default="failure",
+        description=(
+            "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health "
+            "threshold (`warning`: 2), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` "
+            "override it."
+        ),
+    )
+    width: int = Field(
+        default=DEFAULT_WIDTH,
+        ge=MIN_WIDTH,
+        description=(
+            "Characters per line of the text report, on the console and in its file. `--report-width` and "
+            "`DATAEVAL_REPORT_WIDTH` override it."
+        ),
+    )
+    max_images: int = Field(
+        default=200,
+        ge=-1,
+        description=(
+            "Most thumbnails a task's result embeds, shared evenly between the report's findings that name items, "
+            "and each finding's share between its tables; a share more than its items need goes to the rest. "
+            "0 embeds none, and -1 every item the report names."
+        ),
+    )
+    max_rows: int = Field(
+        default=500,
+        ge=-1,
+        description=(
+            "Most rows a table of items lists, such as flagged images or duplicate groups; a paragraph after it "
+            "names the rest, which the JSON's raw output holds. -1 lists every row."
+        ),
+    )
+    preview_rows: int = Field(
+        default=10,
+        ge=-1,
+        description=(
+            "How many rows of a table of items the text report and the TUI show, before a line counting the rest; "
+            "the HTML page shows every row. -1 shows every row."
+        ),
+    )
+
+    @field_validator("max_rows")
+    @classmethod
+    def _lists_some_rows(cls, value: int) -> int:
+        """A table listing no row would say only that it left every one out."""
+        if value == 0:
+            raise ValueError("max_rows must be at least 1, or -1 for every row")
+        return value
+
+
+# ---------------------------------------------------------------------------
 # Pipeline (top-level)
 # ---------------------------------------------------------------------------
 
@@ -187,6 +293,11 @@ class PipelineConfig(BaseModel):
     logging: LoggingConfig | None = Field(
         default=None,
         description="Log levels for dataeval-flow and the libraries it calls, applied when the CLI runs the pipeline",
+    )
+
+    # What each result carries
+    result: ResultConfig = Field(
+        default_factory=ResultConfig, description="What each task's result carries: the thumbnails its report embeds"
     )
 
     # Reproducibility [CR-7-S-1]

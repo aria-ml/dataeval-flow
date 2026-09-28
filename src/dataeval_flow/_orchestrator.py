@@ -353,6 +353,7 @@ def _run_single_task(
     from dataeval_flow.config._schemas import PreprocessorConfig
     from dataeval_flow.config.extractors._base import ExtractorConfig
     from dataeval_flow.workflows._context import DatasetContext, WorkflowContext
+    from dataeval_flow.workflows._tables import TableLimits, limited_tables
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
@@ -481,7 +482,10 @@ def _run_single_task(
     # One extractor scope per task, whichever entry point runs it (`run_task`, `run_tasks`,
     # `run`, the TUI), so every source the task compares is described by the same stateful
     # extractor, fitted once on the first source to ask.
-    with capture_diagnostics() as diagnostics, shared_extractor_scope():
+    # The pipeline's `result:` limits on tables of items hold for this run's report builders alone.
+    settings = config.result
+    limits = TableLimits(rows=_unless_all(settings.max_rows), preview=_unless_all(settings.preview_rows))
+    with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
         result = _run_target(runner, instance, context)
     elapsed = time.monotonic() - start
     if diagnostics:
@@ -494,7 +498,7 @@ def _run_single_task(
 
     # 9. Thumbnails of the items the report names, read while the run's datasets are at hand.
     if report_images and result.success:
-        _capture_assets(result, dataset_contexts)
+        _capture_assets(result, dataset_contexts, _unless_all(config.result.max_images))
 
     # 10. Populate metadata envelope
     _populate_result_metadata(
@@ -584,8 +588,15 @@ def _ensure_result_datasets(
         result.sources = resolved
 
 
-def _capture_assets(result: "Result[Any, Any]", dataset_contexts: "Mapping[str, DatasetContext]") -> None:
-    """Keep a thumbnail of each item *result*'s report names, read from the datasets the run read.
+def _unless_all(limit: int) -> int | None:
+    """A `result:` limit as the code takes it: ``None`` for -1, which lifts it."""
+    return None if limit < 0 else limit
+
+
+def _capture_assets(
+    result: "Result[Any, Any]", dataset_contexts: "Mapping[str, DatasetContext]", limit: int | None
+) -> None:
+    """Keep a thumbnail of each item *result*'s report names, at most *limit*, read from the datasets the run read.
 
     A failure here costs the report its thumbnails, never the result: the run has already finished.
     """
@@ -594,7 +605,7 @@ def _capture_assets(result: "Result[Any, Any]", dataset_contexts: "Mapping[str, 
     try:
         datasets = result.sources if result.sources is not None else {next(iter(dataset_contexts)): result.dataset}
         ranges = {name: context.value_range for name, context in dataset_contexts.items()}
-        result.assets = capture(result._document(detailed=True).blocks, datasets, ranges)  # noqa: SLF001
+        result.assets = capture(result._document(detailed=True).blocks, datasets, ranges, limit=limit)  # noqa: SLF001
     except Exception:
         _logger.warning("Could not capture the report's thumbnails, so it names its items instead.", exc_info=True)
 

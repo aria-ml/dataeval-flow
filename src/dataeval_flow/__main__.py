@@ -27,11 +27,11 @@ def _report_width(value: str) -> int:
     return width
 
 
-def _env_report_width() -> int:
-    """``$DATAEVAL_REPORT_WIDTH``, or the default; a malformed or too-narrow value raises ``ValueError``."""
+def _env_report_width() -> int | None:
+    """``$DATAEVAL_REPORT_WIDTH``, or ``None`` to leave it to the config; a malformed or too-narrow value raises."""
     width = env_int("DATAEVAL_REPORT_WIDTH")
     if width is None:
-        return DEFAULT_WIDTH
+        return None
     if width < MIN_WIDTH:
         raise ValueError(f"DATAEVAL_REPORT_WIDTH must be at least {MIN_WIDTH}, got {width}")
     return width
@@ -122,7 +122,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help=(
             f"Characters per line of the text report, at least {MIN_WIDTH} "
-            f"(default: $DATAEVAL_REPORT_WIDTH, else {DEFAULT_WIDTH})."
+            f"(default: $DATAEVAL_REPORT_WIDTH, else the config's result: width, else {DEFAULT_WIDTH})."
         ),
     )
     report_images = env_bool("DATAEVAL_REPORT_IMAGES")
@@ -138,10 +138,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fail-on-warning",
         action=argparse.BooleanOptionalAction,
-        default=env_bool("DATAEVAL_FAIL_ON_WARNING") or False,
+        default=env_bool("DATAEVAL_FAIL_ON_WARNING"),
         help=(
-            "Exit non-zero when a task succeeds but reports findings that breached their "
-            "health thresholds (default: $DATAEVAL_FAIL_ON_WARNING, else off). "
+            "Exit 2 when a task succeeds but reports findings that breached their "
+            "health thresholds (default: $DATAEVAL_FAIL_ON_WARNING, else the config's result: fail_on). "
             "Use --no-fail-on-warning to override the environment."
         ),
     )

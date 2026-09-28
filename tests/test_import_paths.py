@@ -41,6 +41,7 @@ CONFIG_TYPES = [
     "RemapCorrectionConfig",
     "RemapRuleConfig",
     "RescaleCorrectionConfig",
+    "ResultConfig",
     "StatsMeasureConfig",
     "StatsPolicyConfig",
 ]

@@ -47,6 +47,7 @@ from dataeval_flow.workflows.data_coverage._outputs import (
     MetadataDistributionResult,
     MetadataGapResult,
     OntologyAssessment,
+    UncoveredItem,
 )
 from dataeval_flow.workflows.data_coverage._report import build_findings
 
@@ -97,12 +98,14 @@ def _run_coverage(
     params: DataCoverageConfig,
     unit: str = "image",
     dropped: int = 0,
+    crops: Any = None,
 ) -> CoverageAssessment:
     """Run embedding-space coverage analysis, broken down by class.
 
     ``unit`` names what one embedding is — an ``"image"`` for image classification,
     a ``"detection crop"`` when the dataset was wrapped by :func:`_crop_view`.
     ``dropped`` carries through the count of detections :func:`_crop_view` excluded.
+    ``crops`` is that view, which names the item and box each crop came from.
     """
     from dataeval.scope import Coverage
 
@@ -155,7 +158,35 @@ def _run_coverage(
             )
             for row in result.data().iter_rows(named=True)
         ],
+        uncovered=_uncovered(result, metadata, crops),
     )
+
+
+def _uncovered(result: Any, metadata: Metadata, crops: Any) -> list[UncoveredItem]:
+    """Each uncovered observation as its item, or the item and box its crop came from, with its class and distance.
+
+    The class is read from the labels the observations were assessed with, one per observation, and is
+    left unnamed where there aren't as many.
+    """
+    labels = metadata.class_labels
+    named = len(labels) == len(result.critical_value_radii)
+    rows: list[UncoveredItem] = []
+    for observation in (int(i) for i in result.uncovered_indices):
+        index, target = (
+            (observation, None)
+            if crops is None
+            else (int(crops.item_indices[observation]), int(crops.target_indices[observation]))
+        )
+        label = int(labels[observation]) if named else None
+        rows.append(
+            UncoveredItem(
+                index=index,
+                target=target,
+                class_name=None if label is None else metadata.index2label.get(label, str(label)),
+                radius=float(result.critical_value_radii[observation]),
+            )
+        )
+    return rows
 
 
 # Protocol members declared by ObjectDetectionTarget.
@@ -269,7 +300,8 @@ def _run_embedding_analysis(
     coverage_result: CoverageAssessment | None = None
     skipped_reason: str | None = None
     if len(all_embeddings) > params.num_observations:
-        coverage_result = _run_coverage(emb_metadata, all_embeddings, params, unit=unit, dropped=dropped)
+        crops = emb_dataset if emb_dataset is not dataset else None
+        coverage_result = _run_coverage(emb_metadata, all_embeddings, params, unit=unit, dropped=dropped, crops=crops)
     else:
         skipped_reason = (
             f"needs more than num_observations={params.num_observations} samples, "
@@ -696,7 +728,7 @@ class DataCoverageWorkflow(Workflow[DataCoverageConfig, DataCoverageResult]):
             ontology_skipped_reason=ontology_skipped_reason,
         )
 
-        findings = build_findings(raw, config.health_thresholds)
+        findings = build_findings(raw, config.health_thresholds, source=dc_name)
 
         # Summary line
         parts = [f"{dataset_len} samples"]

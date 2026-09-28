@@ -264,7 +264,11 @@ class DataSplittingWorkflow(Workflow[DataSplittingConfig, DataSplittingResult]):
         )
 
         # --- Build findings ---
-        findings = build_findings(raw)
+        names = index2label or {}
+        classes = (
+            [names.get(int(label), str(label)) for label in class_labels] if len(class_labels) == dataset_size else None
+        )
+        findings = build_findings(raw, source=ds_name, classes=classes)
 
         # --- Build split sizes for metadata ---
         fold0 = fold_infos[0] if fold_infos else None
@@ -294,4 +298,5 @@ class DataSplittingWorkflow(Workflow[DataSplittingConfig, DataSplittingResult]):
             success=True,
             output=outputs,
             metadata=metadata,
+            dataset=dataset,
         )

@@ -1,14 +1,31 @@
 """Finding builders for the metadata triage workflow."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from dataeval_flow._binning_report import distribution_blocks, proportion_block
-from dataeval_flow._blocks import Block, BulletList, Code, Fields, Paragraph, Scalar, Section
+from dataeval_flow._blocks import (
+    Block,
+    BulletList,
+    Cell,
+    Code,
+    Column,
+    Fields,
+    ItemRef,
+    Paragraph,
+    Scalar,
+    Section,
+    Table,
+)
 from dataeval_flow._triage import TriageFinding
 from dataeval_flow.workflows._base import Finding
+from dataeval_flow.workflows._tables import group_cells, table_limits
 from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageRawOutput
 
-__all__ = ["build_findings", "summarize"]
+__all__ = ["Places", "build_findings", "minority_kind", "summarize"]
+
+# Each problem value of a factor, most rows first: the value, how many rows hold it, and the first few of their items.
+Places = Mapping[str, Sequence[tuple[str, int, Sequence[ItemRef]]]]
 
 _TITLES: dict[str, str] = {
     "unreadable": "Unreadable factors",
@@ -45,12 +62,23 @@ def _withdrawn_reason(factor: str, findings: list[TriageFinding]) -> str:
     return "no bin count suggested"
 
 
-def build_findings(raw: MetadataTriageRawOutput, max_examples: int) -> list[Finding]:
+def minority_kind(counts: Mapping[str, int]) -> str | None:
+    """The kind fewer of a mixed column's values read as, whose values are its problem values; a tie takes text.
+
+    ``None`` for a column whose values all read one way.
+    """
+    if len(counts) < 2:
+        return None
+    return min(counts, key=lambda kind: (counts[kind], kind != "text"))
+
+
+def build_findings(raw: MetadataTriageRawOutput, max_examples: int, places: Places | None = None) -> list[Finding]:
     """One Finding per category that produced a finding.
 
     ``severity`` is ``"warning"`` only where the category holds a blocking finding, which is
     what makes ``WorkflowResult.health`` flag on exactly those: a blocking finding means the
-    run did less than the configuration asked for without saying so.
+    run did less than the configuration asked for without saying so. *places*, by factor, are
+    where each of a mixed column's problem values sits, for its items to be pictured.
     """
     findings: list[Finding] = []
     for category in _ORDER:
@@ -65,7 +93,7 @@ def build_findings(raw: MetadataTriageRawOutput, max_examples: int) -> list[Find
         elif shared := _COLLAPSED.get(category):
             blocks = [Paragraph(text=shared), *_collapsed_sections(group, list(raw.findings))]
         else:
-            blocks = [_finding_section(finding, max_examples) for finding in group]
+            blocks = [_finding_section(finding, max_examples, (places or {}).get(finding.factor)) for finding in group]
         findings.append(
             Finding(severity=severity, title=_TITLES[category], brief=f"{len(group)} factors", blocks=blocks)
         )
@@ -169,8 +197,10 @@ def _bucket_count(finding: TriageFinding) -> str:
     return f"{len(fit.get('bins') or ())} bins"
 
 
-def _finding_section(finding: TriageFinding, max_examples: int) -> Section:
-    """One finding as a section: what it is, its shape, the values it read, and what to do."""
+def _finding_section(
+    finding: TriageFinding, max_examples: int, places: Sequence[tuple[str, int, Sequence[ItemRef]]] | None = None
+) -> Section:
+    """One finding as a section: what it is, its shape, the values it read, where they are, and what to do."""
     brief = f"[{finding.severity}] {', '.join(finding.reasons) or finding.category}"
     if finding.level:
         brief += f" @ {finding.level}"
@@ -184,6 +214,8 @@ def _finding_section(finding: TriageFinding, max_examples: int) -> Section:
         blocks.extend(distribution_blocks(finding.detail.get("info") or {}))
     if examples := _examples(finding, max_examples):
         blocks.append(Fields(items=examples))
+    if places and (kind := minority_kind(finding.detail.get("counts") or {})):
+        blocks.extend(_places_blocks(places, kind))
     blocks.append(Paragraph(text=f"-> {finding.remedy}"))
     return Section(
         title=finding.factor,
@@ -191,6 +223,33 @@ def _finding_section(finding: TriageFinding, max_examples: int) -> Section:
         severity="warning" if finding.severity == "blocking" else "info",
         blocks=blocks,
     )
+
+
+def _places_blocks(places: Sequence[tuple[str, int, Sequence[ItemRef]]], kind: str) -> list[Block]:
+    """Each problem value, most rows first: how many rows hold it, and up to eight of their items, named and pictured.
+
+    At most 500 values, with a paragraph counting the rest.
+    """
+    limits = table_limits()
+    rows: list[dict[str, Cell]] = []
+    for value, count, refs in places[: limits.rows]:
+        items, shown = group_cells(refs, total=count)
+        rows.append({"value": value, "count": count, "items": items, "image": shown})
+    columns = [
+        Column(key="value", header="Value"),
+        Column(key="count", header="Count"),
+        Column(key="items", header="Items", align="left"),
+        Column(key="image", kind="image"),
+    ]
+    blocks: list[Block] = [
+        Paragraph(text=f"Where the values that read as {kind} are:"),
+        Table(columns=columns, rows=rows, preview=limits.preview),
+    ]
+    if limits.rows is not None and len(places) > limits.rows:
+        blocks.append(
+            Paragraph(text=f"{len(places):,} values read as {kind}; the {limits.rows:,} on the most rows are listed.")
+        )
+    return blocks
 
 
 def _examples(finding: TriageFinding, max_examples: int) -> list[tuple[str, Scalar]]:

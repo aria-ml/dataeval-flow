@@ -10,7 +10,7 @@ import yaml
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import BaseModel, ValidationError
 
-from dataeval_flow._blocks import Code, Column
+from dataeval_flow._blocks import Code, Column, ItemRef
 from dataeval_flow._orchestrator import _run_target
 from dataeval_flow._policy import ResolvedPolicy
 from dataeval_flow.config import MetadataConfigMixin
@@ -35,6 +35,7 @@ from dataeval_flow.workflows.data_coverage._outputs import (
     OntologyStructure,
     RepresentationRow,
     RepresentationViolation,
+    UncoveredItem,
 )
 from dataeval_flow.workflows.data_coverage._report import build_findings
 from dataeval_flow.workflows.data_coverage._workflow import (
@@ -45,8 +46,9 @@ from dataeval_flow.workflows.data_coverage._workflow import (
     _run_coverage,
     _run_gap_analysis,
     _to_serializable,
+    _uncovered,
 )
-from tests.finding_blocks import blocks_of, codes, column, fields, paragraphs, rendered, tables
+from tests.finding_blocks import blocks_of, codes, column, fields, paragraphs, rendered, sections, tables
 
 pytestmark = pytest.mark.required
 
@@ -371,6 +373,48 @@ class TestRunCoverage:
         result = _run_coverage(meta, emb, _make_params(num_observations=5), unit="detection crop", dropped=7)
 
         assert result.dropped_detections == 7
+
+    def test_each_uncovered_image_is_kept_with_its_class_and_distance(self) -> None:
+        """Three points far from a tight cluster are the uncovered ones, each named with its class."""
+        rng = np.random.default_rng(0)
+        emb = rng.random((60, 8)) * 0.05 + 0.5
+        emb[[10, 21, 30]] = [[0.0] * 8, [1.0] * 8, [0.0, 1.0] * 4]
+        meta = _make_metadata(n=60, num_classes=2)
+        meta.class_labels = np.array([i % 2 for i in range(60)], dtype=np.intp)
+        meta.index2label = {0: "even", 1: "odd"}
+
+        params = _make_params(coverage_method="adaptive", num_observations=5, coverage_percent=0.05)
+        result = _run_coverage(meta, emb, params)
+
+        assert result.uncovered_count == 3
+        assert sorted((row.index, row.target, row.class_name) for row in result.uncovered) == [
+            (10, None, "even"),
+            (21, None, "odd"),
+            (30, None, "even"),
+        ]
+        assert all(row.radius > 1.0 for row in result.uncovered)
+
+
+class TestUncovered:
+    """Each uncovered observation is named as the item, or the item and box, a reader can find."""
+
+    @staticmethod
+    def _coverage(indices: list[int], radii: list[float]) -> Any:
+        return MagicMock(uncovered_indices=np.array(indices), critical_value_radii=np.array(radii))
+
+    def test_a_crop_is_named_by_the_item_and_box_it_was_cut_from(self) -> None:
+        meta = MagicMock(class_labels=np.array([0, 1, 1, 0]), index2label={0: "cat", 1: "dog"})
+        crops = MagicMock(item_indices=np.array([0, 0, 1, 1]), target_indices=np.array([0, 1, 0, 1]))
+        rows = _uncovered(self._coverage([1, 3], [0.1, 0.5, 0.2, 0.7]), meta, crops)
+        assert rows == [
+            UncoveredItem(index=0, target=1, class_name="dog", radius=0.5),
+            UncoveredItem(index=1, target=1, class_name="cat", radius=0.7),
+        ]
+
+    def test_without_a_label_per_observation_no_class_is_named(self) -> None:
+        meta = MagicMock(class_labels=np.array([], dtype=np.intp), index2label={})
+        rows = _uncovered(self._coverage([2], [0.1, 0.2, 0.3]), meta, None)
+        assert rows == [UncoveredItem(index=2, radius=0.3)]
 
 
 # ---------------------------------------------------------------------------
@@ -724,7 +768,7 @@ class TestBuildFindings:
             ),
         )
         thresholds = DataCoverageHealthThresholds()
-        findings = build_findings(raw, thresholds)
+        findings = build_findings(raw, thresholds, source="train")
 
         # Should have label distribution + metadata distribution (no coverage/completeness/gaps)
         assert len(findings) == 2
@@ -768,7 +812,7 @@ class TestBuildFindings:
             ),
         )
         thresholds = DataCoverageHealthThresholds()
-        findings = build_findings(raw, thresholds)
+        findings = build_findings(raw, thresholds, source="train")
 
         titles = [f.title for f in findings]
         assert "Embedding Coverage" in titles
@@ -794,7 +838,7 @@ class TestBuildFindings:
             ),
         )
         thresholds = DataCoverageHealthThresholds(uncovered_rate=10.0)
-        findings = build_findings(raw, thresholds)
+        findings = build_findings(raw, thresholds, source="train")
         cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
         assert cov_finding.severity == "warning"
 
@@ -811,7 +855,7 @@ class TestBuildFindings:
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=2, class_distribution={"a": 50, "b": 50}),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds(uncovered_rate=10.0))
+        findings = build_findings(raw, DataCoverageHealthThresholds(uncovered_rate=10.0), source="train")
         cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
         assert cov_finding.severity == "info"
         assert any("not health-checked" in text for text in paragraphs(cov_finding))
@@ -830,7 +874,7 @@ class TestBuildFindings:
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=2, class_distribution={"a": 50, "b": 50}),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
         assert "not covered" not in (cov_finding.description or "")
         assert not any("not covered" in text for text in paragraphs(cov_finding))
@@ -850,7 +894,7 @@ class TestBuildFindings:
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=2, class_distribution={"a": 50, "b": 50}),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         cov_finding = next(f for f in findings if f.title == "Embedding Coverage")
         assert (
             "9 detection(s) were too small or degenerate to embed and are not covered by these numbers."
@@ -871,7 +915,7 @@ class TestBuildFindings:
             ),
         )
         thresholds = DataCoverageHealthThresholds(completeness_score=0.5)
-        findings = build_findings(raw, thresholds)
+        findings = build_findings(raw, thresholds, source="train")
         comp_finding = next(f for f in findings if f.title == "Dimensional Completeness")
         assert comp_finding.severity == "warning"
 
@@ -900,7 +944,7 @@ class TestBuildFindings:
             ),
         )
         thresholds = DataCoverageHealthThresholds(gap_count=3)
-        findings = build_findings(raw, thresholds)
+        findings = build_findings(raw, thresholds, source="train")
         gap_finding = next(f for f in findings if f.title == "Metadata Coverage Gaps")
         assert gap_finding.severity == "warning"
 
@@ -915,7 +959,7 @@ class TestBuildFindings:
                 missing_classes=["c"],
             ),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds(class_imbalance_ratio=5.0))
+        findings = build_findings(raw, DataCoverageHealthThresholds(class_imbalance_ratio=5.0), source="train")
         label_finding = next(f for f in findings if f.title == "Label Distribution")
 
         assert label_finding.severity == "warning"
@@ -934,7 +978,7 @@ class TestBuildFindings:
                 class_distribution={"a": 50, "b": 50},
             ),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         label_finding = next(f for f in findings if f.title == "Label Distribution")
         assert label_finding.severity == "ok"
         assert label_finding.brief is not None
@@ -953,7 +997,7 @@ class TestBuildFindings:
                 class_distribution={"cat": 75, "dog": 25},
             ),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         label_finding = next(f for f in findings if f.title == "Label Distribution")
         (table,) = tables(label_finding)
         pcts = dict(zip(column(table, "class"), column(table, "pct"), strict=True))
@@ -976,7 +1020,7 @@ class TestBuildFindings:
             ),
             label_distribution=LabelDistributionResult(num_classes=1, class_distribution={"a": 100}),
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         md_finding = next(f for f in findings if f.title == "Metadata Distribution")
         (table,) = tables(md_finding)
         assert column(table, "unique") == ["-"]
@@ -991,7 +1035,7 @@ class TestBuildFindings:
             ontology=None,
             ontology_skipped_reason="ontology file not found: /data/missing.ttl",
         )
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         onto_finding = next(f for f in findings if f.title == "Ontology Analysis")
         assert onto_finding.severity == "info"
         assert "missing.ttl" in (onto_finding.description or "")
@@ -1003,12 +1047,12 @@ class TestBuildFindings:
             synthesized=True,
             representation=LabelSpaceCoverage(leaf_coverage=1.0, total_deficit=0),
         )
-        titles = [f.title for f in build_findings(raw, DataCoverageHealthThresholds())]
+        titles = [f.title for f in build_findings(raw, DataCoverageHealthThresholds(), source="train")]
         assert "Ontology Analysis" not in titles
 
     def test_clustered_class_warns(self) -> None:
         raw = _populated_raw()
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         cov = next(f for f in findings if f.title == "Embedding Coverage")
         # _populated_raw's "cat" has dispersion 0.21, below the 0.5 default.
         assert cov.severity == "warning"
@@ -1025,7 +1069,7 @@ class TestBuildFindings:
         raw.coverage.uncovered_rate = 0.05
         raw.coverage.per_class[0].dispersion = 1.0
         raw.coverage.per_class[0].isotropy = 1.0
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         cov = next(f for f in findings if f.title == "Embedding Coverage")
         assert cov.severity != "warning"
 
@@ -1069,7 +1113,9 @@ class TestBuildFindings:
         return raw
 
     def test_configured_ontology_emits_three_findings(self) -> None:
-        findings = build_findings(self._raw_with_ontology(synthesized=False), DataCoverageHealthThresholds())
+        findings = build_findings(
+            self._raw_with_ontology(synthesized=False), DataCoverageHealthThresholds(), source="train"
+        )
         titles = [f.title for f in findings]
         assert "Label Space Coverage" in titles
         assert "Label Conformance" in titles
@@ -1077,7 +1123,9 @@ class TestBuildFindings:
         assert "Class Balance Worklist" not in titles
 
     def test_synthesized_emits_only_the_balance_worklist(self) -> None:
-        findings = build_findings(self._raw_with_ontology(synthesized=True), DataCoverageHealthThresholds())
+        findings = build_findings(
+            self._raw_with_ontology(synthesized=True), DataCoverageHealthThresholds(), source="train"
+        )
         titles = [f.title for f in findings]
         assert "Class Balance Worklist" in titles
         assert "Label Space Coverage" not in titles
@@ -1086,15 +1134,17 @@ class TestBuildFindings:
 
     def test_leaf_coverage_threshold_warns_only_when_configured(self) -> None:
         thresholds = DataCoverageHealthThresholds()  # leaf_coverage default 0.9
-        configured = build_findings(self._raw_with_ontology(synthesized=False), thresholds)
+        configured = build_findings(self._raw_with_ontology(synthesized=False), thresholds, source="train")
         assert next(f for f in configured if f.title == "Label Space Coverage").severity == "warning"
 
-        synthesized = build_findings(self._raw_with_ontology(synthesized=True), thresholds)
+        synthesized = build_findings(self._raw_with_ontology(synthesized=True), thresholds, source="train")
         # Same 0.5 leaf_coverage in the data, but not health-checked when synthesized.
         assert next(f for f in synthesized if f.title == "Class Balance Worklist").severity != "warning"
 
     def test_unmatched_class_warns(self) -> None:
-        findings = build_findings(self._raw_with_ontology(synthesized=False), DataCoverageHealthThresholds())
+        findings = build_findings(
+            self._raw_with_ontology(synthesized=False), DataCoverageHealthThresholds(), source="train"
+        )
         conf = next(f for f in findings if f.title == "Label Conformance")
         assert conf.severity == "warning"
         assert "Unmatched: kitteh." in paragraphs(conf)
@@ -1104,7 +1154,7 @@ class TestBuildFindings:
         assert raw.ontology is not None
         assert raw.ontology.structure is not None
         raw.ontology.structure.label_collisions = {"bat": ["mammal_bat", "sports_bat"]}
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         assert next(f for f in findings if f.title == "Ontology Structure").severity == "warning"
 
     def test_violations_warn_in_both_modes(self) -> None:
@@ -1114,12 +1164,12 @@ class TestBuildFindings:
             raw.ontology.representation.violations = [
                 RepresentationViolation(concept="dog", label="dog", floor=0.25, actual=0.05, shortfall=40)
             ]
-            findings = build_findings(raw, DataCoverageHealthThresholds())
+            findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
             title = "Class Balance Worklist" if synthesized else "Label Space Coverage"
             assert next(f for f in findings if f.title == title).severity == "warning"
 
     def test_no_ontology_emits_nothing(self) -> None:
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Label Space Coverage" not in titles
         assert "Class Balance Worklist" not in titles
@@ -1144,10 +1194,10 @@ class TestBuildFindings:
             mergeability="lossless", paste_remap={"cat": "cat"}, target_vocabulary=["cat"]
         )
         findings = [
-            *build_findings(_populated_raw(), DataCoverageHealthThresholds()),
-            *build_findings(self._raw_with_skips(), DataCoverageHealthThresholds()),
-            *build_findings(configured, DataCoverageHealthThresholds()),
-            *build_findings(self._raw_with_ontology(synthesized=True), DataCoverageHealthThresholds()),
+            *build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train"),
+            *build_findings(self._raw_with_skips(), DataCoverageHealthThresholds(), source="train"),
+            *build_findings(configured, DataCoverageHealthThresholds(), source="train"),
+            *build_findings(self._raw_with_ontology(synthesized=True), DataCoverageHealthThresholds(), source="train"),
         ]
         assert len(findings) == 25
         for finding in findings:
@@ -1161,7 +1211,9 @@ class TestBuildFindings:
 
     def test_skips_and_empty_results_carry_no_blocks(self) -> None:
         """A skip reason or an empty result is said by its brief and description alone."""
-        by_title = {f.title: f for f in build_findings(self._raw_with_skips(), DataCoverageHealthThresholds())}
+        by_title = {
+            f.title: f for f in build_findings(self._raw_with_skips(), DataCoverageHealthThresholds(), source="train")
+        }
         expected = {
             "Embedding Coverage": "skipped",
             "Metadata Distribution": "No metadata factors available",
@@ -1210,7 +1262,11 @@ class TestBuildFindings:
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=2, class_distribution={"car": 50, "truck": 3}),
         )
-        cov = next(f for f in build_findings(raw, DataCoverageHealthThresholds()) if f.title == "Embedding Coverage")
+        cov = next(
+            f
+            for f in build_findings(raw, DataCoverageHealthThresholds(), source="train")
+            if f.title == "Embedding Coverage"
+        )
         assert cov.description == "4 of 80 detection crops uncovered in embedding space."
         assert paragraphs(cov) == [
             (
@@ -1242,7 +1298,7 @@ class TestBuildFindings:
         assert fields(cov) == {"Method": "adaptive", "Radius": 0.1235, "Observations": "80 detection crops"}
 
     def test_completeness_values_are_fields(self) -> None:
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         comp = next(f for f in findings if f.title == "Dimensional Completeness")
         assert comp.brief == "Completeness: 0.42"
         assert fields(comp) == {"Completeness Score": 0.42, "Nearest Neighbor Pairs": 2}
@@ -1256,7 +1312,9 @@ class TestBuildFindings:
             ),
         )
         finding = next(
-            f for f in build_findings(raw, DataCoverageHealthThresholds()) if f.title == "Label Distribution"
+            f
+            for f in build_findings(raw, DataCoverageHealthThresholds(), source="train")
+            if f.title == "Label Distribution"
         )
         assert finding.description == "2 classes with imbalance ratio 3.0:1. 0 images have no labels."
         assert paragraphs(finding) == [
@@ -1276,7 +1334,7 @@ class TestBuildFindings:
         ]
 
     def test_metadata_tables_read_their_own_keys(self) -> None:
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         (dist,) = tables(next(f for f in findings if f.title == "Metadata Distribution"))
         assert [(c.key, c.header) for c in dist.columns] == [
             ("factor", "Factor"),
@@ -1308,7 +1366,7 @@ class TestBuildFindings:
             RepresentationViolation(concept="dog", label="dog", floor=0.25, actual=0.05, shortfall=40)
         ]
         raw.ontology.representation.ignored_expected = ["reptile"]
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         finding = next(f for f in findings if f.title == "Label Space Coverage")
         assert finding.description == (
             "50.0% of the ontology's sanctioned leaf species have examples. "
@@ -1338,7 +1396,7 @@ class TestBuildFindings:
         raw = self._raw_with_ontology(synthesized=False)
         assert raw.ontology is not None
         raw.ontology.representation.worklist = []
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         finding = next(f for f in findings if f.title == "Label Space Coverage")
         assert tables(finding) == []
         assert fields(finding) == {"Ontology source": "inline"}
@@ -1350,7 +1408,7 @@ class TestBuildFindings:
             RepresentationViolation(concept="dog", label="dog", floor=0.25, actual=0.05, shortfall=40)
         ]
         raw.ontology.representation.ignored_expected = ["reptile"]
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         finding = next(f for f in findings if f.title == "Class Balance Worklist")
         assert (finding.description or "").startswith("2 class(es) fall short of an even spread, by 50 labels")
         assert paragraphs(finding) == [
@@ -1367,7 +1425,7 @@ class TestBuildFindings:
         assert raw.ontology is not None
         assert raw.ontology.conformance is not None
         raw.ontology.conformance.ambiguous = {"bat": ["mammal_bat", "sports_bat"]}
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         conf = next(f for f in findings if f.title == "Label Conformance")
         assert conf.brief == "1 unmatched, 1 ambiguous"
         assert paragraphs(conf) == [
@@ -1381,7 +1439,7 @@ class TestBuildFindings:
         assert raw.ontology is not None
         assert raw.ontology.structure is not None
         raw.ontology.structure.label_collisions = {"bat": ["mammal_bat", "sports_bat"]}
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         structure = next(f for f in findings if f.title == "Ontology Structure")
         assert structure.description == "The ontology has 9 concepts, 5 of them leaves, reaching depth 3."
         assert paragraphs(structure) == [
@@ -1400,7 +1458,7 @@ class TestBuildFindings:
 
         raw.ontology.structure.label_collisions = {}
         raw.ontology.structure.isolated = ["orphan"]
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         structure = next(f for f in findings if f.title == "Ontology Structure")
         assert paragraphs(structure) == [
             (
@@ -1478,6 +1536,64 @@ def _populated_raw() -> DataCoverageRawOutput:
     )
 
 
+class TestThumbnails:
+    """Each uncovered image or crop, and each unlabelled image, is named in the source for its thumbnail."""
+
+    @staticmethod
+    def _finding(uncovered: list[UncoveredItem], title: str, *, unit: str = "image") -> Finding:
+        raw = _populated_raw()
+        assert raw.coverage is not None
+        raw.coverage.uncovered = uncovered
+        raw.coverage.observation_unit = unit
+        return next(f for f in build_findings(raw, DataCoverageHealthThresholds(), source="train") if f.title == title)
+
+    def test_uncovered_images_are_listed_farthest_first_with_their_class_and_distance(self) -> None:
+        uncovered = [
+            UncoveredItem(index=4, class_name="cat", radius=0.2),
+            UncoveredItem(index=9, class_name="dog", radius=0.9),
+        ]
+        finding = self._finding(uncovered, "Embedding Coverage")
+        assert [section.title for section in sections(finding)] == ["Uncovered images"]
+        table = tables(finding)[-1]
+        assert [(c.key, c.header, c.kind) for c in table.columns] == [
+            ("image", "", "image"),
+            ("item", "Item", "text"),
+            ("class", "Class", "text"),
+            ("distance", "Distance", "text"),
+        ]
+        assert [(row["item"], row["class"], row["distance"]) for row in table.rows] == [
+            (9, "dog", 0.9),
+            (4, "cat", 0.2),
+        ]
+        assert column(table, "image") == [ItemRef(source="train", index=9), ItemRef(source="train", index=4)]
+        assert table.preview == 10
+
+    def test_uncovered_crops_are_named_by_their_box_and_pictured_cropped(self) -> None:
+        uncovered = [UncoveredItem(index=3, target=1, class_name="cat", radius=0.5)]
+        finding = self._finding(uncovered, "Embedding Coverage", unit="detection crop")
+        assert [section.title for section in sections(finding)] == ["Uncovered detection crops"]
+        table = tables(finding)[-1]
+        assert [c.header for c in table.columns] == ["", "Item", "Box", "Class", "Distance"]
+        assert column(table, "image") == [ItemRef(source="train", index=3, target=1)]
+
+    def test_past_500_uncovered_a_paragraph_counts_the_rest(self) -> None:
+        uncovered = [UncoveredItem(index=i, radius=float(i)) for i in range(502)]
+        finding = self._finding(uncovered, "Embedding Coverage")
+        table = tables(finding)[-1]
+        assert len(table.rows) == 500
+        assert column(table, "item")[:2] == [501, 500]
+        assert paragraphs(finding)[-1] == (
+            "502 images uncovered; the 500 farthest are listed, and every one is in `output.raw`."
+        )
+
+    def test_unlabelled_images_are_listed_under_their_source(self) -> None:
+        finding = self._finding([], "Label Distribution")
+        assert [section.title for section in sections(finding)] == ["Images with no labels"]
+        table = tables(finding)[-1]
+        assert [c.header for c in table.columns] == ["Source", "Count", "Items", ""]
+        assert (column(table, "count"), column(table, "image")) == ([1], [[ItemRef(source="train", index=5)]])
+
+
 class TestRenderFindings:
     """Every finding must survive the text renderer.
 
@@ -1491,14 +1607,14 @@ class TestRenderFindings:
         return rendered(finding).splitlines()
 
     def test_all_findings_render_without_error(self) -> None:
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         assert len(findings) == 5
         for finding in findings:
             lines = self._detail(finding)
             assert lines, f"{finding.title} rendered nothing"
 
     def test_coverage_values_appear(self) -> None:
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         text = "\n".join(self._detail(next(f for f in findings if f.title == "Embedding Coverage")))
         assert "naive" in text
         assert "12" in text
@@ -1506,21 +1622,21 @@ class TestRenderFindings:
 
     def test_label_distribution_counts_appear(self) -> None:
         """The Count and % columns read the keys the rows are built with."""
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         lines = self._detail(next(f for f in findings if f.title == "Label Distribution"))
         cat_row = next(line for line in lines if line.strip().startswith("cat"))
         assert "60" in cat_row
         assert "60.0%" in cat_row
 
     def test_metadata_distribution_rows_appear(self) -> None:
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         lines = self._detail(next(f for f in findings if f.title == "Metadata Distribution"))
         assert any("brightness" in line and "continuous" in line for line in lines)
         assert any("weather" in line and "discrete" in line for line in lines)
 
     def test_gap_rows_appear(self) -> None:
         """Gap rows are the workflow's most actionable output — they must reach the page."""
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         lines = self._detail(next(f for f in findings if f.title == "Metadata Coverage Gaps"))
         gap_row = next(line for line in lines if line.strip().startswith("cat"))
         assert "weather" in gap_row
@@ -1530,7 +1646,7 @@ class TestRenderFindings:
 
     def test_coverage_detail_is_exact(self) -> None:
         """Each appended clause is its own paragraph, and the footer is labelled fields."""
-        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds())
+        findings = build_findings(_populated_raw(), DataCoverageHealthThresholds(), source="train")
         finding = next(f for f in findings if f.title == "Embedding Coverage")
         assert rendered(finding).splitlines() == [
             "=" * 80,
@@ -1557,7 +1673,7 @@ class TestRenderFindings:
         raw = _populated_raw()
         assert raw.metadata_gaps is not None
         raw.metadata_gaps.gaps[0].deficit = 0.4567
-        findings = build_findings(raw, DataCoverageHealthThresholds())
+        findings = build_findings(raw, DataCoverageHealthThresholds(), source="train")
         finding = next(f for f in findings if f.title == "Metadata Coverage Gaps")
         (table,) = tables(finding)
         assert column(table, "deficit") == [45.7]
@@ -1777,6 +1893,10 @@ class TestDataCoverageWorkflow:
 
         cov_finding = next(f for f in result.output.report.findings if f.title == "Embedding Coverage")
         assert f"of {n_crops} detection crops" in (cov_finding.description or "")
+
+        # Each uncovered crop is named by the box it was cut from, which every image here has two of.
+        assert len(cov.uncovered) == cov.uncovered_count > 0
+        assert all(row.index < n_images and row.target in (0, 1) for row in cov.uncovered)
 
     @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_embeddings")
     @patch("dataeval_flow.workflows.data_coverage._workflow.get_or_compute_metadata")
@@ -2480,7 +2600,7 @@ class TestAlignmentFinding:
             metadata_distribution=MetadataDistributionResult(metadata_factors=[], metadata_summary={}),
             label_distribution=LabelDistributionResult(num_classes=0, class_distribution={}),
         )
-        assert self._find(build_findings(raw, DataCoverageHealthThresholds())) is None
+        assert self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train")) is None
 
     def test_lossless_is_ok(self) -> None:
         from dataeval_flow.workflows.data_coverage._outputs import LabelAlignment
@@ -2493,7 +2613,7 @@ class TestAlignmentFinding:
                 target_vocabulary=["Car", "Truck"],
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         assert finding.severity == "ok"
 
@@ -2509,7 +2629,7 @@ class TestAlignmentFinding:
                 unaligned_source=["lamp"],
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         assert finding.severity == "warning"
         assert "Dropped: lamp." in paragraphs(finding)
@@ -2525,7 +2645,7 @@ class TestAlignmentFinding:
                 target_vocabulary=["Vehicle"],
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         assert finding.severity == "info"
 
@@ -2541,7 +2661,7 @@ class TestAlignmentFinding:
                 ambiguous_labels=["Car"],
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         assert finding.severity == "warning"
         # The block is still emitted so the user can see what the mapping would be, even
@@ -2561,7 +2681,7 @@ class TestAlignmentFinding:
                 label_space_digest="deadbeefcafe",
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         # Printed exactly as given: the leading spaces nest it under a view's `operations:`.
         assert blocks_of(finding, Code) == [
@@ -2608,7 +2728,7 @@ class TestAlignmentFinding:
                 target_vocabulary=["Car"],
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         (table,) = tables(finding)
         assert [(c.key, c.header) for c in table.columns] == [
@@ -2641,7 +2761,7 @@ class TestAlignmentFinding:
                 target_vocabulary=target_vocabulary,
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         (stanza,) = codes(finding)
         parsed = yaml.safe_load(stanza)
@@ -2670,7 +2790,7 @@ class TestAlignmentFinding:
                 target_vocabulary=vocabulary,
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         (stanza,) = codes(finding)
         parsed = yaml.safe_load(stanza)
@@ -2718,7 +2838,7 @@ class TestAlignmentFinding:
                 label_space_digest="deadbeefcafe",
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         assert finding.brief is None
         assert rendered(finding).splitlines() == [
@@ -2764,7 +2884,7 @@ class TestAlignmentFinding:
                 ambiguous_labels=["Car"],
             )
         )
-        finding = self._find(build_findings(raw, DataCoverageHealthThresholds()))
+        finding = self._find(build_findings(raw, DataCoverageHealthThresholds(), source="train"))
         assert finding is not None
         assert finding.description == "Mergeability: lossless. Every class carries over one-to-one."
         assert paragraphs(finding)[0] == (

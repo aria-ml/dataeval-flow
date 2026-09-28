@@ -12,41 +12,47 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from dataeval_flow._blocks import Asset, Block, ItemRef
+from dataeval_flow._blocks import Asset, Block, ItemRef, Table
 from dataeval_flow._blocks._items import item_name, refs_in
-from dataeval_flow._blocks._table import tables
+from dataeval_flow._blocks._table import fair_shares, tables
 from dataeval_flow._preview import NotAnImageError, preview
 
 _logger = logging.getLogger(__name__)
 
-# Items are taken from at most this many rows of each table, and at most this many per result.
-ROWS = 50
-LIMIT = 200
 
+def references(blocks: Sequence[Block], limit: int | None) -> list[ItemRef]:
+    """The items the blocks' image columns name that get a thumbnail: at most *limit*, once each, in reading order.
 
-def references(blocks: Sequence[Block]) -> list[ItemRef]:
-    """Every item the blocks' image columns name, once each, in reading order, within the caps.
+    ``None`` takes every item named.
 
-    Table by table, row by row, then item by item within a group's cell; from each table's first 50
-    rows, and 200 items in all. Rows past a cap keep their references, and just have no thumbnail.
+    The limit is shared evenly between the top-level blocks that name items, a report's findings, and
+    each finding's share between its tables in the same way; a share more than its items need goes to
+    the rest. A table gives its share row by row, then item by item within a group's cell. Rows past a
+    share keep their references, and just have no thumbnail.
     """
+    findings = [[_named(table) for table in tables([block])] for block in blocks]
+    demands = [sum(map(len, named)) for named in findings]
     found: dict[ItemRef, None] = {}
-    for table in tables(blocks):
-        keys = [column.key for column in table.columns if column.kind == "image"]
-        for row in table.rows[:ROWS]:
-            for ref in (ref for key in keys for ref in refs_in(row.get(key))):
-                found.setdefault(ref)
-                if len(found) == LIMIT:
-                    return list(found)
+    for named, share in zip(findings, fair_shares(demands, sum(demands) if limit is None else limit), strict=True):
+        for refs, part in zip(named, fair_shares([len(refs) for refs in named], share), strict=True):
+            found.update(dict.fromkeys(refs[:part]))
     return list(found)
+
+
+def _named(table: Table) -> list[ItemRef]:
+    """The items a table's image columns name, once each, row by row, then through a group's cell."""
+    keys = [column.key for column in table.columns if column.kind == "image"]
+    return list(dict.fromkeys(ref for row in table.rows for key in keys for ref in refs_in(row.get(key))))
 
 
 def capture(
     blocks: Sequence[Block],
     datasets: Mapping[str, Any],
     value_ranges: Mapping[str, tuple[float, float] | None],
+    *,
+    limit: int | None,
 ) -> list[Asset]:
-    """A thumbnail of each item the blocks name, read from *datasets* by source name.
+    """A thumbnail of each item the blocks name, at most *limit*, read from *datasets* by source name.
 
     Each source's items are read once each, in ascending order: the one pass a streaming dataset
     will need. *value_ranges* are the ranges the sources declare, which a float image is read by.
@@ -54,7 +60,7 @@ def capture(
     image, costs that item its thumbnail and a warning, never the run.
     """
     wanted: dict[str, dict[int, list[ItemRef]]] = {}
-    for ref in references(blocks):
+    for ref in references(blocks, limit):
         wanted.setdefault(ref.source, {}).setdefault(ref.index, []).append(ref)
     assets: list[Asset] = []
     for source, items in wanted.items():

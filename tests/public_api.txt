@@ -31,6 +31,7 @@ dataeval_flow.config:ReductionOptionsConfig
 dataeval_flow.config:RemapCorrectionConfig
 dataeval_flow.config:RemapRuleConfig
 dataeval_flow.config:RescaleCorrectionConfig
+dataeval_flow.config:ResultConfig
 dataeval_flow.config:SourceConfig
 dataeval_flow.config:StatsConfigMixin
 dataeval_flow.config:StatsMeasureConfig

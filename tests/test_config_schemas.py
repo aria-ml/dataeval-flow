@@ -12,6 +12,7 @@ from dataeval_flow.config import (
     DemoDatasetConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
+    ResultConfig,
     SourceConfig,
     YoloDatasetConfig,
 )
@@ -799,6 +800,69 @@ class TestLoggingConfig:
 
         with pytest.raises(ValidationError):
             load_config(config_file)
+
+
+class TestResultConfig:
+    """What each task's result carries, under the pipeline's ``result:`` key."""
+
+    def test_the_most_thumbnails_a_result_embeds_is_read_from_the_config(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("result:\n  max_images: 50\n")
+        assert load_config(config_file).result.max_images == 50
+
+    def test_a_result_embeds_200_by_default(self, tmp_path: Path):
+        config_file = tmp_path / "params.yaml"
+        config_file.write_text("seed: 1\n")
+        assert load_config(config_file).result.max_images == 200
+
+    def test_a_run_fails_on_a_failed_task_by_default(self):
+        assert ResultConfig().fail_on == "failure"
+        with pytest.raises(ValidationError):
+            ResultConfig.model_validate({"fail_on": "error"})
+
+    def test_ci_reads_a_junit_report_and_a_markdown_summary(self):
+        assert ResultConfig(formats=["junit", "markdown"]).formats == ["junit", "markdown"]
+
+    def test_tables_list_500_rows_and_preview_10_by_default(self):
+        assert (ResultConfig().max_rows, ResultConfig().preview_rows) == (500, 10)
+
+    @pytest.mark.parametrize(
+        ("fields", "valid"),
+        [
+            ({"max_images": 0}, True),
+            ({"max_images": -1}, True),
+            ({"max_images": -2}, False),
+            ({"max_rows": -1}, True),
+            ({"max_rows": 0}, False),
+            ({"preview_rows": 0}, True),
+            ({"preview_rows": -1}, True),
+            ({"preview_rows": -2}, False),
+        ],
+    )
+    def test_minus_one_lifts_a_limit(self, fields: dict[str, int], valid: bool):
+        if valid:
+            ResultConfig.model_validate(fields)
+        else:
+            with pytest.raises(ValidationError):
+                ResultConfig.model_validate(fields)
+
+    def test_the_files_default_to_every_format_in_full_under_one_name(self):
+        config = ResultConfig()
+        assert (config.name, config.formats, config.detail, config.per_task, config.width) == (
+            "result",
+            ["json", "text", "html"],
+            "full",
+            False,
+            80,
+        )
+
+    @pytest.mark.parametrize(
+        "fields",
+        [{"formats": []}, {"formats": ["pdf"]}, {"name": "out/result"}, {"name": "a\\b"}, {"name": ""}, {"width": 39}],
+    )
+    def test_a_file_setting_that_cannot_be_written_is_refused(self, fields: dict[str, object]):
+        with pytest.raises(ValidationError):
+            ResultConfig.model_validate(fields)
 
 
 class TestWorkflowConfig:

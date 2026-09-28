@@ -1,10 +1,19 @@
-"""The finding-block lookups workflow tests share, and the ranked table the workflows share."""
+"""The finding-block lookups workflow tests share, and the tables the workflows share."""
 
 import pytest
 
-from dataeval_flow._blocks import BulletList, Code, Column, Fields, Paragraph, Section, Table
+from dataeval_flow._blocks import BulletList, Code, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.workflows import Finding
-from dataeval_flow.workflows._tables import ranked_table
+from dataeval_flow.workflows._tables import (
+    TableLimits,
+    group_cells,
+    groups_table,
+    limited_tables,
+    ranked_table,
+    table_limits,
+    uncovered_blocks,
+    unlabelled_blocks,
+)
 from tests.finding_blocks import bullets, codes, column, fields, paragraphs, rendered, sections, tables, walk
 
 pytestmark = pytest.mark.required
@@ -75,3 +84,124 @@ class TestRankedTable:
 
     def test_ties_keep_the_order_given(self):
         assert column(ranked_table({"b": 1, "a": 1}, headers=("K", "V")), "name") == ["b", "a"]
+
+
+def _refs(source: str, *indices: int) -> list[ItemRef]:
+    return [ItemRef(source=source, index=index) for index in indices]
+
+
+class TestGroupCells:
+    def test_a_small_group_names_and_pictures_every_item(self):
+        assert group_cells(_refs("train", 0, 5)) == ("0, 5", _refs("train", 0, 5))
+
+    def test_a_large_group_shows_eight_and_counts_the_rest(self):
+        items, shown = group_cells(_refs("train", *range(20)))
+        assert items == "0, 1, 2, 3, 4, 5, 6, 7, … 12 more"
+        assert shown == _refs("train", *range(8))
+
+    def test_a_group_s_size_counts_the_rest_where_only_its_first_items_are_given(self):
+        items, shown = group_cells(_refs("train", 3, 10), total=9)
+        assert items == "3, 10, … 7 more"
+        assert shown == _refs("train", 3, 10)
+
+    def test_boxes_are_named_with_their_item(self):
+        boxes = [ItemRef(source="train", index=3, target=0), ItemRef(source="train", index=9, target=2)]
+        assert group_cells(boxes)[0] == "3 box 0, 9 box 2"
+
+
+class TestGroupsTable:
+    def test_groups_run_largest_first_exact_before_near_at_one_size(self):
+        (table,) = groups_table(
+            [("exact", 0, _refs("s", 0, 1)), ("near", 0, _refs("s", 2, 3)), ("exact", 1, _refs("s", 4, 5, 6))],
+            "images",
+        )
+        assert isinstance(table, Table)
+        assert [(row["kind"], row["group"], row["count"], row["items"]) for row in table.rows] == [
+            ("exact", 1, 3, "4, 5, 6"),
+            ("exact", 0, 2, "0, 1"),
+            ("near", 0, 2, "2, 3"),
+        ]
+        assert table.rows[0]["image"] == _refs("s", 4, 5, 6)
+        assert table.columns[-1] == Column(key="image", kind="image")
+        assert table.preview == 10
+
+    def test_no_groups_is_no_table(self):
+        assert groups_table([], "images") == []
+
+    def test_past_500_groups_a_paragraph_names_the_rest(self):
+        table, note = groups_table([("exact", n, _refs("s", n, n + 1000)) for n in range(503)], "boxes")
+        assert isinstance(table, Table)
+        assert len(table.rows) == 500
+        assert note == Paragraph(
+            text="503 groups of boxes; the 500 largest are listed, and every one is in `output.raw`."
+        )
+
+
+class TestUnlabelledBlocks:
+    def test_each_source_with_unlabelled_images_counts_names_and_pictures_them(self):
+        (section,) = unlabelled_blocks({"train": list(range(10)), "val": [], "test": [4]}, header="Split")
+        assert isinstance(section, Section)
+        assert section.title == "Images with no labels"
+        (table,) = section.blocks
+        assert isinstance(table, Table)
+        assert [(c.key, c.header, c.kind) for c in table.columns] == [
+            ("source", "Split", "text"),
+            ("count", "Count", "text"),
+            ("items", "Items", "text"),
+            ("image", "", "image"),
+        ]
+        assert [(row["source"], row["count"], row["items"]) for row in table.rows] == [
+            ("train", 10, "0, 1, 2, 3, 4, 5, 6, 7, … 2 more"),
+            ("test", 1, "4"),
+        ]
+        assert table.rows[1]["image"] == _refs("test", 4)
+
+    def test_no_unlabelled_images_is_no_section(self):
+        assert unlabelled_blocks({"train": []}, header="Source") == []
+
+
+class TestUncoveredBlocks:
+    def test_items_run_farthest_first_under_their_heading(self):
+        (section,) = uncovered_blocks(
+            [(ItemRef(source="s", index=2), "cat", 0.1), (ItemRef(source="s", index=7), "dog", 0.8)], "images"
+        )
+        assert isinstance(section, Section)
+        assert section.title == "Uncovered images"
+        (table,) = [block for block in section.blocks if isinstance(block, Table)]
+        assert [c.header for c in table.columns] == ["", "Item", "Class", "Distance"]
+        assert [(row["item"], row["class"], row["distance"]) for row in table.rows] == [
+            (7, "dog", 0.8),
+            (2, "cat", 0.1),
+        ]
+
+    def test_a_column_no_item_has_is_left_out(self):
+        (section,) = uncovered_blocks([(ItemRef(source="s", index=3), None, None)], "images")
+        assert isinstance(section, Section)
+        (table,) = [block for block in section.blocks if isinstance(block, Table)]
+        assert [c.header for c in table.columns] == ["", "Item"]
+
+    def test_no_items_is_no_section(self):
+        assert uncovered_blocks([], "images") == []
+
+
+class TestTableLimits:
+    """A run's limits on per-item tables, which the orchestrator sets from the pipeline's ``result:`` block."""
+
+    _GROUPS = [("exact", n, _refs("s", n, n + 1000)) for n in range(3)]
+
+    def test_500_rows_previewing_10_outside_a_run(self):
+        assert table_limits() == TableLimits(rows=500, preview=10)
+
+    def test_a_run_s_limits_cap_the_rows_and_set_the_preview(self):
+        with limited_tables(TableLimits(rows=2, preview=1)):
+            table, note = groups_table(self._GROUPS, "images")
+        assert isinstance(table, Table)
+        assert (len(table.rows), table.preview) == (2, 1)
+        assert note == Paragraph(text="3 groups of images; the 2 largest are listed, and every one is in `output.raw`.")
+        assert table_limits() == TableLimits(), "the limits last only as long as the run"
+
+    def test_no_limit_lists_and_previews_every_row(self):
+        with limited_tables(TableLimits(rows=None, preview=None)):
+            (table,) = groups_table(self._GROUPS, "images")
+        assert isinstance(table, Table)
+        assert (len(table.rows), table.preview) == (3, None)

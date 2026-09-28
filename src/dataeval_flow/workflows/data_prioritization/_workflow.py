@@ -329,7 +329,7 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
         prioritization_results = self._run_prioritization(config, ref_dc, clean_ref_embeddings, add_clean_info)
 
         # --- 7. Build outputs ---
-        return self._build_workflow_result(
+        result = self._build_workflow_result(
             config,
             ref_size,
             cleaning_summary,
@@ -338,6 +338,9 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
             ref_clean_to_orig,
             add_clean_info,
         )
+        # The views ranked, so each item the report pictures is read from the view it was ranked in.
+        result.sources = {dc_items[0][0]: ref_dataset, **{name: dataset for name, _, dataset in add_datasets}}
+        return result
 
     def _prepare_datasets(
         self,
