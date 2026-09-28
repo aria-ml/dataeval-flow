@@ -6,7 +6,6 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Scalar, Section, Table
-from dataeval_flow._blocks._items import item_name
 from dataeval_flow.workflows._base import Finding, render_label_source
 from dataeval_flow.workflows._outliers import (
     OutlierIssueRecord,
@@ -15,16 +14,13 @@ from dataeval_flow.workflows._outliers import (
     limits_table,
     warn_if_unrecorded,
 )
-from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP, ranked_table
+from dataeval_flow.workflows._tables import groups_table, ranked_table
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import (
     DataCleaningRawOutput,
     DetectionDict,
     IndexValue,
 )
-
-# A duplicate group's cell shows at most this many of its items.
-_GROUP_SHOWN = 8
 
 
 def _item(issue: Mapping[str, Any]) -> tuple[Cell, ...]:
@@ -89,39 +85,16 @@ def _member(source: str, member: IndexValue) -> ItemRef:
 
 
 def _groups_blocks(detection: DetectionDict, source: str, noun: str) -> list[Block]:
-    """Each duplicate group, largest first: its kind, its size, and up to eight of its items, named and pictured.
-
-    A group is numbered by its place among its kind in ``output.raw``, where every one of its items is.
-    """
-    groups = [("exact", number, members) for number, members in enumerate(detection.get("exact", []))]
-    groups += [("near", number, group["indices"]) for number, group in enumerate(detection.get("near", []))]
-    if not groups:
-        return []
-    # Stable, so groups of one size keep exact before near, and each kind its own order.
-    groups.sort(key=lambda group: -len(group[2]))
-    rows: list[dict[str, Cell]] = []
-    for kind, number, members in groups[:ROW_CAP]:
-        shown = [_member(source, member) for member in members[:_GROUP_SHOWN]]
-        names = ", ".join(item_name(ref) for ref in shown)
-        more = len(members) - len(shown)
-        items = f"{names}, … {more:,} more" if more else names
-        rows.append({"group": number, "kind": kind, "count": len(members), "items": items, "image": shown})
-    columns = [
-        Column(key="group", header="Group"),
-        Column(key="kind", header="Kind", align="left"),
-        Column(key="count", header="Count"),
-        Column(key="items", header="Items", align="left"),
-        Column(key="image", kind="image"),
+    """Each duplicate group, largest first, with up to eight of its items, named and pictured."""
+    groups = [
+        ("exact", number, [_member(source, member) for member in members])
+        for number, members in enumerate(detection.get("exact", []))
     ]
-    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
-    if len(groups) > ROW_CAP:
-        blocks.append(
-            Paragraph(
-                text=f"{len(groups):,} groups of {noun}; the {ROW_CAP:,} largest are listed, and every one is in "
-                "`output.raw`."
-            )
-        )
-    return blocks
+    groups += [
+        ("near", number, [_member(source, member) for member in group["indices"]])
+        for number, group in enumerate(detection.get("near", []))
+    ]
+    return groups_table(groups, noun)
 
 
 def _duplicate_finding(
