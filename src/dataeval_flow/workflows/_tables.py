@@ -1,11 +1,16 @@
 """Table shapes more than one workflow reports its findings in."""
 
-__all__ = ["ranked_table"]
+__all__ = ["PREVIEW", "ROW_CAP", "ranked_table"]
 
 from collections.abc import Mapping
 from typing import Any
 
 from dataeval_flow._blocks import Cell, Column, Table
+
+# A table of items lists at most this many rows, with a paragraph naming the rest, and a renderer with
+# little room shows the first few before a line counting the rest.
+ROW_CAP = 500
+PREVIEW = 10
 
 
 def ranked_table(values: Mapping[Any, float], *, headers: tuple[str, str]) -> Table:

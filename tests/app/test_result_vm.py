@@ -286,7 +286,9 @@ class TestSegments:
         ]
         raw = DataCleaningRawOutput(dataset_size=29, img_outliers={"count": 2, "issues": issues})  # type: ignore[typeddict-item]
         finding = next(
-            f for f in build_findings(raw, None, DataCleaningHealthThresholds()) if f.title == "Image Outliers"
+            f
+            for f in build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
+            if f.title == "Image Outliers"
         )
         text, limits, rest = ResultViewModel(_make_result(finding)).finding_segments(0)
         assert isinstance(text, list)

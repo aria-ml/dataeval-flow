@@ -259,3 +259,16 @@ def test_load_config_reads_a_folder(tmp_path: Path) -> None:
 def test_load_config_reads_a_file_named_as_a_string(tmp_path: Path) -> None:
     (tmp_path / "params.yaml").write_text("seed: 5\n")
     assert load_config(str(tmp_path / "params.yaml")).seed == 5
+
+
+def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> None:
+    """The white image it flags, and both members of its exact and near duplicate groups, each captured once."""
+    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    result = run(config, ToyImages(count=40, near_duplicate=True))
+    assert sorted(asset.item.index for asset in result.assets) == [0, 3, 5, 7, 9]
+    assert {(asset.item.source, asset.media_type, asset.width, asset.height) for asset in result.assets} == {
+        ("dataset", "image/webp", 16, 16)
+    }
+    page = result.to_html()
+    assert page.count('<details class="thumb">') == 5
+    assert 'alt="dataset 7"' in page

@@ -489,6 +489,7 @@ class DataCleaningWorkflow(Workflow[DataCleaningConfig, DataCleaningResult]):
             metadata,
             config.health_thresholds,
             label_source=dc.label_source,
+            source=dc.name,
             outlier_method=config.outlier_method,
             outlier_threshold=config.outlier_threshold,
         )

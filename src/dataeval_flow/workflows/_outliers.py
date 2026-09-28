@@ -23,14 +23,10 @@ from typing import Any, Literal, NotRequired
 
 from typing_extensions import TypedDict
 
-from dataeval_flow._blocks import Block, Cell, Column, Flag, Paragraph, Table
+from dataeval_flow._blocks import Block, Cell, Column, Flag, ItemRef, Paragraph, Table
+from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP
 
 _logger = logging.getLogger(__name__)
-
-# A flagged-items table lists at most this many rows, in the order of their keys, and a narrow renderer
-# shows the first few before a line counting the rest.
-_ROW_CAP = 500
-_PREVIEW = 10
 
 # DataEval's threshold methods: the multiplier each uses by default, and how its limits read.
 _METHODS: dict[str, tuple[float, str]] = {
@@ -119,13 +115,14 @@ def flagged_table(
     classes: Mapping[tuple[Cell, ...], str] | None,
     noun: str,
     groups: Sequence[str] | None = None,
+    ref: Callable[[tuple[Cell, ...]], ItemRef] | None = None,
 ) -> list[Block]:
     """A row per flagged subject, with every flag it raised, in the order of the subjects' keys.
 
     *key* names the subject an issue is about, such as its item, or its item and box; *key_columns*
     show those values, in the key's order, and read row keys ``key_columns[i].key``. *classes*, where
-    given, names each subject's class. The table lists at most 500 subjects, and a paragraph after it
-    says how many it left out.
+    given, names each subject's class, and *ref* its item, whose thumbnail leads the row. The table
+    lists at most 500 subjects, and a paragraph after it says how many it left out.
 
     *groups*, where given, are the values the key's first element takes, such as splits, in the order
     the rows run. Each group lists an equal share of the 500, a small group's spare going to the rest,
@@ -140,22 +137,25 @@ def flagged_table(
     # No subject ranks above another: how far past its limit a value lies doesn't say it's worse.
     subjects = sorted(flags)
     parts = [subjects] if groups is None else [[s for s in subjects if s[0] == group] for group in groups]
-    shares = _shares([len(part) for part in parts], _ROW_CAP)
+    shares = _shares([len(part) for part in parts], ROW_CAP)
     rows: list[dict[str, Cell]] = []
     for subject in (subject for part, share in zip(parts, shares, strict=True) for subject in part[:share]):
         row: dict[str, Cell] = {column.key: value for column, value in zip(key_columns, subject, strict=True)}
+        if ref is not None:
+            row["image"] = ref(subject)
         if classes is not None:
             row["class"] = classes.get(subject)
         row["flags"] = len(flags[subject])
         row["by"] = list(flags[subject])
         rows.append(row)
     columns = [
+        *([Column(key="image", kind="image")] if ref is not None else []),
         *key_columns,
         *([Column(key="class", header="Class", align="left")] if classes is not None else []),
         Column(key="flags", header="Flags"),
         Column(key="by", header="Flagged by", kind="flags"),
     ]
-    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=_PREVIEW)]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
     if len(rows) < len(subjects):
         if groups is None:
             text = f"{len(subjects):,} {noun} flagged; the first {len(rows):,} are listed"

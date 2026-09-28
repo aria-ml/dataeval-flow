@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from dataeval_flow._blocks import Fields, Section
+from dataeval_flow._blocks import Column, Fields, ItemRef, Section, Table
 from dataeval_flow._blocks._html import render_html
 from dataeval_flow.workflows import Finding
 from dataeval_flow.workflows._result import finding_section
@@ -56,7 +56,7 @@ class TestBuildFindings:
                 "issues": [{"item_index": i, "metric_name": "m", "metric_value": 0.0} for i in range(5)],
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Image Outliers" in titles
 
@@ -76,7 +76,7 @@ class TestBuildFindings:
                 ],
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         img_finding = next(f for f in findings if f.title == "Image Outliers")
         # 3 distinct images, not 6 total flags
         assert img_finding.brief == f"3 images ({round(3 / 29 * 100, 1)}%)"
@@ -107,7 +107,7 @@ class TestBuildFindings:
                 ],
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Target Outliers" in titles
         target_finding = next(f for f in findings if f.title == "Target Outliers")
@@ -136,7 +136,7 @@ class TestBuildFindings:
                 "targets": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Duplicates" in titles
         dup_finding = next(f for f in findings if f.title == "Duplicates")
@@ -155,7 +155,7 @@ class TestBuildFindings:
             img_outliers={"count": 0, "issues": []},
             duplicates={"items": {"exact": [[0, 1, 2]], "near": []}, "targets": {}},
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         dup_finding = next(f for f in findings if f.title == "Duplicates")
         assert fields(dup_finding) == {"Exact groups": 1, "Near groups": 0, "Exact affected": 3, "Near affected": 0}
         assert dup_finding.brief == "3 exact (3.0%), 0 near (0.0%)"
@@ -178,7 +178,7 @@ class TestBuildFindings:
                 "targets": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         dup_finding = next(f for f in findings if f.title == "Duplicates")
         assert fields(dup_finding)["Orientations"] == "1 same"
         assert dup_finding.brief == "0 exact (0.0%), 4 near (4.0%)"
@@ -194,7 +194,7 @@ class TestBuildFindings:
                 "label_counts_per_class": {"cat": 50, "dog": 50},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Label Distribution" in titles
         label_finding = next(f for f in findings if f.title == "Label Distribution")
@@ -216,7 +216,7 @@ class TestBuildFindings:
                 "label_counts_per_class": {"cat": 80, "dog": 20},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         label_finding = next(f for f in findings if f.title == "Label Distribution")
         assert label_finding.brief == "2 classes, 100 items, imbalance 4.0:1"
         assert paragraphs(label_finding) == ["Imbalance ratio: 4.0 (max/min)"]
@@ -233,7 +233,7 @@ class TestBuildFindings:
                 "index2label": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Label Distribution" not in titles
 
@@ -248,7 +248,7 @@ class TestBuildFindings:
                 "label_counts_per_class": {"cat": 50, "dog": 50, "bird": 0},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.severity == "warning"
         assert paragraphs(label_finding) == ["Warning: one or more classes have zero items"]
@@ -260,7 +260,7 @@ class TestBuildFindings:
             img_outliers={"count": 0, "issues": []},
             label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source="filepath")
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source="filepath", source="train")
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.title == "Label/Directory_Name Distribution"
 
@@ -271,7 +271,7 @@ class TestBuildFindings:
             img_outliers={"count": 0, "issues": []},
             label_stats={"item_count": 10, "class_count": 2, "label_counts_per_class": {"a": 5, "b": 5}},
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source="annotations")
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source="annotations", source="train")
         label_finding = next(f for f in findings if "Distribution" in f.title)
         assert label_finding.title == "Label Distribution"
         # Footer should still show the label_source annotation
@@ -280,7 +280,7 @@ class TestBuildFindings:
     def test_clean_data_shows_ok_findings(self):
         """Clean data still produces Image Outliers and Classwise Outliers with severity='ok'."""
         raw = DataCleaningRawOutput(dataset_size=100, img_outliers={"count": 0, "issues": []})
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         titles = [f.title for f in findings]
         assert "Image Outliers" in titles
         assert "Classwise Outliers" in titles
@@ -305,7 +305,7 @@ class TestHealthThresholdSeverity:
                 "issues": [{"item_index": i, "metric_name": "brightness", "metric_value": 0.1} for i in range(3)],
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(image_outliers=5.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(image_outliers=5.0), source="train")
         f = next(f for f in findings if f.title == "Image Outliers")
         assert f.severity == "info"
 
@@ -318,7 +318,7 @@ class TestHealthThresholdSeverity:
                 "issues": [{"item_index": i, "metric_name": "brightness", "metric_value": 0.1} for i in range(10)],
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(image_outliers=5.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(image_outliers=5.0), source="train")
         f = next(f for f in findings if f.title == "Image Outliers")
         assert f.severity == "warning"
 
@@ -334,7 +334,7 @@ class TestHealthThresholdSeverity:
             },
             label_stats={"item_count": 100, "class_count": 1, "label_counts_per_class": {"a": 100}},
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(target_outliers=5.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(target_outliers=5.0), source="train")
         f = next(f for f in findings if f.title == "Target Outliers")
         assert f.severity == "warning"
 
@@ -347,7 +347,7 @@ class TestHealthThresholdSeverity:
                 "targets": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(exact_duplicates=0.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(exact_duplicates=0.0), source="train")
         f = next(f for f in findings if f.title == "Duplicates")
         assert f.severity == "warning"
 
@@ -363,7 +363,7 @@ class TestHealthThresholdSeverity:
                 "targets": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(near_duplicates=5.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(near_duplicates=5.0), source="train")
         f = next(f for f in findings if f.title == "Duplicates")
         assert f.severity == "info"
 
@@ -381,7 +381,7 @@ class TestHealthThresholdSeverity:
                 "targets": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(near_duplicates=5.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(near_duplicates=5.0), source="train")
         f = next(f for f in findings if f.title == "Duplicates")
         assert f.severity == "warning"
 
@@ -391,7 +391,7 @@ class TestHealthThresholdSeverity:
             dataset_size=100,
             label_stats={"item_count": 30, "class_count": 2, "label_counts_per_class": {"a": 20, "b": 10}},
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(class_label_imbalance=10.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(class_label_imbalance=10.0), source="train")
         f = next(f for f in findings if "Distribution" in f.title)
         assert f.severity == "info"
 
@@ -401,7 +401,7 @@ class TestHealthThresholdSeverity:
             dataset_size=100,
             label_stats={"item_count": 110, "class_count": 2, "label_counts_per_class": {"a": 100, "b": 10}},
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds(class_label_imbalance=5.0))
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(class_label_imbalance=5.0), source="train")
         f = next(f for f in findings if "Distribution" in f.title)
         assert f.severity == "warning"
 
@@ -414,7 +414,7 @@ class TestHealthThresholdSeverity:
                 "targets": {},
             },
         )
-        findings = build_findings(raw, None, DataCleaningHealthThresholds())
+        findings = build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         f = next(f for f in findings if f.title == "Duplicates")
         assert f.severity == "warning"
 
@@ -440,7 +440,7 @@ class TestHealthThresholdSeverity:
             classwise_outliers=100.0,
             class_label_imbalance=100.0,
         )
-        findings = build_findings(raw, None, thresholds)
+        findings = build_findings(raw, None, thresholds, source="train")
         assert all(f.severity in ("ok", "info") for f in findings)
 
 
@@ -596,7 +596,7 @@ class TestDuplicateFindingNearGroupDetail:
                 "targets": {},
             },
         )
-        finding = _duplicate_finding(raw, DataCleaningHealthThresholds())
+        finding = _duplicate_finding(raw, DataCleaningHealthThresholds(), "train")
         assert finding is not None
         (near,) = sections(finding)
         assert near.title == "2 near-duplicate groups (4 images)"
@@ -736,14 +736,16 @@ def _detection_raw(**overrides: object) -> DataCleaningRawOutput:
 
 def _finding(title: str, raw: DataCleaningRawOutput, label_source: str | Sequence[str] | None = None) -> Finding:
     """The finding titled *title* that default thresholds draw from *raw*."""
-    findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source=label_source)
+    findings = build_findings(raw, None, DataCleaningHealthThresholds(), label_source=label_source, source="train")
     return next(f for f in findings if f.title == title)
 
 
 class TestFindingBlocks:
     def test_detection_findings_come_in_order(self):
         """A detection dataset with outliers, duplicates and labels reports all five findings, in order."""
-        findings = build_findings(_detection_raw(), None, DataCleaningHealthThresholds(), label_source="annotations")
+        findings = build_findings(
+            _detection_raw(), None, DataCleaningHealthThresholds(), label_source="annotations", source="train"
+        )
         titles = [f.title for f in findings]
         assert titles == ["Image Outliers", "Target Outliers", "Classwise Outliers", "Duplicates", "Label Distribution"]
 
@@ -775,7 +777,9 @@ class TestFindingBlocks:
         ]
 
     def test_the_limits_sentence_names_the_method(self):
-        findings = build_findings(_detection_raw(), None, DataCleaningHealthThresholds(), outlier_method="modzscore")
+        findings = build_findings(
+            _detection_raw(), None, DataCleaningHealthThresholds(), outlier_method="modzscore", source="train"
+        )
         finding = next(f for f in findings if f.title == "Image Outliers")
         assert finding.description == (
             "3 images (10.3%) flagged as outliers. "
@@ -791,7 +795,7 @@ class TestFindingBlocks:
             item_indices=list(range(11)),
             class_labels=[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
         )
-        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds())
+        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds(), source="train")
         flagged, _ = tables(next(f for f in findings if f.title == "Image Outliers"))
         assert column(flagged, "class") == ["cat", "dog", "dog"]
 
@@ -799,7 +803,7 @@ class TestFindingBlocks:
         from types import SimpleNamespace
 
         metadata = SimpleNamespace(multi_target=False, index2label={}, item_indices=[], class_labels=[])
-        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds())
+        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds(), source="train")
         flagged, _ = tables(next(f for f in findings if f.title == "Image Outliers"))
         assert "class" not in [c.key for c in flagged.columns]
 
@@ -812,7 +816,7 @@ class TestFindingBlocks:
         metadata = SimpleNamespace(
             multi_target=True, index2label={0: "cat", 1: "dog"}, label_level="target", rows_at=lambda _level: boxes
         )
-        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds())
+        findings = build_findings(_detection_raw(), metadata, DataCleaningHealthThresholds(), source="train")
         images, _ = tables(next(f for f in findings if f.title == "Image Outliers"))
         flagged_boxes, _ = tables(next(f for f in findings if f.title == "Target Outliers"))
         assert "class" not in [c.key for c in images.columns]
@@ -856,7 +860,7 @@ class TestFindingBlocks:
             target_outliers={"count": 1, "issues": [{**old, "target_index": 0}]},
         )
         with caplog.at_level(logging.WARNING, logger="dataeval_flow.workflows._outliers"):
-            build_findings(raw, None, DataCleaningHealthThresholds())
+            build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         (record,) = caplog.records
         assert record.getMessage().startswith("2 outlier flag(s) came without the limits they crossed")
 
@@ -897,6 +901,7 @@ class TestFindingBlocks:
         assert finding.blocks == []
 
     def test_near_duplicates_draw_as_a_section_holding_methods_and_orientations(self):
+        """Then every group with its items, which text names since it has no thumbnails."""
         assert rendered(_finding("Duplicates", _detection_raw())).splitlines()[3:] == [
             "  1 exact duplicate groups, 2 near-duplicate groups found.",
             "",
@@ -905,6 +910,12 @@ class TestFindingBlocks:
             "  2 near-duplicate groups (4 images)",
             "    Methods:      dhash, phash",
             "    Orientations: 1 flipped, 1 same",
+            "",
+            "  Group  Kind   Count  Items",
+            "  -----  -----  -----  -----",
+            "  0      exact      2  0, 1",
+            "  0      near       2  2, 3",
+            "  1      near       2  4, 6",
             "",
             "  Exact groups:   1",
             "  Near groups:    2",
@@ -944,6 +955,75 @@ class TestFindingBlocks:
         finding = _finding("Label Distribution", raw, label_source="annotations")
         assert finding.brief == "2 classes, 4 items, imbalance 0.0:1"
         assert finding.blocks == []
+
+
+def _box(item: int, target: int) -> dict[str, int | None]:
+    return {"item": item, "target": target, "channel": None}
+
+
+class TestThumbnails:
+    """Each flagged image, box and duplicate group names its items in the source, for their thumbnails."""
+
+    def test_each_flagged_image_leads_with_its_thumbnail(self):
+        (table, _limits) = tables(_finding("Image Outliers", _detection_raw()))
+        assert table.columns[0] == Column(key="image", kind="image")
+        assert [row["image"] for row in table.rows] == [ItemRef(source="train", index=i) for i in (0, 5, 10)]
+
+    def test_each_flagged_box_leads_with_its_crop(self):
+        (table, _limits) = tables(_finding("Target Outliers", _detection_raw()))
+        assert [row["image"] for row in table.rows] == [
+            ItemRef(source="train", index=0, target=0),
+            ItemRef(source="train", index=0, target=1),
+            ItemRef(source="train", index=1, target=0),
+        ]
+
+    def test_duplicate_groups_are_listed_largest_first_with_their_items(self):
+        raw = _detection_raw(
+            duplicates={
+                "items": {
+                    "exact": [[0, 1], [5, 6, 7]],
+                    "near": [{"indices": [2, 3, 4, 8], "methods": ["phash"], "orientation": None}],
+                },
+                "targets": {},
+            }
+        )
+        (groups,) = tables(_finding("Duplicates", raw))
+        assert [(row["kind"], row["group"], row["count"], row["items"]) for row in groups.rows] == [
+            ("near", 0, 4, "2, 3, 4, 8"),
+            ("exact", 1, 3, "5, 6, 7"),
+            ("exact", 0, 2, "0, 1"),
+        ]
+        assert groups.rows[1]["image"] == [ItemRef(source="train", index=i) for i in (5, 6, 7)]
+        assert groups.preview == 10
+
+    def test_a_large_group_shows_eight_of_its_items_and_counts_the_rest(self):
+        raw = _detection_raw(duplicates={"items": {"exact": [list(range(20))]}, "targets": {}})
+        (row,) = tables(_finding("Duplicates", raw))[0].rows
+        assert row["items"] == "0, 1, 2, 3, 4, 5, 6, 7, … 12 more"
+        assert row["image"] == [ItemRef(source="train", index=i) for i in range(8)]
+
+    def test_duplicate_boxes_are_a_section_of_their_own(self):
+        raw = _detection_raw(
+            duplicates={
+                "items": {"exact": [[0, 1]]},
+                "targets": {"exact": [[_box(3, 0), _box(9, 2)]], "near": []},
+            }
+        )
+        finding = _finding("Duplicates", raw)
+        (boxes,) = [section for section in sections(finding) if section.title == "Duplicate boxes"]
+        assert boxes.brief == "1 groups"
+        (table,) = [block for block in boxes.blocks if isinstance(block, Table)]
+        (row,) = table.rows
+        assert row["items"] == "3 box 0, 9 box 2"
+        assert row["image"] == [ItemRef(source="train", index=3, target=0), ItemRef(source="train", index=9, target=2)]
+
+    def test_past_500_groups_a_paragraph_names_the_rest(self):
+        raw = _detection_raw(duplicates={"items": {"exact": [[i, i + 1000] for i in range(503)]}, "targets": {}})
+        finding = _finding("Duplicates", raw)
+        assert len(tables(finding)[0].rows) == 500
+        assert "503 groups of images; the 500 largest are listed, and every one is in `output.raw`." in paragraphs(
+            finding
+        )
 
 
 _GOLDEN = Path(__file__).parent / "golden"

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal
 
-from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Scalar, Section, Table
+from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Scalar, Section, Table
+from dataeval_flow._blocks._items import item_name
 from dataeval_flow.workflows._base import Finding, render_label_source
 from dataeval_flow.workflows._outliers import (
     OutlierIssueRecord,
@@ -14,12 +15,16 @@ from dataeval_flow.workflows._outliers import (
     limits_table,
     warn_if_unrecorded,
 )
-from dataeval_flow.workflows._tables import ranked_table
+from dataeval_flow.workflows._tables import PREVIEW, ROW_CAP, ranked_table
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import (
     DataCleaningRawOutput,
+    DetectionDict,
     IndexValue,
 )
+
+# A duplicate group's cell shows at most this many of its items.
+_GROUP_SHOWN = 8
 
 
 def _item(issue: Mapping[str, Any]) -> tuple[Cell, ...]:
@@ -46,6 +51,15 @@ def _classes(metadata: Any) -> tuple[dict[tuple[Cell, ...], str] | None, dict[tu
     return {(int(i),): index2label.get(int(c), str(c)) for i, c in labels} or None, None
 
 
+def _namer(source: str) -> Callable[[tuple[Cell, ...]], ItemRef]:
+    """Names a flagged row's item, or its box where the row's key holds one, in *source*."""
+
+    def ref(key: tuple[Cell, ...]) -> ItemRef:
+        return ItemRef.model_validate({"source": source, "index": key[0], "target": key[1] if len(key) > 1 else None})
+
+    return ref
+
+
 def _outlier_blocks(
     issues: Sequence[OutlierIssueRecord],
     *,
@@ -53,18 +67,66 @@ def _outlier_blocks(
     classes: Mapping[tuple[Cell, ...], str] | None,
     noun: str,
     pairs: list[tuple[str, Scalar]],
+    source: str,
 ) -> list[Block]:
     """Each flagged image or box with every flag it raised, each metric with its limits, then the labelled values."""
     key = _box if boxes else _item
     key_columns = [Column(key="item", header="Item"), *([Column(key="box", header="Box")] if boxes else [])]
-    blocks: list[Block] = flagged_table(issues, key=key, key_columns=key_columns, classes=classes, noun=noun)
+    blocks: list[Block] = flagged_table(
+        issues, key=key, key_columns=key_columns, classes=classes, noun=noun, ref=_namer(source)
+    )
     if issues:
         blocks.append(limits_table(issues, key=key))
     blocks.append(Fields(items=pairs))
     return blocks
 
 
-def _duplicate_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealthThresholds) -> Finding | None:
+def _member(source: str, member: IndexValue) -> ItemRef:
+    """A duplicate group's member as an item reference: an image by its index, or a box by its item and target."""
+    if isinstance(member, dict):
+        return ItemRef(source=source, index=member["item"], target=member["target"])
+    return ItemRef(source=source, index=member)
+
+
+def _groups_blocks(detection: DetectionDict, source: str, noun: str) -> list[Block]:
+    """Each duplicate group, largest first: its kind, its size, and up to eight of its items, named and pictured.
+
+    A group is numbered by its place among its kind in ``output.raw``, where every one of its items is.
+    """
+    groups = [("exact", number, members) for number, members in enumerate(detection.get("exact", []))]
+    groups += [("near", number, group["indices"]) for number, group in enumerate(detection.get("near", []))]
+    if not groups:
+        return []
+    # Stable, so groups of one size keep exact before near, and each kind its own order.
+    groups.sort(key=lambda group: -len(group[2]))
+    rows: list[dict[str, Cell]] = []
+    for kind, number, members in groups[:ROW_CAP]:
+        shown = [_member(source, member) for member in members[:_GROUP_SHOWN]]
+        names = ", ".join(item_name(ref) for ref in shown)
+        more = len(members) - len(shown)
+        items = f"{names}, … {more:,} more" if more else names
+        rows.append({"group": number, "kind": kind, "count": len(members), "items": items, "image": shown})
+    columns = [
+        Column(key="group", header="Group"),
+        Column(key="kind", header="Kind", align="left"),
+        Column(key="count", header="Count"),
+        Column(key="items", header="Items", align="left"),
+        Column(key="image", kind="image"),
+    ]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=PREVIEW)]
+    if len(groups) > ROW_CAP:
+        blocks.append(
+            Paragraph(
+                text=f"{len(groups):,} groups of {noun}; the {ROW_CAP:,} largest are listed, and every one is in "
+                "`output.raw`."
+            )
+        )
+    return blocks
+
+
+def _duplicate_finding(
+    raw: DataCleaningRawOutput, thresholds: DataCleaningHealthThresholds, source: str
+) -> Finding | None:
     """Build a Duplicates finding from raw results, or None if no duplicates."""
     exact_groups = raw.duplicates.get("items", {}).get("exact", [])
     near_groups = raw.duplicates.get("items", {}).get("near", [])
@@ -94,6 +156,11 @@ def _duplicate_finding(raw: DataCleaningRawOutput, thresholds: DataCleaningHealt
         blocks.append(
             Section(title=near_line, blocks=[Fields(items=near_pairs)]) if near_pairs else Paragraph(text=near_line)
         )
+    blocks.extend(_groups_blocks(raw.duplicates.get("items", {}), source, "images"))
+    box_groups = raw.duplicates.get("targets", {})
+    if box_count := len(box_groups.get("exact", [])) + len(box_groups.get("near", [])):
+        boxes = _groups_blocks(box_groups, source, "boxes")
+        blocks.append(Section(title="Duplicate boxes", brief=f"{box_count} groups", blocks=boxes))
     blocks.append(
         Fields(
             items=[
@@ -227,13 +294,15 @@ def build_findings(
     thresholds: DataCleaningHealthThresholds,
     label_source: str | Sequence[str] | None = None,
     *,
+    source: str,
     outlier_method: str | None = None,
     outlier_threshold: float | None = None,
 ) -> list[Finding]:
     """Generate human-readable findings from raw results.
 
-    *metadata* names each flagged item's class where it has labels. *outlier_method* and
-    *outlier_threshold* are what the outliers were detected with, which the findings state.
+    *metadata* names each flagged item's class where it has labels, and *source* the items themselves,
+    for their thumbnails. *outlier_method* and *outlier_threshold* are what the outliers were detected
+    with, which the findings state.
     """
     findings: list[Finding] = []
     item_classes, box_classes = _classes(metadata)
@@ -263,6 +332,7 @@ def build_findings(
                 classes=item_classes,
                 noun="images",
                 pairs=[("Percentage", round(pct, 1)), ("Dataset size", raw.dataset_size)],
+                source=source,
             ),
         )
     )
@@ -291,6 +361,7 @@ def build_findings(
                     classes=box_classes,
                     noun="targets",
                     pairs=[("Percentage", target_pct), ("Total targets", total_targets)],
+                    source=source,
                 ),
             )
         )
@@ -299,7 +370,7 @@ def build_findings(
     findings.append(_classwise_finding(raw, thresholds))
 
     # Duplicate findings
-    dup_finding = _duplicate_finding(raw, thresholds)
+    dup_finding = _duplicate_finding(raw, thresholds, source)
     if dup_finding:
         findings.append(dup_finding)
 
