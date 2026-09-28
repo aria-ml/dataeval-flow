@@ -10,7 +10,7 @@ from dataeval.core import LabelStatsResult, StatsResult
 from dataeval.protocols import DatasetMetadata, DatumMetadata
 from pydantic import ValidationError
 
-from dataeval_flow._blocks import Fields
+from dataeval_flow._blocks import Fields, ItemRef
 from dataeval_flow._metadata import inject_intrinsic_factors
 from dataeval_flow._orchestrator import _run_target
 from dataeval_flow.config import ViewOperation
@@ -419,11 +419,16 @@ class TestFindingImageQuality:
             "test": _make_split_result(num_samples=30, image_quality=test),
         }
         summary, flagged = tables(_finding_image_quality(splits, _DEFAULT_THRESHOLDS))
-        assert [c.header for c in flagged.columns] == ["Split", "Item", "Flags", "Flagged by"]
+        assert [c.header for c in flagged.columns] == ["", "Split", "Item", "Flags", "Flagged by"]
         assert [(row["split"], row["item"], row["flags"]) for row in flagged.rows] == [
             ("train", 4, 1),
             ("train", 9, 1),
             ("test", 2, 2),
+        ]
+        assert column(flagged, "image") == [
+            ItemRef(source="train", index=4),
+            ItemRef(source="train", index=9),
+            ItemRef(source="test", index=2),
         ]
         assert flagged.preview == 10
 
@@ -511,6 +516,29 @@ class TestFindingsRedundancy:
         assert finding.brief == "No duplicates in any split"
         assert finding.blocks == []
 
+    def test_each_split_s_groups_are_listed_under_its_name_with_their_images(self):
+        train = RedundancyResult(
+            exact_duplicate_groups=1,
+            near_duplicate_groups=1,
+            exact_duplicates_count=2,
+            near_duplicates_count=3,
+            exact_groups=[[0, 4]],
+            near_groups=[[1, 2, 3]],
+        )
+        splits = {
+            "train": _make_split_result(num_samples=200, redundancy=train),
+            "test": _make_split_result(num_samples=100),
+        }
+        finding = _finding_redundancy(splits, _DEFAULT_THRESHOLDS)
+        (section,) = sections(finding)
+        assert (section.title, section.brief) == ("train", "2 groups")
+        _, groups = tables(finding)
+        assert [(row["kind"], row["group"], row["count"], row["items"]) for row in groups.rows] == [
+            ("near", 0, 3, "1, 2, 3"),
+            ("exact", 0, 2, "0, 4"),
+        ]
+        assert groups.rows[1]["image"] == [ItemRef(source="train", index=0), ItemRef(source="train", index=4)]
+
 
 # ===========================================================================
 # Findings builders — Label Balance
@@ -574,15 +602,16 @@ class TestFindingsLabelBalance:
         assert paragraphs(finding) == []
 
     def test_no_classes_in_any_split_draw_no_table_and_no_ratios(self):
-        """An unlabelled dataset has nothing to tabulate or compare, so only its unlabelled images are said."""
+        """An unlabelled dataset has nothing to tabulate or compare, so only its unlabelled images are listed."""
         lh = LabelHealthResult(num_classes=0, class_distribution={}, empty_images=[0, 1])
         splits = {"train": _make_split_result(num_samples=2, label_health=lh)}
         finding = _finding_label_balance(splits, _DEFAULT_THRESHOLDS)
-        assert tables(finding) == []
-        assert sections(finding) == []
-        assert paragraphs(finding) == ["train: 2 images with no labels"]
+        assert [section.title for section in sections(finding)] == ["Images with no labels"]
+        (table,) = tables(finding)
+        assert (column(table, "source"), column(table, "count")) == (["train"], [2])
+        assert column(table, "image") == [[ItemRef(source="train", index=0), ItemRef(source="train", index=1)]]
 
-    def test_each_split_with_empty_images_gets_a_sentence(self):
+    def test_each_split_with_empty_images_is_listed_with_them(self):
         lh1 = _make_label_health(class_distribution={"cat": 90, "dog": 70, "bird": 40}, empty_images=[3, 17, 42])
         lh2 = _make_label_health(class_distribution={"cat": 20, "dog": 20, "bird": 10}, empty_images=[0])
         splits = {
@@ -590,7 +619,6 @@ class TestFindingsLabelBalance:
             "test": _make_split_result(num_samples=50, label_health=lh2),
         }
         finding = _finding_label_balance(splits, _DEFAULT_THRESHOLDS)
-        assert paragraphs(finding) == ["train: 3 images with no labels", "test: 1 images with no labels"]
         assert rendered(finding).splitlines() == [
             "=" * 80,
             "  LABEL BALANCE                                   3 classes, imbalance 2.2/2.0:1",
@@ -607,9 +635,11 @@ class TestFindingsLabelBalance:
             "    train: 2.2:1",
             "    test:  2.0:1",
             "",
-            "  train: 3 images with no labels",
-            "",
-            "  test: 1 images with no labels",
+            "  Images with no labels",
+            "    Split  Count  Items",
+            "    -----  -----  ---------",
+            "    train      3  3, 17, 42",
+            "    test       1  0",
         ]
 
 
@@ -778,6 +808,41 @@ class TestFindingLeakage:
         finding = _finding_leakage(self._cross())
         assert finding.brief == "No cross-split duplicates"
         assert finding.blocks == []
+
+    def test_each_pair_lists_its_groups_largest_first_each_split_s_images_beside_the_other_s(self):
+        """A group's splits read in the pair's order, whichever the group names first."""
+        leakage = {
+            "exact_count": 3,
+            "near_count": 4,
+            "exact_groups": [{"test": [7], "train": [1, 2]}],
+            "near_groups": [{"train": [5], "test": [8, 9, 10]}],
+        }
+        finding = _finding_leakage(self._cross(leakage=leakage))
+        (section,) = sections(finding)
+        assert (section.title, section.brief) == ("train vs test", "2 groups")
+        (table,) = tables(finding)
+        assert [(c.key, c.header, c.kind) for c in table.columns] == [
+            ("group", "Group", "text"),
+            ("kind", "Kind", "text"),
+            ("a", "train", "text"),
+            ("a_image", "", "image"),
+            ("b", "test", "text"),
+            ("b_image", "", "image"),
+        ]
+        assert [(row["kind"], row["group"], row["a"], row["b"]) for row in table.rows] == [
+            ("near", 0, "5", "8, 9, 10"),
+            ("exact", 0, "1, 2", "7"),
+        ]
+        assert table.rows[1]["a_image"] == [ItemRef(source="train", index=1), ItemRef(source="train", index=2)]
+        assert table.rows[1]["b_image"] == [ItemRef(source="test", index=7)]
+        assert table.preview == 10
+
+    def test_past_500_groups_a_paragraph_names_the_rest(self):
+        groups = [{"train": [n], "test": [n]} for n in range(503)]
+        leakage = {"exact_count": 1006, "near_count": 0, "exact_groups": groups, "near_groups": []}
+        finding = _finding_leakage(self._cross(leakage=leakage))
+        assert len(tables(finding)[0].rows) == 500
+        assert paragraphs(finding) == ["503 groups; the 500 largest are listed, and every one is in `output.raw`."]
 
 
 # ===========================================================================
