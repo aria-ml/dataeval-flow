@@ -924,6 +924,9 @@
               },
               {
                 "$ref": "#/$defs/WorkflowStep"
+              },
+              {
+                "$ref": "#/$defs/TransformStep_view"
               }
             ]
           },
@@ -7469,6 +7472,83 @@
         "model_path"
       ],
       "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "TransformStep_view": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset to view.",
+          "title": "Input",
+          "type": "string"
+        },
+        "operations": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ViewOperation"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The `dataeval.data` operations to apply, in order, as a `views:` entry writes them.",
+          "title": "Operations"
+        },
+        "view": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A `views:` entry whose operations to apply instead.",
+          "title": "View"
+        },
+        "transform": {
+          "const": "view",
+          "description": "`view`: Applies DataEval view operations, such as ClassFilter, Relabel, Limit or Indices.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_view",
       "type": "object"
     },
     "UncertaintyExtractorConfig": {

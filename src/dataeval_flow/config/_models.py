@@ -496,6 +496,19 @@ class PipelineConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _check_custom_workflows(self) -> "PipelineConfig":
+        """Refuse a custom workflow whose steps do not connect, and a task it cannot run, before any data is read."""
+        from dataeval_flow._chain._graph import build_graph, task_problems
+
+        for workflow in self.workflows or ():
+            if isinstance(workflow, CustomWorkflowConfig):
+                build_graph(workflow, self)
+        problems = task_problems(self)
+        if problems:
+            raise ValueError(" ".join(problems))
+        return self
+
+    @model_validator(mode="after")
     def _check_unique_names(self) -> "PipelineConfig":
         """Raise if any named pool contains duplicate names.
 

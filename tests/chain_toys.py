@@ -67,10 +67,77 @@ class Explode(Transform[ExplodeConfig]):
         return {"output": node.value}
 
 
+class HalvesConfig(TransformConfig):
+    input: str
+
+
+class Halves(Transform[HalvesConfig]):
+    """Two outputs: the first half of its input, and the rest."""
+
+    name: ClassVar[str] = "toy-halves"
+    description: ClassVar[str] = "Splits in two."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("head", DataType.DATASET), Port("tail", DataType.DATASET))
+
+    def run(self, config: HalvesConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        dataset = inputs["input"].value
+        half = len(dataset) // 2
+        return {
+            "head": View(dataset, Indices(list(range(half)))),
+            "tail": View(dataset, Indices(list(range(half, len(dataset))))),
+        }
+
+
+class GatherConfig(TransformConfig):
+    input: str
+
+
+class Gather(Transform[GatherConfig]):
+    """Takes a whole list and hands on its first present element."""
+
+    name: ClassVar[str] = "toy-gather"
+    description: ClassVar[str] = "The first element of a list."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, is_list=True),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+
+    def run(self, config: GatherConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        present = [element for element in inputs["input"].elements.values() if hasattr(element, "value")]
+        return {"output": present[0].value}
+
+
+class SpreadConfig(TransformConfig):
+    input: str
+    parts: int = 2
+
+
+class Spread(Transform[SpreadConfig]):
+    """A list output: its input split into `parts` interleaved parts, keyed "0".."parts-1"."""
+
+    name: ClassVar[str] = "toy-spread"
+    description: ClassVar[str] = "Interleaved parts, as a list."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("parts", DataType.DATASET, is_list=True),)
+
+    @classmethod
+    def output_keys(cls, config: SpreadConfig) -> Mapping[str, tuple[str, ...]]:
+        return {"parts": tuple(str(i) for i in range(config.parts))}
+
+    def run(self, config: SpreadConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        dataset = inputs["input"].value
+        return {
+            "parts": {
+                str(i): View(dataset, Indices(list(range(i, len(dataset), config.parts)))) for i in range(config.parts)
+            }
+        }
+
+
 _TOYS = {
     "toy-keep": "tests.chain_toys:Keep",
     "toy-first": "tests.chain_toys:First",
     "toy-explode": "tests.chain_toys:Explode",
+    "toy-halves": "tests.chain_toys:Halves",
+    "toy-gather": "tests.chain_toys:Gather",
+    "toy-spread": "tests.chain_toys:Spread",
 }
 
 
@@ -132,7 +199,7 @@ class ToyDetections:
 
 def chain_pipeline(
     *,
-    workflows: Sequence[Mapping[str, Any]] = (),
+    workflows: Sequence[Any] = (),
     evaluators: Sequence[Any] = (),
     tasks: Sequence[Mapping[str, Any]] = (),
     datasets: Mapping[str, Any] | None = None,
@@ -141,8 +208,8 @@ def chain_pipeline(
 ) -> PipelineConfig:
     """A pipeline with one in-memory dataset and one same-named source per entry of `datasets`.
 
-    `workflows` and `tasks` are written as a config file would write them. `datasets` defaults to one source
-    `src` over :class:`ToyImages`.
+    `workflows` holds dicts, model instances, or both mixed; `tasks` are written as a config file would write
+    them. `datasets` defaults to one source `src` over :class:`ToyImages`.
     """
     datasets = datasets if datasets is not None else {"src": ToyImages()}
     data: dict[str, Any] = {

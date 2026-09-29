@@ -7,7 +7,7 @@ from typing import Any
 from dataeval_flow._registry import Registry
 from dataeval_flow.steps._step import Transform
 
-_BUILTINS: dict[str, str] = {}
+_BUILTINS: dict[str, str] = {"view": "dataeval_flow.steps.transforms._view:ViewTransform"}
 
 TRANSFORMS: Registry[Transform[Any]] = Registry(
     kind="transform",
