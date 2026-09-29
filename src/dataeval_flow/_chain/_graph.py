@@ -314,6 +314,11 @@ def _bind_inputs(
             problem = _count_problem(port.count, found, config)
             if problem is not None:
                 raise GraphError(f"Step '{entry.name}' runs {kind} '{entry.target}' ({type_id}), which {problem}")
+        elif port.count is not None and not port.count.allows(len(found)):
+            raise GraphError(
+                f"Step '{entry.name}' runs {kind} '{type_id}', whose `{port.name}` takes {port.count.phrase}, but the "
+                f"step names {len(found)}."
+            )
         for address in found:
             value = _typed(address, entry, workflow, types, later, empty)
             _accepts(port, value, entry, address)

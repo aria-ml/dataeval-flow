@@ -8,7 +8,7 @@ import numpy as np
 from dataeval.data import Indices, View
 from dataeval.protocols import DatasetMetadata
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow import PipelineConfig, SourceCount
 from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
 from dataeval_flow.steps import DataType, Port, Transform, TransformConfig, TransformContext
 from tests.evaluator_toys import FLAT, ToyImages
@@ -105,6 +105,22 @@ class Gather(Transform[GatherConfig]):
         return {"output": present[0].value}
 
 
+class PairConfig(TransformConfig):
+    input: list[str]
+
+
+class Pair(Transform[PairConfig]):
+    """Takes exactly two Datasets, a count only its port declares, and hands on the first."""
+
+    name: ClassVar[str] = "toy-pair"
+    description: ClassVar[str] = "The first of two Datasets."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, count=SourceCount.TWO),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+
+    def run(self, config: PairConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        return {"output": inputs["input"][0].value}
+
+
 class SpreadConfig(TransformConfig):
     input: str
     parts: int = 2
@@ -155,6 +171,7 @@ _TOYS = {
     "toy-explode": "tests.chain_toys:Explode",
     "toy-halves": "tests.chain_toys:Halves",
     "toy-gather": "tests.chain_toys:Gather",
+    "toy-pair": "tests.chain_toys:Pair",
     "toy-spread": "tests.chain_toys:Spread",
     "toy-detections-only": "tests.chain_toys:DetectionsOnly",
 }

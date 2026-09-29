@@ -81,6 +81,10 @@ def _load(steps: list[dict[str, Any]], inputs: list[Any] | None = None, **kwargs
             [{"name": "b", "evaluator": "balance", "input": ["a", "a"]}],
             "which takes exactly one source, but the step names 2",
         ),
+        (
+            [{"name": "p", "transform": "toy-pair", "input": ["a"]}],
+            "Step 'p' runs transform 'toy-pair', whose `input` takes exactly two sources, but the step names 1.",
+        ),
         ([{"name": "b", "evaluator": "nothere", "input": "a"}], "`evaluators:` does not define"),
         ([{"name": "b", "evaluator": "balance"}], "reads nothing: give it `input:`"),
         (
@@ -93,6 +97,11 @@ def _load(steps: list[dict[str, Any]], inputs: list[Any] | None = None, **kwargs
 def test_a_workflow_whose_steps_do_not_connect_fails_the_load(steps: list, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         _load(steps)
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_transform_fed_as_many_datasets_as_its_port_counts_loads() -> None:
+    _load([{"name": "p", "transform": "toy-pair", "input": ["a", "b"]}], inputs=["a", "b"])
 
 
 @pytest.mark.usefixtures("toys")

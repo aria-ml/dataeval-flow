@@ -52,6 +52,11 @@ def test_an_entry_describes_its_ports_and_config() -> None:
     assert duplicates.origin == "dataeval-flow"
 
 
+def test_merge_takes_two_or_more_datasets() -> None:
+    merge = next(e for e in list_steps(plugins=False).steps if e.type == "merge")
+    assert merge.inputs[0].count == "2+"
+
+
 def test_a_dataset_port_of_any_kind_says_any_and_other_ports_name_no_kinds() -> None:
     steps = {e.type: e for e in list_steps(plugins=False).steps}
     assert steps["select"].inputs[0].kinds == ["any"]

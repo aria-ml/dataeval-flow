@@ -51,6 +51,11 @@ def test_merge_concatenates_its_inputs_in_order() -> None:
     assert len(result.steps["m"].output) == 24
 
 
+def test_merge_of_one_dataset_is_refused_at_load() -> None:
+    with pytest.raises(ValidationError, match=r"workflows\.0\.steps\.0\.input\n  List should have at least 2 items"):
+        _task([{"name": "m", "transform": "merge", "input": ["a"]}])
+
+
 def test_merge_of_different_vocabularies_fails_the_step() -> None:
     datasets = {
         "x": ToyDetections([[0], [1]], {0: "a", 1: "b"}),

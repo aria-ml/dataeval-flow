@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 
 from pydantic import Field
 
+from dataeval_flow._input_spec import SourceCount
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Transform, TransformConfig, TransformContext
 
@@ -22,7 +23,7 @@ class MergeTransform(Transform[MergeConfig]):
 
     name: ClassVar[str] = "merge"
     description: ClassVar[str] = "Concatenates Datasets that share a label vocabulary, in order."
-    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, count=SourceCount.TWO_OR_MORE),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
 
     def run(
