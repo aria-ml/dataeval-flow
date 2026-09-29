@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from dataeval_flow.config._schemas._export import one_directory_segment
+from dataeval_flow.config._schemas._export import ONE_DIRECTORY_SEGMENT, one_directory_segment
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import StepSkipped, Transform, TransformConfig, TransformContext
 
@@ -29,6 +29,7 @@ class ExportStepConfig(TransformConfig):
     to: str | None = Field(
         default=None,
         description="The directory under `<output>/datasets/`, one plain name. Defaults to `<task>.<step>`.",
+        json_schema_extra={"pattern": ONE_DIRECTORY_SEGMENT},
     )
 
     @field_validator("to")

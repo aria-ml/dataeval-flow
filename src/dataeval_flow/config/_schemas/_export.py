@@ -6,6 +6,12 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+ONE_DIRECTORY_SEGMENT = r"^(?!\.\.?$)[^/\\]+$"
+"""What :func:`one_directory_segment` accepts, as a JSON schema pattern, so an editor flags what loading refuses.
+
+It is written only into the schema: the validator refuses at load, with a message saying why.
+"""
+
 
 class ExportConfig(BaseModel):
     """A named dataset to write, and the format to write it in.
@@ -25,7 +31,10 @@ class ExportConfig(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    name: str = Field(description="Identifier for the export, and the directory it is written to.")
+    name: str = Field(
+        description="Identifier for the export, and the directory it is written to.",
+        json_schema_extra={"pattern": ONE_DIRECTORY_SEGMENT},
+    )
     source: str = Field(description="Reference to a source name.")
     format: Literal["coco", "yolo", "huggingface_vision", "visdrone"] = Field(
         default="coco",

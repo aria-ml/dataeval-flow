@@ -3807,6 +3807,7 @@
       "properties": {
         "name": {
           "description": "Identifier for the export, and the directory it is written to.",
+          "pattern": "^(?!\\.\\.?$)[^/\\\\]+$",
           "title": "Name",
           "type": "string"
         },
@@ -7657,6 +7658,7 @@
           ],
           "default": null,
           "description": "The directory under `<output>/datasets/`, one plain name. Defaults to `<task>.<step>`.",
+          "pattern": "^(?!\\.\\.?$)[^/\\\\]+$",
           "title": "To"
         },
         "transform": {
