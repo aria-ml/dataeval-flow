@@ -194,6 +194,8 @@ class _Detection:
 class ToyDetections:
     """An in-memory object-detection dataset: 3x16x16 uint8 images, one or two boxes each.
 
+    Each datum's metadata holds its ``id`` and a ``site`` (north, south, east in turn), a factor for bias steps.
+
     Parameters
     ----------
     labels : Sequence[Sequence[int]]
@@ -239,7 +241,8 @@ class ToyDetections:
     def __getitem__(self, index: int) -> tuple[np.ndarray, _Detection, dict[str, Any]]:
         labels = np.asarray(self._labels[index], dtype=np.intp)
         boxes = np.asarray([[1 + 6 * i, 1, 6 + 6 * i, 9] for i in range(len(labels))], dtype=np.float32)
-        return self._image(index), _Detection(boxes, labels), {"id": index}
+        site = ("north", "south", "east")[index % 3]
+        return self._image(index), _Detection(boxes, labels), {"id": index, "site": site}
 
 
 def chain_pipeline(
@@ -269,6 +272,18 @@ def chain_pipeline(
     }
     if extractor:
         data["extractors"] = [FLAT]
+    return PipelineConfig.model_validate(data)
+
+
+def yaml_pipeline(text: str, datasets: Mapping[str, Any]) -> PipelineConfig:
+    """The pipeline `text` writes, with one in-memory dataset and same-named source per entry of `datasets`."""
+    import yaml
+
+    data = yaml.safe_load(text)
+    data["datasets"] = [
+        DatasetProtocolConfig(name=f"{name}_data", format="maite", dataset=ds) for name, ds in datasets.items()
+    ]
+    data["sources"] = [SourceConfig(name=name, dataset=f"{name}_data") for name in datasets]
     return PipelineConfig.model_validate(data)
 
 
