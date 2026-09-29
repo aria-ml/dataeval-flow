@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from dataeval_flow._blocks import Block, Fields
 from dataeval_flow._result import Result, ResultMetadata, _envelope_items
+from dataeval_flow._tables import table_limits
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
@@ -76,7 +77,10 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
     Parameters
     ----------
     serialized : Mapping[str, Any], optional
-        DataEval's output as JSON, which :meth:`to_dict` and :meth:`report` render. The other
+        DataEval's output as JSON, which :meth:`to_dict` and :meth:`report` render.
+    source_names : Sequence[str], optional
+        The names the run's sources are known by, in order: a task's source names, or a chain's node addresses.
+        The result's own report section names its items by them, for their thumbnails. The other
         parameters are :class:`~dataeval_flow.Result`'s.
 
     Subclassing
@@ -116,6 +120,7 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
         dataset: "AnnotatedDataset[Any] | None" = None,
         sources: "dict[str, AnnotatedDataset[Any]] | None" = None,
         serialized: Mapping[str, Any] | None = None,
+        source_names: Sequence[str] = (),
     ) -> None:
         super().__init__(
             type=type,
@@ -127,6 +132,9 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
             sources=sources,
         )
         self._serialized: dict[str, Any] | None = dict(serialized) if serialized is not None else None
+        self._source_names: tuple[str, ...] = tuple(source_names)
+        # Its own section is built when the report renders, after the run: it lists rows within the run's limits.
+        self._limits = table_limits()
 
     @classmethod
     def failed(cls, *, type: str, errors: Sequence[str]) -> Self:  # noqa: A002
@@ -143,10 +151,29 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
         return [Fields(items=list(items))]
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
-        """DataEval's output as it came; when not *detailed*, tables stop at ``ROW_LIMIT`` rows."""
+        """This evaluator's own section where it has one, else DataEval's output as it came; when not *detailed*,
+        the latter's tables stop at ``ROW_LIMIT`` rows."""
+        from dataeval_flow._tables import limited_tables
         from dataeval_flow.evaluators._report import output_blocks
 
-        return output_blocks(self._serialized or {}, detailed=detailed)
+        serialized = self._serialized or {}
+        if self._source_names:
+            with limited_tables(self._limits):
+                own = self._section(serialized, self._source_names, detailed=detailed)
+            if own is not None:
+                return own
+        return output_blocks(serialized, detailed=detailed)
+
+    def _section(
+        self,
+        output: Mapping[str, Any],  # noqa: ARG002
+        sources: Sequence[str],  # noqa: ARG002
+        *,
+        detailed: bool,  # noqa: ARG002
+    ) -> list[Block] | None:
+        """This evaluator's own report section, from its JSON and the names of the sources it read; ``None`` for
+        DataEval's output as it came. A result class overrides it to show its evaluator's output its own way."""
+        return None
 
     def _dict_body(self) -> dict[str, object]:
         """DataEval's output as JSON, under ``output``."""

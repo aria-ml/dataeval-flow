@@ -1,7 +1,11 @@
 """The scope evaluators' results: DataEval's own output objects, typed per evaluator."""
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 from dataeval.scope import CoverageOutput, PrioritizeOutput, RepresentationOutput
 
+from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = ["CoverageResult", "PrioritizeResult", "RepresentationResult"]
@@ -48,6 +52,12 @@ class CoverageResult(EvaluatorResult[CoverageOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:
+        """The uncovered items, pictured, then the per-class table and the rest."""
+        from dataeval_flow.evaluators.scope._report import coverage_section
+
+        return coverage_section(output, sources, detailed=detailed)
 
 
 class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):

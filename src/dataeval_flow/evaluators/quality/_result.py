@@ -1,9 +1,11 @@
 """The quality evaluators' results: DataEval's own output objects, typed per evaluator."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from dataeval.quality import DuplicatesOutput, OutliersOutput
 
+from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
@@ -31,6 +33,12 @@ class DuplicatesResult(EvaluatorResult[DuplicatesOutput[Any, Any]]):
         parameters as written are in ``resolved_config``.
     """
 
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:
+        """Each duplicate group, largest first, its items named and pictured; then any extras."""
+        from dataeval_flow.evaluators.quality._report import duplicate_section
+
+        return duplicate_section(output, sources, detailed=detailed)
+
 
 class OutliersResult(EvaluatorResult[OutliersOutput[Any]]):
     """The result of a ``quality.outliers`` run: ``output`` is DataEval's ``OutliersOutput``.
@@ -50,6 +58,12 @@ class OutliersResult(EvaluatorResult[OutliersOutput[Any]]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """Each flagged image, then each flagged box, with every flag it raised and each metric's limits."""
+        from dataeval_flow.evaluators.quality._report import outlier_section
+
+        return outlier_section(output, sources)
 
 
 class LabelHealthOutput(CoreOutput):

@@ -105,7 +105,6 @@ def _step(record: "StepResult", result: "ChainResult", *, detailed: bool) -> lis
 
 def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
     """What a completed step made: a check's findings, an evaluator's or workflow's report, a transform's section."""
-    from dataeval_flow.evaluators._report import output_blocks, serialized_of
     from dataeval_flow.evaluators._result import EvaluatorResult
     from dataeval_flow.steps._registry import TRANSFORMS
     from dataeval_flow.workflows._result import WorkflowResult, finding_section
@@ -114,7 +113,7 @@ def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
         return [finding_section(finding) for finding in record.output or []]
     step_result = record.result
     if isinstance(step_result, EvaluatorResult):
-        return list(output_blocks(serialized_of(step_result), detailed=detailed))
+        return list(step_result._report_output(detailed=detailed))  # noqa: SLF001 - a step's own report has no public accessor
     if isinstance(step_result, WorkflowResult):
         return list(step_result._report_output(detailed=detailed))  # noqa: SLF001 - a step's own report has no public accessor
     if record.kind == "transform":

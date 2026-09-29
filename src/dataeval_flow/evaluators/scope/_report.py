@@ -1,8 +1,9 @@
 """The scope evaluators' report tables."""
 
-__all__ = ["uncovered_blocks"]
+__all__ = ["coverage_section", "uncovered_blocks"]
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from dataeval_flow._blocks import Block, Cell, Column, ItemRef, Paragraph, Section, Table
 from dataeval_flow._tables import table_limits
@@ -49,3 +50,13 @@ def uncovered_blocks(uncovered: Sequence[tuple[ItemRef, str | None, float | None
             )
         )
     return [Section(title=f"Uncovered {noun}", blocks=blocks)]
+
+
+def coverage_section(output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block]:
+    """A Coverage Output's report: the items in sparse regions, pictured, then the per-class table and the rest."""
+    from dataeval_flow.evaluators._report import output_blocks
+
+    extras = dict(output.get("extras") or {})
+    uncovered = extras.pop("uncovered_indices", None) or []
+    refs = [(ItemRef(source=sources[0], index=int(index)), None, None) for index in uncovered]
+    return [*uncovered_blocks(refs, "images"), *output_blocks({**output, "extras": extras}, detailed=detailed)]

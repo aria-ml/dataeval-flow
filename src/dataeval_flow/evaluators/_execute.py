@@ -60,6 +60,7 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
             success=True,
             output=output,
             serialized=serialized,
+            source_names=tuple(datasets),
             metadata=metadata,
             dataset=next(iter(datasets.values())) if single else None,
             sources=None if single else datasets,
