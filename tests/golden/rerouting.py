@@ -18,12 +18,18 @@ _VOLATILE = {"timestamp", "execution_time_s", "tool_version", "execution_time", 
 def normalized(payload: Any) -> Any:
     """`payload` without the fields that differ from run to run or build to build.
 
-    The DataEval build an evaluator result names is one of them: it changes with every lock update.
+    The DataEval build an evaluator result names is one of them: it changes with every lock update. So are each
+    thumbnail's encoded bytes, which the image codec's build decides.
     """
     if isinstance(payload, dict):
         kept = {key: normalized(value) for key, value in payload.items() if key not in _VOLATILE}
         if isinstance(kept.get("dataeval"), dict):
             kept["dataeval"] = {key: value for key, value in kept["dataeval"].items() if key != "version"}
+        if isinstance(kept.get("assets"), list):
+            kept["assets"] = [
+                {key: value for key, value in asset.items() if key != "data"} if isinstance(asset, dict) else asset
+                for asset in kept["assets"]
+            ]
         return kept
     if isinstance(payload, list):
         return [normalized(item) for item in payload]

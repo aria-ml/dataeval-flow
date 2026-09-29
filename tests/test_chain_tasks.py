@@ -308,6 +308,11 @@ def test_a_one_step_task_whose_step_fails_before_its_evaluator_runs_returns_a_fa
     assert (result.success, result.type, result.errors) == (False, "quality.duplicates", ["RuntimeError: no context"])
 
 
+def test_the_golden_normalizer_drops_a_thumbnail_s_encoded_bytes_and_keeps_its_item() -> None:
+    payload = {"assets": [{"data": "UklGR", "item": {"index": 0, "source": "src"}, "width": 16}]}
+    assert normalized(payload) == {"assets": [{"item": {"index": 0, "source": "src"}, "width": 16}]}
+
+
 def test_the_golden_normalizer_drops_volatile_keys_at_every_depth() -> None:
     payload = {
         "timestamp": "2026-09-29",
