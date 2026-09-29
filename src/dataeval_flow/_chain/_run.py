@@ -316,8 +316,12 @@ def _attempt(
     except StepSkipped as skip:
         return _skipped(spec, inputs_text, skip.reason), _missing_outputs(spec, "was skipped"), []
     except Exception as error:  # a step's failure must not stop the chain
-        _logger.exception("Step '%s' failed", spec.name)
-        failed = _failed(spec, inputs_text, [failure_message(error)], start, result)
+        message = failure_message(error)
+        if spec.optional:  # a failure the config expects: a warning, without the traceback
+            _logger.warning("Optional step '%s' failed, so it is skipped: %s", spec.name, message)
+        else:
+            _logger.exception("Step '%s' failed", spec.name)
+        failed = _failed(spec, inputs_text, [message], start, result)
         return failed, _missing_outputs(spec, _failure_word(spec)), []
     value = {name: _live(item) for name, item in outputs.items()}
     summary = {name: _summarize(item) for name, item in outputs.items()} if spec.kind == "transform" else None

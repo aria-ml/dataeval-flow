@@ -1,5 +1,6 @@
 """Running a graph: order, failures, skips, broadcasting, and derivation per node (spec §4.2, §5.5, §5.6)."""
 
+import logging
 from typing import Any
 from unittest.mock import patch
 
@@ -204,3 +205,24 @@ def test_an_input_node_keeps_its_sources_cache_key() -> None:
     assert isinstance(node, Node)
     assert node.key is not None
     assert node.key.startswith("src_data:maite:")
+
+
+def _failure_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [record for record in caplog.records if record.name == "dataeval_flow._chain._run"]
+
+
+def test_an_optional_failure_logs_a_warning_without_a_traceback(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="dataeval_flow"):
+        _run([{"name": "boom", "transform": "toy-explode", "input": "a", "optional": True}])
+    (record,) = _failure_records(caplog)
+    assert (record.levelno, record.exc_info) == (logging.WARNING, None)
+    assert record.getMessage() == "Optional step 'boom' failed, so it is skipped: RuntimeError: boom on a"
+
+
+def test_a_required_failure_logs_an_error_with_its_traceback(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="dataeval_flow"):
+        _run([{"name": "boom", "transform": "toy-explode", "input": "a"}])
+    (record,) = _failure_records(caplog)
+    assert record.levelno == logging.ERROR
+    assert record.exc_info is not None
+    assert record.getMessage() == "Step 'boom' failed"
