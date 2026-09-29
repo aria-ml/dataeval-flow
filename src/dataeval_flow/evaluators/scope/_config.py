@@ -215,7 +215,8 @@ class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
 
 
 class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
-    """The result of a ``scope.label-alignment`` run; ``output`` is a :class:`~dataeval_flow.LabelAlignmentOutput`.
+    """The result of a ``scope.label-alignment`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.scope.LabelAlignmentOutput`.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope

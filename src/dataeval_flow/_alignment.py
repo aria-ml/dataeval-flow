@@ -114,7 +114,7 @@ class LabelAlignmentOutput(CoreOutput):
     """``scope.label-alignment``'s output: the alignment, and the resolved ontology a ``conform`` step relabels onto.
 
     ``ontology_source`` is how the config named that ontology (an ``ontologies:`` entry's name, the resolved path,
-    ``inline`` or ``concepts``), which ``conform`` records with the label space it applies.
+    or ``inline``), which ``conform`` records with the label space it applies.
     """
 
     def __init__(self, alignment: LabelAlignment, ontology: Any, meta: Any, *, ontology_source: str | None) -> None:

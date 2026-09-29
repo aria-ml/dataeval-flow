@@ -127,8 +127,9 @@ outside `0` to `folds - 1`. To rebalance each fold's training set, follow `kfold
 ## Acting on an evaluator's output
 
 `select`, `remove` and `conform` apply an evaluator step's output to a Dataset, and only to the Dataset it was computed
-on. The step their `ranking:`, `plans:` or `alignment:` names must have read exactly their `input`; anything else
-fails the config load.
+on. The step their `ranking:`, `plans:` or `alignment:` names must have read exactly their `input`, except that a
+`scope.prioritize` ranking may also read a reference set after it, so for `select` only its first input must be
+`input`. Anything else fails the config load.
 
 ### `select`
 
