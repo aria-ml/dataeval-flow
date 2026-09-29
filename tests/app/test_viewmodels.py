@@ -282,6 +282,33 @@ class TestBuilderViewModel:
         assert "Failed to load config" in msg
         assert "boom" in msg
 
+    @pytest.mark.parametrize("folder", [False, True], ids=["file", "folder"])
+    def test_load_file_reports_an_unquoted_keyed_address_instead_of_crashing(
+        self, tmp_path: Path, folder: bool
+    ) -> None:
+        (tmp_path / "pipeline.yaml").write_text(
+            "workflows:\n"
+            "  - name: w\n"
+            "    inputs: [a]\n"
+            "    steps:\n"
+            "      - {name: s, transform: view, input: k.train[0]}\n"
+        )
+        vm = BuilderViewModel()
+        success, msg = vm.load_file(tmp_path if folder else tmp_path / "pipeline.yaml")
+        assert not success
+        assert msg.startswith("Failed to load config: ")
+        assert 'must be quoted inside YAML\'s `{…}` or `[…]`: write "k.train[0]".' in msg
+        assert vm.config_file_path == ""
+
+    def test_load_file_reports_a_file_that_is_not_yaml_instead_of_crashing(self, tmp_path: Path) -> None:
+        path = tmp_path / "broken.yaml"
+        path.write_text("datasets: [unclosed\n")
+        vm = BuilderViewModel()
+        success, msg = vm.load_file(path)
+        assert not success
+        assert msg.startswith("Failed to load config: ")
+        assert "must be quoted" not in msg
+
     def test_load_file_with_warning(self, tmp_path: Path) -> None:
         from unittest.mock import patch
 
