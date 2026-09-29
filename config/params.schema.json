@@ -329,6 +329,162 @@
       "title": "BoVWExtractorConfig",
       "type": "object"
     },
+    "CheckStep_classwise-outlier-rate": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `classwise-outliers` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing. data-cleaning's `health_thresholds.classwise_outliers`.",
+          "title": "Total"
+        },
+        "check": {
+          "const": "classwise-outlier-rate",
+          "description": "`classwise-outlier-rate`: Warns when outliers pass `total` percent across classes; names the worst class.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_classwise-outlier-rate",
+      "type": "object"
+    },
+    "CheckStep_outlier-rate": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `quality.outliers` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most images, as a percentage of the Dataset, that may be flagged before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.image_outliers`.",
+          "title": "Image"
+        },
+        "check": {
+          "const": "outlier-rate",
+          "description": "`outlier-rate`: Warns when more than `image` percent of a Dataset's images are outliers.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_outlier-rate",
+      "type": "object"
+    },
+    "CheckStep_target-outlier-rate": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `quality.outliers` Output computed per target (`per_target: true`).",
+          "title": "Input",
+          "type": "string"
+        },
+        "labels": {
+          "description": "A `quality.label-health` Output on the same Dataset: its label count is the number of targets.",
+          "title": "Labels",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.target_outliers`.",
+          "title": "Target"
+        },
+        "check": {
+          "const": "target-outlier-rate",
+          "description": "`target-outlier-rate`: Warns when more than `target` percent of the boxes are outliers.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "labels",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_target-outlier-rate",
+      "type": "object"
+    },
     "ChunkedDriftConfig": {
       "additionalProperties": false,
       "description": "How a drift detector splits its data into chunks: the arguments of DataEval's ``chunked()``.\n\nNamed for DataEval's ``ChunkedDrift``, which ``chunked()`` returns. Set it as a drift entry's ``chunking:`` to\ntest each chunk of the data against the spread of the reference's chunks, rather than the data as a whole. Give\n``chunk_size`` or ``chunk_count``.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd_chunked\n        type: shift.drift-mmd\n        chunking:\n          chunk_count: 10\n          threshold: [zscore, 2.5]",
@@ -776,6 +932,47 @@
       "title": "CocoDatasetConfig",
       "type": "object"
     },
+    "CombineStep_classwise-outliers": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset the outliers were found in; its labels name each item's class.",
+          "title": "Input",
+          "type": "string"
+        },
+        "outliers": {
+          "description": "A `quality.outliers` Output computed on exactly `input`.",
+          "title": "Outliers",
+          "type": "string"
+        },
+        "combine": {
+          "const": "classwise-outliers",
+          "description": "`classwise-outliers`: Pivots an Outliers Output by class: each class's flagged items or boxes.",
+          "title": "Combine",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "outliers",
+        "combine",
+        "name"
+      ],
+      "title": "CombineStep_classwise-outliers",
+      "type": "object"
+    },
     "CoverageConfig": {
       "additionalProperties": false,
       "description": "Config for ``scope.coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: scope.coverage\n        num_observations: 30",
@@ -951,6 +1148,18 @@
               },
               {
                 "$ref": "#/$defs/TransformStep_wrap"
+              },
+              {
+                "$ref": "#/$defs/CombineStep_classwise-outliers"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_outlier-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_target-outlier-rate"
               }
             ]
           },

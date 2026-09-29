@@ -31,8 +31,14 @@ _BUILTINS: dict[str, str] = {
     "view": "dataeval_flow.steps.transforms._view:ViewTransform",
     "wrap": "dataeval_flow.steps.transforms._wrap:WrapTransform",
 }
-_COMBINE_BUILTINS: dict[str, str] = {}
-_CHECK_BUILTINS: dict[str, str] = {}
+_COMBINE_BUILTINS: dict[str, str] = {
+    "classwise-outliers": "dataeval_flow.steps.combines._classwise:ClasswiseOutliersCombine",
+}
+_CHECK_BUILTINS: dict[str, str] = {
+    "classwise-outlier-rate": "dataeval_flow.steps.checks._outliers:ClasswiseOutlierRateCheck",
+    "outlier-rate": "dataeval_flow.steps.checks._outliers:OutlierRateCheck",
+    "target-outlier-rate": "dataeval_flow.steps.checks._outliers:TargetOutlierRateCheck",
+}
 
 TRANSFORMS: Registry[Transform[Any]] = Registry(
     kind="transform",

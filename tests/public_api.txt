@@ -150,6 +150,16 @@ dataeval_flow.steps:list_combines
 dataeval_flow.steps:list_steps
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
+dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
+dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
+dataeval_flow.steps.checks:OutlierRateCheck
+dataeval_flow.steps.checks:OutlierRateConfig
+dataeval_flow.steps.checks:TargetOutlierRateCheck
+dataeval_flow.steps.checks:TargetOutlierRateConfig
+dataeval_flow.steps.combines:ClasswiseOutliers
+dataeval_flow.steps.combines:ClasswiseOutliersCombine
+dataeval_flow.steps.combines:ClasswiseOutliersConfig
+dataeval_flow.steps.combines:ClasswiseRow
 dataeval_flow.steps.transforms:ConformConfig
 dataeval_flow.steps.transforms:ConformTransform
 dataeval_flow.steps.transforms:ExportRecord
