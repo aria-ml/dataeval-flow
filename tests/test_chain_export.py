@@ -11,6 +11,7 @@ from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._graph import GraphError
 from dataeval_flow.config import ExportConfig
+from dataeval_flow.evaluators.scope import LabelAlignmentConfig
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
@@ -65,6 +66,35 @@ def test_exporting_a_derived_dataset_encodes_its_pixels(tmp_path: Path) -> None:
     assert result.steps["corpus"].output.items == 3
     provenance = json.loads((tmp_path / "datasets" / "first3" / "provenance.json").read_text())["runs"][-1]
     assert [record["name"] for record in provenance["lineage"]] == ["few", "a"]
+
+
+def test_the_provenance_records_each_conform_on_the_way_and_only_those(tmp_path: Path) -> None:
+    steps = [
+        {"name": "aligned", "evaluator": "align", "input": "a"},
+        {"name": "c", "transform": "conform", "input": "a", "alignment": "aligned"},
+        {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 3}}]},
+        {"name": "corpus", "transform": "export", "input": "c"},
+        {"name": "plain", "transform": "export", "input": "few", "to": "plain"},
+    ]
+    concepts = [{"id": "Vehicle", "label": "Vehicle", "synonyms": ["car"]}, {"id": "Person", "label": "Person"}]
+    ontology = {"name": "vehicles", "concepts": concepts}
+    config = _config(
+        steps,
+        evaluators=[LabelAlignmentConfig(name="align", ontology="vehicles")],
+        extra={"ontologies": [ontology]},
+    )
+    result = run_tasks(config, output_dir=tmp_path)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    conformed = json.loads((tmp_path / "datasets" / "t.corpus" / "provenance.json").read_text())["runs"][-1]
+    (conform,) = conformed["conforms"]
+    assert (conform["source"], conform["ontology"], conform["ontology_digest"]) == ("c", "vehicles", "7322513e6772")
+    assert (conform["class_remap"], conform["target"]) == (
+        {"car": "Vehicle", "person": "Person"},
+        ["Vehicle", "Person"],
+    )
+    plain = json.loads((tmp_path / "datasets" / "plain" / "provenance.json").read_text())["runs"][-1]
+    assert plain["conforms"] == []
 
 
 def test_without_an_output_directory_the_export_is_skipped_and_the_task_passes() -> None:

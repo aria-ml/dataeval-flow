@@ -544,8 +544,14 @@ def chain_provenance(
     step: str,
     lineage: "Sequence[LineageRecord]",
     ontology: "ResolvedOntology | None",
+    conforms: "Sequence[LabelSpaceRecord]",
 ) -> "DatasetMetadata":
-    """The provenance of a Dataset a chain made: the task and step that wrote it, and its lineage to the sources."""
+    """The provenance of a Dataset a chain made: the task and step that wrote it, and its lineage to the sources.
+
+    ``conforms`` holds one record per ``conform`` on the way, in chain order: its address as ``source``, the
+    ``class_remap`` it applied, the ``target`` vocabulary, and the ``ontology`` and ``ontology_digest`` it conformed
+    to. It is an empty list where no ``conform`` was on the way.
+    """
     from datetime import UTC, datetime
 
     from datamaite import DatasetMetadata
@@ -562,6 +568,7 @@ def chain_provenance(
         "ontology": ontology_name,
         "ontology_digest": digest,
         "lineage": [record.model_dump(mode="json") for record in lineage],
+        "conforms": [record.model_dump(mode="json") for record in conforms],
     }
     return DatasetMetadata(source_dataset=name, info=info)
 
@@ -579,6 +586,7 @@ def write_node(
     lineage: "Sequence[LineageRecord]",
     task: str,
     step: str,
+    conforms: "Sequence[LabelSpaceRecord]",
 ) -> "tuple[Path, dict[str, Any], int]":
     """Write a Dataset a chain made to `dest`. Returns the directory, provenance and size."""
     from datamaite import write
@@ -587,7 +595,9 @@ def write_node(
 
     _refuse_occupied_destination(dest, mode)
     ontology = _resolve_ontology(ontology_owner, config, data_dir)
-    provenance = chain_provenance(name=name, task=task, step=step, lineage=lineage, ontology=ontology)
+    provenance = chain_provenance(
+        name=name, task=task, step=step, lineage=lineage, ontology=ontology, conforms=conforms
+    )
     built = build_node_dataset(dataset, name=name, dataset_metadata=provenance)
     _write_or_explain(built, dest, name=name, format=format, mode=mode, write=write)
     _write_provenance(dest, provenance)

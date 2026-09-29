@@ -126,7 +126,7 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     steps: dict[str, StepResult] = {}
     label_space: list[LabelSpaceRecord] = []
     for spec in graph.steps:
-        record, produced, records = _run_step(spec, nodes, settings, lineage)
+        record, produced, records = _run_step(spec, nodes, settings, lineage, label_space)
         steps[spec.name] = record
         nodes.update(produced)
         if tracked:
@@ -146,9 +146,16 @@ def _lookup(nodes: Mapping[str, _Value], address: Address) -> _Value:
 
 
 def _run_step(
-    spec: StepSpec, nodes: Mapping[str, _Value], settings: RunSettings, lineage: Sequence[LineageRecord]
+    spec: StepSpec,
+    nodes: Mapping[str, _Value],
+    settings: RunSettings,
+    lineage: Sequence[LineageRecord],
+    applied: Sequence[LabelSpaceRecord],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
-    """Run `spec` once, or once per key of the lists it broadcasts over; its outputs come back by address."""
+    """Run `spec` once, or once per key of the lists it broadcasts over; its outputs come back by address.
+
+    `applied` holds the label spaces the steps before it applied, in chain order.
+    """
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
     bound = {binding.port.name: [_lookup(nodes, address) for address in binding.addresses] for binding in spec.bindings}
     reason = _absent(spec, bound)
@@ -156,9 +163,9 @@ def _run_step(
         return _skipped(spec, inputs_text, reason), _by_address(spec, _missing_outputs(spec, "was skipped")), []
     keys = _broadcast_keys(spec, bound)
     if keys is None:
-        record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage)
+        record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage, applied)
         return record, _by_address(spec, outputs), records
-    return _broadcast(spec, bound, keys, settings, inputs_text, lineage)
+    return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied)
 
 
 def _absent(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> str | None:
@@ -194,6 +201,7 @@ def _broadcast(
     settings: RunSettings,
     inputs_text: list[str],
     lineage: Sequence[LineageRecord],
+    applied: Sequence[LabelSpaceRecord],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run `spec` once per key, zipping its lists by key; each output is a list with those keys."""
     elements: dict[str, StepResult] = {}
@@ -205,7 +213,9 @@ def _broadcast(
             elements[key] = _skipped(spec, inputs_text, why)
             outputs = _missing_outputs(spec, "was skipped")
         else:
-            elements[key], outputs, records = _attempt(spec, _shaped(spec, chosen), settings, key, inputs_text, lineage)
+            elements[key], outputs, records = _attempt(
+                spec, _shaped(spec, chosen), settings, key, inputs_text, lineage, applied
+            )
             label_space.extend(records)
         for port in spec.outputs:
             per_output[port.name][key] = outputs[port.name]  # type: ignore[assignment]  # lists do not nest
@@ -277,6 +287,7 @@ def _attempt(
     element: str | None,
     inputs_text: list[str],
     lineage: Sequence[LineageRecord],
+    applied: Sequence[LabelSpaceRecord],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run one invocation of a step; its outputs come back by port name. Every exception becomes the step's failure."""
     start = time.monotonic()
@@ -291,7 +302,7 @@ def _attempt(
                 return failed, _missing_outputs(spec, _failure_word(spec)), []
             outputs = _pooled_outputs(spec, result, inputs, element)
         else:
-            outputs, records, details = _transform(spec, inputs, settings, element, lineage)
+            outputs, records, details = _transform(spec, inputs, settings, element, lineage, applied)
     except StepSkipped as skip:
         return _skipped(spec, inputs_text, skip.reason), _missing_outputs(spec, "was skipped"), []
     except Exception as error:  # a step's failure must not stop the chain
@@ -434,9 +445,12 @@ def _transform(
     settings: RunSettings,
     element: str | None,
     lineage: Sequence[LineageRecord],
+    applied: Sequence[LabelSpaceRecord],
 ) -> tuple[dict[str, _Value], list[LabelSpaceRecord], dict[str, Any] | None]:
     impl: Transform[Any] = spec.impl()  # type: ignore[assignment]
     step = settings.step_contexts.get(spec.name, StepContext())
+    sources = _dataset_inputs(inputs)
+    ancestors = {record.name for node in sources for record in _ancestry(node.address, lineage)}
     context = TransformContext(
         task=settings.task,
         step=spec.name,
@@ -445,13 +459,13 @@ def _transform(
         data_dir=settings.data_dir,
         derive_metadata=lambda node: _metadata(node, step.metadata_policy),
         lineage=lambda address: _ancestry(address, lineage),
+        label_space=tuple(record for record in applied if record.source in ancestors),
     )
     made = impl.run(spec.config, inputs, context)
     first = spec.output_address(spec.outputs[0]) + (f"[{element}]" if element is not None else "")
     records = impl.label_space(spec.config, inputs, made, address=first)
     digest = impl.digest(spec.config, inputs, made)
     details = impl.details(spec.config, inputs, made)
-    sources = _dataset_inputs(inputs)
     base = step_key(
         spec.type, settings_of(spec.config, spec.impl.input_ports()), [node.key or "" for node in sources], digest
     )

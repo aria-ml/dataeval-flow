@@ -87,7 +87,13 @@ class ExportTransform(Transform[ExportStepConfig]):
         else:
             lineage = context.lineage(node.address) if context.lineage is not None else []
             path, provenance, items = write_node(
-                node.value, config=context.pipeline, lineage=lineage, task=context.task, step=context.step, **common
+                node.value,
+                config=context.pipeline,
+                lineage=lineage,
+                conforms=context.label_space,
+                task=context.task,
+                step=context.step,
+                **common,
             )
         record = ExportRecord(
             path=str(path), format=config.format, mode=config.mode, items=items, provenance=provenance

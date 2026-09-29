@@ -79,6 +79,9 @@ class TransformContext:
     """Metadata of a Dataset node under this step's metadata policy, cached on the node."""
     lineage: "Callable[[str], Sequence[Any]] | None" = None
     """The lineage records a Dataset node descends from, nearest first."""
+    label_space: "tuple[LabelSpaceRecord, ...]" = ()
+    """The label spaces applied on the way to this step's Dataset inputs, such as each ``conform``'s, in chain
+    order."""
 
 
 class StepSkipped(Exception):  # noqa: N818 - a step's outcome, not an error
