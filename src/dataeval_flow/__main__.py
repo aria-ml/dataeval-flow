@@ -191,6 +191,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Emit the listing as JSON rather than a table.",
     )
 
+    # --- steps (catalog) ---
+    steps_parser = subparsers.add_parser(
+        "steps",
+        help="List every step a workflow can chain, or describe one",
+        description=(
+            "List every evaluator, transform and workflow type a custom workflow can chain, with its ports. Naming "
+            "one prints its catalog entry, settings schema included. Name it `KIND:NAME` when two kinds share a name."
+        ),
+    )
+    steps_parser.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="The step to describe (e.g. remove or transform:remove). Omit to list them all.",
+    )
+    steps_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the whole catalog as JSON rather than a table.",
+    )
+
     # --- app (interactive TUI) ---
     app_parser = subparsers.add_parser(
         "app",
@@ -336,6 +357,39 @@ def _evaluator_entry(cls: "type[Evaluator[Any, Any]]") -> dict[str, str]:
     }
 
 
+def _list_steps(name: str | None, *, as_json: bool) -> int:
+    """Print the step catalog as a table or JSON, or one step's catalog entry.
+
+    `name` is a step's name, or ``KIND:NAME`` to settle a name two kinds share.
+    """
+    from dataeval_flow.steps import list_steps
+
+    catalog = list_steps()
+    if name is not None:
+        kind, _, type_ = name.rpartition(":")
+        found = [e for e in catalog.steps if e.type == type_ and (not kind or e.kind == kind)]
+        if len(found) != 1:
+            kinds = ", ".join(e.kind for e in found)
+            what = f"{len(found)} steps ({kinds}); name one as KIND:NAME" if found else "no step"
+            print(f"ERROR: {name!r} names {what}", file=sys.stderr)
+            return 1
+        print(found[0].model_dump_json(indent=2))
+        return 0
+    if as_json:
+        print(catalog.model_dump_json(indent=2))
+        return 0
+    rows = []
+    for e in catalog.steps:
+        ins = ", ".join(p.port for p in e.inputs)
+        outs = ", ".join(p.port for p in e.outputs)
+        rows.append((e, f"{ins} -> {outs}"))
+    width = max(len(e.type) for e, _ in rows)
+    flow_width = max(len(flow) for _, flow in rows)
+    for e, flow in rows:
+        print(f"  {e.kind:<10} {e.type:<{width}}  {flow:<{flow_width}}  {e.description}")
+    return 0
+
+
 def apply_env_defaults(args: argparse.Namespace) -> argparse.Namespace:
     """Apply environment variable defaults that cannot be handled by argparse defaults.
 
@@ -400,6 +454,9 @@ def main() -> NoReturn:
 
     if args.command == "evaluators":
         sys.exit(_list_evaluators(args.name, as_json=args.json))
+
+    if args.command == "steps":
+        sys.exit(_list_steps(args.name, as_json=args.json))
 
     if args.command == "config":
         from dataeval_flow._app.cli import run_cli_builder

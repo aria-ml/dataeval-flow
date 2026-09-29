@@ -119,6 +119,10 @@ class LabelAlignmentOutput(CoreOutput):
         self.ontology = ontology
 
 
+# Defined here to avoid an import cycle, but public in the scope evaluators: the step catalog names it by its home.
+LabelAlignmentOutput.__module__ = "dataeval_flow.evaluators.scope"
+
+
 def align_labels(ontology: "Ontology", class_names: "Sequence[str]", *, threshold: float = 0.0) -> LabelAlignment:
     """Align `class_names` to `ontology` with DataEval's label_alignment, with Flow's paste remap and digest.
 

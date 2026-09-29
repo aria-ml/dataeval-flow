@@ -336,7 +336,7 @@ docker run \
 
 ## CLI Modes
 
-DataEval Flow has four modes:
+DataEval Flow has six modes:
 
 | Command                   | Purpose                                                             |
 | ------------------------- | ------------------------------------------------------------------- |
@@ -345,6 +345,7 @@ DataEval Flow has four modes:
 | `dataeval-flow config`    | Simple CLI config builder — create/edit configs without the TUI     |
 | `dataeval-flow encoding`  | Write the metadata encoding descriptor a result was computed under  |
 | `dataeval-flow workflows` | List the available workflow types, or print one's parameter schema  |
+| `dataeval-flow steps`     | List every step a custom workflow can chain, or describe one        |
 
 `dataeval-flow --version` reports the installed build — useful for identifying
 which image produced a result.
@@ -384,6 +385,8 @@ dataeval-flow workflows --json
 # What does a given workflow type accept?
 dataeval-flow workflows data-cleaning
 ```
+
+`dataeval-flow steps` lists every step a custom workflow can chain; `--json` prints the catalog Studio reads.
 
 ### Interactive TUI (`app`)
 

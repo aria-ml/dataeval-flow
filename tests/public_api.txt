@@ -120,7 +120,10 @@ dataeval_flow.steps:DATASET_KINDS
 dataeval_flow.steps:DataType
 dataeval_flow.steps:InputSlot
 dataeval_flow.steps:Port
+dataeval_flow.steps:PortEntry
 dataeval_flow.steps:Step
+dataeval_flow.steps:StepCatalog
+dataeval_flow.steps:StepCatalogEntry
 dataeval_flow.steps:StepEntry
 dataeval_flow.steps:StepKind
 dataeval_flow.steps:StepResult
@@ -129,6 +132,7 @@ dataeval_flow.steps:Transform
 dataeval_flow.steps:TransformConfig
 dataeval_flow.steps:TransformContext
 dataeval_flow.steps:get_transform
+dataeval_flow.steps:list_steps
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
 dataeval_flow.steps.transforms:ConformConfig
