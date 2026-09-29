@@ -28,7 +28,9 @@ class SplitConfig(_SplitSettings):
     val_frac: float = Field(default=0.0, ge=0.0, lt=1.0, description="The share held out as `val`.")
 
     @model_validator(mode="after")
-    def _fractions_leave_a_train(self) -> "SplitConfig":
+    def _fractions_hold_out_and_leave_a_train(self) -> "SplitConfig":
+        if self.test_frac == 0 and self.val_frac == 0:
+            raise ValueError("`split` holds nothing out: set `test_frac`, `val_frac` or both.")
         if self.test_frac + self.val_frac >= 1.0:
             raise ValueError("`test_frac` and `val_frac` together must leave something to train on.")
         return self
@@ -41,7 +43,13 @@ class KFoldConfig(_SplitSettings):
 
 
 def _parts(
-    config: _SplitSettings, inputs: Mapping[str, Any], context: TransformContext, folds: int, val_frac: float
+    config: _SplitSettings,
+    inputs: Mapping[str, Any],
+    context: TransformContext,
+    *,
+    folds: int,
+    test_frac: float,
+    val_frac: float,
 ) -> Any:
     from dataeval.data import split_dataset
 
@@ -53,7 +61,7 @@ def _parts(
         num_folds=folds,
         stratify=config.stratify,
         split_on=config.split_on,
-        test_frac=config.test_frac,
+        test_frac=test_frac,
         val_frac=val_frac,
     )
 
@@ -82,9 +90,16 @@ class SplitTransform(Transform[SplitConfig]):
         return frozenset({name for name, frac in (("val", config.val_frac), ("test", config.test_frac)) if frac == 0})
 
     def run(self, config: SplitConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
-        """Each part as a view of the input."""
-        splits = _parts(config, inputs, context, folds=1, val_frac=config.val_frac)
+        """Each part as a view of the input.
+
+        DataEval's one fold always holds out a ``val``: without ``val_frac``, that holdout is the ``test``.
+        """
         dataset = inputs["input"].value
+        if config.val_frac == 0:
+            holdout = _parts(config, inputs, context, folds=1, test_frac=0.0, val_frac=config.test_frac)
+            (fold,) = holdout.folds
+            return {"train": _view(dataset, fold.train), "val": _view(dataset, ()), "test": _view(dataset, fold.val)}
+        splits = _parts(config, inputs, context, folds=1, test_frac=config.test_frac, val_frac=config.val_frac)
         (fold,) = splits.folds
         return {
             "train": _view(dataset, fold.train),
@@ -127,7 +142,7 @@ class KFoldTransform(Transform[KFoldConfig]):
 
     def run(self, config: KFoldConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
         """Each fold's train and val, and the test, as views of the input."""
-        splits = _parts(config, inputs, context, folds=config.folds, val_frac=0.0)
+        splits = _parts(config, inputs, context, folds=config.folds, test_frac=config.test_frac, val_frac=0.0)
         dataset = inputs["input"].value
         return {
             "train": {str(index): _view(dataset, fold.train) for index, fold in enumerate(splits.folds)},
