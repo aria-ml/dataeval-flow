@@ -32,10 +32,10 @@ def toys(plugins):
 @pytest.mark.usefixtures("toys")
 def test_a_workflow_with_steps_is_a_custom_workflow() -> None:
     config = chain_pipeline(workflows=[_WRITTEN], evaluators=[DuplicatesConfig(name="dupes")], extractor=True)
-    (workflow,) = config.workflows or ()
+    workflow = (config.workflows or [])[0]
     assert isinstance(workflow, CustomWorkflowConfig)
     assert [slot.name for slot in workflow.single_slots] == ["a"]
-    assert workflow.list_slot == InputSlot(name="rest", is_list=True)
+    assert workflow.list_slot == InputSlot.model_validate({"name": "rest", "list": True})
     assert [step.kind for step in workflow.steps] == ["transform", "transform", "evaluator"]
     assert workflow.steps[1].config.n == 2  # type: ignore[union-attr]
 

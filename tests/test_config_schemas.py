@@ -1009,8 +1009,8 @@ class TestResolveWorkflow:
         )
         result = _resolve_workflow("standard_clean", config)
         assert result.name == "standard_clean"
-        assert result.type == "data-cleaning"
         assert isinstance(result, DataCleaningConfig)
+        assert result.type == "data-cleaning"
         assert result.outlier_method == "adaptive"
 
     def test_resolve_workflow_not_found(self):

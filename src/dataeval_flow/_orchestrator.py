@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._task import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
+    from dataeval_flow.steps._workflow import CustomWorkflowConfig
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
 
@@ -68,8 +69,8 @@ def _resolve_by_name(items: Sequence[T] | None, name: str, kind: str) -> T:
 def _resolve_workflow(
     workflow_name: str,
     config: "PipelineConfig",
-) -> "WorkflowConfig[Any]":
-    """Resolve a workflow by name from ``config.workflows``."""
+) -> "WorkflowConfig[Any] | CustomWorkflowConfig":
+    """Resolve a workflow by name from ``config.workflows``: a workflow type, or a custom workflow's steps."""
     return _resolve_by_name(config.workflows, workflow_name, "workflow")
 
 
@@ -79,6 +80,26 @@ def _resolve_evaluator(
 ) -> "EvaluatorConfig[Any]":
     """Resolve an evaluator by name from ``config.evaluators``."""
     return _resolve_by_name(config.evaluators, evaluator_name, "evaluator")
+
+
+def _reject_custom_workflow(
+    task: "TaskConfig", instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig"
+) -> "WorkflowConfig[Any] | EvaluatorConfig[Any]":
+    """`instance`, refused when it is a custom workflow: chained ``steps:`` are not runnable through this path yet.
+
+    Raises
+    ------
+    NotImplementedError
+        Naming the task and the custom workflow: only its own engine runs one, not this path.
+    """
+    from dataeval_flow.steps._workflow import CustomWorkflowConfig
+
+    if isinstance(instance, CustomWorkflowConfig):
+        raise NotImplementedError(
+            f"Task '{task.name}' runs workflow '{instance.name}', a custom workflow (chained `steps:`): running "
+            "one directly is not implemented yet."
+        )
+    return instance
 
 
 def _implementation(config: "WorkflowConfig[Any] | EvaluatorConfig[Any]") -> "Workflow[Any, Any] | Evaluator[Any, Any]":
@@ -423,7 +444,7 @@ def _run_single_task(
     if task.kind == "evaluator":
         instance = _resolve_evaluator(task.workflow, config)
     else:
-        instance = _resolve_workflow(task.workflow, config)
+        instance = _reject_custom_workflow(task, _resolve_workflow(task.workflow, config))
     runner = _implementation(instance)
 
     # `PipelineConfig` only checks the tasks it holds; a task run directly (not out of
