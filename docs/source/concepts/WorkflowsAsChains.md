@@ -49,7 +49,7 @@ Each step names exactly one kind:
 An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
 and optionally `extractor:` and `optional:`. A chain cannot run as a step of another chain.
 
-Transform steps make Datasets:
+Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 
 | Transform | Reads | Makes |
 | --- | --- | --- |

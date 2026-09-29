@@ -345,3 +345,4 @@ Loading a config and saving it, from the TUI or the config builder, keeps every 
 - [Declare an ontology](declare_an_ontology.md) — the vocabulary `scope.label-alignment` aligns to
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
+- [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings
