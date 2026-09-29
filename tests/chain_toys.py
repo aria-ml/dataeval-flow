@@ -217,10 +217,7 @@ class AtMost(Check[AtMostConfig]):
 
     def run(self, config: AtMostConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
         count = inputs["input"].value.groups
-        if config.most is None:
-            severity = "info"
-        else:
-            severity = "warning" if count > config.most else "ok"
+        severity = "info" if config.most is None else ("warning" if count > config.most else "ok")
         return [Finding(severity=severity, title=self.title, brief=f"{count} groups")]
 
 

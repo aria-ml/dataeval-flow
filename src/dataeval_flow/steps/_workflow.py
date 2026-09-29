@@ -86,7 +86,7 @@ class StepEntry(BaseModel):
 
     @property
     def config(self) -> StepConfig | None:
-        """An inline step's validated config, ports included: a transform's, combine's or check's; ``None`` otherwise."""
+        """An inline step's validated config: a transform's, combine's or check's; ``None`` otherwise."""
         return self._config
 
     @model_validator(mode="after")

@@ -24,6 +24,8 @@ from dataeval_flow.steps._registry import CHECKS
 from dataeval_flow.workflows import Finding
 from tests.chain_toys import AtMostConfig, register_toys
 
+pytestmark = pytest.mark.usefixtures("toys")
+
 
 @pytest.fixture
 def toys(plugins):
@@ -35,18 +37,18 @@ def _workflow(*steps: dict[str, Any]) -> CustomWorkflowConfig:
     return CustomWorkflowConfig.model_validate({"name": "w", "inputs": ["a"], "steps": list(steps)})
 
 
-def test_a_check_s_one_output_is_its_findings(toys) -> None:
+def test_a_check_s_one_output_is_its_findings() -> None:
     assert get_check("toy-at-most").output_ports() == (Port("findings", DataType.FINDINGS),)
 
 
-def test_plugin_combines_and_checks_load_from_their_own_groups(toys) -> None:
+def test_plugin_combines_and_checks_load_from_their_own_groups() -> None:
     assert get_combine("toy-count-groups").kind == "combine"
     assert get_check("toy-at-most").kind == "check"
     assert {"toy-at-most", "toy-worst"} <= {cls.name for cls in list_checks()}
     assert CHECKS.group == "dataeval_flow.checks"
 
 
-def test_a_check_step_s_thresholds_are_validated_by_its_config(toys) -> None:
+def test_a_check_step_s_thresholds_are_validated_by_its_config() -> None:
     workflow = _workflow(
         {"name": "dupes", "evaluator": "dupes", "input": "a"},
         {"name": "count", "combine": "toy-count-groups", "input": "dupes"},
@@ -57,17 +59,17 @@ def test_a_check_step_s_thresholds_are_validated_by_its_config(toys) -> None:
     assert (config.input, config.most) == ("count", 2.0)
 
 
-def test_a_misspelled_threshold_fails_the_load(toys) -> None:
+def test_a_misspelled_threshold_fails_the_load() -> None:
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         _workflow({"name": "judge", "check": "toy-at-most", "input": "count", "mots": 2})
 
 
-def test_an_unknown_check_names_the_ones_installed(toys) -> None:
+def test_an_unknown_check_names_the_ones_installed() -> None:
     with pytest.raises(ValidationError, match=r"Unknown check: 'nope'\. Installed: \[.*'toy-at-most'"):
         _workflow({"name": "judge", "check": "nope", "input": "a"})
 
 
-def test_combine_and_check_steps_are_written_back_as_written(toys) -> None:
+def test_combine_and_check_steps_are_written_back_as_written() -> None:
     steps = [
         {"name": "count", "combine": "toy-count-groups", "input": "dupes"},
         {"name": "judge", "check": "toy-at-most", "input": "count", "most": 2},

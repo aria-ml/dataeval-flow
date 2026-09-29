@@ -90,9 +90,7 @@ class Combine(InlineStep, ABC, Generic[CombineConfigT]):
             return
         for port in cls.outputs:
             if port.type is not DataType.OUTPUT:
-                raise TypeError(
-                    f"{cls.__name__}'s output `{port.name}` carries {port.type}: a combine makes Outputs."
-                )
+                raise TypeError(f"{cls.__name__}'s output `{port.name}` carries {port.type}: a combine makes Outputs.")
 
     @abstractmethod
     def run(self, config: CombineConfigT, inputs: Mapping[str, Any], context: CombineContext) -> Mapping[str, Any]:
