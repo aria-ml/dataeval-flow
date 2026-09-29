@@ -122,7 +122,7 @@ class ResultViewModel:
 
         findings = self._findings
         n = len(findings)
-        warnings = sum(1 for f in findings if getattr(f, "severity", "info") == "warning")
+        warnings = self.warning_count()
         parts: list[str] = []
         parts.append(f"{n} finding{'s' if n != 1 else ''}")
         if warnings:
@@ -162,8 +162,8 @@ class ResultViewModel:
         return len(self._findings)
 
     def warning_count(self) -> int:
-        """Number of findings with severity 'warning'."""
-        return sum(1 for f in self._findings if getattr(f, "severity", "info") == "warning")
+        """How many findings are warnings, as the result counted them; an evaluator's result has no findings."""
+        return 0 if self._is_evaluator else int(self._result.warning_count)
 
     def finding_summaries(self) -> list[FindingSummary]:
         """Return view-ready summaries for all findings."""

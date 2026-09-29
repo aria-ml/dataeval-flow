@@ -370,7 +370,7 @@ def binning_blocks(
         blocks.extend(_record_blocks(binning, detailed=detailed))
     if diagnostics:
         blocks.append(Section(title="Diagnostics", blocks=[BulletList(items=list(diagnostics))]))
-    return [Section(title="Metadata Factors", blocks=blocks)]
+    return [Section(title="Metadata Factors", reference=True, blocks=blocks)]
 
 
 # -- Distribution charts: what makes a bin count arguable rather than arbitrary ------------------

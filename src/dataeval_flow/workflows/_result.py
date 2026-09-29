@@ -120,10 +120,9 @@ class WorkflowResult(Result[TMetadata, TOutput]):
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
         """The summary with the health line, every finding's section when *detailed*, then the metadata factors."""
-        findings = self.findings
-        blocks = self._summary_blocks(findings)
+        blocks = self._summary_blocks()
         if detailed:
-            blocks.extend(finding_section(finding) for finding in findings)
+            blocks.extend(finding_section(finding) for finding in self.findings)
         blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))
         return blocks
 
@@ -131,9 +130,10 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         """The health roll-up, then the workflow's own output fields."""
         return {"health": self.health, **self.output.model_dump(mode="json")}
 
-    def _summary_blocks(self, findings: list[Finding]) -> list[Block]:
-        """One summary line per finding, then the health verdict."""
+    def _summary_blocks(self) -> list[Block]:
+        """One summary line per finding, then the health verdict: the warnings :attr:`warning_count` counted."""
+        findings = self.findings
         if not findings:
             return [Paragraph(text="No findings to report.")]
         items = [SummaryItem(label=f.title, value=f.brief or "", severity=f.severity) for f in findings]
-        return [Section(title="Summary", blocks=[Summary(items=items)])]
+        return [Section(title="Summary", blocks=[Summary(items=items, warnings=self.warning_count)])]

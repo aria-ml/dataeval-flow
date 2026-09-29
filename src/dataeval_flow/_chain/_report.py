@@ -70,7 +70,7 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
                 ("Skipped", counts["skipped"]),
             ]
         ),
-        *result._summary_blocks(result.findings),  # noqa: SLF001 - a chain's report reuses a workflow's summary
+        *result._summary_blocks(),  # noqa: SLF001 - a chain's report reuses a workflow's summary
         *steps,
     ]
 

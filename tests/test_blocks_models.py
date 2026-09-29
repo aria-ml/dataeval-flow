@@ -56,7 +56,7 @@ EVERY_BLOCK: list[Block] = [
     Distribution(histogram=[5, 0, 7]),
     Code(text="metadata:\n  - name: standard\n", language="yaml"),
     Tree(value={"tasks": [{"name": "a", "sources": ["s1", "s2"]}], "seed": None}),
-    Summary(items=[SummaryItem(label="Duplicates", value="3 groups", severity="warning")]),
+    Summary(items=[SummaryItem(label="Duplicates", value="3 groups", severity="warning")], warnings=1),
     Table(
         columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
         rows=[
@@ -192,7 +192,11 @@ class TestJsonForm:
 
     def test_a_value_given_as_its_default_is_left_out_too(self):
         item = SummaryItem(label="Duplicates", value="", severity="info")
-        assert Summary(items=[item]).model_dump(mode="json") == {"type": "summary", "items": [{"label": "Duplicates"}]}
+        assert Summary(items=[item], warnings=0).model_dump(mode="json") == {
+            "type": "summary",
+            "items": [{"label": "Duplicates"}],
+            "warnings": 0,
+        }
 
     @pytest.mark.parametrize("block", EVERY_BLOCK, ids=lambda block: block.type)
     def test_the_compact_form_reads_back_to_the_same_block(self, block):

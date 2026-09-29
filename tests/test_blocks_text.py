@@ -145,27 +145,32 @@ class TestCodeAndTree:
 class TestSummary:
     def test_a_dotted_leader_joins_label_to_value_and_marker(self):
         item = SummaryItem(label="Duplicates", value="3 groups", severity="warning")
-        line = render_text([Summary(items=[item])], Frame(indent="  "))[0]
+        line = render_text([Summary(items=[item], warnings=1)], Frame(indent="  "))[0]
         assert line.startswith("  Duplicates ....")
         assert line.endswith(" 3 groups  [!!]")
         assert len(line) == DEFAULT_WIDTH - 2
 
     @pytest.mark.parametrize(("severity", "marker"), [("ok", "[ok]"), ("info", "[..]"), ("warning", "[!!]")])
     def test_each_severity_has_its_marker(self, severity, marker):
-        line = render_text([Summary(items=[SummaryItem(label="x", severity=severity)])])[0]
+        line = render_text(
+            [Summary(items=[SummaryItem(label="x", severity=severity)], warnings=int(severity == "warning"))]
+        )[0]
         assert line.endswith(marker)
 
     def test_a_long_label_wraps_and_its_last_line_carries_the_value(self):
         item = SummaryItem(label=" ".join(["Unpinned categorical vocabularies"] * 4), value="12 factors")
-        lines = render_text([Summary(items=[item])], Frame(width=60, indent="  "))
+        lines = render_text([Summary(items=[item], warnings=0)], Frame(width=60, indent="  "))
         assert len(lines) > 3
         assert lines[-3].endswith("12 factors  [..]")
         assert all(len(line) <= 60 for line in lines)
 
     def test_the_lines_end_with_the_health_their_warnings_add_up_to(self):
         items = [SummaryItem(label="a", severity="warning"), SummaryItem(label="b", severity="ok")]
-        assert render_text([Summary(items=items)])[-2:] == ["", "Health: 1 warning(s) [!!] — review flagged findings"]
-        assert render_text([Summary(items=items[1:])])[-1] == "Health: All checks passed [ok]"
+        assert render_text([Summary(items=items, warnings=1)])[-2:] == [
+            "",
+            "Health: 1 warning(s) [!!] — review flagged findings",
+        ]
+        assert render_text([Summary(items=items[1:], warnings=0)])[-1] == "Health: All checks passed [ok]"
 
 
 class TestCharts:
@@ -200,7 +205,10 @@ def test_long_prose_fits_the_width_in_every_wrapping_block(width):
                 Paragraph(text=_LONG),
                 BulletList(items=[_LONG]),
                 Fields(items=[("Remedy", _LONG)]),
-                Section(title="Nested", blocks=[Paragraph(text=_LONG), Summary(items=[SummaryItem(label=_LONG)])]),
+                Section(
+                    title="Nested",
+                    blocks=[Paragraph(text=_LONG), Summary(items=[SummaryItem(label=_LONG)], warnings=0)],
+                ),
             ],
         )
     ]
@@ -283,7 +291,7 @@ class TestAwkwardInputs:
 
     def test_an_unbreakable_summary_label_at_the_narrowest_width_still_renders(self):
         item = SummaryItem(label="x" * 60, value="3 of 3", severity="warning")
-        lines = render_text([Summary(items=[item])], Frame(width=40, indent="  "))
+        lines = render_text([Summary(items=[item], warnings=1)], Frame(width=40, indent="  "))
         assert lines[lines.index("") - 1].endswith("3 of 3  [!!]")
 
 
@@ -308,7 +316,7 @@ class TestNarrowWidths:
 
     def test_a_long_value_moves_under_its_label(self):
         item = SummaryItem(label="Label Distribution", value="3 classes, 60 items, imbalance 4.0:1", severity="warning")
-        lines = render_text([Summary(items=[item])], Frame(width=40, indent="  "))
+        lines = render_text([Summary(items=[item], warnings=1)], Frame(width=40, indent="  "))
         assert all(len(line) <= 40 for line in lines), max(lines, key=len)
         assert lines[0] == "  Label Distribution"
         assert lines[lines.index("") - 1].endswith("[!!]")
@@ -321,7 +329,8 @@ class TestNarrowWidths:
             ("Duplicates", "3 groups (7 images)"),
         ]
         summary = Summary(
-            items=[SummaryItem(label=title, value=brief, severity="warning") for title, brief in findings]
+            items=[SummaryItem(label=title, value=brief, severity="warning") for title, brief in findings],
+            warnings=len(findings),
         )
         root = Section(
             title="Data cleaning complete. Dataset: 22 items. Mode: advisory.",
