@@ -79,6 +79,10 @@ dataeval_flow.evaluators.quality:ThresholdSpec
 dataeval_flow.evaluators.scope:CoverageConfig
 dataeval_flow.evaluators.scope:CoverageEvaluator
 dataeval_flow.evaluators.scope:CoverageResult
+dataeval_flow.evaluators.scope:LabelAlignmentConfig
+dataeval_flow.evaluators.scope:LabelAlignmentEvaluator
+dataeval_flow.evaluators.scope:LabelAlignmentOutput
+dataeval_flow.evaluators.scope:LabelAlignmentResult
 dataeval_flow.evaluators.scope:PrioritizeConfig
 dataeval_flow.evaluators.scope:PrioritizeEvaluator
 dataeval_flow.evaluators.scope:PrioritizeResult

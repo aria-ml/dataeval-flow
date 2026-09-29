@@ -1957,13 +1957,13 @@ class TestAuditToRunJoin:
         """Run the audit, conform a source by what it emitted, and compare digests."""
         from dataeval import Ontology
 
+        from dataeval_flow._alignment import align_labels
         from dataeval_flow._sources import label_space_records, resolve_source
         from dataeval_flow.config import ViewConfig, ViewOperation
         from dataeval_flow.workflows import ResolvedOntology
-        from dataeval_flow.workflows.data_coverage._ontology import _alignment
 
         ontology = Ontology.from_hierarchy({"Vehicle": ["Car", "Truck"], "Person": []})
-        alignment = _alignment(ontology, ["car", "van"])
+        alignment = align_labels(ontology, ["car", "van"])
 
         # What a user pastes out of the audit's report and into a view.
         config = _envelope_config()

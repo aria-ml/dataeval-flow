@@ -31,6 +31,8 @@ _VIEWS: dict[str, frozenset[str]] = {
     ),
     "quality.outliers": frozenset({"outliers"}),
     "scope.prioritize": frozenset({"indices"}),
+    # `alignment` is the same `LabelAlignment` `data()` already dumps, as a model rather than a dict.
+    "scope.label-alignment": frozenset({"alignment"}),
 }
 
 # Attributes that echo the inputs or settings back, most kept by DataEval for re-detection. Never serialized.
@@ -72,6 +74,8 @@ _ECHOES: dict[str, frozenset[str]] = {
     "shift.drift-wasserstein": frozenset(),
     "shift.ood-domain-classifier": frozenset(),
     "shift.ood-kneighbors": frozenset(),
+    # `ontology` is the config's own input, read back rather than serialized: `conform` reaches it off the result.
+    "scope.label-alignment": frozenset({"ontology"}),
 }
 
 

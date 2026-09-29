@@ -4,7 +4,7 @@ __all__ = ["Evaluator"]
 
 import typing
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from dataeval_flow._input_spec import InputKind
@@ -41,7 +41,9 @@ class Evaluator(Step, ABC, Generic[ConfigT, OutputT]):
 
     - ``name: ClassVar[str]``: the type id. It must equal the config's ``type`` default and the entry-point name.
     - ``description: ClassVar[str]``: one line, which ``dataeval-flow evaluators`` prints.
-    - ``dataeval_class: ClassVar[type]``: the DataEval evaluator class it wraps.
+    - ``dataeval_class: ClassVar[type]``: the DataEval evaluator class it wraps. May instead be a ``dataeval.core``
+      function, for an evaluator that wraps one directly rather than a stateful class; such an evaluator sets
+      ``dataeval_methods = {<kind>: "__call__"}`` and returns a :class:`~dataeval_flow.evaluators._core.CoreOutput`.
     - ``dataeval_methods: ClassVar[Mapping[InputKind, str]]``: the DataEval method :meth:`run` calls for each
       input kind its config reads, e.g. ``{InputKind.STATS: "from_stats"}``. Flow calls neither of these two; they
       state which DataEval API the evaluator depends on, readable without running it.
@@ -122,7 +124,7 @@ class Evaluator(Step, ABC, Generic[ConfigT, OutputT]):
     description: ClassVar[str]
     kind: ClassVar[StepKind] = "evaluator"
     config_type: ClassVar["type[EvaluatorConfig[Any]]"]  # type: ignore[reportIncompatibleVariableOverride]
-    dataeval_class: ClassVar[type]
+    dataeval_class: ClassVar[type | Callable[..., Any]]
     dataeval_methods: ClassVar[Mapping[InputKind, str]]
     output_extras: ClassVar[tuple[str, ...]] = ()
     output_type: ClassVar[type | None] = None

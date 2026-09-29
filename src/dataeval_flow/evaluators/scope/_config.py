@@ -3,14 +3,16 @@
 Field names are DataEval's argument names. An unset field is not passed, so DataEval's own default applies.
 """
 
-__all__ = ["CoverageConfig", "PrioritizeConfig", "RepresentationConfig"]
+__all__ = ["CoverageConfig", "LabelAlignmentConfig", "LabelAlignmentResult", "PrioritizeConfig", "RepresentationConfig"]
 
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field
 
+from dataeval_flow._alignment import LabelAlignmentOutput
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.evaluators._result import EvaluatorResult
 from dataeval_flow.evaluators.scope._result import CoverageResult, PrioritizeResult, RepresentationResult
 
 
@@ -209,4 +211,46 @@ class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
         default=None,
         gt=0,
         description="Difficulty bins, for the `stratified` policy. Unset uses DataEval's default (50).",
+    )
+
+
+class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
+    """The result of a ``scope.label-alignment`` run; ``output`` is a :class:`~dataeval_flow.LabelAlignmentOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        The alignment: ``data()`` is the ``LabelAlignment`` as JSON (``mergeability``, ``correspondences``,
+        ``unaligned_source``, ``unaligned_target``, ``class_remap``, ``paste_remap``, ``target_vocabulary``,
+        ``ambiguous_labels``, ``label_space_digest``). ``output.alignment`` is the same, as a pydantic model, and
+        ``output.ontology`` the resolved ontology a ``conform`` step relabels onto.
+    metadata.evaluator
+        The evaluator type, e.g. ``quality.duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+
+class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
+    """Config for ``scope.label-alignment``: how a Dataset's class names align to an ontology.
+
+    Wraps ``dataeval.core.label_alignment``, with the remap written as labels to paste, the target vocabulary, and the
+    label-space digest a conformed corpus carries. A ``conform`` step applies it.
+    """
+
+    type: str = Field(
+        default="scope.label-alignment",
+        description="The evaluator type this entry configures: `scope.label-alignment`.",
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
+    ontology: dict[str, Any] | str = Field(
+        description="The ontology to align to: a name from `ontologies:`, a path, or an inline hierarchy."
+    )
+    threshold: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="DataEval's `threshold`: the lowest confidence a fuzzy match keeps."
     )

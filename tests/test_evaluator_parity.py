@@ -7,6 +7,7 @@ import dataclasses
 import inspect
 import types
 import typing
+from collections.abc import Callable
 from typing import Any, Literal
 
 import pytest
@@ -36,14 +37,26 @@ _WIRING: dict[str, frozenset[str]] = {
     "shift.drift-wasserstein": frozenset({"extractor", "update_strategy"}),
     "shift.ood-domain-classifier": frozenset({"extractor"}),
     "shift.ood-kneighbors": frozenset({"extractor"}),
+    # `matchers` holds objects a config file cannot express.
+    "scope.label-alignment": frozenset({"matchers"}),
 }
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
 _CONVERTED: set[tuple[str, str]] = {("quality.duplicates", "flags"), ("quality.outliers", "flags")}
 
 
-def _dataeval_fields(cls: type) -> dict[str, Any]:
-    """The fields of `cls.Config`, a pydantic model or a dataclass, with their annotations."""
+def _dataeval_fields(cls: "type | Callable[..., Any]") -> dict[str, Any]:
+    """The fields of `cls.Config`, a pydantic model or a dataclass, with their annotations.
+
+    A function-backed evaluator (``cls`` is a ``dataeval.core`` function) has no ``Config``; its keyword-only
+    parameters play that role, since those are the ones a config file can set.
+    """
+    if inspect.isfunction(cls):
+        return {
+            name: parameter.annotation
+            for name, parameter in inspect.signature(cls).parameters.items()
+            if parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        }
     config = cls.Config  # type: ignore[attr-defined]
     if dataclasses.is_dataclass(config):
         return {field.name: field.type for field in dataclasses.fields(config)}
@@ -51,7 +64,13 @@ def _dataeval_fields(cls: type) -> dict[str, Any]:
 
 
 def _method_parameters(evaluator: Any) -> set[str]:
-    """The parameters of the DataEval methods the evaluator calls, such as `from_stats`'s `per_image`."""
+    """The parameters of the DataEval methods the evaluator calls, such as `from_stats`'s `per_image`.
+
+    A function-backed evaluator's ``__call__`` is the slot every function has, whose own signature is
+    ``(*args, **kwargs)``; inspect the function itself instead.
+    """
+    if inspect.isfunction(evaluator.dataeval_class):
+        return set(inspect.signature(evaluator.dataeval_class).parameters) - {"self"}
     return {
         name
         for method in evaluator.dataeval_methods.values()

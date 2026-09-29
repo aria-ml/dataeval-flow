@@ -4113,6 +4113,50 @@
       "title": "InputSlot",
       "type": "object"
     },
+    "LabelAlignmentConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``scope.label-alignment``: how a Dataset's class names align to an ontology.\n\nWraps ``dataeval.core.label_alignment``, with the remap written as labels to paste, the target vocabulary, and the\nlabel-space digest a conformed corpus carries. A ``conform`` step applies it.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope.label-alignment",
+          "default": "scope.label-alignment",
+          "description": "The evaluator type this entry configures: `scope.label-alignment`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The ontology to align to: a name from `ontologies:`, a path, or an inline hierarchy.",
+          "title": "Ontology"
+        },
+        "threshold": {
+          "default": 0.0,
+          "description": "DataEval's `threshold`: the lowest confidence a fuzzy match keeps.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "LabelAlignmentConfig",
+      "type": "object"
+    },
     "LoggingConfig": {
       "additionalProperties": false,
       "description": "The log levels of a pipeline's ``logging:`` key.\n\nOnly a pipeline run by the ``dataeval-flow`` command applies them: :func:`~dataeval_flow.run_tasks` and\n:func:`~dataeval_flow.run` leave logging to their caller.\n\nYAML example::\n\n    logging:\n      app_level: INFO\n      lib_level: ERROR",
@@ -8725,6 +8769,9 @@
               },
               {
                 "$ref": "#/$defs/CoverageConfig"
+              },
+              {
+                "$ref": "#/$defs/LabelAlignmentConfig"
               },
               {
                 "$ref": "#/$defs/PrioritizeConfig"

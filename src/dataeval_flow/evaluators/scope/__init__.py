@@ -4,6 +4,10 @@ __all__ = [
     "CoverageConfig",
     "CoverageEvaluator",
     "CoverageResult",
+    "LabelAlignmentConfig",
+    "LabelAlignmentEvaluator",
+    "LabelAlignmentOutput",
+    "LabelAlignmentResult",
     "PrioritizeConfig",
     "PrioritizeEvaluator",
     "PrioritizeResult",
@@ -12,6 +16,18 @@ __all__ = [
     "RepresentationResult",
 ]
 
-from dataeval_flow.evaluators.scope._config import CoverageConfig, PrioritizeConfig, RepresentationConfig
-from dataeval_flow.evaluators.scope._evaluator import CoverageEvaluator, PrioritizeEvaluator, RepresentationEvaluator
+from dataeval_flow._alignment import LabelAlignmentOutput
+from dataeval_flow.evaluators.scope._config import (
+    CoverageConfig,
+    LabelAlignmentConfig,
+    LabelAlignmentResult,
+    PrioritizeConfig,
+    RepresentationConfig,
+)
+from dataeval_flow.evaluators.scope._evaluator import (
+    CoverageEvaluator,
+    LabelAlignmentEvaluator,
+    PrioritizeEvaluator,
+    RepresentationEvaluator,
+)
 from dataeval_flow.evaluators.scope._result import CoverageResult, PrioritizeResult, RepresentationResult
