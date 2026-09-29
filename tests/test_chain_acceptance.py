@@ -3,13 +3,17 @@
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
 from dataeval_flow import load_dataset, run_tasks
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._ci_reports import junit_report, markdown_summary
+from dataeval_flow.evaluators.quality import OutliersEvaluator
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import ToyDetections, yaml_pipeline
+from tests.evaluator_toys import ToyImages
 
 _ONTOLOGY = """
 ontologies:
@@ -176,3 +180,60 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
         for entry in provenance["label_space"]
     ]
     assert records == [("a2", "vehicles", "7322513e6772", a2_remap), ("b2", "vehicles", "7322513e6772", b2_remap)]
+
+
+_CLEANING_REPORT = """
+evaluators:
+  - {name: outliers, type: quality.outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
+  - {name: dupes, type: quality.duplicates, merge_near_duplicates: true}
+  - {name: labels, type: quality.label-health}
+
+workflows:
+  - name: cleaning_report
+    inputs: [data]
+    steps:
+      - {name: outliers, evaluator: outliers, input: data}
+      - {name: labels, evaluator: labels, input: data}
+      - {name: by_class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: dupes, evaluator: dupes, input: data}
+      - {name: image_outliers, check: outlier-rate, input: outliers}
+      - {name: target_outliers, check: target-outlier-rate, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outlier-rate, input: by_class}
+      - {name: duplicates, check: duplicate-rate, input: dupes}
+      - {name: imbalance, check: class-imbalance, input: labels}
+
+tasks:
+  - {name: report, workflow: cleaning_report, sources: [src]}
+"""
+
+
+def test_data_cleaning_s_report_runs_as_a_chain_and_every_output_shows_its_verdict(tmp_path: Path) -> None:
+    result = _run(_CLEANING_REPORT, {"src": ToyImages(count=24)}, tmp_path, "report")
+    assert result.success, result.errors
+    assert result.health == {"status": "warning", "warnings": 3, "findings": 4, "failed_steps": []}
+    payload = result.to_dict()
+    assert [finding["step"] for finding in payload["findings"]] == [  # type: ignore[union-attr]
+        "image_outliers",
+        "classwise",
+        "duplicates",
+        "imbalance",
+    ]
+    assert "Health: 3 warning(s)" in result.report()
+    assert '<span class="badge warning">3 warnings</span>' in result.to_html()
+    junit = junit_report({"report": result})
+    assert 'tests="4" failures="3" errors="0"' in junit
+    assert "**Health:** 3 warnings" in markdown_summary({"report": result})
+
+
+def test_a_check_whose_evaluator_failed_is_not_assessed_in_a_run_from_yaml(tmp_path: Path) -> None:
+    text = _CLEANING_REPORT.replace(
+        "{name: outliers, evaluator: outliers, input: data}",
+        "{name: outliers, evaluator: outliers, input: data, optional: true}",
+    )
+    with patch.object(OutliersEvaluator, "run", side_effect=RuntimeError("no stats")):
+        result = _run(text, {"src": ToyImages(count=24)}, tmp_path, "report")
+    image = next(finding for finding in result.findings if finding.step == "image_outliers")
+    assert (image.severity, image.brief) == ("info", "not assessed")
+    assert image.description == "Not assessed: `outliers` was skipped: failed: RuntimeError: no stats."
+    assert result.failed_steps == []
+    assert result.health["status"] == "warning"  # the duplicates are still judged, and still warn
