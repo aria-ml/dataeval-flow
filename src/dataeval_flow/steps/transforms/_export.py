@@ -50,14 +50,13 @@ class ExportRecord(BaseModel):
 
 
 class ExportTransform(Transform[ExportStepConfig]):
-    """``export``: write a Dataset under the run's output directory, and record where. Skipped without one."""
+    """``export``: write a Dataset under the run's output directory, and record where; each element of a list under
+    its key. Skipped without an output directory."""
 
     name: ClassVar[str] = "export"
     description: ClassVar[str] = "Writes an object-detection Dataset to disk as COCO, YOLO or another datamaite format."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, kinds=frozenset({"object_detection"})),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.EXPORT),)
-    # One destination per step, not per element: run once per element of a list, every run would write to that place.
-    broadcasts: ClassVar[bool] = False
 
     @classmethod
     def destinations(cls, config: ExportStepConfig, *, task: str, step: str) -> tuple[str, ...]:
@@ -72,6 +71,14 @@ class ExportTransform(Transform[ExportStepConfig]):
         """An export makes no Dataset."""
         return {}
 
+    def _where(self, config: ExportStepConfig, context: TransformContext) -> str:
+        """The directory under ``datasets/`` this run writes: ``to``, or ``<task>.<step>``, and an element's key
+        below it where the step runs once per element of a list."""
+        (to,) = self.destinations(config, task=context.task, step=context.step)
+        if context.element is None:
+            return to
+        return f"{to}/{one_directory_segment(context.element, what='List key')}"
+
     def run(self, config: ExportStepConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
         """Write the input, or skip when the run writes no files."""
         from dataeval_flow._export import write_node, write_source
@@ -79,10 +86,10 @@ class ExportTransform(Transform[ExportStepConfig]):
         if context.output_dir is None:
             raise StepSkipped("the run has no output directory")
         node = inputs["input"]
-        (to,) = self.destinations(config, task=context.task, step=context.step)
-        dest = context.output_dir / "datasets" / to
+        where = self._where(config, context)
+        dest = context.output_dir / "datasets" / where
         common = {
-            "name": to,
+            "name": where,
             "format": config.format,
             "mode": config.mode,
             "ontology_owner": config,

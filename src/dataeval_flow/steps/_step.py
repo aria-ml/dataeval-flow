@@ -97,6 +97,9 @@ class TransformContext:
     label_space: "tuple[LabelSpaceRecord, ...]" = ()
     """The label spaces applied on the way to this step's Dataset inputs, such as each ``conform``'s, in chain
     order."""
+    element: str | None = None
+    """The key of the list element this run is for, where the step runs once per element of a list; ``None`` when
+    it runs once."""
 
 
 class StepSkipped(Exception):  # noqa: N818 - a step's outcome, not an error
@@ -162,9 +165,9 @@ class Transform(InlineStep, ABC, Generic[ConfigT]):
     their producer may also read a reference set after that Dataset, as Prioritize does: only its first input is then
     compared. :meth:`bound_problem` refuses settings that do not fit the classes of the Outputs bound to them.
     :meth:`empty_outputs` names outputs its settings leave empty, and :meth:`destinations` the directories a run
-    writes. Set ``broadcasts`` false when a run cannot be repeated once per element of a list, as ``export``'s
-    cannot: every run would write to the same place. :meth:`details` reports what a run did, such as what it
-    collapsed or dropped, for the JSON and the report.
+    writes. Set ``broadcasts`` false when a run cannot be repeated once per element of a list;
+    :attr:`TransformContext.element` names the element a run is for. :meth:`details` reports what a run did, such as
+    what it collapsed or dropped, for the JSON and the report.
 
     Register the class under the ``dataeval_flow.transforms`` entry-point group, named by ``name``.
 

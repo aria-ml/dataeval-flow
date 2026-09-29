@@ -180,6 +180,23 @@ class DetectionsOnly(Transform[DetectionsOnlyConfig]):
         return {"output": inputs["input"].value}
 
 
+class OnePlaceConfig(TransformConfig):
+    input: str
+
+
+class OnePlace(Transform[OnePlaceConfig]):
+    """Hands its input on, and cannot run once per element of a list."""
+
+    name: ClassVar[str] = "toy-one-place"
+    description: ClassVar[str] = "Runs once, never per element."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+    broadcasts: ClassVar[bool] = False
+
+    def run(self, config: OnePlaceConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        return {"output": inputs["input"].value}
+
+
 class GroupCount(BaseModel):
     """How many duplicate groups an Output holds: a combine's output."""
 
@@ -250,6 +267,7 @@ _TOYS = {
     "toy-pair": "tests.chain_toys:Pair",
     "toy-spread": "tests.chain_toys:Spread",
     "toy-detections-only": "tests.chain_toys:DetectionsOnly",
+    "toy-one-place": "tests.chain_toys:OnePlace",
 }
 
 

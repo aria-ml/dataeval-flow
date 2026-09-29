@@ -258,8 +258,8 @@ def _resolve(
         address, value = _first_list(bindings, entry, workflow, types, later, empty)
         element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, a list, but transform '{type_id}' writes one Dataset to one "
-            f"place, so it does not run once per element: name one element, such as `{element}`."
+            f"Step '{entry.name}' reads `{address}`, a list, but transform '{type_id}' does not run once per element "
+            f"of a list: name one element, such as `{element}`."
         )
     if issubclass(impl, InlineStep):
         _same_node(entry, impl, addresses, specs, types)

@@ -639,6 +639,7 @@ def _transform(
         derive_metadata=lambda node: _metadata(node, step.metadata_policy),
         lineage=lambda address: _ancestry(address, lineage),
         label_space=tuple(record for record in applied if record.source in ancestors),
+        element=element,
     )
     made = impl.run(spec.config, inputs, context)
     _check_datasets(spec, made)
