@@ -11,6 +11,7 @@ import pytest
 import dataeval_flow._embeddings
 import dataeval_flow._metadata
 import dataeval_flow._view  # noqa: F401
+from dataeval_flow._classwise import class_labels_frame, split_outlier_issues
 from dataeval_flow._orchestrator import _run_target
 from dataeval_flow.config import ViewOperation
 from dataeval_flow.config.extractors import OnnxExtractorConfig
@@ -22,7 +23,6 @@ from dataeval_flow.workflows.data_cleaning._outputs import (
 )
 from dataeval_flow.workflows.data_cleaning._workflow import (
     CleaningRunContext,
-    _build_class_labels_df,
     _build_duplicates,
     _build_outliers,
     _compute_classwise_pivot,
@@ -35,7 +35,6 @@ from dataeval_flow.workflows.data_cleaning._workflow import (
     _run_duplicate_detection,
     _serialize_duplicates,
     _serialize_outlier_issues,
-    _split_outlier_issues,
 )
 from tests.finding_blocks import fields
 
@@ -690,7 +689,7 @@ class TestResolveFlags:
 
 
 # ---------------------------------------------------------------------------
-# _split_outlier_issues
+# split_outlier_issues
 # ---------------------------------------------------------------------------
 
 
@@ -704,7 +703,7 @@ class TestSplitOutlierIssues:
                 "target_index": [None, 5, None],
             }
         )
-        img, tgt = _split_outlier_issues(df)
+        img, tgt = split_outlier_issues(df)
         assert img.shape[0] == 2
         assert tgt is not None
         assert tgt.shape[0] == 1
@@ -717,13 +716,13 @@ class TestSplitOutlierIssues:
                 "metric_value": [0.1, 0.2],
             }
         )
-        img, tgt = _split_outlier_issues(df)
+        img, tgt = split_outlier_issues(df)
         assert img.shape[0] == 2
         assert tgt is None
 
 
 # ---------------------------------------------------------------------------
-# _build_class_labels_df
+# class_labels_frame
 # ---------------------------------------------------------------------------
 
 
@@ -736,7 +735,7 @@ class TestBuildClassLabelsDf:
         metadata.multi_target = False
         metadata.item_indices = [0, 1, 2, 3]
 
-        labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
+        labels_df, id_cols, label_counts = class_labels_frame(metadata)
         assert id_cols == ["item_index"]
         assert labels_df.shape[0] == 4
         assert "class_name" in labels_df.columns
@@ -757,7 +756,7 @@ class TestBuildClassLabelsDf:
             }
         )
 
-        labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
+        labels_df, id_cols, label_counts = class_labels_frame(metadata)
         assert id_cols == ["item_index", "target_index"]
         assert "class_name" in labels_df.columns
         assert labels_df.shape[0] == 3
