@@ -5,7 +5,7 @@ __all__ = ["ChainRun", "ExtractorSetup", "RunSettings", "StepContext", "bind_inp
 import contextlib
 import logging
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -476,6 +476,7 @@ def _transform(
         label_space=tuple(record for record in applied if record.source in ancestors),
     )
     made = impl.run(spec.config, inputs, context)
+    _check_datasets(spec, made)
     first = spec.output_address(spec.outputs[0]) + (f"[{element}]" if element is not None else "")
     records = impl.label_space(spec.config, inputs, made, address=first)
     digest = impl.digest(spec.config, inputs, made)
@@ -502,6 +503,20 @@ def _transform(
             on = tuple(node.address for node in sources)
             outputs[port.name] = Node(address, port.type, payload=value, step=spec.name, step_type=spec.type, inputs=on)
     return outputs, records, details
+
+
+def _check_datasets(spec: StepSpec, made: Mapping[str, Any]) -> None:
+    """Refuse a Dataset output with no length here, where it fails only its step: lineage and the JSON measure it."""
+    for port in spec.outputs:
+        if port.type is not DataType.DATASET:
+            continue
+        value = made[port.name]
+        for dataset in value.values() if port.is_list else [value]:
+            if not isinstance(dataset, Sized):
+                raise TypeError(
+                    f"transform '{spec.type}' returned {type(dataset).__name__} for `{port.name}`, which has no "
+                    "length: a Dataset must have one."
+                )
 
 
 def _made_node(

@@ -1,7 +1,8 @@
 """Running a graph: order, failures, skips, broadcasting, and derivation per node (spec §4.2, §5.5, §5.6)."""
 
 import logging
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +11,7 @@ from dataeval.quality import DuplicatesOutput
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._nodes import Missing, Node, NodeList
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator
+from dataeval_flow.steps import DataType, Port, Transform, TransformConfig, TransformContext
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningResult
 from tests.chain_toys import chain_pipeline, register_toys, run_toy_chain
 from tests.evaluator_toys import ToyImages
@@ -226,3 +228,41 @@ def test_a_required_failure_logs_an_error_with_its_traceback(caplog: pytest.LogC
     assert record.levelno == logging.ERROR
     assert record.exc_info is not None
     assert record.getMessage() == "Step 'boom' failed"
+
+
+class NoLengthConfig(TransformConfig):
+    input: str
+
+
+class NoLength(Transform[NoLengthConfig]):
+    """A faulty plugin: its Dataset output has no length."""
+
+    name: ClassVar[str] = "toy-no-length"
+    description: ClassVar[str] = "Returns an object with no length."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+
+    def run(self, config: NoLengthConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        return {"output": object()}
+
+
+def test_a_transform_returning_a_dataset_with_no_length_fails_its_step_and_the_chain_goes_on(plugins) -> None:
+    plugins["dataeval_flow.transforms"].append(("toy-no-length", "tests.test_chain_run:NoLength"))
+    run = _run(
+        [
+            {"name": "bad", "transform": "toy-no-length", "input": "a"},
+            {"name": "after", "transform": "toy-keep", "input": "bad"},
+            {"name": "other", "transform": "toy-keep", "input": "a"},
+        ]
+    )
+    bad = run.steps["bad"]
+    assert bad.status == "failed"
+    assert bad.errors == [
+        (
+            "TypeError: transform 'toy-no-length' returned object for `output`, which has no length: a Dataset must "
+            "have one."
+        )
+    ]
+    assert (run.steps["after"].status, run.steps["after"].reason) == ("skipped", "needs `bad`, which failed")
+    assert run.steps["other"].status == "ok"
+    assert [record.name for record in run.lineage] == ["a", "other"]
