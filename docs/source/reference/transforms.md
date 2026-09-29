@@ -221,8 +221,9 @@ the config load. Name one element instead, such as `kfold.train[0]`.
 | `to` | one directory name, not `.` or `..` | `<task>.<step>` | The directory under `<output>/datasets/` |
 
 The step writes to `<output>/datasets/<to>/`, with a `provenance.json` that records each source the Dataset descends
-from, with the dataset and view it read, the lineage of the Dataset written, and each `conform` on the way, with its
-remap and ontology digest. A Dataset a chain made is written with its pixels encoded; a chain input whose view left its
+from, with the dataset and view it read, and the lineage of the Dataset written. Its `label_space` list is shaped as a
+top-level export's: the sources' own Relabel records, then each `conform` on the way, in chain order, with its remap
+and ontology digest. A Dataset a chain made is written with its pixels encoded; a chain input whose view left its
 pixels alone is written by reference to its image files, as a top-level export is. A run with no output directory skips
 the step, and that is not a failure. A Dataset of another kind is refused before any step runs. Two destinations that
 coincide anywhere in the run, top-level `exports:` included, fail the config load.

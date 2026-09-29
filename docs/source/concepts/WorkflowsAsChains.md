@@ -200,8 +200,9 @@ So two `remove` steps whose different plan arguments remove the same items give 
 detection changes the digest though the number of items stays the same.
 
 An `export` step writes into the corpus's `provenance.json` each source the Dataset descends from, with the dataset and
-view it read, as a top-level export does; the lineage of the Dataset it wrote; and each `conform` on the way with its
-remap and ontology digest.
+view it read; the lineage of the Dataset it wrote; and a `label_space` list shaped as a top-level export's. The list
+holds each source's own Relabel records first, as a top-level export of that source writes them, then one record per
+`conform` on the way, in chain order, with its remap and ontology digest and the step's address as its `source`.
 
 See [Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) to write one, and
 [Workflows and Evaluators](WorkflowsAndEvaluators.md) for what evaluators and workflow types each decide.

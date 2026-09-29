@@ -169,8 +169,10 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
         {"source": "b", "dataset": "b_data", "view": None, "class_remap": {}},
     ]
     assert [record["name"] for record in provenance["lineage"]] == ["merged", "a2", "b2", "a", "b"]
-    conforms = [
+    # The roots `a` and `b` read no view, so the label space holds each conform on the way, in chain order.
+    assert "conforms" not in provenance
+    records = [
         (entry["source"], entry["ontology"], entry["ontology_digest"], entry["class_remap"])
-        for entry in provenance["conforms"]
+        for entry in provenance["label_space"]
     ]
-    assert conforms == [("a2", "vehicles", "7322513e6772", a2_remap), ("b2", "vehicles", "7322513e6772", b2_remap)]
+    assert records == [("a2", "vehicles", "7322513e6772", a2_remap), ("b2", "vehicles", "7322513e6772", b2_remap)]

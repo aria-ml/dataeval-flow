@@ -97,7 +97,7 @@ class ExportTransform(Transform[ExportStepConfig]):
                 node.value,
                 config=context.pipeline,
                 lineage=lineage,
-                conforms=context.label_space,
+                label_space=context.label_space,
                 task=context.task,
                 step=context.step,
                 **common,

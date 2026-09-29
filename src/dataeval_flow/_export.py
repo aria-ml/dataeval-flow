@@ -545,15 +545,15 @@ def chain_provenance(
     sources: "Sequence[ResolvedSource]",
     lineage: "Sequence[LineageRecord]",
     ontology: "ResolvedOntology | None",
-    conforms: "Sequence[LabelSpaceRecord]",
+    label_space: "Sequence[LabelSpaceRecord]",
 ) -> "DatasetMetadata":
     """The provenance of a Dataset a chain made: the task and step that wrote it, and its lineage to the sources.
 
     ``operands`` describes each operand of the root `sources`, the chain inputs the Dataset descends from, as a
     top-level export describes its source's: the dataset it read, the view it read through, and that view's remap.
-    ``conforms`` holds one record per ``conform`` on the way, in chain order: its address as ``source``, the
-    ``class_remap`` it applied, the ``target`` vocabulary, and the ``ontology`` and ``ontology_digest`` it conformed
-    to. It is an empty list where no ``conform`` was on the way.
+    ``label_space`` holds the records a top-level export of the root `sources` holds, a merged source's own Relabel
+    included, then `label_space`: the record of each relabelling step on the way, such as a ``conform``, in chain
+    order, with the step's address as ``source``. One reader therefore reads a chain export and a top-level one.
     """
     from datetime import UTC, datetime
 
@@ -562,7 +562,8 @@ def chain_provenance(
     from dataeval_flow import __version__
     from dataeval_flow._sources import label_space_records
 
-    by_source = {record.source: record for record in label_space_records(sources, ontology)}
+    roots = label_space_records(sources, ontology)
+    by_source = {record.source: record for record in roots}
     ontology_name, digest = _ontology_entry(ontology)
     info: dict[str, Any] = {
         "tool": "dataeval-flow",
@@ -578,7 +579,7 @@ def chain_provenance(
             for operand in resolved.operands
         ],
         "lineage": [record.model_dump(mode="json") for record in lineage],
-        "conforms": [record.model_dump(mode="json") for record in conforms],
+        "label_space": [record.model_dump(mode="json") for record in [*roots, *label_space]],
     }
     return DatasetMetadata(source_dataset=name, info=info)
 
@@ -596,12 +597,12 @@ def write_node(
     lineage: "Sequence[LineageRecord]",
     task: str,
     step: str,
-    conforms: "Sequence[LabelSpaceRecord]",
+    label_space: "Sequence[LabelSpaceRecord]",
 ) -> "tuple[Path, dict[str, Any], int]":
     """Write a Dataset a chain made to `dest`. Returns the directory, provenance and size.
 
     The provenance names the operands of each chain input in `lineage`, resolved again from `config` as a top-level
-    export resolves its source.
+    export resolves its source. `label_space` holds the records of the relabelling steps on the way, in chain order.
     """
     from datamaite import write
 
@@ -613,7 +614,7 @@ def write_node(
     roots = dict.fromkeys(record.source for record in lineage if record.step is None and record.source is not None)
     sources = [resolve_source(root, config, data_dir=data_dir) for root in roots] if config is not None else []
     provenance = chain_provenance(
-        name=name, task=task, step=step, sources=sources, lineage=lineage, ontology=ontology, conforms=conforms
+        name=name, task=task, step=step, sources=sources, lineage=lineage, ontology=ontology, label_space=label_space
     )
     built = build_node_dataset(dataset, name=name, dataset_metadata=provenance)
     _write_or_explain(built, dest, name=name, format=format, mode=mode, write=write)
