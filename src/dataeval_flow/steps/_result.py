@@ -101,6 +101,16 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
     ``health["status"]`` is ``"failed"``. The steps that ran stay readable in :attr:`steps`. Findings come from the
     workflow-type steps the chain ran; check steps add their own later.
 
+    Fields
+    ------
+    steps
+        Every step's :class:`~dataeval_flow.steps.StepResult`, by name, in run order — readable even where a
+        later step failed or was skipped.
+    metadata.workflow
+        The custom workflow's name.
+    metadata.lineage
+        Each Dataset in the chain, in the order it was made, with what made it.
+
     Examples
     --------
     >>> from dataeval_flow import load_config, run_tasks

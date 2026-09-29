@@ -97,28 +97,33 @@ def test_every_public_config_field_is_described(line: str) -> None:
 
 
 def _result_classes() -> list[str]:
-    """Every per-type result on the surface: each workflow's and each evaluator's ``<X>Result``.
-
-    A ``WorkflowResult`` whose output is not a ``WorkflowOutput`` — :class:`~dataeval_flow.steps.ChainResult`,
-    whose steps replace the usual raw/report split — documents its own fields differently and is left out here.
-    """
-    from dataeval_flow._kind import type_arguments
+    """Every per-type result on the surface: each workflow's and each evaluator's ``<X>Result``."""
     from dataeval_flow.evaluators import EvaluatorResult
-    from dataeval_flow.workflows import WorkflowOutput, WorkflowResult
+    from dataeval_flow.workflows import WorkflowResult
 
     lines = []
     for line in _surface():
         module_name, name = line.split(":")
         obj = getattr(importlib.import_module(module_name), name)
         bases = (WorkflowResult, EvaluatorResult)
-        if not (inspect.isclass(obj) and issubclass(obj, bases) and obj not in bases):
-            continue
-        if issubclass(obj, WorkflowResult):
-            _, output = type_arguments(obj, WorkflowResult) or (None, None)
-            if not (isinstance(output, type) and issubclass(output, WorkflowOutput)):
-                continue
-        lines.append(line)
+        if inspect.isclass(obj) and issubclass(obj, bases) and obj not in bases:
+            lines.append(line)
     return lines
+
+
+def _has_raw_report_output(result: type) -> bool:
+    """Whether `result`'s output type argument is a ``WorkflowOutput`` — the usual raw/report split.
+
+    :class:`~dataeval_flow.steps.ChainResult` is a ``WorkflowResult`` whose output is its steps, not a raw/report
+    split, so it documents its fields the way an :class:`~dataeval_flow.evaluators.EvaluatorResult` does instead.
+    """
+    from dataeval_flow._kind import type_arguments
+    from dataeval_flow.workflows import WorkflowOutput, WorkflowResult
+
+    if not issubclass(result, WorkflowResult):
+        return False
+    _, output = type_arguments(result, WorkflowResult) or (None, None)
+    return isinstance(output, type) and issubclass(output, WorkflowOutput)
 
 
 def _documented_fields(doc: str) -> dict[str, str]:
@@ -157,6 +162,8 @@ def _typed_fields(result: Any) -> dict[str, str]:
     if issubclass(result, EvaluatorResult):
         return _own_fields(result.metadata_type, ResultMetadata, "metadata.")
     metadata, output = type_arguments(result, WorkflowResult)
+    if not _has_raw_report_output(result):
+        return _own_fields(metadata, ResultMetadata, "metadata.")
     raw, report = output.model_fields["raw"].annotation, output.model_fields["report"].annotation
     return {
         **_own_fields(raw, WorkflowRawOutput, "output.raw."),
@@ -173,6 +180,7 @@ def test_each_result_documents_the_fields_typed_code_reads(line: str) -> None:
     finds them. Regenerate the section from the models' ``Field`` descriptions when this fails.
     """
     from dataeval_flow.evaluators import EvaluatorResult
+    from dataeval_flow.workflows import WorkflowResult
 
     module_name, name = line.split(":")
     result = getattr(importlib.import_module(module_name), name)
@@ -181,4 +189,6 @@ def test_each_result_documents_the_fields_typed_code_reads(line: str) -> None:
     assert all(expected.values()), f"{line}: give every field a description"
     if issubclass(result, EvaluatorResult):
         assert documented.pop("output", ""), f"{line}: document the DataEval output"
+    elif issubclass(result, WorkflowResult) and not _has_raw_report_output(result):
+        assert documented.pop("steps", ""), f"{line}: document its steps"
     assert documented == expected, line
