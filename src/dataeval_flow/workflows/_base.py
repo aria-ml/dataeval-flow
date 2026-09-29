@@ -21,6 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._blocks import Block
 from dataeval_flow._kind import KindConfig, bind_implementation, bind_result_type, type_arguments
+from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._step import Step, StepKind
 
 if TYPE_CHECKING:
     from dataeval_flow.workflows._context import WorkflowContext
@@ -344,7 +346,7 @@ ConfigT = TypeVar("ConfigT", bound="WorkflowConfig[Any]")
 ResultT = TypeVar("ResultT", bound="WorkflowResult[Any, Any]")
 
 
-class Workflow(ABC, Generic[ConfigT, ResultT]):
+class Workflow(Step, ABC, Generic[ConfigT, ResultT]):
     """One analysis over a task's sources that ends in a verdict: findings judged against health thresholds.
 
     A workflow reads what its :class:`WorkflowContext` offers for each source (the dataset, its statistics,
@@ -439,13 +441,25 @@ class Workflow(ABC, Generic[ConfigT, ResultT]):
 
     name: ClassVar[str]
     description: ClassVar[str]
-    config_type: ClassVar["type[WorkflowConfig[Any]]"]
+    kind: ClassVar[StepKind] = "workflow"
+    config_type: ClassVar["type[WorkflowConfig[Any]]"]  # type: ignore[reportIncompatibleVariableOverride]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Bind ``config_type`` from the type arguments, and require identity on a concrete workflow."""
         super().__init_subclass__(**kwargs)
         bind_implementation(cls, Workflow)
         _require_the_configs_result(cls)
+
+    @classmethod
+    def input_ports(cls) -> tuple[Port, ...]:
+        """One Dataset port, fed one address per source the workflow reads."""
+        spec = cls.config_type.inputs
+        return (Port("input", DataType.DATASET, kinds=spec.dataset_kinds, count=spec.sources, derives=spec.kinds),)
+
+    @classmethod
+    def output_ports(cls) -> tuple[Port, ...]:
+        """The workflow's own result."""
+        return (Port("output", DataType.WORKFLOW_RESULT, classes=(cls.config_type.result_type,)),)
 
     @abstractmethod
     def run(self, config: ConfigT, context: "WorkflowContext") -> ResultT:

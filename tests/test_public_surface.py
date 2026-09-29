@@ -26,6 +26,7 @@ EXTENSIBLE = [
     "dataeval_flow.config.extractors:Extractor",
     "dataeval_flow.config.extractors:ExtractorConfig",
     "dataeval_flow.config.image_transforms:ImageTransform",
+    "dataeval_flow.steps:Transform",
     "dataeval_flow:Result",
     "dataeval_flow:ResultMetadata",
 ]

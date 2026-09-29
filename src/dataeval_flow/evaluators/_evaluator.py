@@ -2,13 +2,16 @@
 
 __all__ = ["Evaluator"]
 
+import typing
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from dataeval_flow._input_spec import InputKind
-from dataeval_flow._kind import bind_implementation
+from dataeval_flow._kind import bind_implementation, type_arguments
 from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._step import Step, StepKind
 
 if TYPE_CHECKING:
     from dataeval_flow.evaluators._inputs import EvaluatorInputs
@@ -17,7 +20,7 @@ ConfigT = TypeVar("ConfigT", bound="EvaluatorConfig[Any]")
 OutputT = TypeVar("OutputT")
 
 
-class Evaluator(ABC, Generic[ConfigT, OutputT]):
+class Evaluator(Step, ABC, Generic[ConfigT, OutputT]):
     """One DataEval evaluator made runnable from config: Flow prepares what it reads, and keeps what it returns.
 
     A DataEval evaluator (a ``dataeval.types.Evaluator``, such as ``dataeval.quality.Outliers``) computes on the
@@ -117,15 +120,33 @@ class Evaluator(ABC, Generic[ConfigT, OutputT]):
 
     name: ClassVar[str]
     description: ClassVar[str]
-    config_type: ClassVar["type[EvaluatorConfig[Any]]"]
+    kind: ClassVar[StepKind] = "evaluator"
+    config_type: ClassVar["type[EvaluatorConfig[Any]]"]  # type: ignore[reportIncompatibleVariableOverride]
     dataeval_class: ClassVar[type]
     dataeval_methods: ClassVar[Mapping[InputKind, str]]
     output_extras: ClassVar[tuple[str, ...]] = ()
+    output_type: ClassVar[type | None] = None
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Bind ``config_type`` from the type arguments, and require identity on a concrete evaluator."""
         super().__init_subclass__(**kwargs)
         bind_implementation(cls, Evaluator, extra=("dataeval_class", "dataeval_methods"))
+        arguments = type_arguments(cls, Evaluator)
+        if len(arguments) > 1:
+            output = typing.get_origin(arguments[1]) or arguments[1]
+            cls.output_type = output if isinstance(output, type) else None
+
+    @classmethod
+    def input_ports(cls) -> tuple[Port, ...]:
+        """One Dataset port, fed one address per source the evaluator reads."""
+        spec = cls.config_type.inputs
+        return (Port("input", DataType.DATASET, kinds=spec.dataset_kinds, count=spec.sources, derives=spec.kinds),)
+
+    @classmethod
+    def output_ports(cls) -> tuple[Port, ...]:
+        """DataEval's output, of the class the evaluator is parameterized with."""
+        classes = (cls.output_type,) if cls.output_type is not None else ()
+        return (Port("output", DataType.OUTPUT, classes=classes),)
 
     @abstractmethod
     def run(self, config: ConfigT, inputs: "Sequence[EvaluatorInputs]") -> OutputT:
