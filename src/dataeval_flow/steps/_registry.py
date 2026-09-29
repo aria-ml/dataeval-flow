@@ -12,6 +12,7 @@ _BUILTINS: dict[str, str] = {
     "export": "dataeval_flow.steps.transforms._export:ExportTransform",
     "kfold": "dataeval_flow.steps.transforms._split:KFoldTransform",
     "merge": "dataeval_flow.steps.transforms._merge:MergeTransform",
+    "remove": "dataeval_flow.steps.transforms._remove:RemoveTransform",
     "select": "dataeval_flow.steps.transforms._select:SelectTransform",
     "split": "dataeval_flow.steps.transforms._split:SplitTransform",
     "view": "dataeval_flow.steps.transforms._view:ViewTransform",

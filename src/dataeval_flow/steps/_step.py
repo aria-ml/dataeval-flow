@@ -107,7 +107,8 @@ class Transform(Step, ABC, Generic[ConfigT]):
 
     Override :meth:`output_kinds` when an output's Dataset kind differs from ``input``'s, and :meth:`digest` when
     the output depends on data the settings do not name, such as a removal plan. ``same_node`` names output ports
-    whose Outputs must have been computed on the ``input`` Dataset. :meth:`empty_outputs` names outputs its
+    whose Outputs must have been computed on the ``input`` Dataset, and :meth:`bound_problem` refuses settings that
+    do not fit the classes of the Outputs bound to them. :meth:`empty_outputs` names outputs its
     settings leave empty, and :meth:`destinations` the directories a run writes. :meth:`details` reports what a run
     did, such as what it collapsed or dropped, for the JSON and the report.
 
@@ -190,6 +191,15 @@ class Transform(Step, ABC, Generic[ConfigT]):
         step's output key. Raise ``ValueError`` naming the problem when a name is unknown. By default, `config`.
         """
         return config
+
+    @classmethod
+    def bound_problem(
+        cls,
+        config: ConfigT,  # noqa: ARG003
+        classes: Mapping[str, tuple[type, ...]],  # noqa: ARG003
+    ) -> str | None:
+        """Why these settings do not fit the Outputs bound to them, by address, or ``None``. Checked at load."""
+        return None
 
     def digest(
         self,

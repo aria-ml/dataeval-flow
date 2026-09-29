@@ -140,6 +140,8 @@ dataeval_flow.steps.transforms:KFoldConfig
 dataeval_flow.steps.transforms:KFoldTransform
 dataeval_flow.steps.transforms:MergeConfig
 dataeval_flow.steps.transforms:MergeTransform
+dataeval_flow.steps.transforms:RemoveConfig
+dataeval_flow.steps.transforms:RemoveTransform
 dataeval_flow.steps.transforms:SelectConfig
 dataeval_flow.steps.transforms:SelectTransform
 dataeval_flow.steps.transforms:SplitConfig

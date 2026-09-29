@@ -226,6 +226,15 @@ def _resolve(
         )
     if issubclass(impl, Transform):
         _same_node(entry, impl, addresses, specs)
+        bound = {
+            str(address): _typed(address, entry, workflow, types, later, empty).classes
+            for binding in bindings
+            if binding.port.type is DataType.OUTPUT
+            for address in binding.addresses
+        }
+        problem = impl.bound_problem(config, bound)
+        if problem is not None:
+            raise GraphError(f"Step '{entry.name}': {problem}")
     _check_extractor(entry, kind, type_id, config, pipeline)
     return StepSpec(
         name=entry.name,

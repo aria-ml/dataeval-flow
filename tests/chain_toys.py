@@ -1,7 +1,7 @@
 """Toy transforms, toy detection datasets and pipeline builders shared by the chain tests."""
 
 import zlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any, ClassVar
 
 import numpy as np
@@ -185,6 +185,8 @@ class ToyDetections:
         The class names.
     duplicate_of : Mapping[int, int]
         Items whose image copies another item's, making exact duplicates.
+    bright : Collection[tuple[int, int]]
+        ``(item, box)`` pairs whose box region is drawn white, standing out from the dim rest.
     dataset_id : str
         The dataset's id.
     """
@@ -195,10 +197,12 @@ class ToyDetections:
         index2label: Mapping[int, str],
         *,
         duplicate_of: Mapping[int, int] | None = None,
+        bright: Collection[tuple[int, int]] = (),
         dataset_id: str = "toy-detections",
     ) -> None:
         self._labels = [list(item) for item in labels]
         self._copy = dict(duplicate_of or {})
+        self._bright = set(bright)
         self._seed = zlib.crc32(dataset_id.encode())  # two corpora never share an image by accident
         self.metadata = DatasetMetadata(id=dataset_id, index2label=dict(index2label))
 
@@ -208,7 +212,12 @@ class ToyDetections:
     def _image(self, index: int) -> np.ndarray:
         source = self._copy.get(index, index)
         rng = np.random.default_rng((self._seed, source))
-        return rng.integers(0, 255, size=(3, 16, 16), dtype=np.uint8)
+        image = rng.integers(0, 60, size=(3, 16, 16), dtype=np.uint8)
+        for item, box in self._bright:
+            if item == index:
+                x0 = 1 + 6 * box
+                image[:, 1:9, x0 : x0 + 5] = 255
+        return image
 
     def __getitem__(self, index: int) -> tuple[np.ndarray, _Detection, dict[str, Any]]:
         labels = np.asarray(self._labels[index], dtype=np.intp)

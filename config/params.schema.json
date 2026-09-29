@@ -938,6 +938,9 @@
                 "$ref": "#/$defs/TransformStep_merge"
               },
               {
+                "$ref": "#/$defs/TransformStep_remove"
+              },
+              {
                 "$ref": "#/$defs/TransformStep_select"
               },
               {
@@ -7858,6 +7861,65 @@
         "name"
       ],
       "title": "TransformStep_merge",
+      "type": "object"
+    },
+    "TransformStep_remove": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset to remove from; every plan must have been computed on it.",
+          "title": "Input",
+          "type": "string"
+        },
+        "plans": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "description": "The Outputs whose plans to apply, by address, each with its plan method's arguments: `deduplicate`'s for a Duplicates Output (`dup_types`, `keep`, `exclude_groups`, `levels`), `prune`'s for an Outliers Output (`metrics`, `min_flags`).",
+          "minProperties": 1,
+          "title": "Plans",
+          "type": "object"
+        },
+        "transform": {
+          "const": "remove",
+          "description": "`remove`: Removes the items, detections or tracks that Duplicates and Outliers plans name.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "plans",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_remove",
       "type": "object"
     },
     "TransformStep_select": {
