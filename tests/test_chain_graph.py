@@ -130,6 +130,22 @@ def test_a_step_that_needs_embeddings_needs_an_extractor_on_the_task_or_the_step
 
 
 @pytest.mark.usefixtures("toys")
+def test_a_transform_step_naming_an_extractor_fails_the_load() -> None:
+    steps = [{"name": "k", "transform": "toy-keep", "input": "a", "extractor": "flat"}]
+    message = "Step 'k' runs transform 'toy-keep', which embeds nothing; remove `extractor:`."
+    with pytest.raises(ValidationError, match=message):
+        _load(steps, extractor=True)
+
+
+def test_the_schema_offers_extractor_only_on_the_steps_that_embed() -> None:
+    from dataeval_flow import PipelineConfig
+
+    steps = {name: branch for name, branch in PipelineConfig.model_json_schema()["$defs"].items() if "Step" in name}
+    offered = sorted(name for name, branch in steps.items() if "extractor" in branch.get("properties", {}))
+    assert offered == ["EvaluatorStep", "WorkflowStep"]
+
+
+@pytest.mark.usefixtures("toys")
 def test_a_valid_workflow_resolves_each_step_and_marks_broadcasts() -> None:
     steps = [
         {"name": "kept", "transform": "toy-keep", "input": "all"},

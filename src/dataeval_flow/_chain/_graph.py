@@ -398,9 +398,11 @@ def _broadcast_keys(keys: list[str] | None, value: ValueType) -> list[str] | Non
 
 
 def _check_extractor(entry: StepEntry, kind: StepKind, type_id: str, config: Any, pipeline: "PipelineConfig") -> None:
-    """Refuse an extractor name `extractors:` does not define, or one named where the step takes none."""
+    """Refuse an extractor on a step that embeds nothing, or a name `extractors:` does not define."""
     if entry.extractor is None:
         return
+    if kind not in ("evaluator", "workflow"):
+        raise GraphError(f"Step '{entry.name}' runs {kind} '{type_id}', which embeds nothing; remove `extractor:`.")
     if entry.extractor not in {extractor.name for extractor in pipeline.extractors or ()}:
         raise GraphError(
             f"Step '{entry.name}' names extractor '{entry.extractor}', which `extractors:` does not define."

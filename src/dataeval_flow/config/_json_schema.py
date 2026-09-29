@@ -60,12 +60,14 @@ def _step_union(plugins: bool) -> Any:
         input=(str | list[str], StepEntry.model_fields["input"]),
         **common,
     )
+    # A transform embeds nothing, so its step takes no `extractor:`; naming one fails the load.
+    plain = {key: field for key, field in common.items() if key != "extractor"}
     transforms = [
         create_model(
             f"TransformStep_{cls.name}",
             __base__=cls.config_type,
             transform=(Literal[cls.name], Field(description=f"`{cls.name}`: {cls.description}")),  # type: ignore[valid-type]
-            **common,
+            **plain,
         )
         for cls in TRANSFORMS.list(plugins=plugins)
     ]

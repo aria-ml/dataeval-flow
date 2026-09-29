@@ -7586,19 +7586,6 @@
           "title": "Name",
           "type": "string"
         },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
-        },
         "optional": {
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
@@ -7684,19 +7671,6 @@
           "title": "Name",
           "type": "string"
         },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
-        },
         "optional": {
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
@@ -7781,19 +7755,6 @@
           "title": "Name",
           "type": "string"
         },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
-        },
         "optional": {
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
@@ -7833,19 +7794,6 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
           "title": "Name",
           "type": "string"
-        },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
         },
         "optional": {
           "default": false,
@@ -7891,19 +7839,6 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
           "title": "Name",
           "type": "string"
-        },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
         },
         "optional": {
           "default": false,
@@ -7974,19 +7909,6 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
           "title": "Name",
           "type": "string"
-        },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
         },
         "optional": {
           "default": false,
@@ -8075,19 +7997,6 @@
           "title": "Name",
           "type": "string"
         },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
-        },
         "optional": {
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
@@ -8152,19 +8061,6 @@
           "title": "Name",
           "type": "string"
         },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
-        },
         "optional": {
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
@@ -8211,19 +8107,6 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
           "title": "Name",
           "type": "string"
-        },
-        "extractor": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
         },
         "optional": {
           "default": false,
