@@ -1,15 +1,18 @@
 """A chain's result: what its JSON, report, health and CI files say about each step (spec §7)."""
 
 import json
+import xml.etree.ElementTree as ET
 from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
 
+from dataeval_flow import run_task
 from dataeval_flow._blocks import Section
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._report import lineage_line
 from dataeval_flow._ci_reports import junit_report, markdown_summary
+from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline, register_toys, run_toy_chain
@@ -125,6 +128,41 @@ def test_junit_has_one_error_per_failed_step_and_markdown_names_them() -> None:
     assert "RuntimeError: boom on few" in xml
     assert 'errors="1"' in xml
     assert "**Failed steps:** boom" in markdown_summary({"t": result})
+
+
+_REFUSAL = "Task 't' runs workflow 'two', which takes one source for 'a' and one source for 'b', but the task names 1."
+
+
+def _refused() -> ChainResult:
+    """A chain refused before any step ran: its task binds one source to a workflow of two inputs."""
+    two = {"name": "two", "inputs": ["a", "b"], "steps": [{"name": "k", "transform": "toy-keep", "input": "a"}]}
+    result = run_task(TaskConfig(name="t", workflow="two", sources=["src"]), chain_pipeline(workflows=[two]))
+    assert isinstance(result, ChainResult)
+    return result
+
+
+def test_a_chain_refused_before_any_step_ran_is_failed_in_its_health() -> None:
+    result = _refused()
+    assert (result.success, result.steps, result.errors) == (False, {}, [_REFUSAL])
+    assert result.health == {"status": "failed", "warnings": 0, "findings": 0, "failed_steps": []}
+    assert cast("dict[str, Any]", result.to_dict())["health"]["status"] == "failed"
+
+
+def test_junit_errors_a_chain_refused_before_any_step_ran() -> None:
+    root = ET.fromstring(junit_report({"t": _refused()}))  # noqa: S314 - our own output
+    (case,) = root.iter("testcase")
+    error = case.find("error")
+    assert case.get("name") == "run"
+    assert error is not None
+    assert (error.get("message"), error.text) == (_REFUSAL, _REFUSAL)
+    assert (root.get("tests"), root.get("failures"), root.get("errors")) == ("1", "0", "1")
+
+
+def test_markdown_shows_the_errors_of_a_chain_refused_before_any_step_ran() -> None:
+    summary = markdown_summary({"t": _refused()})
+    assert "**Health:** failed" in summary
+    assert f"```\n{_REFUSAL}\n```" in summary
+    assert "**Failed steps:**" not in summary
 
 
 def test_the_runner_prints_and_writes_a_failed_chain(caplog) -> None:

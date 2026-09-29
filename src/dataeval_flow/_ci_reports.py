@@ -38,7 +38,7 @@ def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
     root = ET.Element("testsuites", name="dataeval-flow")
     for task, result in results.items():
         suite = ET.SubElement(root, "testsuite", name=task)
-        if isinstance(result, ChainResult):
+        if isinstance(result, ChainResult) and (result.success or result.failed_steps):
             for step in result.failed_steps:
                 errors = result.steps[step].errors or [f"{step} failed"]
                 error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name=f"step: {step}"), "error")
@@ -47,7 +47,7 @@ def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
             _finding_cases(suite, task, result.findings)
             if not len(suite):
                 ET.SubElement(suite, "testcase", classname=task, name="run")
-        elif not result.success:
+        elif not result.success:  # a failed task, a chain refused before any step ran among them
             error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name="run"), "error")
             error.set("message", result.errors[0] if result.errors else "failed")
             error.text = "\n".join(result.errors) or None
@@ -99,7 +99,7 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
             warnings = result.warning_count
             health = (
                 "failed"
-                if result.failed_steps
+                if result.health["status"] == "failed"
                 else "passed"
                 if not warnings
                 else f"{warnings} warning{'s' if warnings != 1 else ''}"
@@ -107,15 +107,14 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
             lines += [f"## {_inline(task)}", "", f"**Health:** {health}", ""]
             if result.failed_steps:
                 lines += [f"**Failed steps:** {', '.join(_inline(step) for step in result.failed_steps)}", ""]
+            elif not result.success:  # refused before any step ran
+                lines += [*_fenced(result.errors), ""]
             lines += ["| Severity | Finding | Result |", "| --- | --- | --- |"]
             lines += [f"| {f.severity} | {_inline(f.title)} | {_inline(f.brief or '')} |" for f in result.findings]
             lines.append("")
             continue
         if not result.success:
-            errors = "\n".join(result.errors)
-            # A fence longer than any run of backticks the errors hold, so they show as written.
-            fence = "`" * max([3, *(len(run) + 1 for run in re.findall("`+", errors))])
-            lines += [f"## {_inline(task)}: failed", "", fence, errors, fence, ""]
+            lines += [f"## {_inline(task)}: failed", "", *_fenced(result.errors), ""]
             continue
         lines += [f"## {_inline(task)}", ""]
         if isinstance(result, WorkflowResult):
@@ -127,6 +126,13 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
             lines.append(f"`{result.type}` ran; an evaluator has no findings to list.")
         lines.append("")
     return "\n".join(lines)
+
+
+def _fenced(errors: Sequence[str]) -> list[str]:
+    """*errors* as a code block, fenced longer than any run of backticks they hold, so they show as written."""
+    text = "\n".join(errors)
+    fence = "`" * max([3, *(len(run) + 1 for run in re.findall("`+", text))])
+    return [fence, text, fence]
 
 
 def _inline(text: str) -> str:

@@ -101,8 +101,9 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
     """A custom workflow's result: every step's outcome, in order, whether or not a step failed.
 
     A required step's failure fails the result (``success`` is false, and ``output`` raises, as for any result), and
-    ``health["status"]`` is ``"failed"``. The steps that ran stay readable in :attr:`steps`. Findings come from the
-    workflow-type steps the chain ran; check steps add their own later.
+    ``health["status"]`` is ``"failed"``, as it is for a task refused before any step ran, whose reason is in
+    ``errors``. The steps that ran stay readable in :attr:`steps`. Findings come from the workflow-type steps the chain
+    ran; check steps add their own later.
 
     Fields
     ------
@@ -181,9 +182,10 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
 
     @property
     def health(self) -> dict[str, Any]:
-        """``failed`` when a required step failed, else ``warning`` or ``ok``, with the counts behind it."""
+        """``failed`` when a required step failed, or the chain was refused before any step ran; else ``warning`` or
+        ``ok``, with the counts behind it."""
         findings, warnings = self.findings, self.warning_count
-        status = "failed" if self.failed_steps else "warning" if warnings else "ok"
+        status = "failed" if self.failed_steps or not self.success else "warning" if warnings else "ok"
         return {"status": status, "warnings": warnings, "findings": len(findings), "failed_steps": self.failed_steps}
 
     def to_dict(self) -> dict[str, object]:
