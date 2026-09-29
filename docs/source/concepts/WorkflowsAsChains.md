@@ -111,7 +111,8 @@ workflows:
 
 In YAML's flow style, inside braces or brackets, quote an address that holds a key, since a bracket there opens a
 YAML list: `{name: first_dupes, evaluator: dupes, input: "kfold.train[0]"}`, or `input: [reference, "cameras[cam1]"]`.
-Block style, as above, needs no quotes.
+Block style, as above, needs no quotes. A file that leaves one unquoted fails to load, and the error says which address
+to quote.
 
 Several lists across one step zip by key: element `cam1` of one runs with element `cam1` of the other. A single
 Dataset beside a list is repeated for each element, as a drift reference is here:

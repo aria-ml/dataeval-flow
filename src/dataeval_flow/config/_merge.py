@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +16,79 @@ _YAML_EXTS = frozenset({".yaml", ".yml"})
 _JSON_EXTS = frozenset({".json"})
 _CONFIG_EXTS = _YAML_EXTS | _JSON_EXTS
 
+# What an address's name and output look like just before a `[`, and its key from that `[` on. `parse_address` then
+# decides whether the two make an address.
+_BEFORE_KEY = re.compile(r"(?:^|[\s{\[,])(?P<base>[^\s{}\[\],:'\"]+)$")
+_KEY = re.compile(r"^\[[^\[\]\s]+\]")
+
+
+class AddressQuotingError(yaml.MarkedYAMLError):
+    """A pipeline file that fails to parse at an address with a key left unquoted inside YAML's ``{…}`` or ``[…]``."""
+
+
+def load_yaml(path: Path) -> Any:
+    """Parse the YAML file at `path`, saying to quote a keyed address where one breaks YAML's flow style.
+
+    Inside ``{…}`` or ``[…]``, YAML reads a ``[`` as the start of a list, so ``{input: kfold.train[0]}`` fails with
+    PyYAML's "expected ',' or '}', but got '['". Where the parse stops at such an address, the error is raised again
+    as an :class:`AddressQuotingError`, with PyYAML's message and one sentence more. Any other error is raised as it
+    is.
+    """
+    with open(path, encoding="utf-8") as f:
+        try:
+            return yaml.safe_load(f)
+        except yaml.MarkedYAMLError as error:
+            address = _unquoted_address(error, path.read_text(encoding="utf-8").splitlines())
+            if address is None:
+                raise
+            hint = (
+                f"An address with a key, such as `{address}`, must be quoted inside YAML's `{{…}}` or `[…]`: "
+                f'write "{address}".'
+            )
+            note = hint if error.note is None else f"{error.note}\n{hint}"
+            raise AddressQuotingError(
+                error.context, error.context_mark, error.problem, error.problem_mark, note
+            ) from error
+
+
+def _unquoted_address(error: yaml.MarkedYAMLError, lines: list[str]) -> str | None:
+    """The keyed address a parse inside ``{…}`` or ``[…]`` stopped at the ``[`` of; ``None`` for any other error.
+
+    Decided from the source and the error's marks, not from PyYAML's wording: the collection the parser was inside
+    starts at the context mark, and the parse stopped at the problem mark.
+    """
+    from dataeval_flow.steps._address import parse_address
+
+    opened, stopped = error.context_mark, error.problem_mark
+    if opened is None or stopped is None or _character(lines, opened) not in ("{", "["):
+        return None
+    if _character(lines, stopped) != "[":
+        return None
+    line = lines[stopped.line]
+    before, key = _BEFORE_KEY.search(line[: stopped.column]), _KEY.match(line[stopped.column :])
+    if before is None or key is None:
+        return None
+    text = before["base"] + key.group(0)
+    try:
+        parse_address(text)
+    except ValueError:
+        return None
+    return text
+
+
+def _character(lines: list[str], mark: Any) -> str | None:
+    """The character of the source at `mark`, or ``None`` past its end."""
+    if mark.line >= len(lines) or mark.column >= len(lines[mark.line]):
+        return None
+    return lines[mark.line][mark.column]
+
 
 def _load_file(path: Path) -> dict[str, Any] | list[str]:
     """Load a single YAML or JSON file and return its contents as a dict."""
-    with open(path, encoding="utf-8") as f:
-        return json.load(f) if path.suffix.lower() in _JSON_EXTS else yaml.safe_load(f) or []
+    if path.suffix.lower() in _JSON_EXTS:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return load_yaml(path) or []
 
 
 def _is_config_fragment(data: dict[str, Any]) -> bool:
@@ -61,6 +130,8 @@ def merge_config_folder(config_path: Path) -> dict[str, Any]:
     for config_file in candidates:
         try:
             file_config = _load_file(config_file)
+        except AddressQuotingError:
+            raise  # a pipeline file with an address to quote, not an unrelated file: say so rather than skip it
         except (json.JSONDecodeError, yaml.YAMLError) as exc:
             _logger.debug("Skipping %s (parse error: %s)", config_file.name, exc)
             continue
