@@ -1,0 +1,218 @@
+{
+  "health": {
+    "findings": 3,
+    "status": "ok",
+    "warnings": 0
+  },
+  "kind": "workflow",
+  "metadata": {
+    "clean_indices": [],
+    "dataset_id": "toy",
+    "diagnostics": [],
+    "encoding_digest": "01e7b720ff566d53",
+    "evaluators": [
+      "outliers",
+      "duplicates"
+    ],
+    "flagged_indices": [],
+    "label_source": "protocol",
+    "label_space": [],
+    "label_space_digest": null,
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [],
+      "descriptor_version": 3,
+      "dropped": {},
+      "encoding_digest": "01e7b720ff566d53",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {},
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [],
+      "unusable": {}
+    },
+    "mode": "advisory",
+    "model_id": null,
+    "preprocessor_id": null,
+    "removed_count": 0,
+    "resolved_config": {
+      "sources": [
+        {
+          "dataset": "toy",
+          "dataset_config": {
+            "dataset": {
+              "class": "ToyImages",
+              "id": "toy-0-24",
+              "type": "protocol"
+            },
+            "format": "maite",
+            "name": "toy",
+            "version": "1"
+          },
+          "name": "src",
+          "view": "shuffled",
+          "view_config": {
+            "name": "shuffled",
+            "operations": [
+              {
+                "params": {
+                  "seed": 3
+                },
+                "type": "Shuffle"
+              },
+              {
+                "params": {
+                  "size": 16
+                },
+                "type": "Limit"
+              }
+            ]
+          }
+        }
+      ],
+      "workflow": {
+        "duplicate_cluster_algorithm": null,
+        "duplicate_cluster_sensitivity": null,
+        "duplicate_flags": null,
+        "duplicate_merge_near": true,
+        "duplicate_n_clusters": null,
+        "health_thresholds": {
+          "class_label_imbalance": 5.0,
+          "classwise_outliers": 3.0,
+          "exact_duplicates": 0.0,
+          "image_outliers": 3.0,
+          "near_duplicates": 5.0,
+          "target_outliers": 3.0
+        },
+        "metadata": null,
+        "metadata_auto_bin_method": null,
+        "metadata_continuous_factor_bins": null,
+        "metadata_exclude": [],
+        "metadata_factor_source": null,
+        "mode": "advisory",
+        "name": "clean",
+        "ontology": null,
+        "outlier_cluster_algorithm": null,
+        "outlier_cluster_threshold": null,
+        "outlier_flags": [
+          "pixel"
+        ],
+        "outlier_method": "zscore",
+        "outlier_n_clusters": null,
+        "outlier_threshold": null,
+        "stats": null,
+        "type": "data-cleaning",
+        "value_range": null
+      }
+    },
+    "selection_id": "shuffled",
+    "source_descriptions": [
+      "src (toy[shuffled])"
+    ],
+    "tool": "dataeval-flow",
+    "version": "1.0"
+  },
+  "raw": {
+    "classwise_outliers": null,
+    "dataset_size": 16,
+    "duplicates": {
+      "items": {},
+      "targets": {}
+    },
+    "img_outliers": {
+      "count": 0,
+      "issues": []
+    },
+    "label_stats": {
+      "class_count": 2,
+      "index2label": {
+        "0": "a",
+        "1": "b"
+      },
+      "item_count": 16,
+      "label_counts_per_class": {
+        "a": 8,
+        "b": 8
+      }
+    },
+    "target_outliers": null
+  },
+  "report": {
+    "findings": [
+      {
+        "blocks": [
+          {
+            "items": [
+              [
+                "Percentage",
+                0.0
+              ],
+              [
+                "Dataset size",
+                16
+              ]
+            ],
+            "type": "fields"
+          }
+        ],
+        "brief": "0 images (0.0%)",
+        "description": "No images flagged as outliers.",
+        "severity": "ok",
+        "title": "Image Outliers"
+      },
+      {
+        "blocks": [],
+        "brief": "no outliers detected",
+        "description": "No outliers detected \u2014 classwise breakdown not applicable.",
+        "severity": "ok",
+        "title": "Classwise Outliers"
+      },
+      {
+        "blocks": [
+          {
+            "columns": [
+              {
+                "header": "Class",
+                "key": "name"
+              },
+              {
+                "header": "Count",
+                "key": "value"
+              },
+              {
+                "key": "value",
+                "kind": "bar"
+              }
+            ],
+            "rows": [
+              {
+                "name": "b",
+                "value": 8
+              },
+              {
+                "name": "a",
+                "value": 8
+              }
+            ],
+            "type": "table"
+          },
+          {
+            "text": "Labels protocol",
+            "type": "paragraph"
+          },
+          {
+            "text": "Balanced: all classes have equal counts",
+            "type": "paragraph"
+          }
+        ],
+        "brief": "2 classes, 16 items, imbalance 1.0:1",
+        "description": "2 classes, 16 items.",
+        "severity": "info",
+        "title": "Label Distribution"
+      }
+    ],
+    "summary": "Data cleaning complete. Dataset: 16 items. Mode: advisory."
+  }
+}
