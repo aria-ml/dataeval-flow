@@ -884,6 +884,62 @@
       "title": "CoverageConfig",
       "type": "object"
     },
+    "CustomWorkflowConfig": {
+      "additionalProperties": false,
+      "description": "A workflow built from steps: its named inputs, and the steps that read them in order.\n\nA task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may\nbe a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. A step names what\nit reads by address (spec \u00a74): an input, an earlier step, one of an earlier step's outputs, or one element of a\nlist.\n\nExamples\n--------\n>>> from dataeval_flow.steps import CustomWorkflowConfig\n>>> workflow = CustomWorkflowConfig.model_validate({\n...     \"name\": \"dupes_only\",\n...     \"inputs\": [\"data\"],\n...     \"steps\": [{\"name\": \"dupes\", \"evaluator\": \"dupes\", \"input\": \"data\"}],\n... })\n>>> print(workflow.to_yaml())  # doctest: +NORMALIZE_WHITESPACE\nworkflows:\n- name: dupes_only\n  inputs:\n  - data\n  steps:\n  - name: dupes\n    evaluator: dupes\n    input: data",
+      "properties": {
+        "name": {
+          "description": "What tasks call this workflow.",
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One line on what the workflow is for.",
+          "title": "Description"
+        },
+        "inputs": {
+          "description": "The inputs a task binds its sources to, in order.",
+          "items": {
+            "$ref": "#/$defs/InputSlot"
+          },
+          "minItems": 1,
+          "title": "Inputs",
+          "type": "array"
+        },
+        "steps": {
+          "description": "The steps, in the order they run.",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvaluatorStep"
+              },
+              {
+                "$ref": "#/$defs/WorkflowStep"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "inputs",
+        "steps"
+      ],
+      "title": "CustomWorkflowConfig",
+      "type": "object"
+    },
     "DataAnalysisConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
@@ -3661,6 +3717,63 @@
       "title": "DuplicatesConfig",
       "type": "object"
     },
+    "EvaluatorStep": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluator": {
+          "default": null,
+          "description": "An `evaluators:` entry to run.",
+          "title": "Evaluator",
+          "type": "string"
+        },
+        "input": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": null,
+          "description": "The address, or addresses, the step reads.",
+          "title": "Input"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EvaluatorStep",
+      "type": "object"
+    },
     "ExportConfig": {
       "additionalProperties": false,
       "description": "A named dataset to write, and the format to write it in.\n\nDeclare an export to take a conformed corpus out of the tool. It is written to\n``output/datasets/<name>/`` when the run has an output directory, beside\n``output/results/``. An export names a source, not a task, so it writes whether or\nnot any task reads that source.\n\nYAML example::\n\n    exports:\n      - name: conformed_corpus\n        source: merged\n        format: coco",
@@ -3954,6 +4067,29 @@
         "path"
       ],
       "title": "ImageFolderDatasetConfig",
+      "type": "object"
+    },
+    "InputSlot": {
+      "additionalProperties": false,
+      "description": "One input of a custom workflow, which a task binds to a source.",
+      "properties": {
+        "name": {
+          "description": "What the steps call this input.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "list": {
+          "default": false,
+          "description": "Whether it binds every source left after the single inputs, as a list keyed by source name.",
+          "title": "List",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InputSlot",
       "type": "object"
     },
     "LoggingConfig": {
@@ -7525,6 +7661,63 @@
       "title": "ViewOperation",
       "type": "object"
     },
+    "WorkflowStep": {
+      "additionalProperties": false,
+      "properties": {
+        "workflow": {
+          "default": null,
+          "description": "A `workflows:` entry with a `type:` to run.",
+          "title": "Workflow",
+          "type": "string"
+        },
+        "input": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": null,
+          "description": "The address, or addresses, the step reads.",
+          "title": "Input"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "WorkflowStep",
+      "type": "object"
+    },
     "YoloDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for YOLO format.\n\n``path`` is the dataset root \u2014 the directory holding ``data.yaml`` and the\nimage/label trees \u2014 for either Ultralytics arrangement (``images/train/`` +\n``labels/train/`` or ``train/images/`` + ``train/labels/``).  Select a split\nwith ``split``. Pointing ``path`` at a split subdirectory puts\n``data.yaml`` out of scope and falls back to numeric class names.\n\nYAML example::\n\n    datasets:\n      - name: yolo_train\n        format: yolo\n        path: yolo\n        split: train",
@@ -7905,6 +8098,9 @@
               },
               {
                 "$ref": "#/$defs/ParameterSweepConfig"
+              },
+              {
+                "$ref": "#/$defs/CustomWorkflowConfig"
               }
             ]
           },

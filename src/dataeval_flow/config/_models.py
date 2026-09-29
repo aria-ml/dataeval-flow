@@ -38,6 +38,7 @@ from dataeval_flow.config._schemas import (
 )
 from dataeval_flow.config.extractors._base import ExtractorConfig
 from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.steps._workflow import CustomWorkflowConfig
 from dataeval_flow.workflows._base import WorkflowConfig
 
 if TYPE_CHECKING:
@@ -275,6 +276,15 @@ def _dispatch(entry: Any, *, kind: str, resolve: Callable[[str], type[Any]], key
 def _workflow_entry(entry: Any) -> Any:
     from dataeval_flow.workflows._registry import get_workflow
 
+    if isinstance(entry, Mapping) and "steps" in entry:
+        if "type" in entry:
+            raise ValueError(
+                f"Workflow '{entry.get('name', '<unnamed>')}' names both `type` and `steps`. A `workflows:` entry is "
+                "a workflow type (`type:`) or a chain of steps (`steps:`), not both."
+            )
+        return CustomWorkflowConfig.model_validate(entry)
+    if isinstance(entry, Mapping) and not isinstance(entry.get("type"), str):
+        raise ValueError("Each `workflows:` entry needs a `type:`, or `steps:` for a chain of steps.")
     return _dispatch(entry, kind="workflow", resolve=get_workflow)
 
 
@@ -293,7 +303,7 @@ def _extractor_entry(entry: Any) -> Any:
 # One `workflows:` / `evaluators:` / `extractors:` entry, validated with the config class its registered type
 # (an extractor's `model`) names. Dispatched per entry, so an error's location carries the entry's index;
 # serialized as its own class, so a dump keeps a subclass's fields.
-_WorkflowEntry = Annotated[SerializeAsAny[_WorkflowBase], BeforeValidator(_workflow_entry)]
+_WorkflowEntry = Annotated[SerializeAsAny["_WorkflowBase | CustomWorkflowConfig"], BeforeValidator(_workflow_entry)]
 _EvaluatorEntry = Annotated[SerializeAsAny[_EvaluatorBase], BeforeValidator(_evaluator_entry)]
 _ExtractorEntry = Annotated[SerializeAsAny[ExtractorConfig], BeforeValidator(_extractor_entry)]
 
@@ -473,6 +483,11 @@ class PipelineConfig(BaseModel):
                     f"Task '{task.name}' names {kind} '{task.workflow}', which `{kind}s:` does not define. "
                     f"Defined: {sorted(pool)}"
                 )
+            if isinstance(target, CustomWorkflowConfig):
+                problem = target.binding_problem(len(task.source_names))
+                if problem is not None:
+                    raise ValueError(f"Task '{task.name}' runs workflow '{target.name}', which {problem}")
+                continue
             problem = input_problem(
                 target, source_count=len(task.source_names), has_extractor=task.extractor is not None
             )
