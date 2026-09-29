@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from dataeval.quality import DuplicatesOutput
 from pydantic import ValidationError
 
 from dataeval_flow import run_tasks
@@ -163,3 +164,33 @@ def test_a_plan_computed_on_more_datasets_than_its_input_fails_the_load() -> Non
             tasks=[{"name": "t", "workflow": "w", "sources": ["src", "other"]}],
             datasets={"src": ToyImages(), "other": ToyImages(seed=1)},
         )
+
+
+class _HintedForTypeCheckers(DuplicatesOutput):
+    """A Duplicates Output whose plan method's hints name a type imported only for type checkers, as a future
+    DataEval's might."""
+
+    def deduplicate(
+        self, *, dup_types: Any = "exact", keep: Any = "first", exclude_groups: Any = None, levels: Any = None
+    ) -> Any:
+        raise NotImplementedError
+
+
+_HintedForTypeCheckers.deduplicate.__annotations__ = {
+    "dup_types": "DupTypes",
+    "keep": "Keep",
+    "exclude_groups": "Groups",
+    "levels": "Levels",
+    "return": "RemovalPlan",
+}
+
+
+def test_plan_arguments_are_checked_by_name_alone_when_their_hints_do_not_resolve() -> None:
+    classes = {"dupes": (_HintedForTypeCheckers,)}
+    fits = RemoveConfig(input="a", plans={"dupes": {"keep": "last", "levels": ["item"]}})
+    assert RemoveTransform.bound_problem(fits, classes) is None
+    misspelled = RemoveConfig(input="a", plans={"dupes": {"kept": "last"}})
+    assert RemoveTransform.bound_problem(misspelled, classes) == (
+        "`plans: dupes` passes kept, which _HintedForTypeCheckers.deduplicate does not take; it takes dup_types, "
+        "keep, exclude_groups, levels."
+    )

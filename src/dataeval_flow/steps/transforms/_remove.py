@@ -35,7 +35,10 @@ def _spelled(hint: Any) -> str:
 
 
 def _arguments_problem(owner: type, arguments: Mapping[str, Any]) -> str | None:
-    """Why `arguments` do not fit `owner`'s plan method, by name and then by type; ``None`` when they fit."""
+    """Why `arguments` do not fit `owner`'s plan method, by name and then by type; ``None`` when they fit.
+
+    Types are checked only where the method's hints resolve at run time; otherwise names alone are.
+    """
     method = _method(owner)
     function = getattr(owner, method)
     taken = [name for name in inspect.signature(function).parameters if name != "self"]
@@ -43,7 +46,10 @@ def _arguments_problem(owner: type, arguments: Mapping[str, Any]) -> str | None:
     unknown = sorted(set(arguments) - set(taken))
     if unknown:
         return f"passes {', '.join(unknown)}, which {where} does not take; it takes {', '.join(taken)}."
-    hints = get_type_hints(function)
+    try:
+        hints = get_type_hints(function)
+    except NameError:  # a hint DataEval imports only for type checkers: the names above are all that can be checked
+        hints = {}
     for name, value in arguments.items():
         hint = hints.get(name, Any)
         # Strict, since `run` passes each value as written: lax mode would accept a "2" that reaches the method a str.
