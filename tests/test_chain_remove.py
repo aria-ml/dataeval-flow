@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
-from dataeval_flow.steps import TransformContext
+from dataeval_flow.steps import ChainResult, TransformContext
 from dataeval_flow.steps.transforms import RemoveConfig, RemoveTransform
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
@@ -28,14 +28,16 @@ def _fresh_cache():
     DatasetCache.clear_instances()
 
 
-def _run(steps: list[dict[str, Any]], dataset: Any = None):
+def _run(steps: list[dict[str, Any]], dataset: Any = None) -> ChainResult:
     config = chain_pipeline(
         workflows=[{"name": "w", "inputs": ["a"], "steps": steps}],
         evaluators=_POOL,
         tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
         datasets={"src": dataset if dataset is not None else ToyImages()},
     )
-    return run_tasks(config)["t"]
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    return result
 
 
 def _labels(dataset: Any) -> list[list[int]]:
