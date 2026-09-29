@@ -191,8 +191,9 @@ the data: the plan `remove` applied, the indices `select`, `split` and `kfold` c
 So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing one
 detection changes the digest though the number of items stays the same.
 
-An `export` step writes the lineage of the Dataset it wrote, and each `conform` on the way with its remap and ontology
-digest, into the corpus's `provenance.json`.
+An `export` step writes into the corpus's `provenance.json` each source the Dataset descends from, with the dataset and
+view it read, as a top-level export does; the lineage of the Dataset it wrote; and each `conform` on the way with its
+remap and ontology digest.
 
 See [Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) to write one, and
 [Workflows and Evaluators](WorkflowsAndEvaluators.md) for what evaluators and workflow types each decide.

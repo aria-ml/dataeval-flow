@@ -218,9 +218,10 @@ the config load. Name one element instead, such as `kfold.train[0]`.
 | `ontology` | the name of an `ontologies:` entry | none | The ontology to record in the provenance |
 | `to` | one directory name, not `.` or `..` | `<task>.<step>` | The directory under `<output>/datasets/` |
 
-The step writes to `<output>/datasets/<to>/`, with a `provenance.json` that records the lineage of the Dataset written
-and each `conform` on the way, with its remap and ontology digest. A Dataset a chain made is written with its pixels
-encoded; a chain input whose view left its pixels alone is written by reference to its image files, as a top-level
-export is. A run with no output directory skips the step, and that is not a failure. A Dataset of another kind is
-refused before any step runs. Two destinations that coincide anywhere in the run, top-level `exports:` included, fail
-the config load. [Export a dataset](../how_to/export_a_dataset.md) covers the formats and modes in full.
+The step writes to `<output>/datasets/<to>/`, with a `provenance.json` that records each source the Dataset descends
+from, with the dataset and view it read, the lineage of the Dataset written, and each `conform` on the way, with its
+remap and ontology digest. A Dataset a chain made is written with its pixels encoded; a chain input whose view left its
+pixels alone is written by reference to its image files, as a top-level export is. A run with no output directory skips
+the step, and that is not a failure. A Dataset of another kind is refused before any step runs. Two destinations that
+coincide anywhere in the run, top-level `exports:` included, fail the config load.
+[Export a dataset](../how_to/export_a_dataset.md) covers the formats and modes in full.

@@ -69,6 +69,46 @@ def test_exporting_a_derived_dataset_encodes_its_pixels(tmp_path: Path) -> None:
     assert [record["name"] for record in provenance["lineage"]] == ["few", "a"]
 
 
+def test_the_provenance_of_a_derived_dataset_names_each_root_sources_dataset_view_and_remap(tmp_path: Path) -> None:
+    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import DatasetProtocolConfig, SourceConfig
+
+    relabel = {"type": "Relabel", "params": {"class_remap": {"car": "vehicle"}, "target": ["vehicle", "person"]}}
+    workflow = {
+        "name": "w",
+        "inputs": ["a", "b"],
+        "steps": [
+            {"name": "both", "transform": "merge", "input": ["a", "b"]},
+            {"name": "corpus", "transform": "export", "input": "both"},
+        ],
+    }
+    config = PipelineConfig.model_validate(
+        {
+            "datasets": [
+                DatasetProtocolConfig(name="plain_data", format="maite", dataset=_DETECTIONS),
+                DatasetProtocolConfig(name="renamed_data", format="maite", dataset=_DETECTIONS),
+            ],
+            "views": [{"name": "vehicles", "operations": [relabel]}],
+            "sources": [
+                SourceConfig(name="plain", dataset="plain_data", view="vehicles"),
+                SourceConfig(name="renamed", dataset="renamed_data", view="vehicles"),
+            ],
+            "workflows": [workflow],
+            "tasks": [{"name": "t", "workflow": "w", "sources": ["plain", "renamed"]}],
+        }
+    )
+    result = run_tasks(config, output_dir=tmp_path)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    provenance = json.loads((tmp_path / "datasets" / "t.corpus" / "provenance.json").read_text())["runs"][-1]
+    assert provenance["operands"] == [
+        {"source": "plain", "dataset": "plain_data", "view": "vehicles", "class_remap": {"car": "vehicle"}},
+        {"source": "renamed", "dataset": "renamed_data", "view": "vehicles", "class_remap": {"car": "vehicle"}},
+    ]
+    assert [record["name"] for record in provenance["lineage"]] == ["both", "a", "b"]
+    assert provenance["conforms"] == []
+
+
 def test_the_provenance_records_each_conform_on_the_way_and_only_those(tmp_path: Path) -> None:
     steps = [
         {"name": "aligned", "evaluator": "align", "input": "a"},

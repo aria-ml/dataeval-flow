@@ -542,12 +542,15 @@ def chain_provenance(
     name: str,
     task: str,
     step: str,
+    sources: "Sequence[ResolvedSource]",
     lineage: "Sequence[LineageRecord]",
     ontology: "ResolvedOntology | None",
     conforms: "Sequence[LabelSpaceRecord]",
 ) -> "DatasetMetadata":
     """The provenance of a Dataset a chain made: the task and step that wrote it, and its lineage to the sources.
 
+    ``operands`` describes each operand of the root `sources`, the chain inputs the Dataset descends from, as a
+    top-level export describes its source's: the dataset it read, the view it read through, and that view's remap.
     ``conforms`` holds one record per ``conform`` on the way, in chain order: its address as ``source``, the
     ``class_remap`` it applied, the ``target`` vocabulary, and the ``ontology`` and ``ontology_digest`` it conformed
     to. It is an empty list where no ``conform`` was on the way.
@@ -557,7 +560,9 @@ def chain_provenance(
     from datamaite import DatasetMetadata
 
     from dataeval_flow import __version__
+    from dataeval_flow._sources import label_space_records
 
+    by_source = {record.source: record for record in label_space_records(sources, ontology)}
     ontology_name, digest = _ontology_entry(ontology)
     info: dict[str, Any] = {
         "tool": "dataeval-flow",
@@ -567,6 +572,11 @@ def chain_provenance(
         "step": step,
         "ontology": ontology_name,
         "ontology_digest": digest,
+        "operands": [
+            _operand_entry(operand, by_source.get(operand.source.name))
+            for resolved in sources
+            for operand in resolved.operands
+        ],
         "lineage": [record.model_dump(mode="json") for record in lineage],
         "conforms": [record.model_dump(mode="json") for record in conforms],
     }
@@ -588,15 +598,22 @@ def write_node(
     step: str,
     conforms: "Sequence[LabelSpaceRecord]",
 ) -> "tuple[Path, dict[str, Any], int]":
-    """Write a Dataset a chain made to `dest`. Returns the directory, provenance and size."""
+    """Write a Dataset a chain made to `dest`. Returns the directory, provenance and size.
+
+    The provenance names the operands of each chain input in `lineage`, resolved again from `config` as a top-level
+    export resolves its source.
+    """
     from datamaite import write
 
     from dataeval_flow._orchestrator import _resolve_ontology
+    from dataeval_flow._sources import resolve_source
 
     _refuse_occupied_destination(dest, mode)
     ontology = _resolve_ontology(ontology_owner, config, data_dir)
+    roots = dict.fromkeys(record.source for record in lineage if record.step is None and record.source is not None)
+    sources = [resolve_source(root, config, data_dir=data_dir) for root in roots] if config is not None else []
     provenance = chain_provenance(
-        name=name, task=task, step=step, lineage=lineage, ontology=ontology, conforms=conforms
+        name=name, task=task, step=step, sources=sources, lineage=lineage, ontology=ontology, conforms=conforms
     )
     built = build_node_dataset(dataset, name=name, dataset_metadata=provenance)
     _write_or_explain(built, dest, name=name, format=format, mode=mode, write=write)

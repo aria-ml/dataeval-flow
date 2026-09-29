@@ -164,6 +164,10 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
         ("b2", "vehicles", "7322513e6772", b2_remap, ["Vehicle", "Person"]),
     ]
     provenance = json.loads((corpus / "provenance.json").read_text())["runs"][-1]
+    assert provenance["operands"] == [
+        {"source": "a", "dataset": "a_data", "view": None, "class_remap": {}},
+        {"source": "b", "dataset": "b_data", "view": None, "class_remap": {}},
+    ]
     assert [record["name"] for record in provenance["lineage"]] == ["merged", "a2", "b2", "a", "b"]
     conforms = [
         (entry["source"], entry["ontology"], entry["ontology_digest"], entry["class_remap"])
