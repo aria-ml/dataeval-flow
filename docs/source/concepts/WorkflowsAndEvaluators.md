@@ -41,6 +41,12 @@ Use a **workflow** when you want DataEval Flow to judge the answers for you: to
 combine several evaluators, apply thresholds, and fail a pipeline that breaches
 them.
 
+Write a **custom workflow** when the analysis is a sequence of your own: a chain of
+evaluator steps, workflow-type steps, and transforms that make the Datasets they
+read, such as a merged corpus, the same corpus without its duplicates, or its
+training split. A chain judges health only through the workflow types it runs.
+[Workflows as Chains of Steps](WorkflowsAsChains.md) explains how a chain works.
+
 ## Why both can run DataEval's Duplicates
 
 `quality.duplicates` and `data-cleaning` both call DataEval's Duplicates. Their

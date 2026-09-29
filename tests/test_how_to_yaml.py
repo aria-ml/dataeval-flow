@@ -1,4 +1,4 @@
-"""Every YAML snippet in the evaluator how-tos loads, assembled in order the way a reader builds a pipeline.
+"""Every YAML snippet in the evaluator and custom-workflow pages loads, assembled in order as a reader builds it.
 
 A renamed parameter or evaluator type then fails CI instead of a reader's config.
 """
@@ -13,11 +13,10 @@ import yaml
 
 from dataeval_flow import PipelineConfig
 
-_HOW_TO = Path(__file__).resolve().parents[1] / "docs" / "source" / "how_to"
-_PAGES = ["run_a_single_evaluator.md", "evaluator_recipes.md"]
+_DOCS = Path(__file__).resolve().parents[1] / "docs" / "source"
 _YAML_BLOCK = re.compile(r"```yaml\n(.*?)```", re.S)
 
-# What the pages assume a reader's pipeline already defines: a dataset, the sources they name, and one extractor.
+# What the how-tos assume a reader's pipeline already defines: a dataset, the sources they name, and one extractor.
 _BASE: dict[str, Any] = {
     "datasets": [{"name": "ds", "format": "huggingface", "path": "./d", "task": "image_classification"}],
     "sources": [
@@ -25,6 +24,25 @@ _BASE: dict[str, Any] = {
         for name in ("train", "test", "validation", "operational", "labeled", "unlabeled")
     ],
     "extractors": [{"name": "bovw_ext", "model": "bovw", "vocab_size": 512, "batch_size": 32}],
+}
+
+# What the chain concept page's snippets assume besides: the cameras a list input binds, and the evaluators its
+# steps name.
+_CHAINS_BASE: dict[str, Any] = {
+    **_BASE,
+    "sources": [*_BASE["sources"], *({"name": name, "dataset": "ds"} for name in ("cam1", "cam2"))],
+    "evaluators": [
+        {"name": "dupes", "type": "quality.duplicates"},
+        {"name": "balance", "type": "bias.balance"},
+        {"name": "mmd", "type": "shift.drift-mmd"},
+    ],
+}
+
+_PAGES: dict[str, dict[str, Any]] = {
+    "how_to/run_a_single_evaluator.md": _BASE,
+    "how_to/evaluator_recipes.md": _BASE,
+    "how_to/write_a_custom_workflow.md": _BASE,
+    "concepts/WorkflowsAsChains.md": _CHAINS_BASE,
 }
 
 
@@ -41,9 +59,9 @@ def _merge(config: dict[str, Any], block: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.mark.parametrize("page", _PAGES)
 def test_every_yaml_snippet_loads(page: str):
-    blocks = _YAML_BLOCK.findall((_HOW_TO / page).read_text(encoding="utf-8"))
+    blocks = _YAML_BLOCK.findall((_DOCS / page).read_text(encoding="utf-8"))
     assert blocks, f"{page} has no yaml snippets"
-    config = copy.deepcopy(_BASE)
+    config = copy.deepcopy(_PAGES[page])
     for block in blocks:
         config = _merge(config, yaml.safe_load(block))
         PipelineConfig.model_validate(config)
