@@ -229,3 +229,16 @@ def test_the_tui_snippet_names_a_custom_workflow_by_its_steps() -> None:
     assert "2 steps" in text
     assert "few: transform toy-first" in text
     assert "dupes: evaluator dupes" in text
+
+
+def test_a_one_step_task_makes_its_evaluator_once() -> None:
+    from unittest.mock import patch
+
+    from dataeval_flow import _orchestrator
+
+    task = TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")
+    config = chain_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task.model_dump()])
+    with patch.object(_orchestrator, "_implementation", wraps=_orchestrator._implementation) as made:
+        result = run_task(task, config)
+    assert result.success
+    assert made.call_count == 1

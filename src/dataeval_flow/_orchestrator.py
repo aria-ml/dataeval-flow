@@ -556,6 +556,7 @@ def _run_one_step(
         output_dir=output_dir,
         extractors={None: setup},
         step_contexts=contexts,
+        runners={task.name: runner},
     )
     _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()

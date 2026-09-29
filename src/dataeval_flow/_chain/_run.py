@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config.extractors._base import ExtractorConfig
+    from dataeval_flow.evaluators._evaluator import Evaluator
+    from dataeval_flow.workflows._base import Workflow
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology
 
 _logger = logging.getLogger(__name__)
@@ -63,6 +65,9 @@ class RunSettings:
     extractors: Mapping[str | None, ExtractorSetup | None] = field(default_factory=dict)
     """By extractor name. ``None`` holds the task's own extractor, which every node's context already carries."""
     step_contexts: Mapping[str, StepContext] = field(default_factory=dict)
+    runners: "Mapping[str, Workflow[Any, Any] | Evaluator[Any, Any]]" = field(default_factory=dict)
+    """By step name, the instance an evaluator or workflow step runs, where the caller made it already, as a one-step
+    task makes its own. Any other such step makes a fresh instance of its type."""
 
 
 @dataclass
@@ -418,10 +423,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings) ->
         ontology=step.ontology,
         stats_policy=step.stats_policy,
     )
-    # Instantiated and run as the orchestrator runs a task's target, so a step and a task run it the same way.
-    from dataeval_flow._orchestrator import _implementation, _run_target
+    # Run as the orchestrator runs a task's target, so a step and a task run it the same way.
+    from dataeval_flow._orchestrator import _run_target
 
-    return _run_target(_implementation(spec.config), spec.config, context)  # type: ignore[arg-type]
+    runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
+    return _run_target(runner, spec.config, context)  # type: ignore[arg-type]
 
 
 def _context_for(node: Node, spec: StepSpec, setup: ExtractorSetup | None) -> "DatasetContext":
