@@ -279,7 +279,7 @@ class DatasetProtocolConfig(BaseModel):
     """
 
     serializable: ClassVar[bool] = False
-    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     name: str = Field(description="Identifier for the dataset, referenced by sources.")
     format: Literal["maite", "torchvision"] = Field(

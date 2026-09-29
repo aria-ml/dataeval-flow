@@ -1,0 +1,94 @@
+{
+  "kind": "evaluator",
+  "metadata": {
+    "dataeval": {
+      "name": "dataeval.quality._duplicates.Duplicates.from_stats"
+    },
+    "dataset_id": "toy",
+    "diagnostics": [],
+    "encoding_digest": null,
+    "evaluator": "quality.duplicates",
+    "label_source": "protocol",
+    "label_space": [],
+    "label_space_digest": null,
+    "metadata_binning": null,
+    "model_id": null,
+    "preprocessor_id": null,
+    "resolved_config": {
+      "evaluator": {
+        "cluster_algorithm": null,
+        "cluster_sensitivity": null,
+        "flags": null,
+        "frame_sample": null,
+        "hash_radius": null,
+        "max_segment_gap": null,
+        "merge_near_duplicates": null,
+        "min_segment_frames": null,
+        "min_track_frames": null,
+        "n_clusters": null,
+        "name": "dupes",
+        "per_image": null,
+        "per_target": null,
+        "redundancy_radius": null,
+        "segment_offset_tolerance": null,
+        "stats": null,
+        "type": "quality.duplicates",
+        "verify_alignment": null
+      },
+      "sources": [
+        {
+          "dataset": "toy",
+          "dataset_config": {
+            "dataset": {
+              "class": "ToyImages",
+              "id": "toy-0-12",
+              "type": "protocol"
+            },
+            "format": "maite",
+            "name": "toy",
+            "version": "1"
+          },
+          "name": "src"
+        }
+      ]
+    },
+    "selection_id": null,
+    "source_descriptions": [
+      "src (toy)"
+    ],
+    "tool": "dataeval-flow",
+    "version": "1.0"
+  },
+  "output": {
+    "columns": [
+      "group_id",
+      "level",
+      "dup_type",
+      "item_indices",
+      "methods",
+      "differs_on",
+      "annotation_divergence"
+    ],
+    "extras": {
+      "annotation_divergences": null,
+      "factor_cardinality": null
+    },
+    "rows": [
+      {
+        "annotation_divergence": null,
+        "differs_on": null,
+        "dup_type": "exact",
+        "group_id": 0,
+        "item_indices": [
+          0,
+          5
+        ],
+        "level": "item",
+        "methods": [
+          "xxhash"
+        ]
+      }
+    ],
+    "shape": "table"
+  }
+}

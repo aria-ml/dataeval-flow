@@ -255,7 +255,7 @@ def test_an_evaluator_plugin_validates_dumps_and_round_trips(plugins) -> None:
 
 
 def test_an_entry_without_a_type_says_so() -> None:
-    with pytest.raises(ValidationError, match="Each `workflows:` entry needs a `type:`"):
+    with pytest.raises(ValidationError, match="needs a `type:`, or `steps:`"):
         PipelineConfig.model_validate({"workflows": [{"name": "x"}]})
 
 

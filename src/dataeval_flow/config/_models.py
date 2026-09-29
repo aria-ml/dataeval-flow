@@ -6,8 +6,9 @@ __all__ = [
     "SourceConfig",
 ]
 
+import difflib
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
 from pydantic import (
@@ -37,6 +38,7 @@ from dataeval_flow.config._schemas import (
 )
 from dataeval_flow.config.extractors._base import ExtractorConfig
 from dataeval_flow.evaluators._base import EvaluatorConfig
+from dataeval_flow.steps._workflow import CustomWorkflowConfig
 from dataeval_flow.workflows._base import WorkflowConfig
 
 if TYPE_CHECKING:
@@ -71,7 +73,7 @@ class SourceConfig(BaseModel):
     The legacy ``selection`` key is accepted as a deprecated alias for ``view``.
     """
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str = Field(description="Identifier for the source")
     dataset: str | None = Field(
@@ -127,6 +129,8 @@ class LoggingConfig(BaseModel):
           lib_level: ERROR
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     app_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="DEBUG", description="Level of dataeval-flow's own loggers."
     )
@@ -159,6 +163,8 @@ class ResultConfig(BaseModel):
           per_task: true
           max_images: 100
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     name: str = Field(
         default="result",
@@ -270,6 +276,15 @@ def _dispatch(entry: Any, *, kind: str, resolve: Callable[[str], type[Any]], key
 def _workflow_entry(entry: Any) -> Any:
     from dataeval_flow.workflows._registry import get_workflow
 
+    if isinstance(entry, Mapping) and "steps" in entry:
+        if "type" in entry:
+            raise ValueError(
+                f"Workflow '{entry.get('name', '<unnamed>')}' names both `type` and `steps`. A `workflows:` entry is "
+                "a workflow type (`type:`) or a chain of steps (`steps:`), not both."
+            )
+        return CustomWorkflowConfig.model_validate(entry)
+    if isinstance(entry, Mapping) and not isinstance(entry.get("type"), str):
+        raise ValueError("Each `workflows:` entry needs a `type:`, or `steps:` for a chain of steps.")
     return _dispatch(entry, kind="workflow", resolve=get_workflow)
 
 
@@ -288,7 +303,7 @@ def _extractor_entry(entry: Any) -> Any:
 # One `workflows:` / `evaluators:` / `extractors:` entry, validated with the config class its registered type
 # (an extractor's `model`) names. Dispatched per entry, so an error's location carries the entry's index;
 # serialized as its own class, so a dump keeps a subclass's fields.
-_WorkflowEntry = Annotated[SerializeAsAny[_WorkflowBase], BeforeValidator(_workflow_entry)]
+_WorkflowEntry = Annotated[SerializeAsAny["_WorkflowBase | CustomWorkflowConfig"], BeforeValidator(_workflow_entry)]
 _EvaluatorEntry = Annotated[SerializeAsAny[_EvaluatorBase], BeforeValidator(_evaluator_entry)]
 _ExtractorEntry = Annotated[SerializeAsAny[ExtractorConfig], BeforeValidator(_extractor_entry)]
 
@@ -303,9 +318,12 @@ class PipelineConfig(BaseModel):
 
     The legacy ``selections`` key is accepted as a deprecated alias for
     ``views`` (with a :class:`DeprecationWarning`).
+
+    A key that is none of these sections is refused, naming the section it most resembles: a misspelled section
+    would otherwise be dropped, and the run go ahead without it.
     """
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
 
     # Logging
     logging: LoggingConfig | None = Field(
@@ -423,6 +441,16 @@ class PipelineConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
+    def _refuse_unknown_keys(cls, data: Any) -> Any:
+        """Refuse a key that is no section, naming the section it most resembles."""
+        if isinstance(data, Mapping):
+            problem = unknown_keys_problem(data)
+            if problem is not None:
+                raise ValueError(problem)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def _warn_legacy_selection_keys(cls, data: Any) -> Any:
         """Emit deprecation warnings for the legacy ``selections``/``selection`` keys."""
         if isinstance(data, Mapping):
@@ -455,11 +483,31 @@ class PipelineConfig(BaseModel):
                     f"Task '{task.name}' names {kind} '{task.workflow}', which `{kind}s:` does not define. "
                     f"Defined: {sorted(pool)}"
                 )
+            if isinstance(target, CustomWorkflowConfig):
+                problem = target.binding_problem(len(task.source_names))
+                if problem is not None:
+                    raise ValueError(f"Task '{task.name}' runs workflow '{target.name}', which {problem}")
+                continue
             problem = input_problem(
                 target, source_count=len(task.source_names), has_extractor=task.extractor is not None
             )
             if problem is not None:
                 raise ValueError(f"Task '{task.name}' runs {kind} '{target.name}' ({target.type}), which {problem}")
+        return self
+
+    @model_validator(mode="after")
+    def _check_custom_workflows(self) -> "PipelineConfig":
+        """Refuse a custom workflow whose steps do not connect, and a task it cannot run, before any data is read."""
+        from dataeval_flow._chain._graph import build_graph, task_problems
+
+        graphs = {
+            workflow.name: build_graph(workflow, self)
+            for workflow in self.workflows or ()
+            if isinstance(workflow, CustomWorkflowConfig)
+        }
+        problems = task_problems(self, graphs)
+        if problems:
+            raise ValueError(" ".join(problems))
         return self
 
     @model_validator(mode="after")
@@ -496,3 +544,33 @@ class PipelineConfig(BaseModel):
                         "a task name there can't hold '/' or '\\'"
                     )
         return self
+
+
+def top_level_keys() -> frozenset[str]:
+    """Every key a pipeline config's top level may hold: its sections, and their legacy aliases."""
+    keys = set(PipelineConfig.model_fields)
+    for field in PipelineConfig.model_fields.values():
+        alias = field.validation_alias
+        if isinstance(alias, AliasChoices):
+            keys.update(choice for choice in alias.choices if isinstance(choice, str))
+        elif isinstance(alias, str):
+            keys.add(alias)
+    return frozenset(keys)
+
+
+def unknown_keys_problem(keys: Iterable[Any]) -> str | None:
+    """Name each of `keys` that is no top-level section, with the section it most resembles; ``None`` if none is.
+
+    A guess is offered only among the current section names, never a legacy alias.
+    """
+    known = top_level_keys()
+    unknown = [key for key in keys if key not in known]
+    if not unknown:
+        return None
+    sections = sorted(PipelineConfig.model_fields)
+    named = []
+    for key in unknown:
+        guess = difflib.get_close_matches(str(key), sections, n=1)
+        named.append(f"'{key}'" + (f" (did you mean '{guess[0]}'?)" if guess else ""))
+    noun = "key" if len(unknown) == 1 else "keys"
+    return f"Unknown top-level {noun} {', '.join(named)}. The sections are: {', '.join(sections)}."

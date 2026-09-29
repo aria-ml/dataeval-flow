@@ -3,14 +3,23 @@
 ``run`` is the only code here that calls DataEval.
 """
 
-__all__ = ["CoverageEvaluator", "PrioritizeEvaluator", "RepresentationEvaluator", "usable_labels"]
+__all__ = [
+    "CoverageEvaluator",
+    "LabelAlignmentEvaluator",
+    "PrioritizeEvaluator",
+    "RepresentationEvaluator",
+    "usable_labels",
+]
 
 import logging
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
+from dataeval.core import label_alignment
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -20,11 +29,18 @@ from dataeval.scope import (
     RepresentationOutput,
 )
 
+from dataeval_flow._alignment import LabelAlignmentOutput, align_labels
 from dataeval_flow._input_spec import InputKind
+from dataeval_flow.evaluators._core import execution
 from dataeval_flow.evaluators._evaluator import Evaluator
 from dataeval_flow.evaluators._fields import dataeval_arguments, require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
-from dataeval_flow.evaluators.scope._config import CoverageConfig, PrioritizeConfig, RepresentationConfig
+from dataeval_flow.evaluators.scope._config import (
+    CoverageConfig,
+    LabelAlignmentConfig,
+    PrioritizeConfig,
+    RepresentationConfig,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -129,3 +145,28 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
         labels = usable_labels(data, len(embeddings), self.name)
         prioritize = Prioritize(**dataeval_arguments(config), reference=reference)
         return prioritize.evaluate(embeddings, class_labels=labels)
+
+
+class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutput]):
+    """``scope.label-alignment``: how the Dataset's class names align to an ontology, per DataEval's label_alignment."""
+
+    name: ClassVar[str] = "scope.label-alignment"
+    description: ClassVar[str] = (
+        "How a Dataset's class names align to an ontology: the remap, and whether it is lossless."
+    )
+    dataeval_class: ClassVar[Any] = label_alignment
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+
+    def run(self, config: LabelAlignmentConfig, inputs: Sequence[EvaluatorInputs]) -> LabelAlignmentOutput:
+        """Align the source's class names to the task's ontology with DataEval's ``label_alignment``."""
+        (source,) = inputs
+        if source.ontology is None:
+            raise ValueError("scope.label-alignment needs its `ontology:` to load.")
+        index2label = dict(source.index2label or {})
+        names = [index2label[index] for index in sorted(index2label)]
+        started, clock = datetime.now(UTC), time.monotonic()
+        alignment = align_labels(source.ontology, names, threshold=config.threshold)
+        meta = execution(
+            "dataeval.core.label_alignment", started, time.monotonic() - clock, {"threshold": config.threshold}
+        )
+        return LabelAlignmentOutput(alignment, source.ontology, meta, ontology_source=source.ontology_source)

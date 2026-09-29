@@ -13,10 +13,12 @@ from pydantic import BaseModel
 
 from dataeval_flow._embeddings import shared_extractor_scope
 from dataeval_flow._logging import capture_diagnostics
+from dataeval_flow.steps._workflow import CustomWorkflowConfig
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from dataeval_flow._chain._run import ChainRun, ExtractorSetup
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._result import Result
     from dataeval_flow._sources import ResolvedSource, SourceOperand
@@ -25,8 +27,10 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._task import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
+    from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
+    from dataeval_flow.workflows._tables import TableLimits
 
 
 @runtime_checkable
@@ -68,8 +72,8 @@ def _resolve_by_name(items: Sequence[T] | None, name: str, kind: str) -> T:
 def _resolve_workflow(
     workflow_name: str,
     config: "PipelineConfig",
-) -> "WorkflowConfig[Any]":
-    """Resolve a workflow by name from ``config.workflows``."""
+) -> "WorkflowConfig[Any] | CustomWorkflowConfig":
+    """Resolve a workflow by name from ``config.workflows``: a workflow type, or a custom workflow's steps."""
     return _resolve_by_name(config.workflows, workflow_name, "workflow")
 
 
@@ -336,24 +340,25 @@ def _run_single_task(
     cache_dir: Path | None = None,
     *,
     report_images: bool = True,
+    output_dir: Path | None = None,
 ) -> "Result[Any, Any]":
     """Run a single resolved task against a pipeline config.
 
     This is the internal workhorse — resolves all references (sources,
     extractor) against ``PipelineConfig``, builds contexts, and executes
-    the workflow or evaluator.
+    the workflow or evaluator through the step engine: as a one-step graph, or as a custom workflow's chain.
 
     Resolving raises on a config error: a reference that names nothing, a dataset that cannot load, a
     preprocessing step whose transform cannot be built, a policy that does not resolve. A task that does not meet
     its target's inputs, and any failure of the run itself, come back as a failed result instead.
+
+    `output_dir` is where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export
+    steps are skipped with a reason.
     """
-    from dataeval_flow._cache import DatasetCache
-    from dataeval_flow._preprocessing import build_preprocessing
-    from dataeval_flow._sources import resolve_source
-    from dataeval_flow.config._schemas import PreprocessorConfig
-    from dataeval_flow.config.extractors._base import ExtractorConfig
-    from dataeval_flow.workflows._context import DatasetContext, WorkflowContext
-    from dataeval_flow.workflows._tables import TableLimits, limited_tables
+    from dataeval_flow._kind import input_problem, result_type_of
+    from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.workflows._result import WorkflowResult
+    from dataeval_flow.workflows._tables import TableLimits
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
@@ -365,65 +370,37 @@ def _run_single_task(
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)
 
     # 2. Resolve extractor config (optional — single per task)
-    extractor_cfg: ExtractorConfig | None = None
-    transforms = None
-    batch_size: int | None = None
-
-    if task.extractor is not None:
-        extractor_cfg = _resolve_by_name(config.extractors, task.extractor, "extractor")
-        extractor_cfg = _resolve_extractor_paths(extractor_cfg, data_dir)
-        batch_size = extractor_cfg.batch_size
-
-        # Resolve preprocessor from extractor (optional)
-        if extractor_cfg.preprocessor is not None:
-            pre_config: PreprocessorConfig = _resolve_by_name(
-                config.preprocessors, extractor_cfg.preprocessor, "preprocessor"
-            )
-            transforms = build_preprocessing(pre_config.steps)
+    setup = _extractor_setup(task.extractor, config, data_dir)
+    extractor_cfg = setup.config if setup is not None else None
 
     # 3. Build a DatasetContext per source
-    dataset_contexts: dict[str, DatasetContext] = {}
-    resolved_sources: list[ResolvedSource] = []
-
-    for src_name in source_names:
-        resolved = resolve_source(src_name, config, data_dir=data_dir)
-        resolved_sources.append(resolved)
-
-        ds_cache = DatasetCache.get_or_create(
-            cache_dir=cache_dir,
-            name=resolved.cache_name,
-            cache_key=resolved.cache_key,
-        )
-
-        dataset_contexts[src_name] = DatasetContext(
-            name=src_name,
-            dataset=resolved.dataset,
-            extractor=extractor_cfg,
-            transforms=transforms,
-            view_operations=resolved.view_config.operations if resolved.view_config else None,
-            batch_size=batch_size,
-            label_source=_label_source_of(resolved.label_sources),
-            value_range=_value_range_of(resolved),
-            channel_groups=_channel_groups_of(resolved),
-            cache=ds_cache,
-        )
-
-    if cache_dir:
-        _logger.info("Cache enabled: %s", cache_dir)
-
+    dataset_contexts, resolved_sources = _source_contexts(source_names, config, setup, data_dir, cache_dir)
     _logger.debug("Task '%s': resolved %d source(s): %s", task.name, len(source_names), source_names)
 
-    # 4. Resolve the target → type + params. A task runs a workflow or an evaluator; the
-    #    context, policies, timing and envelope below serve both.
-    from dataeval_flow._kind import input_problem, result_type_of
-    from dataeval_flow.evaluators._result import EvaluatorResult
-    from dataeval_flow.workflows._result import WorkflowResult
-
-    instance: WorkflowConfig[Any] | EvaluatorConfig[Any]
+    # 4. Resolve the target → type + params. A task runs a workflow, an evaluator, or a custom workflow's chain;
+    #    the context, policies, timing and envelope below serve the first two.
+    instance: WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig
     if task.kind == "evaluator":
         instance = _resolve_evaluator(task.workflow, config)
     else:
         instance = _resolve_workflow(task.workflow, config)
+    # The pipeline's `result:` limits on tables of items hold for this run's report builders alone.
+    settings = config.result
+    limits = TableLimits(rows=_unless_all(settings.max_rows), preview=_unless_all(settings.preview_rows))
+    if isinstance(instance, CustomWorkflowConfig):
+        return _run_custom_task(
+            task,
+            instance,
+            config,
+            dataset_contexts,
+            resolved_sources,
+            setup,
+            data_dir=data_dir,
+            cache_dir=cache_dir,
+            output_dir=output_dir,
+            report_images=report_images,
+            limits=limits,
+        )
     runner = _implementation(instance)
 
     # `PipelineConfig` only checks the tasks it holds; a task run directly (not out of
@@ -441,55 +418,20 @@ def _run_single_task(
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, instance, config, data_dir=data_dir)
         return refused
 
-    # 5. Resolve the metadata policy before anything reads the dataset, so a misspelled
-    #    factor or a missing descriptor costs a config error, not an hour of walking
-    #    images.  Workflows that read no metadata carry None.
-    policy = _resolve_metadata_policy(instance, config, data_dir)
-
-    # Before anything reads the dataset: the range is what the injected statistics are
-    # measured against, and a disagreement between datasets has no sound resolution.
-    policy = _apply_dataset_value_range(
-        policy,
-        [ctx.value_range for ctx in dataset_contexts.values()],
-        instance.name,
-        task.kind,
+    # 5-7. Resolve the step's policies and ontology, then run it as a one-step graph.
+    result, elapsed, ontology = _run_one_step(
+        task,
+        instance,
+        runner,
+        config,
+        dataset_contexts,
+        resolved_sources,
+        setup,
+        data_dir=data_dir,
+        cache_dir=cache_dir,
+        output_dir=output_dir,
+        limits=limits,
     )
-
-    # Resolved after the datasets, because a policy's band groups are taken from them, and
-    # before the run, because a group no dataset declares is a config error rather than an
-    # hour of walking images.
-    stats_policy = _resolve_stats_policy(instance, config, dataset_contexts)
-    if policy is not None and stats_policy is not None:
-        policy = replace(policy, stats=stats_policy)
-
-    ontology = _resolve_ontology(instance, config, data_dir)
-
-    # 6. Build WorkflowContext
-    context = WorkflowContext(
-        dataset_contexts=dataset_contexts,
-        batch_size=batch_size,
-        metadata_policy=policy,
-        ontology=ontology,
-        stats_policy=stats_policy,
-    )
-
-    # 7. Run workflow with timing
-    _logger.debug("Task '%s': executing", task.name)
-    start = time.monotonic()
-    # Library diagnostics are captured here, not left to the log file: they name the
-    # binning and value_range decisions this run made, and the envelope must record them
-    # on its own.
-    # One extractor scope per task, whichever entry point runs it (`run_task`, `run_tasks`,
-    # `run`, the TUI), so every source the task compares is described by the same stateful
-    # extractor, fitted once on the first source to ask.
-    # The pipeline's `result:` limits on tables of items hold for this run's report builders alone.
-    settings = config.result
-    limits = TableLimits(rows=_unless_all(settings.max_rows), preview=_unless_all(settings.preview_rows))
-    with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
-        result = _run_target(runner, instance, context)
-    elapsed = time.monotonic() - start
-    if diagnostics:
-        result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
     # 8. Backfill the resolved dataset(s) when the workflow left them unset —
@@ -513,6 +455,228 @@ def _run_single_task(
     )
 
     return result
+
+
+def _extractor_setup(name: str | None, config: "PipelineConfig", data_dir: Path | None) -> "ExtractorSetup | None":
+    """The extractor `name` names, with its paths resolved and its preprocessing built; ``None`` for no name."""
+    from dataeval_flow._chain._run import ExtractorSetup
+    from dataeval_flow._preprocessing import build_preprocessing
+
+    if name is None:
+        return None
+    extractor_cfg = _resolve_extractor_paths(_resolve_by_name(config.extractors, name, "extractor"), data_dir)
+    transforms = None
+    if extractor_cfg.preprocessor is not None:
+        pre_config = _resolve_by_name(config.preprocessors, extractor_cfg.preprocessor, "preprocessor")
+        transforms = build_preprocessing(pre_config.steps)
+    return ExtractorSetup(extractor_cfg, transforms, extractor_cfg.batch_size)
+
+
+def _source_contexts(
+    source_names: Sequence[str],
+    config: "PipelineConfig",
+    setup: "ExtractorSetup | None",
+    data_dir: Path | None,
+    cache_dir: Path | None,
+) -> "tuple[dict[str, DatasetContext], list[ResolvedSource]]":
+    """Resolve each source a task reads, and the context its run reads it through, keyed by source name."""
+    from dataeval_flow._cache import DatasetCache
+    from dataeval_flow._sources import resolve_source
+    from dataeval_flow.workflows._context import DatasetContext
+
+    dataset_contexts: dict[str, DatasetContext] = {}
+    resolved_sources: list[ResolvedSource] = []
+
+    for src_name in source_names:
+        resolved = resolve_source(src_name, config, data_dir=data_dir)
+        resolved_sources.append(resolved)
+
+        ds_cache = DatasetCache.get_or_create(
+            cache_dir=cache_dir,
+            name=resolved.cache_name,
+            cache_key=resolved.cache_key,
+        )
+
+        dataset_contexts[src_name] = DatasetContext(
+            name=src_name,
+            dataset=resolved.dataset,
+            extractor=setup.config if setup is not None else None,
+            transforms=setup.transforms if setup is not None else None,
+            view_operations=resolved.view_config.operations if resolved.view_config else None,
+            batch_size=setup.batch_size if setup is not None else None,
+            label_source=_label_source_of(resolved.label_sources),
+            value_range=_value_range_of(resolved),
+            channel_groups=_channel_groups_of(resolved),
+            cache=ds_cache,
+        )
+
+    if cache_dir:
+        _logger.info("Cache enabled: %s", cache_dir)
+
+    return dataset_contexts, resolved_sources
+
+
+def _run_one_step(
+    task: "TaskConfig",
+    instance: "WorkflowConfig[Any] | EvaluatorConfig[Any]",
+    runner: "Workflow[Any, Any] | Evaluator[Any, Any]",
+    config: "PipelineConfig",
+    dataset_contexts: "dict[str, DatasetContext]",
+    resolved_sources: "list[ResolvedSource]",
+    setup: "ExtractorSetup | None",
+    *,
+    data_dir: Path | None,
+    cache_dir: Path | None,
+    output_dir: Path | None,
+    limits: "TableLimits",
+) -> "tuple[Result[Any, Any], float, ResolvedOntology | None]":
+    """Run an ``evaluator:`` or workflow-type task as a one-step graph: its result, unwrapped, the seconds it took,
+    and the ontology its step resolved.
+
+    The step's metadata policy, value range, stats policy and ontology resolve before anything reads the dataset,
+    so a misspelled factor or a missing descriptor costs a config error, not an hour of walking images.
+    """
+    from dataeval_flow._chain._graph import one_step_graph
+    from dataeval_flow._chain._preflight import step_contexts
+    from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
+    from dataeval_flow._kind import result_type_of
+    from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.workflows._result import WorkflowResult
+    from dataeval_flow.workflows._tables import limited_tables
+
+    source_names = list(dataset_contexts)
+    graph = one_step_graph(task, instance, source_names)
+    contexts = step_contexts(graph, config, data_dir, {name: [dataset_contexts[name]] for name in source_names})
+    inputs = bind_inputs(graph, source_names, dataset_contexts, {source.name: source for source in resolved_sources})
+    run_settings = RunSettings(
+        task=task.name,
+        pipeline=config,
+        data_dir=data_dir,
+        cache_dir=cache_dir,
+        output_dir=output_dir,
+        extractors={None: setup},
+        step_contexts=contexts,
+        runners={task.name: runner},
+    )
+    _logger.debug("Task '%s': executing", task.name)
+    start = time.monotonic()
+    # Library diagnostics are captured here, not left to the log file: they name the
+    # binning and value_range decisions this run made, and the envelope must record them
+    # on its own.
+    # One extractor scope per task, whichever entry point runs it (`run_task`, `run_tasks`,
+    # `run`, the TUI), so every source the task compares is described by the same stateful
+    # extractor, fitted once on the first source to ask.
+    with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
+        chain = run_chain(graph, inputs, run_settings)
+    elapsed = time.monotonic() - start
+    record = chain.steps[task.name]
+    result = record.result
+    if result is None:  # the step failed before its evaluator or workflow could build a result
+        default = EvaluatorResult if task.kind == "evaluator" else WorkflowResult
+        result = result_type_of(runner, default).failed(type=runner.name, errors=record.errors)
+    if diagnostics:
+        result.metadata.diagnostics = list(diagnostics)
+    return result, elapsed, contexts[task.name].ontology
+
+
+def _run_custom_task(
+    task: "TaskConfig",
+    workflow: CustomWorkflowConfig,
+    config: "PipelineConfig",
+    dataset_contexts: "dict[str, DatasetContext]",
+    resolved_sources: "list[ResolvedSource]",
+    setup: "ExtractorSetup | None",
+    *,
+    data_dir: Path | None,
+    cache_dir: Path | None,
+    output_dir: Path | None,
+    report_images: bool,
+    limits: "TableLimits",
+) -> "ChainResult":
+    """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's."""
+    from dataeval_flow._chain._graph import binding_problems, build_graph
+    from dataeval_flow._chain._preflight import check_kinds, step_contexts
+    from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
+    from dataeval_flow._sources import label_space_records
+    from dataeval_flow.steps._result import ChainMetadata, ChainResult
+    from dataeval_flow.workflows._tables import limited_tables
+
+    names = task.source_names
+    extractor_cfg = setup.config if setup is not None else None
+    # `PipelineConfig` checks only the tasks it holds; a task run directly gets the same checks here, as a failed
+    # result, like a workflow-type task's.
+    problem = workflow.binding_problem(len(names))
+    problems = (
+        [f"Task '{task.name}' runs workflow '{workflow.name}', which {problem}"]
+        if problem is not None
+        else binding_problems(task, workflow, config)
+    )
+    if problems:
+        refused = ChainResult.failed(type=workflow.name, errors=problems)
+        refused.metadata = ChainMetadata(workflow=workflow.name)
+        _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, workflow, config, data_dir=data_dir)
+        return refused
+    graph = build_graph(workflow, config)
+    inputs = bind_inputs(graph, names, dataset_contexts, {source.name: source for source in resolved_sources})
+    slot_contexts: dict[str, list[DatasetContext]] = {}
+    for index, slot in enumerate(graph.slots):
+        bound = names[index:] if slot.is_list else [names[index]]
+        slot_contexts[slot.name] = [dataset_contexts[name] for name in bound]
+    contexts = step_contexts(graph, config, data_dir, slot_contexts)
+    check_kinds(graph, inputs)
+    # Each step naming its own extractor embeds with it; every other step, with the task's.
+    named = {spec.extractor for spec in graph.steps if spec.extractor}
+    extractors = {None: setup} | {name: _extractor_setup(name, config, data_dir) for name in named}
+    run_settings = RunSettings(
+        task=task.name,
+        pipeline=config,
+        data_dir=data_dir,
+        cache_dir=cache_dir,
+        output_dir=output_dir,
+        extractors=extractors,
+        step_contexts=contexts,
+    )
+    _logger.debug("Task '%s': executing", task.name)
+    start = time.monotonic()
+    with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
+        chain = run_chain(graph, inputs, run_settings)
+    elapsed = time.monotonic() - start
+    result = ChainResult.from_run(workflow.name, chain)
+    if diagnostics:
+        result.metadata.diagnostics = list(diagnostics)
+    _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
+    result.sources = {source.name: source.realized() for source in resolved_sources}
+    if report_images:
+        _capture_chain_assets(result, chain, _unless_all(config.result.max_images))
+    _populate_result_metadata(result, resolved_sources, extractor_cfg, elapsed, workflow, config, data_dir=data_dir)
+    if chain.label_space:
+        # The sources' records, where there are any, replaced the chain's own: keep both, the sources' first.
+        result.metadata.label_space = [*label_space_records(resolved_sources, None), *chain.label_space]
+        digests = {record.digest for record in result.metadata.label_space}
+        if len(digests) == 1 and not result.metadata.label_space_digest:
+            result.metadata.label_space_digest = next(iter(digests))
+    return result
+
+
+def _capture_chain_assets(result: "ChainResult", chain: "ChainRun", limit: int | None) -> None:
+    """Thumbnails of the items a chain's report names: each `ItemRef` names a Dataset node's address.
+
+    A failure here costs the report its thumbnails, never the result: the run has already finished.
+    """
+    from dataeval_flow._capture import capture
+    from dataeval_flow._chain._nodes import Node, NodeList
+    from dataeval_flow.steps._port import DataType
+
+    nodes: list[Node] = []
+    for value in chain.nodes.values():
+        items = value.present.values() if isinstance(value, NodeList) else [value]
+        nodes.extend(item for item in items if isinstance(item, Node) and item.type is DataType.DATASET)
+    try:
+        datasets = {node.address: node.value for node in nodes}
+        ranges = {node.address: node.context.value_range if node.context else None for node in nodes}
+        result.assets = capture(result._document(detailed=True).blocks, datasets, ranges, limit=limit)  # noqa: SLF001
+    except Exception:
+        _logger.warning("Could not capture thumbnails for task '%s'", result.type, exc_info=True)
 
 
 def _run_target(
@@ -615,7 +779,7 @@ def _populate_result_metadata(
     resolved_sources: "Sequence[ResolvedSource]",
     extractor_cfg: Any,
     elapsed: float,
-    workflow_instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | None" = None,
+    workflow_instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig | None" = None,
     pipeline_config: "PipelineConfig | None" = None,
     data_dir: Path | None = None,
     ontology: "ResolvedOntology | None" = None,
@@ -688,7 +852,7 @@ def _source_description(resolved: "ResolvedSource") -> str:
 
 def _build_resolved_config(
     resolved_sources: "Sequence[ResolvedSource]",
-    workflow_instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | None",
+    workflow_instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig | None",
     extractor_cfg: Any,
     pipeline_config: "PipelineConfig | None",
     data_dir: Path | None = None,
@@ -834,6 +998,7 @@ def run_tasks(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
     report_images: bool = True,
+    output_dir: Path | None = None,
 ) -> "dict[str, Result[Any, Any]]":
     """Run tasks from a pipeline configuration.
 
@@ -858,6 +1023,9 @@ def run_tasks(
     report_images : bool, keyword-only
         Whether each result keeps thumbnails of the items its report names, for the HTML report. ``False``
         reads no item and keeps none.
+    output_dir : Path | None, keyword-only
+        Where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export steps are
+        skipped with a reason.
 
     Returns
     -------
@@ -886,7 +1054,7 @@ def run_tasks(
     for task in to_run:
         _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
         results[task.name] = _run_single_task(
-            task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images
+            task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
         )
     return results
 
@@ -898,6 +1066,7 @@ def run_task(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
     report_images: bool = True,
+    output_dir: Path | None = None,
 ) -> "Result[Any, Any]":
     """Run a single task.
 
@@ -919,13 +1088,19 @@ def run_task(
     report_images : bool, keyword-only
         Whether the result keeps thumbnails of the items its report names, for the HTML report. ``False``
         reads no item and keeps none.
+    output_dir : Path | None, keyword-only
+        Where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export steps are
+        skipped with a reason.
 
     Returns
     -------
     Result
         The result of the workflow or evaluator the task runs, as that type's own result class —
         ``isinstance(result, DataCleaningResult)`` narrows it. A run that raised returns a failed
-        result of the same class.
+        result of the same class. A custom workflow's is a :class:`~dataeval_flow.steps.ChainResult`,
+        holding every step's outcome whether or not one failed.
     """
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
-    return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images)
+    return _run_single_task(
+        task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
+    )

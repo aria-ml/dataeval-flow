@@ -200,6 +200,14 @@ class ConfigState:
 
     def validate_item(self, section: str, data: dict[str, Any]) -> list[str]:
         """Validate a single item dict. Returns a list of error strings."""
+        if section == "workflows" and "steps" in data:
+            from dataeval_flow.steps._workflow import CustomWorkflowConfig
+
+            try:
+                CustomWorkflowConfig.model_validate(data)
+                return []
+            except (ValueError, TypeError) as e:
+                return [str(e)]
         if section in VARIANT_REGISTRY:
             disc_field, variants = VARIANT_REGISTRY[section]
             disc_value = data.get(disc_field)

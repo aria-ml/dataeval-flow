@@ -5,8 +5,6 @@ import logging
 import os
 from pathlib import Path
 
-import yaml
-
 from dataeval_flow.config._models import PipelineConfig
 from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 
@@ -98,7 +96,12 @@ def load_config(path: Path | str) -> PipelineConfig:
         msg = f"Config file not found: {path}"
         raise FileNotFoundError(msg)
 
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f) if path.suffix.lower() == ".json" else yaml.safe_load(f) or {}
+    if path.suffix.lower() == ".json":
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        from dataeval_flow.config._merge import load_yaml
+
+        data = load_yaml(path) or {}
 
     return PipelineConfig.model_validate(data)

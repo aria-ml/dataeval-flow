@@ -70,7 +70,24 @@ def _snippet_extractor(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _step_line(step: dict[str, Any]) -> str:
+    """One step of a custom workflow: its name, then its kind and what that kind names."""
+    kind = next((key for key in ("evaluator", "workflow", "transform", "combine", "check") if key in step), None)
+    runs = f"{kind} {step[kind]}" if kind is not None else "?"
+    return f"  - {step.get('name', '?')}: {runs}"
+
+
+def _snippet_custom_workflow(item: dict[str, Any]) -> str:
+    steps = item.get("steps") or []
+    inputs = ", ".join(slot if isinstance(slot, str) else f"{slot.get('name')}[]" for slot in item.get("inputs") or [])
+    lines = [f"[bold]{item.get('name', '?')}[/bold]  [dim]custom: {len(steps)} steps[/dim]", f"  inputs: {inputs}"]
+    lines.extend(_step_line(step) for step in steps)
+    return "\n".join(lines)
+
+
 def _snippet_workflow(item: dict[str, Any]) -> str:
+    if "steps" in item:
+        return _snippet_custom_workflow(item)
     name = item.get("name", "?")
     wf_type = item.get("type", "?")
     lines = [f"[bold]{name}[/bold]  [dim]{wf_type}[/dim]"]
@@ -186,7 +203,7 @@ def snippet_config_item(category: str, item: dict[str, Any]) -> str:
         model = item.get("model", "")
         return f"[bold]{name}[/bold] [dim]{model}[/dim]"
     if category in ("workflows", "evaluators"):
-        wf_type = item.get("type", "")
+        wf_type = "custom" if "steps" in item else item.get("type", "")
         return f"[bold]{name}[/bold] [dim]{wf_type}[/dim]"
     if category == "sources":
         dataset = item.get("dataset", "")

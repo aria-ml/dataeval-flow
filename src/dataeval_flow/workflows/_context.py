@@ -71,8 +71,8 @@ class ResolvedOntology:
     ontology: "Ontology | None"
     """The loaded ontology, or ``None`` when it failed to load."""
     source: str
-    """Where it came from. Loaded: the pool entry's name, the resolved path, ``inline`` or ``concepts``. Failed: the
-    workflow's ``ontology`` value as written, as a string."""
+    """Where it came from. Loaded: the pool entry's name, the resolved path, or ``inline``. Failed: the workflow's
+    ``ontology`` value as written, as a string."""
     error: str | None = None
     """Why it failed to load, or ``None``."""
 

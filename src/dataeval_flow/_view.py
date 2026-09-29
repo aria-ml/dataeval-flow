@@ -1,9 +1,9 @@
 """View convenience builder wrapping DataEval."""
 
-__all__ = ["build_view"]
+__all__ = ["build_operations", "build_view"]
 
 import typing
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import dataeval.data as ddata
@@ -48,6 +48,23 @@ def _coerce_tuple_params(operation_cls: type, params: Mapping[str, Any]) -> dict
     }
 
 
+def build_operations(operations: Sequence["ViewOperation"]) -> list[Any]:
+    """The DataEval operation each config entry names, built with its parameters, in order.
+
+    Raises
+    ------
+    ValueError
+        When an entry names nothing in :mod:`dataeval.data`.
+    """
+    ops = []
+    for op in operations:
+        operation_cls = getattr(ddata, op.type, None)
+        if operation_cls is None:
+            raise ValueError(f"Unknown view operation type: '{op.type}'. Check dataeval.data docs.")
+        ops.append(operation_cls(**_coerce_tuple_params(operation_cls, op.params)))
+    return ops
+
+
 def build_view(dataset: AnnotatedDataset[T], operations: list["ViewOperation"]) -> View[T]:
     """Build a dataset view pipeline from config.
 
@@ -76,11 +93,4 @@ def build_view(dataset: AnnotatedDataset[T], operations: list["ViewOperation"]) 
     ... ]
     >>> filtered = build_view(dataset, operations)
     """
-    ops = []
-    for op in operations:
-        operation_cls = getattr(ddata, op.type, None)
-        if operation_cls is None:
-            raise ValueError(f"Unknown view operation type: '{op.type}'. Check dataeval.data docs.")
-        ops.append(operation_cls(**_coerce_tuple_params(operation_cls, op.params)))
-
-    return View(dataset, operations=ops)
+    return View(dataset, operations=build_operations(operations))

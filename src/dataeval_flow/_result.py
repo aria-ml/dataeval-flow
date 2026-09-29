@@ -6,7 +6,7 @@ payload, and :meth:`Result.export` to write JSON or YAML. A new output format be
 once, built from those two.
 """
 
-__all__ = ["LabelSpaceRecord", "Result", "ResultMetadata"]
+__all__ = ["LabelSpaceRecord", "LineageRecord", "Result", "ResultMetadata"]
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -71,6 +71,22 @@ class LabelSpaceRecord(BaseModel):
             "the audit that justified this vocabulary."
         ),
     )
+
+
+class LineageRecord(BaseModel):
+    """Where one Dataset in a chain came from: the step that made it, from which Datasets, and how many items."""
+
+    name: str = Field(
+        description="The Dataset's address in the chain, such as `clean`, `split.train` or `kfold.train[0]`."
+    )
+    step: str | None = Field(default=None, description="The step that made it; `null` for a chain input.")
+    type: str | None = Field(default=None, description="That step's type, such as `remove`; `null` for a chain input.")
+    inputs: list[str] = Field(default_factory=list, description="The addresses of the Datasets it was made from.")
+    source: str | None = Field(default=None, description="For a chain input, the source the task bound to it.")
+    digest: str = Field(
+        description="12 hex characters of its key: two results whose Datasets share it read the same data."
+    )
+    items: int = Field(description="How many items it holds.")
 
 
 class ResultMetadata(BaseModel):

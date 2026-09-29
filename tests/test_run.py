@@ -12,7 +12,7 @@ from dataeval.extractors import FlattenExtractor
 from pydantic import ValidationError
 
 from dataeval_flow import PipelineConfig, load_config, run, run_tasks
-from dataeval_flow.config import StatsMeasureConfig, StatsPolicyConfig, TaskConfig, ViewConfig
+from dataeval_flow.config import SourceConfig, StatsMeasureConfig, StatsPolicyConfig, TaskConfig, ViewConfig
 from dataeval_flow.config.extractors import FlattenExtractorConfig, list_extractors
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult, OutliersConfig, OutliersResult
 from dataeval_flow.workflows import DatasetContext, WorkflowConfig, WorkflowContext
@@ -230,8 +230,8 @@ def test_no_datasets_is_refused() -> None:
 
 
 def test_a_definition_of_another_type_is_refused() -> None:
-    with pytest.raises(TypeError, match="ViewConfig"):
-        run(DuplicatesConfig(), ToyImages(), definitions=[ViewConfig(name="v", operations=[])])  # type: ignore[list-item]
+    with pytest.raises(TypeError, match="SourceConfig"):
+        run(DuplicatesConfig(), ToyImages(), definitions=[SourceConfig(name="s", dataset="d")])  # type: ignore[list-item]
 
 
 def test_inputs_are_checked_before_anything_runs() -> None:
@@ -322,7 +322,7 @@ def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded
     from PIL import Image
 
     from dataeval_flow._blocks._items import refs_in
-    from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, ViewOperation
+    from dataeval_flow.config import DatasetProtocolConfig, ViewOperation
     from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectionResult, OODDetectorKNeighbors
     from tests.finding_blocks import tables
 

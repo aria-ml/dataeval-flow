@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from dataeval_flow import PipelineConfig
 from dataeval_flow.evaluators import get_evaluator
 from dataeval_flow.evaluators._registry import _BUILTINS
-from tests.evaluator_toys import toy_run, toy_task_run
+from tests.evaluator_toys import _EXTRA_CONFIG, toy_run, toy_task_run
 
 # Each type's `SourceCount` value, and whether its tasks need, may name, or must not name an extractor (spec §3).
 _CATALOG: dict[str, tuple[str, str]] = {
@@ -23,6 +23,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "scope.representation": ("1", "refused"),
     "scope.coverage": ("1", "required"),
     "scope.prioritize": ("1-2", "required"),
+    "scope.label-alignment": ("1", "refused"),
     "shift.drift-domain-classifier": ("2", "required"),
     "shift.drift-kneighbors": ("2", "required"),
     "shift.drift-mmd": ("2", "required"),
@@ -38,7 +39,7 @@ _RIGHT_COUNT = {"1": 1, "1+": 1, "1-2": 1, "2": 2, "3": 3}
 
 
 def _extractor_rule(name: str) -> str:
-    config = get_evaluator(name).config_type()  # type: ignore[call-arg]
+    config = get_evaluator(name).config_type(**_EXTRA_CONFIG.get(name, {}))  # type: ignore[call-arg]
     if config.requires_extractor():
         return "required"
     return "optional" if config.inputs.accepts_extractor else "refused"
@@ -52,7 +53,7 @@ def _pipeline(name: str, *, sources: int, extractor: bool) -> dict[str, Any]:
         "datasets": [{"name": "ds", "format": "huggingface", "path": "./d", "task": "image_classification"}],
         "sources": [{"name": source, "dataset": "ds"} for source in ("a", "b", "c", "d")],
         "extractors": [{"name": "flat", "model": "flatten"}],
-        "evaluators": [{"name": "e", "type": name}],
+        "evaluators": [{"name": "e", "type": name, **_EXTRA_CONFIG.get(name, {})}],
         "tasks": [task],
     }
 

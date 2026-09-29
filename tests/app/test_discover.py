@@ -147,7 +147,7 @@ class TestListFunctions:
         assert "Resize" in names
 
     def test_list_transforms_includes_registered_transforms(self):
-        from dataeval_flow.config.transforms import list_transforms as list_registered_transforms
+        from dataeval_flow.config.image_transforms import list_image_transforms as list_registered_transforms
 
         names = list_transforms()
         for registered in list_registered_transforms():

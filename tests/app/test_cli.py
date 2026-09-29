@@ -43,6 +43,13 @@ class TestShowItems:
         assert "ext1" in captured.out
         assert "model=onnx" in captured.out
 
+    def test_a_custom_workflow_shows_its_step_count(self, capsys):
+        vm = BuilderViewModel()
+        steps = [{"name": "few", "transform": "view", "input": "a"}, {"name": "d", "evaluator": "d", "input": "few"}]
+        vm.apply_result("workflows", -1, {"name": "w", "inputs": ["a"], "steps": steps})
+        _show_items("workflows", vm)
+        assert "w  custom (2 steps)" in capsys.readouterr().out
+
     def test_multiple_items(self, capsys):
         vm = BuilderViewModel()
         vm.apply_result("datasets", -1, {"name": "ds1", "format": "huggingface", "path": "data"})

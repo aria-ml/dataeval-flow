@@ -215,8 +215,8 @@ def resolve_ontology(
     Returns
     -------
     tuple[Ontology, str]
-        The ontology, and a source label: the pool entry's name, ``"inline"``,
-        ``"concepts"``, or the resolved path.
+        The ontology, and a source label: the pool entry's name, ``"inline"``, or the
+        resolved path.
 
     Raises
     ------

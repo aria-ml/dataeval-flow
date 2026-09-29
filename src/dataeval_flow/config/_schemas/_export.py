@@ -6,6 +6,12 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+ONE_DIRECTORY_SEGMENT = r"^(?!\.\.?$)[^/\\]+$"
+"""What :func:`one_directory_segment` accepts, as a JSON schema pattern, so an editor flags what loading refuses.
+
+It is written only into the schema: the validator refuses at load, with a message saying why.
+"""
+
 
 class ExportConfig(BaseModel):
     """A named dataset to write, and the format to write it in.
@@ -25,7 +31,10 @@ class ExportConfig(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    name: str = Field(description="Identifier for the export, and the directory it is written to.")
+    name: str = Field(
+        description="Identifier for the export, and the directory it is written to.",
+        json_schema_extra={"pattern": ONE_DIRECTORY_SEGMENT},
+    )
     source: str = Field(description="Reference to a source name.")
     format: Literal["coco", "yolo", "huggingface_vision", "visdrone"] = Field(
         default="coco",
@@ -55,21 +64,27 @@ class ExportConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def _one_directory_segment(cls, value: str) -> str:
-        """Refuse a name that is not a single safe directory segment.
+        """Refuse a name that is not a single safe directory segment."""
+        return one_directory_segment(value, what="Export name")
 
-        The name becomes a directory under the run's output. A separator or a `..` in it
-        would write the corpus somewhere the caller never named.
-        """
-        if not value:
-            raise ValueError("Export name must not be empty. Give it a plain name, such as 'conformed_corpus'.")
-        if "/" in value or "\\" in value:
-            raise ValueError(
-                f"Export name '{value}' must be one directory segment and cannot contain '/' or '\\'. "
-                "It names a directory under the run's output, not a path to write to."
-            )
-        if value in {".", ".."}:
-            raise ValueError(
-                f"Export name '{value}' names a relative path rather than a directory. "
-                "Give it a plain name, such as 'conformed_corpus'."
-            )
-        return value
+
+def one_directory_segment(value: str, *, what: str) -> str:
+    """Refuse `value` unless it is a single safe directory segment; `what` names it in the message.
+
+    The value becomes a directory under the run's output. A separator in it would write the
+    corpus somewhere the caller never named, and `.` or `..` would name the directory holding
+    every other corpus, or the run's whole output, which `mode: replace` then clears.
+    """
+    if not value:
+        raise ValueError(f"{what} must not be empty. Give it a plain name, such as 'conformed_corpus'.")
+    if "/" in value or "\\" in value:
+        raise ValueError(
+            f"{what} '{value}' must be one directory segment and cannot contain '/' or '\\'. "
+            "It names a directory under the run's output, not a path to write to."
+        )
+    if value in {".", ".."}:
+        raise ValueError(
+            f"{what} '{value}' names a relative path rather than a directory. "
+            "Give it a plain name, such as 'conformed_corpus'."
+        )
+    return value

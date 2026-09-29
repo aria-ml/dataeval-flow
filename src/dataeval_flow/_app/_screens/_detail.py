@@ -210,8 +210,8 @@ class ResultDetailModal(ModalScreen[None]):
 
         yield Static("", classes="rd-separator")
 
-        if self._rvm.is_evaluator:
-            # Determinations only: no SUMMARY, no health, no severity markers.
+        if self._rvm.shows_output:
+            # An evaluator's determinations, or a custom workflow's steps: no SUMMARY, health or severity markers.
             yield Static(self._rvm.output_text(), classes="rd-finding-detail", markup=False)
             return
 

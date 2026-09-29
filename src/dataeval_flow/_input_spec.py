@@ -94,6 +94,8 @@ class InputSpec:
     """How many sources a task must name."""
     optional: frozenset[InputKind] = frozenset()
     """The kinds a run reads only when its config's values switch them on, through the config's ``wanted_kinds``."""
+    dataset_kinds: frozenset[str] | None = None
+    """The Dataset kinds this entry reads, from ``dataeval_flow.steps.DATASET_KINDS``; ``None`` reads any."""
 
     @property
     def kinds(self) -> frozenset[InputKind]:

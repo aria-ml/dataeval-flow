@@ -58,6 +58,7 @@ def _collect_results(
     ``results`` is keyed by the task that produced each result, as ``run_tasks`` returns it.
     """
     from dataeval_flow._logging import flush_logs
+    from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
 
     collected = _Collected()
@@ -70,7 +71,8 @@ def _collect_results(
                 _logger.error("    %s", error)
             collected.failures += 1
             flush_logs()
-            continue
+            if not isinstance(result, ChainResult):
+                continue
 
         # --- Text report: summary (no flag) or full detail (-v) ---
         text = result.report(detailed=verbosity >= 1, width=report_width)
@@ -87,7 +89,10 @@ def _collect_results(
         if isinstance(result, WorkflowResult) and result.warning_count:
             collected.warned.append(name)
 
-        _logger.info("  OK: %s", name)
+        # A failed chain already logged FAILED above; its partial steps are still printed and written, but it
+        # never gets to claim OK too.
+        if result.success:
+            _logger.info("  OK: %s", name)
         flush_logs()
 
     return collected
@@ -235,7 +240,9 @@ def run(
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
-    results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images)
+    results = run_tasks(
+        config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
+    )
 
     width = config.result.width if report_width is None else report_width
     collected = _collect_results(results, verbosity=verbosity, report_width=width)

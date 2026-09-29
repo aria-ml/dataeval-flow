@@ -18,6 +18,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `scope.representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `scope.coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `scope.prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
+| `scope.label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
 | `shift.drift-domain-classifier` | `dataeval.shift.DriftDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
 | `shift.drift-kneighbors` | `dataeval.shift.DriftKNeighbors` | embeddings | 2: the reference, then the data to test | required |
 | `shift.drift-mmd` | `dataeval.shift.DriftMMD` | embeddings | 2: the reference, then the data to test | required |
@@ -209,6 +210,20 @@ ranking is then relative to it, as when choosing what to label next beside data 
 | `num_bins` | `num_bins` (`stratified`) | DataEval's default (`50`) |
 
 Output: an array of the first source's item indices in ranked order. `extras` holds each item's `scores`.
+
+### `scope.label-alignment`
+
+How a Dataset's class names align to an ontology: the remap, the target vocabulary, and whether the vocabulary
+carries over losslessly. A `conform` step applies the remap, gated by how much loss it declares it will accept.
+Configured by {py:class}`~dataeval_flow.evaluators.scope.LabelAlignmentConfig`; runs `dataeval.core.label_alignment`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `ontology` | (DataEval Flow) a name under `ontologies:`, a path, or an inline hierarchy; the alignment's target | required |
+| `threshold` | `threshold`: the lowest confidence a fuzzy match keeps | DataEval's default (`0.0`) |
+
+Output: a mapping, the alignment (`mergeability`, `correspondences`, `unaligned_source`, `unaligned_target`,
+`class_remap`, `paste_remap`, `target_vocabulary`, `ambiguous_labels`, `label_space_digest`).
 
 ## Shift
 

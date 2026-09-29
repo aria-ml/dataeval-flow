@@ -1,8 +1,8 @@
-"""``run``: one workflow or evaluator on datasets already in memory."""
+"""``run``: one workflow, evaluator or custom workflow on datasets already in memory."""
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, cast, overload
 
 __all__ = ["run"]
 
@@ -13,51 +13,101 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._ontology import OntologyConfig
     from dataeval_flow.config._schemas._preprocessor import PreprocessorConfig
     from dataeval_flow.config._schemas._stats import StatsPolicyConfig
+    from dataeval_flow.config._schemas._view import ViewConfig
     from dataeval_flow.config.extractors._base import ExtractorConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
+    from dataeval_flow.steps._result import ChainResult
+    from dataeval_flow.steps._workflow import CustomWorkflowConfig
     from dataeval_flow.workflows._base import WorkflowConfig
+
+    # What `definitions` takes: the named entries `config` and `extractor`, or a custom workflow's steps, refer to.
+    _Definition: TypeAlias = (
+        MetadataPolicyConfig
+        | StatsPolicyConfig
+        | OntologyConfig
+        | PreprocessorConfig
+        | EvaluatorConfig[Any]
+        | WorkflowConfig[Any]
+        | ViewConfig
+        | ExtractorConfig
+    )
 
 R = TypeVar("R")
 
 
+@overload
+def run(
+    config: "CustomWorkflowConfig",
+    data: "AnnotatedDataset[Any] | Mapping[str, AnnotatedDataset[Any]]",
+    *,
+    extractor: "ExtractorConfig | FeatureExtractor | None" = None,
+    definitions: "Sequence[_Definition]" = (),
+    cache_dir: Path | None = None,
+    report_images: bool = True,
+    output_dir: Path | None = None,
+) -> "ChainResult": ...
+
+
+@overload
 def run(
     config: "WorkflowConfig[R] | EvaluatorConfig[R]",
     data: "AnnotatedDataset[Any] | Mapping[str, AnnotatedDataset[Any]]",
     *,
     extractor: "ExtractorConfig | FeatureExtractor | None" = None,
-    definitions: "Sequence[MetadataPolicyConfig | StatsPolicyConfig | OntologyConfig | PreprocessorConfig]" = (),
+    definitions: "Sequence[_Definition]" = (),
     cache_dir: Path | None = None,
     report_images: bool = True,
-) -> R:
-    """Run one workflow or evaluator on datasets already in memory.
+    output_dir: Path | None = None,
+) -> R: ...
+
+
+def run(
+    config: "WorkflowConfig[R] | EvaluatorConfig[R] | CustomWorkflowConfig",
+    data: "AnnotatedDataset[Any] | Mapping[str, AnnotatedDataset[Any]]",
+    *,
+    extractor: "ExtractorConfig | FeatureExtractor | None" = None,
+    definitions: "Sequence[_Definition]" = (),
+    cache_dir: Path | None = None,
+    report_images: bool = True,
+    output_dir: Path | None = None,
+) -> "R | ChainResult":
+    """Run one workflow, evaluator or custom workflow on datasets already in memory.
 
     The data is checked against what `config` consumes before anything runs. The run then goes through
     :func:`~dataeval_flow.run_task` as a one-task pipeline, so it returns what that pipeline's task would.
 
     Parameters
     ----------
-    config : WorkflowConfig or EvaluatorConfig
-        What to run. Its type parameter decides the result type returned.
+    config : WorkflowConfig, EvaluatorConfig or CustomWorkflowConfig
+        What to run. A workflow's or an evaluator's type parameter decides the result type returned; a custom
+        workflow returns a :class:`~dataeval_flow.steps.ChainResult`.
     data : AnnotatedDataset or Mapping[str, AnnotatedDataset]
         One dataset, read as the source ``"dataset"``, or source names mapped to datasets in the order the
-        workflow reads them — reference first for multi-source workflows.
+        workflow reads them — reference first for multi-source workflows, and in input order for a custom
+        workflow.
     extractor : ExtractorConfig or FeatureExtractor, optional
         An extractor config, whose embeddings are disk-cached like any pipeline's, or any object satisfying
         DataEval's ``FeatureExtractor`` protocol, whose embeddings and clusters are never cached: it has no stable
         cache key. An object without its own ``batch_size`` runs at DataEval's global batch size.
-    definitions : Sequence of MetadataPolicyConfig, StatsPolicyConfig, OntologyConfig or PreprocessorConfig
-        The named policies, ontologies and preprocessors `config` and `extractor` refer to by name.
+    definitions : Sequence of named config entries
+        The entries `config` and `extractor` refer to by name: ``MetadataPolicyConfig``, ``StatsPolicyConfig``,
+        ``OntologyConfig`` and ``PreprocessorConfig``; and, for a custom workflow, the ``EvaluatorConfig``,
+        ``WorkflowConfig``, ``ViewConfig`` and ``ExtractorConfig`` entries its steps name.
     cache_dir : Path, optional
         Directory for the disk cache. ``None`` keeps the cache in memory.
     report_images : bool
         Whether the result keeps thumbnails of the items its report names, for its HTML report. ``False``
         reads no item and keeps none.
+    output_dir : Path, optional
+        Where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export steps are
+        skipped with a reason.
 
     Returns
     -------
-    R
+    R or ChainResult
         The config's result class, e.g. ``DuplicatesResult`` for a ``DuplicatesConfig``. A run that raised
-        returns a failed result of that class.
+        returns a failed result of that class. A custom workflow returns a
+        :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
 
     Raises
     ------
@@ -66,7 +116,7 @@ def run(
         among `definitions`; or when no built-in and no installed entry point registers `config`'s type, as with a
         plugin class defined in a notebook: Flow finds a workflow or evaluator by its type id alone.
     TypeError
-        When a definition is none of the four types `definitions` takes.
+        When a definition is none of the types `definitions` takes.
     pydantic.ValidationError
         When the data does not meet the config's inputs (source count, extractor), before anything runs.
 
@@ -106,10 +156,11 @@ def run(
             if isinstance(extractor, ExtractorConfig)
             else _InstanceExtractorConfig(name="extractor", extractor=extractor)
         )
+    # `config` joins its pool beside the definitions: a custom workflow's steps name entries of both.
     if isinstance(config, EvaluatorConfig):
-        kind, workflows, evaluators = "evaluator", None, [config]
+        kind, workflows, evaluators = "evaluator", pools.get("workflows"), [config, *pools.get("evaluators", [])]
     else:
-        kind, workflows, evaluators = "workflow", [config], None
+        kind, workflows, evaluators = "workflow", [config, *pools.get("workflows", [])], pools.get("evaluators")
     task = TaskConfig(
         name=config.name,
         workflow=config.name,
@@ -122,7 +173,7 @@ def run(
             DatasetProtocolConfig(name=name, format="maite", dataset=dataset) for name, dataset in datasets.items()
         ],
         sources=[SourceConfig(name=name, dataset=name) for name in datasets],
-        extractors=extractors or None,
+        extractors=[*extractors, *pools.get("extractors", [])] or None,
         workflows=workflows,
         evaluators=evaluators,
         tasks=[task],
@@ -130,8 +181,12 @@ def run(
         stats=pools.get("stats"),
         ontologies=pools.get("ontologies"),
         preprocessors=pools.get("preprocessors"),
+        views=pools.get("views"),
     )
-    return cast("R", run_task(task, pipeline, cache_dir=cache_dir, report_images=report_images))
+    return cast(
+        "R | ChainResult",
+        run_task(task, pipeline, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir),
+    )
 
 
 def _pools(definitions: Sequence[object]) -> dict[str, list[Any]]:
@@ -140,12 +195,20 @@ def _pools(definitions: Sequence[object]) -> dict[str, list[Any]]:
     from dataeval_flow.config._schemas._ontology import OntologyConfig
     from dataeval_flow.config._schemas._preprocessor import PreprocessorConfig
     from dataeval_flow.config._schemas._stats import StatsPolicyConfig
+    from dataeval_flow.config._schemas._view import ViewConfig
+    from dataeval_flow.config.extractors._base import ExtractorConfig
+    from dataeval_flow.evaluators._base import EvaluatorConfig
+    from dataeval_flow.workflows._base import WorkflowConfig
 
     fields: dict[type, str] = {
         MetadataPolicyConfig: "metadata",
         StatsPolicyConfig: "stats",
         OntologyConfig: "ontologies",
         PreprocessorConfig: "preprocessors",
+        EvaluatorConfig: "evaluators",
+        WorkflowConfig: "workflows",
+        ViewConfig: "views",
+        ExtractorConfig: "extractors",
     }
     pools: dict[str, list[Any]] = {}
     for definition in definitions:
@@ -153,7 +216,8 @@ def _pools(definitions: Sequence[object]) -> dict[str, list[Any]]:
         if field is None:
             raise TypeError(
                 f"run() cannot use a {type(definition).__name__} as a definition; it takes MetadataPolicyConfig, "
-                "StatsPolicyConfig, OntologyConfig and PreprocessorConfig."
+                "StatsPolicyConfig, OntologyConfig, PreprocessorConfig, EvaluatorConfig, WorkflowConfig, ViewConfig "
+                "and ExtractorConfig."
             )
         pools.setdefault(field, []).append(definition)
     return pools

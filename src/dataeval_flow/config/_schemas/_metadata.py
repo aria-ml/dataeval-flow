@@ -393,6 +393,8 @@ class MetadataPolicyConfig(BaseModel):
             metadata: standard
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     name: str = Field(description="Identifier for this policy")
 
     encoding: str | None = Field(

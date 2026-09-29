@@ -1,14 +1,14 @@
-"""The transform registry: the built-in table and the `dataeval_flow.transforms` entry points."""
+"""The image transform registry: the built-in table and the `dataeval_flow.image_transforms` entry points."""
 
 from typing import Any
 
 from dataeval_flow._registry import Registry
-from dataeval_flow.config.transforms._base import Transform
+from dataeval_flow.config.image_transforms._base import ImageTransform
 
-__all__ = ["TRANSFORMS", "get_transform", "list_transforms", "resolve_step"]
+__all__ = ["IMAGE_TRANSFORMS", "get_image_transform", "list_image_transforms", "resolve_step"]
 
 _BUILTINS = {
-    "ToRGB": "dataeval_flow.config.transforms._to_rgb:ToRGB",
+    "ToRGB": "dataeval_flow.config.image_transforms._to_rgb:ToRGB",
 }
 
 
@@ -21,7 +21,7 @@ def _torchvision_transform(name: str) -> Any:
     return getattr(v2, name, None)
 
 
-def _takes_no_torchvision_name(name: str, cls: type[Transform]) -> str | None:  # noqa: ARG001
+def _takes_no_torchvision_name(name: str, cls: type[ImageTransform]) -> str | None:  # noqa: ARG001
     """A transform may not take a torchvision name: installing a plugin must not change what a step means."""
     if _torchvision_transform(name) is None:
         return None
@@ -31,16 +31,16 @@ def _takes_no_torchvision_name(name: str, cls: type[Transform]) -> str | None:  
     )
 
 
-TRANSFORMS: Registry[Transform] = Registry(
-    kind="transform",
-    group="dataeval_flow.transforms",
-    base=lambda: Transform,
+IMAGE_TRANSFORMS: Registry[ImageTransform] = Registry(
+    kind="image transform",
+    group="dataeval_flow.image_transforms",
+    base=lambda: ImageTransform,
     builtins=_BUILTINS,
     check=_takes_no_torchvision_name,
 )
 
 
-def get_transform(name: str) -> type[Transform]:
+def get_image_transform(name: str) -> type[ImageTransform]:
     """The transform registered as `name`, built-in or plugin.
 
     Only registered transforms resolve here; a step may also name a ``torchvision.transforms.v2`` transform.
@@ -52,7 +52,7 @@ def get_transform(name: str) -> type[Transform]:
 
     Returns
     -------
-    type[Transform]
+    type[ImageTransform]
         The transform class, whose ``name`` and ``description`` describe it. Flow builds its instances.
 
     Raises
@@ -60,20 +60,20 @@ def get_transform(name: str) -> type[Transform]:
     ValueError
         When nothing is registered under `name`, or the plugin registered under it failed to load.
     """
-    return TRANSFORMS.get(name)
+    return IMAGE_TRANSFORMS.get(name)
 
 
-def list_transforms() -> list[type[Transform]]:
+def list_image_transforms() -> list[type[ImageTransform]]:
     """Every installed transform, built-in or plugin, sorted by name. torchvision's are not listed.
 
-    A plugin that failed to load is left out; :func:`get_transform` raises its error.
+    A plugin that failed to load is left out; :func:`get_image_transform` raises its error.
 
     Returns
     -------
-    list[type[Transform]]
+    list[type[ImageTransform]]
         The transform classes.
     """
-    return TRANSFORMS.list()
+    return IMAGE_TRANSFORMS.list()
 
 
 def resolve_step(name: str) -> Any:
@@ -88,13 +88,13 @@ def resolve_step(name: str) -> Any:
         When a plugin claiming `name` was refused (the error is the reason, e.g. its import failure), or when
         neither the registry nor ``torchvision.transforms.v2`` has `name`.
     """
-    if name in TRANSFORMS.names():
-        return TRANSFORMS.get(name)
+    if name in IMAGE_TRANSFORMS.names():
+        return IMAGE_TRANSFORMS.get(name)
     if (torchvision := _torchvision_transform(name)) is not None:
         return torchvision
-    if (problem := TRANSFORMS.problem(name)) is not None:
+    if (problem := IMAGE_TRANSFORMS.problem(name)) is not None:
         raise ValueError(problem)
     raise ValueError(
-        f"Unknown transform: '{name}'. Must be a registered transform "
-        f"({', '.join(TRANSFORMS.names())}) or a torchvision.transforms.v2 transform."
+        f"Unknown image transform: '{name}'. Must be a registered image transform "
+        f"({', '.join(IMAGE_TRANSFORMS.names())}) or a torchvision.transforms.v2 transform."
     )

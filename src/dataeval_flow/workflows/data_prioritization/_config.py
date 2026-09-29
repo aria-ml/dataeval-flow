@@ -59,6 +59,8 @@ class DataPrioritizationCleaningConfig(BaseModel):
 class DataPrioritizationHealthThresholds(BaseModel):
     """Thresholds that control finding severity for the prioritization report."""
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     cleaning_removed_pct_warning: float = Field(
         default=20.0,
         ge=0.0,

@@ -776,7 +776,7 @@ class TestSelectTasks:
         """Results are keyed by task name, so a second run could only overwrite the first."""
         executed: list[str] = []
 
-        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True):  # noqa: ARG001
+        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True, output_dir=None):  # noqa: ARG001
             executed.append(task.name)
             return MagicMock(success=True)
 
@@ -791,7 +791,7 @@ class TestSelectTasks:
         config = self._config()
         executed: list[str] = []
 
-        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True):  # noqa: ARG001
+        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True, output_dir=None):  # noqa: ARG001
             executed.append(task.name)
             return MagicMock(success=True)
 
@@ -1957,13 +1957,13 @@ class TestAuditToRunJoin:
         """Run the audit, conform a source by what it emitted, and compare digests."""
         from dataeval import Ontology
 
+        from dataeval_flow._alignment import align_labels
         from dataeval_flow._sources import label_space_records, resolve_source
         from dataeval_flow.config import ViewConfig, ViewOperation
         from dataeval_flow.workflows import ResolvedOntology
-        from dataeval_flow.workflows.data_coverage._ontology import _alignment
 
         ontology = Ontology.from_hierarchy({"Vehicle": ["Car", "Truck"], "Person": []})
-        alignment = _alignment(ontology, ["car", "van"])
+        alignment = align_labels(ontology, ["car", "van"])
 
         # What a user pastes out of the audit's report and into a view.
         config = _envelope_config()

@@ -57,6 +57,7 @@ class Registry(Generic[K]):
         self._loading = False
         self._loaded: dict[str, type[K]] | None = None
         self._broken: dict[str, str] = {}
+        self._origins: dict[str, str] = {}
 
     def get(self, name: str) -> type[K]:
         """The implementation registered as `name`."""
@@ -84,10 +85,16 @@ class Registry(Generic[K]):
         self._load()
         return self._broken.get(name)
 
+    def origin(self, name: str) -> str:
+        """Which distribution registered `name`: ``"dataeval-flow"`` for a built-in, else the plugin's package."""
+        self.get(name)  # raises for an unknown or refused name
+        return self._origins[name]
+
     def _reset(self) -> None:
         with _LOAD_LOCK:
             self._loaded = None
             self._broken = {}
+            self._origins = {}
 
     def _entries(self) -> builtins.list[_Entry]:
         builtin = [_Entry(name, target, _BUILTIN_ORIGIN) for name, target in self._builtins.items()]
@@ -111,17 +118,19 @@ class Registry(Generic[K]):
                     )
                 self._loading = True
                 try:
-                    loaded, broken = self._build()
+                    loaded, broken, origins = self._build()
                 finally:
                     self._loading = False
                 self._broken = broken
+                self._origins = origins
                 self._loaded = loaded  # built locally and assigned once, so no thread sees a half-filled dict
         return self._loaded
 
-    def _build(self) -> tuple[dict[str, type[K]], dict[str, str]]:
+    def _build(self) -> tuple[dict[str, type[K]], dict[str, str], dict[str, str]]:
         """Admit every entry, recording why each refused plugin was refused."""
         loaded: dict[str, type[K]] = {}
         broken: dict[str, str] = {}
+        origins: dict[str, str] = {}
         claims: dict[str, builtins.list[_Entry]] = {}
         for entry in self._entries():  # built-ins first, so a built-in is always a name's first claim
             claims.setdefault(entry.name, []).append(entry)
@@ -140,11 +149,12 @@ class Registry(Generic[K]):
             admitted = self._admit(first)
             if not isinstance(admitted, str):
                 loaded[name] = admitted
+                origins[name] = first.origin
             elif first.origin == _BUILTIN_ORIGIN:
                 raise RuntimeError(admitted)
             else:
                 self._refuse(broken, first, admitted)
-        return loaded, broken
+        return loaded, broken, origins
 
     def _refuse(self, broken: dict[str, str], entry: _Entry, problem: str) -> None:
         broken[entry.name] = problem

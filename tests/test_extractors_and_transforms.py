@@ -1,4 +1,4 @@
-"""Extractors and transforms are registered kinds, like workflows and evaluators."""
+"""Extractors and image transforms are registered kinds, like workflows and evaluators."""
 
 import json
 import re
@@ -21,7 +21,7 @@ from dataeval_flow.config.extractors import (
     get_extractor,
     list_extractors,
 )
-from dataeval_flow.config.transforms import ToRGB, Transform, get_transform, list_transforms
+from dataeval_flow.config.image_transforms import ImageTransform, ToRGB, get_image_transform, list_image_transforms
 from tests.example_plugin import Invert, MeanConfig
 
 
@@ -41,7 +41,7 @@ def test_flatten_builds_a_feature_extractor() -> None:
 def test_to_rgb_is_a_registered_transform() -> None:
     import torch
 
-    assert "ToRGB" in [cls.name for cls in list_transforms()]
+    assert "ToRGB" in [cls.name for cls in list_image_transforms()]
     assert ToRGB()(torch.zeros((1, 2, 2))).shape[0] == 3
 
 
@@ -58,9 +58,9 @@ def test_an_unknown_step_lists_what_is_registered() -> None:
 
 def test_plugin_extractor_and_transform_register(plugins: dict[str, list[tuple[str, str]]]) -> None:
     plugins["dataeval_flow.extractors"] = [("example.mean", "tests.example_plugin:MeanExtractor")]
-    plugins["dataeval_flow.transforms"] = [("example.Invert", "tests.example_plugin:Invert")]
+    plugins["dataeval_flow.image_transforms"] = [("example.Invert", "tests.example_plugin:Invert")]
     assert "example.mean" in [cls.name for cls in list_extractors()]
-    assert "example.Invert" in [cls.name for cls in list_transforms()]
+    assert "example.Invert" in [cls.name for cls in list_image_transforms()]
 
 
 # --- The contract, checked where the class is defined ---
@@ -94,7 +94,7 @@ def test_a_concrete_transform_must_declare_its_identity() -> None:
         TypeError, match=r"^Nameless must declare description: set `description` as a class attribute\.$"
     ):
 
-        class Nameless(Transform):
+        class Nameless(ImageTransform):
             name: ClassVar[str] = "Nameless"
 
             def __call__(self, data: Any, /) -> Any:
@@ -188,7 +188,7 @@ def test_a_plugin_extractor_validates_from_yaml_and_embeds(plugins: dict[str, li
 
 
 def test_a_plugin_transform_runs_as_a_step(plugins: dict[str, list[tuple[str, str]]]) -> None:
-    plugins["dataeval_flow.transforms"] = [("example.Invert", "tests.example_plugin:Invert")]
+    plugins["dataeval_flow.image_transforms"] = [("example.Invert", "tests.example_plugin:Invert")]
     inverted = build_preprocessing([PreprocessingStep(step="example.Invert")])(np.zeros((1, 2, 2), dtype=np.float32))
     assert inverted.tolist() == [[[1.0, 1.0], [1.0, 1.0]]]
 
@@ -196,13 +196,13 @@ def test_a_plugin_transform_runs_as_a_step(plugins: dict[str, list[tuple[str, st
 def test_a_step_naming_a_broken_transform_plugin_raises_its_failure(
     plugins: dict[str, list[tuple[str, str]]],
 ) -> None:
-    plugins["dataeval_flow.transforms"] = [("example.Gone", "tests.example_plugin_missing:Gone")]
+    plugins["dataeval_flow.image_transforms"] = [("example.Gone", "tests.example_plugin_missing:Gone")]
     with pytest.raises(ValueError, match="failed to load tests.example_plugin_missing:Gone") as caught:
         build_preprocessing([PreprocessingStep(step="example.Gone")])
     assert "Unknown transform" not in str(caught.value)
 
 
-class _Resize(Transform):
+class _Resize(ImageTransform):
     """A transform that tries to take torchvision's `Resize`."""
 
     name: ClassVar[str] = "Resize"
@@ -213,30 +213,30 @@ class _Resize(Transform):
 
 
 def test_a_transform_plugin_cannot_take_a_torchvision_name(plugins: dict[str, list[tuple[str, str]]]) -> None:
-    plugins["dataeval_flow.transforms"] = [("Resize", f"{__name__}:_Resize")]
-    assert "Resize" not in [cls.name for cls in list_transforms()]
+    plugins["dataeval_flow.image_transforms"] = [("Resize", f"{__name__}:_Resize")]
+    assert "Resize" not in [cls.name for cls in list_image_transforms()]
     with pytest.raises(ValueError, match=re.escape("is taken by `torchvision.transforms.v2.Resize`")):
-        get_transform("Resize")
+        get_image_transform("Resize")
     composed = build_preprocessing([PreprocessingStep(step="Resize", params={"size": [4, 4]})]).__wrapped__
     assert type(composed.transforms[0]) is v2.Resize
 
 
 def test_a_builtin_transform_taking_a_torchvision_name_raises_at_once() -> None:
     from dataeval_flow._registry import Registry
-    from dataeval_flow.config.transforms._registry import TRANSFORMS
+    from dataeval_flow.config.image_transforms._registry import IMAGE_TRANSFORMS
 
     registry = Registry(
-        kind="transform",
+        kind="image transform",
         group="dataeval_flow.tests.no-such-group",
-        base=lambda: Transform,
+        base=lambda: ImageTransform,
         builtins={"Resize": f"{__name__}:_Resize"},
-        check=TRANSFORMS._check,
+        check=IMAGE_TRANSFORMS._check,
     )
     with pytest.raises(RuntimeError, match=re.escape("`torchvision.transforms.v2.Resize`")):
         registry.list()
 
 
-class _Tagged(Transform):
+class _Tagged(ImageTransform):
     """Keeps the `dtype` it is given."""
 
     name: ClassVar[str] = "example.Tagged"
@@ -254,7 +254,7 @@ class _Tagged(Transform):
 
 def test_a_registered_transform_takes_its_params_as_written(plugins: dict[str, list[tuple[str, str]]]) -> None:
     """The `dtype`/`interpolation` conversions are torchvision's; a registered transform gets the value as written."""
-    plugins["dataeval_flow.transforms"] = [("example.Tagged", f"{__name__}:_Tagged")]
+    plugins["dataeval_flow.image_transforms"] = [("example.Tagged", f"{__name__}:_Tagged")]
     composed = build_preprocessing([PreprocessingStep(step="example.Tagged", params={"dtype": "float32"})]).__wrapped__
     assert composed.transforms[0].dtype == "float32"
 

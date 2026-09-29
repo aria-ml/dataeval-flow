@@ -25,7 +25,8 @@ class EvaluatorInputs:
     applying the source's view; an evaluator only reads them. Each input kind the run wants sets its fields:
     ``stats`` sets ``stats`` and ``stats_policy``; ``clusters`` sets ``clusters`` and ``embeddings``;
     ``embeddings`` sets ``embeddings``; ``metadata`` sets ``metadata`` and ``metadata_policy``; ``labels`` sets
-    ``labels`` and ``index2label``. ``ontology`` is the task's, set on every source whatever the run wants.
+    ``labels`` and ``index2label``. ``ontology`` and ``ontology_source`` are the task's, set on every source whatever
+    the run wants.
     """
 
     source: str
@@ -64,3 +65,6 @@ class EvaluatorInputs:
     ontology: "Ontology | None" = None
     """The ontology the task's ``ontology:`` names, resolved; ``None`` where the task names none. The same on every
     source."""
+    ontology_source: str | None = None
+    """How the task named ``ontology``: the ``ontologies:`` entry's name, the resolved path, ``inline`` or
+    ``concepts``; set with ``ontology``."""

@@ -4,10 +4,10 @@ __all__ = ["ToRGB"]
 
 from typing import Any, ClassVar
 
-from dataeval_flow.config.transforms._base import Transform
+from dataeval_flow.config.image_transforms._base import ImageTransform
 
 
-class ToRGB(Transform):
+class ToRGB(ImageTransform):
     """Coerce a CHW tensor image to 3 channels (repeat grayscale, drop alpha).
 
     torchvision's ``v2.RGB`` expands 1->3 channels but leaves 4-channel RGBA

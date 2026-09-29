@@ -529,3 +529,16 @@ class TestResultDetailModal:
             await pilot.pause()
             await pilot.press("enter")
             await pilot.pause()
+
+
+class TestChainDetail:
+    async def test_a_chain_shows_its_steps_in_place_of_finding_headers(self, chain_results: dict[str, Any]) -> None:
+        app = _MinimalApp()
+        async with app.run_test(size=(120, 40)) as pilot:
+            modal = ResultDetailModal("mixed", chain_results["mixed"])
+            app.push_screen(modal)
+            await pilot.pause()
+            drawn = "\n".join(str(widget.render()) for widget in modal.query(Static))
+            assert "CLEAN (DATA-CLEANING)" in drawn
+            assert "RuntimeError: boom on a" in drawn
+            assert not modal.query(_FindingHeader)

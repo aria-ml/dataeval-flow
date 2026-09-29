@@ -112,6 +112,8 @@ class OODDetectionHealthThresholds(BaseModel):
     otherwise they stay at ``severity="info"`` or ``severity="ok"``.
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     ood_pct_warning: float = Field(
         default=10.0,
         ge=0.0,

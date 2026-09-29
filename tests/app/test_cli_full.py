@@ -963,6 +963,19 @@ class TestEditSection:
         assert item is not None
         assert item["name"] == "ds1"  # unchanged
 
+    @patch("dataeval_flow._app.cli._prompt_item")
+    @patch("click.prompt", side_effect=["e", 1, "b"])
+    def test_a_custom_workflow_is_kept_rather_than_edited(
+        self, mock_prompt: MagicMock, mock_item: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        vm = BuilderViewModel()
+        workflow = {"name": "w", "inputs": ["a"], "steps": [{"name": "few", "transform": "view", "input": "a"}]}
+        vm.apply_result("workflows", -1, workflow)
+        _edit_section("workflows", "Workflows", vm)
+        mock_item.assert_not_called()
+        assert vm.get_item("workflows", 0) == workflow
+        assert "Custom workflows are edited in the config file" in capsys.readouterr().out
+
     @patch("dataeval_flow._app.cli._prompt_item", return_value=None)
     @patch("click.prompt", side_effect=["e", 1, "b"])
     def test_edit_item_returns_none(self, mock_prompt: MagicMock, mock_item: MagicMock) -> None:

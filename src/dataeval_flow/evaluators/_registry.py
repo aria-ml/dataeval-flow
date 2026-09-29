@@ -17,6 +17,7 @@ _BUILTINS = {
     "scope.representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
     "scope.coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
     "scope.prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",
+    "scope.label-alignment": "dataeval_flow.evaluators.scope._evaluator:LabelAlignmentEvaluator",
     "shift.drift-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:DriftDomainClassifierEvaluator",
     "shift.drift-kneighbors": "dataeval_flow.evaluators.shift._evaluator:DriftKNeighborsEvaluator",
     "shift.drift-mmd": "dataeval_flow.evaluators.shift._evaluator:DriftMMDEvaluator",

@@ -1,10 +1,11 @@
 """Task configuration schema."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, Self
+from typing import Any, ClassVar, Literal, Self
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     GetJsonSchemaHandler,
     SerializerFunctionWrapHandler,
@@ -31,6 +32,8 @@ class TaskConfig(BaseModel):
     records which key the file used. Running a task reads ``kind`` only to look the name
     up in ``workflows:`` or ``evaluators:``; saved, the task is written back under its key.
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     name: str = Field(description="Identifier for the task: the key of its result, and what `--task` selects.")
     workflow: str = Field(

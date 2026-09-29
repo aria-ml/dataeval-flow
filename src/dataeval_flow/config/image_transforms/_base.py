@@ -1,6 +1,6 @@
-"""The transform framework: the base a preprocessing step's transform subclasses."""
+"""The image transform framework: the base a preprocessing step's transform subclasses."""
 
-__all__ = ["Transform"]
+__all__ = ["ImageTransform"]
 
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 from dataeval_flow._kind import bind_implementation
 
 
-class Transform(ABC):
+class ImageTransform(ABC):
     """One preprocessing step, named in YAML by ``step:``: a DataEval ``Transform`` that Flow can find by name.
 
     A preprocessor (:class:`~dataeval_flow.config.PreprocessorConfig`) is the list of steps an extractor applies to
@@ -16,8 +16,8 @@ class Transform(ABC):
     then a ``torchvision.transforms.v2`` transform of that name. The steps run in one torchvision ``v2.Compose``,
     registered transforms alongside torchvision's own.
 
-    A ``Transform`` satisfies DataEval's ``Transform`` protocol (``dataeval.protocols.Transform``): a callable that
-    takes one item and returns it transformed. It is not a ``torchvision.transforms.v2.Transform``, which is a
+    An ``ImageTransform`` satisfies DataEval's ``Transform`` protocol (``dataeval.protocols.Transform``): a callable
+    that takes one item and returns it transformed. It is not a ``torchvision.transforms.v2.Transform``, which is a
     ``torch.nn.Module`` that dispatches on the types of its inputs; a Flow transform is handed the image tensor
     itself. A torchvision transform needs no registration, since a step can name it directly. To give a
     ``v2.Transform`` subclass of your own a step name, construct it in ``__init__`` and call it from
@@ -25,8 +25,8 @@ class Transform(ABC):
 
     Subclassing
     -----------
-    Subclass ``Transform`` directly. It takes no type parameters and has no config class: a step's ``params`` are
-    passed to the constructor as keyword arguments, as written in the config, the way a torchvision step's are.
+    Subclass ``ImageTransform`` directly. It takes no type parameters and has no config class: a step's ``params``
+    are passed to the constructor as keyword arguments, as written in the config, the way a torchvision step's are.
     Define:
 
     - ``name: ClassVar[str]``: the YAML ``step:`` value. It must equal the entry-point name, and can never be a
@@ -41,9 +41,10 @@ class Transform(ABC):
       that leaves out a parameter can serve embeddings computed under another value of it.
 
     A concrete transform without ``name`` or ``description`` raises ``TypeError`` when the class is defined.
-    Register the class under the ``dataeval_flow.transforms`` entry-point group, named by ``name``. Flow loads it on
-    the first registry lookup and leaves it out, logging why, when it fails to import, is not a ``Transform``, is
-    registered under another name than its own, takes a torchvision name, or takes a name another transform has.
+    Register the class under the ``dataeval_flow.image_transforms`` entry-point group, named by ``name``. Flow loads
+    it on the first registry lookup and leaves it out, logging why, when it fails to import, is not an
+    ``ImageTransform``, is registered under another name than its own, takes a torchvision name, or takes a name
+    another transform has.
 
     Flow builds each step's transform when a task whose extractor names the preprocessor starts, and hands the
     preprocessor to the extractor, which applies it to each image it embeds (the built-in ``flatten`` and ``bovw``
@@ -60,8 +61,8 @@ class Transform(ABC):
     Examples
     --------
     >>> from typing import Any, ClassVar
-    >>> from dataeval_flow.config.transforms import Transform
-    >>> class Invert(Transform):
+    >>> from dataeval_flow.config.image_transforms import ImageTransform
+    >>> class Invert(ImageTransform):
     ...     name: ClassVar[str] = "example.Invert"
     ...     description: ClassVar[str] = "Inverts each value within [0, maximum]."
     ...
@@ -80,7 +81,7 @@ class Transform(ABC):
 
     .. code-block:: toml
 
-        [project.entry-points."dataeval_flow.transforms"]
+        [project.entry-points."dataeval_flow.image_transforms"]
         "example.Invert" = "my_package:Invert"
 
     A preprocessor step names it, with its parameters:
@@ -100,7 +101,7 @@ class Transform(ABC):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Require identity on a concrete transform."""
         super().__init_subclass__(**kwargs)
-        bind_implementation(cls, Transform, configured=False)
+        bind_implementation(cls, ImageTransform, configured=False)
 
     @abstractmethod
     def __call__(self, data: Any, /) -> Any:

@@ -11,7 +11,7 @@ from pydantic import Field
 from dataeval_flow import InputKind, InputSpec, ResultMetadata, SourceCount
 from dataeval_flow.config import StatsConfigMixin
 from dataeval_flow.config.extractors import Extractor, ExtractorConfig
-from dataeval_flow.config.transforms import Transform
+from dataeval_flow.config.image_transforms import ImageTransform
 from dataeval_flow.evaluators import (
     Evaluator,
     EvaluatorConfig,
@@ -136,7 +136,7 @@ class MeanExtractor(Extractor[MeanConfig]):
         return _Means(transforms)
 
 
-class Invert(Transform):
+class Invert(ImageTransform):
     """Inverts an image whose values lie in [0, 1]."""
 
     name: ClassVar[str] = "example.Invert"

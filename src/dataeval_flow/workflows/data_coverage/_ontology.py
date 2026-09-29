@@ -15,10 +15,9 @@ import logging
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+from dataeval_flow._alignment import align_labels
 from dataeval_flow.workflows.data_coverage._outputs import (
-    AlignmentCorrespondence,
     DarkBranch,
-    LabelAlignment,
     LabelConformance,
     LabelSpaceCoverage,
     OntologyAssessment,
@@ -72,63 +71,6 @@ def _conformance(ontology: "Ontology", class_names: "list[str]") -> LabelConform
         matched=dict(result["matched"]),
         unmatched=unmatched,
         ambiguous=ambiguous,
-    )
-
-
-def _alignment(ontology: "Ontology", class_names: "list[str]") -> LabelAlignment:
-    """Align the dataset's vocabulary against the ontology and render it for a config.
-
-    Two forms of the rewrite are returned. ``class_remap`` holds the concept ids DataEval
-    produced, which are IRIs for an RDF artifact. ``paste_remap`` resolves those ids to
-    labels, because :class:`dataeval.data.Relabel` reads its values as ids only when
-    ``target`` is an :class:`~dataeval.Ontology` object, and the list-valued ``target`` a
-    YAML config can express takes labels. The two are identical for a hand-built ontology,
-    where ids are labels.
-    """
-    from dataeval.core import label_alignment
-
-    from dataeval_flow._label_space import label_space_digest, ontology_digest
-
-    result = label_alignment(class_names, ontology)
-
-    labels = {cid: ontology.concept(cid).label for cid in ontology.ids}
-    vocabulary = [labels[cid] for cid in ontology.ids]
-
-    # A label naming two concepts has no determined index in a list-valued target, so the
-    # emitted stanza cannot be used until the ontology is fixed. Reported rather than
-    # suppressed; `ontology_validation` reports the same collisions from the artifact side.
-    counts: dict[str, int] = {}
-    for label in vocabulary:
-        counts[label] = counts.get(label, 0) + 1
-    ambiguous = sorted(name for name, n in counts.items() if n > 1)
-
-    class_remap = dict(result["class_remap"])
-    paste_remap = {source: labels.get(target, target) for source, target in class_remap.items()}
-
-    return LabelAlignment(
-        mergeability=result["mergeability"],
-        correspondences=[
-            AlignmentCorrespondence(
-                source=c.source,
-                relation=c.relation,
-                target=c.target,
-                target_label=labels.get(c.target, c.target),
-                confidence=c.confidence,
-                matcher=c.matcher,
-            )
-            for c in result["correspondences"]
-        ],
-        unaligned_source=list(result["unaligned_source"]),
-        unaligned_target=[labels.get(t, t) for t in result["unaligned_target"]],
-        class_remap=class_remap,
-        paste_remap=paste_remap,
-        target_vocabulary=vocabulary,
-        ambiguous_labels=ambiguous,
-        label_space_digest=label_space_digest(
-            ontology=ontology_digest(ontology.ids),
-            class_remap=paste_remap,
-            target=vocabulary,
-        ),
     )
 
 
@@ -202,6 +144,6 @@ def run_ontology_analysis(
         synthesized=False,
         representation=representation,
         conformance=_conformance(ontology, list(class_counts)),
-        alignment=_alignment(ontology, list(class_counts)),
+        alignment=align_labels(ontology, list(class_counts)),
         structure=_structure(ontology, label_pattern),
     )

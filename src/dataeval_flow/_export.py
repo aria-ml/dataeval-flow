@@ -8,7 +8,16 @@ source's own files where those are needed. Scores are not carried: an export wri
 truth, and a `score` records a prediction's confidence.
 """
 
-__all__ = ["build_od_dataset", "export_provenance", "write_export", "write_exports"]
+__all__ = [
+    "build_node_dataset",
+    "build_od_dataset",
+    "chain_provenance",
+    "export_provenance",
+    "write_export",
+    "write_exports",
+    "write_node",
+    "write_source",
+]
 
 import logging
 from pathlib import PurePosixPath
@@ -21,7 +30,7 @@ if TYPE_CHECKING:
     import numpy as np
     from datamaite import DatasetMetadata, ImageObjectDetectionSample, ObjectDetectionDataset
 
-    from dataeval_flow._result import LabelSpaceRecord
+    from dataeval_flow._result import LabelSpaceRecord, LineageRecord
     from dataeval_flow._sources import ResolvedSource, SourceOperand
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas import ExportConfig
@@ -409,6 +418,34 @@ def _operand_entry(operand: "SourceOperand", record: "LabelSpaceRecord | None") 
     }
 
 
+def write_source(
+    source: str,
+    *,
+    name: str,
+    format: str,  # noqa: A002
+    mode: str,
+    ontology_owner: Any,
+    config: "PipelineConfig",
+    dest: "Path",
+    data_dir: "Path | None" = None,
+) -> "tuple[Path, dict[str, Any], int]":
+    """Write source `source` to `dest` as a top-level export does. Returns the directory, provenance and size."""
+    from datamaite import write
+
+    from dataeval_flow._orchestrator import _resolve_ontology
+    from dataeval_flow._sources import resolve_source
+
+    _refuse_occupied_destination(dest, mode)
+    resolved = resolve_source(source, config, data_dir=data_dir)
+    ontology = _resolve_ontology(ontology_owner, config, data_dir)
+    provenance = export_provenance(resolved, ontology=ontology)
+    dataset = build_od_dataset(resolved, dataset_metadata=provenance)
+    _write_or_explain(dataset, dest, name=name, format=format, mode=mode, write=write)
+    _write_provenance(dest, provenance)
+    _logger.info("  Wrote export '%s' (%s, %d images) to %s", name, format, len(dataset.samples), dest)
+    return dest, dict(provenance.info), len(dataset.samples)
+
+
 def write_export(
     export: "ExportConfig",
     config: "PipelineConfig",
@@ -445,39 +482,145 @@ def write_export(
     ValueError
         If the export names a source the config does not define.
     """
-    from datamaite import write
-
     # An export names no workflow, so it resolves its own ontology. Reuse the
     # orchestrator's resolver so a name, a path and an inline hierarchy have the same
     # meaning here and there; an unreadable ontology degrades to provenance without one
     # instead of losing the export.
-    from dataeval_flow._orchestrator import _resolve_ontology
-    from dataeval_flow._sources import resolve_source
-
-    dest = dest_root / export.name
-    _refuse_occupied_destination(dest, export.mode)
     _warn_on_missing_ontology(export, config)
+    dest, _, _ = write_source(
+        export.source,
+        name=export.name,
+        format=export.format,
+        mode=export.mode,
+        ontology_owner=export,
+        config=config,
+        dest=dest_root / export.name,
+        data_dir=data_dir,
+    )
+    return dest
 
-    resolved = resolve_source(export.source, config, data_dir=data_dir)
-    ontology = _resolve_ontology(export, config, data_dir)
-    provenance = export_provenance(resolved, ontology=ontology)
-    dataset = build_od_dataset(resolved, dataset_metadata=provenance)
 
-    cleared = export.mode == "replace" and _holds_a_dataset(dest)
+def _write_or_explain(
+    dataset: Any,
+    dest: "Path",
+    *,
+    name: str,
+    format: str,  # noqa: A002
+    mode: str,
+    write: Any,
+) -> None:
+    """Write `dataset` to `dest`, explaining a failure that follows `mode: replace` clearing it first."""
+    cleared = mode == "replace" and _holds_a_dataset(dest)
     try:
-        write(dataset, dest, output_format=export.format, mode=export.mode)
+        write(dataset, dest, output_format=format, mode=mode)
     except Exception:
         if cleared:
             _logger.error(
                 "  Export '%s' cleared %s before it failed. `mode: replace` empties the "
                 "destination first and does not restore it, so the corpus that was there is gone.",
-                export.name,
+                name,
                 dest,
             )
         raise
+
+
+def build_node_dataset(dataset: Any, *, name: str, dataset_metadata: "DatasetMetadata") -> "ObjectDetectionDataset":
+    """Materialize a Dataset a chain made, encoding every image: pixel-safety is not traced through chain steps."""
+    from datamaite import ObjectDetectionDataset
+
+    index2label = dict(dataset.metadata.get("index2label", {}))
+    samples = tuple(
+        _sample(ordinal, dataset[ordinal], {}, index2label, (), merged=False) for ordinal in range(len(dataset))
+    )
+    return ObjectDetectionDataset(
+        samples=samples, dataset_metadata=_with_taxonomy(dataset_metadata, index2label, name), dataset_id=name
+    )
+
+
+def chain_provenance(
+    *,
+    name: str,
+    task: str,
+    step: str,
+    sources: "Sequence[ResolvedSource]",
+    lineage: "Sequence[LineageRecord]",
+    ontology: "ResolvedOntology | None",
+    label_space: "Sequence[LabelSpaceRecord]",
+) -> "DatasetMetadata":
+    """The provenance of a Dataset a chain made: the task and step that wrote it, and its lineage to the sources.
+
+    ``operands`` describes each operand of the root `sources`, the chain inputs the Dataset descends from, as a
+    top-level export describes its source's: the dataset it read, the view it read through, and that view's remap.
+    ``label_space`` holds the records a top-level export of the root `sources` holds, a merged source's own Relabel
+    included, then `label_space`: the record of each relabelling step on the way, such as a ``conform``, in chain
+    order, with the step's address as ``source``. One reader therefore reads a chain export and a top-level one.
+    """
+    from datetime import UTC, datetime
+
+    from datamaite import DatasetMetadata
+
+    from dataeval_flow import __version__
+    from dataeval_flow._sources import label_space_records
+
+    roots = label_space_records(sources, ontology)
+    by_source = {record.source: record for record in roots}
+    ontology_name, digest = _ontology_entry(ontology)
+    info: dict[str, Any] = {
+        "tool": "dataeval-flow",
+        "tool_version": __version__,
+        "created": datetime.now(UTC).isoformat(),
+        "task": task,
+        "step": step,
+        "ontology": ontology_name,
+        "ontology_digest": digest,
+        "operands": [
+            _operand_entry(operand, by_source.get(operand.source.name))
+            for resolved in sources
+            for operand in resolved.operands
+        ],
+        "lineage": [record.model_dump(mode="json") for record in lineage],
+        "label_space": [record.model_dump(mode="json") for record in [*roots, *label_space]],
+    }
+    return DatasetMetadata(source_dataset=name, info=info)
+
+
+def write_node(
+    dataset: Any,
+    *,
+    name: str,
+    format: str,  # noqa: A002
+    mode: str,
+    ontology_owner: Any,
+    config: "PipelineConfig | None",
+    dest: "Path",
+    data_dir: "Path | None",
+    lineage: "Sequence[LineageRecord]",
+    task: str,
+    step: str,
+    label_space: "Sequence[LabelSpaceRecord]",
+) -> "tuple[Path, dict[str, Any], int]":
+    """Write a Dataset a chain made to `dest`. Returns the directory, provenance and size.
+
+    The provenance names the operands of each chain input in `lineage`, resolved again from `config` as a top-level
+    export resolves its source. `label_space` holds the records of the relabelling steps on the way, in chain order.
+    """
+    from datamaite import write
+
+    from dataeval_flow._orchestrator import _resolve_ontology
+    from dataeval_flow._sources import resolve_source
+
+    _refuse_occupied_destination(dest, mode)
+    ontology = _resolve_ontology(ontology_owner, config, data_dir)
+    roots = dict.fromkeys(record.source for record in lineage if record.step is None and record.source is not None)
+    sources = [resolve_source(root, config, data_dir=data_dir) for root in roots] if config is not None else []
+    provenance = chain_provenance(
+        name=name, task=task, step=step, sources=sources, lineage=lineage, ontology=ontology, label_space=label_space
+    )
+    built = build_node_dataset(dataset, name=name, dataset_metadata=provenance)
+    _write_or_explain(built, dest, name=name, format=format, mode=mode, write=write)
     _write_provenance(dest, provenance)
-    _logger.info("  Wrote export '%s' (%s, %d images) to %s", export.name, export.format, len(dataset.samples), dest)
-    return dest
+    _logger.info("  Wrote export '%s' (%s, %d images) to %s", name, format, len(built.samples), dest)
+    return dest, dict(provenance.info), len(built.samples)
 
 
 def _holds_a_dataset(dest: "Path") -> bool:

@@ -45,7 +45,7 @@ class TestBuildPreprocessing:
     def test_invalid_transform_name_raises(self):
         """Unknown transform name raises ValueError."""
         steps = [PreprocessingStep(step="NonExistentTransform", params={})]
-        with pytest.raises(ValueError, match="Unknown transform: 'NonExistentTransform'"):
+        with pytest.raises(ValueError, match="Unknown image transform: 'NonExistentTransform'"):
             build_preprocessing(steps)
 
     def test_invalid_transform_params_raises(self):
@@ -105,9 +105,9 @@ class TestBuildPreprocessing:
         torchvision version; the build-and-resolve check is only meaningful where
         torchvision actually provides ``v2.RGB`` (added after the 0.17 minimum).
         """
-        from dataeval_flow.config.transforms import list_transforms
+        from dataeval_flow.config.image_transforms import list_image_transforms
 
-        assert "RGB" not in [cls.name for cls in list_transforms()]
+        assert "RGB" not in [cls.name for cls in list_image_transforms()]
 
         from torchvision.transforms import v2
 

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from yaml.parser import ParserError
 
 from dataeval_flow import PipelineConfig
 from dataeval_flow.config._merge import _deep_merge, merge_config_folder
@@ -242,3 +243,90 @@ ontologies:
         assert entry.name == "vehicles"
         assert entry.concepts[1].synonyms == ["freight_car", "freight car"]
         assert entry.concepts[1].definition == "A railway car designed to carry freight."
+
+
+# ---------------------------------------------------------------------------
+# a keyed address left unquoted in YAML's flow style
+# ---------------------------------------------------------------------------
+
+_POOLS = """datasets:
+  - {name: d, format: image_folder, path: images}
+sources:
+  - {name: s, dataset: d}
+evaluators:
+  - {name: dupes, type: quality.duplicates}
+workflows:
+  - name: w
+    inputs: [a, b]
+    steps:
+      - {name: k, transform: kfold, input: a, folds: 2}
+"""
+
+
+class TestAddressQuotingHint:
+    """A pipeline file that fails to parse at a keyed address written in flow style says to quote it."""
+
+    def test_a_keyed_address_in_braces_gets_the_hint(self, tmp_path: Path) -> None:
+        from dataeval_flow import load_config
+
+        path = tmp_path / "params.yaml"
+        path.write_text(_POOLS + "      - {name: d, evaluator: dupes, input: k.train[0]}\n")
+        with pytest.raises(yaml.MarkedYAMLError) as raised:
+            load_config(path)
+        assert str(raised.value) == (
+            "while parsing a flow mapping\n"
+            f'  in "{path}", line 12, column 9\n'
+            "expected ',' or '}', but got '['\n"
+            f'  in "{path}", line 12, column 51\n'
+            "An address with a key, such as `k.train[0]`, must be quoted inside YAML's `{…}` or `[…]`: write "
+            '"k.train[0]".'
+        )
+        assert isinstance(raised.value.__cause__, ParserError)
+
+    def test_a_keyed_address_in_brackets_gets_the_hint(self, tmp_path: Path) -> None:
+        from dataeval_flow import load_config
+
+        path = tmp_path / "params.yaml"
+        path.write_text(_POOLS + "      - name: d\n        evaluator: dupes\n        input: [b, k.train[1]]\n")
+        with pytest.raises(yaml.MarkedYAMLError) as raised:
+            load_config(path)
+        assert str(raised.value).splitlines()[2:] == [
+            "expected ',' or ']', but got '['",
+            f'  in "{path}", line 14, column 27',
+            (
+                "An address with a key, such as `k.train[1]`, must be quoted inside YAML's `{…}` or `[…]`: write "
+                '"k.train[1]".'
+            ),
+        ]
+
+    def test_another_yaml_error_is_raised_unchanged(self, tmp_path: Path) -> None:
+        from dataeval_flow import load_config
+
+        path = tmp_path / "params.yaml"
+        path.write_text(_POOLS + "      - {name: d, evaluator: dupes, input: a\n")
+        with pytest.raises(ParserError) as raised:
+            load_config(path)
+        assert "quoted" not in str(raised.value)
+        assert raised.value.__cause__ is None
+
+    def test_the_quoted_address_loads(self, tmp_path: Path) -> None:
+        from dataeval_flow import load_config
+
+        path = tmp_path / "params.yaml"
+        path.write_text(_POOLS + '      - {name: d, evaluator: dupes, input: "k.train[0]"}\n')
+        workflows = load_config(path).workflows
+        assert workflows is not None
+        assert workflows[0].steps[1].input == "k.train[0]"  # type: ignore[union-attr]
+
+    def test_a_folder_says_to_quote_rather_than_skipping_the_file(self, tmp_path: Path) -> None:
+        (tmp_path / "00-pools.yaml").write_text(_POOLS)
+        (tmp_path / "01-more.yaml").write_text(
+            "workflows:\n"
+            "  - name: w2\n"
+            "    inputs: [a]\n"
+            "    steps:\n"
+            "      - {name: k, transform: kfold, input: a, folds: 2}\n"
+            "      - {name: d, evaluator: dupes, input: k.val[0]}\n"
+        )
+        with pytest.raises(yaml.MarkedYAMLError, match=r"such as `k\.val\[0\]`, must be quoted"):
+            merge_config_folder(tmp_path)

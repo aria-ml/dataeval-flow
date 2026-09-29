@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
@@ -22,6 +22,8 @@ class DataCleaningHealthThresholds(BaseModel):
 
     Set a threshold to ``None`` to disable the warning for that metric.
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     exact_duplicates: float = Field(
         default=0.0,

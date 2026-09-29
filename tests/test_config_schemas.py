@@ -1009,8 +1009,8 @@ class TestResolveWorkflow:
         )
         result = _resolve_workflow("standard_clean", config)
         assert result.name == "standard_clean"
-        assert result.type == "data-cleaning"
         assert isinstance(result, DataCleaningConfig)
+        assert result.type == "data-cleaning"
         assert result.outlier_method == "adaptive"
 
     def test_resolve_workflow_not_found(self):
@@ -1380,6 +1380,47 @@ class TestExportConfig:
         from dataeval_flow.config import ExportConfig
 
         assert ExportConfig(name="conformed_corpus.v2", source="merged").name == "conformed_corpus.v2"
+
+    @pytest.mark.parametrize(
+        ("name", "loads"),
+        [
+            ("corpus", True),
+            ("conformed_corpus.v2", True),
+            (".hidden", True),
+            ("..x", True),
+            ("x..", True),
+            ("...", True),
+            ("a b", True),
+            ("", False),
+            (".", False),
+            ("..", False),
+            ("a/b", False),
+            ("/etc", False),
+            ("a\\b", False),
+            ("a/", False),
+        ],
+    )
+    def test_the_schema_flags_the_destinations_a_load_refuses(self, name, loads):
+        """An editor validating against the schema flags exactly the names and `to:` values loading refuses."""
+        import re
+
+        from dataeval_flow.config import ExportConfig
+        from dataeval_flow.config._json_schema import registry_twin
+        from dataeval_flow.steps.transforms import ExportStepConfig
+
+        definitions = registry_twin(plugins=False).model_json_schema()["$defs"]
+        patterns = [
+            definitions["ExportConfig"]["properties"]["name"]["pattern"],
+            definitions["TransformStep_export"]["properties"]["to"]["pattern"],
+        ]
+        assert [re.search(pattern, name) is not None for pattern in patterns] == [loads, loads]
+        attempts = [lambda: ExportConfig(name=name, source="merged"), lambda: ExportStepConfig(input="a", to=name)]
+        for attempt in attempts:
+            if loads:
+                attempt()
+            else:
+                with pytest.raises(ValidationError):
+                    attempt()
 
 
 @pytest.mark.required

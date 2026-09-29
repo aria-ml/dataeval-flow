@@ -25,7 +25,8 @@ EXTENSIBLE = [
     "dataeval_flow.evaluators:EvaluatorResult",
     "dataeval_flow.config.extractors:Extractor",
     "dataeval_flow.config.extractors:ExtractorConfig",
-    "dataeval_flow.config.transforms:Transform",
+    "dataeval_flow.config.image_transforms:ImageTransform",
+    "dataeval_flow.steps:Transform",
     "dataeval_flow:Result",
     "dataeval_flow:ResultMetadata",
 ]
@@ -110,6 +111,21 @@ def _result_classes() -> list[str]:
     return lines
 
 
+def _has_raw_report_output(result: type) -> bool:
+    """Whether `result`'s output type argument is a ``WorkflowOutput`` — the usual raw/report split.
+
+    :class:`~dataeval_flow.steps.ChainResult` is a ``WorkflowResult`` whose output is its steps, not a raw/report
+    split, so it documents its fields the way an :class:`~dataeval_flow.evaluators.EvaluatorResult` does instead.
+    """
+    from dataeval_flow._kind import type_arguments
+    from dataeval_flow.workflows import WorkflowOutput, WorkflowResult
+
+    if not issubclass(result, WorkflowResult):
+        return False
+    _, output = type_arguments(result, WorkflowResult) or (None, None)
+    return isinstance(output, type) and issubclass(output, WorkflowOutput)
+
+
 def _documented_fields(doc: str) -> dict[str, str]:
     """The ``Fields`` section of a docstring: each entry's name and its description, whitespace folded."""
     lines = inspect.cleandoc(doc).splitlines()
@@ -146,6 +162,8 @@ def _typed_fields(result: Any) -> dict[str, str]:
     if issubclass(result, EvaluatorResult):
         return _own_fields(result.metadata_type, ResultMetadata, "metadata.")
     metadata, output = type_arguments(result, WorkflowResult)
+    if not _has_raw_report_output(result):
+        return _own_fields(metadata, ResultMetadata, "metadata.")
     raw, report = output.model_fields["raw"].annotation, output.model_fields["report"].annotation
     return {
         **_own_fields(raw, WorkflowRawOutput, "output.raw."),
@@ -162,6 +180,7 @@ def test_each_result_documents_the_fields_typed_code_reads(line: str) -> None:
     finds them. Regenerate the section from the models' ``Field`` descriptions when this fails.
     """
     from dataeval_flow.evaluators import EvaluatorResult
+    from dataeval_flow.workflows import WorkflowResult
 
     module_name, name = line.split(":")
     result = getattr(importlib.import_module(module_name), name)
@@ -170,4 +189,6 @@ def test_each_result_documents_the_fields_typed_code_reads(line: str) -> None:
     assert all(expected.values()), f"{line}: give every field a description"
     if issubclass(result, EvaluatorResult):
         assert documented.pop("output", ""), f"{line}: document the DataEval output"
+    elif issubclass(result, WorkflowResult) and not _has_raw_report_output(result):
+        assert documented.pop("steps", ""), f"{line}: document its steps"
     assert documented == expected, line

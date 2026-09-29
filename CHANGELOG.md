@@ -4,7 +4,7 @@
 
 ### Added
 
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the fifteen types the Evaluator Catalog lists
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the sixteen types the Evaluator Catalog lists
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -30,7 +30,8 @@
 - Plug-in workflows and evaluators, registered as `dataeval_flow.workflows` / `dataeval_flow.evaluators` entry points
 - Every workflow declares its inputs; each task is checked against its workflow or evaluator when the config loads
 - `WorkflowContext` methods for a workflow's inputs: `dataset`, `stats`, `embeddings`, `clusters`, `metadata`, `labels`
-- Plug-in extractors and transforms, under the `dataeval_flow.extractors` / `dataeval_flow.transforms` entry points
+- Plug-in extractors and image transforms, under the `dataeval_flow.extractors` / `dataeval_flow.image_transforms`
+  entry points
 - `run(config, data)` runs one workflow or evaluator on datasets in memory, typed to the config's result
 - An extractor config without a `name` is named after its `model`, as workflow and evaluator configs are
 - Extension bases document how to subclass and register a plugin; a test pins the public API
@@ -69,6 +70,24 @@
 - `shift.ood-kneighbors` and `shift.ood-domain-classifier` evaluators
 - An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
   output
+- Custom workflows: a `workflows:` entry with `inputs:` and `steps:` chains evaluators, workflow types and transforms,
+  each step reading an input or an earlier step by address (`clean`, `split.train`, `kfold.train[0]`) and running once
+  per element of a list; a task runs one with `workflow:`, and a failed step skips only what reads it
+- `CustomWorkflowConfig` and `StepEntry` build a custom workflow in Python, and `save()` writes it into a config file;
+  loading and saving a config, from the TUI or the config builder too, keeps custom workflows as written
+- Nine transforms for custom workflows: `view`, `merge`, `split`, `kfold`, `wrap`, `select`, `remove` (DataEval's
+  removal plans from Duplicates and Outliers), `conform` (relabelling onto an ontology, refusing loss beyond `allow:`)
+  and `export` (writing to `<output>/datasets/<task>.<step>/`); plug-in transforms register under
+  `dataeval_flow.transforms`
+- `scope.label-alignment` evaluator, aligning a source's class names to an ontology through
+  `dataeval.core.label_alignment`, as `data-coverage` aligns them
+- `ChainResult`, a custom workflow's result: each step's outcome in `steps`, readable when a step failed, and each
+  Dataset's lineage in `metadata.lineage`, whose digests tell whether two results read the same data
+- `output_dir` on `run_tasks`, `run_task` and `run`, where export steps write; the CLI passes `--output`
+- `dataeval-flow steps [NAME] [--json]` and `list_steps()` list every step a workflow can chain, with its ports and
+  settings schema
+- A "Workflows as Chains of Steps" explanation, a how-to that writes a custom workflow, and a Transform Catalog with
+  one reference entry per built-in transform
 
 ### Changed
 
@@ -104,7 +123,8 @@
 - Data-prioritization's `CleaningConfig` is `DataPrioritizationCleaningConfig`
 - A workflow package's modules (`params`, `outputs`, `workflow`, `report`) are private; import from the package
 - `list_workflows()` / `list_evaluators()` return the classes; `get_*` return the class, not an instance
-- Extractor configs are imported from `dataeval_flow.config.extractors`; `ToRGB` from `dataeval_flow.config.transforms`
+- Extractor configs are imported from `dataeval_flow.config.extractors`; `ToRGB` from
+  `dataeval_flow.config.image_transforms`
 - `run_tasks` returns results keyed by task name; `load_config` reads a file or a folder
 - `run_task` and `run_tasks` take `data_dir` and `cache_dir` by keyword only; a task named twice runs once
 - `PipelineConfig` and `load_config` are imported from `dataeval_flow` only, not `dataeval_flow.config`
@@ -154,6 +174,8 @@
 - Container images no longer ship the standalone interpreter's bundled `pip`, which nothing in the image used
 - A task naming one source twice is refused when the config loads; the repeat was dropped, leaving the task a
   source short
+- A key no config section defines is refused when the config loads, where it was dropped; a misspelled top-level key
+  is named with the section it most resembles
 
 ### Removed
 

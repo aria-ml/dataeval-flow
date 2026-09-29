@@ -11,6 +11,8 @@ import json as json_mod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import yaml
+
 from dataeval_flow._app._model._execution import ExecutionState, TaskExecution
 from dataeval_flow._app._model._item import DELETE_SENTINEL
 from dataeval_flow._app._model._registry import SECTIONS
@@ -179,7 +181,9 @@ class BuilderViewModel:
         self.snapshot("Load config file")
         try:
             warning = self._state.load_file(path)
-        except (ValueError, TypeError, OSError) as e:
+        except (ValueError, TypeError, OSError, yaml.YAMLError) as e:
+            # A file that is not YAML, or breaks YAML's flow style at an unquoted keyed address, fails the load
+            # with the parser's message (and its hint to quote), not the app.
             return False, f"Failed to load config: {e}"
         self.config_file_path = str(path)
         msg = f"Loaded config from {path}"

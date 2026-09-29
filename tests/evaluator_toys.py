@@ -154,7 +154,12 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "shift.drift-wasserstein": lambda count: (shifted_sources(count, validation=True), FLAT),
     "shift.ood-domain-classifier": lambda count: (shifted_sources(count), FLAT),
     "shift.ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
+    "scope.label-alignment": lambda count: (ToyImages(count=count), None),
 }
+
+# Config values a bare `config_type()` cannot supply, because the field has no default. `scope.label-alignment`
+# needs a target ontology; a flat one matching `ToyImages`'s own `index2label` aligns losslessly.
+_EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {"scope.label-alignment": {"ontology": {"a": None, "b": None}}}
 
 
 def toy_run(name: str, count: int = 40) -> "EvaluatorResult[Any]":
@@ -164,7 +169,8 @@ def toy_run(name: str, count: int = 40) -> "EvaluatorResult[Any]":
 
     assert name in _TOY_DATA, f"give {name} toy data in tests/evaluator_toys.py"
     data, extractor = _TOY_DATA[name](count)
-    return run(get_evaluator(name).config_type(), data, extractor=extractor)  # type: ignore[call-arg]
+    config = get_evaluator(name).config_type(**_EXTRA_CONFIG.get(name, {}))  # type: ignore[call-arg]
+    return run(config, data, extractor=extractor)
 
 
 def toy_task_run(name: str, count: int = 40) -> "Result[Any, Any]":
@@ -183,7 +189,7 @@ def toy_task_run(name: str, count: int = 40) -> "Result[Any, Any]":
         extractor="flat" if extractor is not None else None,
     )
     config = toy_pipeline(
-        evaluators=[get_evaluator(name).config_type(name="e")],  # type: ignore[call-arg]
+        evaluators=[get_evaluator(name).config_type(name="e", **_EXTRA_CONFIG.get(name, {}))],  # type: ignore[call-arg]
         tasks=[task],
         dataset=None if several else data,
         datasets=data if several else None,

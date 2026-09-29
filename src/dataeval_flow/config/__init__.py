@@ -5,7 +5,7 @@ The plain sections' types are imported from here::
     from dataeval_flow.config import SourceConfig, TaskConfig, ...
 
 A section whose entries are plugins has a subpackage of its own: ``dataeval_flow.config.extractors`` for
-``extractors:``, and ``dataeval_flow.config.transforms`` for what a preprocessor's ``step:`` names.
+``extractors:``, and ``dataeval_flow.config.image_transforms`` for what a preprocessor's ``step:`` names.
 
 ``PipelineConfig`` and ``load_config`` are imported from ``dataeval_flow``; a workflow's or evaluator's config from
 its type's package under ``dataeval_flow.workflows`` or ``dataeval_flow.evaluators``.
