@@ -134,6 +134,7 @@ def test_one_element_whose_input_failed_leaves_the_others_judged() -> None:
     assert (first.step, first.severity, first.brief) == ("judge[s1]", "warning", "1 groups")
     assert (second.step, second.severity, second.brief) == ("judge[s2]", "info", "not assessed")
     assert second.description == "Not assessed: `count[s2]` was skipped: needs `dupes[s2]`, which was skipped."
+    assert result.steps["judge"].status == "ok"
 
 
 def test_a_check_that_takes_a_whole_list_judges_it_once() -> None:
@@ -191,3 +192,36 @@ def test_an_output_knows_the_datasets_it_was_computed_on_and_their_size() -> Non
     dupes, count = run.nodes["dupes"], run.nodes["count"]
     assert (dupes.items, dupes.inputs) == (12, ("a",))  # type: ignore[union-attr]
     assert (count.items, count.inputs) == (12, ("a",))  # type: ignore[union-attr]
+
+
+def test_a_whole_list_check_whose_list_holds_nothing_is_not_assessed_and_the_task_stays_ok() -> None:
+    result = _result(
+        {"name": "boom", "transform": "toy-explode", "input": "cams", "optional": True},
+        {"name": "dupes", "evaluator": "dupes", "input": "boom"},
+        _COUNT,
+        {"name": "worst", "check": "toy-worst", "input": "count"},
+        inputs=_LIST,
+        datasets=_CAMS,
+    )
+    (finding,) = result.findings
+    assert (finding.severity, finding.brief, finding.step) == ("info", "not assessed", "worst")
+    assert finding.description == (
+        "Not assessed: `count` holds no element; `count[s1]` was skipped: needs `dupes[s1]`, which was skipped."
+    )
+    assert result.steps["worst"].status == "ok"
+    assert result.health == {"status": "ok", "warnings": 0, "findings": 1, "failed_steps": []}
+
+
+def test_the_one_step_path_builds_a_source_s_view_once() -> None:
+    from dataeval_flow._view import build_view
+
+    views = [{"name": "first4", "operations": [{"type": "Limit", "params": {"size": 4}}]}]
+    config = chain_pipeline(
+        evaluators=[DuplicatesConfig(name="dupes")],
+        tasks=[{"name": "t", "evaluator": "dupes", "sources": "src"}],
+        extra={"views": views},
+    )
+    config.sources[0].view = "first4"  # type: ignore[index]
+    with patch("dataeval_flow._view.build_view", wraps=build_view) as built:
+        run_chain_task(config)
+    assert built.call_count == 1

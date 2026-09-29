@@ -168,7 +168,7 @@ def _run_step(
     """
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
     bound = {binding.port.name: [_lookup(nodes, address) for address in binding.addresses] for binding in spec.bindings}
-    gap = _first_gap(spec, bound)
+    gap = _first_gap(spec, bound, steps)
     if gap is not None:
         address, missing = gap
         if spec.kind == "check":
@@ -183,13 +183,30 @@ def _run_step(
     return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied, steps)
 
 
-def _first_gap(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> tuple[Address, Missing] | None:
-    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something."""
+def _first_gap(
+    spec: StepSpec, bound: Mapping[str, list[_Value]], steps: Mapping[str, StepResult]
+) -> tuple[Address, Missing] | None:
+    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something.
+
+    A check is never skipped for want of input (spec §9.1), so a list it takes whole holds nothing when no element
+    of it exists.
+    """
     for binding in spec.bindings:
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
             if isinstance(value, Missing):
                 return address, value
+            if spec.kind == "check" and binding.port.is_list and isinstance(value, NodeList) and not value.present:
+                return address, _empty_list(address, value, steps)
     return None
+
+
+def _empty_list(address: Address, value: NodeList, steps: Mapping[str, StepResult]) -> Missing:
+    """Why a list holds no element: none exists, or the first one's gap."""
+    if not value.elements:
+        return Missing("holds no element")
+    key, first = next(iter(value.elements.items()))
+    inner = _gap_text(replace(address, key=key), first, steps) if isinstance(first, Missing) else ""
+    return Missing(f"holds no element; {inner}" if inner else "holds no element")
 
 
 def _gap_text(address: Address, missing: Missing, steps: Mapping[str, StepResult]) -> str:
@@ -455,7 +472,7 @@ def _combine(
         task=settings.task, step=spec.name, derive_metadata=lambda node: _metadata(node, step.metadata_policy)
     )
     made = impl.run(spec.config, inputs, context)
-    on, items = _computed_on(inputs)
+    computed_on = _computed_on(inputs)
     return {
         port.name: Node(
             _at(spec, port, element),
@@ -463,8 +480,8 @@ def _combine(
             payload=made[port.name],
             step=spec.name,
             step_type=spec.type,
-            inputs=on,
-            items=items,
+            inputs=tuple(node.address for node in computed_on),
+            computed_on=computed_on,
         )
         for port in spec.outputs
     }
@@ -484,16 +501,16 @@ def _check(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, ele
     return {port.name: node}
 
 
-def _computed_on(inputs: Mapping[str, Any]) -> tuple[tuple[str, ...], int | None]:
-    """The Datasets an Output made from `inputs` was computed on, and how many items they hold together.
+def _computed_on(inputs: Mapping[str, Any]) -> tuple[Node, ...]:
+    """The Dataset nodes an Output made from `inputs` was computed on.
 
     Made from Datasets, it was computed on them; made from Outputs alone, on what the first of those was.
     """
     datasets = _datasets(inputs.values())
     if datasets:
-        return tuple(node.address for node in datasets), sum(len(node.value) for node in datasets)
+        return tuple(datasets)
     first = next(iter(_among(inputs.values(), DataType.OUTPUT)), None)
-    return (first.inputs, first.items) if first is not None else ((), None)
+    return first.computed_on if first is not None else ()
 
 
 def _at(spec: StepSpec, port: Port, element: str | None) -> str:
@@ -585,7 +602,6 @@ def _pooled_outputs(spec: StepSpec, result: Any, inputs: Mapping[str, Any], elem
     payload = result.output if port.type is DataType.OUTPUT else result
     datasets = _datasets(inputs.values())
     on = tuple(node.address for node in datasets)
-    items = sum(len(node.value) for node in datasets)
     return {
         port.name: Node(
             _at(spec, port, element),
@@ -595,7 +611,7 @@ def _pooled_outputs(spec: StepSpec, result: Any, inputs: Mapping[str, Any], elem
             step_type=spec.type,
             inputs=on,
             result=result,
-            items=items,
+            computed_on=tuple(datasets) if port.type is DataType.OUTPUT else (),
         )
     }
 
