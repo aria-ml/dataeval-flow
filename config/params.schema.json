@@ -941,7 +941,7 @@
           "type": "string"
         },
         "outliers": {
-          "description": "A `quality.outliers` Output computed on exactly `input`.",
+          "description": "A `quality.outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`.",
           "title": "Outliers",
           "type": "string"
         },

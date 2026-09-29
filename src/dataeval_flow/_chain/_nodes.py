@@ -48,6 +48,9 @@ class Node:
     result: Any = None
     computed_on: tuple["Node", ...] = ()
     """For an Output, the Dataset nodes it was computed on."""
+    config: Any = None
+    """For an Output, the settings of the step that made it: an evaluator's pool entry, or an inline step's config;
+    ``None`` for anything else."""
     _dataset: Any = field(default=None, repr=False)
 
     @property

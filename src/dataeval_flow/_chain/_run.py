@@ -482,6 +482,7 @@ def _combine(
             step_type=spec.type,
             inputs=tuple(node.address for node in computed_on),
             computed_on=computed_on,
+            config=spec.config,
         )
         for port in spec.outputs
     }
@@ -612,6 +613,7 @@ def _pooled_outputs(spec: StepSpec, result: Any, inputs: Mapping[str, Any], elem
             inputs=on,
             result=result,
             computed_on=tuple(datasets) if port.type is DataType.OUTPUT else (),
+            config=spec.config if port.type is DataType.OUTPUT else None,
         )
     }
 

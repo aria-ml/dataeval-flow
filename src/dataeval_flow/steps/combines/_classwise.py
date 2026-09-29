@@ -48,7 +48,11 @@ class ClasswiseOutliersConfig(CombineConfig):
     """A `classwise-outliers` step's inputs: the Dataset, and the Outliers Output computed on it."""
 
     input: str = Field(description="The Dataset the outliers were found in; its labels name each item's class.")
-    outliers: str = Field(description="A `quality.outliers` Output computed on exactly `input`.")
+    outliers: str = Field(
+        description=(
+            "A `quality.outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`."
+        )
+    )
 
 
 class ClasswiseOutliersCombine(Combine[ClasswiseOutliersConfig]):
@@ -71,6 +75,12 @@ class ClasswiseOutliersCombine(Combine[ClasswiseOutliersConfig]):
     ) -> Mapping[str, Any]:
         """The Outliers Output's flags, counted once per item or box, per class."""
         metadata = context.derive_metadata(inputs["input"])
+        producer = inputs["outliers"].config
+        if metadata.multi_target and producer is not None and getattr(producer, "per_target", True) is not True:
+            raise ValueError(
+                "classwise-outliers counts a detection Dataset's boxes, but `outliers` was not computed per box: "
+                "set `per_target: true` on its `quality.outliers` entry."
+            )
         img_issues, target_issues = split_outlier_issues(inputs["outliers"].value.data())
         pivot = classwise_pivot(target_issues, img_issues, metadata)
         return {"output": ClasswiseOutliers.from_pivot(pivot, multi_target=metadata.multi_target)}

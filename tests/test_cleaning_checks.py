@@ -236,3 +236,27 @@ def test_classwise_outliers_refuses_outliers_found_on_another_dataset() -> None:
 def test_a_threshold_is_a_percentage() -> None:
     with pytest.raises(ValidationError):
         OutlierRateConfig(input="o", image=101.0)
+
+
+def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> None:
+    evaluators = [{k: v for k, v in _EVALUATORS[0].items() if k != "per_target"}, _EVALUATORS[1]]
+    config = chain_pipeline(
+        workflows=[{"name": "judged", "inputs": ["data"], "steps": _OUTLIER_STEPS}],
+        evaluators=evaluators,
+        tasks=[{"name": "chain", "workflow": "judged", "sources": ["src"]}],
+        datasets={"src": _DATASETS["detection"]()},
+    )
+    result = run_tasks(config)["chain"]
+    message = (
+        "classwise-outliers counts a detection Dataset's boxes, but `outliers` was not computed per box: "
+        "set `per_target: true` on its `quality.outliers` entry."
+    )
+    by_class = result.steps["by_class"]
+    assert by_class.status == "failed"
+    assert f"ValueError: {message}" in " ".join(by_class.errors)
+    (finding,) = [f for f in result.findings if f.title == "Classwise Outliers"]
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Classwise Outliers", "not assessed")
+    assert finding.description.startswith(
+        "Not assessed: `by_class` failed: ValueError: classwise-outliers counts a detection Dataset's boxes"
+    )
+    assert result.health["status"] == "failed"
