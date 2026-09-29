@@ -226,37 +226,45 @@ Notice:
 
 ## 5. Read the result
 
+The output below comes from running the workflow as section 3 leaves it, through `corpus`, on two small synthetic
+corpora of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
+`truck` and `pedestrian`. Section 4's steps were not part of that run, so nothing here reports coverage, balance or a
+split.
+
 The text report opens with a summary of the steps, then gives each step a section of its own, headed by the Dataset it
 read walked back to its source:
 
 ```text
 ================================================================================
-  TRAIN_BALANCE (BIAS.BALANCE)
+  CORPUS (EXPORT)
 ================================================================================
-  On `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street`
-  (street_2024)
+  On `clean` ← `merged` ← `street_conformed` ← `street` (street_2024)
+
+  Path:   out/datasets/build.corpus
+  Format: coco
+  Images: 47
 ```
 
 In `out/results/result.json`, the task's entry holds `steps`, each step by name with its kind, type, status and the
 addresses it read. A Dataset a step made is written as its size and digest, never as data. `metadata.lineage` records
-each Dataset in the chain. Trimmed to the `clean` step, from a small run:
+each Dataset in the chain. Trimmed to the `clean` step:
 
 ```json
 {
   "kind": "workflow",
   "metadata": {"lineage": [{"name": "clean", "step": "clean", "type": "remove", "inputs": ["merged"],
-                            "source": null, "digest": "1bf4dcfcadf4", "items": 47}]},
+                            "source": null, "digest": "ca2f57f5f4ad", "items": 47}]},
   "health": {"status": "ok", "warnings": 0, "findings": 0, "failed_steps": []},
   "steps": {
     "clean": {"kind": "transform", "type": "remove", "status": "ok", "inputs": ["merged", "dupes"],
-              "output": {"items": 47, "digest": "1bf4dcfcadf4"},
+              "output": {"items": 47, "digest": "ca2f57f5f4ad"},
               "details": {"removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}}}
   }
 }
 ```
 
-The health status is `ok`. Evaluators judge nothing, so a chain's health reports only the findings of the workflow
-types it runs as steps, and is `failed` when a required step fails.
+That run's health status is `ok`: it ran evaluators and transforms only, and evaluators judge nothing. A chain's health
+reports only the findings of the workflow types it runs as steps, and is `failed` when a required step fails.
 
 From Python, a custom workflow's task returns a `ChainResult`. Its `steps` hold each step's live output, and hold every
 step that ran even when a later one failed:
