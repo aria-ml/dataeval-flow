@@ -1,5 +1,7 @@
 """Preflight: each step's policies resolved as a task resolves them today, and Dataset kinds checked (spec §5.4)."""
 
+import re
+
 import pytest
 
 from dataeval_flow._cache import DatasetCache
@@ -147,3 +149,57 @@ def test_a_one_step_graph_resolves_its_policy_exactly_as_a_task_does() -> None:
     assert context.metadata_policy == expected
     assert context.stats_policy is None
     assert context.ontology is None
+
+
+def _analysis_step(ranges: tuple[tuple[float, float], tuple[float, float]]):
+    """A graph whose one step reads two slots, the pipeline it came from, and each slot's context over `ranges`."""
+    from dataeval_flow.config import StatsMeasureConfig, StatsPolicyConfig
+    from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
+
+    analysis = DataAnalysisConfig(name="analysis", outlier_method="zscore", outlier_flags=["pixel"], stats="bands")
+    measure = [
+        StatsMeasureConfig(bands=None, families=["visual"]),
+        StatsMeasureConfig(bands="rgb", families=["visual"]),
+        StatsMeasureConfig(bands="ir", families=["visual"]),
+    ]
+    workflow = {
+        "name": "w",
+        "inputs": ["a", "b"],
+        "steps": [{"name": "an", "workflow": "analysis", "input": ["a", "b"]}],
+    }
+    config = chain_pipeline(
+        workflows=[workflow, analysis],
+        datasets={"one": ToyImages(), "two": ToyImages(seed=1)},
+        extra={"stats": [StatsPolicyConfig(name="bands", measure=measure)]},
+    )
+    graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
+    contexts = {
+        "a": [
+            DatasetContext(name="one", dataset=ToyImages(), value_range=ranges[0], channel_groups={"rgb": (0, 1, 2)})
+        ],
+        "b": [
+            DatasetContext(name="two", dataset=ToyImages(seed=1), value_range=ranges[1], channel_groups={"ir": (3,)})
+        ],
+    }
+    return graph, config, contexts
+
+
+def test_a_step_reading_two_sources_takes_their_value_range_and_both_their_band_groups() -> None:
+    graph, config, contexts = _analysis_step(((0.0, 255.0), (0.0, 255.0)))
+    (context,) = step_contexts(graph, config, None, contexts).values()
+    assert context.metadata_policy is not None
+    assert context.stats_policy is not None
+    assert context.metadata_policy.value_range == (0.0, 255.0)
+    assert context.stats_policy.channels == (("ir", (3,)), ("rgb", (0, 1, 2)))
+    assert context.metadata_policy.stats == context.stats_policy
+
+
+def test_a_step_reading_two_sources_of_different_value_ranges_is_refused() -> None:
+    graph, config, contexts = _analysis_step(((0.0, 1.0), (0.0, 255.0)))
+    message = (
+        "Workflow 'analysis' reads datasets declaring different `value_range`s ((0.0, 1.0) and (0.0, 255.0)). "
+        "Statistics measured on different pixel scales are not comparable, so there is no right answer to pick — give "
+        "the datasets one range, or run them as separate tasks."
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
+        step_contexts(graph, config, None, contexts)

@@ -23,6 +23,7 @@ from dataeval_flow.steps import (
     TransformConfig,
     TransformContext,
 )
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 from tests.golden.rerouting import CASES, normalized
@@ -242,3 +243,101 @@ def test_a_one_step_task_makes_its_evaluator_once() -> None:
         result = run_task(task, config)
     assert result.success
     assert made.call_count == 1
+
+
+@pytest.mark.parametrize(
+    ("kind", "entry"),
+    [
+        ("evaluator", DuplicatesConfig(name="target")),
+        ("workflow", DataCleaningConfig(name="target", outlier_method="zscore", outlier_flags=["pixel"])),
+    ],
+)
+def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_no_lineage(kind: str, entry) -> None:
+    from unittest.mock import patch
+
+    from dataeval_flow import _orchestrator
+    from dataeval_flow._chain import _run as engine
+
+    resolve, execute, chain = _orchestrator._source_contexts, _orchestrator._run_target, engine.run_chain
+    resolved: list[Any] = []
+    handed: list[Any] = []
+    runs: list[Any] = []
+
+    def resolving(*args: Any, **kwargs: Any) -> Any:
+        resolved.append(resolve(*args, **kwargs))
+        return resolved[-1]
+
+    def executing(target: Any, config: Any, context: Any) -> Any:
+        handed.append(context)
+        return execute(target, config, context)
+
+    def chaining(*args: Any, **kwargs: Any) -> Any:
+        runs.append(chain(*args, **kwargs))
+        return runs[-1]
+
+    task = TaskConfig(name="t", workflow="target", kind=kind, sources="src")  # type: ignore[arg-type]
+    evaluators, workflows = ([entry], []) if kind == "evaluator" else ([], [entry])
+    config = chain_pipeline(evaluators=evaluators, workflows=workflows, tasks=[task.model_dump()])
+    with (
+        patch.object(_orchestrator, "_source_contexts", side_effect=resolving),
+        patch.object(_orchestrator, "_run_target", side_effect=executing),
+        patch.object(engine, "run_chain", side_effect=chaining),
+    ):
+        result = run_task(task, config)
+    assert result.success, result.errors
+    ((contexts, _),) = resolved
+    (context,) = handed
+    (run,) = runs
+    assert list(context.dataset_contexts) == ["src"]
+    assert context.dataset_contexts["src"] is contexts["src"]
+    assert (run.lineage, run.label_space) == ([], [])
+    assert "lineage" not in result.to_dict()["metadata"]  # type: ignore[operator]
+
+
+def test_a_one_step_task_whose_step_fails_before_its_evaluator_runs_returns_a_failed_result_of_its_class() -> None:
+    from unittest.mock import patch
+
+    from dataeval_flow import _orchestrator
+    from dataeval_flow.evaluators.quality import DuplicatesResult
+
+    task = TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")
+    config = chain_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task.model_dump()])
+    with patch.object(_orchestrator, "_run_target", side_effect=RuntimeError("no context")):
+        result = run_task(task, config)
+    assert isinstance(result, DuplicatesResult)
+    assert (result.success, result.type, result.errors) == (False, "quality.duplicates", ["RuntimeError: no context"])
+
+
+def test_the_golden_normalizer_drops_volatile_keys_at_every_depth() -> None:
+    payload = {
+        "timestamp": "2026-09-29",
+        "metadata": {"execution_time_s": 1.5, "tool_version": "0.2", "kept": 1},
+        "steps": [
+            {"execution_time": 2.0, "execution_duration": "2s", "dataeval": {"version": "1.2", "commit": "abc"}},
+            [{"timestamp": "nested", "items": 3}],
+        ],
+        "dataeval": {"version": "1.2", "flags": ["x"]},
+    }
+    assert normalized(payload) == {
+        "metadata": {"kept": 1},
+        "steps": [{"dataeval": {"commit": "abc"}}, [{"items": 3}]],
+        "dataeval": {"flags": ["x"]},
+    }
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_pooled_extractor_is_one_a_step_can_name_not_the_tasks() -> None:
+    from dataeval_flow.evaluators.scope import CoverageConfig
+    from tests.evaluator_toys import FLAT
+
+    def workflow(**step: Any) -> CustomWorkflowConfig:
+        steps = [{"name": "c", "evaluator": "cov", "input": "a", **step}]
+        return CustomWorkflowConfig.model_validate({"name": "w", "inputs": ["a"], "steps": steps})
+
+    pools = [CoverageConfig(name="cov"), FLAT]
+    message = "Task 'w' runs workflow 'w', whose step 'c' needs an extractor to produce embeddings"
+    with pytest.raises(ValidationError, match=message):
+        run(workflow(), ToyImages(count=30), definitions=pools)
+    result = run(workflow(extractor="flat"), ToyImages(count=30), definitions=pools)
+    assert isinstance(result, ChainResult)
+    assert result.steps["c"].status == "ok", result.steps["c"].errors

@@ -213,3 +213,51 @@ def test_the_runner_prints_and_writes_a_failed_chain(caplog) -> None:
     assert list(collected.merged["t"]["steps"]) == ["few", "dupes", "boom", "after"]
     assert "FAILED: t" in caplog.text
     assert "OK: t" not in caplog.text
+
+
+def test_each_step_is_a_top_level_section_in_chain_order_with_its_elements_nested_in_it() -> None:
+    result = _result(
+        [
+            {"name": "parts", "transform": "toy-spread", "input": "a", "parts": 2},
+            {"name": "dupes", "evaluator": "dupes", "input": "parts"},
+            {"name": "kept", "transform": "toy-keep", "input": "a"},
+        ]
+    )
+    sections = [block for block in result._document(detailed=True).blocks if isinstance(block, Section)]
+    assert [section.title for section in sections] == [
+        "parts (toy-spread)",
+        "dupes (quality.duplicates)",
+        "kept (toy-keep)",
+    ]
+    nested = [[block.title for block in section.blocks if isinstance(block, Section)] for section in sections]
+    assert nested == [[], ["[0]", "[1]"], []]
+
+
+def test_a_chain_carries_a_thumbnail_of_each_item_its_steps_name_read_from_the_dataset_the_step_read() -> None:
+    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+
+    clean = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"])
+    steps = [
+        {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 10}}]},
+        {"name": "cleaned", "workflow": "clean", "input": "few"},
+    ]
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": ["a"], "steps": steps}, clean],
+        datasets={"src": ToyImages(count=24)},
+    )
+    task = TaskConfig(name="t", workflow="w", sources="src")
+    result = run_task(task, config, report_images=True)
+    assert isinstance(result, ChainResult)
+    # ToyImages' item 5 copies item 0, and the cleaning step's report names both.
+    thumbnails = [
+        (asset.item.source, asset.item.index, asset.media_type, asset.width, asset.height) for asset in result.assets
+    ]
+    assert thumbnails == [("few", 0, "image/webp", 16, 16), ("few", 5, "image/webp", 16, 16)]
+    payload = cast("dict[str, Any]", result.to_dict())
+    assert [(asset["item"]["source"], asset["item"]["index"]) for asset in payload["assets"]] == [
+        ("few", 0),
+        ("few", 5),
+    ]
+    without = run_task(task, config, report_images=False)
+    assert without.assets == []
+    assert "assets" not in cast("dict[str, Any]", without.to_dict())

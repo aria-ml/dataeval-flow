@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from dataeval.quality import DuplicatesOutput
+from dataeval.types import RemovalPlan
 from pydantic import ValidationError
 
 from dataeval_flow import run_tasks
@@ -226,3 +227,40 @@ def test_a_plan_list_applies_to_the_list_it_was_computed_on_element_by_element()
         ("0", "ok", ["k.train[0]", "dupes[0]"]),
         ("1", "ok", ["k.train[1]", "dupes[1]"]),
     ]
+
+
+def test_the_report_section_counts_what_was_removed_at_each_level() -> None:
+    from dataeval_flow._blocks import Fields
+
+    result = _run(
+        [
+            {"name": "dupes", "evaluator": "dupes", "input": "a"},
+            {"name": "clean", "transform": "remove", "input": "a", "plans": {"dupes": {}}},
+        ]
+    )
+    assert RemoveTransform().section(result.steps["clean"]) == [
+        Fields(items=[("Items", 1), ("Detections", 0), ("Tracks", 0), ("Frames", 0)])
+    ]
+
+
+class _NothingToRemove(DuplicatesOutput):
+    """A Duplicates Output whose plan names nothing."""
+
+    def deduplicate(
+        self, *, dup_types: Any = "exact", keep: Any = "first", exclude_groups: Any = None, levels: Any = None
+    ) -> RemovalPlan:
+        return RemovalPlan()
+
+
+def test_an_empty_plan_removes_nothing_and_counts_zero_at_every_level() -> None:
+    import polars as pl
+
+    dataset = ToyImages()
+    config = RemoveConfig(input="a", plans={"dupes": {}})
+    inputs = {"input": SimpleNamespace(value=dataset), "plans": SimpleNamespace(value=_NothingToRemove(pl.DataFrame()))}
+    transform = RemoveTransform()
+    made = transform.run(config, inputs, TransformContext(task="t", step="clean"))
+    assert list(made["output"].resolve_indices()) == list(range(12))
+    assert transform.details(config, inputs, made) == {
+        "removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0}
+    }
