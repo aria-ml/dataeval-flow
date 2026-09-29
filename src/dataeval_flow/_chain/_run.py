@@ -209,12 +209,13 @@ def _broadcast(
     label_space: list[LabelSpaceRecord] = []
     for key in keys:
         chosen, why = _pick(spec, bound, key)
+        element_inputs = _element_inputs(spec, bound, key)
         if why is not None:
-            elements[key] = _skipped(spec, inputs_text, why)
+            elements[key] = _skipped(spec, element_inputs, why)
             outputs = _missing_outputs(spec, "was skipped")
         else:
             elements[key], outputs, records = _attempt(
-                spec, _shaped(spec, chosen), settings, key, inputs_text, lineage, applied
+                spec, _shaped(spec, chosen), settings, key, element_inputs, lineage, applied
             )
             label_space.extend(records)
         for port in spec.outputs:
@@ -250,6 +251,15 @@ def _pick(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str) -> tuple[
                 picked.append(value)
         chosen[binding.port.name] = picked
     return chosen, why
+
+
+def _element_inputs(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str) -> list[str]:
+    """The addresses element `key` of a broadcast reads: each list on a port that takes one item, narrowed to `key`."""
+    return [
+        f"{address}[{key}]" if isinstance(value, NodeList) and not binding.port.is_list else str(address)
+        for binding in spec.bindings
+        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
+    ]
 
 
 def _element(address: Address, value: NodeList, key: str) -> tuple[Node | Missing | None, str | None]:

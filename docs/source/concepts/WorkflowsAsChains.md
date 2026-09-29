@@ -185,6 +185,14 @@ On `merged` ← `street_conformed` ← `street` (street_2024), `dupes`
 On `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024)
 ```
 
+A step run once per element of a list is headed by the list, walked back through its elements to the source of each,
+and each element's section by its own element:
+
+```text
+On `cameras` (cam1, cam2)
+On `cameras[cam1]` (cam1)
+```
+
 The digest is what lets two results be compared. Two results that give a Dataset the same digest read the same data:
 the same sources, through the same steps and settings, to the same content. The content is what a step resolved from
 the data: the plan `remove` applied, the indices `select`, `split` and `kfold` chose, and the remap `conform` applied.

@@ -2,7 +2,7 @@
 
 __all__ = ["chain_blocks", "lineage_line"]
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 from dataeval_flow._blocks import Block, Fields, Paragraph, Section
@@ -13,17 +13,41 @@ if TYPE_CHECKING:
 
 
 def lineage_line(address: str, lineage: Sequence[LineageRecord]) -> str:
-    """``address`` walked back through the Datasets it was made from, to the source: "`few` ← `k` ← `a` (src)"."""
+    """``address`` walked back through the Datasets it was made from, to the source: "`few` ← `k` ← `a` (src)".
+
+    A list is walked back through its elements, which lineage records one by one, with each element's key dropped:
+    "`kept` ← `cams` (cam1, cam2)" names the source of every element that walks back the way the first one does.
+    """
     records = {record.name: record for record in lineage}
+    elements = [name for name in records if name.startswith(f"{address}[") and name.endswith("]")]
+    if address in records or not elements:
+        parts, source = _walk(address, records)
+        return _line(parts, [source] if source else [])
+    walks = [_walk(name, records) for name in elements]
+    keyed = [
+        ([part.removesuffix(f"[{name[len(address) + 1 : -1]}]") for part in parts], source)
+        for name, (parts, source) in zip(elements, walks, strict=True)
+    ]
+    head = keyed[0][0]
+    sources = [source for parts, source in keyed if parts == head and source]
+    return _line(head, list(dict.fromkeys(sources)))
+
+
+def _walk(address: str, records: Mapping[str, LineageRecord]) -> tuple[list[str], str | None]:
+    """The addresses from `address` back through each first input to a chain input, and that input's source."""
     parts: list[str] = []
     current: str | None = address
     while current is not None and current not in parts:
         record = records.get(current)
         parts.append(current)
         current = record.inputs[0] if record is not None and record.inputs else None
-    text = " ← ".join(f"`{part}`" for part in parts)
     last = records.get(parts[-1])
-    return f"{text} ({last.source})" if last is not None and last.source else text
+    return parts, last.source if last is not None else None
+
+
+def _line(parts: Sequence[str], sources: Sequence[str]) -> str:
+    text = " ← ".join(f"`{part}`" for part in parts)
+    return f"{text} ({', '.join(sources)})" if sources else text
 
 
 def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
@@ -61,8 +85,7 @@ def _step(record: "StepResult", result: "ChainResult", *, detailed: bool) -> lis
     if record.inputs:
         blocks.append(
             Paragraph(
-                text="On "
-                + ", ".join(lineage_line(address.split("[")[0], result.metadata.lineage) for address in record.inputs)
+                text="On " + ", ".join(lineage_line(address, result.metadata.lineage) for address in record.inputs)
             )
         )
     if record.reason is not None:

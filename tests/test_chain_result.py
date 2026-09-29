@@ -121,6 +121,42 @@ def test_a_lineage_line_walks_back_to_the_source() -> None:
     assert lineage_line("few", result.metadata.lineage) == "`few` ← `k` ← `a` (src)"
 
 
+def test_a_step_run_over_a_list_input_is_headed_by_each_elements_source() -> None:
+    result = _result(
+        [{"name": "kept", "transform": "toy-keep", "input": "all"}],
+        inputs=[{"name": "all", "list": True}],
+        datasets={"src": ToyImages(), "more": ToyImages(seed=1)},
+    )
+    lineage = result.metadata.lineage
+    assert lineage_line("all", lineage) == "`all` (src, more)"
+    assert lineage_line("all[more]", lineage) == "`all[more]` (more)"
+    assert lineage_line("kept", lineage) == "`kept` ← `all` (src, more)"
+    elements = result.steps["kept"].elements or {}
+    assert [element.inputs for element in elements.values()] == [["all[src]"], ["all[more]"]]
+    text = result.report(detailed=True, width=200)
+    assert "On `all` (src, more)" in text
+    assert "On `all[src]` (src)" in text
+    assert "On `all[more]` (more)" in text
+
+
+def test_a_step_run_over_a_list_output_is_headed_by_where_the_list_came_from() -> None:
+    result = _result(
+        [
+            {"name": "parts", "transform": "toy-spread", "input": "a", "parts": 2},
+            {"name": "kept", "transform": "toy-keep", "input": "parts"},
+        ]
+    )
+    lineage = result.metadata.lineage
+    assert lineage_line("parts", lineage) == "`parts` ← `a` (src)"
+    assert lineage_line("kept", lineage) == "`kept` ← `parts` ← `a` (src)"
+    payload = cast("dict[str, Any]", result.to_dict())
+    elements = payload["steps"]["kept"]["elements"]
+    assert (elements["0"]["inputs"], elements["1"]["inputs"]) == (["parts[0]"], ["parts[1]"])
+    text = result.report(detailed=True, width=200)
+    assert "On `parts` ← `a` (src)" in text
+    assert "On `parts[1]` ← `a` (src)" in text
+
+
 def test_junit_has_one_error_per_failed_step_and_markdown_names_them() -> None:
     result = _result(_MIXED)
     xml = junit_report({"t": result})
