@@ -140,6 +140,20 @@ def test_select_keeps_the_first_n_of_a_ranking_of_the_same_dataset() -> None:
     assert chosen.tolist() == ranking[:5].tolist()
 
 
+def test_select_takes_a_ranking_that_also_read_a_reference_set() -> None:
+    steps = [
+        {"name": "r", "evaluator": "rank", "input": ["a", "b"]},
+        {"name": "top", "transform": "select", "input": "a", "ranking": "r", "n": 5},
+    ]
+    datasets = {"x": ToyImages(count=20), "y": ToyImages(count=8, seed=1)}
+    result = run_chain_task(_task(steps, inputs=["a", "b"], datasets=datasets, extractor=True))
+    assert isinstance(result, ChainResult)
+    assert result.steps["top"].status == "ok"
+    ranking = np.asarray(result.steps["r"].output.indices)
+    chosen = np.asarray(result.steps["top"].output.resolve_indices())
+    assert chosen.tolist() == ranking[:5].tolist()
+
+
 def test_select_with_a_ranking_of_another_dataset_fails_the_load() -> None:
     steps = [
         {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 10}}]},

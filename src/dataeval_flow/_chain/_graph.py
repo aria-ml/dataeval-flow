@@ -442,14 +442,14 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
 def _same_node(
     entry: StepEntry, impl: type[Transform[Any]], addresses: dict[str, tuple[Address, ...]], specs: dict[str, StepSpec]
 ) -> None:
-    """Refuse an Output a transform applies to a Dataset other than the one it was computed on."""
+    """Refuse an Output a transform applies to a Dataset other than exactly the one it was computed on."""
     on = tuple(str(address) for address in addresses.get("input", ()))
     for port in impl.same_node:
         for address in addresses.get(port, ()):
             producer = specs.get(address.name)
             computed = tuple(str(item) for item in producer.addresses("input")) if producer is not None else ()
-            # An Output indexes its producer's first input (Prioritize may also read a reference set).
-            if computed[:1] != on:
+            # A ranking may read a reference set after the Dataset it indexes; then only its first input counts.
+            if (computed[:1] if impl.same_node_first_input else computed) != on:
                 where = ", ".join(f"`{item}`" for item in computed) or "no Dataset"
                 target = ", ".join(f"`{item}`" for item in on)
                 raise GraphError(

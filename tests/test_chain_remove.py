@@ -147,3 +147,17 @@ def test_a_plan_computed_on_another_dataset_fails_the_load() -> None:
     ]
     with pytest.raises(ValidationError, match="reads `dupes`, which was computed on `few`, not on `a`"):
         _run(steps)
+
+
+def test_a_plan_computed_on_more_datasets_than_its_input_fails_the_load() -> None:
+    steps = [
+        {"name": "dupes", "evaluator": "dupes", "input": ["a", "b"]},
+        {"name": "clean", "transform": "remove", "input": "a", "plans": {"dupes": {}}},
+    ]
+    with pytest.raises(ValidationError, match="reads `dupes`, which was computed on `a`, `b`, not on `a`"):
+        chain_pipeline(
+            workflows=[{"name": "w", "inputs": ["a", "b"], "steps": steps}],
+            evaluators=_POOL,
+            tasks=[{"name": "t", "workflow": "w", "sources": ["src", "other"]}],
+            datasets={"src": ToyImages(), "other": ToyImages(seed=1)},
+        )

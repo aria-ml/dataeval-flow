@@ -41,6 +41,7 @@ class SelectTransform(Transform[SelectConfig]):
     )
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
     same_node: ClassVar[tuple[str, ...]] = ("ranking",)
+    same_node_first_input: ClassVar[bool] = True  # Prioritize may read a reference set after the Dataset it ranks
 
     def run(
         self,

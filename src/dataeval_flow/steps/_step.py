@@ -106,11 +106,12 @@ class Transform(Step, ABC, Generic[ConfigT]):
     - :meth:`run`.
 
     Override :meth:`output_kinds` when an output's Dataset kind differs from ``input``'s, and :meth:`digest` when
-    the output depends on data the settings do not name, such as a removal plan. ``same_node`` names output ports
-    whose Outputs must have been computed on the ``input`` Dataset, and :meth:`bound_problem` refuses settings that
-    do not fit the classes of the Outputs bound to them. :meth:`empty_outputs` names outputs its
-    settings leave empty, and :meth:`destinations` the directories a run writes. :meth:`details` reports what a run
-    did, such as what it collapsed or dropped, for the JSON and the report.
+    the output depends on data the settings do not name, such as a removal plan. ``same_node`` names the input
+    ports whose Outputs must have been computed on exactly the ``input`` Dataset. Set ``same_node_first_input`` when
+    their producer may also read a reference set after that Dataset, as Prioritize does: only its first input is then
+    compared. :meth:`bound_problem` refuses settings that do not fit the classes of the Outputs bound to them.
+    :meth:`empty_outputs` names outputs its settings leave empty, and :meth:`destinations` the directories a run
+    writes. :meth:`details` reports what a run did, such as what it collapsed or dropped, for the JSON and the report.
 
     Register the class under the ``dataeval_flow.transforms`` entry-point group, named by ``name``.
 
@@ -139,6 +140,7 @@ class Transform(Step, ABC, Generic[ConfigT]):
     inputs: ClassVar[tuple[Port, ...]]
     outputs: ClassVar[tuple[Port, ...]]
     same_node: ClassVar[tuple[str, ...]] = ()
+    same_node_first_input: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Bind ``config_type`` from the type argument, and require identity and ports on a concrete transform."""
