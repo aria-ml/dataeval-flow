@@ -27,11 +27,7 @@ def lineage_line(address: str, lineage: Sequence[LineageRecord]) -> str:
 
 
 def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
-    """The summary, then a "Steps" section holding one section per step, in run order.
-
-    Nested one level under "Steps" so a step's own heading, such as ``few (toy-first)``, keeps its case: the
-    report's top-level sections, like the workflow health summary, render theirs in capitals.
-    """
+    """The summary, then one section per step, in run order, as top-level sections alongside Configuration."""
     counts = {status: sum(r.status == status for r in result.steps.values()) for status in ("ok", "failed", "skipped")}
     steps: list[Block] = [
         Section(
@@ -51,7 +47,7 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
             ]
         ),
         *result._summary_blocks(result.findings),  # noqa: SLF001 - a chain's report reuses a workflow's summary
-        Section(title="Steps", blocks=steps),
+        *steps,
     ]
 
 

@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from dataeval_flow._blocks import Section
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._report import lineage_line
 from dataeval_flow._ci_reports import junit_report, markdown_summary
@@ -92,12 +93,20 @@ def test_a_failed_element_shows_its_error_in_the_json() -> None:
 
 
 def test_the_report_has_a_section_per_step_headed_by_its_lineage() -> None:
-    text = _result(_MIXED).report(detailed=True, width=120)
-    for heading in ("few (toy-first)", "dupes (quality.duplicates)", "boom (toy-explode)", "after (toy-keep)"):
+    result = _result(_MIXED)
+    text = result.report(detailed=True, width=120)
+    # The text renderer capitalizes a top-level section's heading, like every other report's (Configuration,
+    # a workflow's Summary): a step's section is a peer of those, not nested under a synthetic wrapper.
+    for heading in ("FEW (TOY-FIRST)", "DUPES (QUALITY.DUPLICATES)", "BOOM (TOY-EXPLODE)", "AFTER (TOY-KEEP)"):
         assert heading in text
     assert "`few` ← `a` (src)" in text
     assert "RuntimeError: boom on few" in text
     assert "needs `boom`, which failed" in text
+
+    titles = ["few (toy-first)", "dupes (quality.duplicates)", "boom (toy-explode)", "after (toy-keep)"]
+    top_level = result._document(detailed=True).blocks
+    step_sections = [block for block in top_level if isinstance(block, Section) and block.title in titles]
+    assert [section.title for section in step_sections] == titles
 
 
 def test_a_lineage_line_walks_back_to_the_source() -> None:
