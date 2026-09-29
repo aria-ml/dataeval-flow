@@ -224,7 +224,53 @@ Notice:
 - `split` has three outputs, so a step names the one it reads: `split.train`, `split.val` or `split.test`. With
   `test_frac` alone, `val` is empty, and a step that reads `split.val` fails the config load.
 
-## 5. Read the result
+## 5. Judge what it found
+
+The evaluators report, and nothing judges. Checks do: add a label-health evaluator, and three steps at the end of the
+workflow:
+
+```yaml
+evaluators:
+  - name: labels
+    type: quality.label-health
+
+workflows:
+  - name: combine
+    inputs: [street, aerial]
+    steps:
+      - {name: align_street, evaluator: align, input: street}
+      - {name: align_aerial, evaluator: align, input: aerial}
+      - {name: street_conformed, transform: conform, input: street, alignment: align_street}
+      - name: aerial_conformed
+        transform: conform
+        input: aerial
+        alignment: align_aerial
+        allow: lossy
+      - {name: merged, transform: merge, input: [street_conformed, aerial_conformed]}
+      - {name: dupes, evaluator: dupes, input: merged}
+      - name: clean
+        transform: remove
+        input: merged
+        plans:
+          dupes: {keep: first}
+      - {name: corpus, transform: export, input: clean, format: coco}
+      - {name: crops, transform: wrap, input: clean, wrapper: DetectionCrops, params: {min_size: 32}}
+      - {name: coverage, evaluator: coverage, input: crops}
+      - {name: balance, evaluator: balance, input: clean}
+      - {name: split, transform: split, input: clean, test_frac: 0.2, val_frac: 0.1}
+      - {name: train_balance, evaluator: balance, input: split.train}
+      - {name: labels, evaluator: labels, input: clean}
+      - {name: merged_duplicates, check: duplicate-rate, input: dupes}
+      - {name: imbalance, check: class-imbalance, input: labels, ratio: 3.0}
+```
+
+`merged_duplicates` judges the duplicates in the merged corpus, before `remove`. It warns where more than 0% of the
+images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned corpus's largest class
+outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
+`--fail-on-warning` fails the run. The [Check and Combine Catalog](../reference/checks.md) lists every check and its
+thresholds.
+
+## 6. Read the result
 
 The output below comes from running the workflow as section 3 leaves it, through `corpus`, on two small synthetic
 corpora of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
@@ -288,7 +334,7 @@ for record in result.metadata.lineage:
 `clean` is a DataEval `View` over the merged corpus, so you can go on to train on it or evaluate it from Python.
 Without `output_dir`, the export step is skipped and nothing is written.
 
-## 6. See which steps you can chain
+## 7. See which steps you can chain
 
 ```bash
 dataeval-flow steps
@@ -299,7 +345,7 @@ prints one step's catalog entry, including the schema of its settings, and `--js
 kinds share a name, write it as `KIND:NAME`, as in `transform:split`. From Python, `list_steps()` in
 `dataeval_flow.steps` returns the same catalog.
 
-## 7. Save a workflow from Python
+## 8. Save a workflow from Python
 
 `CustomWorkflowConfig` builds a workflow in Python, and `save` writes it into a config file:
 
@@ -357,3 +403,4 @@ Loading a config and saving it, from the TUI or the config builder, keeps every 
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
 - [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings
+- [Check and Combine Catalog](../reference/checks.md) — every check and combine a step can run, with its thresholds

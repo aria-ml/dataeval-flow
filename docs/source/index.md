@@ -114,6 +114,7 @@ Container Reference <reference/containers>
 JATIC Maturity <reference/maturity>
 Evaluator Catalog <reference/evaluators>
 Transform Catalog <reference/transforms>
+Check and Combine Catalog <reference/checks>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::

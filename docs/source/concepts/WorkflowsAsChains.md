@@ -45,6 +45,8 @@ Each step names exactly one kind:
 | `evaluator:` | an `evaluators:` entry | that evaluator's DataEval output |
 | `workflow:` | a `workflows:` entry with a `type:` | that workflow's result, with its findings |
 | `transform:` | a built-in transform, with its settings beside it | one or more Datasets, or an export record |
+| `combine:` | a registered combine, with its settings beside it | an Output a check reads, made from Outputs |
+| `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
 An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
 and optionally `extractor:` and `optional:`. A chain cannot run as a step of another chain.
@@ -72,9 +74,34 @@ list was computed on that element: `dupes[0]`, where `dupes` read `kfold.train`,
 `dataeval-flow steps` lists every step a chain can use, and `dataeval-flow steps NAME` prints one step's ports and
 settings.
 
-Only workflow types judge health. A chain's findings are those of the workflow-type steps it ran, so a chain of
-evaluators and transforms reports no warnings, and its health is `ok` unless a step fails. Check steps, which will
-judge what evaluators find, come later.
+## Judging what a chain found
+
+Evaluators judge nothing: they report what DataEval determined. A **check** step judges it. It reads Outputs,
+compares them with thresholds written beside it, and makes findings, each `ok`, `info` or `warning`. A **combine** step
+makes an Output a check reads, from Outputs and the Datasets they were computed on, such as outliers counted per class.
+The [Check and Combine Catalog](../reference/checks.md) lists the built-in ones.
+
+```yaml
+evaluators:
+  - {name: labels, type: quality.label-health}
+
+workflows:
+  - name: judged
+    inputs: [data]
+    steps:
+      - {name: dupes, evaluator: dupes, input: data}
+      - {name: labels, evaluator: labels, input: data}
+      - {name: duplicates, check: duplicate-rate, input: dupes, near: 2.0}
+      - {name: imbalance, check: class-imbalance, input: labels}
+```
+
+A chain's health rolls up over its checks' findings, and over the findings of the workflow-type steps it runs. Its
+status is `warning` where any finding is a warning, and `failed` where a step that is not `optional` failed. The
+result's JSON lists the check findings at the top, each naming its step. A workflow-type step's findings stay in that
+step. A threshold of `null` judges nothing: the finding is still made, as `info`.
+
+A check is never skipped because an input produced nothing. It makes one `info` finding briefed `not assessed`,
+saying which input holds nothing and why, so the report shows what could not be judged.
 
 ## Addresses and lists
 
