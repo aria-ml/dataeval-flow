@@ -652,9 +652,9 @@ def _run_custom_task(
     if chain.label_space:
         # The sources' records, where there are any, replaced the chain's own: keep both, the sources' first.
         result.metadata.label_space = [*label_space_records(resolved_sources, None), *chain.label_space]
+        # One vocabulary names the run's labels only where every record agrees, the sources' and the chain's.
         digests = {record.digest for record in result.metadata.label_space}
-        if len(digests) == 1 and not result.metadata.label_space_digest:
-            result.metadata.label_space_digest = next(iter(digests))
+        result.metadata.label_space_digest = next(iter(digests)) if len(digests) == 1 else None
     return result
 
 

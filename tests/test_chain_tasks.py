@@ -204,6 +204,23 @@ def test_a_chain_step_gets_the_output_dir_and_its_label_space_is_kept_once(plugi
 
 
 @pytest.mark.usefixtures("toys")
+def test_a_chain_whose_label_spaces_disagree_names_none_of_them(plugins) -> None:
+    plugins["dataeval_flow.transforms"].append(("toy-where", "tests.test_chain_tasks:Where"))
+    relabel = {"type": "Relabel", "params": {"class_remap": {"a": "x"}, "target": ["x", "b"]}}
+    workflow = {"name": "w", "inputs": ["a"], "steps": [{"name": "where", "transform": "toy-where", "input": "a"}]}
+    config = chain_pipeline(
+        workflows=[workflow],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        extra={"views": [{"name": "renamed", "operations": [relabel]}]},
+    )
+    source = config.sources[0].model_copy(update={"view": "renamed"})  # type: ignore[index]
+    result = run_tasks(config.model_copy(update={"sources": [source]}))["t"]
+    assert [record.source for record in result.metadata.label_space] == ["src", "where"]
+    assert len({record.digest for record in result.metadata.label_space}) == 2
+    assert result.metadata.label_space_digest is None
+
+
+@pytest.mark.usefixtures("toys")
 def test_the_tui_state_saves_a_custom_workflow_unchanged(tmp_path: Path) -> None:
     # A file-backed dataset: YAML cannot hold an in-memory one. Validation does not read the folder.
     config = PipelineConfig.model_validate(
