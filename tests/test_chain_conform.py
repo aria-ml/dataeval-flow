@@ -85,6 +85,16 @@ def test_an_override_can_settle_an_unaligned_class() -> None:
     assert settled.steps["c"].status == "ok"
 
 
+@pytest.mark.parametrize("allow", ["lossless", "lossy"])
+def test_an_override_for_a_class_the_input_does_not_have_fails_the_step(allow: str) -> None:
+    overrides = {"bus": "Vehicle", "person": "Person", "van": "Vehicle"}
+    result = _run(_LOSSLESS, {"allow": allow, "class_remap": overrides})
+    assert result.steps["c"].status == "failed"
+    assert result.steps["c"].errors == [
+        "ValueError: `class_remap` overrides `bus`, `van`, which `a` does not have: its classes are car, person."
+    ]
+
+
 def test_partial_drops_the_unaligned_class_and_says_so() -> None:
     result = _run(_PARTIAL, {"allow": "partial"})
     details = result.steps["c"].details or {}

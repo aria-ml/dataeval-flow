@@ -139,8 +139,9 @@ workflows:
 | `partial` | Several classes may collapse onto one concept, and classes that align to nothing are dropped; the report says what was dropped |
 
 `class_remap:` on the step overrides the alignment for a class, mapping it to a concept by its id, or by a label no
-other concept shares. An override can settle a class that aligned to nothing, and so change how much loss the step
-needs to accept.
+other concept shares. An override can settle a class that aligned to nothing, and so change how much loss the step needs
+to accept. An override for a class the Dataset does not have fails the step, naming the classes it has, so a misspelled
+class cannot pass unnoticed.
 
 `plans:` names the evaluator steps whose findings `remove` applies, by address. Each must be a `quality.duplicates` or
 `quality.outliers` step computed on the same Dataset as the `remove` step's `input`. Each holds the arguments of

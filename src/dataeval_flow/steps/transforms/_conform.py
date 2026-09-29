@@ -51,11 +51,20 @@ class ConformTransform(Transform[ConformConfig]):
         inputs: Mapping[str, Any],
         context: TransformContext,  # noqa: ARG002
     ) -> Mapping[str, Any]:
-        """The input, relabelled; raises naming the loss when it is beyond ``allow``."""
+        """The input, relabelled; raises naming an override for a class the input does not have, or the loss when it
+        is beyond ``allow``."""
         from dataeval.data import Relabel, View
 
         from dataeval_flow._alignment import effective_mergeability
 
+        node = inputs["input"]
+        classes = list(dict(node.value.metadata.get("index2label", {})).values())
+        unknown = [source for source in config.class_remap if source not in classes]
+        if unknown:
+            raise ValueError(
+                f"`class_remap` overrides {', '.join(f'`{source}`' for source in unknown)}, which `{node.address}` "
+                f"does not have: its classes are {', '.join(classes)}."
+            )
         found: LabelAlignmentOutput = inputs["alignment"].value
         remap = self._remap(config, found)
         unaligned = [name for name in found.alignment.unaligned_source if name not in remap]

@@ -193,9 +193,10 @@ Reads `input`, a Dataset, and `alignment`, a `scope.label-alignment` Output. Mak
 - `partial` also drops classes that align to nothing.
 
 An alignment beyond `allow` fails the step, naming what collapses or aligns to nothing. An override can settle a class
-that aligned to nothing, and so change how much loss the step needs. Two conforms onto one ontology give their outputs
-the same `index2label`, which `merge` needs. The step adds a record of the remap it applied to the result's
-`label_space`, and its report section lists each collapse and each dropped class.
+that aligned to nothing, and so change how much loss the step needs. An override for a class the input does not have
+fails the step, naming the classes it has. Two conforms onto one ontology give their outputs the same `index2label`,
+which `merge` needs. The step adds a record of the remap it applied to the result's `label_space`, and its report
+section lists each collapse and each dropped class.
 
 ## Writing out
 
