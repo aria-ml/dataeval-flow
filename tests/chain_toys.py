@@ -246,6 +246,13 @@ def chain_pipeline(
     return PipelineConfig.model_validate(data)
 
 
+def run_chain_task(config: PipelineConfig, task: str = "t"):
+    """Run one task through the orchestrator, as the CLI would, and return its result."""
+    from dataeval_flow import run_tasks
+
+    return run_tasks(config, task)[task]
+
+
 def run_toy_chain(
     config: PipelineConfig, workflow: str, sources: Sequence[str], *, step_contexts: Mapping[str, Any] | None = None
 ):

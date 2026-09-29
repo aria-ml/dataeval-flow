@@ -926,7 +926,22 @@
                 "$ref": "#/$defs/WorkflowStep"
               },
               {
+                "$ref": "#/$defs/TransformStep_kfold"
+              },
+              {
+                "$ref": "#/$defs/TransformStep_merge"
+              },
+              {
+                "$ref": "#/$defs/TransformStep_select"
+              },
+              {
+                "$ref": "#/$defs/TransformStep_split"
+              },
+              {
                 "$ref": "#/$defs/TransformStep_view"
+              },
+              {
+                "$ref": "#/$defs/TransformStep_wrap"
               }
             ]
           },
@@ -7474,6 +7489,338 @@
       "title": "TorchExtractorConfig",
       "type": "object"
     },
+    "TransformStep_kfold": {
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "input": {
+          "description": "The Dataset to split.",
+          "title": "Input",
+          "type": "string"
+        },
+        "test_frac": {
+          "default": 0.0,
+          "description": "The share held out as `test`.",
+          "exclusiveMaximum": 1.0,
+          "minimum": 0.0,
+          "title": "Test Frac",
+          "type": "number"
+        },
+        "stratify": {
+          "default": false,
+          "description": "Whether each part keeps the input's class proportions.",
+          "title": "Stratify",
+          "type": "boolean"
+        },
+        "split_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metadata factors whose values never straddle parts, such as a scene or site.",
+          "title": "Split On"
+        },
+        "folds": {
+          "description": "How many train and val pairs.",
+          "minimum": 2,
+          "title": "Folds",
+          "type": "integer"
+        },
+        "transform": {
+          "const": "kfold",
+          "description": "`kfold`: Splits a Dataset into k train and val folds, and one test.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "folds",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_kfold",
+      "type": "object"
+    },
+    "TransformStep_merge": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Datasets to concatenate, in order.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Input",
+          "type": "array"
+        },
+        "transform": {
+          "const": "merge",
+          "description": "`merge`: Concatenates Datasets that share a label vocabulary, in order.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_merge",
+      "type": "object"
+    },
+    "TransformStep_select": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset to select from.",
+          "title": "Input",
+          "type": "string"
+        },
+        "ranking": {
+          "description": "A `scope.prioritize` step computed on `input`.",
+          "title": "Ranking",
+          "type": "string"
+        },
+        "n": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many items to keep.",
+          "title": "N"
+        },
+        "fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The share of items to keep, rounded up.",
+          "title": "Fraction"
+        },
+        "transform": {
+          "const": "select",
+          "description": "`select`: Keeps the top of a Prioritize ranking of the same Dataset.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "ranking",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_select",
+      "type": "object"
+    },
+    "TransformStep_split": {
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "input": {
+          "description": "The Dataset to split.",
+          "title": "Input",
+          "type": "string"
+        },
+        "test_frac": {
+          "default": 0.0,
+          "description": "The share held out as `test`.",
+          "exclusiveMaximum": 1.0,
+          "minimum": 0.0,
+          "title": "Test Frac",
+          "type": "number"
+        },
+        "stratify": {
+          "default": false,
+          "description": "Whether each part keeps the input's class proportions.",
+          "title": "Stratify",
+          "type": "boolean"
+        },
+        "split_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metadata factors whose values never straddle parts, such as a scene or site.",
+          "title": "Split On"
+        },
+        "val_frac": {
+          "default": 0.0,
+          "description": "The share held out as `val`.",
+          "exclusiveMaximum": 1.0,
+          "minimum": 0.0,
+          "title": "Val Frac",
+          "type": "number"
+        },
+        "transform": {
+          "const": "split",
+          "description": "`split`: Splits a Dataset into train, val and test, optionally stratified or grouped.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_split",
+      "type": "object"
+    },
     "TransformStep_view": {
       "additionalProperties": false,
       "properties": {
@@ -7549,6 +7896,67 @@
         "name"
       ],
       "title": "TransformStep_view",
+      "type": "object"
+    },
+    "TransformStep_wrap": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset to wrap.",
+          "title": "Input",
+          "type": "string"
+        },
+        "wrapper": {
+          "const": "DetectionCrops",
+          "description": "The DataEval wrapper: `DetectionCrops` crops each detection into an item.",
+          "title": "Wrapper",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "The wrapper's keyword arguments, such as `padding`.",
+          "title": "Params",
+          "type": "object"
+        },
+        "transform": {
+          "const": "wrap",
+          "description": "`wrap`: Wraps a Dataset in a DataEval wrapper that changes its kind, such as DetectionCrops.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "wrapper",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_wrap",
       "type": "object"
     },
     "UncertaintyExtractorConfig": {

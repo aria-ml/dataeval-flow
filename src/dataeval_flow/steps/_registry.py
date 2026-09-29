@@ -7,7 +7,14 @@ from typing import Any
 from dataeval_flow._registry import Registry
 from dataeval_flow.steps._step import Transform
 
-_BUILTINS: dict[str, str] = {"view": "dataeval_flow.steps.transforms._view:ViewTransform"}
+_BUILTINS: dict[str, str] = {
+    "kfold": "dataeval_flow.steps.transforms._split:KFoldTransform",
+    "merge": "dataeval_flow.steps.transforms._merge:MergeTransform",
+    "select": "dataeval_flow.steps.transforms._select:SelectTransform",
+    "split": "dataeval_flow.steps.transforms._split:SplitTransform",
+    "view": "dataeval_flow.steps.transforms._view:ViewTransform",
+    "wrap": "dataeval_flow.steps.transforms._wrap:WrapTransform",
+}
 
 TRANSFORMS: Registry[Transform[Any]] = Registry(
     kind="transform",
