@@ -74,8 +74,9 @@ _ECHOES: dict[str, frozenset[str]] = {
     "shift.drift-wasserstein": frozenset(),
     "shift.ood-domain-classifier": frozenset(),
     "shift.ood-kneighbors": frozenset(),
-    # `ontology` is the config's own input, read back rather than serialized: `conform` reaches it off the result.
-    "scope.label-alignment": frozenset({"ontology"}),
+    # `ontology` is the config's own input, and `ontology_source` how the config named it, read back rather than
+    # serialized: `conform` reaches both off the result.
+    "scope.label-alignment": frozenset({"ontology", "ontology_source"}),
 }
 
 

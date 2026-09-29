@@ -15,11 +15,10 @@ from dataeval_flow.evaluators._result import DataEvalExecution, EvaluatorMetadat
 from dataeval_flow.evaluators._serialize import serialize_output
 
 if TYPE_CHECKING:
-    from dataeval import Ontology
     from dataeval.protocols import AnnotatedDataset
 
     from dataeval_flow.evaluators._evaluator import Evaluator
-    from dataeval_flow.workflows._context import WorkflowContext
+    from dataeval_flow.workflows._context import ResolvedOntology, WorkflowContext
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -85,7 +84,9 @@ def _prepare(
     if missing:
         raise ValueError(f"No producer for {', '.join(missing)} in this build")
 
-    ontology = _task_ontology(context, config)
+    resolved = _task_ontology(context, config)
+    ontology = resolved.ontology if resolved is not None else None
+    ontology_source = resolved.source if resolved is not None else None
 
     inputs: list[EvaluatorInputs] = []
     datasets: dict[str, AnnotatedDataset[Any]] = {}
@@ -100,12 +101,14 @@ def _prepare(
             for kind in InputKind:
                 if kind in wanted:
                     produced.update(PRODUCERS[kind](pc))
-        inputs.append(EvaluatorInputs(source=name, ontology=ontology, **produced))
+        inputs.append(EvaluatorInputs(source=name, ontology=ontology, ontology_source=ontology_source, **produced))
     return inputs, datasets
 
 
-def _task_ontology(context: "WorkflowContext", config: "EvaluatorConfig[Any]") -> "Ontology | None":
-    """The ontology the task names, resolved; ``None`` where it names none. One that fails to resolve fails the run.
+def _task_ontology(context: "WorkflowContext", config: "EvaluatorConfig[Any]") -> "ResolvedOntology | None":
+    """The ontology the task names, resolved, with how it was named; ``None`` where it names none.
+
+    One that fails to resolve fails the run.
 
     The orchestrator resolves it onto the context. A context built by hand carries none, so the config's own value is
     resolved here, as ``policy_for`` resolves a metadata policy, rather than silently dropped.
@@ -119,4 +122,4 @@ def _task_ontology(context: "WorkflowContext", config: "EvaluatorConfig[Any]") -
         return None
     if resolved.error is not None:
         raise ValueError(f"The task's ontology could not be resolved: {resolved.error}")
-    return resolved.ontology
+    return resolved

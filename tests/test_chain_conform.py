@@ -30,7 +30,13 @@ def _fresh_cache():
     DatasetCache.clear_instances()
 
 
-def _run(dataset: Any, conform: dict[str, Any], *, extra_steps: list[dict[str, Any]] | None = None) -> ChainResult:
+def _run(
+    dataset: Any,
+    conform: dict[str, Any],
+    *,
+    extra_steps: list[dict[str, Any]] | None = None,
+    ontology: dict[str, Any] | str = "vehicles",
+) -> ChainResult:
     steps = [
         {"name": "aligned", "evaluator": "align", "input": "a"},
         {"name": "c", "transform": "conform", "input": "a", "alignment": "aligned", **conform},
@@ -38,7 +44,7 @@ def _run(dataset: Any, conform: dict[str, Any], *, extra_steps: list[dict[str, A
     ]
     config = chain_pipeline(
         workflows=[{"name": "w", "inputs": ["a"], "steps": steps}],
-        evaluators=[LabelAlignmentConfig(name="align", ontology="vehicles")],
+        evaluators=[LabelAlignmentConfig(name="align", ontology=ontology)],
         tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
         datasets={"src": dataset},
         extra={"ontologies": [_ONTOLOGY]},
@@ -91,6 +97,14 @@ def test_conform_records_the_label_space_it_applied() -> None:
     (record,) = [record for record in result.metadata.label_space if record.source == "c"]
     assert record.digest == result.steps["aligned"].output.alignment.label_space_digest
     assert result.metadata.label_space_digest == record.digest
+
+
+def test_conform_records_the_ontology_by_the_name_the_alignment_resolved() -> None:
+    (pooled,) = [record for record in _run(_LOSSLESS, {}).metadata.label_space if record.source == "c"]
+    assert pooled.ontology == "vehicles"
+    inline = _run(_LOSSLESS, {}, ontology={"thing": ["car", "person"]})
+    (record,) = [record for record in inline.metadata.label_space if record.source == "c"]
+    assert record.ontology == "inline"
 
 
 def test_an_alignment_of_another_dataset_fails_the_load() -> None:

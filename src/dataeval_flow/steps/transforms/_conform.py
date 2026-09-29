@@ -145,6 +145,7 @@ class ConformTransform(Transform[ConformConfig]):
         return [
             LabelSpaceRecord(
                 source=address,
+                ontology=found.ontology_source,
                 ontology_digest=ontology,
                 class_remap=paste,
                 target=vocabulary,

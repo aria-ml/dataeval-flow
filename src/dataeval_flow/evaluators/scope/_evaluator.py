@@ -169,4 +169,4 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
         meta = execution(
             "dataeval.core.label_alignment", started, time.monotonic() - clock, {"threshold": config.threshold}
         )
-        return LabelAlignmentOutput(alignment, source.ontology, meta)
+        return LabelAlignmentOutput(alignment, source.ontology, meta, ontology_source=source.ontology_source)

@@ -111,12 +111,17 @@ class LabelAlignment(BaseModel):
 
 
 class LabelAlignmentOutput(CoreOutput):
-    """``scope.label-alignment``'s output: the alignment, and the resolved ontology a ``conform`` step relabels onto."""
+    """``scope.label-alignment``'s output: the alignment, and the resolved ontology a ``conform`` step relabels onto.
 
-    def __init__(self, alignment: LabelAlignment, ontology: Any, meta: Any) -> None:
+    ``ontology_source`` is how the config named that ontology (an ``ontologies:`` entry's name, the resolved path,
+    ``inline`` or ``concepts``), which ``conform`` records with the label space it applies.
+    """
+
+    def __init__(self, alignment: LabelAlignment, ontology: Any, meta: Any, *, ontology_source: str | None) -> None:
         super().__init__(alignment.model_dump(mode="json"), meta)
         self.alignment = alignment
         self.ontology = ontology
+        self.ontology_source = ontology_source
 
 
 # Defined here to avoid an import cycle, but public in the scope evaluators: the step catalog names it by its home.
