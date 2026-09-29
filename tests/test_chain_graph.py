@@ -65,7 +65,7 @@ def _load(steps: list[dict[str, Any]], inputs: list[Any] | None = None, **kwargs
         (
             [
                 {"name": "s", "transform": "toy-spread", "input": "a", "parts": 2},
-                {"name": "j", "transform": "toy-keep", "input": "s.parts[5]"},
+                {"name": "j", "transform": "toy-keep", "input": "s[5]"},
             ],
             "has elements 0, 1, not `5`",
         ),

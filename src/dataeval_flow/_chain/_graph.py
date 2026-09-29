@@ -82,13 +82,8 @@ class StepSpec:
         return next((binding.addresses for binding in self.bindings if binding.port.name == port), ())
 
     def output_address(self, port: Port) -> str:
-        """Where `port`'s output is stored: the step's name when it has one scalar output, else ``name.port``.
-
-        A list output is always addressed by its port name, even when it is the step's only output: it holds a
-        keyed collection, not a single value, so ``step.port[key]`` names one element unambiguously whether the
-        step has one list output or several outputs.
-        """
-        return self.name if len(self.outputs) == 1 and not port.is_list else f"{self.name}.{port.name}"
+        """Where `port`'s output is stored: the step's name when it has one output, else ``name.port``."""
+        return self.name if len(self.outputs) == 1 else f"{self.name}.{port.name}"
 
 
 @dataclass(frozen=True)
