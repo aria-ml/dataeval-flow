@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from dataeval_flow._input_spec import SourceCount
 from dataeval_flow.steps._address import Address, parse_address
 from dataeval_flow.steps._port import DataType, Port
-from dataeval_flow.steps._step import Step, StepKind, Transform, port_addresses
+from dataeval_flow.steps._step import InlineStep, Step, StepKind, Transform, port_addresses
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
 if TYPE_CHECKING:
@@ -34,6 +34,7 @@ _ARTICLE = {
     DataType.OUTPUT: "an Output",
     DataType.EXPORT: "an export record",
     DataType.WORKFLOW_RESULT: "a workflow result",
+    DataType.FINDINGS: "findings",
 }
 
 
@@ -241,7 +242,7 @@ def _resolve(
         config, impl, addresses = _pooled(entry, pipeline)
         type_id = config.type
     else:
-        config, impl, addresses = _transformed(entry, pipeline)
+        config, impl, addresses = _inline(entry, pipeline)
         type_id = entry.target
 
     bindings, broadcast, keys = _bind_inputs(
@@ -260,7 +261,7 @@ def _resolve(
             f"Step '{entry.name}' reads `{address}`, a list, but transform '{type_id}' writes one Dataset to one "
             f"place, so it does not run once per element: name one element, such as `{element}`."
         )
-    if issubclass(impl, Transform):
+    if issubclass(impl, InlineStep):
         _same_node(entry, impl, addresses, specs, types)
         bound = {
             str(address): _typed(address, entry, workflow, types, later, empty).classes
@@ -287,15 +288,13 @@ def _resolve(
     )
 
 
-def _transformed(
-    entry: StepEntry, pipeline: "PipelineConfig"
-) -> tuple[Any, type[Step], dict[str, tuple[Address, ...]]]:
-    """A transform step's resolved config, its implementation, and its input ports' addresses."""
-    from dataeval_flow.steps._registry import get_transform
+def _inline(entry: StepEntry, pipeline: "PipelineConfig") -> tuple[Any, type[Step], dict[str, tuple[Address, ...]]]:
+    """An inline step's resolved config, its implementation, and its input ports' addresses."""
+    from dataeval_flow.steps._registry import inline_registry
 
-    impl = get_transform(entry.target)
+    impl = inline_registry(entry.kind).get(entry.target)
     try:
-        config = impl.resolved(entry.config, pipeline)  # type: ignore[arg-type]
+        config = impl.resolved(entry.config, pipeline)
     except ValueError as error:
         raise GraphError(f"Step '{entry.name}': {error}") from error
     addresses = {port.name: port_addresses(config, port) for port in impl.input_ports()}
@@ -502,7 +501,7 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
 
 def _same_node(
     entry: StepEntry,
-    impl: type[Transform[Any]],
+    impl: type[InlineStep],
     addresses: dict[str, tuple[Address, ...]],
     specs: dict[str, StepSpec],
     types: dict[str, ValueType],

@@ -6,6 +6,9 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import ValidationError
 
+from dataeval_flow._chain._graph import build_graph
+from dataeval_flow.config._json_schema import registry_twin
+from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import (
     Check,
     CheckConfig,
@@ -19,10 +22,12 @@ from dataeval_flow.steps import (
     get_check,
     get_combine,
     list_checks,
+    list_steps,
 )
 from dataeval_flow.steps._registry import CHECKS
 from dataeval_flow.workflows import Finding
-from tests.chain_toys import AtMostConfig, register_toys
+from tests.chain_toys import AtMostConfig, chain_pipeline, register_toys
+from tests.evaluator_toys import ToyImages
 
 pytestmark = pytest.mark.usefixtures("toys")
 
@@ -117,3 +122,87 @@ def test_a_combine_that_makes_a_dataset_is_refused_when_defined() -> None:
                 self, config: CombineConfig, inputs: Mapping[str, Any], context: CombineContext
             ) -> Mapping[str, Any]:
                 return {}
+
+
+_DUPES = {"name": "dupes", "evaluator": "dupes", "input": "a"}
+_COUNT = {"name": "count", "combine": "toy-count-groups", "input": "dupes"}
+
+
+def _pipeline(*steps: dict[str, Any], inputs: list[Any] | None = None):
+    return chain_pipeline(
+        workflows=[{"name": "w", "inputs": inputs or ["a"], "steps": list(steps)}],
+        evaluators=[DuplicatesConfig(name="dupes")],
+        datasets={"src": ToyImages()},
+    )
+
+
+def test_an_evaluator_a_combine_and_a_check_chain_at_load() -> None:
+    config = _pipeline(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 1})
+    graph = build_graph(config.workflows[0], config)  # type: ignore[index,arg-type]
+    assert [(spec.kind, spec.type) for spec in graph.steps] == [
+        ("evaluator", "quality.duplicates"),
+        ("combine", "toy-count-groups"),
+        ("check", "toy-at-most"),
+    ]
+
+
+def test_a_check_that_reads_a_dataset_fails_the_load() -> None:
+    wanted = "Step 'judge' reads `a` on `input`, which takes an Output, but `a` is a Dataset"
+    with pytest.raises(ValidationError, match=wanted):
+        _pipeline({"name": "judge", "check": "toy-at-most", "input": "a"})
+
+
+def test_a_check_that_reads_an_output_of_another_class_fails_the_load() -> None:
+    with pytest.raises(ValidationError, match="which takes GroupCount, not DuplicatesOutput"):
+        _pipeline(_DUPES, {"name": "judge", "check": "toy-at-most", "input": "dupes"})
+
+
+def test_no_port_takes_a_check_s_findings() -> None:
+    with pytest.raises(ValidationError, match="which takes an Output, but `judge` is findings"):
+        _pipeline(
+            _DUPES,
+            _COUNT,
+            {"name": "judge", "check": "toy-at-most", "input": "count"},
+            {"name": "again", "combine": "toy-count-groups", "input": "judge"},
+        )
+
+
+def test_a_check_that_judges_a_whole_list_refuses_one_item() -> None:
+    with pytest.raises(ValidationError, match="which takes a whole list, but `count` is one item"):
+        _pipeline(_DUPES, _COUNT, {"name": "worst", "check": "toy-worst", "input": "count"})
+
+
+def test_a_check_handed_a_list_on_a_one_item_port_runs_once_per_element() -> None:
+    config = _pipeline(
+        {"name": "dupes", "evaluator": "dupes", "input": "cams"},
+        {"name": "count", "combine": "toy-count-groups", "input": "dupes"},
+        {"name": "judge", "check": "toy-at-most", "input": "count"},
+        inputs=[{"name": "cams", "list": True}],
+    )
+    graph = build_graph(config.workflows[0], config)  # type: ignore[index,arg-type]
+    assert [spec.broadcast for spec in graph.steps] == [True, True, True]
+
+
+def test_a_combine_or_check_step_takes_no_extractor() -> None:
+    with pytest.raises(ValidationError, match="runs check 'toy-at-most', which embeds nothing"):
+        _pipeline(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "extractor": "flat"})
+
+
+def test_the_catalog_describes_a_check_s_ports() -> None:
+    entry = next(e for e in list_steps().steps if e.type == "toy-at-most")
+    assert entry.kind == "check"
+    assert [(port.port, port.type, port.classes) for port in entry.inputs] == [
+        ("input", "output", ["tests.chain_toys.GroupCount"])
+    ]
+    assert [(port.port, port.type, port.kinds) for port in entry.outputs] == [("findings", "findings", None)]
+    assert entry.origin == "an unknown package"  # served by the fixture, from no distribution
+    assert "findings" in list_steps().data_types
+
+
+def test_the_schema_holds_one_branch_per_combine_and_check() -> None:
+    definitions = registry_twin(plugins=True).model_json_schema()["$defs"]
+    check = definitions["CheckStep_toy-at-most"]
+    assert check["properties"]["check"]["const"] == "toy-at-most"
+    assert {"name", "check", "input", "most", "optional"} <= set(check["properties"])
+    assert "extractor" not in check["properties"]
+    assert definitions["CombineStep_toy-count-groups"]["properties"]["combine"]["const"] == "toy-count-groups"

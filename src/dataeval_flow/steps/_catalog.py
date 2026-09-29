@@ -17,7 +17,9 @@ class PortEntry(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
     port: str = Field(description="The config field that feeds an input, or an output's name.")
-    type: DataType = Field(description="What flows along it: `dataset`, `output`, `export` or `workflow_result`.")
+    type: DataType = Field(
+        description="What flows along it: `dataset`, `output`, `export`, `workflow_result` or `findings`."
+    )
     kinds: list[str] | None = Field(
         default=None,
         description=(
@@ -38,7 +40,7 @@ class StepCatalogEntry(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    kind: StepKind = Field(description="`evaluator`, `workflow` or `transform`; `combine` and `check` arrive later.")
+    kind: StepKind = Field(description="`evaluator`, `transform`, `combine`, `check` or `workflow`.")
     type: str = Field(description="The name a step uses under its kind key.")
     description: str = Field(description="One line on what it does.")
     origin: str = Field(description="The distribution that registered it: `dataeval-flow` for a built-in.")
@@ -108,7 +110,7 @@ def list_steps(*, plugins: bool = True) -> StepCatalog:
 
     from dataeval_flow import __version__
     from dataeval_flow.evaluators._registry import EVALUATORS
-    from dataeval_flow.steps._registry import TRANSFORMS
+    from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
     from dataeval_flow.workflows._registry import WORKFLOWS
 
     entries = [
@@ -121,7 +123,7 @@ def list_steps(*, plugins: bool = True) -> StepCatalog:
             outputs=[_port(port) for port in cls.output_ports()],
             config_schema=cls.config_type.model_json_schema(),
         )
-        for registry in (EVALUATORS, TRANSFORMS, WORKFLOWS)  # in kind order
+        for registry in (EVALUATORS, TRANSFORMS, COMBINES, CHECKS, WORKFLOWS)  # in kind order
         for cls in registry.list(plugins=plugins)
     ]
     return StepCatalog(
