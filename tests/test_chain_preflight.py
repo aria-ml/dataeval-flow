@@ -106,6 +106,32 @@ def test_a_list_mixing_kinds_is_refused_on_the_kind_it_does_not_take() -> None:
 
 
 @pytest.mark.usefixtures("toys")
+@pytest.mark.parametrize("transform", ["merge", "toy-pair"])
+@pytest.mark.parametrize(
+    ("order", "listed"),
+    [
+        (["cls", "det"], "`a` is classification, `b` is object_detection"),
+        (["det", "cls"], "`a` is object_detection, `b` is classification"),
+    ],
+)
+def test_one_port_reading_datasets_of_different_kinds_is_refused_before_running(
+    transform: str, order: list[str], listed: str
+) -> None:
+    workflow = {
+        "name": "w",
+        "inputs": ["a", "b"],
+        "steps": [{"name": "m", "transform": transform, "input": ["a", "b"]}],
+    }
+    datasets = {"cls": ToyImages(), "det": ToyDetections([[0], [1]], {0: "a", 1: "b"})}
+    config = chain_pipeline(workflows=[workflow], datasets={name: datasets[name] for name in order})
+    graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
+    contexts, resolved = _contexts(config, order)
+    inputs = bind_inputs(graph, order, contexts, resolved)
+    with pytest.raises(GraphError, match=f"Step 'm' reads Datasets of different kinds on `input`: {listed}\\."):
+        check_kinds(graph, inputs)
+
+
+@pytest.mark.usefixtures("toys")
 def test_a_one_step_graph_resolves_its_policy_exactly_as_a_task_does() -> None:
     policy = MetadataPolicyConfig(name="p", exclude=["angle"])
     balance = BalanceConfig(name="balance", metadata="p")

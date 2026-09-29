@@ -266,3 +266,50 @@ def test_a_transform_returning_a_dataset_with_no_length_fails_its_step_and_the_c
     assert (run.steps["after"].status, run.steps["after"].reason) == ("skipped", "needs `bad`, which failed")
     assert run.steps["other"].status == "ok"
     assert [record.name for record in run.lineage] == ["a", "other"]
+
+
+_TWO_SOURCES = {"src": ToyImages(), "more": ToyImages(seed=1)}
+
+
+@pytest.mark.parametrize(("optional", "reason"), [(False, "failed"), (True, "was skipped")])
+def test_a_whole_list_port_gets_the_elements_that_succeeded_and_why_each_other_is_missing(
+    optional: bool, reason: str
+) -> None:
+    from tests.chain_toys import Gather
+
+    received: dict[str, str] = {}
+    original = Gather.run
+
+    def records_what_it_got(self: Any, config: Any, inputs: Any, context: Any) -> Any:
+        received.update({key: getattr(value, "reason", "present") for key, value in inputs["input"].elements.items()})
+        return original(self, config, inputs, context)
+
+    with patch.object(Gather, "run", records_what_it_got):
+        run = _run(
+            [
+                {"name": "boom", "transform": "toy-explode", "input": "all", "only": "all[more]", "optional": optional},
+                {"name": "gathered", "transform": "toy-gather", "input": "boom"},
+            ],
+            inputs=[{"name": "all", "list": True}],
+            datasets=_TWO_SOURCES,
+        )
+    assert received == {"src": "present", "more": reason}
+    assert run.steps["gathered"].status == "ok"
+    assert len(run.nodes["gathered"].value) == 12  # type: ignore[union-attr]
+
+
+def test_an_element_whose_input_failed_is_skipped_with_that_elements_reason() -> None:
+    run = _run(
+        [
+            {"name": "boom", "transform": "toy-explode", "input": "all", "only": "all[more]"},
+            {"name": "after", "transform": "toy-keep", "input": "boom"},
+        ],
+        inputs=[{"name": "all", "list": True}],
+        datasets=_TWO_SOURCES,
+    )
+    after = run.steps["after"]
+    elements = after.elements or {}
+    assert after.status == "ok"
+    assert (elements["src"].status, elements["src"].reason) == ("ok", None)
+    assert (elements["more"].status, elements["more"].reason) == ("skipped", "needs `boom[more]`, which failed")
+    assert isinstance(run.nodes["after"].elements["more"], Missing)  # type: ignore[union-attr]

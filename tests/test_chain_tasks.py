@@ -80,6 +80,25 @@ def test_run_takes_a_custom_workflow_with_its_pool_entries() -> None:
 
 
 @pytest.mark.usefixtures("toys")
+def test_run_binds_a_mapping_to_a_workflows_inputs_in_order() -> None:
+    workflow = CustomWorkflowConfig.model_validate(
+        {
+            "name": "pair",
+            "inputs": ["ref", "test"],
+            "steps": [
+                {"name": "r", "transform": "toy-keep", "input": "ref"},
+                {"name": "t", "transform": "toy-keep", "input": "test"},
+            ],
+        }
+    )
+    result = run(workflow, {"train": ToyImages(count=10), "incoming": ToyImages(count=14, seed=1)})
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    records = [(record.name, record.source, record.items) for record in result.metadata.lineage]
+    assert records == [("ref", "train", 10), ("test", "incoming", 14), ("r", None, 10), ("t", None, 14)]
+
+
+@pytest.mark.usefixtures("toys")
 def test_a_task_run_directly_that_binds_too_few_sources_fails_as_a_chain() -> None:
     two = {**_WORKFLOW, "name": "two", "inputs": ["a", "b"]}
     config = chain_pipeline(workflows=[two], evaluators=[DuplicatesConfig(name="dupes")])
