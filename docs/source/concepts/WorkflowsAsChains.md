@@ -89,6 +89,10 @@ A step names what it reads by address:
 A step with one output is addressed by its name alone, even when that output is a list: `clean.output` is refused. A
 step with several outputs is addressed by one of them: `split` alone is refused, and `split.train` is not.
 
+A key is checked as soon as it is known. A fold key outside `0` to `k-1` fails the config load. A source name is known
+once a task binds its sources, so `cameras[cam3]` fails the load of a task that binds only `cam1` and `cam2` to
+`cameras`, and a run from Python that binds them fails before any step runs.
+
 Lists come from a list input, keyed by source name, and from `kfold`'s `train` and `val`, keyed `0` to `k-1`. A step
 that reads one Dataset, handed a list, runs once per element, and its output is a list with the same keys:
 

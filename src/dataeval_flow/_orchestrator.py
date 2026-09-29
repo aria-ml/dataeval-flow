@@ -593,7 +593,7 @@ def _run_custom_task(
     limits: "TableLimits",
 ) -> "ChainResult":
     """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's."""
-    from dataeval_flow._chain._graph import build_graph
+    from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
     from dataeval_flow._sources import label_space_records
@@ -602,10 +602,16 @@ def _run_custom_task(
 
     names = task.source_names
     extractor_cfg = setup.config if setup is not None else None
+    # `PipelineConfig` checks only the tasks it holds; a task run directly gets the same checks here, as a failed
+    # result, like a workflow-type task's.
     problem = workflow.binding_problem(len(names))
-    if problem is not None:
-        message = f"Task '{task.name}' runs workflow '{workflow.name}', which {problem}"
-        refused = ChainResult.failed(type=workflow.name, errors=[message])
+    problems = (
+        [f"Task '{task.name}' runs workflow '{workflow.name}', which {problem}"]
+        if problem is not None
+        else binding_problems(task, workflow, config)
+    )
+    if problems:
+        refused = ChainResult.failed(type=workflow.name, errors=problems)
         refused.metadata = ChainMetadata(workflow=workflow.name)
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, workflow, config, data_dir=data_dir)
         return refused

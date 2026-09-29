@@ -6,13 +6,14 @@ __all__ = [
     "PortBinding",
     "StepSpec",
     "ValueType",
+    "binding_problems",
     "build_graph",
     "one_step_graph",
     "task_problems",
 ]
 
 import builtins
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
@@ -96,16 +97,25 @@ class ChainGraph:
     one_step: bool = False
 
 
-def build_graph(workflow: CustomWorkflowConfig, pipeline: "PipelineConfig") -> ChainGraph:
+def build_graph(
+    workflow: CustomWorkflowConfig,
+    pipeline: "PipelineConfig",
+    slot_keys: Mapping[str, tuple[str, ...]] | None = None,
+) -> ChainGraph:
     """Resolve and type-check every step of `workflow` against `pipeline`.
+
+    `slot_keys` holds a list slot's keys, the names of the sources a task binds to it. Without them, a key read from
+    the slot, or from a list broadcast over it, is taken on trust.
 
     Raises
     ------
     GraphError
         Naming the step and the address that does not connect.
     """
+    keys = slot_keys or {}
     types: dict[str, ValueType] = {
-        slot.name: ValueType(DataType.DATASET, is_list=slot.is_list) for slot in workflow.inputs
+        slot.name: ValueType(DataType.DATASET, is_list=slot.is_list, keys=keys.get(slot.name))
+        for slot in workflow.inputs
     }
     later = {entry.name for entry in workflow.steps}
     specs: dict[str, StepSpec] = {}
@@ -149,20 +159,39 @@ def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequen
 
 
 def task_problems(pipeline: "PipelineConfig") -> list[str]:
-    """Why a task cannot run the custom workflow it names: a missing extractor, or two exports to one place."""
-    graphs = {
-        workflow.name: build_graph(workflow, pipeline)
-        for workflow in pipeline.workflows or ()
-        if isinstance(workflow, CustomWorkflowConfig)
+    """Why a task cannot run the custom workflow it names: a list key its sources do not bind, a missing extractor,
+    or two exports to one place."""
+    workflows = {
+        workflow.name: workflow for workflow in pipeline.workflows or () if isinstance(workflow, CustomWorkflowConfig)
     }
+    graphs = {name: build_graph(workflow, pipeline) for name, workflow in workflows.items()}
     problems: list[str] = []
     owners: dict[str, str] = {export.name: f"export '{export.name}'" for export in pipeline.exports or ()}
     for task in pipeline.tasks or ():
         graph = graphs.get(task.workflow) if task.kind == "workflow" else None
         if graph is None:
             continue
+        problems.extend(binding_problems(task, workflows[task.workflow], pipeline))
         problems.extend(_task_graph_problems(task, graph, owners))
     return problems
+
+
+def binding_problems(task: "TaskConfig", workflow: CustomWorkflowConfig, pipeline: "PipelineConfig") -> list[str]:
+    """Every address `task`'s sources leave naming nothing: a list key no source it binds to the list slot has.
+
+    A list slot is keyed by the names of the sources a task binds to it, so its keys are known only once a task binds
+    (spec §4.1). A task naming too few sources is refused by :meth:`CustomWorkflowConfig.binding_problem` instead.
+    """
+    slot = workflow.list_slot
+    names = task.source_names
+    if slot is None or workflow.binding_problem(len(names)) is not None:
+        return []
+    bound = tuple(names[len(workflow.single_slots) :])
+    try:
+        build_graph(workflow, pipeline, slot_keys={slot.name: bound})
+    except GraphError as error:
+        return [f"Task '{task.name}' binds sources {', '.join(bound)} to `{slot.name}`. {error}"]
+    return []
 
 
 def _task_graph_problems(task: "TaskConfig", graph: ChainGraph, owners: dict[str, str]) -> list[str]:

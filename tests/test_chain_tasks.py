@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+from pydantic import ValidationError
 
 from dataeval_flow import PipelineConfig, load_config, run, run_task, run_tasks
 from dataeval_flow._app._model._state import ConfigState
@@ -86,6 +87,65 @@ def test_a_task_run_directly_that_binds_too_few_sources_fails_as_a_chain() -> No
     assert isinstance(result, ChainResult)
     assert not result.success
     assert "takes one source for 'a' and one source for 'b', but the task names 1" in result.errors[0]
+
+
+def _per_source(read: str) -> dict[str, Any]:
+    """A workflow over a reference and a list of tests, whose second step reads `read`."""
+    return {
+        "name": "per",
+        "inputs": ["ref", {"name": "tests", "list": True}],
+        "steps": [
+            {"name": "kept", "transform": "toy-keep", "input": "tests"},
+            {"name": "v", "transform": "toy-keep", "input": read},
+        ],
+    }
+
+
+_THREE = {"src": ToyImages(), "a": ToyImages(seed=1), "b": ToyImages(seed=2)}
+
+
+@pytest.mark.usefixtures("toys")
+@pytest.mark.parametrize("read", ["tests[nope]", "kept[nope]"])
+def test_a_task_whose_sources_leave_a_list_key_unbound_fails_the_load(read: str) -> None:
+    task = {"name": "t", "workflow": "per", "sources": ["src", "a", "b"]}
+    base = read.split("[")[0]
+    message = (
+        rf"Task 't' binds sources a, b to `tests`\. Step 'v' reads `{base}\[nope\]`, but `{base}` has elements "
+        r"a, b, not `nope`\."
+    )
+    with pytest.raises(ValidationError, match=message):
+        chain_pipeline(workflows=[_per_source(read)], tasks=[task], datasets=_THREE)
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_task_whose_sources_bind_each_list_key_runs() -> None:
+    task = {"name": "t", "workflow": "per", "sources": ["src", "a", "b"]}
+    result = run_tasks(chain_pipeline(workflows=[_per_source("tests[b]")], tasks=[task], datasets=_THREE))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert result.steps["v"].inputs == ["tests[b]"]
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_task_run_directly_whose_sources_leave_a_list_key_unbound_fails_as_a_chain() -> None:
+    config = chain_pipeline(workflows=[_per_source("tests[nope]")], datasets=_THREE)
+    result = run_task(TaskConfig(name="t", workflow="per", sources=["src", "a", "b"]), config)
+    assert isinstance(result, ChainResult)
+    assert not result.success
+    assert result.errors == [
+        (
+            "Task 't' binds sources a, b to `tests`. Step 'v' reads `tests[nope]`, but `tests` has elements a, b, "
+            "not `nope`."
+        )
+    ]
+    assert result.steps == {}
+
+
+@pytest.mark.usefixtures("toys")
+def test_run_refuses_a_list_key_its_datasets_do_not_bind() -> None:
+    workflow = CustomWorkflowConfig.model_validate(_per_source("tests[nope]"))
+    with pytest.raises(ValidationError, match=r"binds sources a, b to `tests`"):
+        run(workflow, {"ref": ToyImages(), "a": ToyImages(seed=1), "b": ToyImages(seed=2)})
 
 
 class WhereConfig(TransformConfig):
