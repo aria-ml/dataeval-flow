@@ -46,6 +46,8 @@ class Node:
     inputs: tuple[str, ...] = ()
     source: str | None = None
     result: Any = None
+    items: int | None = None
+    """For an Output, how many items the Datasets it was computed on hold together; ``None`` for anything else."""
     _dataset: Any = field(default=None, repr=False)
 
     @property

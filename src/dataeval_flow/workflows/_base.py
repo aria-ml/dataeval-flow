@@ -204,6 +204,7 @@ class Finding(BaseModel):
     ``--fail-on-warning``. ``brief`` is the value on the finding's summary line, ``description`` the lede
     under its heading, and ``blocks`` the evidence: report blocks that the text report draws and
     ``results.json`` holds, one object per block with its ``type`` tag. A finding accepts no other field.
+    ``step`` names the check step that made it, in a custom workflow's result.
 
     Examples
     --------
@@ -230,6 +231,14 @@ class Finding(BaseModel):
         default=None, description="The lede: a sentence or two of plain prose under the detail section's heading."
     )
     blocks: list[Block] = Field(default_factory=list, description="The evidence, as report blocks, in order.")
+    step: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "The check step that made it, with the element's key where the check ran once per element of a list, "
+            "such as `imbalance[train]`. Left out for a workflow type's own findings."
+        ),
+    )
 
 
 class WorkflowRawOutput(BaseModel):

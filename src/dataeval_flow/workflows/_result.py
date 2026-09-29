@@ -1,6 +1,6 @@
 """A workflow's result: typed outputs, and the health verdict drawn from their findings."""
 
-__all__ = ["WorkflowResult", "finding_section"]
+__all__ = ["WorkflowResult", "finding_section", "summary_label"]
 
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
@@ -26,6 +26,14 @@ def finding_section(finding: Finding) -> Section:
         severity=finding.severity,
         blocks=[*lede, *finding.blocks],
     )
+
+
+def summary_label(finding: Finding) -> str:
+    """A finding's summary line: its title, and the element a check judged where it ran once per element of a list."""
+    step = finding.step or ""
+    if step.endswith("]") and "[" in step:
+        return f"{finding.title} [{step[step.index('[') + 1 : -1]}]"
+    return finding.title
 
 
 class WorkflowResult(Result[TMetadata, TOutput]):
@@ -135,5 +143,5 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         findings = self.findings
         if not findings:
             return [Paragraph(text="No findings to report.")]
-        items = [SummaryItem(label=f.title, value=f.brief or "", severity=f.severity) for f in findings]
+        items = [SummaryItem(label=summary_label(f), value=f.brief or "", severity=f.severity) for f in findings]
         return [Section(title="Summary", blocks=[Summary(items=items, warnings=self.warning_count)])]

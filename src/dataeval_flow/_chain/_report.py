@@ -76,11 +76,6 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
 
 
 def _step(record: "StepResult", result: "ChainResult", *, detailed: bool) -> list[Block]:
-    from dataeval_flow.evaluators._report import output_blocks, serialized_of
-    from dataeval_flow.evaluators._result import EvaluatorResult
-    from dataeval_flow.steps._registry import TRANSFORMS
-    from dataeval_flow.workflows._result import WorkflowResult
-
     blocks: list[Block] = []
     if record.inputs:
         blocks.append(
@@ -104,15 +99,28 @@ def _step(record: "StepResult", result: "ChainResult", *, detailed: bool) -> lis
         return blocks
     if record.status != "ok":
         return blocks
+    blocks.extend(_output_blocks(record, detailed=detailed))
+    return blocks
+
+
+def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
+    """What a completed step made: a check's findings, an evaluator's or workflow's report, a transform's section."""
+    from dataeval_flow.evaluators._report import output_blocks, serialized_of
+    from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.steps._registry import TRANSFORMS
+    from dataeval_flow.workflows._result import WorkflowResult, finding_section
+
+    if record.kind == "check":
+        return [finding_section(finding) for finding in record.output or []]
     step_result = record.result
     if isinstance(step_result, EvaluatorResult):
-        blocks.extend(output_blocks(serialized_of(step_result), detailed=detailed))
-    elif isinstance(step_result, WorkflowResult):
-        blocks.extend(step_result._report_output(detailed=detailed))  # noqa: SLF001 - a step's own report has no public accessor
-    elif record.kind == "transform":
+        return list(output_blocks(serialized_of(step_result), detailed=detailed))
+    if isinstance(step_result, WorkflowResult):
+        return list(step_result._report_output(detailed=detailed))  # noqa: SLF001 - a step's own report has no public accessor
+    if record.kind == "transform":
         section = TRANSFORMS.get(record.type)().section(record) if record.type in TRANSFORMS.names() else []
-        blocks.extend(section or [Fields(items=_dataset_fields(record.summary))])
-    return blocks
+        return list(section or [Fields(items=_dataset_fields(record.summary))])
+    return []
 
 
 def _dataset_fields(summary: object) -> list[tuple[str, str | int | float | bool | None]]:

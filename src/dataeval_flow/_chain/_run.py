@@ -15,9 +15,12 @@ from dataeval_flow._chain._identity import element_key, output_key, settings_of,
 from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
 from dataeval_flow.steps._address import Address
-from dataeval_flow.steps._port import DataType
+from dataeval_flow.steps._check import Check, CheckContext
+from dataeval_flow.steps._combine import Combine, CombineContext
+from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import StepResult, StepStatus
 from dataeval_flow.steps._step import StepSkipped, Transform, TransformContext
+from dataeval_flow.workflows._base import Finding
 
 if TYPE_CHECKING:
     from dataeval_flow._policy import ResolvedPolicy
@@ -131,7 +134,7 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     steps: dict[str, StepResult] = {}
     label_space: list[LabelSpaceRecord] = []
     for spec in graph.steps:
-        record, produced, records = _run_step(spec, nodes, settings, lineage, label_space)
+        record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
         steps[spec.name] = record
         nodes.update(produced)
         if tracked:
@@ -156,30 +159,74 @@ def _run_step(
     settings: RunSettings,
     lineage: Sequence[LineageRecord],
     applied: Sequence[LabelSpaceRecord],
+    steps: Mapping[str, StepResult],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run `spec` once, or once per key of the lists it broadcasts over; its outputs come back by address.
 
-    `applied` holds the label spaces the steps before it applied, in chain order.
+    `applied` holds the label spaces the steps before it applied, in chain order, and `steps` their records, which
+    say why an input holds nothing. A check reading an input that holds nothing is not assessed, rather than skipped.
     """
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
     bound = {binding.port.name: [_lookup(nodes, address) for address in binding.addresses] for binding in spec.bindings}
-    reason = _absent(spec, bound)
-    if reason is not None:
+    gap = _first_gap(spec, bound)
+    if gap is not None:
+        address, missing = gap
+        if spec.kind == "check":
+            record, outputs = _unassessed(spec, inputs_text, _gap_text(address, missing, steps), None)
+            return record, _by_address(spec, outputs), []
+        reason = f"needs `{address}`, which {missing.reason}"
         return _skipped(spec, inputs_text, reason), _by_address(spec, _missing_outputs(spec, "was skipped")), []
     keys = _broadcast_keys(spec, bound)
     if keys is None:
         record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage, applied)
         return record, _by_address(spec, outputs), records
-    return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied)
+    return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied, steps)
 
 
-def _absent(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> str | None:
-    """Why `spec` cannot run: the first address it reads that holds nothing; ``None`` when all hold something."""
+def _first_gap(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> tuple[Address, Missing] | None:
+    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something."""
     for binding in spec.bindings:
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
             if isinstance(value, Missing):
-                return f"needs `{address}`, which {value.reason}"
+                return address, value
     return None
+
+
+def _gap_text(address: Address, missing: Missing, steps: Mapping[str, StepResult]) -> str:
+    """What a check could not assess: "`count` failed: ValueError: ...", with the cause its producer recorded."""
+    record = steps.get(address.name)
+    if record is not None and address.key is not None and record.elements is not None:
+        record = record.elements.get(address.key)
+    cause = None
+    if record is not None:
+        cause = "; ".join(record.errors) if record.status == "failed" else record.reason
+    return f"`{address}` {missing.reason}" + (f": {cause}" if cause else "")
+
+
+def _unassessed(
+    spec: StepSpec, inputs_text: list[str], gap: str, element: str | None
+) -> tuple[StepResult, dict[str, _Value]]:
+    """A check whose input holds nothing: never skipped, it reports one ``info`` finding saying why (spec §9.1)."""
+    finding = Finding(
+        severity="info",
+        title=spec.impl.title,  # type: ignore[attr-defined]  # every check declares one
+        brief="not assessed",
+        description=f"Not assessed: {gap}.",
+        step=_finding_step(spec, element),
+    )
+    record = StepResult(
+        name=spec.name,
+        kind=spec.kind,
+        type=spec.type,
+        inputs=inputs_text,
+        status="ok",
+        output=[finding],
+        summary=_tally([finding]),
+        optional=spec.optional,
+    )
+    (port,) = spec.outputs
+    node = Node(_at(spec, port, element), DataType.FINDINGS, payload=[finding], step=spec.name, step_type=spec.type)
+    return record, {port.name: node}
 
 
 def _broadcast_keys(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> list[str] | None:
@@ -207,16 +254,19 @@ def _broadcast(
     inputs_text: list[str],
     lineage: Sequence[LineageRecord],
     applied: Sequence[LabelSpaceRecord],
+    steps: Mapping[str, StepResult],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run `spec` once per key, zipping its lists by key; each output is a list with those keys."""
     elements: dict[str, StepResult] = {}
     per_output: dict[str, dict[str, Node | Missing]] = {port.name: {} for port in spec.outputs}
     label_space: list[LabelSpaceRecord] = []
     for key in keys:
-        chosen, why = _pick(spec, bound, key)
+        chosen, gap = _pick(spec, bound, key)
         element_inputs = _element_inputs(spec, bound, key)
-        if why is not None:
-            elements[key] = _skipped(spec, element_inputs, why)
+        if gap is not None and spec.kind == "check":
+            elements[key], outputs = _unassessed(spec, element_inputs, _element_gap(gap, key, steps), key)
+        elif gap is not None:
+            elements[key] = _skipped(spec, element_inputs, _element_reason(gap, key))
             outputs = _missing_outputs(spec, "was skipped")
         else:
             elements[key], outputs, records = _attempt(
@@ -241,21 +291,27 @@ def _broadcast(
     return record, produced, label_space
 
 
-def _pick(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str) -> tuple[dict[str, list[Any]], str | None]:
-    """Each port's values for element `key`, and why that element cannot run; ``None`` when it can."""
+def _pick(
+    spec: StepSpec, bound: Mapping[str, list[_Value]], key: str
+) -> tuple[dict[str, list[Any]], tuple[Address, Missing | None] | None]:
+    """Each port's values for element `key`, and the first list holding nothing there: its address, and why.
+
+    The why is ``None`` where that list has no element `key` at all; the gap is ``None`` when every list holds one.
+    """
     chosen: dict[str, list[Any]] = {}
-    why: str | None = None
+    gap: tuple[Address, Missing | None] | None = None
     for binding in spec.bindings:
         picked: list[Any] = []
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
             if isinstance(value, NodeList) and not binding.port.is_list:
-                element, problem = _element(address, value, key)
-                why = why or problem
+                element = value.elements.get(key)
+                if gap is None and not isinstance(element, Node):
+                    gap = (address, element)
                 picked.append(element)
             else:
                 picked.append(value)
         chosen[binding.port.name] = picked
-    return chosen, why
+    return chosen, gap
 
 
 def _element_inputs(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str) -> list[str]:
@@ -267,14 +323,20 @@ def _element_inputs(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str)
     ]
 
 
-def _element(address: Address, value: NodeList, key: str) -> tuple[Node | Missing | None, str | None]:
-    """Element `key` of the list at `address`, and why it cannot be read; ``None`` when it can."""
-    element = value.elements.get(key)
-    if element is None:
-        return None, f"`{address}` has no element `{key}`"
-    if isinstance(element, Missing):
-        return element, f"needs `{address}[{key}]`, which {element.reason}"
-    return element, None
+def _element_reason(gap: tuple[Address, Missing | None], key: str) -> str:
+    """Why element `key` of a step cannot run: its list has no such element, or holds nothing there."""
+    address, missing = gap
+    if missing is None:
+        return f"`{address}` has no element `{key}`"
+    return f"needs `{address}[{key}]`, which {missing.reason}"
+
+
+def _element_gap(gap: tuple[Address, Missing | None], key: str, steps: Mapping[str, StepResult]) -> str:
+    """What element `key` of a check could not assess, with the cause its producer recorded for that element."""
+    address, missing = gap
+    if missing is None:
+        return f"`{address}` has no element `{key}`"
+    return _gap_text(replace(address, key=key), missing, steps)
 
 
 def _overall(elements: Iterable[StepResult]) -> StepStatus:
@@ -316,6 +378,10 @@ def _attempt(
                 failed = _failed(spec, inputs_text, list(result.errors), start, result)
                 return failed, _missing_outputs(spec, _failure_word(spec)), []
             outputs = _pooled_outputs(spec, result, inputs, element)
+        elif spec.kind == "combine":
+            outputs = _combine(spec, inputs, settings, element)
+        elif spec.kind == "check":
+            outputs = _check(spec, inputs, settings, element)
         else:
             outputs, records, details = _transform(spec, inputs, settings, element, lineage, applied)
     except StepSkipped as skip:
@@ -329,9 +395,7 @@ def _attempt(
         failed = _failed(spec, inputs_text, [message], start, result)
         return failed, _missing_outputs(spec, _failure_word(spec)), []
     value = {name: _live(item) for name, item in outputs.items()}
-    summary = {name: _summarize(item) for name, item in outputs.items()} if spec.kind == "transform" else None
-    if summary is not None and len(summary) == 1:
-        summary = next(iter(summary.values()))
+    summary = _step_summary(spec, outputs)
     record = StepResult(
         name=spec.name,
         kind=spec.kind,
@@ -358,6 +422,83 @@ def _summarize(item: Node | NodeList | Missing) -> Any:
         return {"items": len(item.value), "digest": short_digest(item.key or item.address)}
     payload = item.payload
     return payload.model_dump(mode="json") if hasattr(payload, "model_dump") else payload
+
+
+def _step_summary(spec: StepSpec, outputs: Mapping[str, _Value]) -> Any:
+    """What a step's JSON says it made: a transform's or combine's outputs, a check's tally; ``None`` otherwise."""
+    if spec.kind == "check":
+        (findings,) = outputs.values()
+        return _tally(_live(findings))
+    if spec.kind not in ("transform", "combine"):
+        return None
+    summary = {name: _summarize(item) for name, item in outputs.items()}
+    return next(iter(summary.values())) if len(summary) == 1 else summary
+
+
+def _tally(findings: Sequence[Finding]) -> dict[str, int]:
+    """A check step's JSON output: how many findings it made, and how many are warnings."""
+    return {"findings": len(findings), "warnings": sum(finding.severity == "warning" for finding in findings)}
+
+
+def _finding_step(spec: StepSpec, element: str | None) -> str:
+    """What a check's finding names as its step: the step, with the element's key where it ran once per element."""
+    return spec.name if element is None else f"{spec.name}[{element}]"
+
+
+def _combine(
+    spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None
+) -> dict[str, _Value]:
+    """Run a combine; each Output it makes is stored with the Datasets it was computed on, and their size."""
+    impl: Combine[Any] = spec.impl()  # type: ignore[assignment]
+    step = settings.step_contexts.get(spec.name, StepContext())
+    context = CombineContext(
+        task=settings.task, step=spec.name, derive_metadata=lambda node: _metadata(node, step.metadata_policy)
+    )
+    made = impl.run(spec.config, inputs, context)
+    on, items = _computed_on(inputs)
+    return {
+        port.name: Node(
+            _at(spec, port, element),
+            port.type,
+            payload=made[port.name],
+            step=spec.name,
+            step_type=spec.type,
+            inputs=on,
+            items=items,
+        )
+        for port in spec.outputs
+    }
+
+
+def _check(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None) -> dict[str, _Value]:
+    """Run a check; each finding is stamped with the step, and with the element's key where it ran once per element."""
+    impl: Check[Any] = spec.impl()  # type: ignore[assignment]
+    found = list(impl.run(spec.config, inputs, CheckContext(task=settings.task, step=spec.name)))
+    strays = [type(item).__name__ for item in found if not isinstance(item, Finding)]
+    if strays:
+        raise TypeError(f"check '{spec.type}' returned {', '.join(strays)}, not findings.")
+    stamp = _finding_step(spec, element)
+    findings = [finding.model_copy(update={"step": stamp}) for finding in found]
+    (port,) = spec.outputs
+    node = Node(_at(spec, port, element), DataType.FINDINGS, payload=findings, step=spec.name, step_type=spec.type)
+    return {port.name: node}
+
+
+def _computed_on(inputs: Mapping[str, Any]) -> tuple[tuple[str, ...], int | None]:
+    """The Datasets an Output made from `inputs` was computed on, and how many items they hold together.
+
+    Made from Datasets, it was computed on them; made from Outputs alone, on what the first of those was.
+    """
+    datasets = _datasets(inputs.values())
+    if datasets:
+        return tuple(node.address for node in datasets), sum(len(node.value) for node in datasets)
+    first = next(iter(_among(inputs.values(), DataType.OUTPUT)), None)
+    return (first.inputs, first.items) if first is not None else ((), None)
+
+
+def _at(spec: StepSpec, port: Port, element: str | None) -> str:
+    """Where one run of `spec` stores `port`'s output: its address, narrowed to `element` in a broadcast."""
+    return spec.output_address(port) + (f"[{element}]" if element is not None else "")
 
 
 def _failure_word(spec: StepSpec) -> str:
@@ -441,12 +582,20 @@ def _context_for(node: Node, spec: StepSpec, setup: ExtractorSetup | None) -> "D
 
 def _pooled_outputs(spec: StepSpec, result: Any, inputs: Mapping[str, Any], element: str | None) -> dict[str, _Value]:
     (port,) = spec.outputs
-    address = spec.output_address(port) + (f"[{element}]" if element is not None else "")
     payload = result.output if port.type is DataType.OUTPUT else result
-    on = tuple(node.address for node in _datasets(inputs.values()))
+    datasets = _datasets(inputs.values())
+    on = tuple(node.address for node in datasets)
+    items = sum(len(node.value) for node in datasets)
     return {
         port.name: Node(
-            address, port.type, payload=payload, step=spec.name, step_type=spec.type, inputs=on, result=result
+            _at(spec, port, element),
+            port.type,
+            payload=payload,
+            step=spec.name,
+            step_type=spec.type,
+            inputs=on,
+            result=result,
+            items=items,
         )
     }
 
@@ -475,7 +624,7 @@ def _transform(
     )
     made = impl.run(spec.config, inputs, context)
     _check_datasets(spec, made)
-    first = spec.output_address(spec.outputs[0]) + (f"[{element}]" if element is not None else "")
+    first = _at(spec, spec.outputs[0], element)
     records = impl.label_space(spec.config, inputs, made, address=first)
     digest = impl.digest(spec.config, inputs, made)
     details = impl.details(spec.config, inputs, made)
@@ -484,7 +633,7 @@ def _transform(
     )
     outputs: dict[str, _Value] = {}
     for port in spec.outputs:
-        address = spec.output_address(port) + (f"[{element}]" if element is not None else "")
+        address = _at(spec, port, element)
         key = base if len(spec.outputs) == 1 else output_key(base, port.name)
         value = made[port.name]
         if port.type is DataType.DATASET and port.is_list:
@@ -580,10 +729,15 @@ def _metadata(node: Node, policy: Any) -> Any:
 def _datasets(values: Iterable[Any]) -> list[Node]:
     """The Dataset nodes among `values`: each node, each node of a port fed several, and each present element of a
     list. Lineage records no Output, and a step's inputs are the Datasets it read."""
+    return _among(values, DataType.DATASET)
+
+
+def _among(values: Iterable[Any], data_type: DataType) -> list[Node]:
+    """The nodes of `data_type` among `values`, however a port holds them."""
     found: list[Node] = []
     for value in values:
         items = value.present.values() if isinstance(value, NodeList) else value if isinstance(value, list) else [value]
-        found.extend(item for item in items if isinstance(item, Node) and item.type is DataType.DATASET)
+        found.extend(item for item in items if isinstance(item, Node) and item.type is data_type)
     return found
 
 

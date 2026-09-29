@@ -102,8 +102,9 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
 
     A required step's failure fails the result (``success`` is false, and ``output`` raises, as for any result), and
     ``health["status"]`` is ``"failed"``, as it is for a task refused before any step ran, whose reason is in
-    ``errors``. The steps that ran stay readable in :attr:`steps`. Findings come from the workflow-type steps the chain
-    ran; check steps add their own later.
+    ``errors``. The steps that ran stay readable in :attr:`steps`. Its findings are its check steps' and those of the
+    workflow-type steps it ran, all counted by :attr:`health`. The JSON lists the check findings at its top level,
+    while a workflow-type step's findings stay inside that step.
 
     Fields
     ------
@@ -167,13 +168,15 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
 
     @property
     def findings(self) -> list[Finding]:
-        """The findings of every workflow-type step that completed, in run order."""
-        found: list[Finding] = []
-        for record in self.steps.values():
-            for result in _results(record):
-                if isinstance(result, WorkflowResult) and result.success:
-                    found.extend(result.findings)
-        return found
+        """Every finding the health counts, in run order: each check's, and each completed workflow-type step's."""
+        return [finding for record in self.steps.values() for finding in _step_findings(record)]
+
+    @property
+    def check_findings(self) -> list[Finding]:
+        """The findings the check steps made, in run order: those the JSON lists at the top level (spec §7.3)."""
+        return [
+            finding for record in self.steps.values() if record.kind == "check" for finding in _step_findings(record)
+        ]
 
     @property
     def warning_count(self) -> int:
@@ -195,7 +198,7 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             "metadata": self.metadata.model_dump(mode="json"),
             "health": self.health,
             "steps": {name: record.to_dict() for name, record in self.steps.items()},
-            "findings": [finding.model_dump(mode="json") for finding in self.findings],
+            "findings": [finding.model_dump(mode="json") for finding in self.check_findings],
         }
         if self.errors:
             payload["errors"] = list(self.errors)
@@ -218,10 +221,14 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return {key: value for key, value in self.to_dict().items() if key not in ("kind", "metadata")}
 
 
-def _results(record: StepResult) -> list[Any]:
+def _step_findings(record: StepResult) -> list[Finding]:
+    """The findings one step made: a check's own, or a completed workflow type's; each element's, in key order."""
     if record.elements is not None:
-        return [result for element in record.elements.values() for result in _results(element)]
-    return [record.result] if record.result is not None else []
+        return [finding for element in record.elements.values() for finding in _step_findings(element)]
+    if record.kind == "check":
+        return list(record.output or []) if record.status == "ok" else []
+    result = record.result
+    return list(result.findings) if isinstance(result, WorkflowResult) and result.success else []
 
 
 def _errors(record: StepResult) -> list[str]:
