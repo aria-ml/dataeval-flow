@@ -55,21 +55,27 @@ class ExportConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def _one_directory_segment(cls, value: str) -> str:
-        """Refuse a name that is not a single safe directory segment.
+        """Refuse a name that is not a single safe directory segment."""
+        return one_directory_segment(value, what="Export name")
 
-        The name becomes a directory under the run's output. A separator or a `..` in it
-        would write the corpus somewhere the caller never named.
-        """
-        if not value:
-            raise ValueError("Export name must not be empty. Give it a plain name, such as 'conformed_corpus'.")
-        if "/" in value or "\\" in value:
-            raise ValueError(
-                f"Export name '{value}' must be one directory segment and cannot contain '/' or '\\'. "
-                "It names a directory under the run's output, not a path to write to."
-            )
-        if value in {".", ".."}:
-            raise ValueError(
-                f"Export name '{value}' names a relative path rather than a directory. "
-                "Give it a plain name, such as 'conformed_corpus'."
-            )
-        return value
+
+def one_directory_segment(value: str, *, what: str) -> str:
+    """Refuse `value` unless it is a single safe directory segment; `what` names it in the message.
+
+    The value becomes a directory under the run's output. A separator in it would write the
+    corpus somewhere the caller never named, and `.` or `..` would name the directory holding
+    every other corpus, or the run's whole output, which `mode: replace` then clears.
+    """
+    if not value:
+        raise ValueError(f"{what} must not be empty. Give it a plain name, such as 'conformed_corpus'.")
+    if "/" in value or "\\" in value:
+        raise ValueError(
+            f"{what} '{value}' must be one directory segment and cannot contain '/' or '\\'. "
+            "It names a directory under the run's output, not a path to write to."
+        )
+    if value in {".", ".."}:
+        raise ValueError(
+            f"{what} '{value}' names a relative path rather than a directory. "
+            "Give it a plain name, such as 'conformed_corpus'."
+        )
+    return value

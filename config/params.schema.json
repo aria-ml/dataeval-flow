@@ -7662,7 +7662,6 @@
         "to": {
           "anyOf": [
             {
-              "pattern": "^[^/\\\\]+$",
               "type": "string"
             },
             {
@@ -7670,7 +7669,7 @@
             }
           ],
           "default": null,
-          "description": "The directory under `<output>/datasets/`. Defaults to `<task>.<step>`.",
+          "description": "The directory under `<output>/datasets/`, one plain name. Defaults to `<task>.<step>`.",
           "title": "To"
         },
         "transform": {

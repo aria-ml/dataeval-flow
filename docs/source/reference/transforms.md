@@ -214,7 +214,7 @@ Reads `input`, an object-detection Dataset. Makes an export record: `path`, `for
 | `format` | `coco`, `yolo`, `huggingface_vision` or `visdrone` | `coco` | The format to write |
 | `mode` | `error`, `replace` or `append` | `error` | What to do when the destination holds a dataset: refuse, replace it, or add to it |
 | `ontology` | the name of an `ontologies:` entry | none | The ontology to record in the provenance |
-| `to` | a single directory segment | `<task>.<step>` | The directory under `<output>/datasets/` |
+| `to` | one directory name, not `.` or `..` | `<task>.<step>` | The directory under `<output>/datasets/` |
 
 The step writes to `<output>/datasets/<to>/`, with a `provenance.json` that records the lineage of the Dataset written
 and each `conform` on the way, with its remap and ontology digest. A Dataset a chain made is written with its pixels

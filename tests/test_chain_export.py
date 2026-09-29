@@ -123,6 +123,25 @@ def test_two_exports_to_one_destination_fail_the_load() -> None:
         _config(steps)
 
 
+@pytest.mark.parametrize(
+    ("to", "message"),
+    [
+        (".", "Export destination '.' names a relative path rather than a directory"),
+        ("..", r"Export destination '\.\.' names a relative path rather than a directory"),
+        ("a/b", "Export destination 'a/b' must be one directory segment"),
+    ],
+)
+def test_an_export_destination_that_is_not_one_plain_directory_fails_the_load(to: str, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        _config([{"name": "corpus", "transform": "export", "input": "a", "to": to}])
+
+
+def test_an_export_destination_that_is_one_plain_directory_loads() -> None:
+    config = _config([{"name": "corpus", "transform": "export", "input": "a", "to": "corpus_v2"}])
+    (step,) = config.workflows[0].steps  # type: ignore[index,union-attr]
+    assert step.config.to == "corpus_v2"  # type: ignore[union-attr]
+
+
 def test_an_export_step_colliding_with_a_top_level_export_fails_the_load() -> None:
     step = {"name": "x", "transform": "export", "input": "a", "to": "corpus"}
     extra = {"exports": [ExportConfig(name="corpus", source="src")]}

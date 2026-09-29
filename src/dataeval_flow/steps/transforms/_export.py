@@ -5,12 +5,11 @@ __all__ = ["ExportRecord", "ExportStepConfig", "ExportTransform"]
 from collections.abc import Mapping
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from dataeval_flow.config._schemas._export import one_directory_segment
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import StepSkipped, Transform, TransformConfig, TransformContext
-
-_SEGMENT = r"^[^/\\]+$"
 
 
 class ExportStepConfig(TransformConfig):
@@ -29,9 +28,14 @@ class ExportStepConfig(TransformConfig):
     )
     to: str | None = Field(
         default=None,
-        pattern=_SEGMENT,
-        description="The directory under `<output>/datasets/`. Defaults to `<task>.<step>`.",
+        description="The directory under `<output>/datasets/`, one plain name. Defaults to `<task>.<step>`.",
     )
+
+    @field_validator("to")
+    @classmethod
+    def _one_directory_segment(cls, value: str | None) -> str | None:
+        """Refuse a destination that is not one plain directory, as a top-level export's name is refused."""
+        return value if value is None else one_directory_segment(value, what="Export destination")
 
 
 class ExportRecord(BaseModel):
