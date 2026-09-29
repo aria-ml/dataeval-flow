@@ -5,13 +5,16 @@ __all__ = ["ConformConfig", "ConformTransform"]
 import hashlib
 import json
 from collections.abc import Mapping
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import Field
 
 from dataeval_flow._alignment import LabelAlignmentOutput
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Transform, TransformConfig, TransformContext
+
+if TYPE_CHECKING:
+    from dataeval.data import Relabel
 
 _ORDER = {"lossless": 0, "lossy": 1, "partial": 2}
 
@@ -32,7 +35,11 @@ class ConformConfig(TransformConfig):
 
 
 class ConformTransform(Transform[ConformConfig]):
-    """``conform``: ``Relabel(class_remap, target=ontology)`` from the alignment, refused beyond ``allow``."""
+    """``conform``: ``Relabel(class_remap, target=ontology)`` from the alignment, refused beyond ``allow``.
+
+    The engine makes one instance per invocation, so the Relabel :meth:`run` applies is the one :meth:`details` counts
+    the drops of.
+    """
 
     name: ClassVar[str] = "conform"
     description: ClassVar[str] = (
@@ -44,6 +51,8 @@ class ConformTransform(Transform[ConformConfig]):
     )
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
     same_node: ClassVar[tuple[str, ...]] = ("alignment",)
+
+    _relabel: "Relabel"
 
     def run(
         self,
@@ -74,8 +83,10 @@ class ConformTransform(Transform[ConformConfig]):
                 f"The alignment is {mergeability}, beyond `allow: {config.allow}`: {self._loss(remap, unaligned)}. "
                 f"Set `allow: {mergeability}` to accept it, or settle classes with `class_remap:`."
             )
-        relabel = Relabel(remap, target=found.ontology, on_unmatched="drop" if config.allow == "partial" else "raise")
-        return {"output": View(inputs["input"].value, relabel)}
+        self._relabel = Relabel(
+            remap, target=found.ontology, on_unmatched="drop" if config.allow == "partial" else "raise"
+        )
+        return {"output": View(inputs["input"].value, self._relabel)}
 
     @staticmethod
     def _remap(config: ConformConfig, found: LabelAlignmentOutput) -> dict[str, str]:
@@ -117,21 +128,21 @@ class ConformTransform(Transform[ConformConfig]):
         payload = {"remap": self._remap(config, found), "target": list(found.ontology.ids)}
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
-    def details(self, config: ConformConfig, inputs: Mapping[str, Any], outputs: Mapping[str, Any]) -> dict[str, Any]:
-        """Collapses, dropped classes and dropped items."""
-        from dataeval.data import Relabel
-
+    def details(
+        self,
+        config: ConformConfig,
+        inputs: Mapping[str, Any],
+        outputs: Mapping[str, Any],  # noqa: ARG002
+    ) -> dict[str, Any]:
+        """Collapses, and the classes and items the Relabel :meth:`run` applied dropped."""
         found: LabelAlignmentOutput = inputs["alignment"].value
         remap = self._remap(config, found)
-        view = outputs["output"]
-        relabel = next((op for op in getattr(view, "_operations", ()) if isinstance(op, Relabel)), None)
         labels = {cid: found.ontology.concept(cid).label for cid in found.ontology.ids}
-        dropped = sorted(relabel.dropped.values()) if relabel is not None else []
         return {
             "remap": {source: labels.get(target, target) for source, target in remap.items()},
             "collapses": {labels.get(target, target): sorted(sources) for target, sources in _collapses(remap).items()},
-            "dropped_classes": dropped,
-            "dropped_items": len(relabel.dropped_indices) if relabel is not None else 0,
+            "dropped_classes": sorted(self._relabel.dropped.values()),
+            "dropped_items": len(self._relabel.dropped_indices),
         }
 
     def label_space(

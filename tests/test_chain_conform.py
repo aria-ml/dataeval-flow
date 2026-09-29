@@ -1,5 +1,6 @@
 """Aligning a Dataset's labels to an ontology, and conforming it, gated by `allow:` (spec §6.2, §6.4)."""
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -8,7 +9,8 @@ from pydantic import ValidationError
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.scope import LabelAlignmentConfig, LabelAlignmentOutput
-from dataeval_flow.steps import ChainResult
+from dataeval_flow.steps import ChainResult, TransformContext
+from dataeval_flow.steps.transforms import ConformConfig, ConformTransform
 from tests.chain_toys import ToyDetections, chain_pipeline
 
 _ONTOLOGY = {
@@ -100,6 +102,17 @@ def test_partial_drops_the_unaligned_class_and_says_so() -> None:
     details = result.steps["c"].details or {}
     assert details["dropped_classes"] == ["boat"]
     assert details["dropped_items"] == 1
+
+
+def test_conform_counts_its_drops_from_the_relabel_it_built() -> None:
+    """The drops come from the Relabel `run` applied, not from whatever the output handed back is made of."""
+    alignment = _run(_PARTIAL, {"allow": "partial"}).steps["aligned"].output
+    config = ConformConfig(input="a", alignment="aligned", allow="partial")
+    inputs = {"input": SimpleNamespace(value=_PARTIAL, address="a"), "alignment": SimpleNamespace(value=alignment)}
+    transform = ConformTransform()
+    transform.run(config, inputs, TransformContext(task="t", step="c"))
+    details = transform.details(config, inputs, {"output": _PARTIAL})
+    assert (details["dropped_classes"], details["dropped_items"]) == (["boat"], 1)
 
 
 def test_conform_records_the_label_space_it_applied() -> None:
