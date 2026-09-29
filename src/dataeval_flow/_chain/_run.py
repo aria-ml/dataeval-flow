@@ -403,19 +403,11 @@ def _live(item: _Value) -> Any:
     return item.value if isinstance(item, Node) else None
 
 
-def _dataset_inputs(inputs: Mapping[str, Any]) -> list[Node]:
-    found: list[Node] = []
-    for value in inputs.values():
-        items = value.present.values() if isinstance(value, NodeList) else value if isinstance(value, list) else [value]
-        found.extend(item for item in items if isinstance(item, Node) and item.type is DataType.DATASET)
-    return found
-
-
 def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings) -> Any:
     """An evaluator's or a workflow type's result, from a WorkflowContext over its input nodes."""
     from dataeval_flow.workflows._context import WorkflowContext
 
-    nodes = _dataset_inputs(inputs)
+    nodes = _datasets(inputs.values())
     setup = settings.extractors.get(spec.extractor)
     contexts = {node.address: _context_for(node, spec, setup) for node in nodes}
     step = settings.step_contexts.get(spec.name, StepContext())
@@ -445,7 +437,7 @@ def _pooled_outputs(spec: StepSpec, result: Any, inputs: Mapping[str, Any], elem
     (port,) = spec.outputs
     address = spec.output_address(port) + (f"[{element}]" if element is not None else "")
     payload = result.output if port.type is DataType.OUTPUT else result
-    on = tuple(node.address for node in _dataset_inputs(inputs))
+    on = tuple(node.address for node in _datasets(inputs.values()))
     return {
         port.name: Node(
             address, port.type, payload=payload, step=spec.name, step_type=spec.type, inputs=on, result=result
@@ -463,7 +455,7 @@ def _transform(
 ) -> tuple[dict[str, _Value], list[LabelSpaceRecord], dict[str, Any] | None]:
     impl: Transform[Any] = spec.impl()  # type: ignore[assignment]
     step = settings.step_contexts.get(spec.name, StepContext())
-    sources = _dataset_inputs(inputs)
+    sources = _datasets(inputs.values())
     ancestors = {record.name for node in sources for record in _ancestry(node.address, lineage)}
     context = TransformContext(
         task=settings.task,
@@ -579,11 +571,12 @@ def _metadata(node: Node, policy: Any) -> Any:
         return get_or_compute_metadata(dataset, policy)
 
 
-def _datasets(values: Iterable[_Value]) -> list[Node]:
-    """The Dataset nodes among `values`, with each list's present elements: lineage records no Output."""
+def _datasets(values: Iterable[Any]) -> list[Node]:
+    """The Dataset nodes among `values`: each node, each node of a port fed several, and each present element of a
+    list. Lineage records no Output, and a step's inputs are the Datasets it read."""
     found: list[Node] = []
     for value in values:
-        items = value.present.values() if isinstance(value, NodeList) else [value]
+        items = value.present.values() if isinstance(value, NodeList) else value if isinstance(value, list) else [value]
         found.extend(item for item in items if isinstance(item, Node) and item.type is DataType.DATASET)
     return found
 
