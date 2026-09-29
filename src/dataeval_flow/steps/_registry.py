@@ -8,6 +8,7 @@ from dataeval_flow._registry import Registry
 from dataeval_flow.steps._step import Transform
 
 _BUILTINS: dict[str, str] = {
+    "conform": "dataeval_flow.steps.transforms._conform:ConformTransform",
     "export": "dataeval_flow.steps.transforms._export:ExportTransform",
     "kfold": "dataeval_flow.steps.transforms._split:KFoldTransform",
     "merge": "dataeval_flow.steps.transforms._merge:MergeTransform",

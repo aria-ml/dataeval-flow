@@ -43,6 +43,7 @@ class StepResult:
     result: "Result[Any, Any] | None" = None
     summary: Any = None
     optional: bool = False
+    details: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """This step as JSON: its kind, status and inputs, then what it made, or why it made nothing."""
@@ -62,6 +63,8 @@ class StepResult:
             body["elements"] = {key: element.to_dict() for key, element in self.elements.items()}
         elif self.status == "ok":
             body.update(_made(self))
+        if self.details is not None:
+            body["details"] = self.details
         body["elapsed_s"] = round(self.elapsed, 3)
         return body
 

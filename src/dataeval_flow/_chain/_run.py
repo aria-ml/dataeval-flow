@@ -282,6 +282,7 @@ def _attempt(
     start = time.monotonic()
     records: list[LabelSpaceRecord] = []
     result: Any = None
+    details: dict[str, Any] | None = None
     try:
         if spec.kind in ("evaluator", "workflow"):
             result = _pooled(spec, inputs, settings)
@@ -290,7 +291,7 @@ def _attempt(
                 return failed, _missing_outputs(spec, _failure_word(spec)), []
             outputs = _pooled_outputs(spec, result, inputs, element)
         else:
-            outputs, records = _transform(spec, inputs, settings, element, lineage)
+            outputs, records, details = _transform(spec, inputs, settings, element, lineage)
     except StepSkipped as skip:
         return _skipped(spec, inputs_text, skip.reason), _missing_outputs(spec, "was skipped"), []
     except Exception as error:  # a step's failure must not stop the chain
@@ -312,6 +313,7 @@ def _attempt(
         result=result,
         optional=spec.optional,
         summary=summary,
+        details=details,
     )
     return record, outputs, records
 
@@ -432,7 +434,7 @@ def _transform(
     settings: RunSettings,
     element: str | None,
     lineage: Sequence[LineageRecord],
-) -> tuple[dict[str, _Value], list[LabelSpaceRecord]]:
+) -> tuple[dict[str, _Value], list[LabelSpaceRecord], dict[str, Any] | None]:
     impl: Transform[Any] = spec.impl()  # type: ignore[assignment]
     step = settings.step_contexts.get(spec.name, StepContext())
     context = TransformContext(
@@ -448,6 +450,7 @@ def _transform(
     first = spec.output_address(spec.outputs[0]) + (f"[{element}]" if element is not None else "")
     records = impl.label_space(spec.config, inputs, made, address=first)
     digest = impl.digest(spec.config, inputs, made)
+    details = impl.details(spec.config, inputs, made)
     sources = _dataset_inputs(inputs)
     base = step_key(
         spec.type, settings_of(spec.config, spec.impl.input_ports()), [node.key or "" for node in sources], digest
@@ -470,7 +473,7 @@ def _transform(
         else:
             on = tuple(node.address for node in sources)
             outputs[port.name] = Node(address, port.type, payload=value, step=spec.name, step_type=spec.type, inputs=on)
-    return outputs, records
+    return outputs, records, details
 
 
 def _made_node(

@@ -131,6 +131,8 @@ dataeval_flow.steps:TransformContext
 dataeval_flow.steps:get_transform
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
+dataeval_flow.steps.transforms:ConformConfig
+dataeval_flow.steps.transforms:ConformTransform
 dataeval_flow.steps.transforms:ExportRecord
 dataeval_flow.steps.transforms:ExportStepConfig
 dataeval_flow.steps.transforms:ExportTransform

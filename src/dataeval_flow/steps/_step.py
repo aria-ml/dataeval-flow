@@ -108,7 +108,8 @@ class Transform(Step, ABC, Generic[ConfigT]):
     Override :meth:`output_kinds` when an output's Dataset kind differs from ``input``'s, and :meth:`digest` when
     the output depends on data the settings do not name, such as a removal plan. ``same_node`` names output ports
     whose Outputs must have been computed on the ``input`` Dataset. :meth:`empty_outputs` names outputs its
-    settings leave empty, and :meth:`destinations` the directories a run writes.
+    settings leave empty, and :meth:`destinations` the directories a run writes. :meth:`details` reports what a run
+    did, such as what it collapsed or dropped, for the JSON and the report.
 
     Register the class under the ``dataeval_flow.transforms`` entry-point group, named by ``name``.
 
@@ -219,6 +220,15 @@ class Transform(Step, ABC, Generic[ConfigT]):
     ) -> list["LabelSpaceRecord"]:
         """The label-space records this step's relabelling adds to the result; `address` is its output's."""
         return []
+
+    def details(
+        self,
+        config: ConfigT,  # noqa: ARG002
+        inputs: Mapping[str, Any],  # noqa: ARG002
+        outputs: Mapping[str, Any],  # noqa: ARG002
+    ) -> dict[str, Any] | None:
+        """What this step did that the report and JSON should say, such as what was collapsed or removed."""
+        return None
 
     def section(self, record: Any) -> list["Block"]:  # noqa: ARG002
         """This step's report section body, given its :class:`~dataeval_flow.steps.StepResult`."""

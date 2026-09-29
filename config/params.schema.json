@@ -926,6 +926,9 @@
                 "$ref": "#/$defs/WorkflowStep"
               },
               {
+                "$ref": "#/$defs/TransformStep_conform"
+              },
+              {
                 "$ref": "#/$defs/TransformStep_export"
               },
               {
@@ -7534,6 +7537,79 @@
         "model_path"
       ],
       "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "TransformStep_conform": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset to relabel.",
+          "title": "Input",
+          "type": "string"
+        },
+        "alignment": {
+          "description": "A `scope.label-alignment` step computed on `input`.",
+          "title": "Alignment",
+          "type": "string"
+        },
+        "allow": {
+          "default": "lossless",
+          "description": "The most loss accepted: `lossy` lets classes collapse, `partial` drops unaligned classes.",
+          "enum": [
+            "lossless",
+            "lossy",
+            "partial"
+          ],
+          "title": "Allow",
+          "type": "string"
+        },
+        "class_remap": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Overrides: a source class to a target concept, by id or by an unambiguous label.",
+          "title": "Class Remap",
+          "type": "object"
+        },
+        "transform": {
+          "const": "conform",
+          "description": "`conform`: Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "alignment",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_conform",
       "type": "object"
     },
     "TransformStep_export": {
