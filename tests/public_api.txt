@@ -116,6 +116,7 @@ dataeval_flow.steps:Port
 dataeval_flow.steps:Step
 dataeval_flow.steps:StepEntry
 dataeval_flow.steps:StepKind
+dataeval_flow.steps:StepResult
 dataeval_flow.steps:Transform
 dataeval_flow.steps:TransformConfig
 dataeval_flow.steps:TransformContext

@@ -7,6 +7,7 @@ an evaluator, a workflow, or a transform, and names what it reads by address.
 from dataeval_flow.steps._address import Address, parse_address
 from dataeval_flow.steps._port import DATASET_KINDS, DataType, Port
 from dataeval_flow.steps._registry import get_transform, list_transforms
+from dataeval_flow.steps._result import StepResult
 from dataeval_flow.steps._step import Step, StepKind, Transform, TransformConfig, TransformContext
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
@@ -20,6 +21,7 @@ __all__ = [
     "Step",
     "StepEntry",
     "StepKind",
+    "StepResult",
     "Transform",
     "TransformConfig",
     "TransformContext",

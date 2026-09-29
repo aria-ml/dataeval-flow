@@ -225,3 +225,29 @@ def chain_pipeline(
     if extractor:
         data["extractors"] = [FLAT]
     return PipelineConfig.model_validate(data)
+
+
+def run_toy_chain(
+    config: PipelineConfig, workflow: str, sources: Sequence[str], *, step_contexts: Mapping[str, Any] | None = None
+):
+    """Run custom workflow `workflow` on `sources` straight through the executor, without the orchestrator."""
+    from dataeval_flow._cache import DatasetCache
+    from dataeval_flow._chain._graph import build_graph
+    from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
+    from dataeval_flow._sources import resolve_source
+    from dataeval_flow.workflows._context import DatasetContext
+
+    entry = next(item for item in config.workflows or () if item.name == workflow)
+    graph = build_graph(entry, config)  # type: ignore[arg-type]
+    contexts, resolved = {}, {}
+    for name in sources:
+        source = resolve_source(name, config)
+        resolved[name] = source
+        contexts[name] = DatasetContext(
+            name=name,
+            dataset=source.dataset,
+            view_operations=source.view_config.operations if source.view_config else None,
+            cache=DatasetCache.get_or_create(None, source.cache_name, source.cache_key),
+        )
+    inputs = bind_inputs(graph, list(sources), contexts, resolved)
+    return run_chain(graph, inputs, RunSettings(task="t", pipeline=config, step_contexts=step_contexts or {}))
