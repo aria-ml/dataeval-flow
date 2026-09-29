@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+import pytest
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Input, Static
@@ -90,3 +92,40 @@ async def _wait_for_result(pilot, results: list) -> None:  # type: ignore[type-a
         await pilot.pause()
         if results:
             return
+
+
+@pytest.fixture
+def chain_results(plugins: dict[str, list[tuple[str, str]]]) -> Iterator[dict[str, Any]]:
+    """Two custom workflows' results: `ok`, whose two steps both run, and `mixed`, whose data-cleaning step
+    completes before its second step raises."""
+    from dataeval_flow import run_tasks
+    from dataeval_flow._cache import DatasetCache
+    from dataeval_flow.evaluators.quality import DuplicatesConfig
+    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+    from tests.chain_toys import chain_pipeline, register_toys
+
+    register_toys(plugins)
+    DatasetCache.clear_instances()
+    ok = {
+        "name": "ok",
+        "inputs": ["a"],
+        "steps": [
+            {"name": "few", "transform": "toy-first", "input": "a", "n": 6},
+            {"name": "dupes", "evaluator": "dupes", "input": "few"},
+        ],
+    }
+    mixed = {
+        "name": "mixed",
+        "inputs": ["a"],
+        "steps": [
+            {"name": "clean", "workflow": "clean", "input": "a"},
+            {"name": "boom", "transform": "toy-explode", "input": "a"},
+        ],
+    }
+    config = chain_pipeline(
+        workflows=[ok, mixed, DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"])],
+        evaluators=[DuplicatesConfig(name="dupes")],
+        tasks=[{"name": name, "workflow": name, "sources": ["src"]} for name in ("ok", "mixed")],
+    )
+    yield run_tasks(config)
+    DatasetCache.clear_instances()

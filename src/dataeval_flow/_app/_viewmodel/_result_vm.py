@@ -57,24 +57,36 @@ class ResultViewModel:
         self._findings = self._extract_findings()
 
     def _extract_findings(self) -> list[Any]:
+        if self._is_chain:  # the steps that completed keep their findings, even where another step failed
+            return list(self._result.findings)
         if self._is_evaluator or not self._result.success:
             return []
-        if self._is_chain:
-            return list(self._result.findings)
         return list(self._result.output.report.findings)
 
     @property
-    def is_evaluator(self) -> bool:
-        """Whether this is an evaluator result: determinations only, with no findings or health."""
-        return self._is_evaluator
+    def shows_output(self) -> bool:
+        """Whether the detail view shows :meth:`output_text` in place of findings and health.
+
+        An evaluator's result holds determinations only, and a custom workflow's holds its steps, each with its
+        status, errors and output.
+        """
+        return self._is_evaluator or self._is_chain
 
     def output_text(self) -> str:
-        """An evaluator's output rendered as the text report renders it, every row included."""
+        """The rendered output :attr:`shows_output` names, as the text report renders it, every row included.
+
+        An evaluator's output, or a custom workflow's report body: its summary, then each step's section. Empty for
+        any other result.
+        """
+        from dataeval_flow._blocks._text import Frame, render_text
         from dataeval_flow.evaluators._report import render_result_body
 
-        if not self._is_evaluator:
-            return ""
-        return "\n".join(render_result_body(self._result, detailed=True))
+        if self._is_evaluator:
+            return "\n".join(render_result_body(self._result, detailed=True))
+        if self._is_chain:
+            body = self._result._report_body(detailed=True)  # noqa: SLF001 - the report's body has no public accessor
+            return "\n".join(render_text(body, Frame(indent="  ", depth=1)))
+        return ""
 
     def status_tag(self) -> str:
         """The result card's status marker.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -339,7 +340,7 @@ class TestEvaluatorResults:
     def test_it_is_recognized(self):
         from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
 
-        assert ResultViewModel(self._result()).is_evaluator
+        assert ResultViewModel(self._result()).shows_output
 
     def test_the_summary_counts_rows_not_findings(self):
         from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
@@ -369,7 +370,7 @@ class TestEvaluatorResults:
         result = MagicMock()
         result.output.report.findings = []
         rvm = ResultViewModel(result)
-        assert not rvm.is_evaluator
+        assert not rvm.shows_output
         assert rvm.status_tag() == " [green][ok][/green]"
 
     def _failed_result(self):
@@ -414,3 +415,29 @@ class TestChainResults:
         assert rvm.summary_line() == "0 findings"
         assert rvm.report_summary() == ""
         assert rvm.status_tag() == " [green][ok][/green]"
+
+    def test_a_successful_chain_shows_each_step_and_its_status(self, chain_results: dict[str, Any]) -> None:
+        rvm = ResultViewModel(chain_results["ok"])
+        text = rvm.output_text()
+        assert rvm.shows_output
+        # A step that ran carries no marker of its own; the counts above the sections give every step's status.
+        assert re.search(r"Ran:\s+2\n", text)
+        assert re.search(r"Failed:\s+0\n", text)
+        assert re.search(r"FEW \(TOY-FIRST\)\n", text)
+        assert re.search(r"DUPES \(QUALITY\.DUPLICATES\)\n", text)
+        assert "Items:  6" in text
+        assert rvm.status_tag() == " [green][ok][/green]"
+
+    def test_a_partly_failed_chain_shows_the_error_and_the_completed_steps_findings(
+        self, chain_results: dict[str, Any]
+    ) -> None:
+        result = chain_results["mixed"]
+        rvm = ResultViewModel(result)
+        text = rvm.output_text()
+        assert re.search(r"BOOM \(TOY-EXPLODE\)\s+failed\n", text)
+        assert "RuntimeError: boom on a" in text
+        cleaned = result.steps["clean"].result.findings
+        assert cleaned
+        assert rvm.finding_count() == len(cleaned)
+        assert rvm.summary_line().startswith(f"{len(cleaned)} findings")
+        assert rvm.status_tag() == " [bold red][failed][/bold red]"
