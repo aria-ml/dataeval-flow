@@ -89,6 +89,23 @@ def test_kinds_flow_through_the_chain() -> None:
 
 
 @pytest.mark.usefixtures("toys")
+def test_a_list_mixing_kinds_is_refused_on_the_kind_it_does_not_take() -> None:
+    workflow = {
+        "name": "w",
+        "inputs": [{"name": "all", "list": True}],
+        "steps": [{"name": "d", "transform": "toy-detections-only", "input": "all"}],
+    }
+    config = chain_pipeline(
+        workflows=[workflow], datasets={"cls": ToyImages(), "det": ToyDetections([[0], [1]], {0: "a", 1: "b"})}
+    )
+    graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
+    contexts, resolved = _contexts(config, ["cls", "det"])
+    inputs = bind_inputs(graph, ["cls", "det"], contexts, resolved)
+    with pytest.raises(GraphError, match="reads `all`, a classification Dataset, but `input` takes object_detection"):
+        check_kinds(graph, inputs)
+
+
+@pytest.mark.usefixtures("toys")
 def test_a_one_step_graph_resolves_its_policy_exactly_as_a_task_does() -> None:
     policy = MetadataPolicyConfig(name="p", exclude=["angle"])
     balance = BalanceConfig(name="balance", metadata="p")

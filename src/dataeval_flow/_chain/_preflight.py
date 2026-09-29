@@ -82,17 +82,25 @@ def detect_kind(dataset: Any) -> str | None:
 
 
 def check_kinds(graph: ChainGraph, inputs: Mapping[str, Node | NodeList]) -> dict[str, str | None]:
-    """The Dataset kind at each Dataset address, refusing any port that does not take the kind reaching it."""
+    """The Dataset kind at each Dataset address, refusing any port that does not take a kind reaching it.
+
+    A list address may carry several distinct kinds at once (it broadcasts per element at run time), so every
+    kind it carries is checked against the port, even though the address's own entry in the returned mapping
+    collapses to ``None`` once its elements disagree.
+    """
     kinds: dict[str, str | None] = {}
+    reaching: dict[str, set[str]] = {}
     for slot in graph.slots:
         value = inputs[slot.name]
         nodes = list(value.present.values()) if isinstance(value, NodeList) else [value]
-        found = {detect_kind(node.value) for node in nodes}
-        for node in nodes:
-            node.kind = detect_kind(node.value) if len(found) > 1 else next(iter(found), None)
+        detected = [(node, detect_kind(node.value)) for node in nodes]
+        found = {kind for _, kind in detected}
+        for node, kind in detected:
+            node.kind = kind if len(found) > 1 else next(iter(found), None)
+        reaching[slot.name] = {kind for kind in found if kind is not None}
         kinds[slot.name] = next(iter(found)) if len(found) == 1 else None
     for spec in graph.steps:
-        input_kinds = _check_step(spec, kinds)
+        input_kinds = _check_step(spec, kinds, reaching)
         if issubclass(spec.impl, Transform):
             try:
                 made = spec.impl().output_kinds(spec.config, input_kinds)  # type: ignore[call-arg,arg-type]
@@ -100,11 +108,15 @@ def check_kinds(graph: ChainGraph, inputs: Mapping[str, Node | NodeList]) -> dic
                 raise GraphError(f"Step '{spec.name}': {error}") from error
             for port in spec.outputs:
                 if port.type == "dataset":
-                    kinds[spec.output_address(port)] = made.get(port.name)
+                    kind = made.get(port.name)
+                    kinds[spec.output_address(port)] = kind
+                    reaching[spec.output_address(port)] = {kind} if kind is not None else set()
     return kinds
 
 
-def _check_step(spec: StepSpec, kinds: Mapping[str, str | None]) -> dict[str, str | None]:
+def _check_step(
+    spec: StepSpec, kinds: Mapping[str, str | None], reaching: Mapping[str, set[str]]
+) -> dict[str, str | None]:
     input_kinds: dict[str, str | None] = {}
     for binding in spec.bindings:
         known = {str(address): kinds.get(str(address.base)) for address in binding.addresses}
@@ -118,9 +130,12 @@ def _check_step(spec: StepSpec, kinds: Mapping[str, str | None]) -> dict[str, st
             kind = kinds.get(str(address.base))
             input_kinds.setdefault(binding.port.name, kind)
             allowed = binding.port.kinds
-            if allowed is not None and kind is not None and kind not in allowed:
-                raise GraphError(
-                    f"Step '{spec.name}' reads `{address}`, a {kind} Dataset, but `{binding.port.name}` takes "
-                    f"{', '.join(sorted(allowed))}."
-                )
+            if allowed is None:
+                continue
+            for candidate in sorted(reaching.get(str(address.base), set())):
+                if candidate not in allowed:
+                    raise GraphError(
+                        f"Step '{spec.name}' reads `{address}`, a {candidate} Dataset, but `{binding.port.name}` "
+                        f"takes {', '.join(sorted(allowed))}."
+                    )
     return input_kinds
