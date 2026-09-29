@@ -127,10 +127,15 @@ def test_junit_has_one_error_per_failed_step_and_markdown_names_them() -> None:
     assert "**Failed steps:** boom" in markdown_summary({"t": result})
 
 
-def test_the_runner_prints_and_writes_a_failed_chain() -> None:
+def test_the_runner_prints_and_writes_a_failed_chain(caplog) -> None:
+    import logging
+
     from dataeval_flow._runner import _collect_results
 
-    collected = _collect_results({"t": _result(_MIXED)}, verbosity=0)
+    with caplog.at_level(logging.INFO):
+        collected = _collect_results({"t": _result(_MIXED)}, verbosity=0)
     assert collected.failures == 1
     assert "t" in collected.merged
     assert list(collected.merged["t"]["steps"]) == ["few", "dupes", "boom", "after"]
+    assert "FAILED: t" in caplog.text
+    assert "OK: t" not in caplog.text

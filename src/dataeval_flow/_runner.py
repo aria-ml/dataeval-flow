@@ -89,7 +89,10 @@ def _collect_results(
         if isinstance(result, WorkflowResult) and result.warning_count:
             collected.warned.append(name)
 
-        _logger.info("  OK: %s", name)
+        # A failed chain already logged FAILED above; its partial steps are still printed and written, but it
+        # never gets to claim OK too.
+        if result.success:
+            _logger.info("  OK: %s", name)
         flush_logs()
 
     return collected
