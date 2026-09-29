@@ -158,13 +158,13 @@ def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequen
     return ChainGraph(task.name, slots, (spec,), one_step=True)
 
 
-def task_problems(pipeline: "PipelineConfig") -> list[str]:
+def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) -> list[str]:
     """Why a task cannot run the custom workflow it names: a list key its sources do not bind, a missing extractor,
-    or two exports to one place."""
+    or two exports to one place. `graphs` holds each custom workflow's graph, by name, as :func:`build_graph` built
+    it."""
     workflows = {
         workflow.name: workflow for workflow in pipeline.workflows or () if isinstance(workflow, CustomWorkflowConfig)
     }
-    graphs = {name: build_graph(workflow, pipeline) for name, workflow in workflows.items()}
     problems: list[str] = []
     owners: dict[str, str] = {export.name: f"export '{export.name}'" for export in pipeline.exports or ()}
     for task in pipeline.tasks or ():

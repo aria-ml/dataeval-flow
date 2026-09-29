@@ -180,3 +180,15 @@ def test_a_view_step_naming_a_pool_view_is_keyed_on_its_operations() -> None:
     (spec,) = build_graph(config.workflows[0], config).steps  # type: ignore[arg-type,index]
     assert spec.config.view is None  # type: ignore[attr-defined]
     assert [op.params for op in spec.config.operations] == [{"size": 4}]  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("toys")
+def test_each_custom_workflows_graph_is_built_once_at_load() -> None:
+    from unittest.mock import patch
+
+    from dataeval_flow._chain import _graph
+
+    steps = [{"name": "k", "transform": "toy-keep", "input": "a"}]
+    with patch.object(_graph, "build_graph", wraps=_graph.build_graph) as built:
+        _load(steps, tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}])
+    assert built.call_count == 1

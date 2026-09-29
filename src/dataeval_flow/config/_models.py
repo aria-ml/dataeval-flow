@@ -500,10 +500,12 @@ class PipelineConfig(BaseModel):
         """Refuse a custom workflow whose steps do not connect, and a task it cannot run, before any data is read."""
         from dataeval_flow._chain._graph import build_graph, task_problems
 
-        for workflow in self.workflows or ():
-            if isinstance(workflow, CustomWorkflowConfig):
-                build_graph(workflow, self)
-        problems = task_problems(self)
+        graphs = {
+            workflow.name: build_graph(workflow, self)
+            for workflow in self.workflows or ()
+            if isinstance(workflow, CustomWorkflowConfig)
+        }
+        problems = task_problems(self, graphs)
         if problems:
             raise ValueError(" ".join(problems))
         return self
