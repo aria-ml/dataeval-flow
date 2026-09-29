@@ -1,7 +1,7 @@
 """Preprocessing utilities for image transforms.
 
 Provides configuration-driven preprocessing using torchvision.transforms.v2.
-A step names a registered transform (``dataeval_flow.config.transforms``, e.g. ``ToRGB``)
+A step names a registered transform (``dataeval_flow.config.image_transforms``, e.g. ``ToRGB``)
 or any v2 transform; the registry refuses a transform that takes a v2 name, so the
 two never collide.
 
@@ -36,8 +36,8 @@ from numpy.typing import NDArray
 
 from dataeval_flow._logging import LogMessage
 from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
-from dataeval_flow.config.transforms._base import Transform
-from dataeval_flow.config.transforms._registry import resolve_step
+from dataeval_flow.config.image_transforms._base import ImageTransform
+from dataeval_flow.config.image_transforms._registry import resolve_step
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def build_preprocessing(steps: Sequence[PreprocessingStep]) -> _PreprocessingTra
         params = dict(step.params)
 
         # Convert torchvision's special parameter types. A registered transform takes its params as written.
-        if not (isinstance(transform_cls, type) and issubclass(transform_cls, Transform)):
+        if not (isinstance(transform_cls, type) and issubclass(transform_cls, ImageTransform)):
             for key, converter in param_converters.items():
                 if key in params:
                     params[key] = converter(params[key])

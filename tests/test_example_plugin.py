@@ -9,7 +9,7 @@ import yaml
 from dataeval_flow import PipelineConfig, run, run_tasks
 from dataeval_flow.config import PreprocessingStep, PreprocessorConfig, TaskConfig
 from dataeval_flow.config.extractors import list_extractors
-from dataeval_flow.config.transforms import list_transforms
+from dataeval_flow.config.image_transforms import list_image_transforms
 from dataeval_flow.evaluators import list_evaluators
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult
 from dataeval_flow.workflows import get_workflow, list_workflows
@@ -20,7 +20,7 @@ EXAMPLES = {
     "dataeval_flow.workflows": [("example.count", "tests.example_plugin:CountWorkflow")],
     "dataeval_flow.evaluators": [("example.brightness", "tests.example_plugin:BrightnessEvaluator")],
     "dataeval_flow.extractors": [("example.mean", "tests.example_plugin:MeanExtractor")],
-    "dataeval_flow.transforms": [("example.Invert", "tests.example_plugin:Invert")],
+    "dataeval_flow.image_transforms": [("example.Invert", "tests.example_plugin:Invert")],
 }
 
 
@@ -36,7 +36,7 @@ def test_every_example_is_listed() -> None:
     assert "example.count" in [cls.name for cls in list_workflows()]
     assert "example.brightness" in [cls.name for cls in list_evaluators()]
     assert "example.mean" in [cls.name for cls in list_extractors()]
-    assert "example.Invert" in [cls.name for cls in list_transforms()]
+    assert "example.Invert" in [cls.name for cls in list_image_transforms()]
 
 
 @pytest.mark.usefixtures("examples")
@@ -118,7 +118,7 @@ def installed_examples(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     plugin, and every registry reads it from there. Nothing is installed into the environment either.
     """
     from dataeval_flow.config.extractors._registry import EXTRACTORS
-    from dataeval_flow.config.transforms._registry import TRANSFORMS
+    from dataeval_flow.config.image_transforms._registry import IMAGE_TRANSFORMS
     from dataeval_flow.evaluators._registry import EVALUATORS
     from dataeval_flow.workflows._registry import WORKFLOWS
 
@@ -131,7 +131,7 @@ def installed_examples(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     )
     (dist_info / "entry_points.txt").write_text(groups)
     monkeypatch.syspath_prepend(str(tmp_path))
-    registries = [WORKFLOWS, EVALUATORS, EXTRACTORS, TRANSFORMS]
+    registries = [WORKFLOWS, EVALUATORS, EXTRACTORS, IMAGE_TRANSFORMS]
     for registry in registries:
         registry._reset()
     yield
@@ -144,14 +144,14 @@ def test_the_examples_are_found_through_real_package_metadata() -> None:
     """The registries read real ``importlib.metadata`` entry points."""
     from importlib.metadata import distribution
 
-    from dataeval_flow.config.transforms import get_transform
+    from dataeval_flow.config.image_transforms import get_image_transform
 
     assert distribution("flow-example-plugin").entry_points
     assert "example.count" in [cls.name for cls in list_workflows()]
     assert "example.brightness" in [cls.name for cls in list_evaluators()]
     assert "example.mean" in [cls.name for cls in list_extractors()]
-    assert "example.Invert" in [cls.name for cls in list_transforms()]
-    assert get_transform("example.Invert") is Invert
+    assert "example.Invert" in [cls.name for cls in list_image_transforms()]
+    assert get_image_transform("example.Invert") is Invert
     text = (
         "workflows:\n  - type: example.count\n"
         "evaluators:\n  - type: example.brightness\n"

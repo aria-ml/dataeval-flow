@@ -6273,7 +6273,7 @@
     },
     "PreprocessingStep": {
       "additionalProperties": false,
-      "description": "One step of a preprocessor: a transform, by name, and the keyword arguments it is built with.\n\nA step names a registered transform (see :func:`~dataeval_flow.config.transforms.list_transforms`) or, failing\nthat, a ``torchvision.transforms.v2`` transform (https://pytorch.org/vision/stable/transforms.html).\n\nExamples\n--------\n>>> from dataeval_flow.config import PreprocessingStep\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
+      "description": "One step of a preprocessor: a transform, by name, and the keyword arguments it is built with.\n\nA step names a registered transform\n(see :func:`~dataeval_flow.config.image_transforms.list_image_transforms`) or, failing that, a\n``torchvision.transforms.v2`` transform (https://pytorch.org/vision/stable/transforms.html).\n\nExamples\n--------\n>>> from dataeval_flow.config import PreprocessingStep\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
       "properties": {
         "step": {
           "description": "The transform: a registered one's name, such as `ToRGB`, or a torchvision.transforms.v2 one's.",

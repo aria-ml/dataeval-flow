@@ -125,6 +125,8 @@
   `-v` and `result.txt` show it whole
 - `data-coverage` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
   per-dimension rescale had shifted `dispersion` and the coverage radius
+- Renamed `dataeval_flow.config.transforms` to `dataeval_flow.config.image_transforms` (`ImageTransform`,
+  `get_image_transform`, `list_image_transforms`, entry-point group `dataeval_flow.image_transforms`)
 
 ### Fixed
 

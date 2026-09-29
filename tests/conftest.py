@@ -34,11 +34,11 @@ def plugins(monkeypatch: pytest.MonkeyPatch):
 
     import dataeval_flow._registry as registry_module
     from dataeval_flow.config.extractors._registry import EXTRACTORS
-    from dataeval_flow.config.transforms._registry import TRANSFORMS
+    from dataeval_flow.config.image_transforms._registry import IMAGE_TRANSFORMS
     from dataeval_flow.evaluators._registry import EVALUATORS
     from dataeval_flow.workflows._registry import WORKFLOWS
 
-    registries = [WORKFLOWS, EVALUATORS, EXTRACTORS, TRANSFORMS]
+    registries = [WORKFLOWS, EVALUATORS, EXTRACTORS, IMAGE_TRANSFORMS]
     served: dict[str, list[tuple[str, str]]] = {}
 
     def entry_points(*, group: str) -> list[EntryPoint]:

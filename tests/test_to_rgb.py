@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from dataeval_flow.config.transforms import ToRGB, get_transform
+from dataeval_flow.config.image_transforms import ToRGB, get_image_transform
 
 pytestmark = pytest.mark.required
 
@@ -57,9 +57,9 @@ class TestRegistry:
 
     def test_torgb_registered(self):
         """ToRGB is registered under its name."""
-        assert get_transform("ToRGB") is ToRGB
+        assert get_image_transform("ToRGB") is ToRGB
 
     def test_an_unregistered_name_is_refused(self):
         """A torchvision name is not a registered transform."""
-        with pytest.raises(ValueError, match="Unknown transform: 'Resize'"):
-            get_transform("Resize")
+        with pytest.raises(ValueError, match="Unknown image transform: 'Resize'"):
+            get_image_transform("Resize")

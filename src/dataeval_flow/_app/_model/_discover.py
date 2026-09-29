@@ -105,13 +105,13 @@ def _introspect_params(cls: type) -> list[ParamInfo]:
 def list_transforms() -> list[str]:
     """Return sorted names of available transforms.
 
-    Includes the registered transforms (``dataeval_flow.config.transforms``, plugins included)
+    Includes the registered transforms (``dataeval_flow.config.image_transforms``, plugins included)
     alongside ``torchvision.transforms.v2`` classes, mirroring how
     ``build_preprocessing`` resolves step names.
     """
     from torchvision.transforms import v2
 
-    from dataeval_flow.config.transforms._registry import list_transforms as list_registered_transforms
+    from dataeval_flow.config.image_transforms._registry import list_image_transforms as list_registered_transforms
 
     skip = {
         "Transform",
@@ -161,7 +161,7 @@ def get_transform_params(name: str) -> list[ParamInfo]:
     Resolves the name as ``build_preprocessing`` does; a name that resolves to nothing,
     or to a plugin that failed to load, has no params to show.
     """
-    from dataeval_flow.config.transforms._registry import resolve_step
+    from dataeval_flow.config.image_transforms._registry import resolve_step
 
     try:
         cls = resolve_step(name)

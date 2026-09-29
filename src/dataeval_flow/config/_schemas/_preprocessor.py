@@ -9,8 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field
 class PreprocessingStep(BaseModel):
     """One step of a preprocessor: a transform, by name, and the keyword arguments it is built with.
 
-    A step names a registered transform (see :func:`~dataeval_flow.config.transforms.list_transforms`) or, failing
-    that, a ``torchvision.transforms.v2`` transform (https://pytorch.org/vision/stable/transforms.html).
+    A step names a registered transform
+    (see :func:`~dataeval_flow.config.image_transforms.list_image_transforms`) or, failing that, a
+    ``torchvision.transforms.v2`` transform (https://pytorch.org/vision/stable/transforms.html).
 
     Examples
     --------

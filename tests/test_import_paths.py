@@ -54,7 +54,7 @@ def test_internal_modules_are_private(name: str) -> None:
     assert importlib.import_module(f"dataeval_flow._{name}")
 
 
-@pytest.mark.parametrize("kind", ["extractors", "transforms"])
+@pytest.mark.parametrize("kind", ["extractors", "image_transforms"])
 def test_input_side_kinds_live_under_config(kind: str) -> None:
     """The top level holds the doers; a kind that only feeds them lives under ``config``."""
     with pytest.raises(ModuleNotFoundError):
@@ -63,10 +63,18 @@ def test_input_side_kinds_live_under_config(kind: str) -> None:
 
 
 def test_the_preprocessors_module_is_gone() -> None:
-    """Its `ToRGB` is a registered transform now, imported from `dataeval_flow.config.transforms`."""
+    """Its `ToRGB` is a registered transform now, imported from `dataeval_flow.config.image_transforms`."""
     for name in ("dataeval_flow.preprocessors", "dataeval_flow._preprocessors"):
         with pytest.raises(ModuleNotFoundError):
             importlib.import_module(name)
+
+
+def test_the_preprocessing_package_is_named_for_images() -> None:
+    """`config.transforms` was renamed `config.image_transforms`, freeing `Transform` for dataset steps."""
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("dataeval_flow.config.transforms")
+    module = importlib.import_module("dataeval_flow.config.image_transforms")
+    assert {"ImageTransform", "ToRGB", "get_image_transform", "list_image_transforms"} <= set(module.__all__)
 
 
 def test_config_schemas_is_private() -> None:

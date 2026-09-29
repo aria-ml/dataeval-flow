@@ -24,7 +24,7 @@ PUBLIC = [
     "dataeval_flow.evaluators",
     "dataeval_flow.evaluators.quality",
     "dataeval_flow.config.extractors",
-    "dataeval_flow.config.transforms",
+    "dataeval_flow.config.image_transforms",
     *(f"dataeval_flow.workflows.{name}" for name in WORKFLOW_PACKAGES),
 ]
 

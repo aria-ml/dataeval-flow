@@ -28,7 +28,7 @@ class TestPipInstall:
             "dataeval_flow.workflows",
             "dataeval_flow.evaluators",
             "dataeval_flow.config.extractors",
-            "dataeval_flow.config.transforms",
+            "dataeval_flow.config.image_transforms",
         ):
             assert importlib.import_module(name) is not None
 

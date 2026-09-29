@@ -83,12 +83,12 @@ Every public name has one home. Take the first rule that fits:
 3. **Anything else a pipeline file describes → `dataeval_flow.config`.** The plain
    sections share one flat list: datasets, sources, views, preprocessors, metadata,
    stats, ontologies, tasks, exports and logging. A section whose entries are plugins
-   has a subpackage: `config.extractors`, and `config.transforms` for what a
+   has a subpackage: `config.extractors`, and `config.image_transforms` for what a
    preprocessor's `step:` names.
 4. **Anything else is private:** an underscore somewhere in its import path.
 
 A plugin registers under the entry-point group `dataeval_flow.<kind>`: `workflows`,
-`evaluators`, `extractors` or `transforms`. The group names the kind, not the module.
+`evaluators`, `extractors` or `image_transforms`. The group names the kind, not the module.
 
 `tests/public_api.txt` pins the result, and `tests/test_public_surface.py` checks that
 each public name has one import path and every other module is private. When the
