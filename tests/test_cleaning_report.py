@@ -859,7 +859,7 @@ class TestFindingBlocks:
             img_outliers={"count": 1, "issues": [old]},
             target_outliers={"count": 1, "issues": [{**old, "target_index": 0}]},
         )
-        with caplog.at_level(logging.WARNING, logger="dataeval_flow.workflows._outliers"):
+        with caplog.at_level(logging.WARNING, logger="dataeval_flow.evaluators.quality._report"):
             build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
         (record,) = caplog.records
         assert record.getMessage().startswith("2 outlier flag(s) came without the limits they crossed")

@@ -10,10 +10,10 @@ from dataeval_flow._binning import attach_binning, describe_binning
 from dataeval_flow._blocks import ItemRef
 from dataeval_flow._metadata import build_metadata, expand_declared_bins
 from dataeval_flow._policy import build_correction, policy_for
+from dataeval_flow._tables import GROUP_SHOWN
 from dataeval_flow._triage import TriageFinding, find_issues, incomplete_factors, render_stanza, to_policy_stanza
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._context import WorkflowContext
-from dataeval_flow.workflows._tables import GROUP_SHOWN
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
 from dataeval_flow.workflows.metadata_triage._outputs import (
     MetadataTriageMetadata,

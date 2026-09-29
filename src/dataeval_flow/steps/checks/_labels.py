@@ -8,12 +8,12 @@ from typing import Any, ClassVar
 from pydantic import Field
 
 from dataeval_flow._blocks import Block, Paragraph
+from dataeval_flow.evaluators.bias._report import ranked_table
 from dataeval_flow.evaluators.quality._result import LabelHealthOutput
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._limits import exceeds
 from dataeval_flow.workflows._base import Finding, render_label_source
-from dataeval_flow.workflows._tables import ranked_table
 
 
 class ClassImbalanceConfig(CheckConfig):

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from dataeval_flow._result import Result
     from dataeval_flow._sources import ResolvedSource, SourceOperand
     from dataeval_flow._stats import ResolvedStatsPolicy
+    from dataeval_flow._tables import TableLimits
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas._task import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
@@ -30,7 +31,6 @@ if TYPE_CHECKING:
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
-    from dataeval_flow.workflows._tables import TableLimits
 
 
 @runtime_checkable
@@ -356,9 +356,9 @@ def _run_single_task(
     steps are skipped with a reason.
     """
     from dataeval_flow._kind import input_problem, result_type_of
+    from dataeval_flow._tables import TableLimits
     from dataeval_flow.evaluators._result import EvaluatorResult
     from dataeval_flow.workflows._result import WorkflowResult
-    from dataeval_flow.workflows._tables import TableLimits
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
@@ -540,9 +540,9 @@ def _run_one_step(
     from dataeval_flow._chain._preflight import step_contexts
     from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
     from dataeval_flow._kind import result_type_of
+    from dataeval_flow._tables import limited_tables
     from dataeval_flow.evaluators._result import EvaluatorResult
     from dataeval_flow.workflows._result import WorkflowResult
-    from dataeval_flow.workflows._tables import limited_tables
 
     source_names = list(dataset_contexts)
     graph = one_step_graph(task, instance, source_names)
@@ -598,8 +598,8 @@ def _run_custom_task(
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
     from dataeval_flow._sources import label_space_records
+    from dataeval_flow._tables import limited_tables
     from dataeval_flow.steps._result import ChainMetadata, ChainResult
-    from dataeval_flow.workflows._tables import limited_tables
 
     names = task.source_names
     extractor_cfg = setup.config if setup is not None else None

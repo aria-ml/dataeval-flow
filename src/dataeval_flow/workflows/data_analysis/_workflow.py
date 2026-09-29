@@ -40,12 +40,13 @@ from dataeval_flow._cache import selection_repr as _sel_repr
 from dataeval_flow._policy import _ROW_LEVELS, derive_from, policy_for, resolve_policy
 from dataeval_flow._stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow._stats import columns_for, restrict_columns, stats_policy_for
+from dataeval_flow._tables import group_cells, table_limits
+from dataeval_flow.evaluators.quality._report import flagged_table, groups_table, limits_sentence, warn_if_unrecorded
 from dataeval_flow.workflows._base import Finding, Workflow, effective_value_range
 from dataeval_flow.workflows._common import compute_metadata_summary as _compute_metadata_summary
 from dataeval_flow.workflows._common import to_serializable as _to_serializable
 from dataeval_flow.workflows._context import WorkflowContext
-from dataeval_flow.workflows._outliers import flagged_table, limits_sentence, warn_if_unrecorded
-from dataeval_flow.workflows._tables import group_cells, groups_table, table_limits, unlabelled_blocks
+from dataeval_flow.workflows._tables import unlabelled_blocks
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisConfig, DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_analysis._outputs import (
     BiasResult,

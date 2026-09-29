@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Section, Table
+from dataeval_flow._tables import table_limits
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import table_limits
 from dataeval_flow.workflows.data_prioritization._config import (
     DataPrioritizationConfig,
     DataPrioritizationHealthThresholds,

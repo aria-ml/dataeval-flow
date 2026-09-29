@@ -3,17 +3,12 @@
 import pytest
 
 from dataeval_flow._blocks import BulletList, Code, Column, Fields, ItemRef, Paragraph, Section, Table
+from dataeval_flow._tables import TableLimits, group_cells, limited_tables, table_limits
+from dataeval_flow.evaluators.bias._report import ranked_table
+from dataeval_flow.evaluators.quality._report import groups_table
+from dataeval_flow.evaluators.scope._report import uncovered_blocks
 from dataeval_flow.workflows import Finding
-from dataeval_flow.workflows._tables import (
-    TableLimits,
-    group_cells,
-    groups_table,
-    limited_tables,
-    ranked_table,
-    table_limits,
-    uncovered_blocks,
-    unlabelled_blocks,
-)
+from dataeval_flow.workflows._tables import unlabelled_blocks
 from tests.finding_blocks import bullets, codes, column, fields, paragraphs, rendered, sections, tables, walk
 
 pytestmark = pytest.mark.required

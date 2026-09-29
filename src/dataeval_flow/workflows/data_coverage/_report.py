@@ -6,8 +6,9 @@ from typing import Any, Literal
 import yaml
 
 from dataeval_flow._blocks import Block, Cell, Code, Column, Fields, ItemRef, Paragraph, Table
+from dataeval_flow.evaluators.scope._report import uncovered_blocks
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import uncovered_blocks, unlabelled_blocks
+from dataeval_flow.workflows._tables import unlabelled_blocks
 from dataeval_flow.workflows.data_coverage._config import DataCoverageHealthThresholds
 from dataeval_flow.workflows.data_coverage._outputs import DataCoverageRawOutput, LabelSpaceCoverage, UncoveredItem
 

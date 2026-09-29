@@ -1,9 +1,6 @@
-"""Outlier evidence as report blocks: a row per flagged item with its flags, and a row per metric with its limits.
+"""The quality evaluators' report tables: flagged items with their flags, each metric's limits, and duplicate groups.
 
-Data cleaning and data analysis both find outliers with DataEval's ``Outliers``, whose issues carry,
-beside each flagged value, the population it was judged in: which limit it crossed, the limit, its
-percentile, and the population's mean and standard deviation. These builders turn those issues into
-the tables both workflows' findings show, so the two read the same way.
+data-cleaning and data-analysis report with them too.
 """
 
 __all__ = [
@@ -11,6 +8,7 @@ __all__ = [
     "OutlierIssuesDict",
     "flag_of",
     "flagged_table",
+    "groups_table",
     "limits_sentence",
     "limits_table",
     "warn_if_unrecorded",
@@ -25,7 +23,7 @@ from typing_extensions import TypedDict
 
 from dataeval_flow._blocks import Block, Cell, Column, Flag, ItemRef, Paragraph, Table
 from dataeval_flow._blocks._table import fair_shares
-from dataeval_flow.workflows._tables import table_limits
+from dataeval_flow._tables import group_cells, table_limits
 
 _logger = logging.getLogger(__name__)
 
@@ -215,3 +213,37 @@ def limits_sentence(method: str | None, threshold: float | None) -> str | None:
         return None
     default, sentence = _METHODS[method]
     return sentence.format(t=f"{default if threshold is None else threshold:g}")
+
+
+def groups_table(groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str) -> list[Block]:
+    """Duplicate groups, largest first: each one's kind, size, and up to eight of its items, named and pictured.
+
+    *groups* are each group's kind (``exact`` or ``near``), its number among its kind in ``output.raw``,
+    where every one of its items is, and its items. At most ``result: max_rows``, 500 by default, are listed,
+    with a paragraph naming the rest.
+    """
+    if not groups:
+        return []
+    # Stable, so groups of one size keep exact before near, and each kind its own order.
+    ranked = sorted(groups, key=lambda group: -len(group[2]))
+    limits = table_limits()
+    rows: list[dict[str, Cell]] = []
+    for kind, number, refs in ranked[: limits.rows]:
+        items, shown = group_cells(refs)
+        rows.append({"group": number, "kind": kind, "count": len(refs), "items": items, "image": shown})
+    columns = [
+        Column(key="group", header="Group"),
+        Column(key="kind", header="Kind", align="left"),
+        Column(key="count", header="Count"),
+        Column(key="items", header="Items", align="left"),
+        Column(key="image", kind="image"),
+    ]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+    if limits.rows is not None and len(ranked) > limits.rows:
+        blocks.append(
+            Paragraph(
+                text=f"{len(ranked):,} groups of {noun}; the {limits.rows:,} largest are listed, and every one is in "
+                "`output.raw`."
+            )
+        )
+    return blocks

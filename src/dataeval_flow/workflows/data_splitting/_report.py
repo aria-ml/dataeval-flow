@@ -6,8 +6,9 @@ from collections.abc import Sequence
 from typing import Any, Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Scalar, Table
+from dataeval_flow.evaluators.bias._report import ranked_table
+from dataeval_flow.evaluators.scope._report import uncovered_blocks
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import ranked_table, uncovered_blocks
 from dataeval_flow.workflows.data_splitting._outputs import DataSplittingRawOutput, SplitInfo
 
 

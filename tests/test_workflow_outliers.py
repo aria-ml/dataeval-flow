@@ -10,7 +10,7 @@ import pytest
 from dataeval_flow._blocks import Block, Cell, Column, Paragraph, Table
 from dataeval_flow._blocks._html import render_html
 from dataeval_flow._blocks._text import render_text
-from dataeval_flow.workflows._outliers import (
+from dataeval_flow.evaluators.quality._report import (
     OutlierIssueRecord,
     flag_of,
     flagged_table,
@@ -96,14 +96,14 @@ _OLD = {"item_index": 3, "metric_name": "brightness", "metric_value": 0.9}
 
 class TestUnrecordedLimits:
     def test_one_warning_covers_every_issue_without_its_limits(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="dataeval_flow.workflows._outliers"):
+        with caplog.at_level(logging.WARNING, logger="dataeval_flow.evaluators.quality._report"):
             warn_if_unrecorded([_OLD, {**_OLD, "item_index": 4}, _issue(0, "a")])
         (record,) = caplog.records
         assert record.getMessage().startswith("2 outlier flag(s) came without the limits they crossed")
         assert "Upgrade DataEval" in record.getMessage()
 
     def test_issues_with_their_limits_warn_nothing(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="dataeval_flow.workflows._outliers"):
+        with caplog.at_level(logging.WARNING, logger="dataeval_flow.evaluators.quality._report"):
             warn_if_unrecorded([_issue(0, "a")])
         assert not caplog.records
 
