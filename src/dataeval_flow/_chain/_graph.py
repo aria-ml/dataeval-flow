@@ -261,7 +261,7 @@ def _resolve(
             f"place, so it does not run once per element: name one element, such as `{element}`."
         )
     if issubclass(impl, Transform):
-        _same_node(entry, impl, addresses, specs)
+        _same_node(entry, impl, addresses, specs, types)
         bound = {
             str(address): _typed(address, entry, workflow, types, later, empty).classes
             for binding in bindings
@@ -501,14 +501,17 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
 
 
 def _same_node(
-    entry: StepEntry, impl: type[Transform[Any]], addresses: dict[str, tuple[Address, ...]], specs: dict[str, StepSpec]
+    entry: StepEntry,
+    impl: type[Transform[Any]],
+    addresses: dict[str, tuple[Address, ...]],
+    specs: dict[str, StepSpec],
+    types: dict[str, ValueType],
 ) -> None:
     """Refuse an Output a transform applies to a Dataset other than exactly the one it was computed on."""
     on = tuple(str(address) for address in addresses.get("input", ()))
     for port in impl.same_node:
         for address in addresses.get(port, ()):
-            producer = specs.get(address.name)
-            computed = tuple(str(item) for item in producer.addresses("input")) if producer is not None else ()
+            computed = _computed_on(address, specs, types)
             # A ranking may read a reference set after the Dataset it indexes; then only its first input counts.
             if (computed[:1] if impl.same_node_first_input else computed) != on:
                 where = ", ".join(f"`{item}`" for item in computed) or "no Dataset"
@@ -517,3 +520,28 @@ def _same_node(
                     f"Step '{entry.name}' reads `{address}`, which was computed on {where}, not on {target}: it "
                     "applies only to the Dataset it was computed on."
                 )
+
+
+def _computed_on(address: Address, specs: dict[str, StepSpec], types: dict[str, ValueType]) -> tuple[str, ...]:
+    """The addresses of the Datasets the Output at `address` was computed on: its producer's `input`.
+
+    An element of a producer run once per element, such as `dupes[0]`, was computed on that element of each list the
+    producer ran over, so each of those lists is named by the same key: `k.train[0]`.
+    """
+    producer = specs.get(address.name)
+    if producer is None:
+        return ()
+    binding = next((binding for binding in producer.bindings if binding.port.name == "input"), None)
+    if binding is None:
+        return ()
+    if address.key is None or not producer.broadcast or binding.port.is_list:
+        return tuple(str(item) for item in binding.addresses)
+    return tuple(
+        str(replace(item, key=address.key)) if _is_list(item, types) else str(item) for item in binding.addresses
+    )
+
+
+def _is_list(address: Address, types: dict[str, ValueType]) -> bool:
+    """Whether `address` names a whole list, rather than one item or one element of a list."""
+    value = types.get(str(address))
+    return value is not None and value.is_list

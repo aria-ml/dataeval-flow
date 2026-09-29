@@ -65,8 +65,9 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 
 `remove`, `select` and `conform` apply an evaluator's output to a Dataset, and only to the Dataset it was computed on.
 The step that `plans:`, `ranking:` or `alignment:` names must have read exactly the Dataset the transform's own
-`input:` names. The config refuses anything else when it loads. A `scope.prioritize` ranking may also read a reference
-set, so for `select` only the first Dataset it read must match.
+`input:` names. The config refuses anything else when it loads. One element of a step that ran once per element of a
+list was computed on that element: `dupes[0]`, where `dupes` read `kfold.train`, applies to `kfold.train[0]`. A
+`scope.prioritize` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
 
 `dataeval-flow steps` lists every step a chain can use, and `dataeval-flow steps NAME` prints one step's ports and
 settings.

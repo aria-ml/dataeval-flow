@@ -130,3 +130,22 @@ def test_an_alignment_of_another_dataset_fails_the_load() -> None:
             datasets={"src": _LOSSLESS},
             extra={"ontologies": [_ONTOLOGY]},
         )
+
+
+def test_an_alignment_computed_on_one_element_of_a_list_conforms_that_element() -> None:
+    steps = [
+        {"name": "aligned", "evaluator": "align", "input": "all"},
+        {"name": "c", "transform": "conform", "input": "all[lossy]", "alignment": "aligned[lossy]", "allow": "lossy"},
+    ]
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": [{"name": "all", "list": True}], "steps": steps}],
+        evaluators=[LabelAlignmentConfig(name="align", ontology="vehicles")],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["lossless", "lossy"]}],
+        datasets={"lossless": _LOSSLESS, "lossy": _LOSSY},
+        extra={"ontologies": [_ONTOLOGY]},
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    conformed = result.steps["c"]
+    assert (conformed.status, conformed.inputs) == ("ok", ["all[lossy]", "aligned[lossy]"])
+    assert (conformed.details or {})["collapses"] == {"Vehicle": ["car", "truck"]}

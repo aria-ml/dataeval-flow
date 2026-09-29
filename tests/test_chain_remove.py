@@ -194,3 +194,35 @@ def test_plan_arguments_are_checked_by_name_alone_when_their_hints_do_not_resolv
         "`plans: dupes` passes kept, which _HintedForTypeCheckers.deduplicate does not take; it takes dup_types, "
         "keep, exclude_groups, levels."
     )
+
+
+_FOLDS = [
+    {"name": "k", "transform": "kfold", "input": "a", "folds": 2},
+    {"name": "dupes", "evaluator": "dupes", "input": "k.train"},
+]
+
+
+def test_a_plan_computed_on_one_element_applies_to_that_element() -> None:
+    result = _run([*_FOLDS, {"name": "clean", "transform": "remove", "input": "k.train[1]", "plans": {"dupes[1]": {}}}])
+    clean = result.steps["clean"]
+    assert (clean.status, clean.inputs) == ("ok", ["k.train[1]", "dupes[1]"])
+    assert list(result.steps["k"].output["train"]["1"].resolve_indices()) == [0, 1, 2, 3, 4, 5]
+    assert list(clean.output.resolve_indices()) == [0, 1, 2, 3, 4]  # ToyImages' item 5 copies item 0
+    assert clean.details == {"removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}}
+
+
+def test_a_plan_computed_on_another_element_fails_the_load() -> None:
+    steps = [*_FOLDS, {"name": "clean", "transform": "remove", "input": "k.train[0]", "plans": {"dupes[1]": {}}}]
+    match = re.escape("reads `dupes[1]`, which was computed on `k.train[1]`, not on `k.train[0]`")
+    with pytest.raises(ValidationError, match=match):
+        _run(steps)
+
+
+def test_a_plan_list_applies_to_the_list_it_was_computed_on_element_by_element() -> None:
+    result = _run([*_FOLDS, {"name": "clean", "transform": "remove", "input": "k.train", "plans": {"dupes": {}}}])
+    clean = result.steps["clean"]
+    elements = clean.elements or {}
+    assert [(key, element.status, element.inputs) for key, element in elements.items()] == [
+        ("0", "ok", ["k.train[0]", "dupes[0]"]),
+        ("1", "ok", ["k.train[1]", "dupes[1]"]),
+    ]
