@@ -29,35 +29,24 @@ class DataType(StrEnum):
 
 @dataclass(frozen=True)
 class Port:
-    """One input or output of a step.
-
-    Parameters
-    ----------
-    name : str
-        The config field that feeds an input port, such as ``input`` or ``plans``, or an output's name.
-    type : DataType
-        What flows along it.
-    classes : tuple of type
-        For an ``output`` port, the output classes it accepts or produces. Empty accepts any.
-    kinds : frozenset of str, optional
-        For a ``dataset`` port, the Dataset kinds it accepts or produces, from :data:`DATASET_KINDS`. ``None``
-        accepts any.
-    is_list : bool
-        Whether the port takes or gives a whole keyed list rather than one item.
-    count : SourceCount, optional
-        For a Dataset port fed several addresses, how many it allows.
-    derives : frozenset of InputKind
-        For an evaluator's Dataset port, the kinds Flow derives from it.
-    """
+    """One input or output of a step."""
 
     # ``builtins.type``: past the ``type`` field below, a bare ``type`` names the field, not the builtin.
     name: str
+    """The config field that feeds an input port, such as ``input`` or ``plans``, or an output's name."""
     type: DataType
+    """What flows along it."""
     classes: tuple[builtins.type, ...] = ()
+    """For an ``output`` port, the output classes it accepts or produces. Empty accepts any."""
     kinds: frozenset[str] | None = None
+    """For a ``dataset`` port, the Dataset kinds it accepts or produces, from :data:`DATASET_KINDS`. ``None`` accepts
+    any."""
     is_list: bool = False
+    """Whether the port takes or gives a whole keyed list rather than one item."""
     count: SourceCount | None = None
+    """For a Dataset port fed several addresses, how many it allows."""
     derives: frozenset[InputKind] = frozenset()
+    """For an evaluator's Dataset port, the kinds Flow derives from it."""
 
     def accepts_class(self, cls: builtins.type | None) -> bool:
         """Whether an output of class `cls` may flow into this port."""

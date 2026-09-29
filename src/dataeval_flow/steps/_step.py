@@ -185,7 +185,7 @@ class Transform(Step, ABC, Generic[ConfigT]):
 
     @classmethod
     def output_keys(cls, config: ConfigT) -> Mapping[str, tuple[str, ...]]:  # noqa: ARG003
-        """For each list output whose keys the settings fix, those keys, e.g. ``kfold``'s ``"0"``..``"k-1"``."""
+        """For each list output whose keys the settings fix, those keys, e.g. ``kfold``'s ``"0"`` to ``"k-1"``."""
         return {}
 
     @classmethod

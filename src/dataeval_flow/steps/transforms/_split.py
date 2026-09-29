@@ -118,7 +118,7 @@ class SplitTransform(Transform[SplitConfig]):
 
 
 class KFoldTransform(Transform[KFoldConfig]):
-    """``kfold``: `folds` train and val pairs, as lists keyed ``"0"``..``"k-1"``, and one test."""
+    """``kfold``: `folds` train and val pairs, as lists keyed ``"0"`` to ``"k-1"``, and one test."""
 
     name: ClassVar[str] = "kfold"
     description: ClassVar[str] = "Splits a Dataset into k train and val folds, and one test."
@@ -131,7 +131,7 @@ class KFoldTransform(Transform[KFoldConfig]):
 
     @classmethod
     def output_keys(cls, config: KFoldConfig) -> Mapping[str, tuple[str, ...]]:
-        """``"0"``..``"k-1"`` for both lists."""
+        """``"0"`` to ``"k-1"`` for both lists."""
         keys = tuple(str(index) for index in range(config.folds))
         return {"train": keys, "val": keys}
 
