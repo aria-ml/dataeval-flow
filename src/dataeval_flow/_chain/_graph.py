@@ -253,6 +253,13 @@ def _resolve(
             f"Step '{entry.name}' reads a list on a port that takes one item, so it runs once per element; but it "
             "outputs lists, and lists do not nest."
         )
+    if broadcast and issubclass(impl, Transform) and not impl.broadcasts:
+        address, value = _first_list(bindings, entry, workflow, types, later, empty)
+        element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
+        raise GraphError(
+            f"Step '{entry.name}' reads `{address}`, a list, but transform '{type_id}' writes one Dataset to one "
+            f"place, so it does not run once per element: name one element, such as `{element}`."
+        )
     if issubclass(impl, Transform):
         _same_node(entry, impl, addresses, specs)
         bound = {
@@ -356,6 +363,24 @@ def _bind_inputs(
                 keys = _broadcast_keys(keys, value)
         bindings.append(PortBinding(port, found))
     return tuple(bindings), broadcast, keys
+
+
+def _first_list(
+    bindings: tuple[PortBinding, ...],
+    entry: StepEntry,
+    workflow: CustomWorkflowConfig,
+    types: dict[str, ValueType],
+    later: set[str],
+    empty: dict[str, frozenset[str]],
+) -> tuple[Address, ValueType]:
+    """The first address a step reads a list from on a port that takes one item, and what it holds."""
+    return next(
+        (address, value)
+        for binding in bindings
+        if not binding.port.is_list
+        for address in binding.addresses
+        if (value := _typed(address, entry, workflow, types, later, empty)).is_list
+    )
 
 
 def _count_problem(count: SourceCount, found: tuple[Address, ...], config: Any) -> str | None:

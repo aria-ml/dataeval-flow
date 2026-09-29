@@ -150,11 +150,12 @@ defaults, which for duplicates removes every exact copy but the first. Several p
 names is removed.
 
 `export` writes `clean` under the run's output directory, at `out/datasets/<task>.<step>/`: here
-`out/datasets/build.corpus/`. `to:` names another directory, and `mode:` says what to do when it already holds a
-dataset (`error` by default, `replace` or `append`). Beside the corpus, `provenance.json` records the lineage of what
-was written and each conform on the way, with its remap. A Dataset a chain made is written with its pixels encoded,
-not by reference to the image files, even where no step changed them. A run without `-o` writes nothing, and the
-export step is skipped with the reason "the run has no output directory".
+`out/datasets/build.corpus/`. It writes one Dataset: a list, such as `kfold.train`, fails the config load, so export one
+element of it, such as `kfold.train[0]`. `to:` names another directory, and `mode:` says what to do when it already
+holds a dataset (`error` by default, `replace` or `append`). Beside the corpus, `provenance.json` records the lineage of
+what was written and each conform on the way, with its remap. A Dataset a chain made is written with its pixels encoded,
+not by reference to the image files, even where no step changed them. A run without `-o` writes nothing, and the export
+step is skipped with the reason "the run has no output directory".
 
 ## 4. Check coverage and bias, and split
 

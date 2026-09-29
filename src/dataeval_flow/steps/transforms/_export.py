@@ -55,6 +55,8 @@ class ExportTransform(Transform[ExportStepConfig]):
     description: ClassVar[str] = "Writes an object-detection Dataset to disk as COCO, YOLO or another datamaite format."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, kinds=frozenset({"object_detection"})),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.EXPORT),)
+    # One destination per step, not per element: run once per element of a list, every run would write to that place.
+    broadcasts: ClassVar[bool] = False
 
     @classmethod
     def destinations(cls, config: ExportStepConfig, *, task: str, step: str) -> tuple[str, ...]:

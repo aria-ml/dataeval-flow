@@ -1,6 +1,7 @@
 """The export step: a chain's Dataset written to disk, recorded in the result (spec §6.3)."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -121,6 +122,42 @@ def test_two_exports_to_one_destination_fail_the_load() -> None:
     ]
     with pytest.raises(ValidationError, match="both export to `datasets/same`"):
         _config(steps)
+
+
+_FIRST_TWO = {"type": "Limit", "params": {"size": 2}}
+
+
+@pytest.mark.parametrize(
+    ("before", "read", "element"),
+    [
+        ([], "all", "all[<key>]"),
+        ([{"name": "folds", "transform": "kfold", "input": "one", "folds": 2}], "folds.train", "folds.train[0]"),
+        ([{"name": "few", "transform": "view", "input": "all", "operations": [_FIRST_TWO]}], "few", "few[<key>]"),
+    ],
+    ids=["list input", "list output", "broadcast"],
+)
+def test_an_export_step_reading_a_list_fails_the_load(before: list[dict[str, Any]], read: str, element: str) -> None:
+    steps = [*before, {"name": "corpus", "transform": "export", "input": read}]
+    workflow = {"name": "w", "inputs": ["one", {"name": "all", "list": True}], "steps": steps}
+    message = (
+        f"Step 'corpus' reads `{read}`, a list, but transform 'export' writes one Dataset to one place, so it does "
+        f"not run once per element: name one element, such as `{element}`."
+    )
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        chain_pipeline(workflows=[workflow], datasets={"src": _DETECTIONS})
+
+
+def test_an_export_step_reading_one_element_of_a_list_writes_it(tmp_path: Path) -> None:
+    steps = [
+        {"name": "folds", "transform": "kfold", "input": "a", "folds": 2},
+        {"name": "corpus", "transform": "export", "input": "folds.train[0]"},
+    ]
+    result = run_tasks(_config(steps), output_dir=tmp_path)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    items = {record.name: record.items for record in result.metadata.lineage}
+    assert (items["folds.train[0]"], result.steps["corpus"].output.items) == (2, 2)
+    assert len(_instances(tmp_path / "datasets" / "t.corpus")["images"]) == 2
 
 
 @pytest.mark.parametrize(

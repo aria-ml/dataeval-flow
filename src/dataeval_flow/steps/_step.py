@@ -114,7 +114,9 @@ class Transform(Step, ABC, Generic[ConfigT]):
     their producer may also read a reference set after that Dataset, as Prioritize does: only its first input is then
     compared. :meth:`bound_problem` refuses settings that do not fit the classes of the Outputs bound to them.
     :meth:`empty_outputs` names outputs its settings leave empty, and :meth:`destinations` the directories a run
-    writes. :meth:`details` reports what a run did, such as what it collapsed or dropped, for the JSON and the report.
+    writes. Set ``broadcasts`` false when a run cannot be repeated once per element of a list, as ``export``'s
+    cannot: every run would write to the same place. :meth:`details` reports what a run did, such as what it
+    collapsed or dropped, for the JSON and the report.
 
     Register the class under the ``dataeval_flow.transforms`` entry-point group, named by ``name``.
 
@@ -144,6 +146,7 @@ class Transform(Step, ABC, Generic[ConfigT]):
     outputs: ClassVar[tuple[Port, ...]]
     same_node: ClassVar[tuple[str, ...]] = ()
     same_node_first_input: ClassVar[bool] = False
+    broadcasts: ClassVar[bool] = True
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Bind ``config_type`` from the type argument, and require identity and ports on a concrete transform."""

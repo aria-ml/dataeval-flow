@@ -205,8 +205,10 @@ Writes an object-detection Dataset to disk, and records what it wrote. Configure
 {py:class}`~dataeval_flow.steps.transforms.ExportStepConfig`; writes through the same datamaite writers as
 top-level `exports:`.
 
-Reads `input`, an object-detection Dataset. Makes an export record: `path`, `format`, `mode`, `items` and
-`provenance`.
+Reads `input`, one object-detection Dataset. Makes an export record: `path`, `format`, `mode`, `items` and
+`provenance`. Unlike the other transforms, `export` does not run once per element of a list, since every run would
+write to the same directory: a list input, a list output such as `kfold.train`, or a step run once per element fails
+the config load. Name one element instead, such as `kfold.train[0]`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |

@@ -127,7 +127,9 @@ tasks:
 ```
 
 A key missing from one of the lists skips that element, and the reason names the key. Lists do not nest: a step that
-outputs lists refuses a list where it reads one Dataset.
+outputs lists refuses a list where it reads one Dataset. Nor does `export` run once per element, since every run
+would write to the same directory: handed a list, it fails the config load, so name one element, such as
+`kfold.train[0]`.
 
 ## Derived data
 
