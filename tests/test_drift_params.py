@@ -332,7 +332,7 @@ class TestDriftMonitoringConfig:
                         "method": "univariate",
                         "test": "ks",
                         "classwise": True,
-                        "chunking": {"enabled": True, "chunk_size": 100},
+                        "chunking": {"chunk_size": 100},
                     },
                     {"method": "mmd", "n_permutations": 200, "classwise": True},
                 ],

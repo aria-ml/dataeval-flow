@@ -6,8 +6,9 @@ __all__ = [
     "SourceConfig",
 ]
 
+import difflib
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
 from pydantic import (
@@ -71,7 +72,7 @@ class SourceConfig(BaseModel):
     The legacy ``selection`` key is accepted as a deprecated alias for ``view``.
     """
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str = Field(description="Identifier for the source")
     dataset: str | None = Field(
@@ -127,6 +128,8 @@ class LoggingConfig(BaseModel):
           lib_level: ERROR
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     app_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="DEBUG", description="Level of dataeval-flow's own loggers."
     )
@@ -159,6 +162,8 @@ class ResultConfig(BaseModel):
           per_task: true
           max_images: 100
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     name: str = Field(
         default="result",
@@ -303,9 +308,12 @@ class PipelineConfig(BaseModel):
 
     The legacy ``selections`` key is accepted as a deprecated alias for
     ``views`` (with a :class:`DeprecationWarning`).
+
+    A key that is none of these sections is refused, naming the section it most resembles: a misspelled section
+    would otherwise be dropped, and the run go ahead without it.
     """
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
 
     # Logging
     logging: LoggingConfig | None = Field(
@@ -423,6 +431,16 @@ class PipelineConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
+    def _refuse_unknown_keys(cls, data: Any) -> Any:
+        """Refuse a key that is no section, naming the section it most resembles."""
+        if isinstance(data, Mapping):
+            problem = unknown_keys_problem(data)
+            if problem is not None:
+                raise ValueError(problem)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def _warn_legacy_selection_keys(cls, data: Any) -> Any:
         """Emit deprecation warnings for the legacy ``selections``/``selection`` keys."""
         if isinstance(data, Mapping):
@@ -496,3 +514,33 @@ class PipelineConfig(BaseModel):
                         "a task name there can't hold '/' or '\\'"
                     )
         return self
+
+
+def top_level_keys() -> frozenset[str]:
+    """Every key a pipeline config's top level may hold: its sections, and their legacy aliases."""
+    keys = set(PipelineConfig.model_fields)
+    for field in PipelineConfig.model_fields.values():
+        alias = field.validation_alias
+        if isinstance(alias, AliasChoices):
+            keys.update(choice for choice in alias.choices if isinstance(choice, str))
+        elif isinstance(alias, str):
+            keys.add(alias)
+    return frozenset(keys)
+
+
+def unknown_keys_problem(keys: Iterable[Any]) -> str | None:
+    """Name each of `keys` that is no top-level section, with the section it most resembles; ``None`` if none is.
+
+    A guess is offered only among the current section names, never a legacy alias.
+    """
+    known = top_level_keys()
+    unknown = [key for key in keys if key not in known]
+    if not unknown:
+        return None
+    sections = sorted(PipelineConfig.model_fields)
+    named = []
+    for key in unknown:
+        guess = difflib.get_close_matches(str(key), sections, n=1)
+        named.append(f"'{key}'" + (f" (did you mean '{guess[0]}'?)" if guess else ""))
+    noun = "key" if len(unknown) == 1 else "keys"
+    return f"Unknown top-level {noun} {', '.join(named)}. The sections are: {', '.join(sections)}."

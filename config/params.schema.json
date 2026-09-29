@@ -619,6 +619,7 @@
       "type": "object"
     },
     "ChunkingConfig": {
+      "additionalProperties": false,
       "description": "Configuration for chunked (temporal) drift analysis.\n\nWhen present, the test data is split into sequential chunks and each\nchunk is tested for drift independently.  This answers \"when did drift\nstart?\" and \"did it recover?\".\n\nThe reference is split the same way, and each chunk's drift bounds are the\nspread of the reference chunks' scores, so the reference must split into at\nleast 3 chunks.  A detector whose reference splits into fewer does not run,\nand the result's errors say why.",
       "properties": {
         "chunk_size": {
@@ -884,6 +885,7 @@
       "type": "object"
     },
     "DataAnalysisConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
       "properties": {
         "stats": {
@@ -1144,6 +1146,7 @@
       "type": "object"
     },
     "DataAnalysisHealthThresholds": {
+      "additionalProperties": false,
       "description": "Configurable warning thresholds for data analysis health status.\n\nEach threshold is a percentage (0\u2013100) unless otherwise noted.\nWhen the detected rate exceeds the threshold the corresponding\nfinding is elevated to ``severity=\"warning\"``; otherwise it stays\nat ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
       "properties": {
         "image_outliers": {
@@ -1189,6 +1192,7 @@
       "type": "object"
     },
     "DataCleaningConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
       "properties": {
         "stats": {
@@ -1514,6 +1518,7 @@
       "type": "object"
     },
     "DataCleaningHealthThresholds": {
+      "additionalProperties": false,
       "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
       "properties": {
         "exact_duplicates": {
@@ -1568,6 +1573,7 @@
       "type": "object"
     },
     "DataCoverageConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``data-coverage`` entry: the coverage, distribution and gap analyses, and when they warn.\n\nEmbedding-based analyses (coverage, completeness) require an extractor\nand are skipped when none is configured. Metadata-based analyses always run.\n\nExample YAML::\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        coverage_method: adaptive\n        balance: true\n        diversity_method: simpson\n        run_gap_analysis: true",
       "properties": {
         "stats": {
@@ -1885,6 +1891,7 @@
       "type": "object"
     },
     "DataCoverageHealthThresholds": {
+      "additionalProperties": false,
       "description": "Configurable warning thresholds for data coverage health status.\n\nEach threshold controls when the corresponding finding is elevated to\n``severity=\"warning\"``; otherwise it stays at ``severity=\"info\"``.\n\nAll ten are required numbers \u2014 ``None`` is not accepted. To stop a metric\nfrom ever warning, set it past the value it can reach: ``uncovered_rate=100.0``,\n``completeness_score=0.0``, ``leaf_coverage=0.0``, or a\n``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.",
       "properties": {
         "uncovered_rate": {
@@ -2049,6 +2056,7 @@
       "type": "object"
     },
     "DataPrioritizationConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand subsequent sources are unlabeled data pools to prioritize.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
       "properties": {
         "stats": {
@@ -2245,6 +2253,7 @@
       "type": "object"
     },
     "DataPrioritizationHealthThresholds": {
+      "additionalProperties": false,
       "description": "Thresholds that control finding severity for the prioritization report.",
       "properties": {
         "cleaning_removed_pct_warning": {
@@ -2260,6 +2269,7 @@
       "type": "object"
     },
     "DataSplittingConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``data-splitting`` entry: the folds and fractions, stratification and rebalancing.\n\nControls how the dataset is split into train/val/test partitions and\nwhat assessments are run on each split.\n\nExample YAML::\n\n    workflows:\n      - name: split_stratified\n        type: data-splitting\n        test_frac: 0.2\n        val_frac: 0.1\n        stratify: true",
       "properties": {
         "name": {
@@ -2383,6 +2393,7 @@
       "type": "object"
     },
     "DatasetProtocolConfig": {
+      "additionalProperties": false,
       "description": "Dataset Configuration schema for an in-memory dataset.\n\nNot serializable \u2014 for programmatic use only. Cannot be loaded from\nYAML/JSON config files or edited in the builder UI.",
       "properties": {
         "name": {
@@ -3090,6 +3101,7 @@
       "type": "object"
     },
     "DriftMonitoringConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``drift-monitoring`` entry: the detectors run against the reference, and when they warn.\n\nAt least one detector must be configured.  Chunking and classwise\nanalysis are optional extensions.\n\nExample YAML::\n\n    workflows:\n      - name: drift_knn\n        type: drift-monitoring\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
         "name": {
@@ -3186,6 +3198,7 @@
       "type": "object"
     },
     "DriftMonitoringHealthThresholds": {
+      "additionalProperties": false,
       "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"``.",
       "properties": {
         "any_drift_is_warning": {
@@ -3944,6 +3957,7 @@
       "type": "object"
     },
     "LoggingConfig": {
+      "additionalProperties": false,
       "description": "The log levels of a pipeline's ``logging:`` key.\n\nOnly a pipeline run by the ``dataeval-flow`` command applies them: :func:`~dataeval_flow.run_tasks` and\n:func:`~dataeval_flow.run` leave logging to their caller.\n\nYAML example::\n\n    logging:\n      app_level: INFO\n      lib_level: ERROR",
       "properties": {
         "app_level": {
@@ -3975,6 +3989,7 @@
       "type": "object"
     },
     "MetadataPolicyConfig": {
+      "additionalProperties": false,
       "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        metadata: standard",
       "properties": {
         "name": {
@@ -4177,6 +4192,7 @@
       "type": "object"
     },
     "MetadataTriageConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
       "properties": {
         "metadata_auto_bin_method": {
@@ -4334,6 +4350,7 @@
       "type": "object"
     },
     "OODDetectionConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``ood-detection`` entry: the OOD detectors scored against the reference, and when they warn.\n\nAt least one detector must be configured.  Metadata insights are\nenabled by default to explain why samples are flagged OOD.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
       "properties": {
         "stats": {
@@ -4543,6 +4560,7 @@
       "type": "object"
     },
     "OODDetectionHealthThresholds": {
+      "additionalProperties": false,
       "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"`` or ``severity=\"ok\"``.",
       "properties": {
         "ood_pct_warning": {
@@ -5818,6 +5836,7 @@
       "type": "object"
     },
     "ParameterSweepConfig": {
+      "additionalProperties": false,
       "description": "The settings of one ``parameter-sweep`` entry: the ``data-cleaning`` values to try, each field a list of them.\n\nEvery combination runs once, so the report shows how each outcome moves with the\nvalues that feed it.\n\nExample YAML::\n\n    workflows:\n      - name: sweep_outlier_threshold\n        type: parameter-sweep\n        outlier_method: [adaptive]\n        outlier_threshold: [null, 1.0, 2.0, 3.0]",
       "properties": {
         "stats": {
@@ -6253,6 +6272,7 @@
       "type": "object"
     },
     "PreprocessingStep": {
+      "additionalProperties": false,
       "description": "One step of a preprocessor: a transform, by name, and the keyword arguments it is built with.\n\nA step names a registered transform (see :func:`~dataeval_flow.config.transforms.list_transforms`) or, failing\nthat, a ``torchvision.transforms.v2`` transform (https://pytorch.org/vision/stable/transforms.html).\n\nExamples\n--------\n>>> from dataeval_flow.config import PreprocessingStep\n>>> step = PreprocessingStep(step=\"Resize\", params={\"size\": 256, \"antialias\": True})\n>>> step = PreprocessingStep(step=\"Normalize\", params={\"mean\": [0.485], \"std\": [0.229]})",
       "properties": {
         "step": {
@@ -6274,6 +6294,7 @@
       "type": "object"
     },
     "PreprocessorConfig": {
+      "additionalProperties": false,
       "description": "A named preprocessor: the steps an extractor applies to each image before it embeds it.\n\nAn extractor names one by its ``preprocessor``. Its steps run in order, in one torchvision ``v2.Compose``.",
       "properties": {
         "name": {
@@ -6905,6 +6926,7 @@
       "type": "object"
     },
     "ResultConfig": {
+      "additionalProperties": false,
       "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: audit\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
       "properties": {
         "name": {
@@ -6990,6 +7012,7 @@
       "type": "object"
     },
     "SourceConfig": {
+      "additionalProperties": false,
       "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one corpus.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
       "properties": {
         "name": {
@@ -7154,6 +7177,7 @@
       "type": "object"
     },
     "TaskConfig": {
+      "additionalProperties": false,
       "description": "Task/workflow configuration schema.\n\nTasks reference sources (dataset+selection bundles) and an optional\nextractor (model+preprocessor+batch_size bundle) by name.\n\nA config file names what a task runs under ``workflow:`` or ``evaluator:``, so the\nfile says which kind of task it is. Loaded, either lands in ``workflow``, and ``kind``\nrecords which key the file used. Running a task reads ``kind`` only to look the name\nup in ``workflows:`` or ``evaluators:``; saved, the task is written back under its key.",
       "oneOf": [
         {
@@ -7396,6 +7420,7 @@
       "type": "object"
     },
     "UpdateStrategyConfig": {
+      "additionalProperties": false,
       "description": "Reference-set update strategy \u2014 **stubbed for future use**.\n\nWhen online drift detection is implemented, this will control how the\nreference distribution evolves after each prediction step.  Currently\naccepted in configuration but not applied at runtime.",
       "properties": {
         "type": {
@@ -7422,6 +7447,7 @@
       "type": "object"
     },
     "ViewConfig": {
+      "additionalProperties": false,
       "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.\n\nFor backward compatibility the legacy ``steps`` key is accepted on input as\nan alias for ``operations`` (with a :class:`DeprecationWarning`).",
       "properties": {
         "name": {
@@ -7446,6 +7472,7 @@
       "type": "object"
     },
     "ViewOperation": {
+      "additionalProperties": false,
       "description": "Single view operation - pass-through to dataeval.data.\n\nSee: https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html\n\nThe ``indices`` param supports a range shorthand so that contiguous\nindex spans do not need to be enumerated in config files::\n\n    # Expanded form (still supported)\n    params:\n      indices: [500, 501, 502, ..., 549]\n\n    # Range shorthand\n    params:\n      indices: {start: 500, stop: 550}\n\n    # Range with step\n    params:\n      indices: {start: 0, stop: 100, step: 2}",
       "properties": {
         "type": {
@@ -7616,7 +7643,8 @@
       "type": "object"
     }
   },
-  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nThe legacy ``selections`` key is accepted as a deprecated alias for\n``views`` (with a :class:`DeprecationWarning`).",
+  "additionalProperties": false,
+  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nThe legacy ``selections`` key is accepted as a deprecated alias for\n``views`` (with a :class:`DeprecationWarning`).\n\nA key that is none of these sections is refused, naming the section it most resembles: a misspelled section\nwould otherwise be dropped, and the run go ahead without it.",
   "properties": {
     "logging": {
       "anyOf": [

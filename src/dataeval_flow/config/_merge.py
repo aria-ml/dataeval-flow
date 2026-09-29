@@ -22,44 +22,33 @@ def _load_file(path: Path) -> dict[str, Any] | list[str]:
         return json.load(f) if path.suffix.lower() in _JSON_EXTS else yaml.safe_load(f) or []
 
 
-def _is_valid_config(data: dict[str, Any]) -> bool:
-    """Return True if *data* looks like a pipeline config fragment.
+def _is_config_fragment(data: dict[str, Any]) -> bool:
+    """Whether *data* is a pipeline config fragment: it holds at least one top-level section.
 
-    A file is accepted when it contains at least one key that is a known
-    ``PipelineConfig`` field **and** no keys that are completely unknown.
-    This allows partial configs (e.g. only ``datasets:``) while rejecting
-    unrelated files like JSON schemas.
+    A file holding none, such as a JSON schema or a compose file, is unrelated and skipped. A fragment's other keys
+    must all be sections too, which :func:`merge_config_folder` checks, so a misspelled section is refused rather than
+    dropping its whole file.
     """
-    from pydantic import AliasChoices
+    from dataeval_flow.config._models import top_level_keys
 
-    from dataeval_flow.config._models import PipelineConfig
-
-    known_keys = set(PipelineConfig.model_fields)
-    # Include validation aliases (e.g. the deprecated ``selections`` -> ``views``)
-    # so legacy config fragments are still accepted by the folder merge.
-    for field in PipelineConfig.model_fields.values():
-        alias = field.validation_alias
-        if isinstance(alias, AliasChoices):
-            known_keys.update(choice for choice in alias.choices if isinstance(choice, str))
-        elif isinstance(alias, str):
-            known_keys.add(alias)
-    file_keys = set(data.keys())
-    return bool(file_keys) and file_keys <= known_keys
+    return not top_level_keys().isdisjoint(data)
 
 
 def merge_config_folder(config_path: Path) -> dict[str, Any]:
     """Scan folder, merge all valid config files alphabetically.
 
-    Each candidate file is validated against the ``PipelineConfig`` schema
-    individually.  Files that fail validation (e.g. JSON schemas, unrelated
-    YAML) are silently skipped.  If no valid files are found, a
-    ``FileNotFoundError`` is raised.
+    A file holding no top-level section (e.g. a JSON schema, unrelated YAML)
+    is skipped. A file holding a section beside a key that is none is refused,
+    naming the file and the key, since the key is most likely a misspelled
+    section. If no config files are found, a ``FileNotFoundError`` is raised.
 
     Files are loaded in sorted order (00-base.yaml before 01-datasets.yaml).
     Later files override earlier ones for duplicate keys.
 
     Returns raw dict - use load_config() for validated PipelineConfig.
     """
+    from dataeval_flow.config._models import unknown_keys_problem
+
     config: dict[str, Any] = {}
 
     if not config_path.is_dir():
@@ -76,9 +65,12 @@ def merge_config_folder(config_path: Path) -> dict[str, Any]:
             _logger.debug("Skipping %s (parse error: %s)", config_file.name, exc)
             continue
 
-        if not isinstance(file_config, dict) or not _is_valid_config(file_config):
-            _logger.debug("Skipping %s (not a valid pipeline config)", config_file.name)
+        if not isinstance(file_config, dict) or not _is_config_fragment(file_config):
+            _logger.debug("Skipping %s (not a pipeline config)", config_file.name)
             continue
+        problem = unknown_keys_problem(file_config)
+        if problem is not None:
+            raise ValueError(f"{config_file.name}: {problem}")
 
         _deep_merge(config, file_config)
         accepted.append(config_file)

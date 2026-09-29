@@ -1,9 +1,9 @@
 """Preprocessor configuration schema."""
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PreprocessingStep(BaseModel):
@@ -18,6 +18,8 @@ class PreprocessingStep(BaseModel):
     >>> step = PreprocessingStep(step="Resize", params={"size": 256, "antialias": True})
     >>> step = PreprocessingStep(step="Normalize", params={"mean": [0.485], "std": [0.229]})
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     step: str = Field(
         description="The transform: a registered one's name, such as `ToRGB`, or a torchvision.transforms.v2 one's."
@@ -36,6 +38,8 @@ class PreprocessorConfig(BaseModel):
 
     An extractor names one by its ``preprocessor``. Its steps run in order, in one torchvision ``v2.Compose``.
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     name: str = Field(description="Identifier for the preprocessor, referenced by extractors.")
     steps: Sequence[PreprocessingStep] = Field(description="The transforms to apply, in order.")

@@ -40,6 +40,8 @@ class ChunkingConfig(BaseModel):
     and the result's errors say why.
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     chunk_size: int | None = Field(
         default=None,
         gt=0,
@@ -276,6 +278,8 @@ class UpdateStrategyConfig(BaseModel):
     accepted in configuration but not applied at runtime.
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     type: Literal["last_seen", "reservoir_sampling"] = Field(
         description="Update algorithm. 'last_seen': sliding window. 'reservoir_sampling': uniform random sample.",
     )
@@ -296,6 +300,8 @@ class DriftMonitoringHealthThresholds(BaseModel):
     Findings that exceed a threshold are elevated to ``severity="warning"``;
     otherwise they stay at ``severity="info"``.
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     any_drift_is_warning: bool = Field(
         default=True,

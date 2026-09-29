@@ -91,6 +91,8 @@ class WorkflowConfig(KindConfig, Generic[R]):
             minimum: 100
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     mode: Literal["advisory", "preparatory"] = Field(
         default="advisory",
         description="advisory: report only, preparatory: modify dataset",

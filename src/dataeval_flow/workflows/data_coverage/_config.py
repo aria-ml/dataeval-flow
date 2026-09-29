@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
@@ -23,6 +23,8 @@ class DataCoverageHealthThresholds(BaseModel):
     ``completeness_score=0.0``, ``leaf_coverage=0.0``, or a
     ``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.
     """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     uncovered_rate: float = Field(
         default=10.0,

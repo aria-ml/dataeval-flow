@@ -40,6 +40,8 @@ class ViewOperation(BaseModel):
           indices: {start: 0, stop: 100, step: 2}
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
     type: str = Field(description="Operation class from dataeval.data")
     params: Mapping[str, Any] = Field(
         default_factory=dict,
@@ -114,7 +116,7 @@ class ViewConfig(BaseModel):
     an alias for ``operations`` (with a :class:`DeprecationWarning`).
     """
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str = Field(description="Identifier for the view, referenced by sources.")
     operations: Sequence[ViewOperation] = Field(
