@@ -149,7 +149,6 @@ class Section(_Block):
     severity: Severity | None = Field(default=None, description="The verdict this section carries, if any.")
     reference: bool = Field(
         default=False,
-        exclude_if=lambda value: not value,
         description="Whether the section is reference a reader opens when needed, such as the configuration.",
     )
     blocks: list[Block] = Field(default_factory=list, description="The section's content, in order.")

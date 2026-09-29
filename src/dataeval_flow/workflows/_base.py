@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
 
 from dataeval_flow._blocks import Block
 from dataeval_flow._kind import KindConfig, bind_implementation, bind_result_type, type_arguments
@@ -233,12 +233,19 @@ class Finding(BaseModel):
     blocks: list[Block] = Field(default_factory=list, description="The evidence, as report blocks, in order.")
     step: str | None = Field(
         default=None,
-        exclude_if=lambda value: value is None,
         description=(
             "The check step that made it, with the element's key where the check ran once per element of a list, "
             "such as `imbalance[train]`. Left out for a workflow type's own findings."
         ),
     )
+
+    @model_serializer(mode="wrap")
+    def _without_defaults(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Leave `step` out while it holds its default, so existing JSON is unchanged."""
+        data = handler(self)
+        if self.step is None:
+            data.pop("step", None)
+        return data
 
 
 class WorkflowRawOutput(BaseModel):
