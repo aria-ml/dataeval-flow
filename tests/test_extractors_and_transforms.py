@@ -1,4 +1,4 @@
-"""Extractors and transforms are registered kinds, like workflows and evaluators."""
+"""Extractors and image transforms are registered kinds, like workflows and evaluators."""
 
 import json
 import re
@@ -226,7 +226,7 @@ def test_a_builtin_transform_taking_a_torchvision_name_raises_at_once() -> None:
     from dataeval_flow.config.image_transforms._registry import IMAGE_TRANSFORMS
 
     registry = Registry(
-        kind="transform",
+        kind="image transform",
         group="dataeval_flow.tests.no-such-group",
         base=lambda: ImageTransform,
         builtins={"Resize": f"{__name__}:_Resize"},
