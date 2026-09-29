@@ -46,18 +46,23 @@ def _step_union(plugins: bool) -> Any:
         "optional": (bool, StepEntry.model_fields["optional"]),
     }
     forbid = ConfigDict(extra="forbid")
+
+    def required(key: str) -> Any:
+        """`StepEntry`'s field `key`, without its default: a step of this kind must write it."""
+        return Field(description=StepEntry.model_fields[key].description)
+
     evaluator = create_model(
         "EvaluatorStep",
         __config__=forbid,
-        evaluator=(str, StepEntry.model_fields["evaluator"]),
-        input=(str | list[str], StepEntry.model_fields["input"]),
+        evaluator=(str, required("evaluator")),
+        input=(str | list[str], required("input")),
         **common,
     )
     workflow = create_model(
         "WorkflowStep",
         __config__=forbid,
-        workflow=(str, StepEntry.model_fields["workflow"]),
-        input=(str | list[str], StepEntry.model_fields["input"]),
+        workflow=(str, required("workflow")),
+        input=(str | list[str], required("input")),
         **common,
     )
     # A transform embeds nothing, so its step takes no `extractor:`; naming one fails the load.

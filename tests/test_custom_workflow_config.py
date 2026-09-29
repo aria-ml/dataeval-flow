@@ -163,3 +163,9 @@ def test_the_schema_offers_a_custom_workflow_branch() -> None:
     schema = PipelineConfig.model_json_schema()
     assert "CustomWorkflowConfig" in schema["$defs"]
     assert "steps" in schema["$defs"]["CustomWorkflowConfig"]["properties"]
+
+
+def test_the_schema_requires_the_kind_key_and_input_of_an_evaluator_or_workflow_step() -> None:
+    definitions = PipelineConfig.model_json_schema()["$defs"]
+    assert sorted(definitions["EvaluatorStep"]["required"]) == ["evaluator", "input", "name"]
+    assert sorted(definitions["WorkflowStep"]["required"]) == ["input", "name", "workflow"]

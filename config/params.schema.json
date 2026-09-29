@@ -3748,7 +3748,6 @@
       "additionalProperties": false,
       "properties": {
         "evaluator": {
-          "default": null,
           "description": "An `evaluators:` entry to run.",
           "title": "Evaluator",
           "type": "string"
@@ -3765,7 +3764,6 @@
               "type": "array"
             }
           ],
-          "default": null,
           "description": "The address, or addresses, the step reads.",
           "title": "Input"
         },
@@ -3796,6 +3794,8 @@
         }
       },
       "required": [
+        "evaluator",
+        "input",
         "name"
       ],
       "title": "EvaluatorStep",
@@ -8318,7 +8318,6 @@
       "additionalProperties": false,
       "properties": {
         "workflow": {
-          "default": null,
           "description": "A `workflows:` entry with a `type:` to run.",
           "title": "Workflow",
           "type": "string"
@@ -8335,7 +8334,6 @@
               "type": "array"
             }
           ],
-          "default": null,
           "description": "The address, or addresses, the step reads.",
           "title": "Input"
         },
@@ -8366,6 +8364,8 @@
         }
       },
       "required": [
+        "workflow",
+        "input",
         "name"
       ],
       "title": "WorkflowStep",
