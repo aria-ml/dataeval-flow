@@ -10,11 +10,14 @@ __all__ = [
     "AlignmentCorrespondence",
     "LabelAlignment",
     "LabelAlignmentOutput",
+    "PastedRemap",
     "align_labels",
     "effective_mergeability",
+    "pasted_remap",
 ]
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field
@@ -128,6 +131,47 @@ class LabelAlignmentOutput(CoreOutput):
 LabelAlignmentOutput.__module__ = "dataeval_flow.evaluators.scope"
 
 
+@dataclass(frozen=True)
+class PastedRemap:
+    """A remap to concept ids as a Relabel with a list-valued target reads it: by label, onto that vocabulary."""
+
+    by_id: dict[str, str]
+    """Each source class to its concept id."""
+    labels: dict[str, str]
+    """Each concept id of the ontology to its label."""
+    remap: dict[str, str]
+    """Each source class to its concept's label: the form a list-valued ``target`` takes."""
+    vocabulary: list[str]
+    """The concept labels in the ontology's id order: the ``target`` itself."""
+    ontology_digest: str
+    """The digest of the ontology's concept ids."""
+    digest: str
+    """The label-space digest of `remap` onto `vocabulary` under the ontology."""
+
+
+def pasted_remap(ontology: "Ontology", class_remap: "Mapping[str, str]") -> PastedRemap:
+    """`class_remap`, by concept id, pasted onto `ontology`'s labels, with the vocabulary and digests that go with it.
+
+    ``align_labels`` and ``conform`` both paste a remap this way, so an audit and a conform that apply one rewrite
+    carry one digest.
+    """
+    from dataeval_flow._label_space import label_space_digest, ontology_digest
+
+    labels = {cid: ontology.concept(cid).label for cid in ontology.ids}
+    vocabulary = [labels[cid] for cid in ontology.ids]
+    by_id = dict(class_remap)
+    remap = {source: labels.get(target, target) for source, target in by_id.items()}
+    digest_of_ontology = ontology_digest(ontology.ids)
+    return PastedRemap(
+        by_id=by_id,
+        labels=labels,
+        remap=remap,
+        vocabulary=vocabulary,
+        ontology_digest=digest_of_ontology,
+        digest=label_space_digest(ontology=digest_of_ontology, class_remap=remap, target=vocabulary),
+    )
+
+
 def align_labels(ontology: "Ontology", class_names: "Sequence[str]", *, threshold: float = 0.0) -> LabelAlignment:
     """Align `class_names` to `ontology` with DataEval's label_alignment, with Flow's paste remap and digest.
 
@@ -138,23 +182,17 @@ def align_labels(ontology: "Ontology", class_names: "Sequence[str]", *, threshol
     """
     from dataeval.core import label_alignment
 
-    from dataeval_flow._label_space import label_space_digest, ontology_digest
-
     result = label_alignment(class_names, ontology, threshold=threshold)
-
-    labels = {cid: ontology.concept(cid).label for cid in ontology.ids}
-    vocabulary = [labels[cid] for cid in ontology.ids]
+    pasted = pasted_remap(ontology, result["class_remap"])
+    labels = pasted.labels
 
     # A label naming two concepts has no determined index in a list-valued target, so the
     # emitted stanza cannot be used until the ontology is fixed. Reported rather than
     # suppressed; `ontology_validation` reports the same collisions from the artifact side.
     counts: dict[str, int] = {}
-    for label in vocabulary:
+    for label in pasted.vocabulary:
         counts[label] = counts.get(label, 0) + 1
     ambiguous = sorted(name for name, n in counts.items() if n > 1)
-
-    class_remap = dict(result["class_remap"])
-    paste_remap = {source: labels.get(target, target) for source, target in class_remap.items()}
 
     return LabelAlignment(
         mergeability=result["mergeability"],
@@ -171,15 +209,11 @@ def align_labels(ontology: "Ontology", class_names: "Sequence[str]", *, threshol
         ],
         unaligned_source=list(result["unaligned_source"]),
         unaligned_target=[labels.get(t, t) for t in result["unaligned_target"]],
-        class_remap=class_remap,
-        paste_remap=paste_remap,
-        target_vocabulary=vocabulary,
+        class_remap=pasted.by_id,
+        paste_remap=pasted.remap,
+        target_vocabulary=pasted.vocabulary,
         ambiguous_labels=ambiguous,
-        label_space_digest=label_space_digest(
-            ontology=ontology_digest(ontology.ids),
-            class_remap=paste_remap,
-            target=vocabulary,
-        ),
+        label_space_digest=pasted.digest,
     )
 
 

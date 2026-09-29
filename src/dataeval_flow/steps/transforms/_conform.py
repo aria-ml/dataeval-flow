@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import Field
 
-from dataeval_flow._alignment import LabelAlignmentOutput
+from dataeval_flow._alignment import LabelAlignmentOutput, PastedRemap
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Transform, TransformConfig, TransformContext
 
@@ -37,8 +37,9 @@ class ConformConfig(TransformConfig):
 class ConformTransform(Transform[ConformConfig]):
     """``conform``: ``Relabel(class_remap, target=ontology)`` from the alignment, refused beyond ``allow``.
 
-    The engine makes one instance per invocation, so the Relabel :meth:`run` applies is the one :meth:`details` counts
-    the drops of.
+    The engine makes one instance per invocation, so the remap :meth:`run` derives is the one :meth:`digest`,
+    :meth:`details` and :meth:`label_space` read, and the Relabel it applies is the one :meth:`details` counts the
+    drops of.
     """
 
     name: ClassVar[str] = "conform"
@@ -52,6 +53,7 @@ class ConformTransform(Transform[ConformConfig]):
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
     same_node: ClassVar[tuple[str, ...]] = ("alignment",)
 
+    _pasted: PastedRemap
     _relabel: "Relabel"
 
     def run(
@@ -64,7 +66,7 @@ class ConformTransform(Transform[ConformConfig]):
         is beyond ``allow``."""
         from dataeval.data import Relabel, View
 
-        from dataeval_flow._alignment import effective_mergeability
+        from dataeval_flow._alignment import effective_mergeability, pasted_remap
 
         node = inputs["input"]
         classes = list(dict(node.value.metadata.get("index2label", {})).values())
@@ -83,6 +85,7 @@ class ConformTransform(Transform[ConformConfig]):
                 f"The alignment is {mergeability}, beyond `allow: {config.allow}`: {self._loss(remap, unaligned)}. "
                 f"Set `allow: {mergeability}` to accept it, or settle classes with `class_remap:`."
             )
+        self._pasted = pasted_remap(found.ontology, remap)
         self._relabel = Relabel(
             remap, target=found.ontology, on_unmatched="drop" if config.allow == "partial" else "raise"
         )
@@ -119,57 +122,52 @@ class ConformTransform(Transform[ConformConfig]):
 
     def digest(
         self,
-        config: ConformConfig,
+        config: ConformConfig,  # noqa: ARG002
         inputs: Mapping[str, Any],
         outputs: Mapping[str, Any],  # noqa: ARG002
     ) -> str:
         """The remap applied and the target vocabulary."""
         found: LabelAlignmentOutput = inputs["alignment"].value
-        payload = {"remap": self._remap(config, found), "target": list(found.ontology.ids)}
+        payload = {"remap": self._pasted.by_id, "target": list(found.ontology.ids)}
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
     def details(
         self,
-        config: ConformConfig,
-        inputs: Mapping[str, Any],
+        config: ConformConfig,  # noqa: ARG002
+        inputs: Mapping[str, Any],  # noqa: ARG002
         outputs: Mapping[str, Any],  # noqa: ARG002
     ) -> dict[str, Any]:
         """Collapses, and the classes and items the Relabel :meth:`run` applied dropped."""
-        found: LabelAlignmentOutput = inputs["alignment"].value
-        remap = self._remap(config, found)
-        labels = {cid: found.ontology.concept(cid).label for cid in found.ontology.ids}
+        labels = self._pasted.labels
+        collapses = _collapses(self._pasted.by_id)
         return {
-            "remap": {source: labels.get(target, target) for source, target in remap.items()},
-            "collapses": {labels.get(target, target): sorted(sources) for target, sources in _collapses(remap).items()},
+            "remap": dict(self._pasted.remap),
+            "collapses": {labels.get(target, target): sorted(sources) for target, sources in collapses.items()},
             "dropped_classes": sorted(self._relabel.dropped.values()),
             "dropped_items": len(self._relabel.dropped_indices),
         }
 
     def label_space(
         self,
-        config: ConformConfig,
+        config: ConformConfig,  # noqa: ARG002
         inputs: Mapping[str, Any],
         outputs: Mapping[str, Any],  # noqa: ARG002
         *,
         address: str,
     ) -> list[Any]:
         """One record of the remap applied to `address`, digested as data-coverage digests its alignment."""
-        from dataeval_flow._label_space import label_space_digest, ontology_digest
         from dataeval_flow._result import LabelSpaceRecord
 
         found: LabelAlignmentOutput = inputs["alignment"].value
-        labels = {cid: found.ontology.concept(cid).label for cid in found.ontology.ids}
-        paste = {source: labels.get(target, target) for source, target in self._remap(config, found).items()}
-        vocabulary = [labels[cid] for cid in found.ontology.ids]
-        ontology = ontology_digest(found.ontology.ids)
+        pasted = self._pasted
         return [
             LabelSpaceRecord(
                 source=address,
                 ontology=found.ontology_source,
-                ontology_digest=ontology,
-                class_remap=paste,
-                target=vocabulary,
-                digest=label_space_digest(ontology=ontology, class_remap=paste, target=vocabulary),
+                ontology_digest=pasted.ontology_digest,
+                class_remap=dict(pasted.remap),
+                target=list(pasted.vocabulary),
+                digest=pasted.digest,
             )
         ]
 

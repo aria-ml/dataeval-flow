@@ -162,3 +162,12 @@ def test_an_alignment_computed_on_one_element_of_a_list_conforms_that_element() 
     conformed = result.steps["c"]
     assert (conformed.status, conformed.inputs) == ("ok", ["all[lossy]", "aligned[lossy]"])
     assert (conformed.details or {})["collapses"] == {"Vehicle": ["car", "truck"]}
+
+
+def test_conform_derives_its_remap_once_per_run() -> None:
+    from unittest.mock import patch
+
+    with patch.object(ConformTransform, "_remap", wraps=ConformTransform._remap) as derived:
+        result = _run(_LOSSY, {"allow": "lossy"})
+    assert result.steps["c"].status == "ok"
+    assert derived.call_count == 1
