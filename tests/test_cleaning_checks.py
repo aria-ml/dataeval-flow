@@ -6,7 +6,7 @@ from typing import Any
 
 import polars as pl
 import pytest
-from dataeval.quality import OutliersOutput
+from dataeval.quality import DuplicatesOutput, OutliersOutput
 from pydantic import ValidationError
 
 from dataeval_flow import run_tasks
@@ -14,8 +14,12 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import LabelHealthOutput
 from dataeval_flow.steps import CheckContext
 from dataeval_flow.steps.checks import (
+    ClassImbalanceCheck,
+    ClassImbalanceConfig,
     ClasswiseOutlierRateCheck,
     ClasswiseOutlierRateConfig,
+    DuplicateRateCheck,
+    DuplicateRateConfig,
     OutlierRateCheck,
     OutlierRateConfig,
     TargetOutlierRateCheck,
@@ -42,6 +46,7 @@ _EVALUATORS = [
         "per_target": True,
     },
     {"name": "labels", "type": "quality.label-health"},
+    {"name": "dupes", "type": "quality.duplicates", "merge_near_duplicates": True},
 ]
 _OUTLIER_STEPS = [
     {"name": "outliers", "evaluator": "outliers", "input": "data"},
@@ -260,3 +265,121 @@ def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> No
         "Not assessed: `by_class` failed: ValueError: classwise-outliers counts a detection Dataset's boxes"
     )
     assert result.health["status"] == "failed"
+
+
+_ALL_STEPS = [
+    *_OUTLIER_STEPS[:3],
+    {"name": "dupes", "evaluator": "dupes", "input": "data"},
+    *_OUTLIER_STEPS[3:],
+    {"name": "duplicates", "check": "duplicate-rate", "input": "dupes"},
+    {"name": "imbalance", "check": "class-imbalance", "input": "labels"},
+]
+
+
+@pytest.mark.parametrize("name", sorted(_DATASETS))
+def test_data_cleaning_s_whole_report_agrees_as_a_chain(name: str) -> None:
+    legacy, chain = _both(_ALL_STEPS, _DATASETS[name]())
+    assert _verdicts(chain) == _verdicts(legacy)
+    assert {finding.step for finding in chain} <= {step["name"] for step in _ALL_STEPS if "check" in step}
+
+
+def test_the_duplicate_and_label_checks_judge_nothing_where_their_limits_are_none() -> None:
+    steps = [
+        *_ALL_STEPS[:-2],
+        {"name": "duplicates", "check": "duplicate-rate", "input": "dupes", "exact": None, "near": None},
+        {"name": "imbalance", "check": "class-imbalance", "input": "labels", "ratio": None},
+    ]
+    _, chain = _both(steps, _DATASETS["detection"]())
+    assert {f.title: f.severity for f in chain if f.title in {"Duplicates", "Label Distribution"}} == {
+        "Duplicates": "info",
+        "Label Distribution": "info",
+    }
+
+
+def _groups(rows: list[tuple[str, str, list[int]]]) -> DuplicatesOutput[Any, Any]:
+    """A Duplicates Output of `rows`: each (level, dup_type, item indices)."""
+    frame = pl.DataFrame(
+        {
+            "group_id": list(range(len(rows))),
+            "level": [level for level, _, _ in rows],
+            "dup_type": [kind for _, kind, _ in rows],
+            "item_indices": [items for _, _, items in rows],
+            "methods": [["xxhash"]] * len(rows),
+        },
+        schema={
+            "group_id": pl.Int64,
+            "level": pl.Utf8,
+            "dup_type": pl.Utf8,
+            "item_indices": pl.List(pl.Int64),
+            "methods": pl.List(pl.Utf8),
+        },
+    )
+    return DuplicatesOutput(frame)
+
+
+def test_duplicate_rate_counts_each_group_s_members_as_a_share_of_the_dataset() -> None:
+    output = _groups([("item", "exact", [0, 5]), ("item", "near", [1, 2, 3]), ("target", "exact", [4, 4])])
+    (finding,) = DuplicateRateCheck().run(DuplicateRateConfig(input="d"), {"input": _node(output, 20)}, _CONTEXT)
+    assert (finding.severity, finding.title, finding.brief) == (
+        "warning",
+        "Duplicates",
+        "2 exact (10.0%), 3 near (15.0%)",
+    )
+    assert finding.description == "1 exact duplicate groups, 1 near-duplicate groups found."
+
+
+def test_duplicate_rate_makes_no_finding_without_duplicate_items() -> None:
+    output = _groups([("target", "exact", [4, 4])])
+    assert DuplicateRateCheck().run(DuplicateRateConfig(input="d"), {"input": _node(output, 20)}, _CONTEXT) == []
+
+
+def test_duplicate_rate_within_both_limits_is_information() -> None:
+    output = _groups([("item", "near", [1, 2])])
+    config = DuplicateRateConfig(input="d", exact=0.0, near=50.0)
+    (finding,) = DuplicateRateCheck().run(config, {"input": _node(output, 20)}, _CONTEXT)
+    assert (finding.severity, finding.brief) == ("info", "0 exact (0.0%), 2 near (10.0%)")
+
+
+def _labels(counts: dict[str, int], *, classes: int, items: int, source: str | None = None) -> LabelHealthOutput:
+    data = {
+        "item_count": items,
+        "class_count": classes,
+        "label_count": sum(counts.values()),
+        "label_counts_per_class": counts,
+        "image_counts_per_class": counts,
+        "empty_image_count": 0,
+        "label_source": source,
+    }
+    return LabelHealthOutput(data, None)
+
+
+def test_class_imbalance_is_the_largest_class_over_the_smallest() -> None:
+    labels = _labels({"car": 12, "van": 2}, classes=3, items=14)
+    (finding,) = ClassImbalanceCheck().run(ClassImbalanceConfig(input="l"), {"input": _node(labels)}, _CONTEXT)
+    assert (finding.severity, finding.title, finding.brief) == (
+        "warning",
+        "Label Distribution",
+        "3 classes, 14 items, imbalance 6.0:1",
+    )
+
+
+def test_class_imbalance_names_labels_read_from_file_paths() -> None:
+    labels = _labels({"car": 4, "van": 4}, classes=2, items=8, source="filepath")
+    (finding,) = ClassImbalanceCheck().run(ClassImbalanceConfig(input="l"), {"input": _node(labels)}, _CONTEXT)
+    assert (finding.severity, finding.title, finding.brief) == (
+        "info",
+        "Label/Directory_Name Distribution",
+        "2 classes, 8 items, imbalance 1.0:1",
+    )
+
+
+def test_class_imbalance_makes_no_finding_where_no_item_has_a_label() -> None:
+    labels = _labels({}, classes=2, items=6)
+    assert ClassImbalanceCheck().run(ClassImbalanceConfig(input="l"), {"input": _node(labels)}, _CONTEXT) == []
+
+
+def test_class_imbalance_warns_on_a_class_with_no_labels_even_without_a_ratio_limit() -> None:
+    labels = _labels({"car": 4, "van": 0}, classes=2, items=4)
+    config = ClassImbalanceConfig(input="l", ratio=None)
+    (finding,) = ClassImbalanceCheck().run(config, {"input": _node(labels)}, _CONTEXT)
+    assert (finding.severity, finding.brief) == ("warning", "2 classes, 4 items, imbalance 0.0:1")

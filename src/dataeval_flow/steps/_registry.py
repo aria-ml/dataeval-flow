@@ -35,7 +35,9 @@ _COMBINE_BUILTINS: dict[str, str] = {
     "classwise-outliers": "dataeval_flow.steps.combines._classwise:ClasswiseOutliersCombine",
 }
 _CHECK_BUILTINS: dict[str, str] = {
+    "class-imbalance": "dataeval_flow.steps.checks._labels:ClassImbalanceCheck",
     "classwise-outlier-rate": "dataeval_flow.steps.checks._outliers:ClasswiseOutlierRateCheck",
+    "duplicate-rate": "dataeval_flow.steps.checks._duplicates:DuplicateRateCheck",
     "outlier-rate": "dataeval_flow.steps.checks._outliers:OutlierRateCheck",
     "target-outlier-rate": "dataeval_flow.steps.checks._outliers:TargetOutlierRateCheck",
 }

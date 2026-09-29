@@ -329,6 +329,55 @@
       "title": "BoVWExtractorConfig",
       "type": "object"
     },
+    "CheckStep_class-imbalance": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `quality.label-health` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "ratio": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest that may hold before the finding warns; `null` judges nothing but an empty class, which always warns. data-cleaning's `health_thresholds.class_label_imbalance`.",
+          "title": "Ratio"
+        },
+        "check": {
+          "const": "class-imbalance",
+          "description": "`class-imbalance`: Warns when the largest class outnumbers the smallest by more than `ratio`.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-imbalance",
+      "type": "object"
+    },
     "CheckStep_classwise-outlier-rate": {
       "additionalProperties": false,
       "properties": {
@@ -377,6 +426,71 @@
         "name"
       ],
       "title": "CheckStep_classwise-outlier-rate",
+      "type": "object"
+    },
+    "CheckStep_duplicate-rate": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `quality.duplicates` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "exact": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.exact_duplicates`.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.near_duplicates`.",
+          "title": "Near"
+        },
+        "check": {
+          "const": "duplicate-rate",
+          "description": "`duplicate-rate`: Warns when more than `exact` or `near` percent of the images are duplicates.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_duplicate-rate",
       "type": "object"
     },
     "CheckStep_outlier-rate": {
@@ -1153,7 +1267,13 @@
                 "$ref": "#/$defs/CombineStep_classwise-outliers"
               },
               {
+                "$ref": "#/$defs/CheckStep_class-imbalance"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_duplicate-rate"
               },
               {
                 "$ref": "#/$defs/CheckStep_outlier-rate"

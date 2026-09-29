@@ -150,8 +150,12 @@ dataeval_flow.steps:list_combines
 dataeval_flow.steps:list_steps
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
+dataeval_flow.steps.checks:ClassImbalanceCheck
+dataeval_flow.steps.checks:ClassImbalanceConfig
 dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
+dataeval_flow.steps.checks:DuplicateRateCheck
+dataeval_flow.steps.checks:DuplicateRateConfig
 dataeval_flow.steps.checks:OutlierRateCheck
 dataeval_flow.steps.checks:OutlierRateConfig
 dataeval_flow.steps.checks:TargetOutlierRateCheck
