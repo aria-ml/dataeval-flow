@@ -5,19 +5,25 @@ well. ``find_duplicates`` and ``find_outliers`` are the only code here that call
 and they merge cluster results through the same functions ``data-cleaning`` uses.
 """
 
-__all__ = ["DuplicatesEvaluator", "OutliersEvaluator", "find_duplicates", "find_outliers"]
+__all__ = ["DuplicatesEvaluator", "LabelHealthEvaluator", "OutliersEvaluator", "find_duplicates", "find_outliers"]
 
+import time
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, ClassVar, TypeVar
 
+from dataeval.core import label_stats
 from dataeval.quality import Duplicates, DuplicatesOutput, Outliers, OutliersOutput
 
 from dataeval_flow._input_spec import InputKind
 from dataeval_flow._stats import columns_for, restrict_columns
+from dataeval_flow.evaluators._core import execution
 from dataeval_flow.evaluators._evaluator import Evaluator
+from dataeval_flow.evaluators._fields import require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
-from dataeval_flow.evaluators.quality._config import DuplicatesConfig, OutliersConfig
+from dataeval_flow.evaluators.quality._config import DuplicatesConfig, LabelHealthConfig, OutliersConfig
 from dataeval_flow.evaluators.quality._merge import merge_duplicate_outputs, merge_outlier_outputs
+from dataeval_flow.evaluators.quality._result import LabelHealthOutput
 
 _T = TypeVar("_T")
 
@@ -91,3 +97,41 @@ class OutliersEvaluator(Evaluator[OutliersConfig, OutliersOutput[Any]]):
     def run(self, config: OutliersConfig, inputs: Sequence[EvaluatorInputs]) -> OutliersOutput[Any]:
         """Find outliers in the prepared inputs."""
         return find_outliers(config, inputs)
+
+
+class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
+    """``quality.label-health``: how a Dataset's labels spread over its classes, per DataEval's ``label_stats``."""
+
+    name: ClassVar[str] = "quality.label-health"
+    description: ClassVar[str] = "How a Dataset's labels spread over its classes (DataEval label_stats)"
+    dataeval_class: ClassVar[Any] = label_stats
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "__call__"}
+
+    def run(self, config: LabelHealthConfig, inputs: Sequence[EvaluatorInputs]) -> LabelHealthOutput:  # noqa: ARG002
+        """Count the source's labels by class with DataEval's ``label_stats``, naming each class."""
+        (source,) = inputs
+        metadata = require(source.metadata, "metadata", source.source)
+        index2label = {int(index): str(name) for index, name in (metadata.index2label or {}).items()}
+        started, clock = datetime.now(UTC), time.monotonic()
+        stats = label_stats(
+            [int(label) for label in metadata.class_labels],
+            [int(index) for index in metadata.item_indices],
+            index2label,
+            image_count=int(metadata.item_count),
+        )
+        meta = execution("dataeval.core.label_stats", started, time.monotonic() - clock, {})
+
+        def named(counts: Mapping[int, int]) -> dict[str, int]:
+            return {index2label.get(label, str(label)): int(count) for label, count in counts.items()}
+
+        provenance = source.label_source
+        data = {
+            "item_count": int(metadata.item_count),
+            "class_count": len(index2label),
+            "label_count": int(stats["label_count"]),
+            "label_counts_per_class": named(stats["label_counts_per_class"]),
+            "image_counts_per_class": named(stats["image_counts_per_class"]),
+            "empty_image_count": int(stats["empty_image_count"]),
+            "label_source": provenance if provenance is None or isinstance(provenance, str) else list(provenance),
+        }
+        return LabelHealthOutput(data, meta)

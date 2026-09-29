@@ -101,7 +101,15 @@ def _prepare(
             for kind in InputKind:
                 if kind in wanted:
                     produced.update(PRODUCERS[kind](pc))
-        inputs.append(EvaluatorInputs(source=name, ontology=ontology, ontology_source=ontology_source, **produced))
+        inputs.append(
+            EvaluatorInputs(
+                source=name,
+                ontology=ontology,
+                ontology_source=ontology_source,
+                label_source=dc.label_source,
+                **produced,
+            )
+        )
     return inputs, datasets
 
 

@@ -4164,6 +4164,39 @@
       "title": "LabelAlignmentConfig",
       "type": "object"
     },
+    "LabelHealthConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``quality.label-health``: how a Dataset's labels spread over its classes.\n\nWraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset\ndeclares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks\nread it.\n\nExample YAML::\n\n    evaluators:\n      - name: labels\n        type: quality.label-health",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "quality.label-health",
+          "default": "quality.label-health",
+          "description": "The evaluator type this entry configures: `quality.label-health`.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "LabelHealthConfig",
+      "type": "object"
+    },
     "LoggingConfig": {
       "additionalProperties": false,
       "description": "The log levels of a pipeline's ``logging:`` key.\n\nOnly a pipeline run by the ``dataeval-flow`` command applies them: :func:`~dataeval_flow.run_tasks` and\n:func:`~dataeval_flow.run` leave logging to their caller.\n\nYAML example::\n\n    logging:\n      app_level: INFO\n      lib_level: ERROR",
@@ -8785,6 +8818,9 @@
               },
               {
                 "$ref": "#/$defs/DuplicatesConfig"
+              },
+              {
+                "$ref": "#/$defs/LabelHealthConfig"
               },
               {
                 "$ref": "#/$defs/OutliersConfig"

@@ -16,6 +16,7 @@ from tests.evaluator_toys import _EXTRA_CONFIG, toy_run, toy_task_run
 # Each type's `SourceCount` value, and whether its tasks need, may name, or must not name an extractor (spec §3).
 _CATALOG: dict[str, tuple[str, str]] = {
     "quality.duplicates": ("1+", "optional"),
+    "quality.label-health": ("1", "refused"),
     "quality.outliers": ("1+", "optional"),
     "bias.balance": ("1", "refused"),
     "bias.diversity": ("1", "refused"),

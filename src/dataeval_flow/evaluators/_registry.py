@@ -13,6 +13,7 @@ _BUILTINS = {
     "bias.diversity": "dataeval_flow.evaluators.bias._evaluator:DiversityEvaluator",
     "bias.parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
     "quality.duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
+    "quality.label-health": "dataeval_flow.evaluators.quality._evaluator:LabelHealthEvaluator",
     "quality.outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
     "scope.representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
     "scope.coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",

@@ -5,7 +5,7 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["DuplicatesConfig", "OutliersConfig"]
+__all__ = ["DuplicatesConfig", "LabelHealthConfig", "OutliersConfig"]
 
 import functools
 import operator
@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Generic, Literal, Se
 from pydantic import Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import StatsConfigMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._threshold import ThresholdSpec
-from dataeval_flow.evaluators.quality._result import DuplicatesResult, OutliersResult
+from dataeval_flow.evaluators.quality._result import DuplicatesResult, LabelHealthResult, OutliersResult
 
 if TYPE_CHECKING:
     from dataeval.flags import ImageStats
@@ -333,3 +333,23 @@ class OutliersConfig(_QualityConfig[OutliersResult]):
         from dataeval.quality import Outliers
 
         return Outliers(**self.constructor_kwargs())
+
+
+class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin):
+    """Config for ``quality.label-health``: how a Dataset's labels spread over its classes.
+
+    Wraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset
+    declares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks
+    read it.
+
+    Example YAML::
+
+        evaluators:
+          - name: labels
+            type: quality.label-health
+    """
+
+    type: str = Field(
+        default="quality.label-health", description="The evaluator type this entry configures: `quality.label-health`."
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)

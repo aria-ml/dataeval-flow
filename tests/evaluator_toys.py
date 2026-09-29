@@ -140,6 +140,7 @@ def output_json(result: "Result[Any, Any]") -> dict[str, Any]:
 # factory takes the item count, so a test can ask for an empty source. A task adding a type adds its row.
 _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "quality.duplicates": lambda count: (ToyImages(count=count), None),
+    "quality.label-health": lambda count: (ToyImages(count=count), None),
     "quality.outliers": lambda count: (ToyImages(count=count), None),
     "bias.balance": lambda count: (ToyFactors(count=count), None),
     "bias.diversity": lambda count: (ToyFactors(count=count), None),

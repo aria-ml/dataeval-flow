@@ -72,6 +72,10 @@ dataeval_flow.evaluators.bias:ParityResult
 dataeval_flow.evaluators.quality:DuplicatesConfig
 dataeval_flow.evaluators.quality:DuplicatesEvaluator
 dataeval_flow.evaluators.quality:DuplicatesResult
+dataeval_flow.evaluators.quality:LabelHealthConfig
+dataeval_flow.evaluators.quality:LabelHealthEvaluator
+dataeval_flow.evaluators.quality:LabelHealthOutput
+dataeval_flow.evaluators.quality:LabelHealthResult
 dataeval_flow.evaluators.quality:OutliersConfig
 dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
