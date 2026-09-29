@@ -1,6 +1,16 @@
 """The step base, and the transform: a step that makes Datasets from Datasets and outputs."""
 
-__all__ = ["Step", "StepKind", "StepSkipped", "Transform", "TransformConfig", "TransformContext", "port_addresses"]
+__all__ = [
+    "InlineStep",
+    "Step",
+    "StepConfig",
+    "StepKind",
+    "StepSkipped",
+    "Transform",
+    "TransformConfig",
+    "TransformContext",
+    "port_addresses",
+]
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
@@ -48,14 +58,19 @@ class Step:
         return tuple(getattr(cls, "outputs", ()))
 
 
-class TransformConfig(BaseModel):
-    """A transform step's settings: the addresses its ports read, and its own arguments.
+class StepConfig(BaseModel):
+    """An inline step's settings: the addresses its ports read, and its own arguments.
 
-    Each input port is a field of the same name holding an address (``str``), several (``list[str]``), or a
-    mapping keyed by addresses (``dict[str, ...]``). Unknown keys are refused, so a misspelled setting fails the load.
+    A transform, combine or check step writes its settings beside it, in the step entry. Each input port is a field
+    of the same name holding an address (``str``), several (``list[str]``), or a mapping keyed by addresses
+    (``dict[str, ...]``). Unknown keys are refused, so a misspelled setting fails the load.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+
+class TransformConfig(StepConfig):
+    """A transform step's settings: the addresses its ports read, and its own arguments."""
 
 
 ConfigT = TypeVar("ConfigT", bound=TransformConfig)
@@ -95,7 +110,40 @@ class StepSkipped(Exception):  # noqa: N818 - a step's outcome, not an error
         self.reason = reason
 
 
-class Transform(Step, ABC, Generic[ConfigT]):
+class InlineStep(Step):
+    """A step whose settings are written beside it in the step entry: a transform, a combine or a check.
+
+    Its config class validates those settings, ports included. The engine checks its ports when the config loads.
+    ``same_node`` names the input ports whose Outputs must have been computed on exactly the ``input`` Dataset. Set
+    ``same_node_first_input`` when their producer may also read a reference set after that Dataset, as Prioritize
+    does, so only its first input is compared.
+    """
+
+    inputs: ClassVar[tuple[Port, ...]]
+    outputs: ClassVar[tuple[Port, ...]]
+    same_node: ClassVar[tuple[str, ...]] = ()
+    same_node_first_input: ClassVar[bool] = False
+
+    @classmethod
+    def resolved(cls, config: Any, pipeline: "PipelineConfig") -> Any:  # noqa: ARG003
+        """These settings with every pool name replaced by what it names, checked at load.
+
+        The engine keys, checks and runs the resolved settings, so editing a pool entry a step names changes the
+        step's output key. Raise ``ValueError`` naming the problem when a name is unknown. By default, `config`.
+        """
+        return config
+
+    @classmethod
+    def bound_problem(
+        cls,
+        config: Any,  # noqa: ARG003
+        classes: Mapping[str, tuple[type, ...]],  # noqa: ARG003
+    ) -> str | None:
+        """Why these settings do not fit the Outputs bound to them, by address, or ``None``. Checked at load."""
+        return None
+
+
+class Transform(InlineStep, ABC, Generic[ConfigT]):
     """A step that makes Datasets: from Datasets, and from Outputs computed on them.
 
     Subclassing
@@ -142,10 +190,6 @@ class Transform(Step, ABC, Generic[ConfigT]):
     """
 
     kind: ClassVar[StepKind] = "transform"
-    inputs: ClassVar[tuple[Port, ...]]
-    outputs: ClassVar[tuple[Port, ...]]
-    same_node: ClassVar[tuple[str, ...]] = ()
-    same_node_first_input: ClassVar[bool] = False
     broadcasts: ClassVar[bool] = True
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -190,24 +234,6 @@ class Transform(Step, ABC, Generic[ConfigT]):
     def output_keys(cls, config: ConfigT) -> Mapping[str, tuple[str, ...]]:  # noqa: ARG003
         """For each list output whose keys the settings fix, those keys, e.g. ``kfold``'s ``"0"`` to ``"k-1"``."""
         return {}
-
-    @classmethod
-    def resolved(cls, config: ConfigT, pipeline: "PipelineConfig") -> ConfigT:  # noqa: ARG003
-        """These settings with every pool name replaced by what it names, checked at load.
-
-        The engine keys, checks and runs the resolved settings, so editing a pool entry a step names changes the
-        step's output key. Raise ``ValueError`` naming the problem when a name is unknown. By default, `config`.
-        """
-        return config
-
-    @classmethod
-    def bound_problem(
-        cls,
-        config: ConfigT,  # noqa: ARG003
-        classes: Mapping[str, tuple[type, ...]],  # noqa: ARG003
-    ) -> str | None:
-        """Why these settings do not fit the Outputs bound to them, by address, or ``None``. Checked at load."""
-        return None
 
     def digest(
         self,

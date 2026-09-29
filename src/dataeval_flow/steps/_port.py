@@ -25,6 +25,7 @@ class DataType(StrEnum):
     OUTPUT = "output"
     EXPORT = "export"
     WORKFLOW_RESULT = "workflow_result"
+    FINDINGS = "findings"
 
 
 @dataclass(frozen=True)

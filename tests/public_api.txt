@@ -115,6 +115,12 @@ dataeval_flow.steps:Address
 dataeval_flow.steps:ChainMetadata
 dataeval_flow.steps:ChainOutput
 dataeval_flow.steps:ChainResult
+dataeval_flow.steps:Check
+dataeval_flow.steps:CheckConfig
+dataeval_flow.steps:CheckContext
+dataeval_flow.steps:Combine
+dataeval_flow.steps:CombineConfig
+dataeval_flow.steps:CombineContext
 dataeval_flow.steps:CustomWorkflowConfig
 dataeval_flow.steps:DATASET_KINDS
 dataeval_flow.steps:DataType
@@ -124,6 +130,7 @@ dataeval_flow.steps:PortEntry
 dataeval_flow.steps:Step
 dataeval_flow.steps:StepCatalog
 dataeval_flow.steps:StepCatalogEntry
+dataeval_flow.steps:StepConfig
 dataeval_flow.steps:StepEntry
 dataeval_flow.steps:StepKind
 dataeval_flow.steps:StepResult
@@ -131,7 +138,11 @@ dataeval_flow.steps:StepSkipped
 dataeval_flow.steps:Transform
 dataeval_flow.steps:TransformConfig
 dataeval_flow.steps:TransformContext
+dataeval_flow.steps:get_check
+dataeval_flow.steps:get_combine
 dataeval_flow.steps:get_transform
+dataeval_flow.steps:list_checks
+dataeval_flow.steps:list_combines
 dataeval_flow.steps:list_steps
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
