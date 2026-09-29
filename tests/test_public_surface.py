@@ -97,17 +97,27 @@ def test_every_public_config_field_is_described(line: str) -> None:
 
 
 def _result_classes() -> list[str]:
-    """Every per-type result on the surface: each workflow's and each evaluator's ``<X>Result``."""
+    """Every per-type result on the surface: each workflow's and each evaluator's ``<X>Result``.
+
+    A ``WorkflowResult`` whose output is not a ``WorkflowOutput`` — :class:`~dataeval_flow.steps.ChainResult`,
+    whose steps replace the usual raw/report split — documents its own fields differently and is left out here.
+    """
+    from dataeval_flow._kind import type_arguments
     from dataeval_flow.evaluators import EvaluatorResult
-    from dataeval_flow.workflows import WorkflowResult
+    from dataeval_flow.workflows import WorkflowOutput, WorkflowResult
 
     lines = []
     for line in _surface():
         module_name, name = line.split(":")
         obj = getattr(importlib.import_module(module_name), name)
         bases = (WorkflowResult, EvaluatorResult)
-        if inspect.isclass(obj) and issubclass(obj, bases) and obj not in bases:
-            lines.append(line)
+        if not (inspect.isclass(obj) and issubclass(obj, bases) and obj not in bases):
+            continue
+        if issubclass(obj, WorkflowResult):
+            _, output = type_arguments(obj, WorkflowResult) or (None, None)
+            if not (isinstance(output, type) and issubclass(output, WorkflowOutput)):
+                continue
+        lines.append(line)
     return lines
 
 

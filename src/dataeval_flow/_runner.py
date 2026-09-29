@@ -58,6 +58,7 @@ def _collect_results(
     ``results`` is keyed by the task that produced each result, as ``run_tasks`` returns it.
     """
     from dataeval_flow._logging import flush_logs
+    from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
 
     collected = _Collected()
@@ -70,7 +71,8 @@ def _collect_results(
                 _logger.error("    %s", error)
             collected.failures += 1
             flush_logs()
-            continue
+            if not isinstance(result, ChainResult):
+                continue
 
         # --- Text report: summary (no flag) or full detail (-v) ---
         text = result.report(detailed=verbosity >= 1, width=report_width)

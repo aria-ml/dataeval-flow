@@ -286,6 +286,9 @@ def _attempt(
         failed = _failed(spec, inputs_text, [failure_message(error)], start, result)
         return failed, _missing_outputs(spec, _failure_word(spec)), []
     value = {name: _live(item) for name, item in outputs.items()}
+    summary = {name: _summarize(item) for name, item in outputs.items()} if spec.kind == "transform" else None
+    if summary is not None and len(summary) == 1:
+        summary = next(iter(summary.values()))
     record = StepResult(
         name=spec.name,
         kind=spec.kind,
@@ -296,8 +299,21 @@ def _attempt(
         elapsed=time.monotonic() - start,
         result=result,
         optional=spec.optional,
+        summary=summary,
     )
     return record, outputs, records
+
+
+def _summarize(item: Node | NodeList | Missing) -> Any:
+    """A transform output's JSON: a Dataset's size and digest, a list's per key, a record's dump."""
+    if isinstance(item, NodeList):
+        return {key: _summarize(value) for key, value in item.elements.items()}
+    if isinstance(item, Missing):
+        return None
+    if item.type is DataType.DATASET:
+        return {"items": len(item.value), "digest": short_digest(item.key or item.address)}
+    payload = item.payload
+    return payload.model_dump(mode="json") if hasattr(payload, "model_dump") else payload
 
 
 def _failure_word(spec: StepSpec) -> str:

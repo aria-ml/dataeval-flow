@@ -108,6 +108,9 @@ dataeval_flow.evaluators.shift:OODKNeighborsConfig
 dataeval_flow.evaluators.shift:OODKNeighborsEvaluator
 dataeval_flow.evaluators.shift:OODKNeighborsResult
 dataeval_flow.steps:Address
+dataeval_flow.steps:ChainMetadata
+dataeval_flow.steps:ChainOutput
+dataeval_flow.steps:ChainResult
 dataeval_flow.steps:CustomWorkflowConfig
 dataeval_flow.steps:DATASET_KINDS
 dataeval_flow.steps:DataType

@@ -11,11 +11,12 @@ __all__ = ["junit_report", "markdown_summary"]
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from dataeval_flow._result import Result
+    from dataeval_flow.workflows._base import Finding
 
 # Characters XML 1.0 can't hold, such as a terminal colour code's escape, which ElementTree writes as they are.
 _NOT_XML = re.compile("[^\t\n\r\x20-퟿-�\U00010000-\U0010ffff]")
@@ -31,24 +32,27 @@ def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
     ``Outliers (2)``, since a CI tells its cases apart by name, and the task's time goes on its first case
     too, since a CI adds up its cases' times.
     """
+    from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
 
     root = ET.Element("testsuites", name="dataeval-flow")
     for task, result in results.items():
         suite = ET.SubElement(root, "testsuite", name=task)
-        if not result.success:
+        if isinstance(result, ChainResult):
+            for step in result.failed_steps:
+                errors = result.steps[step].errors or [f"{step} failed"]
+                error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name=f"step: {step}"), "error")
+                error.set("message", errors[0])
+                error.text = "\n".join(errors)
+            _finding_cases(suite, task, result.findings)
+            if not len(suite):
+                ET.SubElement(suite, "testcase", classname=task, name="run")
+        elif not result.success:
             error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name="run"), "error")
             error.set("message", result.errors[0] if result.errors else "failed")
             error.text = "\n".join(result.errors) or None
         elif isinstance(result, WorkflowResult) and result.findings:
-            titles: Counter[str] = Counter()
-            for finding in result.findings:
-                titles[finding.title] += 1
-                name = finding.title if titles[finding.title] == 1 else f"{finding.title} ({titles[finding.title]})"
-                case = ET.SubElement(suite, "testcase", classname=task, name=name)
-                if finding.severity == "warning":
-                    failure = ET.SubElement(case, "failure", message=finding.brief or finding.title, type="warning")
-                    failure.text = finding.description or None
+            _finding_cases(suite, task, result.findings)
         else:
             ET.SubElement(suite, "testcase", classname=task, name="run")
         seconds = getattr(result.metadata, "execution_time_s", None)
@@ -64,6 +68,18 @@ def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
     return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
 
 
+def _finding_cases(suite: ET.Element, task: str, findings: "Sequence[Finding]") -> None:
+    """One test case per finding, numbered where a title repeats, failing where the finding is a warning."""
+    titles: Counter[str] = Counter()
+    for finding in findings:
+        titles[finding.title] += 1
+        name = finding.title if titles[finding.title] == 1 else f"{finding.title} ({titles[finding.title]})"
+        case = ET.SubElement(suite, "testcase", classname=task, name=name)
+        if finding.severity == "warning":
+            failure = ET.SubElement(case, "failure", message=finding.brief or finding.title, type="warning")
+            failure.text = finding.description or None
+
+
 def _count(element: ET.Element, *suites: ET.Element) -> None:
     """Set *element*'s ``tests``, ``failures`` and ``errors`` from the test cases in *suites*."""
     cases = [case for suite in suites for case in suite.iter("testcase")]
@@ -74,10 +90,27 @@ def _count(element: ET.Element, *suites: ET.Element) -> None:
 
 def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
     """Each task's findings as a table of severity, finding and result, and each failed task's errors."""
+    from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
 
     lines = ["# dataeval-flow results", ""]
     for task, result in results.items():
+        if isinstance(result, ChainResult):
+            warnings = result.warning_count
+            health = (
+                "failed"
+                if result.failed_steps
+                else "passed"
+                if not warnings
+                else f"{warnings} warning{'s' if warnings != 1 else ''}"
+            )
+            lines += [f"## {_inline(task)}", "", f"**Health:** {health}", ""]
+            if result.failed_steps:
+                lines += [f"**Failed steps:** {', '.join(_inline(step) for step in result.failed_steps)}", ""]
+            lines += ["| Severity | Finding | Result |", "| --- | --- | --- |"]
+            lines += [f"| {f.severity} | {_inline(f.title)} | {_inline(f.brief or '')} |" for f in result.findings]
+            lines.append("")
+            continue
         if not result.success:
             errors = "\n".join(result.errors)
             # A fence longer than any run of backticks the errors hold, so they show as written.
