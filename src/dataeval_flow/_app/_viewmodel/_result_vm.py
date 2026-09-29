@@ -48,14 +48,19 @@ class ResultViewModel:
 
     def __init__(self, result: Any) -> None:
         from dataeval_flow.evaluators._result import EvaluatorResult
+        from dataeval_flow.steps._result import ChainResult
 
         self._result = result
         self._is_evaluator = isinstance(result, EvaluatorResult)
+        # A custom workflow's result holds its steps, not one report: its findings are its steps'.
+        self._is_chain = isinstance(result, ChainResult)
         self._findings = self._extract_findings()
 
     def _extract_findings(self) -> list[Any]:
         if self._is_evaluator or not self._result.success:
             return []
+        if self._is_chain:
+            return list(self._result.findings)
         return list(self._result.output.report.findings)
 
     @property
@@ -116,8 +121,8 @@ class ResultViewModel:
         return ", ".join(parts)
 
     def report_summary(self) -> str:
-        """The workflow's own summary string (e.g. 'Data Cleaning Report'); empty for an evaluator or a failed run."""
-        if self._is_evaluator or not self._result.success:
+        """A workflow type's own summary string (e.g. 'Data Cleaning Report'); empty for any other result."""
+        if self._is_evaluator or self._is_chain or not self._result.success:
             return ""
         return self._result.output.report.summary
 

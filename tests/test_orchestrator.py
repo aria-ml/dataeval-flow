@@ -776,7 +776,7 @@ class TestSelectTasks:
         """Results are keyed by task name, so a second run could only overwrite the first."""
         executed: list[str] = []
 
-        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True):  # noqa: ARG001
+        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True, output_dir=None):  # noqa: ARG001
             executed.append(task.name)
             return MagicMock(success=True)
 
@@ -791,7 +791,7 @@ class TestSelectTasks:
         config = self._config()
         executed: list[str] = []
 
-        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True):  # noqa: ARG001
+        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True, output_dir=None):  # noqa: ARG001
             executed.append(task.name)
             return MagicMock(success=True)
 

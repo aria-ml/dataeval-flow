@@ -394,7 +394,9 @@ def _show_items(section: str, vm: BuilderViewModel) -> None:
         # Build a brief summary
         parts: list[str] = []
         disc_field = get_discriminator_field(section)
-        if disc_field and disc_field in item:
+        if section == "workflows" and "steps" in item:
+            parts.append(f"custom ({len(item['steps'] or [])} steps)")
+        elif disc_field and disc_field in item:
             parts.append(f"{disc_field}={item[disc_field]}")
         # Add a few key fields
         for key, val in item.items():
@@ -434,6 +436,9 @@ def _edit_action_edit(section: str, vm: BuilderViewModel) -> None:
     existing = vm.get_item(section, idx)
     if existing is None:
         click.echo("  Invalid index.")
+        return
+    if section == "workflows" and "steps" in existing:
+        click.echo("  Custom workflows are edited in the config file; this builder shows and keeps them.")
         return
     item = _prompt_item(section, vm, existing=existing)
     if not item:

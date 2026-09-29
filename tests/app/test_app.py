@@ -1705,3 +1705,53 @@ class TestDeleteItemWarnings:
                     # Should have called notify at least once for description,
                     # and possibly for warnings about dependent sources
                     assert mock_notify.call_count >= 1
+
+
+# ---------------------------------------------------------------------------
+# A custom workflow is shown and run, but edited in the config file
+# ---------------------------------------------------------------------------
+
+
+class TestCustomWorkflowItem:
+    async def test_editing_a_custom_workflow_notifies_instead_of_opening_the_form(self, plugins, tmp_path) -> None:
+        import yaml
+
+        from dataeval_flow._app._screens import SectionModal
+        from tests.chain_toys import register_toys
+
+        register_toys(plugins)
+        workflow = {
+            "name": "w",
+            "inputs": ["a"],
+            "steps": [
+                {"name": "few", "transform": "toy-first", "input": "a", "n": 6},
+                {"name": "dupes", "evaluator": "dupes", "input": "few"},
+            ],
+        }
+        cfg_path = tmp_path / "params.yaml"
+        cfg_path.write_text(
+            yaml.safe_dump(
+                {
+                    "datasets": [{"name": "ds1", "format": "image_folder", "path": "images"}],
+                    "sources": [{"name": "src", "dataset": "ds1"}],
+                    "evaluators": [{"name": "dupes", "type": "quality.duplicates"}],
+                    "workflows": [workflow],
+                    "tasks": [{"name": "t", "workflow": "w", "sources": ["src"]}],
+                },
+                sort_keys=False,
+            )
+        )
+        app = FlowApp(config_path=str(cfg_path))
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.pause()
+            items = [w for w in app._get_pane_widgets("config-pane") if isinstance(w, CfgItem)]
+            (custom,) = [w for w in items if w.fc_category == "workflows"]
+            app.set_focus(custom)
+            with patch.object(app, "notify") as mock_notify:
+                app.action_activate_item()
+                await pilot.pause()
+            assert not any(isinstance(screen, SectionModal) for screen in app.screen_stack)
+            mock_notify.assert_called_once()
+            assert "edited in the config file" in mock_notify.call_args.args[0]

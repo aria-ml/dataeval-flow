@@ -714,6 +714,11 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
     # ==================================================================
 
     def _open_modal(self, category: str, existing: dict[str, Any] | None, index: int) -> None:
+        if category == "workflows" and existing is not None and "steps" in existing:
+            self.notify(
+                "Custom workflows are edited in the config file; the TUI shows and runs them.", severity="warning"
+            )
+            return
         self._editing_category = category
         self._editing_index = index
 

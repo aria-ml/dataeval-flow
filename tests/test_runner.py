@@ -193,6 +193,19 @@ class TestReportImages:
         assert {call.kwargs["report_images"] for call in run_one.call_args_list} == {report_images}
 
 
+class TestOutputDir:
+    """The runner's output directory reaches every task it runs, for the export steps a chain holds."""
+
+    def test_the_output_dir_reaches_each_task(self, tmp_path: Path):
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path)
+        with patch.object(orch, "_run_single_task", return_value=_fake_result()) as run_one:
+            run(config, tmp_path / "out", data_dir=tmp_path)
+        assert {call.kwargs["output_dir"] for call in run_one.call_args_list} == {tmp_path / "out"}
+
+
 class TestRunTaskPairing:
     """A disabled task must not misalign results against the tasks that produced them."""
 

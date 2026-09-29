@@ -240,7 +240,9 @@ def run(
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
-    results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images)
+    results = run_tasks(
+        config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
+    )
 
     width = config.result.width if report_width is None else report_width
     collected = _collect_results(results, verbosity=verbosity, report_width=width)

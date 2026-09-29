@@ -397,3 +397,20 @@ class TestEvaluatorResults:
         from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
 
         assert ResultViewModel(self._result()).report_summary() == ""
+
+
+class TestChainResults:
+    """A custom workflow's result holds its steps, not one report: its findings are its steps'."""
+
+    def _result(self):
+        from dataeval_flow._chain._run import ChainRun
+        from dataeval_flow.steps import ChainResult
+
+        return ChainResult.from_run("w", ChainRun(steps={}, nodes={}, lineage=[], label_space=[]))
+
+    def test_it_reads_the_steps_findings_and_has_no_report_summary(self) -> None:
+        rvm = ResultViewModel(self._result())
+        assert rvm.finding_count() == 0
+        assert rvm.summary_line() == "0 findings"
+        assert rvm.report_summary() == ""
+        assert rvm.status_tag() == " [green][ok][/green]"

@@ -387,13 +387,10 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings) ->
         ontology=step.ontology,
         stats_policy=step.stats_policy,
     )
-    if spec.kind == "evaluator":
-        from dataeval_flow.evaluators._execute import execute
+    # Instantiated and run as the orchestrator runs a task's target, so a step and a task run it the same way.
+    from dataeval_flow._orchestrator import _implementation, _run_target
 
-        return execute(spec.impl(), context, spec.config)  # type: ignore[arg-type]
-    from dataeval_flow._orchestrator import _run_target
-
-    return _run_target(spec.impl(), spec.config, context)  # type: ignore[arg-type]
+    return _run_target(_implementation(spec.config), spec.config, context)  # type: ignore[arg-type]
 
 
 def _context_for(node: Node, spec: StepSpec, setup: ExtractorSetup | None) -> "DatasetContext":
