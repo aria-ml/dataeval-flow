@@ -45,7 +45,7 @@ class TestBuildPreprocessing:
     def test_invalid_transform_name_raises(self):
         """Unknown transform name raises ValueError."""
         steps = [PreprocessingStep(step="NonExistentTransform", params={})]
-        with pytest.raises(ValueError, match="Unknown transform: 'NonExistentTransform'"):
+        with pytest.raises(ValueError, match="Unknown image transform: 'NonExistentTransform'"):
             build_preprocessing(steps)
 
     def test_invalid_transform_params_raises(self):

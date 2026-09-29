@@ -95,6 +95,6 @@ def resolve_step(name: str) -> Any:
     if (problem := IMAGE_TRANSFORMS.problem(name)) is not None:
         raise ValueError(problem)
     raise ValueError(
-        f"Unknown transform: '{name}'. Must be a registered transform "
+        f"Unknown image transform: '{name}'. Must be a registered image transform "
         f"({', '.join(IMAGE_TRANSFORMS.names())}) or a torchvision.transforms.v2 transform."
     )
