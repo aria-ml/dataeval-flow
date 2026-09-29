@@ -120,12 +120,16 @@ dataeval_flow.steps:Step
 dataeval_flow.steps:StepEntry
 dataeval_flow.steps:StepKind
 dataeval_flow.steps:StepResult
+dataeval_flow.steps:StepSkipped
 dataeval_flow.steps:Transform
 dataeval_flow.steps:TransformConfig
 dataeval_flow.steps:TransformContext
 dataeval_flow.steps:get_transform
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
+dataeval_flow.steps.transforms:ExportRecord
+dataeval_flow.steps.transforms:ExportStepConfig
+dataeval_flow.steps.transforms:ExportTransform
 dataeval_flow.steps.transforms:KFoldConfig
 dataeval_flow.steps.transforms:KFoldTransform
 dataeval_flow.steps.transforms:MergeConfig

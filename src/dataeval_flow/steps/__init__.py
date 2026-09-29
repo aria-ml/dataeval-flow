@@ -8,7 +8,7 @@ from dataeval_flow.steps._address import Address, parse_address
 from dataeval_flow.steps._port import DATASET_KINDS, DataType, Port
 from dataeval_flow.steps._registry import get_transform, list_transforms
 from dataeval_flow.steps._result import ChainMetadata, ChainOutput, ChainResult, StepResult
-from dataeval_flow.steps._step import Step, StepKind, Transform, TransformConfig, TransformContext
+from dataeval_flow.steps._step import Step, StepKind, StepSkipped, Transform, TransformConfig, TransformContext
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
 __all__ = [
@@ -25,6 +25,7 @@ __all__ = [
     "StepEntry",
     "StepKind",
     "StepResult",
+    "StepSkipped",
     "Transform",
     "TransformConfig",
     "TransformContext",

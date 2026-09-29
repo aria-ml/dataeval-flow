@@ -926,6 +926,9 @@
                 "$ref": "#/$defs/WorkflowStep"
               },
               {
+                "$ref": "#/$defs/TransformStep_export"
+              },
+              {
                 "$ref": "#/$defs/TransformStep_kfold"
               },
               {
@@ -7487,6 +7490,104 @@
         "model_path"
       ],
       "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "TransformStep_export": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset to write. Object detection only.",
+          "title": "Input",
+          "type": "string"
+        },
+        "format": {
+          "default": "coco",
+          "description": "The format to write.",
+          "enum": [
+            "coco",
+            "yolo",
+            "huggingface_vision",
+            "visdrone"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "mode": {
+          "default": "error",
+          "description": "What to do when the destination holds a dataset: refuse, replace it, or add to it.",
+          "enum": [
+            "error",
+            "replace",
+            "append"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The ontology to record in the provenance, by `ontologies:` name.",
+          "title": "Ontology"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "pattern": "^[^/\\\\]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The directory under `<output>/datasets/`. Defaults to `<task>.<step>`.",
+          "title": "To"
+        },
+        "transform": {
+          "const": "export",
+          "description": "`export`: Writes an object-detection Dataset to disk as COCO, YOLO or another datamaite format.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry to embed with, instead of the task's.",
+          "title": "Extractor"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_export",
       "type": "object"
     },
     "TransformStep_kfold": {

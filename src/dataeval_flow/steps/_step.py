@@ -1,6 +1,6 @@
 """The step base, and the transform: a step that makes Datasets from Datasets and outputs."""
 
-__all__ = ["Step", "StepKind", "Transform", "TransformConfig", "TransformContext", "port_addresses"]
+__all__ = ["Step", "StepKind", "StepSkipped", "Transform", "TransformConfig", "TransformContext", "port_addresses"]
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
@@ -79,6 +79,17 @@ class TransformContext:
     """Metadata of a Dataset node under this step's metadata policy, cached on the node."""
     lineage: "Callable[[str], Sequence[Any]] | None" = None
     """The lineage records a Dataset node descends from, nearest first."""
+
+
+class StepSkipped(Exception):  # noqa: N818 - a step's outcome, not an error
+    """Raised by a transform's ``run`` when it cannot run in this setting: the step is recorded as skipped.
+
+    A skip is not a failure. It does not fail the task, and the steps that read this one are skipped too.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class Transform(Step, ABC, Generic[ConfigT]):

@@ -17,7 +17,7 @@ from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_messa
 from dataeval_flow.steps._address import Address
 from dataeval_flow.steps._port import DataType
 from dataeval_flow.steps._result import StepResult, StepStatus
-from dataeval_flow.steps._step import Transform, TransformContext
+from dataeval_flow.steps._step import StepSkipped, Transform, TransformContext
 
 if TYPE_CHECKING:
     from dataeval_flow._policy import ResolvedPolicy
@@ -126,7 +126,7 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     steps: dict[str, StepResult] = {}
     label_space: list[LabelSpaceRecord] = []
     for spec in graph.steps:
-        record, produced, records = _run_step(spec, nodes, settings)
+        record, produced, records = _run_step(spec, nodes, settings, lineage)
         steps[spec.name] = record
         nodes.update(produced)
         if tracked:
@@ -146,7 +146,7 @@ def _lookup(nodes: Mapping[str, _Value], address: Address) -> _Value:
 
 
 def _run_step(
-    spec: StepSpec, nodes: Mapping[str, _Value], settings: RunSettings
+    spec: StepSpec, nodes: Mapping[str, _Value], settings: RunSettings, lineage: Sequence[LineageRecord]
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run `spec` once, or once per key of the lists it broadcasts over; its outputs come back by address."""
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
@@ -156,9 +156,9 @@ def _run_step(
         return _skipped(spec, inputs_text, reason), _by_address(spec, _missing_outputs(spec, "was skipped")), []
     keys = _broadcast_keys(spec, bound)
     if keys is None:
-        record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text)
+        record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage)
         return record, _by_address(spec, outputs), records
-    return _broadcast(spec, bound, keys, settings, inputs_text)
+    return _broadcast(spec, bound, keys, settings, inputs_text, lineage)
 
 
 def _absent(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> str | None:
@@ -188,7 +188,12 @@ def _broadcast_keys(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> list[s
 
 
 def _broadcast(
-    spec: StepSpec, bound: Mapping[str, list[_Value]], keys: list[str], settings: RunSettings, inputs_text: list[str]
+    spec: StepSpec,
+    bound: Mapping[str, list[_Value]],
+    keys: list[str],
+    settings: RunSettings,
+    inputs_text: list[str],
+    lineage: Sequence[LineageRecord],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run `spec` once per key, zipping its lists by key; each output is a list with those keys."""
     elements: dict[str, StepResult] = {}
@@ -200,7 +205,7 @@ def _broadcast(
             elements[key] = _skipped(spec, inputs_text, why)
             outputs = _missing_outputs(spec, "was skipped")
         else:
-            elements[key], outputs, records = _attempt(spec, _shaped(spec, chosen), settings, key, inputs_text)
+            elements[key], outputs, records = _attempt(spec, _shaped(spec, chosen), settings, key, inputs_text, lineage)
             label_space.extend(records)
         for port in spec.outputs:
             per_output[port.name][key] = outputs[port.name]  # type: ignore[assignment]  # lists do not nest
@@ -266,7 +271,12 @@ def _shaped(spec: StepSpec, bound: Mapping[str, list[Any]]) -> dict[str, Any]:
 
 
 def _attempt(
-    spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None, inputs_text: list[str]
+    spec: StepSpec,
+    inputs: Mapping[str, Any],
+    settings: RunSettings,
+    element: str | None,
+    inputs_text: list[str],
+    lineage: Sequence[LineageRecord],
 ) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
     """Run one invocation of a step; its outputs come back by port name. Every exception becomes the step's failure."""
     start = time.monotonic()
@@ -280,7 +290,9 @@ def _attempt(
                 return failed, _missing_outputs(spec, _failure_word(spec)), []
             outputs = _pooled_outputs(spec, result, inputs, element)
         else:
-            outputs, records = _transform(spec, inputs, settings, element)
+            outputs, records = _transform(spec, inputs, settings, element, lineage)
+    except StepSkipped as skip:
+        return _skipped(spec, inputs_text, skip.reason), _missing_outputs(spec, "was skipped"), []
     except Exception as error:  # a step's failure must not stop the chain
         _logger.exception("Step '%s' failed", spec.name)
         failed = _failed(spec, inputs_text, [failure_message(error)], start, result)
@@ -415,7 +427,11 @@ def _pooled_outputs(spec: StepSpec, result: Any, inputs: Mapping[str, Any], elem
 
 
 def _transform(
-    spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None
+    spec: StepSpec,
+    inputs: Mapping[str, Any],
+    settings: RunSettings,
+    element: str | None,
+    lineage: Sequence[LineageRecord],
 ) -> tuple[dict[str, _Value], list[LabelSpaceRecord]]:
     impl: Transform[Any] = spec.impl()  # type: ignore[assignment]
     step = settings.step_contexts.get(spec.name, StepContext())
@@ -426,6 +442,7 @@ def _transform(
         pipeline=settings.pipeline,
         data_dir=settings.data_dir,
         derive_metadata=lambda node: _metadata(node, step.metadata_policy),
+        lineage=lambda address: _ancestry(address, lineage),
     )
     made = impl.run(spec.config, inputs, context)
     first = spec.output_address(spec.outputs[0]) + (f"[{element}]" if element is not None else "")
@@ -522,6 +539,21 @@ def _datasets(values: Iterable[_Value]) -> list[Node]:
     for value in values:
         items = value.present.values() if isinstance(value, NodeList) else [value]
         found.extend(item for item in items if isinstance(item, Node) and item.type is DataType.DATASET)
+    return found
+
+
+def _ancestry(address: str, lineage: Sequence[LineageRecord]) -> list[LineageRecord]:
+    """`address`'s lineage record, then its ancestors', nearest first."""
+    records = {record.name: record for record in lineage}
+    found: list[LineageRecord] = []
+    queue = [address]
+    while queue:
+        name = queue.pop(0)
+        record = records.get(name)
+        if record is None or record in found:
+            continue
+        found.append(record)
+        queue.extend(record.inputs)
     return found
 
 
