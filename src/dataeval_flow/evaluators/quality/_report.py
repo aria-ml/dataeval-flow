@@ -107,6 +107,7 @@ def flagged_table(
     noun: str,
     groups: Sequence[str] | None = None,
     ref: Callable[[tuple[Cell, ...]], ItemRef] | None = None,
+    listed_in: str = "output.raw",
 ) -> list[Block]:
     """A row per flagged subject, with every flag it raised, in the order of the subjects' keys.
 
@@ -159,7 +160,7 @@ def flagged_table(
                 if share < len(part)
             )
             text = f"{len(subjects):,} {noun} flagged; {len(rows):,} are listed, leaving out {left}"
-        blocks.append(Paragraph(text=f"{text}, and every one is in `output.raw`."))
+        blocks.append(Paragraph(text=f"{text}, and every one is in `{listed_in}`."))
     return blocks
 
 
@@ -217,7 +218,9 @@ def limits_sentence(method: str | None, threshold: float | None) -> str | None:
     return sentence.format(t=f"{default if threshold is None else threshold:g}")
 
 
-def groups_table(groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str) -> list[Block]:
+def groups_table(
+    groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str, *, listed_in: str = "output.raw"
+) -> list[Block]:
     """Duplicate groups, largest first: each one's kind, size, and up to eight of its items, named and pictured.
 
     *groups* are each group's kind (``exact`` or ``near``), its number among its kind in ``output.raw``,
@@ -245,7 +248,7 @@ def groups_table(groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str
         blocks.append(
             Paragraph(
                 text=f"{len(ranked):,} groups of {noun}; the {limits.rows:,} largest are listed, and every one is in "
-                "`output.raw`."
+                f"`{listed_in}`."
             )
         )
     return blocks
@@ -293,6 +296,7 @@ def _flagged(issues: Sequence[Mapping[str, Any]], sources: Sequence[str], *, box
         noun="boxes" if boxes else "images",
         groups=list(sources) if several else None,
         ref=ref,
+        listed_in="output.rows",
     )
     return [*table, limits_table(issues, key=key)]
 
@@ -313,11 +317,15 @@ def duplicate_section(output: Mapping[str, Any], sources: Sequence[str], *, deta
             if row["level"] == level
         ]
         if level == "item":
-            blocks.extend(groups_table(groups, "images"))
+            blocks.extend(groups_table(groups, "images", listed_in="output.rows"))
         else:
             noun = "boxes" if level == "target" else f"{level}s"
             blocks.append(
-                Section(title=f"Duplicate {noun}", brief=f"{len(groups)} groups", blocks=groups_table(groups, noun))
+                Section(
+                    title=f"Duplicate {noun}",
+                    brief=f"{len(groups)} groups",
+                    blocks=groups_table(groups, noun, listed_in="output.rows"),
+                )
             )
     if not rows:
         blocks.append(Paragraph(text="No duplicates found."))

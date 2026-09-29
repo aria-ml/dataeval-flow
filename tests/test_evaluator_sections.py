@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from dataeval_flow import run_task
-from dataeval_flow._blocks import Block, ItemRef, Section, Table
+from dataeval_flow._blocks import Block, ItemRef, Paragraph, Section, Table
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators._result import EvaluatorMetadata
 from dataeval_flow.evaluators.bias import BalanceConfig
@@ -74,8 +74,12 @@ def test_an_outliers_section_lists_flagged_boxes_under_their_own_heading() -> No
 
 def test_an_outliers_section_lists_no_more_rows_than_the_run_allowed() -> None:
     result = _task(OutliersConfig(**_OUTLIERS, per_target=True), dataset=_boxes(), max_rows=1)
-    flagged, _ = _tables(_section(result._report_output(detailed=True), "Flagged boxes").blocks)
+    blocks = _section(result._report_output(detailed=True), "Flagged boxes").blocks
+    flagged, _ = _tables(blocks)
     assert len(flagged.rows) == 1
+    after = blocks[blocks.index(flagged) + 1]
+    assert isinstance(after, Paragraph)
+    assert after.text == "2 boxes flagged; the first 1 are listed, and every one is in `output.rows`."
 
 
 def test_a_duplicates_section_pictures_each_group_s_items() -> None:

@@ -9,7 +9,9 @@ from dataeval_flow._blocks import Block, Cell, Column, ItemRef, Paragraph, Secti
 from dataeval_flow._tables import table_limits
 
 
-def uncovered_blocks(uncovered: Sequence[tuple[ItemRef, str | None, float | None]], noun: str) -> list[Block]:
+def uncovered_blocks(
+    uncovered: Sequence[tuple[ItemRef, str | None, float | None]], noun: str, *, listed_in: str = "output.raw"
+) -> list[Block]:
     """Items in sparse regions of the embedding space, under their own heading, farthest first.
 
     *uncovered* are each item's reference, its class where known, and its distance to its k-th nearest
@@ -46,7 +48,7 @@ def uncovered_blocks(uncovered: Sequence[tuple[ItemRef, str | None, float | None
         blocks.append(
             Paragraph(
                 text=f"{len(ranked):,} {noun} uncovered; the {limits.rows:,} farthest are listed, and every one is in "
-                "`output.raw`."
+                f"`{listed_in}`."
             )
         )
     return [Section(title=f"Uncovered {noun}", blocks=blocks)]
@@ -59,4 +61,7 @@ def coverage_section(output: Mapping[str, Any], sources: Sequence[str], *, detai
     extras = dict(output.get("extras") or {})
     uncovered = extras.pop("uncovered_indices", None) or []
     refs = [(ItemRef(source=sources[0], index=int(index)), None, None) for index in uncovered]
-    return [*uncovered_blocks(refs, "images"), *output_blocks({**output, "extras": extras}, detailed=detailed)]
+    return [
+        *uncovered_blocks(refs, "images", listed_in="output.extras.uncovered_indices"),
+        *output_blocks({**output, "extras": extras}, detailed=detailed),
+    ]
