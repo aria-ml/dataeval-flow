@@ -1,0 +1,106 @@
+"""Preflight: each step's policies resolved as a task resolves them today, and Dataset kinds checked (spec §5.4)."""
+
+import pytest
+
+from dataeval_flow._cache import DatasetCache
+from dataeval_flow._chain._graph import GraphError, build_graph, one_step_graph
+from dataeval_flow._chain._preflight import check_kinds, detect_kind, step_contexts
+from dataeval_flow._chain._run import bind_inputs
+from dataeval_flow._sources import resolve_source
+from dataeval_flow.config import MetadataPolicyConfig, TaskConfig
+from dataeval_flow.evaluators.bias import BalanceConfig
+from dataeval_flow.workflows._context import DatasetContext
+from tests.chain_toys import ToyDetections, chain_pipeline, register_toys
+from tests.evaluator_toys import ToyFactors, ToyImages
+
+
+@pytest.fixture
+def toys(plugins):
+    register_toys(plugins)
+    return plugins
+
+
+def _contexts(config, names):
+    contexts, resolved = {}, {}
+    for name in names:
+        source = resolve_source(name, config)
+        resolved[name] = source
+        contexts[name] = DatasetContext(
+            name=name,
+            dataset=source.dataset,
+            cache=DatasetCache.get_or_create(None, source.cache_name, source.cache_key),
+        )
+    return contexts, resolved
+
+
+def test_detect_kind_reads_the_first_datum() -> None:
+    assert detect_kind(ToyImages()) == "classification"
+    assert detect_kind(ToyDetections([[0], [1]], {0: "a", 1: "b"})) == "object_detection"
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_step_given_a_kind_it_does_not_take_is_refused_before_running() -> None:
+    workflow = {
+        "name": "w",
+        "inputs": ["a"],
+        "steps": [{"name": "d", "transform": "toy-detections-only", "input": "a"}],
+    }
+    config = chain_pipeline(workflows=[workflow])
+    graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
+    contexts, resolved = _contexts(config, ["src"])
+    inputs = bind_inputs(graph, ["src"], contexts, resolved)
+    with pytest.raises(GraphError, match="reads `a`, a classification Dataset, but `input` takes object_detection"):
+        check_kinds(graph, inputs)
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_view_whose_operations_take_any_target_keeps_its_input_kind() -> None:
+    ops = [{"type": "Relabel", "params": {"class_remap": {"a": "x"}, "target": ["x"]}}]
+    workflow = {
+        "name": "w",
+        "inputs": ["a"],
+        "steps": [{"name": "v", "transform": "view", "input": "a", "operations": ops}],
+    }
+    config = chain_pipeline(workflows=[workflow])
+    graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
+    contexts, resolved = _contexts(config, ["src"])
+    kinds = check_kinds(graph, bind_inputs(graph, ["src"], contexts, resolved))
+    assert kinds["v"] == "classification"
+
+
+@pytest.mark.usefixtures("toys")
+def test_kinds_flow_through_the_chain() -> None:
+    workflow = {
+        "name": "w",
+        "inputs": ["a"],
+        "steps": [
+            {"name": "k", "transform": "toy-keep", "input": "a"},
+            {"name": "d", "transform": "toy-detections-only", "input": "k"},
+        ],
+    }
+    config = chain_pipeline(workflows=[workflow], datasets={"src": ToyDetections([[0], [1]], {0: "a", 1: "b"})})
+    graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
+    contexts, resolved = _contexts(config, ["src"])
+    assert check_kinds(graph, bind_inputs(graph, ["src"], contexts, resolved)) == {
+        "a": "object_detection",
+        "k": "object_detection",
+        "d": "object_detection",
+    }
+
+
+@pytest.mark.usefixtures("toys")
+def test_a_one_step_graph_resolves_its_policy_exactly_as_a_task_does() -> None:
+    policy = MetadataPolicyConfig(name="p", exclude=["angle"])
+    balance = BalanceConfig(name="balance", metadata="p")
+    config = chain_pipeline(evaluators=[balance], datasets={"src": ToyFactors()}, extra={"metadata": [policy]})
+    task = TaskConfig(name="t", workflow="balance", kind="evaluator", sources="src")
+    graph = one_step_graph(task, balance, ["src"])
+    contexts, _ = _contexts(config, ["src"])
+    (context,) = step_contexts(graph, config, None, {"src": [contexts["src"]]}).values()
+
+    from dataeval_flow._orchestrator import _resolve_metadata_policy
+
+    expected = _resolve_metadata_policy(balance, config, None)
+    assert context.metadata_policy == expected
+    assert context.stats_policy is None
+    assert context.ontology is None

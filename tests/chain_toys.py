@@ -131,6 +131,24 @@ class Spread(Transform[SpreadConfig]):
         }
 
 
+class DetectionsOnlyConfig(TransformConfig):
+    input: str
+
+
+class DetectionsOnly(Transform[DetectionsOnlyConfig]):
+    """Takes object-detection Datasets only, and hands them on."""
+
+    name: ClassVar[str] = "toy-detections-only"
+    description: ClassVar[str] = "Object detection only."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, kinds=frozenset({"object_detection"})),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+
+    def run(
+        self, config: DetectionsOnlyConfig, inputs: Mapping[str, Any], context: TransformContext
+    ) -> Mapping[str, Any]:
+        return {"output": inputs["input"].value}
+
+
 _TOYS = {
     "toy-keep": "tests.chain_toys:Keep",
     "toy-first": "tests.chain_toys:First",
@@ -138,6 +156,7 @@ _TOYS = {
     "toy-halves": "tests.chain_toys:Halves",
     "toy-gather": "tests.chain_toys:Gather",
     "toy-spread": "tests.chain_toys:Spread",
+    "toy-detections-only": "tests.chain_toys:DetectionsOnly",
 }
 
 
