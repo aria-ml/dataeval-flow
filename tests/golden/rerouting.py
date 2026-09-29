@@ -3,6 +3,8 @@
 from collections.abc import Callable
 from typing import Any
 
+import pytest
+
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig, ViewConfig, ViewOperation
 from dataeval_flow.evaluators.quality import DuplicatesConfig
@@ -26,6 +28,22 @@ def normalized(payload: Any) -> Any:
     if isinstance(payload, list):
         return [normalized(item) for item in payload]
     return payload
+
+
+def approximately(expected: Any) -> Any:
+    """`expected` with each float compared to a relative 1e-4, and everything else exactly.
+
+    torch's float32 arithmetic differs in its last digits from one CPU to another, so a drift distance recorded on
+    one machine reads differently on a CI runner. The golden files pin what the rerouting could change: every key,
+    string, count and flag, and each measurement to four significant figures.
+    """
+    if isinstance(expected, dict):
+        return {key: approximately(value) for key, value in expected.items()}
+    if isinstance(expected, list):
+        return [approximately(item) for item in expected]
+    if isinstance(expected, float):
+        return pytest.approx(expected, rel=1e-4)
+    return expected
 
 
 def _duplicates() -> dict[str, Any]:

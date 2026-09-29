@@ -26,7 +26,7 @@ from dataeval_flow.steps import (
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
-from tests.golden.rerouting import CASES, normalized
+from tests.golden.rerouting import CASES, approximately, normalized
 
 GOLDEN = Path(__file__).parent / "golden"
 
@@ -43,7 +43,7 @@ def toys(plugins):
 def test_a_rerouted_task_produces_the_json_it_did_before(name: str) -> None:
     DatasetCache.clear_instances()
     expected = json.loads((GOLDEN / f"rerouting_{name}.json").read_text())
-    assert normalized(json.loads(json.dumps(CASES[name]()))) == expected
+    assert normalized(json.loads(json.dumps(CASES[name]()))) == approximately(expected)
 
 
 _WORKFLOW = {
@@ -323,6 +323,16 @@ def test_the_golden_normalizer_drops_volatile_keys_at_every_depth() -> None:
         "steps": [{"dataeval": {"commit": "abc"}}, [{"items": 3}]],
         "dataeval": {"flags": ["x"]},
     }
+
+
+def test_the_golden_comparison_lets_floats_differ_only_in_their_last_digits() -> None:
+    # torch's float32 arithmetic differs from one CPU to another: CI read MMD's distance as 0.3987167477607727
+    # where this machine recorded 0.3987165689468384.
+    expected = approximately({"distance": 0.3987165689468384, "items": [24, 0.0152357221], "method": "mmd"})
+    assert expected == {"distance": 0.3987167477607727, "items": [24, 0.01523590087890625], "method": "mmd"}
+    assert expected != {"distance": 0.3988, "items": [24, 0.0152357221], "method": "mmd"}
+    assert expected != {"distance": 0.3987165689468384, "items": [25, 0.0152357221], "method": "mmd"}
+    assert expected != {"distance": 0.3987165689468384, "items": [24, 0.0152357221], "method": "ks"}
 
 
 @pytest.mark.usefixtures("toys")
