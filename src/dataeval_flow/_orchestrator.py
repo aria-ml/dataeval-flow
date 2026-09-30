@@ -714,12 +714,17 @@ def _capture_chain_assets(result: "ChainResult", chain: "ChainRun", limit: int |
 
 
 def _run_target(
-    target: "Workflow[Any, Any] | Evaluator[Any, Any]", config: Any, context: "WorkflowContext"
+    target: "Workflow[Any, Any] | Evaluator[Any, Any]",
+    config: Any,
+    context: "WorkflowContext",
+    *,
+    stats_unions: "Mapping[str, ResolvedStatsPolicy] | None" = None,
 ) -> "Result[Any, Any]":
     """Run a workflow or an evaluator on a resolved context. Never raises: a failure becomes a failed result.
 
     The failed result is of the config's result class. Only the run itself is covered: resolving the task before it,
-    in :func:`_run_single_task`, raises on a config error, a transform's constructor included.
+    in :func:`_run_single_task`, raises on a config error, a transform's constructor included. `stats_unions` is what
+    a chain planned for an evaluator step's sources, handed to :func:`~dataeval_flow.evaluators._execute.execute`.
     """
     from dataeval_flow._kind import result_type_of
     from dataeval_flow._result import failure_message
@@ -728,7 +733,7 @@ def _run_target(
     from dataeval_flow.workflows._result import WorkflowResult
 
     if isinstance(target, Evaluator):
-        return execute(target, context, config)
+        return execute(target, context, config, stats_unions=stats_unions)
     result_type: type[WorkflowResult[Any, Any]] = result_type_of(target, WorkflowResult)
     if not isinstance(config, target.config_type):
         return result_type.failed(

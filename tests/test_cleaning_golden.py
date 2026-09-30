@@ -7,10 +7,6 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
   step never read the bins: it builds Metadata only for class labels. No evaluator result records a binning either,
   so carrying one into a chain's envelope is engine work, which the ports whose findings depend on bins
   (data-coverage, ood-detection, audit) will land. `test_a_data_cleaning_result_records_no_encoding` pins it.
-- **It reads its dataset for statistics twice on a cold cache.** Its `outliers` and `dupes` steps each request their
-  own statistics families from the same node, the outlier families and the hash families, and each is computed once;
-  the legacy run computed their union in one pass. One pass over the union is future engine work.
-  `tests/test_e2e.py::TestEndToEndCleaningWorkflow::test_config_to_output` pins the two requests.
 - **It names its items by the chain's input, `data`, not by the source.** Spec §7.4 has an item reference name the
   node address it was read from.
   `tests/test_run.py::test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names` pins it.

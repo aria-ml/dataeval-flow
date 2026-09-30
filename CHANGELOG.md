@@ -91,6 +91,7 @@
 - Presets: a workflow type can be a preset, whose settings expand to a chain of steps that runs as a custom
   workflow's. As a task, a preset returns a `ChainResult` under its own type id; as a step of a custom workflow, its
   chain runs inside yours as `<step>/<name>`, and `<step>.<output>` reads each Dataset it declares as an output
+- A chain computes each dataset's statistics in one pass over every family its steps read
 - `data-cleaning`'s `clean` step hands on the dataset without each image and box it flagged and each duplicate but the
   first of its group, counting what it removed; a custom workflow that runs data-cleaning as a step reads it as
   `<step>.clean`, and an `export` step on it replaces `mode: preparatory`
@@ -157,8 +158,6 @@
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
   `dataeval-flow encoding` finds none in it
-- On a cold cache, a `data-cleaning` run reads its dataset for statistics twice, once for the outlier statistics and
-  once for the hashes, where it read it once; a known cost until one pass computes both
 
 ### Fixed
 

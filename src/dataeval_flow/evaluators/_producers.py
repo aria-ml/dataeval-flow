@@ -14,6 +14,7 @@ from dataeval_flow.evaluators._base import EvaluatorConfig
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
 
+    from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.workflows._context import DatasetContext, WorkflowContext
 
 
@@ -33,6 +34,9 @@ class ProducerContext:
     dataset_context: "DatasetContext"
     workflow_context: "WorkflowContext"
     config: "EvaluatorConfig[Any]"
+    stats_union: "ResolvedStatsPolicy | None" = None
+    """What a chain planned to compute for this source, so that one pass serves every evaluator step reading it: the
+    union of those steps' stats requests that can share this one's cache entry. ``None`` where nothing is planned."""
 
 
 Producer = Callable[[ProducerContext], dict[str, Any]]
@@ -43,12 +47,19 @@ def produce_stats(pc: ProducerContext) -> dict[str, Any]:
 
     Always per image and per target, so the two share one cache entry. The evaluator's own
     ``per_image`` / ``per_target`` apply when it calls ``from_stats``.
+
+    Under a cache, where a chain planned a :attr:`~ProducerContext.stats_union` for the source, that union is
+    requested instead: the first step to ask computes it in one pass, and every later one reads it from the cache. The
+    evaluator still gets its own policy, and keeps only its own columns. Without a cache every request is computed in
+    full, so asking for the union would compute it again for every step: each step asks for its own.
     """
-    from dataeval_flow._cache import get_or_compute_stats
+    from dataeval_flow._cache import _active_cache, get_or_compute_stats
     from dataeval_flow._stats import stats_policy_for
 
     policy = stats_policy_for(pc.workflow_context, **pc.config.stats_request())
-    stats = get_or_compute_stats(policy, dataset=pc.dataset, value_range=pc.dataset_context.value_range)
+    cached = _active_cache.get() is not None
+    request = pc.stats_union if pc.stats_union is not None and cached else policy
+    stats = get_or_compute_stats(request, dataset=pc.dataset, value_range=pc.dataset_context.value_range)
     return {"stats": stats, "stats_policy": policy}
 
 

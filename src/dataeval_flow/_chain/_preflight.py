@@ -13,8 +13,12 @@ from dataeval_flow._chain._run import StepContext
 from dataeval_flow.steps._step import Transform
 
 if TYPE_CHECKING:
+    from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.workflows._context import DatasetContext
+
+_Read = tuple[str, str | None]
+"""A Dataset a step reads: the address of the node or list holding it, past any preset alias, and its element key."""
 
 
 def step_contexts(
@@ -23,7 +27,8 @@ def step_contexts(
     data_dir: Path | None,
     slot_contexts: Mapping[str, Sequence["DatasetContext"]],
 ) -> dict[str, StepContext]:
-    """Each step's metadata policy, stats policy and ontology, resolved as ``_run_single_task`` resolves a task's.
+    """Each step's metadata policy, stats policy and ontology, resolved as ``_run_single_task`` resolves a task's, and
+    its stats unions.
 
     `slot_contexts` holds each input slot's source contexts; a list slot's holds one per bound source. A step's
     value range and band groups come from the slots it descends from.
@@ -48,7 +53,94 @@ def step_contexts(
             policy = replace(policy, stats=stats)
         ontology = _resolve_ontology(instance, pipeline, data_dir)
         resolved[spec.name] = StepContext(metadata_policy=policy, stats_policy=stats, ontology=ontology)
-    return resolved
+    return _with_stats_unions(graph, resolved)
+
+
+def _with_stats_unions(graph: ChainGraph, contexts: Mapping[str, StepContext]) -> dict[str, StepContext]:
+    """`contexts`, with each evaluator step that reads statistics given the union to ask for at each Dataset it reads.
+
+    Each such step asks the cache for its own families, and the cache computes only what it lacks, so no statistic is
+    computed twice; but each step's request reads the Dataset again. The union of every request made of a Dataset,
+    asked for first, reads it once. Requests whose scope fragments differ cannot share a cache entry, so a step's
+    union takes in only those whose fragment is its own. A step keeps only the unions wider than its own request.
+    """
+    requested = {
+        spec.name: (policy, _reads(graph, spec))
+        for spec in graph.steps
+        if (policy := _stats_request(spec, contexts[spec.name])) is not None
+    }
+    readers: dict[_Read, list[ResolvedStatsPolicy]] = {}
+    for policy, reads in requested.values():
+        for read in reads:
+            readers.setdefault(read, []).append(policy)
+    planned = dict(contexts)
+    for name, (policy, reads) in requested.items():
+        unions: dict[str, ResolvedStatsPolicy] = {}
+        for read in reads:
+            for (base, key), requests in _requests_of(read, readers).items():
+                union = _union(policy, requests)
+                if union.request != policy.request:
+                    unions[base if key is None else f"{base}[{key}]"] = union
+        if unions:
+            planned[name] = replace(contexts[name], stats_unions=unions)
+    return planned
+
+
+def _stats_request(spec: StepSpec, context: StepContext) -> "ResolvedStatsPolicy | None":
+    """The stats policy evaluator step `spec` asks the cache for, as ``produce_stats`` computes it.
+
+    ``None`` for a step that reads no statistics, and for one whose request raises: that step fails when it runs, as
+    it would have without a plan.
+    """
+    from dataeval_flow._input_spec import InputKind
+    from dataeval_flow._stats import stats_policy_for
+
+    config: Any = spec.config
+    if spec.kind != "evaluator" or InputKind.STATS not in config.wanted_kinds():
+        return None
+    try:
+        return stats_policy_for(context, **config.stats_request())
+    except Exception:  # noqa: BLE001 - its run raises it again, failing only the step and what reads it
+        return None
+
+
+def _reads(graph: ChainGraph, spec: StepSpec) -> list[_Read]:
+    """The Datasets evaluator step `spec` reads on its `input`, each named past any preset alias."""
+    return [
+        (graph.aliases.get(str(address.base), str(address.base)), address.key) for address in spec.addresses("input")
+    ]
+
+
+def _requests_of(
+    read: _Read, readers: Mapping[_Read, list["ResolvedStatsPolicy"]]
+) -> dict[_Read, list["ResolvedStatsPolicy"]]:
+    """The requests made of each Dataset `read` reaches, keyed by the read that names it.
+
+    An element named alone is also read by each step running over its whole list. A whole list is read element by
+    element, so each element another step names alone is read by that step as well.
+    """
+    base, key = read
+    whole = readers.get((base, None), [])
+    if key is not None:
+        return {read: [*readers[read], *whole]}
+    named = {
+        (base, element): [*whole, *requests]
+        for (other, element), requests in readers.items()
+        if other == base and element is not None
+    }
+    return {read: whole, **named}
+
+
+def _union(policy: "ResolvedStatsPolicy", requests: Sequence["ResolvedStatsPolicy"]) -> "ResolvedStatsPolicy":
+    """`policy`, widened to measure, view by view, every family any of `requests` sharing its cache entry measures."""
+    fragment = policy.scope_fragment()
+    measure = dict(policy.measure)
+    for request in requests:
+        if request.scope_fragment() != fragment:
+            continue
+        for view, flags in request.measure:
+            measure[view] = measure[view] | flags if view in measure else flags
+    return replace(policy, measure=tuple(measure.items()))
 
 
 def _slots_reached(graph: ChainGraph) -> dict[str, list[str]]:

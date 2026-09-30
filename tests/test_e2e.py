@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from dataeval.flags import ImageStats
 
 # Ensure target modules are in sys.modules for @patch with xdist
 import dataeval_flow._dataset
@@ -432,7 +433,8 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_ic.assert_called_once()
-        # Two steps each request their own statistics families from the same node, `outliers` the outlier
-        # families and `dupes` the hash families, and each is computed once. One pass over their union is future
-        # engine work (a deliberate difference, listed in `tests/test_cleaning_golden.py`).
+        # `outliers` and `dupes` read the same node, and each makes one request: for the union of both steps'
+        # families, the outlier families and the hash families, which the first computes in one pass.
         assert mock_get_stats.call_count == 2
+        union = {None: ImageStats.DIMENSION | ImageStats.PIXEL | ImageStats.HASH_DUPLICATES_BASIC}
+        assert [call.args[0].request for call in mock_get_stats.call_args_list] == [union, union]

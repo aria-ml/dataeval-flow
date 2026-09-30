@@ -15,15 +15,24 @@ from dataeval_flow.evaluators._result import DataEvalExecution, EvaluatorMetadat
 from dataeval_flow.evaluators._serialize import serialize_output
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from dataeval.protocols import AnnotatedDataset
 
+    from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.evaluators._evaluator import Evaluator
     from dataeval_flow.workflows._context import ResolvedOntology, WorkflowContext
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
 
-def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config: Any) -> "EvaluatorResult[Any]":
+def execute(
+    evaluator: "Evaluator[Any, Any]",
+    context: "WorkflowContext",
+    config: Any,
+    *,
+    stats_unions: "Mapping[str, ResolvedStatsPolicy] | None" = None,
+) -> "EvaluatorResult[Any]":
     """Run *evaluator* over every source in *context*. Never raises: a failure is a failed result.
 
     Parameters
@@ -34,6 +43,9 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
         The resolved sources, cache and policies, as the orchestrator builds them.
     config : EvaluatorConfig
         The evaluator's configuration entry; must be an instance of its ``config_type``.
+    stats_unions : Mapping[str, ResolvedStatsPolicy] or None, optional
+        By source, the statistics a chain planned to compute there, each source's
+        :attr:`~dataeval_flow.evaluators._producers.ProducerContext.stats_union`. ``None`` outside a chain.
 
     Returns
     -------
@@ -49,7 +61,7 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
             errors=[f"Expected {evaluator.config_type.__name__}, got {type(config).__name__}"],
         )
     try:
-        inputs, datasets = _prepare(context, config)
+        inputs, datasets = _prepare(context, config, stats_unions)
         output = evaluator.run(config, inputs)
         serialized = serialize_output(output, extras=evaluator.output_extras)
         # Recording the output reads its `meta()`, which an output that is not DataEval's may lack or break.
@@ -71,11 +83,14 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
 
 
 def _prepare(
-    context: "WorkflowContext", config: "EvaluatorConfig[Any]"
+    context: "WorkflowContext",
+    config: "EvaluatorConfig[Any]",
+    stats_unions: "Mapping[str, ResolvedStatsPolicy] | None" = None,
 ) -> "tuple[list[EvaluatorInputs], dict[str, AnnotatedDataset[Any]]]":
     """Apply each source's view, then run every wanted producer under that source's cache.
 
-    Every source's inputs carry the task's ontology, resolved once before any source is read.
+    Every source's inputs carry the task's ontology, resolved once before any source is read, and each source's
+    producers the stats union a chain planned for it, if any.
     """
     from dataeval_flow._cache import active_cache, selection_repr
     from dataeval_flow._view import build_view
@@ -94,7 +109,14 @@ def _prepare(
     for name, dc in context.dataset_contexts.items():
         dataset = build_view(dc.dataset, list(dc.view_operations)) if dc.view_operations else dc.dataset
         datasets[name] = dataset
-        pc = ProducerContext(source=name, dataset=dataset, dataset_context=dc, workflow_context=context, config=config)
+        pc = ProducerContext(
+            source=name,
+            dataset=dataset,
+            dataset_context=dc,
+            workflow_context=context,
+            config=config,
+            stats_union=(stats_unions or {}).get(name),
+        )
         produced: dict[str, Any] = {}
         with contextlib.ExitStack() as stack:
             if dc.cache is not None:
