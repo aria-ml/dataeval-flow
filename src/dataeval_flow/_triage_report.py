@@ -280,13 +280,14 @@ def summarize(findings: Sequence[TriageFinding]) -> dict[str, int]:
 
 
 def triage_section(output: Mapping[str, Any]) -> list[Block]:
-    """A `triage` Output's report section: how many factors it read, and how many issues of each category and each
-    severity it found. Each category's detail is in its finding, beside which the chain's report shows this."""
+    """A `triage` Output's report section: how many factors it read, and how many issues of each category (by its
+    finding's title) and each severity ("<severity> issues") it found. Each category's detail is in its finding,
+    beside which the chain's report shows this."""
     data = output.get("data") or {}
     counts: Mapping[str, int] = data.get("counts") or {}
     items: list[tuple[str, Scalar]] = [
         ("Factors", data.get("factor_count")),
         ("Issues", len(data.get("findings") or [])),
-        *counts.items(),
+        *((_TITLES.get(key, f"{key} issues"), count) for key, count in counts.items()),
     ]
     return [Fields(items=items)]

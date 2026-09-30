@@ -7,8 +7,9 @@ from unittest.mock import patch
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow._blocks import ItemRef
+from dataeval_flow._blocks import Fields, ItemRef
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._triage_report import triage_section
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline
 from tests.finding_blocks import column, fields, tables
@@ -98,6 +99,20 @@ def test_the_triage_section_counts_the_factors_and_issues() -> None:
     text = step_result.report()
     assert "Factors" in text
     assert "Issues" in text
+
+
+def test_the_triage_section_names_its_counts_by_category_and_as_issues() -> None:
+    (section,) = triage_section(
+        {"data": {"factor_count": 3, "findings": [{}, {}], "counts": {"unbinned": 1, "warning": 1, "blocking": 1}}}
+    )
+    assert isinstance(section, Fields)
+    assert section.items == [
+        ("Factors", 3),
+        ("Issues", 2),
+        ("Unpinned continuous bins", 1),
+        ("warning issues", 1),
+        ("blocking issues", 1),
+    ]
 
 
 def test_the_triage_output_is_json() -> None:
