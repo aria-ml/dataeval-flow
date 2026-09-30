@@ -248,7 +248,9 @@ def test_a_chain_carries_a_thumbnail_of_each_item_its_steps_name_read_from_the_d
     task = TaskConfig(name="t", workflow="w", sources="src")
     result = run_task(task, config, report_images=True)
     assert isinstance(result, ChainResult)
-    # ToyImages' item 5 copies item 0, and the cleaning step's report names both.
+    # The step is spliced, and `cleaned/dupes`' section names items 0 and 5: ToyImages' item 5 copies item 0.
+    # `cleaned/outliers` flags none of these ten images on pixel statistics, so no other item is pictured. Each is
+    # read from `few`, the Dataset the step read.
     thumbnails = [
         (asset.item.source, asset.item.index, asset.media_type, asset.width, asset.height) for asset in result.assets
     ]

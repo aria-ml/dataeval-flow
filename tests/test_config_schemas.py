@@ -25,7 +25,6 @@ from dataeval_flow.config.extractors import (
 )
 from dataeval_flow.workflows import Finding, WorkflowConfig, WorkflowRawOutput, WorkflowReport
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningOutput, DataCleaningRawOutput, DataCleaningReport
 
 pytestmark = pytest.mark.required
 
@@ -192,23 +191,8 @@ class TestUnifiedConfig:
             load_config(Path("/nonexistent/params.yaml"))
 
 
-class TestDataCleaningOutput:
-    """Test output schemas."""
-
-    def test_data_cleaning_raw_outputs_defaults(self):
-        """DataCleaningRawOutput has correct defaults."""
-        raw = DataCleaningRawOutput(dataset_size=100)
-        assert raw.dataset_size == 100
-        assert raw.duplicates == {"items": {}, "targets": {}}
-        assert raw.img_outliers == {"issues": [], "count": 0}
-        assert raw.label_stats == {}
-        assert raw.target_outliers is None
-
-    def test_data_cleaning_report(self):
-        """DataCleaningReport can be created."""
-        report = DataCleaningReport(summary="Test summary")
-        assert report.summary == "Test summary"
-        assert report.findings == []
+class TestFinding:
+    """A finding's evidence, read from its JSON form."""
 
     def test_reportable(self):
         """A finding holds its evidence as report blocks, read from their JSON form."""
@@ -227,22 +211,6 @@ class TestDataCleaningOutput:
         """A finding still built with report_type and data fails, rather than silently dropping its evidence."""
         with pytest.raises(ValidationError, match="report_type"):
             Finding.model_validate({"title": "Test", "report_type": "table", "data": {"key": "value"}})
-
-    def test_data_cleaning_report_with_findings(self):
-        """DataCleaningReport can have findings."""
-        finding = Finding(title="Finding", description="Test finding")
-        report = DataCleaningReport(summary="Summary", findings=[finding])
-        assert len(report.findings) == 1
-        assert report.findings[0].title == "Finding"
-
-    def test_data_cleaning_outputs_combined(self):
-        """DataCleaningOutput combines raw and report."""
-        raw = DataCleaningRawOutput(dataset_size=50)
-        report = DataCleaningReport(summary="Complete")
-        outputs = DataCleaningOutput(raw=raw, report=report)
-
-        assert outputs.raw.dataset_size == 50
-        assert outputs.report.summary == "Complete"
 
 
 class TestBaseClasses:
@@ -267,18 +235,6 @@ class TestBaseClasses:
         """WorkflowReport requires summary."""
         report = WorkflowReport(summary="Test")
         assert report.summary == "Test"
-
-    def test_inheritance_data_cleaning_parameters(self):
-        """DataCleaningConfig inherits from WorkflowConfig."""
-        assert issubclass(DataCleaningConfig, WorkflowConfig)
-
-    def test_inheritance_data_cleaning_raw_outputs(self):
-        """DataCleaningRawOutput inherits from WorkflowRawOutput."""
-        assert issubclass(DataCleaningRawOutput, WorkflowRawOutput)
-
-    def test_inheritance_data_cleaning_report(self):
-        """DataCleaningReport inherits from WorkflowReport."""
-        assert issubclass(DataCleaningReport, WorkflowReport)
 
 
 class TestLoadConfigFromFolder:

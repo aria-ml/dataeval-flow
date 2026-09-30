@@ -1605,7 +1605,7 @@
     },
     "DataCleaningConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
+      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -1619,100 +1619,6 @@
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
-        },
-        "value_range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "deprecated": true,
-          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
-          "title": "Value Range"
-        },
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
-          "title": "Metadata Continuous Factor Bins"
-        },
-        "metadata_factor_source": {
-          "anyOf": [
-            {
-              "enum": [
-                "coded",
-                "values",
-                "auto"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
-          "title": "Metadata Factor Source"
         },
         "metadata": {
           "anyOf": [
@@ -1931,54 +1837,96 @@
     },
     "DataCleaningHealthThresholds": {
       "additionalProperties": false,
-      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
+      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to judge nothing: its finding is still made, as ``info``.",
       "properties": {
         "exact_duplicates": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0.0,
           "description": "Max allowable % of images in exact-duplicate groups. Exact duplicates are byte-identical images that inflate dataset size without adding information. Default 0% \u2014 any exact duplicates trigger a warning. Raise above 0 only if your pipeline intentionally includes repeated images (e.g. augmentation-before-split workflows).",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Exact Duplicates",
-          "type": "number"
+          "title": "Exact Duplicates"
         },
         "near_duplicates": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 5.0,
           "description": "Max allowable % of images in near-duplicate groups. Near duplicates are visually similar images (crops, resizes, minor edits) that can bias model training toward repeated content. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Near Duplicates",
-          "type": "number"
+          "title": "Near Duplicates"
         },
         "image_outliers": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 3.0,
           "description": "Max allowable % of images flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics). Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Image Outliers",
-          "type": "number"
+          "title": "Image Outliers"
         },
         "target_outliers": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 3.0,
           "description": "Max allowable % of targets (labels/annotations) flagged as outliers (unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. Lower to 1% for annotation-quality audits; raise to 5\u201310% for datasets with naturally high annotation variance (e.g. dense object detection).",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Target Outliers",
-          "type": "number"
+          "title": "Target Outliers"
         },
         "classwise_outliers": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 3.0,
           "description": "Max allowable % of items flagged as outliers within any single class. Default 3%. This catches classes where outlier concentration is disproportionately high, which may indicate labeling errors or class definition issues. Lower to 1% for label-quality audits; raise to 5\u201310% for classes with inherently high visual diversity.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Classwise Outliers",
-          "type": "number"
+          "title": "Classwise Outliers"
         },
         "class_label_imbalance": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 5.0,
           "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. For binary classification, 3:1 is a common threshold for 'imbalanced'. For large class hierarchies (25+ classes), the long tail naturally increases this ratio \u2014 raise to 10\u201320:1 to avoid false warnings. Set to 1.0 to require perfectly balanced classes.",
-          "minimum": 1.0,
-          "title": "Class Label Imbalance",
-          "type": "number"
+          "title": "Class Label Imbalance"
         }
       },
       "title": "DataCleaningHealthThresholds",

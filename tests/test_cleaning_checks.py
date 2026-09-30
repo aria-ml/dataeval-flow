@@ -1,4 +1,5 @@
-"""data-cleaning's findings, made by checks: each agrees with the finding it replaces (spec §9.2, §10.3)."""
+"""data-cleaning's checks: each on its own, and the preset agreeing with the chain the Check Catalog documents
+(spec §9.2, §10.3)."""
 
 from collections.abc import Callable
 from types import SimpleNamespace
@@ -96,16 +97,16 @@ def _both(steps: list[dict[str, Any]], dataset: Any) -> tuple[list[Finding], lis
         workflows=[_CLEANING, {"name": "judged", "inputs": ["data"], "steps": steps}],
         evaluators=_EVALUATORS,
         tasks=[
-            {"name": "legacy", "workflow": "cleaning", "sources": ["src"]},
+            {"name": "preset", "workflow": "cleaning", "sources": ["src"]},
             {"name": "chain", "workflow": "judged", "sources": ["src"]},
         ],
         datasets={"src": dataset},
     )
     results = run_tasks(config)
-    legacy, chain = results["legacy"], results["chain"]
-    assert legacy.success, legacy.errors
+    preset, chain = results["preset"], results["chain"]
+    assert preset.success, preset.errors
     assert chain.success, chain.errors
-    return legacy.findings, chain.findings  # type: ignore[attr-defined]
+    return preset.findings, chain.findings  # type: ignore[attr-defined]
 
 
 def _verdicts(findings: list[Finding], titles: set[str] | None = None) -> list[tuple[str, str, str | None]]:
@@ -138,8 +139,8 @@ def _issues(rows: list[tuple[int, int | None]]) -> OutliersOutput[Any]:
 
 @pytest.mark.parametrize("name", sorted(_DATASETS))
 def test_the_outlier_checks_agree_with_data_cleaning(name: str) -> None:
-    legacy, chain = _both(_OUTLIER_STEPS, _DATASETS[name]())
-    assert _verdicts(chain) == _verdicts(legacy, _OUTLIER_TITLES)
+    preset, chain = _both(_OUTLIER_STEPS, _DATASETS[name]())
+    assert _verdicts(chain) == _verdicts(preset, _OUTLIER_TITLES)
 
 
 def test_the_outlier_checks_judge_nothing_where_their_limits_are_none() -> None:
@@ -283,10 +284,10 @@ _ALL_STEPS = [
 
 @pytest.mark.parametrize("name", sorted(_DATASETS))
 def test_data_cleaning_s_whole_report_agrees_as_a_chain(name: str) -> None:
-    legacy, chain = _both(_ALL_STEPS, _DATASETS[name]())
-    assert _verdicts(chain) == _verdicts(legacy)
+    preset, chain = _both(_ALL_STEPS, _DATASETS[name]())
+    assert _verdicts(chain) == _verdicts(preset)
     if name == "no duplicates":
-        assert "Duplicates" not in {f.title for f in [*legacy, *chain]}
+        assert "Duplicates" not in {f.title for f in [*preset, *chain]}
     assert {finding.step for finding in chain} <= {step["name"] for step in _ALL_STEPS if "check" in step}
 
 

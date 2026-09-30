@@ -62,7 +62,8 @@ def test_a_dataset_port_of_any_kind_says_any_and_other_ports_name_no_kinds() -> 
     assert steps["select"].inputs[1].kinds is None
     assert [port.kinds for port in steps["split"].outputs] == [["any"], ["any"], ["any"]]
     assert steps["export"].inputs[0].kinds == ["object_detection"]
-    assert steps["data-cleaning"].outputs[0].kinds is None
+    assert steps["data-analysis"].outputs[0].kinds is None
+    assert steps["data-cleaning"].outputs[0].kinds == ["any"]
 
 
 def test_a_port_writes_the_spec_keys() -> None:

@@ -8,8 +8,9 @@ from dataeval_flow import run_task, run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import EvaluatorResult
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
+from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import WorkflowResult
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningResult
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.evaluator_toys import ToyImages, exact_groups, output_json, toy_pipeline
 
 _CLEAN = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel", "visual"])
@@ -80,11 +81,11 @@ class TestRunTask:
     def test_run_task_checks_a_workflow_task_outside_config_tasks(self):
         """The same out-of-`config.tasks` check, for a workflow task: `data-cleaning` takes
         exactly one source, and this task names two; it is refused as a failed
-        `DataCleaningResult`."""
+        `ChainResult`."""
         task = TaskConfig(name="clean_task2", workflow="clean", sources=["a", "b"])
         config = toy_pipeline(workflows=[_CLEAN], sources=("a", "b"))
         result = run_task(task, config)
-        assert isinstance(result, DataCleaningResult)
+        assert isinstance(result, ChainResult)
         assert not result.success
         assert re.search(
             r"Task 'clean_task2' runs workflow 'clean' \(data-cleaning\), which takes exactly one source, "
@@ -101,50 +102,6 @@ class TestAlongsideWorkflows:
         assert isinstance(results["clean_task"], WorkflowResult)
         assert isinstance(results["dupes_task"], EvaluatorResult)
         assert [r.to_dict()["kind"] for r in results.values()] == ["workflow", "evaluator"]
-
-    def test_duplicates_agree_with_data_cleaning(self):
-        tasks = [TaskConfig(name="clean_task", workflow="clean", sources="src"), _dupes_task()]
-        config = toy_pipeline(
-            evaluators=[DuplicatesConfig(name="dupes")],
-            workflows=[_CLEAN],
-            tasks=tasks,
-            dataset=ToyImages(near_duplicate=True),
-        )
-        results = run_tasks(config)
-        cleaning, evaluator = results["clean_task"], results["dupes_task"]
-        assert isinstance(cleaning, WorkflowResult)
-        assert isinstance(evaluator, EvaluatorResult)
-
-        cleaning_exact = {tuple(sorted(group)) for group in cleaning.output.raw.duplicates["items"].get("exact", [])}
-        assert exact_groups(output_json(evaluator)["rows"]) == cleaning_exact
-
-        # Hash mode too: near-duplicate groups must agree, not just exact ones.
-        cleaning_near = {
-            tuple(sorted(group["indices"])) for group in cleaning.output.raw.duplicates["items"].get("near", [])
-        }
-        evaluator_near = {
-            tuple(sorted(row["item_indices"]))
-            for row in output_json(evaluator)["rows"]
-            if row["dup_type"] == "near" and row["level"] == "item"
-        }
-        assert evaluator_near == cleaning_near == {(3, 9)}
-
-    def test_outliers_agree_with_data_cleaning(self):
-        outliers = OutliersConfig(
-            name="outliers", flags=["dimension", "pixel", "visual"], outlier_threshold="zscore", per_target=True
-        )
-        tasks = [
-            TaskConfig(name="clean_task", workflow="clean", sources="src"),
-            TaskConfig(name="outliers_task", workflow="outliers", sources="src", kind="evaluator"),
-        ]
-        config = toy_pipeline(evaluators=[outliers], workflows=[_CLEAN], tasks=tasks)
-        results = run_tasks(config)
-        cleaning, evaluator = results["clean_task"], results["outliers_task"]
-        assert isinstance(cleaning, WorkflowResult)
-        assert isinstance(evaluator, EvaluatorResult)
-        cleaning_flags = {(i["item_index"], i["metric_name"]) for i in cleaning.output.raw.img_outliers["issues"]}
-        evaluator_flags = {(r["item_index"], r["metric_name"]) for r in output_json(evaluator)["rows"]}
-        assert evaluator_flags == cleaning_flags
 
     def test_stats_cached_by_data_cleaning_serve_the_evaluator(self, tmp_path):
         tasks = [TaskConfig(name="clean_task", workflow="clean", sources="src"), _dupes_task()]

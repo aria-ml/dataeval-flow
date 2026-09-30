@@ -12,8 +12,9 @@ from dataeval_flow._orchestrator import _run_target
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import Evaluator, EvaluatorConfig, EvaluatorInputs, EvaluatorResult
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator, DuplicatesResult
+from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import Workflow, WorkflowConfig, WorkflowContext, WorkflowResult
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningResult, DataCleaningWorkflow
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningWorkflow
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig, DataSplittingResult
 from tests.evaluator_toys import ToyImages, toy_pipeline
 from tests.example_plugin import CountConfig
@@ -52,7 +53,7 @@ def test_config_type_comes_from_the_type_arguments() -> None:
 
 
 def test_a_config_knows_its_result() -> None:
-    assert DataCleaningConfig.result_type is DataCleaningResult
+    assert DataCleaningConfig.result_type is ChainResult
     assert DuplicatesConfig.result_type is DuplicatesResult
 
 

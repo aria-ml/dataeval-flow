@@ -11,13 +11,11 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import polars as pl
 import pytest
 
 # Ensure target modules are in sys.modules for @patch with xdist
 import dataeval_flow._dataset
-import dataeval_flow._metadata
-import dataeval_flow.workflows.data_cleaning._workflow  # noqa: F401
+import dataeval_flow._metadata  # noqa: F401
 from dataeval_flow import load_config
 from dataeval_flow.config import HuggingFaceDatasetConfig
 
@@ -307,10 +305,8 @@ class TestConfigMergeBehavior:
 
 
 class TestEndToEndCleaningWorkflow:
-    """Full pipeline: config YAML → _run_single_task() → dataset → evaluators → output files."""
+    """Full pipeline: config YAML → _run_single_task() → dataset → the preset's steps → output files."""
 
-    @patch("dataeval_flow.workflows.data_cleaning._workflow.Duplicates")
-    @patch("dataeval_flow.workflows.data_cleaning._workflow.Outliers")
     @patch("dataeval_flow._cache.get_or_compute_stats")
     @patch("dataeval_flow._metadata.Metadata")
     @patch("datamaite.load_ic")
@@ -319,11 +315,9 @@ class TestEndToEndCleaningWorkflow:
         mock_load_ic: MagicMock,
         mock_metadata_cls: MagicMock,
         mock_get_stats: MagicMock,
-        mock_outliers_cls: MagicMock,
-        mock_duplicates_cls: MagicMock,
         tmp_path: Path,
     ):
-        """Config YAML → _run_single_task() produces results.json + metadata.json."""
+        """Config YAML → _run_single_task() produces a results.json of the preset's steps and findings."""
         from dataeval_flow._orchestrator import _run_single_task
 
         # ── 1. Write config YAML ──────────────────────────────────────
@@ -370,14 +364,15 @@ class TestEndToEndCleaningWorkflow:
         mock_maite_ds.__getitem__ = MagicMock(return_value={"image": "fake", "label": 0})
         mock_load_ic.return_value = mock_maite_ds
 
-        # 4c. Metadata mock
+        # 4c. Metadata mock: ten items, one label each
         mock_metadata = MagicMock()
         mock_metadata.class_labels = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
+        mock_metadata.item_indices = list(range(10))
         mock_metadata.index2label = {0: "cat", 1: "dog", 2: "bird"}
         mock_metadata.item_count = 10
         mock_metadata_cls.return_value = mock_metadata
 
-        # 4d. Stats mock — centralized stats computation
+        # 4d. Stats mock — centralized stats computation, with no statistic to flag
         mock_get_stats.return_value = {
             "stats": {},
             "source_index": [],
@@ -385,38 +380,6 @@ class TestEndToEndCleaningWorkflow:
             "invalid_box_count": [],
             "image_count": 0,
         }
-
-        # 4e. Outliers mock — from_stats() returns object with .data() returning DataFrame
-        outlier_issues_df = pl.DataFrame(
-            {
-                "item_index": [2, 7],
-                "metric_name": ["brightness", "contrast"],
-                "metric_value": [3.5, -2.8],
-            }
-        )
-        mock_outliers_result = MagicMock()
-        mock_outliers_result.data.return_value = outlier_issues_df
-        mock_outliers_instance = MagicMock()
-        mock_outliers_instance.from_stats.return_value = mock_outliers_result
-        mock_outliers_cls.return_value = mock_outliers_instance
-
-        # 4f. Duplicates mock — from_stats() returns object with .data() returning DataFrame
-        dup_df = pl.DataFrame(
-            {
-                "group_id": [0, 1],
-                "level": ["item", "item"],
-                "dup_type": ["exact", "near"],
-                "item_indices": [[0, 5], [3, 8]],
-                "target_indices": [None, None],
-                "methods": [None, ["hash"]],
-                "orientation": [None, "same"],
-            }
-        )
-        mock_dup_result = MagicMock()
-        mock_dup_result.data.return_value = dup_df
-        mock_dup_instance = MagicMock()
-        mock_dup_instance.from_stats.return_value = mock_dup_result
-        mock_duplicates_cls.return_value = mock_dup_instance
 
         # ── 5. Load config and run task ───────────────────────────────
         config = load_config(config_dir)
@@ -426,12 +389,8 @@ class TestEndToEndCleaningWorkflow:
         result = _run_single_task(task, config)
 
         # ── 6. Assert result ──────────────────────────────────────────
-        assert result.success is True
+        assert result.success is True, result.errors
         assert result.type == "data-cleaning"
-        meta_dump = result.metadata.model_dump()
-        assert meta_dump["mode"] == "advisory"
-        assert "outliers" in meta_dump["evaluators"]
-        assert "duplicates" in meta_dump["evaluators"]
 
         # ── 7. Write output via result.export() and verify ────────────
         task_dir = output_dir / task.name
@@ -439,43 +398,32 @@ class TestEndToEndCleaningWorkflow:
         results_file = task_dir / "results.json"
         assert written_path == results_file
 
-        # Verify results.json content (now includes metadata envelope)
         results_data = json.loads(results_file.read_text())
-        raw = results_data["raw"]
-
-        # Outlier results
-        assert raw["img_outliers"]["count"] == 2
-        assert len(raw["img_outliers"]["issues"]) == 2
-        assert raw["img_outliers"]["issues"][0]["item_index"] == 2
-
-        # No target outliers (no target_index column)
-        assert raw["target_outliers"] is None
-
-        # Duplicate results
-        assert len(raw["duplicates"]["items"]["exact"]) == 1
-        assert raw["duplicates"]["items"]["exact"][0] == [0, 5]
-        assert len(raw["duplicates"]["items"]["near"]) == 1
-        assert raw["duplicates"]["items"]["near"][0]["indices"] == [3, 8]
-
-        # Label stats
-        assert raw["label_stats"]["item_count"] == 10
-        assert raw["label_stats"]["class_count"] == 3
-        assert raw["label_stats"]["label_counts_per_class"]["cat"] == 3
-        assert raw["label_stats"]["label_counts_per_class"]["bird"] == 4
-
-        # Dataset size
-        assert raw["dataset_size"] == 10
-
-        # Report findings
-        report = results_data["report"]
-        assert "Data cleaning complete" in report["summary"]
-        finding_titles = [f["title"] for f in report["findings"]]
-        assert "Image Outliers" in finding_titles
-        assert "Duplicates" in finding_titles
-        assert "Label Distribution" in finding_titles
+        assert results_data["kind"] == "workflow"
+        assert list(results_data["steps"]) == [
+            "outliers",
+            "labels",
+            "by_class",
+            "dupes",
+            "image_outliers",
+            "target_outliers",
+            "classwise",
+            "duplicates",
+            "imbalance",
+            "clean",
+        ]
+        # Nothing is flagged in empty statistics, so no duplicate is found and nothing is removed.
+        assert [(f["severity"], f["title"]) for f in results_data["findings"]] == [
+            ("ok", "Image Outliers"),
+            ("ok", "Classwise Outliers"),
+            ("info", "Label Distribution"),
+        ]
+        assert results_data["health"] == {"status": "ok", "warnings": 0, "findings": 3, "failed_steps": []}
+        assert results_data["steps"]["clean"]["output"]["items"] == 10
 
         # Verify JATIC metadata is embedded in results.json
         meta = results_data["metadata"]
+        assert meta["workflow"] == "modzscore_clean"
         assert meta["dataset_id"] == "test_ds"
         assert meta["tool"] == "dataeval-flow"
         assert "version" in meta
@@ -484,6 +432,5 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_ic.assert_called_once()
-        mock_get_stats.assert_called_once()
-        mock_outliers_instance.from_stats.assert_called_once()
-        mock_dup_instance.from_stats.assert_called_once()
+        # Once for each step that reads statistics: `outliers` and `dupes`.
+        assert mock_get_stats.call_count == 2

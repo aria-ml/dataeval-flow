@@ -4,14 +4,18 @@ Every test here is an invariant that fails on the release before this change: a 
 or a second workflow over one source widened what each consumer read.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
+import polars as pl
 import pytest
 from dataeval.flags import ImageStats
 
 from dataeval_flow._cache import DatasetCache, active_cache, get_or_compute_stats
-from dataeval_flow._stats import ResolvedStatsPolicy, columns_for, restrict_columns
+from dataeval_flow._stats import ResolvedStatsPolicy, columns_for, restrict_columns, stats_policy_for
+from dataeval_flow.evaluators import EvaluatorInputs
+from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
+from dataeval_flow.evaluators.quality._evaluator import find_duplicates, find_outliers
 
 # `toy_images` and `toy_multiband_dataset` come from `tests/conftest.py`.
 
@@ -37,7 +41,7 @@ def _in_warmed_cache(warm, work):
         return widened, work()
 
 
-# `duplicate_flags` spellings, keyed by the flags they resolve to. `_run_cleaning` takes
+# `duplicate_flags` spellings, keyed by the flags they resolve to. `DuplicatesConfig.flags` takes
 # the config spelling; the tests reason in flags.
 _DUPLICATE_FLAG_NAMES: dict[ImageStats, list[Literal["hash_basic", "hash_d4"]]] = {
     ImageStats.HASH_XXHASH: ["hash_basic"],
@@ -45,54 +49,57 @@ _DUPLICATE_FLAG_NAMES: dict[ImageStats, list[Literal["hash_basic", "hash_d4"]]] 
 }
 
 
-def _duplicate_group_counts(outputs):
-    """Return (exact, near) group counts from a cleaning run's raw outputs.
+def _computed_as_the_engine_does(config: Any, dataset: Any) -> EvaluatorInputs:
+    """`dataset`'s statistics as the engine prepares them for an evaluator step with no `stats:` policy named.
 
-    `DataCleaningRawOutput.duplicates` is a plain `{"items": {...}, "targets": {...}}`
-    dict (see `_serialize_duplicates` in `workflows/cleaning/outputs.py`), not an object
-    with `.items.exact`. Hence the dict indexing here.
+    The policy is the one `stats_policy_for` derives from the evaluator's own request, as the stats producer
+    (`evaluators/_producers.py`) derives it when the step's context carries no policy. The value range is left unset,
+    as the warm-ups leave it, so both land in one cache entry.
     """
-    items = outputs.duplicates["items"]
-    return len(items.get("exact") or []), len(items.get("near") or [])
+    policy = stats_policy_for(None, **config.stats_request())
+    return EvaluatorInputs(source="toy", stats=get_or_compute_stats(policy, dataset=dataset), stats_policy=policy)
+
+
+def _duplicate_group_counts(output):
+    """Return (exact, near) group counts from the Duplicates output `find_duplicates` returns.
+
+    Each item-level row of its `data()` is one group, whose `dup_type` is `exact` or `near`.
+    """
+    kinds = output.data().filter(pl.col("level") == "item")["dup_type"].to_list()
+    return kinds.count("exact"), kinds.count("near")
 
 
 @pytest.mark.required
 class TestOutlierColumnsAreDeclared:
     """What flags an outlier is what `outlier_flags` and `outliers_from` name.
 
-    The cold/warm tests and `test_only_the_declared_families_flag` run `_run_cleaning`,
-    the production call site, with `context=None` — the derived-policy path a config with
-    no `stats:` block takes. The regression was measured there.
+    The cold/warm tests and `test_only_the_declared_families_flag` run `find_outliers`,
+    the production call site data-cleaning's `outliers` step reaches, on statistics
+    computed as the engine computes them for that step with no `stats:` block named — the
+    derived-policy path. The regression was measured on that path.
     `test_a_band_group_does_not_flag_unless_outliers_from_names_it` and
     `test_background_fraction_does_not_flag_by_default` assert on `restrict_columns`
-    directly and do not exercise a workflow.
+    directly and do not exercise an evaluator.
     """
 
     def _params(self):
-        """`outlier_flags: [visual]`, no `stats:` policy named."""
-        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-
-        return DataCleaningConfig(
-            name="c",
-            outlier_method="modzscore",
-            outlier_flags=["visual"],
-        )
+        """The `outliers` evaluator data-cleaning's `outlier_method: modzscore` and `outlier_flags: [visual]`
+        configure, with no `stats:` policy named."""
+        return OutliersConfig(name="outliers", flags=["visual"], outlier_threshold="modzscore", per_target=True)
 
     def _issues(self, dataset):
-        """Run outlier detection exactly as `_run_cleaning` does."""
-        from dataeval_flow.workflows.data_cleaning._workflow import _run_cleaning
-
-        raw = _run_cleaning(dataset, self._params(), context=None)
-        return raw.img_outliers["issues"]
+        """Flag outliers as data-cleaning's `outliers` step does: statistics, then `find_outliers`."""
+        config = self._params()
+        return find_outliers(config, [_computed_as_the_engine_does(config, dataset)]).data()
 
     def _flagged_metrics(self, dataset):
-        return sorted({issue["metric_name"] for issue in self._issues(dataset)})
+        return sorted(set(self._issues(dataset)["metric_name"].cast(pl.Utf8).to_list()))
 
     def _flagged_items(self, dataset):
-        return sorted({issue["item_index"] for issue in self._issues(dataset)})
+        return sorted(set(self._issues(dataset)["item_index"].to_list()))
 
     def _warm(self, dataset):
-        """Widen the cache entry `_run_cleaning` will reuse, with families it does not name."""
+        """Widen the cache entry the `outliers` step will reuse, with families it does not name."""
         return lambda: get_or_compute_stats(
             ResolvedStatsPolicy.of_flags(ImageStats.PIXEL | ImageStats.DIMENSION),
             dataset=dataset,
@@ -169,32 +176,26 @@ class TestDuplicateColumnsAreDeclared:
         return _Toy()
 
     def _groups(self, dataset, duplicate_flags):
-        """Run the duplicate path through production code.
+        """Run the duplicate path through production code: data-cleaning's `dupes` step.
 
-        Call `_run_cleaning`, not a local reimplementation of the filter. A helper that
+        Call `find_duplicates`, not a local reimplementation of the filter. A helper that
         calls `restrict_columns` itself tests the machinery only, and passes whether or
-        not the workflow was fixed; that defect reached review once already.
+        not the evaluator was fixed; that defect reached review once already.
 
-        `context=None` is deliberate: it exercises the derived-policy path, which is what
-        a config with no `stats:` block does, and that is the case this regression is
-        about.
+        No `stats:` policy is named, deliberately: it exercises the derived-policy path,
+        which is what a config with no `stats:` block does, and that is the case this
+        regression is about.
         """
-        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-        from dataeval_flow.workflows.data_cleaning._workflow import _run_cleaning
-
-        params = DataCleaningConfig(
-            name="c",
-            outlier_method="modzscore",
-            outlier_flags=["visual"],
-            duplicate_flags=_DUPLICATE_FLAG_NAMES[duplicate_flags],
+        config = DuplicatesConfig(
+            name="dupes", flags=_DUPLICATE_FLAG_NAMES[duplicate_flags], merge_near_duplicates=True
         )
-        outputs = _run_cleaning(dataset, params)
-        return _duplicate_group_counts(outputs)
+        output = find_duplicates(config, [_computed_as_the_engine_does(config, dataset)])
+        return _duplicate_group_counts(output)
 
     def test_a_warm_cache_finds_the_same_groups_as_a_cold_one(self, paired_images):
         """Same config, different cache state, same answer.
 
-        Warm the entry through the same scope `_run_cleaning` uses, or the two calls land
+        Warm the entry through the same scope the `dupes` step uses, or the two calls land
         in different entries and the comparison proves nothing. Assert the widening
         happened before trusting the comparison.
         """

@@ -1125,9 +1125,9 @@ def run_task(
     -------
     Result
         The result of the workflow or evaluator the task runs, as that type's own result class —
-        ``isinstance(result, DataCleaningResult)`` narrows it. A run that raised returns a failed
-        result of the same class. A custom workflow's is a :class:`~dataeval_flow.steps.ChainResult`,
-        holding every step's outcome whether or not one failed.
+        ``isinstance(result, DriftMonitoringResult)`` narrows it. A run that raised returns a failed
+        result of the same class. A custom workflow's, or a preset's such as data-cleaning's, is a
+        :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
     """
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
     return _run_single_task(
