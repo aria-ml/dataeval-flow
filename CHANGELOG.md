@@ -173,7 +173,8 @@
 - A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
   `dataeval-flow encoding` finds none in it
 - A report's banner is the friendly title of what ran, over the entry that ran it beside its id, as `Data Cleaning`
-  over `clean · data-cleaning`; a custom workflow's is its name, over `custom workflow`
+  over `clean · data-cleaning`; a custom workflow's is its name, over `custom workflow`. The text report prints the
+  banner in capitals; HTML keeps its case
 - A chain's report gives each finding a section, holding the evidence it judged: each step it read, headed *From* and
   the step's title, as `From Outliers`, or a line naming the finding it is shown under already. The steps no finding
   shows follow, then a Steps table of every step's title, type, status, reads and note, where the report gave each

@@ -28,7 +28,7 @@ A workflow's report is laid out in this order:
 
 1. **Banner** — the friendly title of what ran, such as `Drift Monitoring`, and under it the config entry that ran
    it beside its type id, such as `drift · drift-monitoring`. Where the entry is named after its type, the second
-   line is the id alone.
+   line is the id alone. The text report prints the banner in capitals; HTML keeps its case.
 2. **Provenance** — timestamp, duration, the sources the run read, model and preprocessor identifiers.
 3. **Summary sentence** — the workflow's one-line account of the run, such as
    `Drift monitoring complete. Reference: 261 items, Test: 909 items.`
