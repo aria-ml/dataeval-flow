@@ -382,7 +382,10 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     assert isinstance(result, ChainResult)
     assert result.steps["dupes"].type == "duplicates"
     report = result._document(detailed=True).blocks
-    (dupes,) = [block for block in report if isinstance(block, Section) and block.title == "Duplicates · dupes"]
+    # The Duplicates finding shows the step it judged as its evidence.
+    (dupes,) = [
+        block for block in walk(report) if isinstance(block, Section) and block.title == "From Duplicates · dupes"
+    ]
     blocks = list(walk(dupes.blocks))
     (groups,) = [block for block in blocks if isinstance(block, Table)]
     assert (len(groups.rows), groups.preview) == (1, None)

@@ -146,7 +146,9 @@ to `labels`, and `stats` to both `outliers` and `dupes`. Each `health_thresholds
 that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
 but the first of its group.
 
-Its report gives each step a section: each evaluator's holds the evidence, the flagged items and the duplicate groups,
-each check's its finding, and `clean`'s the counts it removed at each level. Run as a step of a custom workflow,
+Its report gives each finding a section, with the evaluator it judged below it: the flagged items under Image Outliers,
+the duplicate groups under Duplicates, and the class counts under Label Distribution. `clean`'s section follows with
+the counts it removed at each level, and a Steps table lists every step, what it read, and why it made nothing where it
+did not. Run as a step of a custom workflow,
 `<step>.clean` reads the cleaned Dataset; see
 [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets).

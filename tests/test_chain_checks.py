@@ -1,5 +1,6 @@
 """Running combine and check steps: findings, health, inputs that hold nothing, and lists (spec §5.6, §7, §9.1)."""
 
+import re
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -193,12 +194,15 @@ def test_a_combine_that_omits_an_output_port_fails_its_step() -> None:
     ]
 
 
-def test_a_check_step_s_report_section_shows_its_findings() -> None:
+def test_a_check_s_finding_is_a_top_level_section_beside_the_evidence_it_judged() -> None:
     result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 0})
-    # The text renderer capitalizes a top-level section's heading, and a step's section is one.
-    section = result.report(detailed=True, width=120).split("GROUP COUNT · JUDGE", 1)[1]
-    assert "Group count" in section
-    assert "1 groups" in section
+    # The text renderer capitalizes a top-level section's heading, and a finding's section is one.
+    assert re.search(r"\n  GROUP COUNT +1 groups\n", result.report(detailed=True, width=120))
+    top_level = result._document(detailed=True).blocks
+    (finding,) = [block for block in top_level if isinstance(block, Section) and block.severity is not None]
+    assert (finding.title, finding.brief, finding.severity) == ("Group count", "1 groups", "warning")
+    # `count` is a combine with nothing to show, so the evidence is the Duplicates it counted.
+    assert [block.title for block in finding.blocks if isinstance(block, Section)] == ["From Duplicates · dupes"]
 
 
 def test_an_output_knows_the_datasets_it_was_computed_on_and_their_size() -> None:

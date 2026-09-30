@@ -102,8 +102,11 @@ holds everything the text report holds, laid out for reading on screen:
   Esc, to put it back. An item without a thumbnail is named instead.
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
-A chain's report, `data-cleaning`'s among them, is laid out by step instead of by finding: each step is a section
-headed by its name and type, and a check's findings sit in its step's section, each with its severity.
+A chain's report, `data-cleaning`'s among them, draws each of its checks' findings as a card too, and holds in it the
+steps the check judged, each headed *From* and the step's title: data cleaning's Duplicates card holds the `dupes`
+step's duplicate groups. A step two findings judged is shown in the first one's card, and the second names that card.
+The chain's other steps, such as `clean`, follow as sections, and a Steps table closes the report as a panel: each
+step's title, type and status, what it read, and why it made nothing where it did not.
 
 Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
 across, and at most 200 per result. A pipeline's `result: max_images:` sets that limit: `0` embeds none, and `-1`

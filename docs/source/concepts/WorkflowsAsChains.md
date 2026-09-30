@@ -222,22 +222,18 @@ It holds the Dataset's address (`name`), the step that made it and that step's `
  "digest": "1bf4dcfcadf4", "items": 47}
 ```
 
-The report opens each step's section with a lineage line naming every address the step read. Each Dataset among them
-is walked back through the first Dataset it was made from, to the source bound to it, and an Output is named as it is.
-For a `remove` step that read `merged` and the `dupes` Output, and for a step that read `split.train`:
+The report's Steps table names, under *Reads*, every address each step read, one per line. Each Dataset among them is
+walked back through the first Dataset it was made from, to the source bound to it, and an Output is named as it is.
+For a `remove` step that read `merged` and the `dupes` Output:
 
 ```text
-On `merged` ← `street_conformed` ← `street` (street_2024), `dupes`
-On `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024)
+`merged` ← `street_conformed` ← `street` (street_2024)
+`dupes`
 ```
 
-A step run once per element of a list is headed by the list, walked back through its elements to the source of each,
-and each element's section by its own element:
-
-```text
-On `cameras` (cam1, cam2)
-On `cameras[cam1]` (cam1)
-```
+A step that read `split.train` reads
+`` `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. A step run once per element
+of a list reads the list, walked back through its elements to the source of each: `` `cameras` (cam1, cam2) ``.
 
 The digest is what lets two results be compared. Two results that give a Dataset the same digest read the same data:
 the same sources, through the same steps and settings, to the same content. The content is what a step resolved from

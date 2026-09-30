@@ -464,9 +464,8 @@ class TestChainResults:
         rvm = ResultViewModel(chain_results["ok"])
         text = rvm.output_text()
         assert rvm.shows_output
-        # A step that ran carries no marker of its own; the counts above the sections give every step's status.
-        assert re.search(r"Ran:\s+2\n", text)
-        assert re.search(r"Failed:\s+0\n", text)
+        # A step that ran carries no marker of its own; the count above the sections gives every step's status.
+        assert re.search(r"Steps:\s+2 ran\n", text)
         assert re.search(r"TOY-FIRST · FEW\n", text)
         assert re.search(r"DUPLICATES · DUPES\n", text)
         assert "Items:  6" in text

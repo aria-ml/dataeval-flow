@@ -17,8 +17,8 @@
 # # View a report as HTML
 #
 # You can render any result's report as one self-contained HTML page with `to_html()`. The page holds everything the
-# text report holds, laid out for reading on screen: a section per step for a chain of steps, a card per finding for
-# a workflow such as drift monitoring, tables you can sort and filter, and each flagged item's measurements on hover.
+# text report holds, laid out for reading on screen: a card per finding, which in a chain of steps holds the evidence
+# the finding judged, tables you can sort and filter, and each flagged item's measurements on hover.
 # It loads nothing, so it opens offline, attaches to a ticket as it is, and prints to PDF from the browser.
 #
 # This guide vets a side-scan sonar survey's reference campaigns and checks its operational archive for drift, then
@@ -141,7 +141,8 @@ def show(page: str, height: int = 720) -> None:
 # ## The same report, as text and as HTML
 #
 # `report()` gives the text report, 80 columns wide, for a terminal or a log. The data-cleaning report opens with the
-# run's metadata, how many of its steps ran, and a summary line per finding, then gives each step a section:
+# run's metadata, how many of its steps ran, and a summary line per finding, then gives each finding a section, with
+# the steps it judged below it:
 
 # %% tags=["hide-output"]
 print(clean.report())
@@ -171,13 +172,14 @@ show(clean.to_html())
 # Try each of these on the page above:
 #
 # - **The verdict.** The header gives the report's verdict: the number of warnings, or `passed`.
-# - **The steps.** `data-cleaning` runs as a chain of steps, so its page follows them. Under the header come how many
-#   steps ran, failed or were skipped, and a summary line per finding. Then each step has a section, headed by its
-#   name and type, whose first line names what it read. The `outliers` section lists the flagged images and boxes,
-#   and the `dupes` section the duplicate groups. Each check's section holds its finding, badged with its severity,
-#   and the `clean` section counts what it removed.
-# - **Reference.** The configuration closes the report as a panel, closed until opened. *Expand all* and
-#   *Collapse all*, top right, act on every card and panel at once.
+# - **The findings.** `data-cleaning` runs as a chain of steps. Under the header come how many steps ran, then a card
+#   per finding, badged with its severity, so the cards read as the report's summary. Each card holds the steps its
+#   finding judged, each headed *From* and the step's title: the Image Outliers card lists the `outliers` step's
+#   flagged images and boxes, and the Duplicates card the `dupes` step's duplicate groups. A finding that judged a
+#   step another card already holds names that card. The `clean` section after the cards counts what it removed.
+# - **Reference.** The Steps table and the configuration close the report as panels, closed until opened. The Steps
+#   table gives each step's title, type and status, what it read, and why it made nothing where it did not.
+#   *Expand all* and *Collapse all*, top right, act on every card and panel at once.
 # - **Sorting.** Click a column's header to sort the table by it: ascending, descending, then back to the original
 #   order. A column of numbers sorts as numbers. The *Flagged by* column sorts by how many flags each row holds.
 # - **Filtering.** A table of more than ten rows gets a box above it. Type in it to keep the rows whose visible

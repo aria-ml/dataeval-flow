@@ -74,24 +74,21 @@ dataeval-flow -c pipeline.yaml -o out/
 ```
 
 The config is checked as it loads: every address must name an input or an earlier step, and every setting must be one
-its transform takes. Then the steps run in order, and `aerial_conformed` fails. The report gives each step a section:
+its transform takes. Then the steps run in order, and `aerial_conformed` fails. The report gives each step a section,
+headed by its type's title and its name:
 
 ```text
 ================================================================================
-  AERIAL_CONFORMED (CONFORM)                                              failed
+  CONFORM · AERIAL_CONFORMED                                              failed
 ================================================================================
-  On `aerial` (drone_2025), `align_aerial`
-
   Failed
     ValueError: The alignment is lossy, beyond `allow: lossless`: car, truck
     collapse onto Vehicle. Set `allow: lossy` to accept it, or settle classes
     with `class_remap:`.
 
 ================================================================================
-  MERGED (MERGE)                                                         skipped
+  MERGE · MERGED                                                         skipped
 ================================================================================
-  On `street_conformed` ← `street` (street_2024), `aerial_conformed`
-
   Skipped: needs `aerial_conformed`, which failed
 ```
 
@@ -267,8 +264,9 @@ workflows:
 `merged_duplicates` judges the duplicates in the merged corpus, before `remove`. It warns where more than 0% of the
 images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned corpus's largest class
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
-`--fail-on-warning` fails the run. The [Check and Combine Catalog](../reference/checks.md) lists every check and its
-thresholds.
+`--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
+Duplicates finding holds `dupes`' duplicate groups, and the Label Distribution finding holds `labels`' class counts.
+The [Check and Combine Catalog](../reference/checks.md) lists every check and its thresholds.
 
 ## 6. Run data-cleaning as a step
 
@@ -295,8 +293,9 @@ tasks:
     sources: [street_2024]
 ```
 
-`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/dupes` and so on, to `cleaning/clean`, each
-with a section of its own in the report. Its checks' findings count toward the task's health, as section 5's do.
+`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/dupes` and so on, to `cleaning/clean`. In the
+report, each of its checks' findings has a section, with the steps it judged below it, and `cleaning/clean` has one of
+its own. Its checks' findings count toward the task's health, as section 5's do.
 Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.dupes` fail the
 config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) says more.
 
@@ -307,19 +306,20 @@ corpora of 24 images each: `street_2024` names `car` and `person` and copies one
 `truck` and `pedestrian`. The steps sections 4 and 5 add were not part of that run, so nothing here reports coverage,
 balance or a split, and no check judges a finding.
 
-The text report opens with a summary of the steps, then gives each step a section of its own, headed by the Dataset it
-read walked back to its source:
+The text report opens with how many steps ran, then gives each step a section of its own:
 
 ```text
 ================================================================================
-  CORPUS (EXPORT)
+  EXPORT · CORPUS
 ================================================================================
-  On `clean` ← `merged` ← `street_conformed` ← `street` (street_2024)
-
   Path:   out/datasets/build.corpus
   Format: coco
   Images: 47
 ```
+
+A Steps table closes the report, before the configuration. It gives each step's title, type and status, why it made
+nothing where it did not, and each Dataset it read, walked back to its source: `corpus` reads
+`` `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``.
 
 In `out/results/result.json`, the task's entry holds `steps`, each step by name with its kind, type, status and the
 addresses it read. A Dataset a step made is written as its size and digest, never as data. `metadata.lineage` records

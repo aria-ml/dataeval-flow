@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from dataeval_flow import run_task
-from dataeval_flow._blocks import Section
+from dataeval_flow._blocks import Section, Table
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._report import lineage_line
 from dataeval_flow._ci_reports import junit_report, markdown_summary
@@ -95,14 +95,23 @@ def test_a_failed_element_shows_its_error_in_the_json() -> None:
     assert (elements["more"]["status"], elements["more"]["errors"]) == ("failed", ["RuntimeError: no stats for more"])
 
 
-def test_the_report_has_a_section_per_step_headed_by_its_lineage() -> None:
+def _reads(result: ChainResult) -> dict[str, str]:
+    """What the report's Steps table says each step read, by step."""
+    top_level = result._document(detailed=True).blocks
+    (steps,) = [block for block in top_level if isinstance(block, Section) and block.title == "Steps"]
+    (table,) = steps.blocks
+    assert isinstance(table, Table)
+    return {str(row["step"]): str(row["reads"]) for row in table.rows}
+
+
+def test_the_report_has_a_section_per_step_and_names_where_each_read_came_from() -> None:
     result = _result(_MIXED)
     text = result.report(detailed=True, width=120)
     # The text renderer capitalizes a top-level section's heading, like every other report's (Configuration,
     # a workflow's Summary): a step's section is a peer of those, not nested under a synthetic wrapper.
     for heading in ("TOY-FIRST · FEW", "DUPLICATES · DUPES", "TOY-EXPLODE · BOOM", "TOY-KEEP · AFTER"):
         assert heading in text
-    assert "`few` ← `a` (src)" in text
+    assert _reads(result)["dupes"] == "`few` ← `a` (src)"
     assert "RuntimeError: boom on few" in text
     assert "needs `boom`, which failed" in text
 
@@ -121,7 +130,7 @@ def test_a_lineage_line_walks_back_to_the_source() -> None:
     assert lineage_line("few", result.metadata.lineage) == "`few` ← `k` ← `a` (src)"
 
 
-def test_a_step_run_over_a_list_input_is_headed_by_each_elements_source() -> None:
+def test_a_step_run_over_a_list_input_reads_each_elements_source() -> None:
     result = _result(
         [{"name": "kept", "transform": "toy-keep", "input": "all"}],
         inputs=[{"name": "all", "list": True}],
@@ -133,13 +142,10 @@ def test_a_step_run_over_a_list_input_is_headed_by_each_elements_source() -> Non
     assert lineage_line("kept", lineage) == "`kept` ← `all` (src, more)"
     elements = result.steps["kept"].elements or {}
     assert [element.inputs for element in elements.values()] == [["all[src]"], ["all[more]"]]
-    text = result.report(detailed=True, width=200)
-    assert "On `all` (src, more)" in text
-    assert "On `all[src]` (src)" in text
-    assert "On `all[more]` (more)" in text
+    assert _reads(result) == {"kept": "`all` (src, more)"}
 
 
-def test_a_step_run_over_a_list_output_is_headed_by_where_the_list_came_from() -> None:
+def test_a_step_run_over_a_list_output_reads_where_the_list_came_from() -> None:
     result = _result(
         [
             {"name": "parts", "transform": "toy-spread", "input": "a", "parts": 2},
@@ -152,9 +158,7 @@ def test_a_step_run_over_a_list_output_is_headed_by_where_the_list_came_from() -
     payload = cast("dict[str, Any]", result.to_dict())
     elements = payload["steps"]["kept"]["elements"]
     assert (elements["0"]["inputs"], elements["1"]["inputs"]) == (["parts[0]"], ["parts[1]"])
-    text = result.report(detailed=True, width=200)
-    assert "On `parts` ← `a` (src)" in text
-    assert "On `parts[1]` ← `a` (src)" in text
+    assert _reads(result) == {"parts": "`a` (src)", "kept": "`parts` ← `a` (src)"}
 
 
 def test_junit_has_one_error_per_failed_step_and_markdown_names_them() -> None:
@@ -228,9 +232,10 @@ def test_each_step_is_a_top_level_section_in_chain_order_with_its_elements_neste
         "toy-spread · parts",
         "Duplicates · dupes",
         "toy-keep · kept",
+        "Steps",
     ]
     nested = [[block.title for block in section.blocks if isinstance(block, Section)] for section in sections]
-    assert nested == [[], ["[0]", "[1]"], []]
+    assert nested == [[], ["[0]", "[1]"], [], []]
 
 
 def test_a_chain_carries_a_thumbnail_of_each_item_its_steps_name_read_from_the_dataset_the_step_read() -> None:
