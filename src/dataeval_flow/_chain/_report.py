@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from dataeval_flow._blocks import Block, Fields, Paragraph, Section
 from dataeval_flow._result import LineageRecord, failure_section
+from dataeval_flow._step_title import step_title
 
 if TYPE_CHECKING:
     from dataeval_flow.steps._result import ChainResult, StepResult
@@ -48,22 +49,6 @@ def _walk(address: str, records: Mapping[str, LineageRecord]) -> tuple[list[str]
 def _line(parts: Sequence[str], sources: Sequence[str]) -> str:
     text = " ← ".join(f"`{part}`" for part in parts)
     return f"{text} ({', '.join(sources)})" if sources else text
-
-
-def step_title(kind: str, type_id: str) -> str:
-    """The friendly title of step type `type_id` of `kind`, or the id itself when no such type is registered."""
-    from dataeval_flow.evaluators._registry import EVALUATORS
-    from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
-    from dataeval_flow.workflows._registry import WORKFLOWS
-
-    registry = {
-        "evaluator": EVALUATORS,
-        "transform": TRANSFORMS,
-        "combine": COMBINES,
-        "check": CHECKS,
-        "workflow": WORKFLOWS,
-    }.get(kind)
-    return registry.get(type_id).title if registry is not None and type_id in registry.names() else type_id
 
 
 def step_heading(record: "StepResult") -> str:

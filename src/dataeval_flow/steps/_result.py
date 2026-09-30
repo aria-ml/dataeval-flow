@@ -145,15 +145,17 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             sources=sources,
         )
         self.steps: dict[str, StepResult] = dict(steps or {})
+        self._preset = False  # whether a preset entry's chain ran, which the banner names; a custom workflow has none
 
     @classmethod
-    def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None) -> "ChainResult":
+    def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None, preset: bool = False) -> "ChainResult":
         """The result of running custom workflow `name`: failed when any required step failed. Its ``type`` is
-        `type_id`, a preset's type id, or `name` when unset."""
+        `type_id`, a preset's type id, or `name` when unset; `preset` says a preset entry's chain ran, which the banner
+        names, where a custom workflow has no type."""
         failed = [step for step, record in run.steps.items() if record.status == "failed"]
         errors = [f"{step}: {'; '.join(_errors(run.steps[step]))}" for step in failed]
         metadata = ChainMetadata(workflow=name, lineage=list(run.lineage), label_space=list(run.label_space))
-        return cls(
+        result = cls(
             type=type_id or name,
             success=not failed,
             metadata=metadata,
@@ -161,6 +163,8 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             errors=errors,
             steps=run.steps,
         )
+        result._preset = preset
+        return result
 
     @property
     def failed_steps(self) -> list[str]:
@@ -208,16 +212,12 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return payload
 
     def _report_title(self) -> str:
-        from dataeval_flow.workflows._registry import WORKFLOWS
-
-        if self.type in WORKFLOWS.names():
+        if self._preset:
             return super()._report_title()
         return f"{self.metadata.workflow or self.type}\n{self._report_subtitle()}"
 
     def _report_subtitle(self) -> str:
-        from dataeval_flow.workflows._registry import WORKFLOWS
-
-        return super()._report_subtitle() if self.type in WORKFLOWS.names() else "custom workflow"
+        return super()._report_subtitle() if self._preset else "custom workflow"
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
         from dataeval_flow._chain._report import chain_blocks

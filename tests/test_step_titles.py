@@ -1,18 +1,21 @@
 """Every step type's friendly title, and the banner and step headings that carry it."""
 
 from typing import Any, ClassVar
+from unittest.mock import patch
 
 import pytest
 
-from dataeval_flow import run_tasks
+from dataeval_flow import run, run_task, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._report import step_heading
+from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import Evaluator
 from dataeval_flow.evaluators._registry import EVALUATORS
 from dataeval_flow.steps import ChainResult, list_steps
 from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
 from dataeval_flow.steps._result import StepResult
 from dataeval_flow.workflows._registry import WORKFLOWS
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 from tests.workflow_toys import register_count
@@ -184,3 +187,37 @@ def test_a_step_is_headed_by_its_type_title_and_named_where_it_differs() -> None
     assert step_heading(_record("clean", "remove", "transform")) == "Remove · clean"
     assert step_heading(_record("clean", "data-cleaning", "workflow")) == "Data Cleaning · clean"
     assert step_heading(_record("x", "not-registered", "transform")) == "not-registered · x"
+
+
+def test_run_of_a_config_with_the_default_entry_name_collapses_the_subtitle() -> None:
+    result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel"]), ToyImages())
+    assert _banner(result.report()) == ["DATA CLEANING", "DATA-CLEANING"]
+
+
+def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_banner() -> None:
+    config = chain_pipeline(
+        workflows=[_CLEAN],
+        tasks=[{"name": "t", "workflow": "clean", "sources": ["src"]}],
+        datasets={"src": ToyImages()},
+    )
+    with patch.object(TRANSFORMS.get("remove"), "run", side_effect=RuntimeError("boom")):
+        result = run_tasks(config)["t"]
+    assert not result.success
+    assert _banner(result.report()) == ["DATA CLEANING", "CLEAN · DATA-CLEANING"]
+
+
+def test_a_preset_task_refused_before_it_runs_keeps_its_entry_in_the_banner() -> None:
+    config = chain_pipeline(workflows=[_CLEAN], datasets={"a": ToyImages(), "b": ToyImages()})
+    result = run_task(TaskConfig(name="t", workflow="clean", sources=["a", "b"]), config)
+    assert not result.success
+    assert _banner(result.report()) == ["DATA CLEANING", "CLEAN · DATA-CLEANING"]
+
+
+def test_a_custom_workflow_named_like_a_preset_is_still_a_custom_workflow() -> None:
+    workflow = {"name": "data-cleaning", "inputs": ["a"], "steps": [{"name": "d", "evaluator": "dupes", "input": "a"}]}
+    config = chain_pipeline(
+        workflows=[workflow],
+        evaluators=[{"name": "dupes", "type": "duplicates"}],
+        tasks=[{"name": "t", "workflow": "data-cleaning", "sources": ["src"]}],
+    )
+    assert _banner(_run(config).report()) == ["DATA-CLEANING", "CUSTOM WORKFLOW"]

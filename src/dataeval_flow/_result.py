@@ -373,7 +373,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         self.dataset = dataset
         self.sources = sources
         self.assets: list[Asset] = []
-        self.entry: str | None = None
+        self._entry: str | None = None
         """The name of the ``evaluators:`` or ``workflows:`` entry the task ran, which Flow sets when the run returns;
         ``None`` for a result made outside a task."""
 
@@ -491,14 +491,14 @@ class Result(ABC, Generic[TMetadata, TOutput]):
 
     def _report_title(self) -> str:
         """The banner: what ran, by its friendly title, then the entry that ran it beside its id, on a second line."""
-        from dataeval_flow._chain._report import step_title
+        from dataeval_flow._step_title import step_title
 
         title, subtitle = step_title(self.kind, self.type), self._report_subtitle()
         return title if subtitle == title else f"{title}\n{subtitle}"
 
     def _report_subtitle(self) -> str:
         """The banner's second line: ``entry · id``, or the id alone where the entry is not named or is the id."""
-        return self.type if not self.entry or self.entry == self.type else f"{self.entry} · {self.type}"
+        return self.type if not self._entry or self._entry == self.type else f"{self._entry} · {self.type}"
 
     @abstractmethod
     def _report_output(self, *, detailed: bool) -> list[Block]:

@@ -415,6 +415,10 @@ def _run_single_task(
         result_type = result_type_of(runner, default)
         message = f"Task '{task.name}' runs {task.kind} '{instance.name}' ({instance.type}), which {problem}"
         refused = result_type.failed(type=runner.name, errors=[message])
+        from dataeval_flow.steps._result import ChainResult
+
+        if isinstance(refused, ChainResult):
+            refused._preset = isinstance(runner, Preset)  # noqa: SLF001 - a preset's refusal names its type
         # The envelope any other failed result carries. Nothing ran, so no time was spent running.
         _ensure_result_datasets(refused, dataset_contexts)
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, instance, config, data_dir=data_dir)
@@ -644,6 +648,7 @@ def _run_custom_task(
     if problems:
         refused = ChainResult.failed(type=type_id, errors=problems)
         refused.metadata = ChainMetadata(workflow=workflow.name)
+        refused._preset = entry is not None  # noqa: SLF001 - the banner names a preset, not a custom workflow
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, described, config, data_dir=data_dir)
         return refused
     # A preset entry's ontology resolves up front, as a workflow-type task's does, for the envelope to record.
@@ -673,7 +678,7 @@ def _run_custom_task(
     with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
         chain = run_chain(graph, inputs, run_settings)
     elapsed = time.monotonic() - start
-    result = ChainResult.from_run(workflow.name, chain, type_id=type_id)
+    result = ChainResult.from_run(workflow.name, chain, type_id=type_id, preset=entry is not None)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
@@ -831,7 +836,7 @@ def _populate_result_metadata(
         operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
     ]
     if workflow_instance is not None:
-        result.entry = workflow_instance.name
+        result._entry = workflow_instance.name  # noqa: SLF001 - the envelope's filler names the entry
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
