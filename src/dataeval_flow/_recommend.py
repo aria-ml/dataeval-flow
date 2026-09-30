@@ -56,8 +56,9 @@ def recommend(
 
     A cut is pinned by its edges in ``continuous_factor_bins``, replacing any bin count the stanza suggested for it,
     and a vocabulary by its levels in ``factor_levels``. `skip` names the factors the policy's descriptor pins: they
-    are never named again, whatever their provenance, since an exported descriptor still says ``derived`` and a
-    factor named by both the descriptor and ``continuous_factor_bins`` is refused.
+    are never named again, whatever their provenance and not even as a bin count the stanza suggested, since an
+    exported descriptor still says ``derived`` and a factor named by both the descriptor and
+    ``continuous_factor_bins`` is refused.
     """
     edges: dict[str, list[float]] = {}
     levels: dict[str, list[Any]] = {}
@@ -69,10 +70,12 @@ def recommend(
             levels[name] = list(encoding.get("levels") or ())
         else:
             edges[name] = [float(edge) for edge in encoding.get("edges") or ()]
-    if not edges and not levels and not completed:
+    counts = {k: v for k, v in (completed.get("continuous_factor_bins") or {}).items() if k not in skip}
+    kept = {k: v for k, v in completed.items() if k != "continuous_factor_bins"}
+    if not edges and not levels and not counts and not kept:
         return None
-    stanza = {key: value for key, value in completed.items() if key != "continuous_factor_bins"}
-    if bins := {**(completed.get("continuous_factor_bins") or {}), **edges}:
+    stanza = dict(kept)
+    if bins := {**counts, **edges}:
         stanza["continuous_factor_bins"] = bins
     if levels:
         stanza["factor_levels"] = levels

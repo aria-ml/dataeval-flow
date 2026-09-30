@@ -86,6 +86,14 @@ def test_a_factor_the_descriptor_names_is_skipped_whatever_its_provenance() -> N
     assert recommend(record, {}, skip={"altitude"}) == {"factor_levels": {"weather": ["clear"]}}
 
 
+def test_a_count_suggested_for_a_factor_the_descriptor_names_is_dropped() -> None:
+    record = {"factors": {"altitude": _cut(_INF)}}
+    assert recommend(record, {"continuous_factor_bins": {"altitude": 4}}, skip={"altitude"}) is None
+    assert recommend(record, {"continuous_factor_bins": {"altitude": 4, "depth": 10}}, skip={"altitude"}) == {
+        "continuous_factor_bins": {"depth": 10}
+    }
+
+
 def test_edges_replace_a_suggested_count_and_a_count_stays_where_nothing_pins() -> None:
     record = {"factors": {"altitude": _cut(_INF), "depth": {"type": "continuous", "encoding": {}}}}
     completed = {
