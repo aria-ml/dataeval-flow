@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import Field
 
 from dataeval_flow._blocks import Block
-from dataeval_flow._result import LineageRecord, ResultMetadata
+from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section
 from dataeval_flow.steps._step import StepKind
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows._result import WorkflowResult
@@ -220,8 +220,11 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return super()._report_subtitle() if self._preset else "custom workflow"
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
+        """Every step's report, whether or not a step failed; or, for a chain refused before any step ran, why."""
         from dataeval_flow._chain._report import chain_blocks
 
+        if not self.success and not self.steps:
+            return [failure_section(self.errors)]
         return chain_blocks(self, detailed=detailed)
 
     def _report_output(self, *, detailed: bool) -> list[Block]:

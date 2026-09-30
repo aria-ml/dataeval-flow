@@ -188,6 +188,16 @@ def test_a_chain_refused_before_any_step_ran_is_failed_in_its_health() -> None:
     assert cast("dict[str, Any]", result.to_dict())["health"]["status"] == "failed"
 
 
+def test_the_report_of_a_chain_refused_before_any_step_ran_says_why() -> None:
+    import html
+
+    result = _refused()
+    text = result.report(width=200)
+    assert f"  FAILED\n{'=' * 200}\n  {_REFUSAL}\n" in text
+    assert "Steps:" not in text
+    assert f"<p>{html.escape(_REFUSAL)}</p>" in result.to_html()
+
+
 def test_junit_errors_a_chain_refused_before_any_step_ran() -> None:
     root = ET.fromstring(junit_report({"t": _refused()}))  # noqa: S314 - our own output
     (case,) = root.iter("testcase")
