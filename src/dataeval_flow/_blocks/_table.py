@@ -14,6 +14,7 @@ __all__ = [
 ]
 
 import math
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, TypeGuard
 
@@ -187,6 +188,75 @@ def _fit(columns: Sequence[Column], widths: list[int], room: int) -> list[int]:
     return widths
 
 
+# Where a text cell may break when its column must narrow: before a lineage arrow, which leads the next line, then at a
+# space that does not follow one, then after a hyphen or a slash, as in `cleaning/image-outliers`; past those, anywhere.
+_WORD_BREAK = re.compile(r"(?<!←) ")
+_PART_BREAK = re.compile(r"(?<=[-/])(?=.)")
+
+
+def _floor(column: Column, cells: Sequence[Cell], breaks: Sequence[re.Pattern[str]] | None) -> int:
+    """The narrowest text `column` can be while its header and its numbers stay whole, and its text breaks only at
+    `breaks`, or anywhere where `breaks` is ``None``."""
+    widths = [len(_header(column)), 1]
+    for value in cells:
+        lines = _text_lines(column, value)
+        if not isinstance(value, str):
+            widths.extend(len(line) for line in lines)
+        elif breaks is not None:
+            for pattern in breaks:
+                lines = [part for line in lines for part in pattern.split(line)]
+            widths.extend(len(line) for line in lines)
+    return max(widths)
+
+
+def _wrap_text(table: Table, widths: list[int], room: int) -> list[int]:
+    """Narrow text columns until the row fits, the widest first: keeping words whole, then the parts of a word
+    between its hyphens and slashes, then breaking anywhere, but never narrower than a header or a number. A table
+    still too wide overflows."""
+    over = sum(widths) + len(_GAP) * (len(widths) - 1) - room
+    if over <= 0:
+        return widths
+    cells = {
+        index: [row.get(column.key) for row in shown_rows(table)]
+        for index, column in enumerate(table.columns)
+        if column.kind == "text"
+    }
+    for breaks in ([_WORD_BREAK], [_WORD_BREAK, _PART_BREAK], None):
+        floors = {index: _floor(table.columns[index], values, breaks) for index, values in cells.items()}
+        while over > 0 and (narrower := [index for index in cells if widths[index] > floors[index]]):
+            widest = max(narrower, key=lambda index: widths[index])
+            widths[widest] -= 1
+            over -= 1
+    return widths
+
+
+def _broken(text: str, width: int) -> list[str]:
+    """`text` in lines of at most `width`: each broken at its last lineage arrow that fits, else its last space,
+    else after its last hyphen or slash, else at `width`."""
+    lines: list[str] = []
+    while len(text) > width:
+        arrows = [i for i in range(1, width + 1) if text.startswith(" ← ", i)]
+        spaces = [match.start() for match in _WORD_BREAK.finditer(text, 1, width + 1)]
+        parts = [match.start() for match in _PART_BREAK.finditer(text, 1, width + 1)]
+        if arrows or spaces:
+            cut = max(arrows or spaces)
+            lines.append(text[:cut])
+            text = text[cut + 1 :]
+        else:
+            cut = max(parts, default=width)
+            lines.append(text[:cut])
+            text = text[cut:]
+    return [*lines, text]
+
+
+def _cell_lines(column: Column, value: Cell, width: int) -> list[str]:
+    """A cell's display lines, where its column is not a chart: a text column's string broken to `width`."""
+    lines = _text_lines(column, value)
+    if column.kind != "text" or not isinstance(value, str):
+        return lines
+    return [part for line in lines for part in _broken(line, width)]
+
+
 def _scale(table: Table, column: Column) -> tuple[float, float]:
     """The range a bar column is drawn over: zero or below, up to the largest value or marker or zero.
 
@@ -276,16 +346,19 @@ def draw_table(
 ) -> list[str]:
     """Draw *table* as aligned columns within *room* characters after *indent*.
 
-    Cells never wrap: a wrapped row reads as another row.  When the row is too wide, chart
-    columns shrink; past their minimum, the table overflows. Image columns are left out: a row's other
-    cells name its items.
+    When the row is too wide, chart columns shrink; past their minimum, text columns narrow and their
+    cells wrap, as :func:`_wrap_text` says, with a blank line between rows so that a wrapped line
+    never reads as a row of its own; past a header's width, the table overflows. A table that fits
+    is drawn as it is. Image columns are left out: a row's other cells name its items.
     """
     table = _without_images(table)
     if not table.rows or not table.columns:
         return []
     columns = table.columns
     shared = (layouts or {}).get(_signature(table))
-    widths = _fit(columns, list(shared or natural_widths(table)), room)
+    fitted = _fit(columns, list(shared or natural_widths(table)), room)
+    widths = _wrap_text(table, list(fitted), room)
+    wrapped = widths != fitted
     aligns = [
         "left" if column.kind in (*_CHARTS, "flags") else column.align or ("left" if index == 0 else "right")
         for index, column in enumerate(columns)
@@ -312,11 +385,13 @@ def draw_table(
         if column.kind in ("bar", "stacked")
     }
     rows = shown_rows(table)
-    for row in rows:
+    for number, row in enumerate(rows):
+        if wrapped and number:
+            lines.append("")
         cells = [
             [_chart(column, row.get(column.key), width, scales.get(index, (0.0, 0.0)))]
             if column.kind in _CHARTS
-            else _text_lines(column, row.get(column.key))
+            else _cell_lines(column, row.get(column.key), width)
             for index, (column, width) in enumerate(zip(columns, widths, strict=True))
         ]
         depth = max(len(cell) for cell in cells)

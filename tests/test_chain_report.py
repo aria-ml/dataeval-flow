@@ -289,3 +289,50 @@ def test_a_check_with_a_failed_element_lists_that_element_among_the_other_steps(
             blocks=[Section(title="Failed", blocks=[Paragraph(text="RuntimeError: boom")])],
         )
     ]
+
+
+def _spliced() -> ChainResult:
+    """data-cleaning run as step `cleaning` of a custom workflow, whose spliced steps' names are the widest."""
+    tidy = {"name": "tidy", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel", "visual"]}
+    kept = {"name": "kept", "transform": "toy-keep", "input": "cleaning.clean"}
+    workflow = {
+        "name": "w",
+        "inputs": ["data"],
+        "steps": [{"name": "cleaning", "workflow": "tidy", "input": "data"}, kept],
+    }
+    config = chain_pipeline(
+        workflows=[tidy, workflow],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        datasets={"src": ToyImages(count=24)},
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    return result
+
+
+def test_no_line_of_a_data_cleaning_report_is_wider_than_the_report() -> None:
+    for result in (_cleaning(), _spliced()):
+        text = result.report()
+        assert "  STEPS" in text
+        assert max(len(line) for line in text.splitlines()) <= 80
+
+
+def test_a_wrapped_reads_cell_breaks_before_a_lineage_arrow() -> None:
+    result = _chain(
+        {"name": "k", "transform": "toy-keep", "input": "a"},
+        {"name": "few", "transform": "toy-first", "input": "k", "n": 4},
+        {"name": "dupes", "evaluator": "dupes", "input": "few"},
+    )
+    lines = result.report(width=60).splitlines()
+    start = lines.index("  STEPS") + 2
+    assert lines[start : lines.index("  CONFIGURATION") - 2] == [
+        "  Step   Title       Type        Status  Reads          Note",
+        "  -----  ----------  ----------  ------  -------------  ----",
+        "  k      toy-keep    toy-keep    ok      `a` (src)",
+        "",
+        "  few    toy-first   toy-first   ok      `k`",
+        "                                         ← `a` (src)",
+        "",
+        "  dupes  Duplicates  duplicates  ok      `few` ← `k`",
+        "                                         ← `a` (src)",
+    ]

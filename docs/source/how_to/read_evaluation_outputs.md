@@ -35,8 +35,9 @@ The report is laid out in this order:
 6. **Resolved configuration** — the configuration as actually executed. Always rendered, at both detail levels.
 
 The report is 80 columns wide. Pass `width=` (at least 40) to draw it narrower or wider: prose wraps, and charts
-shrink to fit. From the CLI, `--report-width` sets it, else the `DATAEVAL_REPORT_WIDTH` environment variable, else
-the pipeline's `result: width`.
+shrink to fit. A table still too wide wraps its text cells, with a blank line between its rows. From the CLI,
+`--report-width` sets it, else the `DATAEVAL_REPORT_WIDTH` environment variable, else the pipeline's
+`result: width`.
 
 A long table, such as one row per flagged image, shows its first rows and a line counting the rest. Every row is in
 the HTML report and in the JSON. Text has no pictures, so a table's thumbnails are left out, and the row's other
