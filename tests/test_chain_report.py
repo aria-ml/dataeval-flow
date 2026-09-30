@@ -522,3 +522,26 @@ def test_the_html_keeps_each_grouped_finding_a_card_under_its_split_s_heading() 
     assert '<table class="summary">' not in page
     assert "<h2>train</h2>" in page
     assert "<h2>val</h2>" in page
+
+
+def test_the_by_split_steps_table_narrows_its_text_columns_together() -> None:
+    lines = _by_split().report().splitlines()
+    table = lines[lines.index("  STEPS") + 2 : lines.index("  CONFIGURATION") - 2]
+    assert table[:2] == [
+        "  Step              Type              Status  Reads             Note",
+        "  ----------------  ----------------  ------  ----------------  ----------------",
+    ]
+    start = next(i for i, line in enumerate(table) if line.startswith("  cleaning/target-"))
+    assert table[start : start + 9] == [
+        "  cleaning/target-  target-outlier-   ok      `cleaning/        [train] no",
+        "  outliers          rate                      outliers`         findings",
+        "                                              `cleaning/        [val] no",
+        "                                              labels`           findings",
+        "",
+        "  cleaning/         classwise-        ok      `cleaning/by-",
+        "  classwise         outlier-rate              class`",
+        "",
+        "  cleaning/         duplicate-rate    ok      `cleaning/dupes`",
+    ]
+    assert all("[train" not in line or "[train]" in line for line in table)
+    assert all("[val" not in line or "[val]" in line for line in table)

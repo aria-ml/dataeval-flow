@@ -210,9 +210,9 @@ def _floor(column: Column, cells: Sequence[Cell], breaks: Sequence[re.Pattern[st
 
 
 def _wrap_text(table: Table, widths: list[int], room: int) -> list[int]:
-    """Narrow text columns until the row fits, the widest first: keeping words whole, then the parts of a word
-    between its hyphens and slashes, then breaking anywhere, but never narrower than a header or a number. A table
-    still too wide overflows."""
+    """Narrow text columns until the row fits: at the loosest break the row can fit at (words, else the parts of a
+    word between its hyphens and slashes, else anywhere), narrow the widest column a cell at a time, never below a
+    header or a number. A table still too wide overflows."""
     over = sum(widths) + len(_GAP) * (len(widths) - 1) - room
     if over <= 0:
         return widths
@@ -221,12 +221,16 @@ def _wrap_text(table: Table, widths: list[int], room: int) -> list[int]:
         for index, column in enumerate(table.columns)
         if column.kind == "text"
     }
-    for breaks in ([_WORD_BREAK], [_WORD_BREAK, _PART_BREAK], None):
+    levels = ([_WORD_BREAK], [_WORD_BREAK, _PART_BREAK], None)
+    floors: dict[int, int] = {}
+    for breaks in levels:
         floors = {index: _floor(table.columns[index], values, breaks) for index, values in cells.items()}
-        while over > 0 and (narrower := [index for index in cells if widths[index] > floors[index]]):
-            widest = max(narrower, key=lambda index: widths[index])
-            widths[widest] -= 1
-            over -= 1
+        if sum(max(0, widths[index] - floor) for index, floor in floors.items()) >= over:
+            break  # the loosest level at which the row can fit; the last level is used whether it fits or not
+    while over > 0 and (narrower := [index for index in cells if widths[index] > floors[index]]):
+        widest = max(narrower, key=lambda index: widths[index])
+        widths[widest] -= 1
+        over -= 1
     return widths
 
 
