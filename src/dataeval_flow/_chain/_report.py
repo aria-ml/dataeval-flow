@@ -64,6 +64,12 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
     table: top-level sections alongside Configuration. The other steps are those not shown as evidence that have
     something to show, a check among them only where it did not complete. Short (not *detailed*), only the count, the
     summary and a compact Steps table: Step, Status and Note, with no finding and no evidence."""
+    if not detailed:
+        return [
+            Fields(items=[("Steps", _count(result.steps.values()))]),
+            *result._summary_blocks(),  # noqa: SLF001 - a chain's report reuses a workflow's summary
+            *([_steps_table(result, compact=True)] if result.steps else []),
+        ]
     evidence = Evidence(result, detailed=detailed)
     # A check that ran once per element shows each element's findings beside that element's evidence, in a section of
     # that element's key; the findings of checks that did not run per element come first, ungrouped.
@@ -80,12 +86,6 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
                 groups.setdefault(key, []).extend(sections)
     findings = [*ungrouped, *(Section(title=key, blocks=blocks) for key, blocks in groups.items())]
     others = [section for record in result.steps.values() if (section := _other(record, evidence)) is not None]
-    if not detailed:
-        return [
-            Fields(items=[("Steps", _count(result.steps.values()))]),
-            *result._summary_blocks(),  # noqa: SLF001 - a chain's report reuses a workflow's summary
-            *([_steps_table(result, compact=True)] if result.steps else []),
-        ]
     return [
         Fields(items=[("Steps", _count(result.steps.values()))]),
         *result._summary_blocks(),  # noqa: SLF001 - a chain's report reuses a workflow's summary
