@@ -229,3 +229,63 @@ def test_an_element_no_finding_read_stays_with_the_other_steps() -> None:
     (table,) = _section(result, "Steps").blocks
     assert isinstance(table, Table)
     assert table.rows[2]["note"] == "[s2] no findings"
+
+
+def test_a_failed_check_is_listed_among_the_other_steps_with_its_failure() -> None:
+    from dataeval_flow.steps.checks import DuplicateRateCheck
+
+    with patch.object(DuplicateRateCheck, "run", side_effect=RuntimeError("boom")):
+        result = _cleaning()
+    assert _outline(result) == [
+        ("Summary", None, None),
+        ("Image Outliers", "1 images (4.2%)", "warning"),
+        ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
+        ("Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "info"),
+        ("Duplicates · dupes", None, None),
+        ("Duplicates · duplicates", "failed", None),
+        ("Remove · clean", None, None),
+        ("Steps", None, None),
+        ("Configuration", None, None),
+    ]
+    assert _section(result, "Duplicates · duplicates").blocks == [
+        Section(title="Failed", blocks=[Paragraph(text="RuntimeError: boom")])
+    ]
+
+
+def test_a_skipped_check_is_listed_among_the_other_steps_with_its_reason() -> None:
+    with patch.object(GroupLimit, "run", side_effect=RuntimeError("boom")):
+        result = _chain(_DUPES, _COUNT, {**_JUDGE, "optional": True})
+    assert _outline(result) == [
+        ("Duplicates · dupes", None, None),
+        ("Group count · judge", "skipped", None),
+        ("Steps", None, None),
+        ("Configuration", None, None),
+    ]
+    assert _section(result, "Group count · judge").blocks == [Paragraph(text="Skipped: failed: RuntimeError: boom")]
+
+
+def test_a_check_with_a_failed_element_lists_that_element_among_the_other_steps() -> None:
+    judged = GroupLimit.run
+
+    def fails_on_s2(self: GroupLimit, config: Any, inputs: Any, context: Any) -> Any:
+        if inputs["input"].address.endswith("[s2]"):
+            raise RuntimeError("boom")
+        return judged(self, config, inputs, context)
+
+    with patch.object(GroupLimit, "run", fails_on_s2):
+        result = _chain(_DUPES, _COUNT, _JUDGE, datasets=_CAMS, lists=True)
+    assert _outline(result) == [
+        ("Summary", None, None),
+        ("Group count [s1]", "1 groups", "warning"),
+        ("Duplicates · dupes", None, None),
+        ("Group count · judge", "failed", None),
+        ("Steps", None, None),
+        ("Configuration", None, None),
+    ]
+    assert _section(result, "Group count · judge").blocks == [
+        Section(
+            title="[s2]",
+            brief="failed",
+            blocks=[Section(title="Failed", blocks=[Paragraph(text="RuntimeError: boom")])],
+        )
+    ]

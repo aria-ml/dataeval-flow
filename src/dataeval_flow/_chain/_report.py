@@ -61,7 +61,8 @@ def step_heading(record: "StepResult") -> str:
 
 def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
     """The step count, the summary, each check's findings beside their evidence, the other steps, then the Steps
-    table: top-level sections alongside Configuration."""
+    table: top-level sections alongside Configuration. The other steps are those not shown as evidence that have
+    something to show, a check among them only where it did not complete."""
     evidence = Evidence(result, detailed=detailed)
     # A check that ran once per element shows each element's findings beside that element's evidence, key by key.
     findings = [
@@ -188,8 +189,9 @@ def _at(record: "StepResult", key: str | None) -> "StepResult":
 
 
 def _other(record: "StepResult", evidence: Evidence) -> Section | None:
-    """A step neither a check nor shown as evidence, where it has something to show: what it made, or why not."""
-    if record.kind == "check" or (record.name, None) in evidence.shown:
+    """A step not shown as evidence, where it has something to show: what it made, or why it made nothing. A check's
+    findings have sections of their own, so a check shows here only where it, or an element of it, did not complete."""
+    if (record.name, None) in evidence.shown:
         return None
     skip = evidence.elements_shown(record.name).keys()
     blocks = _step(record, detailed=evidence.detailed, skip=skip)
