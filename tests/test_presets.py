@@ -362,3 +362,21 @@ def test_only_a_preset_s_last_slot_may_be_a_list() -> None:
             @classmethod
             def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
                 return PresetChain(steps=[])
+
+
+def test_a_preset_step_names_a_list_slot_as_a_list_when_its_count_is_off() -> None:
+    outer = {
+        "name": "outer",
+        "inputs": ["ref", {"name": "pools", "list": True}],
+        "steps": [{"name": "cleaning", "workflow": "pooled", "input": ["ref", "pools", "pools"]}],
+    }
+    message = (
+        "Step 'cleaning' runs workflow 'pooled' (toy-pool-preset), whose inputs are `reference`, `pools` (a list), "
+        "but the step names 3."
+    )
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        chain_pipeline(
+            workflows=[_POOLED, outer],
+            tasks=[{"name": "t", "workflow": "outer", "sources": ["ref", "p1"]}],
+            datasets=_pooled_sources(),
+        )

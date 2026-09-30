@@ -396,7 +396,10 @@ def _splice(
     names = preset.slot_names()
     found = _input_addresses(entry)
     if len(found) != len(names):
-        slots = ", ".join(f"`{name}`" for name in names)
+        slots = ", ".join(
+            f"`{name}`" + (" (a list)" if not isinstance(slot, str) and slot.is_list else "")
+            for slot, name in zip(preset.slots, names, strict=True)
+        )
         raise GraphError(
             f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose inputs are {slots}, but the "
             f"step names {len(found)}."
