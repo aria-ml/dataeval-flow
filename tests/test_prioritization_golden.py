@@ -27,6 +27,20 @@ from tests.golden.prioritization import CASES, pipeline
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "prioritization_rankings.json").read_text())
 
 
+def _untied(produced: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """`produced` with each pool's item 5 read as its item 0.
+
+    A toy pool's item 5 is a copy of its item 0 (`ToyImages` plants it), so the two score the same and their order
+    between each other is a tie. DataEval breaks it with numpy's sort, which breaks ties differently across numpy
+    versions: the lowest-dependency run's numpy 1.24 puts 5 first. Cleaning removes item 5, so only the uncleaned
+    cases hold both.
+    """
+    rankings = {
+        pool: [0 if index == 5 else index for index in ranking] for pool, ranking in produced["rankings"].items()
+    }
+    return {**produced, "rankings": rankings}
+
+
 def _produced(result: ChainResult) -> dict[str, dict[str, Any]]:
     """Each pool's selection, as indices into the pool, and how many items cleaning removed from each source.
 
@@ -65,4 +79,4 @@ def test_data_prioritization_gives_the_rankings_it_gave_before_its_port(name: st
     result = run_tasks(pipeline(name))["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    assert _produced(result) == _GOLDEN[name]
+    assert _untied(_produced(result)) == _untied(_GOLDEN[name])
