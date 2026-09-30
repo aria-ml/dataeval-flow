@@ -62,7 +62,8 @@ def step_heading(record: "StepResult") -> str:
 def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
     """The step count, the summary, each check's findings beside their evidence, the other steps, then the Steps
     table: top-level sections alongside Configuration. The other steps are those not shown as evidence that have
-    something to show, a check among them only where it did not complete."""
+    something to show, a check among them only where it did not complete. Short (not *detailed*), only the count, the
+    summary and a compact Steps table: Step, Status and Note, with no finding and no evidence."""
     evidence = Evidence(result, detailed=detailed)
     # A check that ran once per element shows each element's findings beside that element's evidence, in a section of
     # that element's key; the findings of checks that did not run per element come first, ungrouped.
@@ -79,6 +80,12 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
                 groups.setdefault(key, []).extend(sections)
     findings = [*ungrouped, *(Section(title=key, blocks=blocks) for key, blocks in groups.items())]
     others = [section for record in result.steps.values() if (section := _other(record, evidence)) is not None]
+    if not detailed:
+        return [
+            Fields(items=[("Steps", _count(result.steps.values()))]),
+            *result._summary_blocks(),  # noqa: SLF001 - a chain's report reuses a workflow's summary
+            *([_steps_table(result, compact=True)] if result.steps else []),
+        ]
     return [
         Fields(items=[("Steps", _count(result.steps.values()))]),
         *result._summary_blocks(),  # noqa: SLF001 - a chain's report reuses a workflow's summary
@@ -240,9 +247,10 @@ _COLUMNS = (
 )
 
 
-def _steps_table(result: "ChainResult") -> Section:
+def _steps_table(result: "ChainResult", *, compact: bool = False) -> Section:
     """Every step, in run order: its name, title, type and status, where each Dataset it read came from, and why it
-    made nothing, if it did not."""
+    made nothing, if it did not. *compact* keeps the step, its status and that note, and is open, not folded: it is the
+    short form's only account of the steps."""
     rows: list[dict[str, Cell]] = [
         {
             "step": record.name,
@@ -255,8 +263,11 @@ def _steps_table(result: "ChainResult") -> Section:
         for record in result.steps.values()
     ]
     # Text leaves the title out: each step's section heading gives it, and text has little room.
-    columns = [Column(key=key, header=header, align="left", in_text=key != "title") for key, header in _COLUMNS]
-    return Section(title="Steps", reference=True, blocks=[Table(columns=columns, rows=rows)])
+    kept = ("step", "status", "note") if compact else tuple(key for key, _ in _COLUMNS)
+    columns = [
+        Column(key=key, header=header, align="left", in_text=key != "title") for key, header in _COLUMNS if key in kept
+    ]
+    return Section(title="Steps", reference=not compact, blocks=[Table(columns=columns, rows=rows)])
 
 
 def _note(record: "StepResult") -> str:
