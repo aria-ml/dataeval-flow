@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from dataeval_flow._chain._graph import ChainGraph, StepSpec
 from dataeval_flow._chain._identity import element_key, output_key, settings_of, short_digest, step_key
 from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
+from dataeval_flow._chain._reads import MetadataRead, ReadingContext, note_read, noting_reads
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
 from dataeval_flow.steps._address import Address
 from dataeval_flow.steps._check import Check, CheckContext
@@ -85,6 +86,8 @@ class ChainRun:
     nodes: dict[str, Node | NodeList | Missing]
     lineage: list[LineageRecord]
     label_space: list[LabelSpaceRecord]
+    reads: list[MetadataRead] = field(default_factory=list)
+    """Each Metadata a step read, in the order read, for the result's binning record."""
 
 
 def input_node(address: str, context: "DatasetContext", *, source: str, cache_name: str, cache_key: str) -> Node:
@@ -130,25 +133,29 @@ def _source_node(
 
 
 def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings: RunSettings) -> ChainRun:
-    """Run each step in order. Never raises for a step's failure: it becomes the step's status."""
+    """Run each step in order. Never raises for a step's failure: it becomes the step's status.
+
+    Each Metadata a step reads is noted, for the result's binning record.
+    """
     nodes: dict[str, _Value] = dict(inputs)
     # A one-step graph is a rerouted task: its result carries no lineage, so measure nothing it would not.
     tracked = not graph.one_step
     lineage = [_lineage(node) for node in _datasets(inputs.values())] if tracked else []
     steps: dict[str, StepResult] = {}
     label_space: list[LabelSpaceRecord] = []
-    for spec in graph.steps:
-        record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
-        steps[spec.name] = record
-        nodes.update(produced)
-        # A preset step's declared output reads what the spliced step made.
-        for address, value in produced.items():
-            for alias in graph.aliases_of(address):
-                nodes[alias] = value
-        if tracked:
-            lineage.extend(_lineage(node) for node in _datasets(produced.values()))
-        label_space.extend(records)
-    return ChainRun(steps, nodes, lineage, label_space)
+    with noting_reads() as reads:
+        for spec in graph.steps:
+            record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
+            steps[spec.name] = record
+            nodes.update(produced)
+            # A preset step's declared output reads what the spliced step made.
+            for address, value in produced.items():
+                for alias in graph.aliases_of(address):
+                    nodes[alias] = value
+            if tracked:
+                lineage.extend(_lineage(node) for node in _datasets(produced.values()))
+            label_space.extend(records)
+    return ChainRun(steps, nodes, lineage, label_space, reads)
 
 
 def _lookup(nodes: Mapping[str, _Value], address: Address) -> _Value:
@@ -477,7 +484,9 @@ def _combine(
     impl: Combine[Any] = spec.impl()  # type: ignore[assignment]
     step = settings.step_contexts.get(spec.name, StepContext())
     context = CombineContext(
-        task=settings.task, step=spec.name, derive_metadata=lambda node: _metadata(node, step.metadata_policy)
+        task=settings.task,
+        step=spec.name,
+        derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
     )
     made = impl.run(spec.config, inputs, context)
     missing = [port.name for port in spec.outputs if port.name not in made]
@@ -589,18 +598,17 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
     An evaluator step reading a Dataset other evaluator steps read also gets, by node, the union of their stats
     requests that preflight planned, so the first of them computes the statistics every one reads in one pass.
     """
-    from dataeval_flow.workflows._context import WorkflowContext
-
     nodes = _datasets(inputs.values())
     setup = settings.extractors.get(spec.extractor)
     contexts = {node.address: _context_for(node, spec, setup) for node in nodes}
     step = settings.step_contexts.get(spec.name, StepContext())
-    context = WorkflowContext(
+    context = ReadingContext(
         dataset_contexts=contexts,
         batch_size=setup.batch_size if setup is not None else None,
         metadata_policy=step.metadata_policy,
         ontology=step.ontology,
         stats_policy=step.stats_policy,
+        policy_name=_policy_name(spec),
     )
     # Run as the orchestrator runs a task's target, so a step and a task run it the same way.
     from dataeval_flow._orchestrator import _run_target
@@ -673,7 +681,7 @@ def _transform(
         output_dir=settings.output_dir,
         pipeline=settings.pipeline,
         data_dir=settings.data_dir,
-        derive_metadata=lambda node: _metadata(node, step.metadata_policy),
+        derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
         lineage=lambda address: _ancestry(address, lineage),
         label_space=tuple(record for record in applied if record.source in ancestors),
         element=element,
@@ -771,15 +779,24 @@ def _label_sources(roots: Sequence[Root]) -> list[str | None]:
     return found
 
 
-def _metadata(node: Node, policy: Any) -> Any:
-    """`node`'s Metadata under `policy`, cached on the node."""
+def _policy_name(spec: StepSpec) -> str | None:
+    """The metadata policy the step's entry names, ``None`` where it names none: how the binning record tells two
+    readings of one Dataset apart."""
+    name = getattr(spec.config, "metadata", None)
+    return name if isinstance(name, str) else None
+
+
+def _metadata(node: Node, policy: Any, policy_name: str | None) -> Any:
+    """`node`'s Metadata under `policy`, cached on the node, and noted for the chain's binning record."""
     from dataeval_flow._cache import active_cache, get_or_compute_metadata, selection_repr
 
     dataset = node.value
     cache = node.context.cache if node.context is not None else None
     scope = active_cache(cache, selection_repr(dataset)) if cache is not None else contextlib.nullcontext()
     with scope:
-        return get_or_compute_metadata(dataset, policy)
+        metadata = get_or_compute_metadata(dataset, policy)
+    note_read(node.address, policy_name, policy, metadata)
+    return metadata
 
 
 def _datasets(values: Iterable[Any]) -> list[Node]:

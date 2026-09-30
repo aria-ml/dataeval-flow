@@ -2,11 +2,6 @@
 
 Deliberate differences from its legacy run (spec §10.3 item 3), each with its reason:
 
-- **It records no encoding.** A data-cleaning result's `metadata_binning` and `encoding_digest` are null, where the
-  legacy run recorded both, so `dataeval-flow encoding` finds none in it. data-cleaning's findings and its `clean`
-  step never read the bins: it builds Metadata only for class labels. No evaluator result records a binning either,
-  so carrying one into a chain's envelope is engine work, which the ports whose findings depend on bins
-  (data-coverage, ood-detection, audit) will land. `test_a_data_cleaning_result_records_no_encoding` pins it.
 - **It names its items by the chain's input, `data`, not by the source.** Spec §7.4 has an item reference name the
   node address it was read from.
   `tests/test_run.py::test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names` pins it.
@@ -35,10 +30,13 @@ def test_data_cleaning_gives_the_findings_it_gave_before_its_port(name: str) -> 
     assert [[f.severity, f.title, f.brief] for f in CASES[name]()] == _GOLDEN[name]
 
 
-def test_a_data_cleaning_result_records_no_encoding() -> None:
-    """A deliberate difference: data-cleaning's result records no encoding, where its legacy run recorded one."""
+def test_a_data_cleaning_result_records_the_encoding_its_steps_read() -> None:
+    """`labels` and `by-class` read one encoding, so the envelope holds one record, as the legacy run's did."""
     DatasetCache.clear_instances()
     result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"]), ToyImages(count=12))
     assert result.success, result.errors
-    assert result.metadata.metadata_binning is None
-    assert result.metadata.encoding_digest is None
+    record = result.metadata.metadata_binning
+    assert record is not None
+    assert "per_split" not in record
+    assert record["factors"] == {}
+    assert result.metadata.encoding_digest == record["encoding_digest"]
