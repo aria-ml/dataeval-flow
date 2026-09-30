@@ -4,11 +4,23 @@ data, with the caveat that such a policy can mislead (docs/superpowers/specs/202
 
 import json
 import math
+from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
+import pytest
 import yaml
+from dataeval import Metadata
 
+from dataeval_flow import run_tasks
+from dataeval_flow._binning import write_descriptor
+from dataeval_flow._cache import DatasetCache
+from dataeval_flow._policy import ResolvedPolicy
 from dataeval_flow._recommend import CAVEAT, complete_stanza, pinned_count, recommend, render_recommendation
+from dataeval_flow.evaluators.quality._triage import read_back
+from dataeval_flow.steps import ChainResult
+from tests.chain_toys import chain_pipeline
+from tests.triage_toys import AltitudeDataset, LatitudeDataset, MixedWeightDataset, OcclusionDataset, WeatherDataset
 
 _INF = ["-inf", 265.8536348826109, 504.1481565221535, 742.442678161696, "inf"]
 
@@ -198,3 +210,157 @@ def test_the_yaml_reads_back_as_the_stanza() -> None:
     loaded = yaml.safe_load(render_recommendation(stanza, record, dropped))["metadata"][0]
     assert loaded.pop("name") == "standard"
     assert _canonical(loaded) == _canonical(stanza)
+
+
+_UNPINNED = {"derived", "count"}
+
+
+def _triage(
+    dataset: Any, policy: dict[str, Any] | None = None, *, verify: bool = True, data_dir: Path | None = None
+) -> ChainResult:
+    """One `factor-triage` step and its `metadata-issues` check over `dataset`, under `policy` where one is given."""
+    DatasetCache.clear_instances()
+    evaluator: dict[str, Any] = {"name": "triage", "type": "factor-triage", "verify": verify}
+    if policy is not None:
+        evaluator["metadata"] = "p"
+    steps = [
+        {"name": "triage", "evaluator": "triage", "input": "data"},
+        {"name": "issues", "check": "metadata-issues", "input": "triage"},
+    ]
+    config = chain_pipeline(
+        evaluators=[evaluator],
+        workflows=[{"name": "w", "inputs": ["data"], "steps": steps}],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        datasets={"src": dataset},
+        extra={"metadata": [{"name": "p", **policy}]} if policy is not None else None,
+    )
+    result = run_tasks(config, data_dir=data_dir)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    return result
+
+
+def _data(result: ChainResult) -> dict[str, Any]:
+    return result.steps["triage"].output.data()
+
+
+def _record(result: ChainResult) -> dict[str, Any]:
+    return result.metadata.metadata_binning
+
+
+def test_the_recommendation_pins_a_derived_cut_by_its_edges() -> None:
+    first = _triage(AltitudeDataset())
+    edges = [float(e) for e in _record(first)["factors"]["altitude"]["encoding"]["edges"]]
+    data = _data(first)
+    assert data["recommended_policy"] == {"continuous_factor_bins": {"altitude": edges}}
+    assert "altitude: [-.inf, " in data["recommended_policy_yaml"]
+    assert data["recommendation_error"] is None
+
+
+@pytest.mark.parametrize(
+    ("dataset", "still_unreadable"),
+    [(AltitudeDataset, set()), (MixedWeightDataset, set()), (LatitudeDataset, set()), (WeatherDataset, {"serial"})],
+)
+def test_a_run_under_the_recommendation_reads_every_factor_as_declared(
+    dataset: Any, still_unreadable: set[str]
+) -> None:
+    first = _triage(dataset())
+    again = _triage(dataset(), _data(first)["recommended_policy"])
+    issues = _data(again)["findings"]
+    assert not [f for f in issues if f.category in ("unbinned", "unreviewed")]
+    assert {f.factor for f in issues if f.category == "unreadable"} == still_unreadable
+    factors = _record(again)["factors"]
+    assert factors
+    assert not {name for name, info in factors.items() if (info.get("encoding") or {}).get("provenance") in _UNPINNED}
+
+
+def test_a_readable_factor_keeps_its_bins_under_the_recommendation() -> None:
+    first = _triage(AltitudeDataset())
+    again = _triage(AltitudeDataset(), _data(first)["recommended_policy"])
+
+    def counts(result: ChainResult) -> list[int]:
+        return [b["count"] for b in _record(result)["factors"]["altitude"]["fit"]["bins"]]
+
+    assert counts(again) == counts(first)
+
+
+@pytest.mark.parametrize(
+    ("dataset", "factor", "values"),
+    [(LatitudeDataset, "latitude", ["N", "S"]), (OcclusionDataset, "occlusion", ["high"])],
+)
+def test_a_mixed_column_drops_its_strings_by_default(dataset: Any, factor: str, values: list[str]) -> None:
+    data = _data(_triage(dataset()))
+    (correction,) = [c for c in data["recommended_policy"]["corrections"] if c["factor"] == factor]
+    assert [rule["match"] for rule in correction["rules"]] == values
+    assert all(math.isnan(rule["to"]) for rule in correction["rules"])
+    for value in values:
+        assert f"# dropped by default: decide what '{value}' means" in data["recommended_policy_yaml"]
+    (suggested,) = [c for c in data["suggested_policy"]["corrections"] if c["factor"] == factor]
+    assert all(rule["to"] is None for rule in suggested["rules"])  # the suggestion still leaves them to the user
+
+
+def test_a_cut_from_a_declared_count_is_pinned_by_the_edges_it_placed() -> None:
+    result = _triage(AltitudeDataset(), {"continuous_factor_bins": {"altitude": 4}})
+    encoding = _record(result)["factors"]["altitude"]["encoding"]
+    assert encoding["provenance"] == "count"
+    data = _data(result)
+    assert data["recommended_policy"]["continuous_factor_bins"]["altitude"] == [float(e) for e in encoding["edges"]]
+    assert "# was a count of 4; these are the edges DataEval placed from this data" in data["recommended_policy_yaml"]
+    assert "# Merge these into your policy 'p'." in data["recommended_policy_yaml"]
+
+
+def test_nothing_is_recommended_where_the_policy_pins_every_factor() -> None:
+    first = _triage(AltitudeDataset())
+    edges = [float(e) for e in _record(first)["factors"]["altitude"]["encoding"]["edges"]]
+    data = _data(_triage(AltitudeDataset(), {"continuous_factor_bins": {"altitude": edges}}))
+    assert (data["recommended_policy"], data["recommended_policy_yaml"], data["recommendation_error"]) == (
+        None,
+        None,
+        None,
+    )
+
+
+def test_a_factor_the_descriptor_pins_is_not_named_again(tmp_path: Path) -> None:
+    write_descriptor(_record(_triage(AltitudeDataset())), tmp_path / "bins.json")
+    result = _triage(AltitudeDataset(), {"encoding": "bins.json"}, data_dir=tmp_path)
+    assert _record(result)["factors"]["altitude"]["encoding"]["provenance"] == "derived"  # as the export wrote it
+    assert _data(result)["recommended_policy"] is None
+
+
+def test_the_recommendation_does_not_wait_for_verify() -> None:
+    data = _data(_triage(AltitudeDataset(), verify=False))
+    assert data["verification"] == []
+    assert data["recommended_policy"] is not None
+
+
+def test_a_failed_read_back_leaves_the_findings() -> None:
+    with patch("dataeval_flow.evaluators.quality._triage.read_back", side_effect=RuntimeError("boom")):
+        data = _data(_triage(MixedWeightDataset()))
+    assert (data["recommended_policy"], data["recommended_policy_yaml"], data["recommendation_error"]) == (
+        None,
+        None,
+        "boom",
+    )
+    assert [f.factor for f in data["findings"]] == ["weight"]
+    assert [(v.factor, v.recovered) for v in data["verification"]] == [("weight", True)]
+
+
+def test_the_chain_records_the_metadata_as_read_not_as_read_back() -> None:
+    result = _triage(MixedWeightDataset())
+    assert "weight" in (_record(result).get("unusable") or {})
+    assert "weight" in _data(result)["recommended_policy"]["continuous_factor_bins"]
+
+
+def test_read_back_never_changes_the_metadata_it_is_given() -> None:
+    metadata = Metadata(WeatherDataset())
+    names, excluded = list(metadata.factor_names), set(metadata.exclude)
+    record = read_back(metadata, ResolvedPolicy(), {"exclude": ["weather"]})
+    assert (list(metadata.factor_names), set(metadata.exclude)) == (names, excluded)
+    assert "weather" not in (record.get("factors") or {})
+    assert record["excluded"] == ["weather"]
+
+
+def test_the_recommendation_is_json() -> None:
+    body = json.loads(json.dumps(_triage(AltitudeDataset()).to_dict()))
+    data = body["steps"]["triage"]["output"]["data"]
+    assert list(data["recommended_policy"]["continuous_factor_bins"]) == ["altitude"]
