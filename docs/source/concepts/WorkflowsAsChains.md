@@ -171,7 +171,7 @@ Run as a task, a preset returns a `ChainResult` under its own type id, such as `
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
 `basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/dupes` and so on. The step's
 `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
-chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image_outliers`.
+chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`.
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
 while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain

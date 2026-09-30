@@ -19,8 +19,8 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
     The settings expand to this chain, run on the task's one source, ``data``:
 
     - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``labels`` (``label-health``),
-      ``by_class`` (``classwise-outliers``) and ``dupes`` (``duplicates``);
-    - the checks ``image_outliers``, ``target_outliers``, ``classwise``, ``duplicates`` and ``imbalance``, each
+      ``by-class`` (``classwise-outliers``) and ``dupes`` (``duplicates``);
+    - the checks ``image-outliers``, ``target-outliers``, ``classwise``, ``duplicates`` and ``imbalance``, each
       judged against its ``health_thresholds`` entry;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the
       first of its group.
@@ -67,11 +67,11 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
         steps: list[dict[str, Any]] = [
             {"name": "outliers", "evaluator": "outliers", "input": "data"},
             {"name": "labels", "evaluator": "labels", "input": "data"},
-            {"name": "by_class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"},
+            {"name": "by-class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"},
             {"name": "dupes", "evaluator": "dupes", "input": "data"},
-            {"name": "image_outliers", "check": "outlier-rate", "input": "outliers", "image": limits.image_outliers},
+            {"name": "image-outliers", "check": "outlier-rate", "input": "outliers", "image": limits.image_outliers},
             {
-                "name": "target_outliers",
+                "name": "target-outliers",
                 "check": "target-outlier-rate",
                 "input": "outliers",
                 "labels": "labels",
@@ -80,7 +80,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
             {
                 "name": "classwise",
                 "check": "classwise-outlier-rate",
-                "input": "by_class",
+                "input": "by-class",
                 "total": limits.classwise_outliers,
             },
             {

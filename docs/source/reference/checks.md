@@ -125,11 +125,11 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by_class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image_outliers, check: outlier-rate, input: outliers}
-      - {name: target_outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by_class}
+      - {name: image-outliers, check: outlier-rate, input: outliers}
+      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outlier-rate, input: by-class}
       - {name: duplicates, check: duplicate-rate, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
       - name: clean

@@ -44,10 +44,10 @@ _BASE: dict[str, Any] = {
 _STEPS = [
     "outliers",
     "labels",
-    "by_class",
+    "by-class",
     "dupes",
-    "image_outliers",
-    "target_outliers",
+    "image-outliers",
+    "target-outliers",
     "classwise",
     "duplicates",
     "imbalance",
@@ -83,7 +83,7 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
     assert result.type == "data-cleaning"
     assert list(result.steps) == _STEPS
     assert _verdicts(result) == [
-        ("warning", "Image Outliers", "1 images (8.3%)", "image_outliers"),
+        ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
         ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise"),
         ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "duplicates"),
         ("info", "Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "imbalance"),
@@ -106,7 +106,7 @@ def test_run_returns_the_chain_and_the_cleaned_dataset() -> None:
 
 def test_a_null_threshold_judges_nothing() -> None:
     result = _task(ToyImages(count=12), health_thresholds={"image_outliers": None})
-    assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (8.3%)", "image_outliers")
+    assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (8.3%)", "image-outliers")
 
 
 def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
@@ -153,8 +153,8 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
     assert result.success, result.errors
     assert list(result.steps) == [*(f"cleaning/{step}" for step in _STEPS), "sizes"]
     assert _verdicts(result) == [
-        ("warning", "Image Outliers", "1 images (8.3%)", "cleaning/image_outliers[s1]"),
-        ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image_outliers[s2]"),
+        ("warning", "Image Outliers", "1 images (8.3%)", "cleaning/image-outliers[s1]"),
+        ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image-outliers[s2]"),
         ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise[s1]"),
         ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise[s2]"),
         ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/duplicates[s1]"),
@@ -243,8 +243,8 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
     assert (labels.name, labels.metadata) == ("labels", "policy")
     steps: dict[str, Any] = {step["name"]: step for step in chain.steps}  # type: ignore[index]
     assert (
-        steps["image_outliers"]["image"],
-        steps["target_outliers"]["target"],
+        steps["image-outliers"]["image"],
+        steps["target-outliers"]["target"],
         steps["classwise"]["total"],
         steps["duplicates"]["exact"],
         steps["duplicates"]["near"],

@@ -184,7 +184,7 @@ chain of steps.
   },
   "health":   { "status": "warning", "warnings": 1, "findings": 4, "failed_steps": [] },
   "steps":    { "outliers": { "kind": "evaluator", "type": "outliers", "status": "ok" } },
-  "findings": [ { "step": "image_outliers", "title": "Image Outliers", "severity": "warning" } ]
+  "findings": [ { "step": "image-outliers", "title": "Image Outliers", "severity": "warning" } ]
 }
 ```
 

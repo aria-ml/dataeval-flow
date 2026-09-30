@@ -52,10 +52,10 @@ _EVALUATORS = [
 _OUTLIER_STEPS = [
     {"name": "outliers", "evaluator": "outliers", "input": "data"},
     {"name": "labels", "evaluator": "labels", "input": "data"},
-    {"name": "by_class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"},
-    {"name": "image_outliers", "check": "outlier-rate", "input": "outliers"},
-    {"name": "target_outliers", "check": "target-outlier-rate", "input": "outliers", "labels": "labels"},
-    {"name": "classwise", "check": "classwise-outlier-rate", "input": "by_class"},
+    {"name": "by-class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"},
+    {"name": "image-outliers", "check": "outlier-rate", "input": "outliers"},
+    {"name": "target-outliers", "check": "target-outlier-rate", "input": "outliers", "labels": "labels"},
+    {"name": "classwise", "check": "classwise-outlier-rate", "input": "by-class"},
 ]
 _OUTLIER_TITLES = {"Image Outliers", "Target Outliers", "Classwise Outliers"}
 
@@ -146,15 +146,15 @@ def test_the_outlier_checks_agree_with_data_cleaning(name: str) -> None:
 def test_the_outlier_checks_judge_nothing_where_their_limits_are_none() -> None:
     steps = [
         *_OUTLIER_STEPS[:3],
-        {"name": "image_outliers", "check": "outlier-rate", "input": "outliers", "image": None},
+        {"name": "image-outliers", "check": "outlier-rate", "input": "outliers", "image": None},
         {
-            "name": "target_outliers",
+            "name": "target-outliers",
             "check": "target-outlier-rate",
             "input": "outliers",
             "labels": "labels",
             "target": None,
         },
-        {"name": "classwise", "check": "classwise-outlier-rate", "input": "by_class", "total": None},
+        {"name": "classwise", "check": "classwise-outlier-rate", "input": "by-class", "total": None},
     ]
     _, judged = _both(_OUTLIER_STEPS, _DATASETS["detection"]())
     assert "warning" in {finding.severity for finding in judged}  # the defaults do warn on these
@@ -233,7 +233,7 @@ def test_classwise_outliers_refuses_outliers_found_on_another_dataset() -> None:
                     "inputs": ["a", "b"],
                     "steps": [
                         {"name": "outliers", "evaluator": "outliers", "input": "b"},
-                        {"name": "by_class", "combine": "classwise-outliers", "input": "a", "outliers": "outliers"},
+                        {"name": "by-class", "combine": "classwise-outliers", "input": "a", "outliers": "outliers"},
                     ],
                 }
             ],
@@ -261,14 +261,14 @@ def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> No
         "classwise-outliers counts a detection Dataset's boxes, but `outliers` was not computed per box: "
         "set `per_target: true` on its `outliers` entry."
     )
-    by_class = result.steps["by_class"]
+    by_class = result.steps["by-class"]
     assert by_class.status == "failed"
     assert f"ValueError: {message}" in " ".join(by_class.errors)
     (finding,) = [f for f in result.findings if f.title == "Classwise Outliers"]
     assert (finding.severity, finding.title, finding.brief) == ("info", "Classwise Outliers", "not assessed")
     assert finding.description is not None
     assert finding.description.startswith(
-        "Not assessed: `by_class` failed: ValueError: classwise-outliers counts a detection Dataset's boxes"
+        "Not assessed: `by-class` failed: ValueError: classwise-outliers counts a detection Dataset's boxes"
     )
     assert result.health["status"] == "failed"
 

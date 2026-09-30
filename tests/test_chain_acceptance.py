@@ -194,11 +194,11 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by_class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image_outliers, check: outlier-rate, input: outliers}
-      - {name: target_outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by_class}
+      - {name: image-outliers, check: outlier-rate, input: outliers}
+      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outlier-rate, input: by-class}
       - {name: duplicates, check: duplicate-rate, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
 
@@ -213,7 +213,7 @@ def test_data_cleaning_s_report_runs_as_a_chain_and_every_output_shows_its_verdi
     assert result.health == {"status": "warning", "warnings": 3, "findings": 4, "failed_steps": []}
     payload = result.to_dict()
     assert [finding["step"] for finding in payload["findings"]] == [  # type: ignore[union-attr]
-        "image_outliers",
+        "image-outliers",
         "classwise",
         "duplicates",
         "imbalance",
@@ -232,7 +232,7 @@ def test_a_check_whose_evaluator_failed_is_not_assessed_in_a_run_from_yaml(tmp_p
     )
     with patch.object(OutliersEvaluator, "run", side_effect=RuntimeError("no stats")):
         result = _run(text, {"src": ToyImages(count=24)}, tmp_path, "report")
-    image = next(finding for finding in result.findings if finding.step == "image_outliers")
+    image = next(finding for finding in result.findings if finding.step == "image-outliers")
     assert (image.severity, image.brief) == ("info", "not assessed")
     assert image.description == "Not assessed: `outliers` was skipped: failed: RuntimeError: no stats."
     assert result.failed_steps == []
@@ -254,7 +254,7 @@ tasks:
     result = _run(text, {"a": _corpora()["a"]}, tmp_path, "prep")
     assert result.success, result.errors
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
-        ("ok", "Image Outliers", "cleaning/image_outliers"),
+        ("ok", "Image Outliers", "cleaning/image-outliers"),
         ("ok", "Classwise Outliers", "cleaning/classwise"),
         ("warning", "Duplicates", "cleaning/duplicates"),
         ("info", "Label Distribution", "cleaning/imbalance"),

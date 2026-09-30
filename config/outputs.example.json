@@ -441,7 +441,7 @@
       },
       "elapsed_s": 0.128
     },
-    "by_class": {
+    "by-class": {
       "kind": "combine",
       "type": "classwise-outliers",
       "status": "ok",
@@ -511,7 +511,7 @@
       },
       "elapsed_s": 1.569
     },
-    "image_outliers": {
+    "image-outliers": {
       "kind": "check",
       "type": "outlier-rate",
       "status": "ok",
@@ -524,7 +524,7 @@
       },
       "elapsed_s": 0.002
     },
-    "target_outliers": {
+    "target-outliers": {
       "kind": "check",
       "type": "target-outlier-rate",
       "status": "ok",
@@ -543,7 +543,7 @@
       "type": "classwise-outlier-rate",
       "status": "ok",
       "inputs": [
-        "by_class"
+        "by-class"
       ],
       "output": {
         "findings": 1,
@@ -608,7 +608,7 @@
       "brief": "2 images (10.0%)",
       "description": "2 images (10.0%) flagged as outliers.",
       "blocks": [],
-      "step": "image_outliers"
+      "step": "image-outliers"
     },
     {
       "severity": "info",
@@ -616,7 +616,7 @@
       "brief": "16 targets (4.8%)",
       "description": "16 bounding-box targets (4.8%) flagged as outliers.",
       "blocks": [],
-      "step": "target_outliers"
+      "step": "target-outliers"
     },
     {
       "severity": "info",

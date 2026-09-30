@@ -159,7 +159,9 @@
   `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
 - `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
   against `health_thresholds`. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
-  and `run()` on a `DataCleaningConfig` is typed to `ChainResult`
+  and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids are:
+  `outliers`, `labels`, `by-class`, `dupes`, `image-outliers`, `target-outliers`, `classwise`, `duplicates`,
+  `imbalance` and `clean`
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
   `dataeval-flow encoding` finds none in it

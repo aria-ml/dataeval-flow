@@ -404,10 +404,10 @@ class TestEndToEndCleaningWorkflow:
         assert list(results_data["steps"]) == [
             "outliers",
             "labels",
-            "by_class",
+            "by-class",
             "dupes",
-            "image_outliers",
-            "target_outliers",
+            "image-outliers",
+            "target-outliers",
             "classwise",
             "duplicates",
             "imbalance",
