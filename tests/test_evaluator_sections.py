@@ -9,7 +9,8 @@ from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators._result import EvaluatorMetadata
 from dataeval_flow.evaluators.bias import BalanceConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult, OutliersConfig
-from dataeval_flow.evaluators.scope import CoverageConfig
+from dataeval_flow.evaluators.scope import CoverageConfig, PrioritizeConfig
+from dataeval_flow.evaluators.scope._report import prioritize_section
 from tests.chain_toys import ToyDetections, chain_pipeline, run_chain_task
 from tests.evaluator_toys import ToyFactors, ToyImages, toy_pipeline
 
@@ -157,3 +158,47 @@ def test_a_balance_section_that_ranks_no_factor_keeps_the_balance_table() -> Non
         return [b for x in found for b in ([x] if isinstance(x, Table) else tables(getattr(x, "blocks", [])))]
 
     assert any("class_label" in str(t.rows) for t in tables(blocks))
+
+
+def _ranking(count: int) -> dict[str, Any]:
+    """A ranking of `count` items, highest priority first: item `count - 1` down to item 0, scored from 0.9 down."""
+    scores = [round(0.9 - 0.001 * rank, 3) for rank in range(count)]
+    return {"shape": "array", "data": list(range(count - 1, -1, -1)), "extras": {"scores": scores}}
+
+
+def test_a_prioritize_section_lists_the_ranking_s_first_and_last_25_with_their_ranks_and_scores() -> None:
+    blocks = prioritize_section(_ranking(468), ["pool"], detailed=True)
+    assert [cast("Section", block).title for block in blocks] == ["Highest priority", "Lowest priority"]
+    (top,) = _tables(_section(blocks, "Highest priority").blocks)
+    (bottom,) = _tables(_section(blocks, "Lowest priority").blocks)
+    assert [c.header for c in top.columns] == ["Rank", "", "Item", "Score"]
+    assert [row["rank"] for row in top.rows] == list(range(1, 26))
+    assert [row["item"] for row in top.rows] == list(range(467, 442, -1))
+    assert [row["image"] for row in top.rows][:2] == [
+        ItemRef(source="pool", index=467),
+        ItemRef(source="pool", index=466),
+    ]
+    assert [row["score"] for row in top.rows][:2] == [0.9, 0.899]
+    assert [row["rank"] for row in bottom.rows] == list(range(444, 469))
+    assert [row["item"] for row in bottom.rows] == list(range(24, -1, -1))
+    assert top.preview == bottom.preview == 10
+
+
+def test_a_short_ranking_is_listed_once_without_scores_where_the_method_gives_none() -> None:
+    blocks = prioritize_section({"shape": "array", "data": [3, 1, 2], "extras": {}}, ["pool"], detailed=True)
+    assert [cast("Section", block).title for block in blocks] == ["Highest priority"]
+    (table,) = _tables(blocks)
+    assert [c.header for c in table.columns] == ["Rank", "", "Item"]
+    assert [(row["rank"], row["item"]) for row in table.rows] == [(1, 3), (2, 1), (3, 2)]
+
+
+def test_a_ranking_of_30_lists_its_last_5_as_its_lowest() -> None:
+    (bottom,) = _tables(_section(prioritize_section(_ranking(30), ["pool"], detailed=True), "Lowest priority").blocks)
+    assert [row["rank"] for row in bottom.rows] == [26, 27, 28, 29, 30]
+
+
+def test_a_prioritize_result_pictures_its_ranking_in_its_own_section() -> None:
+    result = _task(PrioritizeConfig(name="e", method="knn", k=2), dataset=ToyImages(count=6), extractor=True)
+    (table,) = _tables(_section(result._report_output(detailed=True), "Highest priority").blocks)
+    assert [row["item"] for row in table.rows] == [int(index) for index in result.output.indices]
+    assert {ref.source for ref in _refs(table)} == {"src"}

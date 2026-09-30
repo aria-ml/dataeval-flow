@@ -79,3 +79,9 @@ class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:
+        """The ranking's highest-priority and lowest-priority items, pictured."""
+        from dataeval_flow.evaluators.scope._report import prioritize_section
+
+        return prioritize_section(output, sources, detailed=detailed)
