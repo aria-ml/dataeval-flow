@@ -25,12 +25,14 @@ def balance_section(output: Mapping[str, Any], *, detailed: bool) -> list[Block]
     from dataeval_flow.evaluators._report import output_blocks
 
     data = dict(output.get("data") or {})
-    balance = data.pop("balance", None) or {}
+    balance = data.get("balance") or {}
     values = {
         str(row["factor_name"]): float(row["mi_value"])
         for row in balance.get("rows") or []
         if row["factor_name"] != "class_label" and isinstance(row.get("mi_value"), int | float)
     }
+    if values:
+        data.pop("balance")
     ranked: list[Block] = (
         [
             Section(

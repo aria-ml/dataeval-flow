@@ -140,3 +140,20 @@ def test_a_result_that_does_not_know_its_sources_reports_dataeval_s_output_as_it
     (section,) = bare._report_output(detailed=True)
     assert isinstance(section, Section)
     assert section.title == "Output"
+
+
+def test_a_balance_section_that_ranks_no_factor_keeps_the_balance_table() -> None:
+    from dataeval_flow.evaluators.bias._report import balance_section
+
+    table = {
+        "shape": "table",
+        "columns": ["factor_name", "mi_value"],
+        "rows": [{"factor_name": "class_label", "mi_value": 1.0}],
+    }
+    blocks = balance_section({"shape": "mapping", "data": {"balance": table}}, detailed=True)
+    assert not [b for b in blocks if isinstance(b, Section) and b.title == "Balance"]
+
+    def tables(found: Sequence[Block]) -> list[Table]:
+        return [b for x in found for b in ([x] if isinstance(x, Table) else tables(getattr(x, "blocks", [])))]
+
+    assert any("class_label" in str(t.rows) for t in tables(blocks))
