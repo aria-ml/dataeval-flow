@@ -1,17 +1,18 @@
-"""Metadata triage workflow: what a run failed to read, and what to do about it."""
+"""Metadata triage workflow: what a run failed to read, and what to do about it.
 
-import logging
-from dataclasses import replace
-from typing import Any, ClassVar
+Its logic is the ``triage`` evaluator's and the ``metadata-issues`` check's; this adapter keeps the legacy result until
+the port to a preset replaces it (spec §10.10).
+"""
 
-import polars as pl
+from typing import ClassVar
 
-from dataeval_flow._binning import attach_binning, describe_binning
-from dataeval_flow._blocks import ItemRef
-from dataeval_flow._metadata import build_metadata, expand_declared_bins
-from dataeval_flow._policy import build_correction, policy_for
-from dataeval_flow._tables import GROUP_SHOWN
-from dataeval_flow._triage import TriageFinding, find_issues, incomplete_factors, render_stanza, to_policy_stanza
+from dataeval_flow._binning import attach_binning
+from dataeval_flow._metadata import build_metadata
+from dataeval_flow._policy import policy_for
+from dataeval_flow._triage_report import build_findings
+from dataeval_flow.evaluators._inputs import EvaluatorInputs
+from dataeval_flow.evaluators.quality._config import TriageConfig
+from dataeval_flow.evaluators.quality._triage import TriageEvaluator
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._context import WorkflowContext
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
@@ -21,13 +22,9 @@ from dataeval_flow.workflows.metadata_triage._outputs import (
     MetadataTriageRawOutput,
     MetadataTriageReport,
     MetadataTriageResult,
-    VerificationEntry,
 )
-from dataeval_flow.workflows.metadata_triage._report import Places, build_findings, minority_kind, summarize
 
 __all__ = ["MetadataTriageWorkflow"]
-
-_logger: logging.Logger = logging.getLogger(__name__)
 
 
 class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult]):
@@ -38,48 +35,38 @@ class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult
     description: ClassVar[str] = "Report unreadable and unpinned metadata factors, with suggested corrections"
 
     def run(self, config: MetadataTriageConfig, context: WorkflowContext) -> MetadataTriageResult:
-        """Build the metadata, describe it, and report what it could not read."""
+        """Build the metadata, triage it, and report what it could not read."""
         from dataeval_flow._view import build_view
 
         policy = policy_for(context, config)
-
         source, dc = next(iter(context.dataset_contexts.items()))
         dataset = dc.dataset
         if dc.view_operations:
             dataset = build_view(dataset, dc.view_operations)  # type: ignore[arg-type]
         metadata = build_metadata(dataset, policy)
-        record = self._describe(metadata, policy)
-
-        findings = find_issues(
-            record,
-            min_missing_fraction=config.min_missing_fraction,
-            default_bins=config.default_bins,
+        triage = TriageConfig(
+            verify=config.verify, default_bins=config.default_bins, min_missing_fraction=config.min_missing_fraction
         )
-        stanza = to_policy_stanza(findings)
+        inputs = [EvaluatorInputs(source=source, metadata=metadata, metadata_policy=policy)]
+        data = TriageEvaluator().run(triage, inputs).data()
         raw = MetadataTriageRawOutput(
             dataset_size=len(dataset),
-            findings=findings,
-            suggested_policy=stanza,
-            suggested_policy_yaml=render_stanza(stanza, incomplete=incomplete_factors(findings)),
-            factor_count=len(record.get("factors") or {}),
+            findings=data["findings"],
+            suggested_policy=data["suggested_policy"],
+            suggested_policy_yaml=data["suggested_policy_yaml"],
+            verification=data["verification"],
+            verification_error=data["verification_error"],
+            counts=data["counts"],
+            factor_count=data["factor_count"],
         )
-        raw.counts = summarize(raw)
-
-        if config.verify:
-            try:
-                raw.verification = self._verify(metadata, policy, findings)
-            except Exception as e:  # the findings are worth having without it
-                _logger.warning("Verification unavailable", exc_info=True)
-                raw.verification_error = str(e) or type(e).__name__
-
         result_metadata = MetadataTriageMetadata(
-            blocking=sum(1 for f in findings if f.severity == "blocking"),
+            blocking=sum(1 for f in raw.findings if f.severity == "blocking"),
             verified=sum(1 for v in raw.verification if v.recovered),
         )
         attach_binning(result_metadata, metadata, policy)
         report = MetadataTriageReport(
-            summary=(f"{raw.factor_count} factors, {len(findings)} findings ({result_metadata.blocking} blocking)."),
-            findings=build_findings(raw, config.max_examples, _places(metadata, findings, source)),
+            summary=f"{raw.factor_count} factors, {len(raw.findings)} findings ({result_metadata.blocking} blocking).",
+            findings=build_findings(data, config.max_examples),
         )
         return MetadataTriageResult(
             type=self.name,
@@ -88,197 +75,3 @@ class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult
             metadata=result_metadata,
             dataset=dataset,
         )
-
-    @staticmethod
-    def _describe(metadata: Any, policy: Any) -> dict[str, Any]:
-        """The binning record, built the way ``attach_binning`` builds it.
-
-        The bins as applied, not as spelled: ``unmatched_bin_requests`` is a set difference
-        against the factor names, and a bare declared name is not one of those.
-        """
-        declared = dict(policy.continuous_factor_bins) or None
-        requested = expand_declared_bins(declared, metadata.factor_names, metadata.levels) if declared else None
-        return describe_binning(
-            metadata,
-            excluded=list(policy.exclude) or None,
-            requested_bins=requested,
-            factor_source=policy.factor_source,
-            declared_bins=declared,
-        )
-
-    def _verify(
-        self,
-        metadata: Any,
-        policy: Any,
-        findings: "list[TriageFinding]",
-    ) -> "list[VerificationEntry]":
-        """Read the metadata back under the complete suggestions, and say what they recovered.
-
-        Costs no second dataset walk: ``repair`` applies corrections to the values the walk
-        already kept and returns a derived copy sharing the immutable store.  The policy's
-        own corrections are passed through alongside the suggested ones because ``repair``
-        **replaces** rather than accumulates.
-
-        A correction and a bin suggestion claim different things, so ``recovered`` is
-        checked differently for each — see :func:`_factor_recovered`, which the shape of
-        each finding's suggestion (corrections vs. a bin count) routes to the right check.
-
-        Incomplete suggestions are never applied, so this can never report recovery from a
-        placeholder.  A suggestion can also be well-formed, run cleanly and still not
-        recover what it claims — which is the case this exists to catch before a stanza is
-        committed to a config.
-        """
-        from dataeval_flow.config._schemas import MetadataPolicyConfig
-
-        entries: list[VerificationEntry] = []
-        runnable: list[Any] = []
-        bins: dict[str, Any] = {}
-        correction_factors: set[str] = set()
-        bin_factors: set[str] = set()
-        for finding in findings:
-            suggestion = finding.suggestion
-            if suggestion is None:
-                continue
-            if not suggestion.complete:
-                entries.append(_unapplied(finding))
-                continue
-            factor_bins = suggestion.policy.get("continuous_factor_bins") or {}
-            bins.update(factor_bins)
-            bin_factors.update(factor_bins)
-            runnable.extend(suggestion.corrections)
-            correction_factors.update(c["factor"] for c in suggestion.corrections)
-
-        if not runnable and not bins:
-            return entries
-
-        # Validated as a policy first, so a malformed suggestion fails here naming the field
-        # rather than inside DataEval naming a constructor argument.
-        validated = MetadataPolicyConfig.model_validate({"name": "_triage", "corrections": runnable})
-        built = [build_correction(entry) for entry in validated.corrections or ()]
-        repaired = metadata.repair([*policy.correction_specs, *built])
-        described_policy = policy
-        if bins:
-            merged_bins = {**dict(policy.continuous_factor_bins), **bins}
-            repaired.continuous_factor_bins = merged_bins
-            # `_describe` reads `continuous_factor_bins` off the policy, not off `repaired`,
-            # so it has to see the bins actually assigned here — otherwise the re-described
-            # record's `requested_bins`/`bin_expansion` would describe the policy this
-            # verification started from rather than what it just ran.
-            described_policy = replace(policy, continuous_factor_bins=merged_bins)
-        after = self._describe(repaired, described_policy)
-        factors = after.get("factors") or {}
-
-        for name in sorted(correction_factors | bin_factors):
-            # A name a correction also names wins the correction check: that is the more
-            # fundamental claim (the column exists at all), and no finding actually
-            # produces both for one factor today.
-            pinned = name in bin_factors and name not in correction_factors
-            recovered = _factor_recovered(after, name, pinned=pinned)
-            entries.append(
-                VerificationEntry(
-                    factor=name,
-                    applied=True,
-                    recovered=recovered,
-                    detail=_recovery_detail(factors.get(name), recovered, pinned=pinned),
-                )
-            )
-        return entries
-
-
-def _places(metadata: Any, findings: "list[TriageFinding]", source: str) -> Places:
-    """Where each mixed column's problem values sit: its minority kind's values, most rows first, with their items.
-
-    Up to eight items per value, each named in *source*, or by its box where the column sits below the item.
-    A column dropped for naming its rows has none: every value is distinct, and none is a problem.
-    """
-    places: dict[str, list[tuple[str, int, list[ItemRef]]]] = {}
-    for finding in findings:
-        kind = minority_kind(finding.detail.get("counts") or {})
-        if finding.category != "unreadable" or not finding.repairable or kind is None:
-            continue
-        if "cardinality_over_budget" in finding.reasons:
-            continue
-        try:
-            frame = metadata.unusable_rows(finding.factor).filter(pl.col("kind") == kind)
-        except Exception as error:  # noqa: BLE001 - the places are a sample; failing to find them never costs the run
-            _logger.warning(
-                "Could not find where %r's problem values sit, so none are pictured: %s", finding.factor, error
-            )
-            continue
-        keys = ["item_index", *(["target_index"] if "target_index" in frame.columns else [])]
-        values = frame.group_by("value", maintain_order=True).agg(
-            pl.len().alias("count"), *(pl.col(key).head(GROUP_SHOWN) for key in keys)
-        )
-        places[finding.factor] = [
-            (
-                row["value"],
-                row["count"],
-                [
-                    ItemRef(source=source, index=index, target=target)
-                    for index, target in zip(
-                        row["item_index"], row.get("target_index") or [None] * len(row["item_index"]), strict=True
-                    )
-                ],
-            )
-            for row in values.sort("count", descending=True, maintain_order=True).iter_rows(named=True)
-        ]
-    return places
-
-
-def _unapplied(finding: "TriageFinding") -> "VerificationEntry":
-    """A verification entry for a suggestion left incomplete, never applied.
-
-    Pulled out of :meth:`MetadataTriageWorkflow._verify` so that method does not trip C901
-    — this is the one branch that does not touch the dataset at all.
-    """
-    suggestion = finding.suggestion
-    corrections = suggestion.corrections if suggestion is not None else ()
-    holes = sum(1 for c in corrections for rule in c.get("rules", ()) if rule.get("to") is None)
-    return VerificationEntry(
-        factor=finding.factor,
-        applied=False,
-        recovered=False,
-        detail=f"not applied; {holes} values still need codes",
-    )
-
-
-def _factor_recovered(after: "dict[str, Any]", name: str, *, pinned: bool) -> bool:
-    """Whether one factor's suggestion actually did what it claimed.
-
-    A correction (an ``unreadable`` finding) claims a held-back column becomes a factor:
-    recovered means present in ``factors`` and absent from ``unusable``.
-
-    A bin suggestion (an ``unbinned`` finding) is only ever raised for a factor already
-    present and already readable — what it lacks is a pinned cut, not existence, per
-    ``triage._encodings`` — so that same check would be true before the suggestion runs
-    and after it regardless of what the suggested count did, and could never say no.
-    Recovered there instead means the factor is still present *and* its cut no longer reads
-    ``provenance="derived"`` in the re-described record — presence alone is not enough, or a
-    factor that vanished from the re-described record entirely (absent from ``factors``, and
-    so absent from ``unreviewed`` too) would satisfy this by having disappeared rather than
-    by having been pinned.
-    """
-    factors = after.get("factors") or {}
-    if pinned:
-        return name in factors and name not in (after.get("unreviewed") or ())
-    unusable = after.get("unusable") or {}
-    return name in factors and name not in unusable
-
-
-def _recovery_detail(info: "dict[str, Any] | None", recovered: bool, *, pinned: bool) -> str:
-    """One line saying what the reading actually produced.
-
-    Worded for whichever claim :func:`_factor_recovered` checked: a bin suggestion reports
-    the cut it produced, a correction reports whether the column became one at all.
-    """
-    fit = (info or {}).get("fit") or {}
-    bin_buckets = fit.get("bins")
-    buckets = bin_buckets if bin_buckets is not None else fit.get("levels") or []
-    kind = "bins" if bin_buckets is not None else "levels"
-    if pinned:
-        if not recovered:
-            return "applied, but bin cut remains derived rather than pinned"
-        return f"{len(buckets)} {kind}, {len(fit.get('empty') or ())} empty"
-    if not recovered:
-        return "applied, but factor remains unreadable"
-    return f"became a factor, {len(buckets)} {kind}"

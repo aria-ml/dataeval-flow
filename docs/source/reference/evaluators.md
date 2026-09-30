@@ -17,6 +17,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `label-health` | `dataeval.core.label_stats` | metadata | 1 | refused |
+| `triage` | `dataeval.Metadata` | metadata | 1 | refused |
 | `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
@@ -165,6 +166,31 @@ metadata.
 Output: a mapping of `item_count`, `class_count` (the classes the Dataset declares, used or not), `label_count`,
 `label_counts_per_class` and `image_counts_per_class` (by class name, for the classes that occur),
 `empty_image_count`, and `label_source`, where the labels came from.
+
+### `triage`
+
+What a Dataset's metadata failed to read, and a policy that repairs it. `triage` reports each factor the run could not
+read as configured, in six categories, with a correction or bin count where one repairs it. It merges every suggestion
+into one `metadata:` stanza, and, with `verify`, reads the metadata back under the suggestions to say what each
+recovered. The `metadata-issues` check reads it, and the `metadata-triage` preset runs both. Configured by
+{py:class}`~dataeval_flow.evaluators.quality.TriageConfig`. It reads the Dataset's metadata through DataEval's
+`Metadata`, whose `repair` verifies without a second walk.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) a policy under `metadata:`, which the metadata is built under | DataEval's defaults |
+| `verify` | (DataEval Flow) read the metadata back under the complete suggestions, and say what each recovered | `true` |
+| `default_bins` | (DataEval Flow) the bin count a suggestion falls back to where the run left no cut to read | `10` |
+| `min_missing_fraction` | (DataEval Flow) the share of rows recording no value above which a factor is degenerate | `0.2` |
+
+Output: a mapping of:
+
+- `findings`, each issue with its `factor`, `category`, `severity`, `reasons`, `remedy` and `suggestion`;
+- `suggested_policy` and `suggested_policy_yaml`;
+- `verification` and `verification_error`;
+- `counts`, by category and severity;
+- `factor_count`;
+- `places`, where each mixed column's problem values sit.
 
 ## Scope
 

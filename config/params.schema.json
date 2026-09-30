@@ -493,6 +493,48 @@
       "title": "CheckStep_duplicate-rate",
       "type": "object"
     },
+    "CheckStep_metadata-issues": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `triage` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in a finding. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        },
+        "check": {
+          "const": "metadata-issues",
+          "description": "`metadata-issues`: Warns where metadata triage found a factor the run could not read as configured.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_metadata-issues",
+      "type": "object"
+    },
     "CheckStep_outlier-rate": {
       "additionalProperties": false,
       "properties": {
@@ -1274,6 +1316,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_duplicate-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_metadata-issues"
               },
               {
                 "$ref": "#/$defs/CheckStep_outlier-rate"
@@ -8331,6 +8376,60 @@
       "title": "TransformStep_wrap",
       "type": "object"
     },
+    "TriageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: triage\n        metadata: standard",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "triage",
+          "default": "triage",
+          "description": "The evaluator type this entry configures: `triage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "verify": {
+          "default": true,
+          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
+          "title": "Verify",
+          "type": "boolean"
+        },
+        "default_bins": {
+          "default": 10,
+          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
+          "minimum": 2,
+          "title": "Default Bins",
+          "type": "integer"
+        },
+        "min_missing_fraction": {
+          "default": 0.2,
+          "description": "Share of rows recording no value above which a factor is called degenerate.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Missing Fraction",
+          "type": "number"
+        }
+      },
+      "title": "TriageConfig",
+      "type": "object"
+    },
     "UncertaintyExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for uncertainty estimation models.\n\nYAML example::\n\n    extractors:\n      - name: unc_extractor\n        model: uncertainty\n        model_path: \"./classifier.pt\"\n        preds_type: logits",
@@ -9029,6 +9128,9 @@
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"
+              },
+              {
+                "$ref": "#/$defs/TriageConfig"
               }
             ]
           },

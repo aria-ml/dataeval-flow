@@ -2,10 +2,11 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from dataeval_flow._result import ResultMetadata
 from dataeval_flow._triage import TriageFinding
+from dataeval_flow.evaluators.quality._result import VerificationEntry
 from dataeval_flow.workflows._base import WorkflowOutput, WorkflowRawOutput, WorkflowReport
 from dataeval_flow.workflows._result import WorkflowResult
 
@@ -15,23 +16,7 @@ __all__ = [
     "MetadataTriageRawOutput",
     "MetadataTriageReport",
     "MetadataTriageResult",
-    "VerificationEntry",
 ]
-
-
-class VerificationEntry(BaseModel):
-    """What one suggestion actually did when it was read back.
-
-    ``recovered`` is the question worth asking.  A suggestion can be well-formed, run
-    cleanly and still not work — upstream is explicit that a reading leaving every row
-    holding its own value has not made the column a factor — so a stanza is worth checking
-    before it is committed to a config.
-    """
-
-    factor: str
-    applied: bool
-    recovered: bool
-    detail: str
 
 
 class MetadataTriageRawOutput(WorkflowRawOutput):

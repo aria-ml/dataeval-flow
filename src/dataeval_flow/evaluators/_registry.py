@@ -15,6 +15,7 @@ _BUILTINS = {
     "duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
     "label-health": "dataeval_flow.evaluators.quality._evaluator:LabelHealthEvaluator",
     "outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
+    "triage": "dataeval_flow.evaluators.quality._triage:TriageEvaluator",
     "representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
     "coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
     "prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",

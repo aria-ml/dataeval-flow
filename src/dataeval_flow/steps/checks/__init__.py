@@ -7,6 +7,8 @@ __all__ = [
     "ClasswiseOutlierRateConfig",
     "DuplicateRateCheck",
     "DuplicateRateConfig",
+    "MetadataIssuesCheck",
+    "MetadataIssuesConfig",
     "OutlierRateCheck",
     "OutlierRateConfig",
     "TargetOutlierRateCheck",
@@ -23,3 +25,4 @@ from dataeval_flow.steps.checks._outliers import (
     TargetOutlierRateCheck,
     TargetOutlierRateConfig,
 )
+from dataeval_flow.steps.checks._triage import MetadataIssuesCheck, MetadataIssuesConfig

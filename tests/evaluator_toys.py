@@ -141,6 +141,7 @@ def output_json(result: "Result[Any, Any]") -> dict[str, Any]:
 _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "duplicates": lambda count: (ToyImages(count=count), None),
     "label-health": lambda count: (ToyImages(count=count), None),
+    "triage": lambda count: (ToyFactors(count=count), None),
     "outliers": lambda count: (ToyImages(count=count), None),
     "balance": lambda count: (ToyFactors(count=count), None),
     "diversity": lambda count: (ToyFactors(count=count), None),

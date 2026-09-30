@@ -80,6 +80,11 @@ dataeval_flow.evaluators.quality:OutliersConfig
 dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
 dataeval_flow.evaluators.quality:ThresholdSpec
+dataeval_flow.evaluators.quality:TriageConfig
+dataeval_flow.evaluators.quality:TriageEvaluator
+dataeval_flow.evaluators.quality:TriageOutput
+dataeval_flow.evaluators.quality:TriageResult
+dataeval_flow.evaluators.quality:VerificationEntry
 dataeval_flow.evaluators.scope:CoverageConfig
 dataeval_flow.evaluators.scope:CoverageEvaluator
 dataeval_flow.evaluators.scope:CoverageResult
@@ -156,6 +161,8 @@ dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
 dataeval_flow.steps.checks:DuplicateRateCheck
 dataeval_flow.steps.checks:DuplicateRateConfig
+dataeval_flow.steps.checks:MetadataIssuesCheck
+dataeval_flow.steps.checks:MetadataIssuesConfig
 dataeval_flow.steps.checks:OutlierRateCheck
 dataeval_flow.steps.checks:OutlierRateConfig
 dataeval_flow.steps.checks:TargetOutlierRateCheck
