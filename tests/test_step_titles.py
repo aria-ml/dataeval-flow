@@ -134,9 +134,10 @@ def test_an_evaluator_task_is_headed_by_its_title_and_named_in_the_envelope() ->
         evaluators=[{"name": "dupes", "type": "duplicates"}],
         tasks=[{"name": "t", "workflow": "dupes", "sources": ["src"], "kind": "evaluator"}],
     )
-    report = _run(config).report()
-    assert _banner(report) == ["DUPLICATES"]
-    assert _first_line(report) == "Evaluator: dupes (duplicates)"
+    result = _run(config)
+    assert _banner(result.report()) == ["DUPLICATES"]
+    assert _first_line(result.report()) == "Evaluator: dupes (duplicates)"
+    assert "<title>Duplicates — dupes</title>" in result.to_html()
 
 
 def test_a_custom_workflow_is_headed_by_its_name() -> None:
@@ -154,6 +155,7 @@ def test_a_custom_workflow_is_headed_by_its_name() -> None:
     assert isinstance(result, ChainResult)
     assert _banner(result.report()) == ["MINE"]
     assert _first_line(result.report()) == "Workflow: mine (custom workflow)"
+    assert "<title>mine</title>" in result.to_html()
 
 
 def test_a_legacy_workflow_keeps_its_summary_in_the_body(plugins: dict[str, list[tuple[str, str]]]) -> None:

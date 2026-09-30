@@ -525,8 +525,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         """The envelope's first row: ``Workflow: entry (id)``, or ``Evaluator: entry (id)`` for an evaluator task;
         the id alone where the entry is not named or is the id."""
         label = "Evaluator" if self.kind == "evaluator" else "Workflow"
-        named = self._entry and self._entry != self.type
-        return label, f"{self._entry} ({self.type})" if named else self.type
+        ran = f"{self._entry} ({self.type})" if self._entry and self._entry != self.type else self.type
+        return label, ran
 
     def _page_title(self) -> str:
         """The page's title bar: the banner, then the entry where it differs from the id, so two reports of one
