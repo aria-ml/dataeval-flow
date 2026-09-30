@@ -93,9 +93,20 @@ config = PipelineConfig(
 )
 
 # %%
-# 3. Run
+# 3. Run, then read the findings and the cleaned dataset
 results = run_tasks(config)
-print(results["fmnist-clean"].report())
+result = results["fmnist-clean"]
+
+for finding in result.findings:
+    print(f"{finding.severity:<8} {finding.title:<20} {finding.brief}")
+
+clean = result.steps["clean"].output
+print(f"\nImages kept: {len(clean)} of {len(result.sources['fmnist-src'])}")
+
+# %% [markdown]
+# `data-cleaning` runs as a chain of steps, so `result.findings` holds the findings its checks made, and
+# `result.report()` prints the full report. Its `clean` step's output is the sample without each image it flagged,
+# and each duplicate but the first: a DataEval `View` that still reads the torchvision images through the adapter.
 
 # %% [markdown]
 # ### What happens under the hood
