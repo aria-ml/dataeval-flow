@@ -117,7 +117,7 @@ print(f"Classes:     {train_ds.metadata['index2label']}")
 # %% [markdown]
 # ## Step 2: Analyze the metadata
 #
-# Before you commit to a `metadata:` policy, run the `metadata-triage` workflow. It flags factors
+# Before you commit to a `metadata:` policy, run the `metadata-triage` preset. It flags factors
 # that carry no information and factors whose bin counts would otherwise be derived silently
 # (and unstably) at run time.
 #

@@ -141,7 +141,9 @@ triage = result.steps["triage"].output.data()
 # %% [markdown]
 # ### Reading the report
 #
-# When you run triage, the report summarizes the factors, total findings, and blocking issues.
+# The report opens with the step count and a summary of the findings. It shows each finding with the
+# triage step's section beside it (the factors read and the issues counted by category and severity), and
+# ends with the Metadata Factors section: the encoding and how each factor was binned.
 #
 # You should review **blocking** findings first. These indicate metadata columns that could not be
 # processed and were dropped from the factor set:
