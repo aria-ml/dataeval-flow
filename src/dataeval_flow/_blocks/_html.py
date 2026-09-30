@@ -206,6 +206,8 @@ def _health(report: Section) -> str:
         ),
         None,
     )
+    if summary is not None and summary.failed:
+        return f'<span class="badge failed">failed: {escape(", ".join(summary.failed))}</span>'
     if summary is None or not summary.items:
         return ""
     if not summary.warnings:
@@ -273,15 +275,21 @@ def _summary(block: Summary, _ctx: HtmlContext) -> str:
         f"<tr><td>{escape(item.label)}</td><td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
         for item in block.items
     )
-    if not rows:
-        return ""
     warnings = block.warnings
-    health = (
-        f'<p class="health warning">{warnings} warning{"s" if warnings != 1 else ""} — review the flagged findings</p>'
-        if warnings
-        else '<p class="health ok">All checks passed</p>'
-    )
-    return f'<table class="summary"><tbody>{rows}</tbody></table>{health}'
+    counted = f"{warnings} warning{'s' if warnings != 1 else ''}"
+    if block.failed:
+        steps = inline(", ".join(f"`{step}`" for step in block.failed))
+        noun = "Step" if len(block.failed) == 1 else "Steps"
+        also = f"; {counted} to review" if warnings else ""
+        health = f'<p class="health failed">{noun} {steps} failed{also}</p>'
+    elif not rows:
+        return ""
+    elif warnings:
+        health = f'<p class="health warning">{counted} — review the flagged findings</p>'
+    else:
+        health = '<p class="health ok">All checks passed</p>'
+    table = f'<table class="summary"><tbody>{rows}</tbody></table>' if rows else ""
+    return f"{table}{health}"
 
 
 # -- Charts -------------------------------------------------------------------------------------

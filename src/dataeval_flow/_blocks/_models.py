@@ -276,11 +276,17 @@ class Summary(_Block):
     """One line per finding, with a verdict marker each, then the health verdict: the warnings its result counted.
 
     ``warnings`` is the count the result made once, which every renderer states rather than recounting the lines.
+    ``failed`` names the required steps whose failure failed the run: the verdict is then failed, whatever the
+    warnings.
     """
 
     type: Literal["summary"] = Field(default="summary", description=_TYPE)
     items: list[SummaryItem] = Field(description="The lines, in order.")
     warnings: int = Field(ge=0, description="How many findings are warnings, as the result counted them.")
+    failed: list[str] = Field(
+        default_factory=list,
+        description="The required steps that failed, which fail the run whatever its warnings; empty where none did.",
+    )
 
 
 Block = Annotated[

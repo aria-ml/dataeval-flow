@@ -136,9 +136,14 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         return {"health": self.health, **self.output.model_dump(mode="json")}
 
     def _summary_blocks(self) -> list[Block]:
-        """One summary line per finding, then the health verdict: the warnings :attr:`warning_count` counted."""
+        """One summary line per finding, then the health verdict: failed, naming the required steps that failed, where
+        :attr:`health` says the run failed; else the warnings :attr:`warning_count` counted."""
         findings = self.findings
-        if not findings:
+        health = self.health
+        failed = list(health.get("failed_steps") or []) if health["status"] == "failed" else []
+        if not findings and not failed:
             return [Paragraph(text="No findings to report.")]
         items = [SummaryItem(label=summary_label(f), value=f.brief or "", severity=f.severity) for f in findings]
-        return [Section(title="Summary", blocks=[Summary(items=items, warnings=self.warning_count)])]
+        summary = Summary(items=items, warnings=self.warning_count, failed=failed)
+        lede: list[Block] = [] if findings else [Paragraph(text="No findings to report.")]
+        return [Section(title="Summary", blocks=[*lede, summary])]

@@ -53,6 +53,12 @@ Each finding carries a severity of `ok`, `info`, or `warning`. A finding becomes
   Health: All checks passed [ok]
 ```
 
+A chain whose required step failed has failed, whatever its warnings, and its health line names the steps that did:
+
+```text
+  Health: failed [!!] — step `clean` failed; 2 warning(s) to review
+```
+
 A warning is a prompt to look, not a failure. The thresholds encode *your* risk tolerance — see
 {doc}`configure_outlier_detection` for how to set them.
 

@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow._blocks import Block, Fields, Paragraph, Section, Table
+from dataeval_flow._blocks import Block, Fields, Paragraph, Section, Summary, Table
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult
@@ -158,7 +158,9 @@ def test_a_chain_with_no_checks_keeps_a_section_per_step() -> None:
         workflows=[{"name": "w", "inputs": ["a"], "steps": _MIXED}], evaluators=[DuplicatesConfig(name="dupes")]
     )
     result = ChainResult.from_run("w", run_toy_chain(config, "w", ["src"]))
+    # `boom` failed, so the Summary holds the health line though no step made a finding.
     assert _outline(result) == [
+        ("Summary", None, None),
         ("toy-first · few", None, None),
         ("Duplicates · dupes", None, None),
         ("toy-explode · boom", "failed", None),
@@ -342,3 +344,36 @@ def test_the_steps_panel_renders_what_a_step_read_as_code() -> None:
     page = _cleaning().to_html()
     assert '<td class="left" data-value="`dupes`"><code>dupes</code></td>' in page
     assert ">`dupes`<" not in page
+
+
+def test_a_chain_whose_required_step_failed_says_so_in_its_health_line_though_nothing_warns() -> None:
+    result = _chain(_DUPES, _COUNT, {**_JUDGE, "most": 5}, {"name": "boom", "transform": "toy-explode", "input": "a"})
+    assert result.health["status"] == "failed"
+    text = result.report()
+    assert "  Health: failed [!!] — step `boom` failed" in text.splitlines()
+    assert "All checks passed" not in text
+    page = result.to_html()
+    assert '<h1>w</h1><span class="badge failed">failed: boom</span>' in page
+    assert '<span class="badge ok">passed</span>' not in page
+
+
+def test_a_chain_whose_check_failed_says_so_in_its_health_line_beside_its_warnings() -> None:
+    from dataeval_flow.steps.checks import DuplicateRateCheck
+
+    with patch.object(DuplicateRateCheck, "run", side_effect=RuntimeError("boom")):
+        result = _cleaning()
+    assert "  Health: failed [!!] — step `duplicates` failed; 2 warning(s) to review" in result.report().splitlines()
+    assert '<h1>Data Cleaning</h1><span class="badge failed">failed: duplicates</span>' in result.to_html()
+
+
+def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": ["a"], "steps": _MIXED}], evaluators=[DuplicatesConfig(name="dupes")]
+    )
+    result = ChainResult.from_run("w", run_toy_chain(config, "w", ["src"]))
+    summary = _section(result, "Summary")
+    assert summary.blocks == [
+        Paragraph(text="No findings to report."),
+        Summary(items=[], warnings=0, failed=["boom"]),
+    ]
+    assert '<p class="health failed">Step <code>boom</code> failed</p>' in result.to_html()
