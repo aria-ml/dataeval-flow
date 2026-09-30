@@ -16,6 +16,7 @@ from pydantic import ValidationError
 import dataeval_flow._cache as cache_module
 from dataeval_flow import PipelineConfig, run, run_task, run_tasks
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._chain._graph import GraphError
 from dataeval_flow.config import (
     DatasetProtocolConfig,
     OntologyConfig,
@@ -167,42 +168,99 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
     assert list(result.steps["sizes"].elements or {}) == ["s1", "s2"]
 
 
+def test_a_step_reading_the_cleaned_dataset_is_refused_a_kind_it_cannot_take_before_any_step_runs() -> None:
+    """`cleaning.clean` carries the kind `cleaning/clean` made, classification, so preflight refuses a wrap that needs
+    boxes. Without that kind, the wrap would fail only as a step, once it ran."""
+    config = chain_pipeline(
+        workflows=[
+            _BASE,
+            {
+                "name": "outer",
+                "inputs": ["data"],
+                "steps": [
+                    {"name": "cleaning", "workflow": "cleaning", "input": "data"},
+                    {"name": "crops", "transform": "wrap", "input": "cleaning.clean", "wrapper": "DetectionCrops"},
+                ],
+            },
+        ],
+        tasks=[{"name": "t", "workflow": "outer", "sources": ["src"]}],
+        datasets={"src": ToyImages(count=12)},
+    )
+    message = "Step 'crops': DetectionCrops takes a object_detection Dataset, but its input is classification."
+    with pytest.raises(GraphError, match=f"^{re.escape(message)}$"):
+        run_tasks(config)
+
+
 def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
+    """Each setting holds a value no other shares, so one routed to the wrong evaluator or check fails."""
     config = DataCleaningConfig(
         outlier_method="modzscore",
         outlier_flags=["dimension"],
         outlier_threshold=4.0,
+        outlier_cluster_threshold=2.5,
+        outlier_cluster_algorithm="kmeans",
+        outlier_n_clusters=3,
         duplicate_flags=["hash_d4"],
         duplicate_merge_near=False,
+        duplicate_cluster_sensitivity=0.7,
+        duplicate_cluster_algorithm="hdbscan",
+        duplicate_n_clusters=5,
         metadata="policy",
         stats="measured",
-        health_thresholds={"near_duplicates": 9.0, "class_label_imbalance": None},  # type: ignore[arg-type]
+        health_thresholds={  # type: ignore[arg-type]
+            "exact_duplicates": 1.0,
+            "near_duplicates": 9.0,
+            "image_outliers": 6.0,
+            "target_outliers": 7.0,
+            "classwise_outliers": 8.0,
+            "class_label_imbalance": None,
+        },
     )
     chain = DataCleaningWorkflow.chain(config)
     outliers, dupes, labels = chain.evaluators
     assert isinstance(outliers, OutliersConfig)
     assert isinstance(dupes, DuplicatesConfig)
     assert isinstance(labels, LabelHealthConfig)
-    assert (outliers.name, outliers.flags, outliers.outlier_threshold, outliers.per_target, outliers.stats) == (
-        "outliers",
-        ["dimension"],
-        ("modzscore", 4.0),
-        True,
-        "measured",
-    )
-    assert (dupes.name, dupes.flags, dupes.merge_near_duplicates, dupes.stats) == (
-        "dupes",
-        ["hash_d4"],
-        False,
-        "measured",
-    )
+    assert (
+        outliers.name,
+        outliers.flags,
+        outliers.outlier_threshold,
+        outliers.cluster_threshold,
+        outliers.cluster_algorithm,
+        outliers.n_clusters,
+        outliers.per_target,
+        outliers.stats,
+    ) == ("outliers", ["dimension"], ("modzscore", 4.0), 2.5, "kmeans", 3, True, "measured")
+    assert (
+        dupes.name,
+        dupes.flags,
+        dupes.merge_near_duplicates,
+        dupes.cluster_sensitivity,
+        dupes.cluster_algorithm,
+        dupes.n_clusters,
+        dupes.stats,
+    ) == ("dupes", ["hash_d4"], False, 0.7, "hdbscan", 5, "measured")
     assert (labels.name, labels.metadata) == ("labels", "policy")
     steps: dict[str, Any] = {step["name"]: step for step in chain.steps}  # type: ignore[index]
-    assert (steps["duplicates"]["exact"], steps["duplicates"]["near"], steps["imbalance"]["ratio"]) == (0.0, 9.0, None)
+    assert (
+        steps["image_outliers"]["image"],
+        steps["target_outliers"]["target"],
+        steps["classwise"]["total"],
+        steps["duplicates"]["exact"],
+        steps["duplicates"]["near"],
+        steps["imbalance"]["ratio"],
+    ) == (6.0, 7.0, 8.0, 1.0, 9.0, None)
 
 
 @pytest.mark.parametrize(
-    ("field", "value"), [("value_range", [0.0, 255.0]), ("metadata_auto_bin_method", "uniform_width")]
+    ("field", "value"),
+    [
+        ("value_range", [0.0, 255.0]),
+        ("metadata_auto_bin_method", "uniform_width"),
+        ("metadata_exclude", ["id"]),
+        ("metadata_continuous_factor_bins", {"brightness": 4}),
+        ("metadata_factor_source", "coded"),
+    ],
 )
 def test_a_retired_field_is_refused(field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match=re.escape(field)):
@@ -274,6 +332,7 @@ def test_the_catalog_lists_the_cleaned_dataset_as_data_cleaning_s_output() -> No
     assert [(port.port, port.type) for port in entry.outputs] == [("clean", DataType.DATASET)]
 
 
+@pytest.mark.required
 class TestClustersFollowTheirExtractor:
     """A cleaning run's clusters are keyed by the extractor whose embeddings they cluster."""
 
