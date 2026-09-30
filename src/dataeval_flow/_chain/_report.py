@@ -246,7 +246,8 @@ def _steps_table(result: "ChainResult") -> Section:
         }
         for record in result.steps.values()
     ]
-    columns = [Column(key=key, header=header, align="left") for key, header in _COLUMNS]
+    # Text leaves the title out: each step's section heading gives it, and text has little room.
+    columns = [Column(key=key, header=header, align="left", in_text=key != "title") for key, header in _COLUMNS]
     return Section(title="Steps", reference=True, blocks=[Table(columns=columns, rows=rows)])
 
 

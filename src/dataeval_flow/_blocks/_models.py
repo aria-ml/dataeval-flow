@@ -202,6 +202,13 @@ class Column(_Block):
     markers: list[tuple[str, Number]] = Field(
         default_factory=list, description="A bar column's `[label, value]` reference lines, such as drift thresholds."
     )
+    in_text: bool = Field(
+        default=True,
+        description=(
+            "Whether the text report draws this column. HTML always does. False for a column text can do without, "
+            "such as a title the section above already gives, where its room is scarce."
+        ),
+    )
 
 
 class Table(_Block):

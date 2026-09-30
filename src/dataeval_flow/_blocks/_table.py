@@ -125,11 +125,11 @@ def natural_widths(table: Table) -> tuple[int, ...]:
     return tuple(widths)
 
 
-def _without_images(table: Table) -> Table:
-    """The table as text draws it: without its image columns, since a row's other cells name its items."""
-    if all(column.kind != "image" for column in table.columns):
-        return table
-    return table.model_copy(update={"columns": [column for column in table.columns if column.kind != "image"]})
+def _in_text(table: Table) -> Table:
+    """The table as text draws it: without its image columns, since a row's other cells name its items, and without
+    any column marked to be left out of text."""
+    columns = [column for column in table.columns if column.kind != "image" and column.in_text]
+    return table if len(columns) == len(table.columns) else table.model_copy(update={"columns": columns})
 
 
 def _signature(table: Table) -> tuple[Any, ...]:
@@ -164,7 +164,7 @@ def shared_widths(blocks: Sequence[Block]) -> dict[tuple[Any, ...], tuple[int, .
     same columns, so each group is laid out at the widest any of its tables needs.
     """
     groups: dict[tuple[Any, ...], list[tuple[int, ...]]] = {}
-    for table in map(_without_images, tables(blocks)):
+    for table in map(_in_text, tables(blocks)):
         groups.setdefault(_signature(table), []).append(natural_widths(table))
     return {sig: tuple(map(max, *widths)) for sig, widths in groups.items() if len(widths) > 1}
 
@@ -349,9 +349,10 @@ def draw_table(
     When the row is too wide, chart columns shrink; past their minimum, text columns narrow and their
     cells wrap, as :func:`_wrap_text` says, with a blank line between rows so that a wrapped line
     never reads as a row of its own; past a header's width, the table overflows. A table that fits
-    is drawn as it is. Image columns are left out: a row's other cells name its items.
+    is drawn as it is. Image columns are left out, since a row's other cells name its items, as is any
+    column marked out of text.
     """
-    table = _without_images(table)
+    table = _in_text(table)
     if not table.rows or not table.columns:
         return []
     columns = table.columns

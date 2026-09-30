@@ -317,9 +317,10 @@ The text report opens with how many steps ran, then gives each step a section of
   Images: 47
 ```
 
-A Steps table closes the report, before the configuration. It gives each step's title, type and status, why it made
-nothing where it did not, and each Dataset it read, walked back to its source: `corpus` reads
-`` `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``.
+A Steps table closes the report, before the configuration. It gives each step's type and status, why it made nothing
+where it did not, and each Dataset it read, walked back to its source: `corpus` reads
+`` `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. The HTML report's table adds each step's title,
+which the text report leaves to the step's section.
 
 In `out/results/result.json`, the task's entry holds `steps`, each step by name with its kind, type, status and the
 addresses it read. A Dataset a step made is written as its size and digest, never as data. `metadata.lineage` records

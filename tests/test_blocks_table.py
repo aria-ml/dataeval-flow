@@ -24,6 +24,17 @@ class TestImageColumns:
         )
         assert _draw(table) == ["  Item  N", "  ----  -", "  41    2"]
 
+    def test_a_column_marked_out_of_text_is_left_out(self):
+        table = Table(
+            columns=[
+                Column(key="step", header="Step"),
+                Column(key="title", header="Title", in_text=False),
+                Column(key="n", header="N"),
+            ],
+            rows=[{"step": "dupes", "title": "Duplicates", "n": 2}],
+        )
+        assert _draw(table) == ["  Step   N", "  -----  -", "  dupes  2"]
+
     def test_a_table_of_images_alone_draws_nothing(self):
         table = Table(columns=[Column(key="image", kind="image")], rows=[{"image": ItemRef(source="t", index=0)}])
         assert _draw(table) == []

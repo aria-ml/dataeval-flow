@@ -139,6 +139,38 @@ def test_the_steps_table_says_what_each_step_is_what_it_read_and_why_it_made_not
     ]
 
 
+def test_the_text_steps_table_leaves_out_the_title_each_step_s_section_already_gives() -> None:
+    lines = _cleaning().report().splitlines()
+    start = lines.index("  STEPS") + 2
+    assert lines[start : lines.index("  CONFIGURATION") - 2] == [
+        "  Step             Type                    Status  Reads         Note",
+        "  ---------------  ----------------------  ------  ------------  -----------",
+        "  outliers         outliers                ok      `data` (src)",
+        "  labels           label-health            ok      `data` (src)",
+        "  by-class         classwise-outliers      ok      `data` (src)",
+        "                                                   `outliers`",
+        "  dupes            duplicates              ok      `data` (src)",
+        "  image-outliers   outlier-rate            ok      `outliers`",
+        "  target-outliers  target-outlier-rate     ok      `outliers`    no findings",
+        "                                                   `labels`",
+        "  classwise        classwise-outlier-rate  ok      `by-class`",
+        "  duplicates       duplicate-rate          ok      `dupes`",
+        "  imbalance        class-imbalance         ok      `labels`",
+        "  clean            remove                  ok      `data` (src)",
+        "                                                   `dupes`",
+        "                                                   `outliers`",
+    ]
+
+
+def test_the_html_steps_panel_keeps_all_six_columns() -> None:
+    page = _cleaning().to_html()
+    headers = "".join(
+        f'<th class="left">{header}</th>' for header in ("Step", "Title", "Type", "Status", "Reads", "Note")
+    )
+    assert f"<thead><tr>{headers}</tr></thead>" in page
+    assert '<td class="left" data-value="Outliers by Class">Outliers by Class</td>' in page
+
+
 def test_the_html_draws_one_card_per_finding() -> None:
     page = _cleaning().to_html()
     assert page.count('<details class="card ') == 4
@@ -325,18 +357,18 @@ def test_a_wrapped_reads_cell_breaks_before_a_lineage_arrow() -> None:
         {"name": "few", "transform": "toy-first", "input": "k", "n": 4},
         {"name": "dupes", "evaluator": "dupes", "input": "few"},
     )
-    lines = result.report(width=60).splitlines()
+    lines = result.report(width=48).splitlines()
     start = lines.index("  STEPS") + 2
     assert lines[start : lines.index("  CONFIGURATION") - 2] == [
-        "  Step   Title       Type        Status  Reads          Note",
-        "  -----  ----------  ----------  ------  -------------  ----",
-        "  k      toy-keep    toy-keep    ok      `a` (src)",
+        "  Step   Type        Status  Reads          Note",
+        "  -----  ----------  ------  -------------  ----",
+        "  k      toy-keep    ok      `a` (src)",
         "",
-        "  few    toy-first   toy-first   ok      `k`",
-        "                                         ← `a` (src)",
+        "  few    toy-first   ok      `k`",
+        "                             ← `a` (src)",
         "",
-        "  dupes  Duplicates  duplicates  ok      `few` ← `k`",
-        "                                         ← `a` (src)",
+        "  dupes  duplicates  ok      `few` ← `k`",
+        "                             ← `a` (src)",
     ]
 
 
