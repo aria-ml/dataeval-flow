@@ -214,10 +214,9 @@ def summary_line(item: SummaryItem, frame: Frame) -> list[str]:
 def _summary(block: Summary, frame: Frame) -> list[str]:
     if not block.items:
         return []
-    warnings = sum(item.severity == "warning" for item in block.items)
     health = (
-        f"Health: {warnings} warning(s) [!!] — review flagged findings"
-        if warnings
+        f"Health: {block.warnings} warning(s) [!!] — review flagged findings"
+        if block.warnings
         else "Health: All checks passed [ok]"
     )
     lines = [line for item in block.items for line in summary_line(item, frame)]

@@ -13,8 +13,9 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._graph import GraphError
 from dataeval_flow.config import ExportConfig
 from dataeval_flow.evaluators.scope import LabelAlignmentConfig
-from dataeval_flow.steps import ChainResult
-from tests.chain_toys import ToyDetections, chain_pipeline
+from dataeval_flow.steps import ChainResult, TransformContext
+from dataeval_flow.steps.transforms import ExportStepConfig, ExportTransform
+from tests.chain_toys import ToyDetections, chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 
 _DETECTIONS = ToyDetections([[0, 1], [1], [0], [1, 1], [0]], {0: "car", 1: "person"})
@@ -232,24 +233,58 @@ def test_two_exports_to_one_destination_fail_the_load() -> None:
         _config(steps)
 
 
-_FIRST_TWO = {"type": "Limit", "params": {"size": 2}}
+def test_an_export_of_a_list_output_writes_each_element_under_its_key(tmp_path: Path) -> None:
+    steps = [
+        {"name": "folds", "transform": "kfold", "input": "a", "folds": 2},
+        {"name": "corpus", "transform": "export", "input": "folds.train"},
+    ]
+    result = run_tasks(_config(steps), output_dir=tmp_path)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    elements = result.steps["corpus"].elements
+    assert elements is not None
+    assert list(elements) == ["0", "1"]
+    items = {record.name: record.items for record in result.metadata.lineage}
+    for key in ("0", "1"):
+        where = tmp_path / "datasets" / "t.corpus" / key
+        assert elements[key].output.path == str(where)
+        assert len(_instances(where)["images"]) == items[f"folds.train[{key}]"]
 
 
-@pytest.mark.parametrize(
-    ("before", "read", "element"),
-    [
-        ([], "all", "all[<key>]"),
-        ([{"name": "folds", "transform": "kfold", "input": "one", "folds": 2}], "folds.train", "folds.train[0]"),
-        ([{"name": "few", "transform": "view", "input": "all", "operations": [_FIRST_TWO]}], "few", "few[<key>]"),
-    ],
-    ids=["list input", "list output", "broadcast"],
-)
-def test_an_export_step_reading_a_list_fails_the_load(before: list[dict[str, Any]], read: str, element: str) -> None:
-    steps = [*before, {"name": "corpus", "transform": "export", "input": read}]
-    workflow = {"name": "w", "inputs": ["one", {"name": "all", "list": True}], "steps": steps}
+def test_an_export_of_a_list_input_writes_each_source_under_its_name(tmp_path: Path) -> None:
+    other = ToyDetections([[0], [1], [0, 1]], {0: "car", 1: "person"}, dataset_id="other")
+    workflow = {
+        "name": "w",
+        "inputs": [{"name": "cams", "list": True}],
+        "steps": [{"name": "corpus", "transform": "export", "input": "cams"}],
+    }
+    config = chain_pipeline(
+        workflows=[workflow],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["cam1", "cam2"]}],
+        datasets={"cam1": _DETECTIONS, "cam2": other},
+    )
+    result = run_tasks(config, output_dir=tmp_path)["t"]
+    assert result.success, result.errors
+    assert len(_instances(tmp_path / "datasets" / "t.corpus" / "cam1")["images"]) == 5
+    assert len(_instances(tmp_path / "datasets" / "t.corpus" / "cam2")["images"]) == 3
+
+
+def test_a_list_key_that_is_not_one_plain_directory_fails_its_element() -> None:
+    context = TransformContext(task="t", step="corpus", element="..")
+    with pytest.raises(ValueError, match=r"List key '\.\.' names a relative path rather than a directory"):
+        ExportTransform()._where(ExportStepConfig(input="a"), context)
+
+
+def test_a_transform_that_runs_only_once_refuses_a_list(plugins) -> None:
+    register_toys(plugins)
+    workflow = {
+        "name": "w",
+        "inputs": [{"name": "all", "list": True}],
+        "steps": [{"name": "once", "transform": "toy-one-place", "input": "all"}],
+    }
     message = (
-        f"Step 'corpus' reads `{read}`, a list, but transform 'export' writes one Dataset to one place, so it does "
-        f"not run once per element: name one element, such as `{element}`."
+        "Step 'once' reads `all`, a list, but transform 'toy-one-place' does not run once per element of a list: "
+        "name one element, such as `all[<key>]`."
     )
     with pytest.raises(ValidationError, match=re.escape(message)):
         chain_pipeline(workflows=[workflow], datasets={"src": _DETECTIONS})

@@ -60,6 +60,11 @@ class _FakeResult:
         if self.metadata is None:
             self.metadata = _FakeMetadata()
 
+    @property
+    def warning_count(self) -> int:
+        findings = self.output.report.findings if self.success else []
+        return sum(finding.severity == "warning" for finding in findings)
+
 
 def _make_finding(
     title: str = "Finding",
@@ -142,6 +147,16 @@ class TestSummaryLine:
         rvm = ResultViewModel(result)
         line = rvm.summary_line()
         assert "1 finding" in line
+
+    def test_the_summary_line_states_the_count_the_result_made(self) -> None:
+        class _Counted(_FakeResult):
+            @property
+            def warning_count(self) -> int:
+                return 7
+
+        rvm = ResultViewModel(_Counted(output=_FakeOutput(report=_FakeReport(findings=[_make_finding()]))))
+        assert rvm.warning_count() == 7
+        assert "7 warnings" in rvm.summary_line()
 
 
 class TestMetadataLines:
@@ -369,6 +384,7 @@ class TestEvaluatorResults:
 
         result = MagicMock()
         result.output.report.findings = []
+        result.warning_count = 0
         rvm = ResultViewModel(result)
         assert not rvm.shows_output
         assert rvm.status_tag() == " [green][ok][/green]"

@@ -17,9 +17,9 @@ from dataeval_flow._blocks import (
     Section,
     Table,
 )
+from dataeval_flow._tables import group_cells, table_limits
 from dataeval_flow._triage import TriageFinding
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import group_cells, table_limits
 from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageRawOutput
 
 __all__ = ["Places", "build_findings", "minority_kind", "summarize"]

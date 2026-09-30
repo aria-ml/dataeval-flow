@@ -5,8 +5,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from dataeval_flow._result import ResultMetadata
+from dataeval_flow.evaluators.quality._report import OutlierIssueRecord
 from dataeval_flow.workflows._base import WorkflowOutput, WorkflowRawOutput, WorkflowReport
-from dataeval_flow.workflows._outliers import OutlierIssueRecord
 from dataeval_flow.workflows._result import WorkflowResult
 
 __all__ = [

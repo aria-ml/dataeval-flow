@@ -60,6 +60,7 @@ def execute(evaluator: "Evaluator[Any, Any]", context: "WorkflowContext", config
             success=True,
             output=output,
             serialized=serialized,
+            source_names=tuple(datasets),
             metadata=metadata,
             dataset=next(iter(datasets.values())) if single else None,
             sources=None if single else datasets,
@@ -101,7 +102,15 @@ def _prepare(
             for kind in InputKind:
                 if kind in wanted:
                     produced.update(PRODUCERS[kind](pc))
-        inputs.append(EvaluatorInputs(source=name, ontology=ontology, ontology_source=ontology_source, **produced))
+        inputs.append(
+            EvaluatorInputs(
+                source=name,
+                ontology=ontology,
+                ontology_source=ontology_source,
+                label_source=dc.label_source,
+                **produced,
+            )
+        )
     return inputs, datasets
 
 

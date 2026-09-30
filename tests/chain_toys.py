@@ -7,10 +7,25 @@ from typing import Any, ClassVar
 import numpy as np
 from dataeval.data import Indices, View
 from dataeval.protocols import DatasetMetadata
+from dataeval.quality import DuplicatesOutput
+from pydantic import BaseModel
 
 from dataeval_flow import PipelineConfig, SourceCount
 from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
-from dataeval_flow.steps import DataType, Port, Transform, TransformConfig, TransformContext
+from dataeval_flow.steps import (
+    Check,
+    CheckConfig,
+    CheckContext,
+    Combine,
+    CombineConfig,
+    CombineContext,
+    DataType,
+    Port,
+    Transform,
+    TransformConfig,
+    TransformContext,
+)
+from dataeval_flow.workflows import Finding
 from tests.evaluator_toys import FLAT, ToyImages
 
 
@@ -165,6 +180,84 @@ class DetectionsOnly(Transform[DetectionsOnlyConfig]):
         return {"output": inputs["input"].value}
 
 
+class OnePlaceConfig(TransformConfig):
+    input: str
+
+
+class OnePlace(Transform[OnePlaceConfig]):
+    """Hands its input on, and cannot run once per element of a list."""
+
+    name: ClassVar[str] = "toy-one-place"
+    description: ClassVar[str] = "Runs once, never per element."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+    broadcasts: ClassVar[bool] = False
+
+    def run(self, config: OnePlaceConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        return {"output": inputs["input"].value}
+
+
+class GroupCount(BaseModel):
+    """How many duplicate groups an Output holds: a combine's output."""
+
+    groups: int
+
+
+class CountGroupsConfig(CombineConfig):
+    input: str
+
+
+class CountGroups(Combine[CountGroupsConfig]):
+    """Counts a Duplicates Output's groups: one row of its table each."""
+
+    name: ClassVar[str] = "toy-count-groups"
+    description: ClassVar[str] = "Counts duplicate groups."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DuplicatesOutput,)),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(GroupCount,)),)
+
+    def run(self, config: CountGroupsConfig, inputs: Mapping[str, Any], context: CombineContext) -> Mapping[str, Any]:
+        return {"output": GroupCount(groups=len(inputs["input"].value.data()))}
+
+
+class GroupLimitConfig(CheckConfig):
+    input: str
+    most: float | None = 0.0
+
+
+class GroupLimit(Check[GroupLimitConfig]):
+    """Warns when a count of groups passes `most`; `None` judges nothing."""
+
+    name: ClassVar[str] = "toy-at-most"
+    description: ClassVar[str] = "Warns above a group count."
+    title: ClassVar[str] = "Group count"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(GroupCount,)),)
+
+    def run(self, config: GroupLimitConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        count = inputs["input"].value.groups
+        severity = "info" if config.most is None else ("warning" if count > config.most else "ok")
+        return [Finding(severity=severity, title=self.title, brief=f"{count} groups")]
+
+
+class WorstConfig(CheckConfig):
+    input: str
+
+
+class Worst(Check[WorstConfig]):
+    """Judges a whole list of group counts at once: its largest."""
+
+    name: ClassVar[str] = "toy-worst"
+    description: ClassVar[str] = "The largest group count in a list."
+    title: ClassVar[str] = "Worst group count"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(GroupCount,), is_list=True),)
+
+    def run(self, config: WorstConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        counts = {key: node.value.groups for key, node in inputs["input"].present.items()}
+        worst = max(counts, key=lambda key: counts[key])
+        missing = sorted(set(inputs["input"].elements) - set(counts))
+        brief = f"worst: {worst} ({counts[worst]} groups)" + (f", missing {', '.join(missing)}" if missing else "")
+        return [Finding(severity="info", title=self.title, brief=brief)]
+
+
 _TOYS = {
     "toy-keep": "tests.chain_toys:Keep",
     "toy-first": "tests.chain_toys:First",
@@ -174,12 +267,19 @@ _TOYS = {
     "toy-pair": "tests.chain_toys:Pair",
     "toy-spread": "tests.chain_toys:Spread",
     "toy-detections-only": "tests.chain_toys:DetectionsOnly",
+    "toy-one-place": "tests.chain_toys:OnePlace",
 }
 
 
+_COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
+_CHECK_TOYS = {"toy-at-most": "tests.chain_toys:GroupLimit", "toy-worst": "tests.chain_toys:Worst"}
+
+
 def register_toys(plugins: dict[str, list[tuple[str, str]]]) -> None:
-    """Serve the toy transforms through the `plugins` fixture, before the first registry lookup."""
+    """Serve the toy transforms, combines and checks through the `plugins` fixture, before the first lookup."""
     plugins.setdefault("dataeval_flow.transforms", []).extend(_TOYS.items())
+    plugins.setdefault("dataeval_flow.combines", []).extend(_COMBINE_TOYS.items())
+    plugins.setdefault("dataeval_flow.checks", []).extend(_CHECK_TOYS.items())
 
 
 class _Detection:

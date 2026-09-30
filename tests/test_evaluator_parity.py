@@ -23,6 +23,7 @@ _NAMES = [cls.name for cls in list_evaluators()]
 # (the extractor, its batch size) or Flow leaves to DataEval. Kept here rather than on a public class.
 _WIRING: dict[str, frozenset[str]] = {
     "quality.duplicates": frozenset({"extractor", "batch_size"}),
+    "quality.label-health": frozenset(),
     "quality.outliers": frozenset({"extractor", "batch_size"}),
     "bias.balance": frozenset(),
     "bias.diversity": frozenset(),

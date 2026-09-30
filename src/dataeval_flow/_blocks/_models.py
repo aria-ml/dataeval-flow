@@ -137,12 +137,20 @@ Cell = Annotated[
 
 
 class Section(_Block):
-    """A titled group of blocks. How the title is drawn depends on how deeply the section is nested."""
+    """A titled group of blocks. How the title is drawn depends on how deeply the section is nested.
+
+    ``reference`` marks a section a reader opens when they need it, such as a run's configuration: HTML folds it
+    away, apart from the findings.
+    """
 
     type: Literal["section"] = Field(default="section", description=_TYPE)
     title: str = Field(description="The heading. A report's root title may hold `\\n` for a multi-line banner.")
     brief: str | None = Field(default=None, description="A short value shown beside the title.")
     severity: Severity | None = Field(default=None, description="The verdict this section carries, if any.")
+    reference: bool = Field(
+        default=False,
+        description="Whether the section is reference a reader opens when needed, such as the configuration.",
+    )
     blocks: list[Block] = Field(default_factory=list, description="The section's content, in order.")
 
 
@@ -265,10 +273,14 @@ class SummaryItem(_Block):
 
 
 class Summary(_Block):
-    """One line per finding, with a verdict marker each, then the health verdict their warnings add up to."""
+    """One line per finding, with a verdict marker each, then the health verdict: the warnings its result counted.
+
+    ``warnings`` is the count the result made once, which every renderer states rather than recounting the lines.
+    """
 
     type: Literal["summary"] = Field(default="summary", description=_TYPE)
     items: list[SummaryItem] = Field(description="The lines, in order.")
+    warnings: int = Field(ge=0, description="How many findings are warnings, as the result counted them.")
 
 
 Block = Annotated[

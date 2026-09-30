@@ -36,8 +36,8 @@ def _workflow_union(configs: Sequence[type[BaseModel]], custom: type[BaseModel])
 
 
 def _step_union(plugins: bool) -> Any:
-    """One schema branch per kind of step, and one per registered transform with its settings."""
-    from dataeval_flow.steps._registry import TRANSFORMS
+    """One schema branch per kind of step, and one per registered transform, combine and check with its settings."""
+    from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
     from dataeval_flow.steps._workflow import StepEntry
 
     common = {
@@ -65,18 +65,19 @@ def _step_union(plugins: bool) -> Any:
         input=(str | list[str], required("input")),
         **common,
     )
-    # A transform embeds nothing, so its step takes no `extractor:`; naming one fails the load.
+    # An inline step embeds nothing, so its step takes no `extractor:`; naming one fails the load.
     plain = {key: field for key, field in common.items() if key != "extractor"}
-    transforms = [
+    inline = [
         create_model(
-            f"TransformStep_{cls.name}",
+            f"{kind.title()}Step_{cls.name}",
             __base__=cls.config_type,
-            transform=(Literal[cls.name], Field(description=f"`{cls.name}`: {cls.description}")),  # type: ignore[valid-type]
+            **{kind: (Literal[cls.name], Field(description=f"`{cls.name}`: {cls.description}"))},  # type: ignore[valid-type]
             **plain,
         )
-        for cls in TRANSFORMS.list(plugins=plugins)
+        for kind, registry in (("transform", TRANSFORMS), ("combine", COMBINES), ("check", CHECKS))
+        for cls in registry.list(plugins=plugins)
     ]
-    return Union[(evaluator, workflow, *transforms)]
+    return Union[(evaluator, workflow, *inline)]
 
 
 def registry_twin(*, plugins: bool = True) -> type[BaseModel]:

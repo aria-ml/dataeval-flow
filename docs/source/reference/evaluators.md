@@ -15,6 +15,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `bias.parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `quality.duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `quality.outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
+| `quality.label-health` | `dataeval.core.label_stats` | metadata | 1 | refused |
 | `scope.representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `scope.coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `scope.prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
@@ -148,6 +149,21 @@ names. Configured by {py:class}`~dataeval_flow.evaluators.quality.OutliersConfig
 
 Output: a table with one row per flagged statistic (`item_index`, `metric_name`,
 `metric_value`, and `target_index` for per-target results).
+
+### `quality.label-health`
+
+How a Dataset's labels spread over its classes: how many labels each class has, how many items carry each, and how
+many items carry none. The `class-imbalance` and `target-outlier-rate` checks read it. Configured by
+{py:class}`~dataeval_flow.evaluators.quality.LabelHealthConfig`; runs `dataeval.core.label_stats` on the Dataset's
+metadata.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) a policy under `metadata:`, which the metadata is built under | DataEval's defaults |
+
+Output: a mapping of `item_count`, `class_count` (the classes the Dataset declares, used or not), `label_count`,
+`label_counts_per_class` and `image_counts_per_class` (by class name, for the classes that occur),
+`empty_image_count`, and `label_source`, where the labels came from.
 
 ## Scope
 

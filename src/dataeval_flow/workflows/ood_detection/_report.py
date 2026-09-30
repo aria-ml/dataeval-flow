@@ -8,8 +8,9 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Section, Table
+from dataeval_flow._tables import table_limits
+from dataeval_flow.evaluators.bias._report import ranked_table
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._tables import ranked_table, table_limits
 from dataeval_flow.workflows.ood_detection._config import (
     OODDetectionConfig,
     OODDetectionHealthThresholds,

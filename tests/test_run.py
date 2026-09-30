@@ -365,8 +365,8 @@ def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded
 
 def test_the_result_block_limits_a_run_s_tables() -> None:
     """``max_rows`` and ``preview_rows`` reach the tables a real workflow builds, for that run alone."""
+    from dataeval_flow._tables import TableLimits, table_limits
     from dataeval_flow.config import ResultConfig
-    from dataeval_flow.workflows._tables import TableLimits, table_limits
     from dataeval_flow.workflows.data_cleaning import DataCleaningResult
     from tests.finding_blocks import paragraphs, tables
 

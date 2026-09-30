@@ -61,6 +61,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     "quality.outliers": frozenset(
         {"calculation_results", "cluster_stats", "cluster_threshold", "dataset_steps", "outlier_threshold"}
     ),
+    "quality.label-health": frozenset(),
     "bias.balance": frozenset({"plot_type"}),
     "bias.diversity": frozenset({"plot_type"}),
     "bias.parity": frozenset(),

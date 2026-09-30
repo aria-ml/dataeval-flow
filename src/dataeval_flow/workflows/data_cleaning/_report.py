@@ -6,15 +6,16 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Scalar, Section, Table
-from dataeval_flow.workflows._base import Finding, render_label_source
-from dataeval_flow.workflows._outliers import (
+from dataeval_flow.evaluators.bias._report import ranked_table
+from dataeval_flow.evaluators.quality._report import (
     OutlierIssueRecord,
     flagged_table,
+    groups_table,
     limits_sentence,
     limits_table,
     warn_if_unrecorded,
 )
-from dataeval_flow.workflows._tables import groups_table, ranked_table
+from dataeval_flow.workflows._base import Finding, render_label_source
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_cleaning._outputs import (
     DataCleaningRawOutput,

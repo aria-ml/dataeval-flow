@@ -19,7 +19,7 @@ from pydantic import (
 )
 
 from dataeval_flow.steps._address import STEP_NAME_PATTERN
-from dataeval_flow.steps._step import StepKind, TransformConfig
+from dataeval_flow.steps._step import StepConfig, StepKind
 
 KIND_KEYS: tuple[StepKind, ...] = ("evaluator", "workflow", "transform", "combine", "check")
 
@@ -45,8 +45,8 @@ class StepEntry(BaseModel):
     """One step of a custom workflow, as written: what runs, what it reads, and its settings.
 
     Name exactly one of ``evaluator``, ``workflow``, ``transform``, ``combine`` and ``check``. An evaluator or
-    workflow step takes its settings from the pool entry it names. A transform step's settings are written beside
-    it, and its transform's config validates them.
+    workflow step takes its settings from the pool entry it names. A transform, combine or check step writes its
+    settings beside it, and its type's config validates them.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
@@ -57,8 +57,8 @@ class StepEntry(BaseModel):
     transform: str | None = Field(
         default=None, description="A registered transform to run, with its settings beside it."
     )
-    combine: str | None = Field(default=None, description="A registered combine step. None is installed yet.")
-    check: str | None = Field(default=None, description="A registered check step. None is installed yet.")
+    combine: str | None = Field(default=None, description="A registered combine to run, with its settings beside it.")
+    check: str | None = Field(default=None, description="A registered check to run, with its thresholds beside it.")
     input: str | list[str] | None = Field(default=None, description="The address, or addresses, the step reads.")
     extractor: str | None = Field(
         default=None, description="An `extractors:` entry to embed with, instead of the task's."
@@ -67,7 +67,7 @@ class StepEntry(BaseModel):
         default=False, description="Whether a failure is recorded as a skip that does not fail the task."
     )
 
-    _config: TransformConfig | None = PrivateAttr(default=None)
+    _config: StepConfig | None = PrivateAttr(default=None)
 
     @property
     def kind(self) -> StepKind:
@@ -85,8 +85,8 @@ class StepEntry(BaseModel):
         return dict(self.model_extra or {})
 
     @property
-    def config(self) -> TransformConfig | None:
-        """A transform step's validated config, ports included; ``None`` for any other kind."""
+    def config(self) -> StepConfig | None:
+        """An inline step's validated config: a transform's, combine's or check's; ``None`` otherwise."""
         return self._config
 
     @model_validator(mode="after")
@@ -102,14 +102,12 @@ class StepEntry(BaseModel):
                 f"Step '{self.name}' runs {kind} '{target}', whose settings live in its `{kind}s:` entry; "
                 f"move {keys} to it."
             )
-        if kind in ("combine", "check"):
-            raise ValueError(f"Unknown {kind}: '{target}'. No {kind} types are installed.")
-        if kind == "transform":
-            from dataeval_flow.steps._registry import get_transform
+        if kind in ("transform", "combine", "check"):
+            from dataeval_flow.steps._registry import inline_registry
 
-            transform = get_transform(target)
+            impl = inline_registry(kind).get(target)
             data = {**({"input": self.input} if self.input is not None else {}), **self.settings}
-            self._config = cast(TransformConfig, transform.config_type.model_validate(data))
+            self._config = cast(StepConfig, impl.config_type.model_validate(data))
         return self
 
     @model_serializer(mode="wrap")

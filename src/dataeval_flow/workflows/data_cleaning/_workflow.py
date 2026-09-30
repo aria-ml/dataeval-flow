@@ -17,6 +17,7 @@ from dataeval.quality import Duplicates, Outliers
 from dataeval_flow._binning import attach_binning
 from dataeval_flow._blocks import Fields
 from dataeval_flow._cache import active_cache, get_or_compute_metadata
+from dataeval_flow._classwise import class_labels_frame, classwise_pivot, split_outlier_issues
 from dataeval_flow._embeddings import build_extractor
 from dataeval_flow._policy import policy_for
 from dataeval_flow._stats import HASH_FLAG_MAP, columns_for, restrict_columns
@@ -150,7 +151,7 @@ def _serialize_duplicates(result: Any) -> "DuplicatesDict":
 
 def _compute_label_stats(metadata: Metadata) -> "LabelStatsDict":
     """Compute label statistics from Metadata instance."""
-    _, _, label_counts = _build_class_labels_df(metadata)
+    _, _, label_counts = class_labels_frame(metadata)
 
     return {
         "item_count": metadata.item_count,
@@ -182,19 +183,6 @@ def _resolve_flags(params: DataCleaningConfig) -> tuple[ImageStats, ImageStats]:
     return outlier_flags, hash_flags
 
 
-def _split_outlier_issues(
-    issues_df: "pl.DataFrame",
-) -> tuple["pl.DataFrame", "pl.DataFrame | None"]:
-    """Split outlier issues into image-level and target-level DataFrames."""
-    if "target_index" in issues_df.columns:
-        img_issues = issues_df.filter(issues_df["target_index"].is_null())
-        target_issues = issues_df.filter(issues_df["target_index"].is_not_null())
-    else:
-        img_issues = issues_df
-        target_issues = None
-    return img_issues, target_issues
-
-
 @dataclass(frozen=True)
 class CleaningRunContext:
     """Extractor plumbing passed from execute() to _run_cleaning()."""
@@ -204,89 +192,20 @@ class CleaningRunContext:
     batch_size: int | None = None
 
 
-def _build_class_labels_df(
-    metadata: "Metadata",
-) -> tuple[pl.DataFrame, list[str], dict[str, int]]:
-    """Build a DataFrame mapping items/targets to class names and label counts."""
-    index2label = metadata.index2label
-    has_targets = metadata.multi_target
-
-    label_counts: dict[str, int] = {}
-    for lbl in metadata.class_labels:
-        name = index2label.get(lbl, str(lbl))
-        label_counts[name] = label_counts.get(name, 0) + 1
-
-    if has_targets:
-        td = metadata.rows_at(metadata.label_level).select("item_index", "target_index", "class_label")
-        names = [index2label.get(int(c), str(c)) for c in td["class_label"].to_list()]
-        labels_df = td.with_columns(pl.Series("class_name", names)).select("item_index", "target_index", "class_name")
-        id_cols = ["item_index", "target_index"]
-    else:
-        item_ids = getattr(metadata, "item_indices", list(range(len(metadata.class_labels))))
-        names = [index2label.get(lbl, str(lbl)) for lbl in metadata.class_labels]
-        labels_df = pl.DataFrame({"item_index": item_ids, "class_name": names})
-        id_cols = ["item_index"]
-
-    return labels_df, id_cols, label_counts
-
-
 def _compute_classwise_pivot(
     target_issues: "pl.DataFrame | None",
     img_issues: "pl.DataFrame",
     metadata: "Metadata | None",
 ) -> Any:
-    """Compute classwise outlier pivot from the globally-detected outlier issues."""
+    """The classwise outlier pivot, or ``None`` where there is none or it could not be built.
+
+    data-cleaning reports a pivot it could not build as no outliers. That is the hidden failure a chain's
+    `classwise-outliers` step makes visible (spec §10.6).
+    """
     if metadata is None:
         return None
     try:
-        # Use target-level issues for OD datasets, image-level otherwise
-        has_targets = metadata.multi_target
-        if has_targets:
-            if target_issues is None or target_issues.shape[0] == 0:
-                return None
-            issues_df = target_issues
-        else:
-            if img_issues.shape[0] == 0:
-                return None
-            issues_df = img_issues
-
-        labels_df, id_cols, label_counts = _build_class_labels_df(metadata)
-        total_labels = sum(label_counts.values())
-
-        for col in id_cols:
-            if col in issues_df.columns and issues_df[col].dtype != labels_df[col].dtype:
-                labels_df = labels_df.with_columns(pl.col(col).cast(issues_df[col].dtype))
-
-        # Count unique outlier items/targets per class (not per metric flag)
-        unique_per_class = (
-            issues_df.join(labels_df, on=id_cols, how="left")
-            .select(id_cols + ["class_name"])
-            .unique()
-            .group_by("class_name")
-            .len()
-            .sort("len", descending=True)
-        )
-
-        rows: list[Any] = []
-        grand_total = 0
-        for row_dict in unique_per_class.to_dicts():
-            name = str(row_dict.get("class_name", ""))
-            count = int(row_dict.get("len", 0))
-            grand_total += count
-            denom = label_counts.get(name, 0)
-            pct = round((count / denom) * 100, 1) if denom > 0 else 0.0
-            rows.append({"class_name": name, "count": count, "pct": pct})
-
-        total_pct = round((grand_total / total_labels) * 100, 1) if total_labels > 0 else 0.0
-        rows.append({"class_name": "Total", "count": grand_total, "pct": total_pct})
-
-        return {
-            # Flow's own label for what a row counts, deliberately not named
-            # "level" — DataEval uses that key for metadata levels (unit,
-            # instance, track, sequence) and duplicate levels (item, target).
-            "count_basis": "annotation" if has_targets else "image",
-            "rows": rows,
-        }
+        return classwise_pivot(target_issues, img_issues, metadata)
     except Exception:
         _logger.warning("Classwise pivot unavailable", exc_info=True)
     return None
@@ -375,10 +294,10 @@ def _run_cleaning(
     if has_outlier_cluster and embeddings_array is not None:
         outlier_output = _merge_outlier_outputs(outliers_eval, outlier_output, embeddings_array, params, run_ctx)
 
-    img_issues, target_issues = _split_outlier_issues(outlier_output.data())
+    img_issues, target_issues = split_outlier_issues(outlier_output.data())
 
     # --- Classwise outlier pivot ---
-    classwise_pivot = _compute_classwise_pivot(target_issues, img_issues, metadata)
+    classwise = _compute_classwise_pivot(target_issues, img_issues, metadata)
 
     # --- Duplicate detection ---
     duplicates_result = _run_duplicate_detection(params, hash_flags, calc_result, embeddings_array, run_ctx)
@@ -394,7 +313,7 @@ def _run_cleaning(
         else None,
         duplicates=_serialize_duplicates(duplicates_result),
         label_stats=label_stats,
-        classwise_outliers=classwise_pivot,
+        classwise_outliers=classwise,
     )
 
 

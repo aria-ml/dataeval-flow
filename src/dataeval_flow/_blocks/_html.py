@@ -102,11 +102,6 @@ def _is_summary(block: Block) -> bool:
     return isinstance(block, Section) and any(isinstance(child, Summary) for child in block.blocks)
 
 
-# The sections every report closes with, for reference: what the run read, and how it was configured.
-# ponytail: matched by title, as the flow names them; a flag on Section if a producer ever needs to choose.
-_REFERENCE = frozenset({"Metadata Factors", "Configuration"})
-
-
 def _cards(report: Section, prefix: str) -> list[str | None]:
     """The ``id`` of each of the report's findings' cards, aligned with its blocks; ``None`` for everything else.
 
@@ -193,31 +188,29 @@ def _section(block: Section, ctx: HtmlContext) -> str:
         card = f' id="{escape(ctx.anchor)}"' if ctx.anchor else ""
         opened = " open" if block.severity == "warning" else ""
         return f'<details class="card {block.severity}"{card}{opened}><summary>{heading}</summary>{body}</details>'
-    if ctx.depth == 1 and block.title in _REFERENCE:
+    if ctx.depth == 1 and block.reference:
         return f'<details class="panel"><summary>{heading}</summary>{body}</details>'
     classes = f"section {block.severity}" if block.severity else "section"
     return f'<section class="{classes}">{heading}{body}</section>'
 
 
 def _health(report: Section) -> str:
-    """The report's verdict as a badge: its warnings counted, or passed; none for a report without findings.
-
-    Its findings are its cards or, in the short form, which has none, the lines of its summary.
-    """
-    verdicts = [block.severity for block in report.blocks if isinstance(block, Section) and _is_finding(block)] or [
-        item.severity
-        for block in report.blocks
-        if isinstance(block, Section)
-        for summary in block.blocks
-        if isinstance(summary, Summary)
-        for item in summary.items
-    ]
-    if not verdicts:
+    """The report's verdict as a badge: the warnings its summary counted, or passed; none for a report without one."""
+    summary = next(
+        (
+            child
+            for block in report.blocks
+            if isinstance(block, Section)
+            for child in block.blocks
+            if isinstance(child, Summary)
+        ),
+        None,
+    )
+    if summary is None or not summary.items:
         return ""
-    warnings = verdicts.count("warning")
-    if not warnings:
+    if not summary.warnings:
         return '<span class="badge ok">passed</span>'
-    return f'<span class="badge warning">{warnings} warning{"s" if warnings != 1 else ""}</span>'
+    return f'<span class="badge warning">{summary.warnings} warning{"s" if summary.warnings != 1 else ""}</span>'
 
 
 def _title_and_facts(title: str) -> tuple[str, str]:
@@ -292,7 +285,7 @@ def _summary(block: Summary, _ctx: HtmlContext) -> str:
     )
     if not rows:
         return ""
-    warnings = sum(item.severity == "warning" for item in block.items)
+    warnings = block.warnings
     health = (
         f'<p class="health warning">{warnings} warning{"s" if warnings != 1 else ""} — review the flagged findings</p>'
         if warnings

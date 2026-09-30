@@ -105,7 +105,7 @@ def test_two_steps_of_one_name_are_refused() -> None:
         ({"name": "s", "evaluator": "dupes", "input": "a", "keep": "first"}, "move keep to it"),
         ({"name": "s", "transform": "no-such", "input": "a"}, "Unknown transform: 'no-such'"),
         ({"name": "s", "transform": "toy-first", "input": "a", "m": 2}, "Extra inputs are not permitted"),
-        ({"name": "s", "check": "rate", "input": "a"}, "No check types are installed"),
+        ({"name": "s", "check": "rate", "input": "a"}, "Unknown check: 'rate'"),
     ],
 )
 def test_a_malformed_step_is_refused(step: dict, message: str) -> None:

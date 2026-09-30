@@ -1,7 +1,11 @@
 """The bias evaluators' results: DataEval's own output objects, typed per evaluator."""
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 from dataeval.bias import BalanceOutput, DiversityOutput, ParityOutput
 
+from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = ["BalanceResult", "DiversityResult", "ParityResult"]
@@ -26,6 +30,12 @@ class BalanceResult(EvaluatorResult[BalanceOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """Each factor ranked by its mutual information with the class, then the rest."""
+        from dataeval_flow.evaluators.bias._report import balance_section
+
+        return balance_section(output, detailed=detailed)
 
 
 class DiversityResult(EvaluatorResult[DiversityOutput]):

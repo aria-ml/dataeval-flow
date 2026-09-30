@@ -34,8 +34,7 @@ def test_the_catalog_lists_every_built_in_step_of_every_kind() -> None:
 def test_the_catalog_orders_steps_by_kind_then_name(plugins) -> None:
     register_toys(plugins)
     steps = [(entry.kind, entry.type) for entry in list_steps().steps]
-    assert list(dict.fromkeys(kind for kind, _ in steps)) == ["evaluator", "transform", "workflow"]
-    assert steps == sorted(steps)
+    assert list(dict.fromkeys(kind for kind, _ in steps)) == ["evaluator", "transform", "combine", "check", "workflow"]
     assert steps.index(("transform", "split")) < steps.index(("transform", "toy-keep"))
     assert steps.index(("transform", "toy-keep")) < steps.index(("transform", "view"))
 

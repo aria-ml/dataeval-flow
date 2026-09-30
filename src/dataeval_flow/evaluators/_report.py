@@ -1,8 +1,8 @@
 """An evaluator result's report body: DataEval's output as it came, as report blocks."""
 
-__all__ = ["ROW_LIMIT", "output_blocks", "render_result_body", "serialized_of", "table_blocks"]
+__all__ = ["ROW_LIMIT", "extras_blocks", "output_blocks", "render_result_body", "serialized_of", "table_blocks"]
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from dataeval_flow._blocks import Block, Column, Paragraph, Section, Table, Tree
@@ -22,10 +22,8 @@ _ARRAY_HEAD = 10
 
 
 def render_result_body(result: "EvaluatorResult[Any]", *, detailed: bool) -> list[str]:
-    """The result's report body as text: the output for a success, or ``FAILED`` plus each error otherwise."""
-    blocks = (
-        output_blocks(serialized_of(result), detailed=detailed) if result.success else [failure_section(result.errors)]
-    )
+    """The result's report body as text: its own section for a success, or ``FAILED`` plus each error otherwise."""
+    blocks = result._report_output(detailed=detailed) if result.success else [failure_section(result.errors)]  # noqa: SLF001
     return render_text(blocks, Frame(indent="  ", depth=1))
 
 
@@ -34,12 +32,15 @@ def serialized_of(result: "EvaluatorResult[Any]") -> dict[str, Any]:
     return result._serialized or {}  # noqa: SLF001 - the result's JSON form has no public attribute by design
 
 
+def extras_blocks(output: Mapping[str, Any], *, detailed: bool) -> list[Block]:
+    """An output's extras, in a section of their own; none where it has none."""
+    extras = output.get("extras")
+    return [Section(title="Extras", blocks=_mapping_blocks(extras, detailed=detailed))] if extras else []
+
+
 def output_blocks(output: dict[str, Any], *, detailed: bool) -> list[Block]:
     """Serialized DataEval output under an ``OUTPUT`` section, its extras in a section of their own."""
-    blocks = _shape_blocks(output, detailed=detailed)
-    extras = output.get("extras")
-    if extras:
-        blocks.append(Section(title="Extras", blocks=_mapping_blocks(extras, detailed=detailed)))
+    blocks = [*_shape_blocks(output, detailed=detailed), *extras_blocks(output, detailed=detailed)]
     return [Section(title="Output", brief=_brief(output) or None, blocks=blocks)]
 
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
     import numpy as np
     from dataeval import Metadata, Ontology
@@ -26,7 +26,7 @@ class EvaluatorInputs:
     ``stats`` sets ``stats`` and ``stats_policy``; ``clusters`` sets ``clusters`` and ``embeddings``;
     ``embeddings`` sets ``embeddings``; ``metadata`` sets ``metadata`` and ``metadata_policy``; ``labels`` sets
     ``labels`` and ``index2label``. ``ontology`` and ``ontology_source`` are the task's, set on every source whatever
-    the run wants.
+    the run wants. ``label_source`` is the source's, set on every source whatever the run wants.
     """
 
     source: str
@@ -68,3 +68,6 @@ class EvaluatorInputs:
     ontology_source: str | None = None
     """How the task named ``ontology``: the ``ontologies:`` entry's name, the resolved path, ``inline`` or
     ``concepts``; set with ``ontology``."""
+    label_source: "str | Sequence[str] | None" = None
+    """Where the source's labels came from, such as ``filepath`` or ``annotations``; one per operand for a merged
+    source, and ``None`` where the source does not say."""

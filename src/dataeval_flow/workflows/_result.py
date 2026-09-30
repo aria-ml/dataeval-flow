@@ -1,6 +1,6 @@
 """A workflow's result: typed outputs, and the health verdict drawn from their findings."""
 
-__all__ = ["WorkflowResult", "finding_section"]
+__all__ = ["WorkflowResult", "finding_section", "summary_label"]
 
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
@@ -26,6 +26,14 @@ def finding_section(finding: Finding) -> Section:
         severity=finding.severity,
         blocks=[*lede, *finding.blocks],
     )
+
+
+def summary_label(finding: Finding) -> str:
+    """A finding's summary line: its title, and the element a check judged where it ran once per element of a list."""
+    step = finding.step or ""
+    if step.endswith("]") and "[" in step:
+        return f"{finding.title} [{step[step.index('[') + 1 : -1]}]"
+    return finding.title
 
 
 class WorkflowResult(Result[TMetadata, TOutput]):
@@ -120,10 +128,9 @@ class WorkflowResult(Result[TMetadata, TOutput]):
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
         """The summary with the health line, every finding's section when *detailed*, then the metadata factors."""
-        findings = self.findings
-        blocks = self._summary_blocks(findings)
+        blocks = self._summary_blocks()
         if detailed:
-            blocks.extend(finding_section(finding) for finding in findings)
+            blocks.extend(finding_section(finding) for finding in self.findings)
         blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))
         return blocks
 
@@ -131,9 +138,10 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         """The health roll-up, then the workflow's own output fields."""
         return {"health": self.health, **self.output.model_dump(mode="json")}
 
-    def _summary_blocks(self, findings: list[Finding]) -> list[Block]:
-        """One summary line per finding, then the health verdict."""
+    def _summary_blocks(self) -> list[Block]:
+        """One summary line per finding, then the health verdict: the warnings :attr:`warning_count` counted."""
+        findings = self.findings
         if not findings:
             return [Paragraph(text="No findings to report.")]
-        items = [SummaryItem(label=f.title, value=f.brief or "", severity=f.severity) for f in findings]
-        return [Section(title="Summary", blocks=[Summary(items=items)])]
+        items = [SummaryItem(label=summary_label(f), value=f.brief or "", severity=f.severity) for f in findings]
+        return [Section(title="Summary", blocks=[Summary(items=items, warnings=self.warning_count)])]

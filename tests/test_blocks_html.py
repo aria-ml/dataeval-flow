@@ -103,9 +103,11 @@ def _report(*findings: Section, title: str = "Data cleaning") -> Section:
         title=title,
         blocks=[
             Fields(items=[("Dataset", "cifar10-train"), ("Duration", "4.1s")]),
-            Section(title="Summary", blocks=[Summary(items=items)]),
+            Section(
+                title="Summary", blocks=[Summary(items=items, warnings=sum(f.severity == "warning" for f in findings))]
+            ),
             *findings,
-            Section(title="Configuration", blocks=[Tree(value={"seed": 1})]),
+            Section(title="Configuration", reference=True, blocks=[Tree(value={"seed": 1})]),
         ],
     )
 
@@ -190,7 +192,9 @@ class TestLayout:
         """Reference a reader opens when they need it, drawn apart from the findings and closed."""
         report = _report(_LABELS)
         report = report.model_copy(
-            update={"blocks": [*report.blocks[:-1], Section(title="Metadata Factors"), report.blocks[-1]]}
+            update={
+                "blocks": [*report.blocks[:-1], Section(title="Metadata Factors", reference=True), report.blocks[-1]]
+            }
         )
         fragment = render_html([report])
         assert '<details class="panel"><summary><h2>Metadata Factors</h2></summary></details>' in fragment
@@ -413,7 +417,7 @@ class TestCharts:
 
     def test_a_summary_is_a_table_of_badges_then_its_health(self):
         item = SummaryItem(label="Duplicates", value="3 groups", severity="warning")
-        fragment = render_html([Summary(items=[item])])
+        fragment = render_html([Summary(items=[item], warnings=1)])
         assert fragment == (
             '<table class="summary"><tbody><tr><td>Duplicates</td><td>3 groups</td>'
             '<td><span class="badge warning">warning</span></td></tr></tbody></table>'
@@ -421,7 +425,7 @@ class TestCharts:
         )
 
     def test_a_summary_without_warnings_passes(self):
-        fragment = render_html([Summary(items=[SummaryItem(label="Labels", severity="ok")])])
+        fragment = render_html([Summary(items=[SummaryItem(label="Labels", severity="ok")], warnings=0)])
         assert fragment.endswith('<p class="health ok">All checks passed</p>')
 
 
@@ -574,7 +578,7 @@ class TestEscaping:
             Table(columns=[Column(key="c", header=self._EVIL)], rows=[{"c": self._EVIL}]),
             BulletList(items=[self._EVIL]),
             Code(text=self._EVIL, language='"><script>'),
-            Summary(items=[SummaryItem(label=self._EVIL, value=self._EVIL)]),
+            Summary(items=[SummaryItem(label=self._EVIL, value=self._EVIL)], warnings=0),
             Table(
                 columns=[Column(key="f", header=self._EVIL, kind="flags")],
                 rows=[

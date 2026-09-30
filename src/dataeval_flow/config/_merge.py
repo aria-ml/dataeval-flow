@@ -104,17 +104,29 @@ def _is_config_fragment(data: dict[str, Any]) -> bool:
 
 
 def merge_config_folder(config_path: Path) -> dict[str, Any]:
-    """Scan folder, merge all valid config files alphabetically.
+    """Scan a folder and merge every pipeline config file in it, in name order.
 
-    A file holding no top-level section (e.g. a JSON schema, unrelated YAML)
-    is skipped. A file holding a section beside a key that is none is refused,
-    naming the file and the key, since the key is most likely a misspelled
-    section. If no config files are found, a ``FileNotFoundError`` is raised.
+    Files are loaded in sorted order (00-base.yaml before 01-datasets.yaml). Later files override earlier ones for
+    duplicate keys: mappings merge, lists extend, and scalars replace.
 
-    Files are loaded in sorted order (00-base.yaml before 01-datasets.yaml).
-    Later files override earlier ones for duplicate keys.
+    Skipped, with a debug log line: a file that does not parse as YAML or JSON, and a file holding no top-level
+    section, such as a JSON schema or unrelated YAML.
 
-    Returns raw dict - use load_config() for validated PipelineConfig.
+    Refused:
+    - a pipeline file whose parse stops at a keyed address left unquoted inside YAML's ``{…}`` or ``[…]``, since it is
+      a pipeline file with a fixable typo, not an unrelated one;
+    - a file holding a section beside a key that is none, which is most likely a misspelled section.
+
+    Returns the raw dict; use ``load_config()`` for a validated ``PipelineConfig``.
+
+    Raises
+    ------
+    AddressQuotingError
+        When a file's parse stops at a keyed address to quote; the message names the address.
+    ValueError
+        When `config_path` is not a directory, or a file holds a key that is no section, naming the file and the key.
+    FileNotFoundError
+        When the folder holds no pipeline config file.
     """
     from dataeval_flow.config._models import unknown_keys_problem
 

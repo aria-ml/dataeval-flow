@@ -1,18 +1,18 @@
-"""Outlier evidence as report blocks: a row per flagged item with its flags, and a row per metric with its limits.
+"""The quality evaluators' report tables: flagged items with their flags, each metric's limits, and duplicate groups.
 
-Data cleaning and data analysis both find outliers with DataEval's ``Outliers``, whose issues carry,
-beside each flagged value, the population it was judged in: which limit it crossed, the limit, its
-percentile, and the population's mean and standard deviation. These builders turn those issues into
-the tables both workflows' findings show, so the two read the same way.
+data-cleaning and data-analysis report with them too.
 """
 
 __all__ = [
     "OutlierIssueRecord",
     "OutlierIssuesDict",
+    "duplicate_section",
     "flag_of",
     "flagged_table",
+    "groups_table",
     "limits_sentence",
     "limits_table",
+    "outlier_section",
     "warn_if_unrecorded",
 ]
 
@@ -23,9 +23,9 @@ from typing import Any, Literal, NotRequired
 
 from typing_extensions import TypedDict
 
-from dataeval_flow._blocks import Block, Cell, Column, Flag, ItemRef, Paragraph, Table
+from dataeval_flow._blocks import Block, Cell, Column, Flag, ItemRef, Paragraph, Section, Table
 from dataeval_flow._blocks._table import fair_shares
-from dataeval_flow.workflows._tables import table_limits
+from dataeval_flow._tables import group_cells, table_limits
 
 _logger = logging.getLogger(__name__)
 
@@ -107,6 +107,7 @@ def flagged_table(
     noun: str,
     groups: Sequence[str] | None = None,
     ref: Callable[[tuple[Cell, ...]], ItemRef] | None = None,
+    listed_in: str = "output.raw",
 ) -> list[Block]:
     """A row per flagged subject, with every flag it raised, in the order of the subjects' keys.
 
@@ -159,7 +160,7 @@ def flagged_table(
                 if share < len(part)
             )
             text = f"{len(subjects):,} {noun} flagged; {len(rows):,} are listed, leaving out {left}"
-        blocks.append(Paragraph(text=f"{text}, and every one is in `output.raw`."))
+        blocks.append(Paragraph(text=f"{text}, and every one is in `{listed_in}`."))
     return blocks
 
 
@@ -215,3 +216,131 @@ def limits_sentence(method: str | None, threshold: float | None) -> str | None:
         return None
     default, sentence = _METHODS[method]
     return sentence.format(t=f"{default if threshold is None else threshold:g}")
+
+
+def groups_table(
+    groups: Sequence[tuple[str, int, Sequence[ItemRef]]], noun: str, *, listed_in: str = "output.raw"
+) -> list[Block]:
+    """Duplicate groups, largest first: each one's kind, size, and up to eight of its items, named and pictured.
+
+    *groups* are each group's kind (``exact`` or ``near``), its number among its kind in ``output.raw``,
+    where every one of its items is, and its items. At most ``result: max_rows``, 500 by default, are listed,
+    with a paragraph naming the rest.
+    """
+    if not groups:
+        return []
+    # Stable, so groups of one size keep exact before near, and each kind its own order.
+    ranked = sorted(groups, key=lambda group: -len(group[2]))
+    limits = table_limits()
+    rows: list[dict[str, Cell]] = []
+    for kind, number, refs in ranked[: limits.rows]:
+        items, shown = group_cells(refs)
+        rows.append({"group": number, "kind": kind, "count": len(refs), "items": items, "image": shown})
+    columns = [
+        Column(key="group", header="Group"),
+        Column(key="kind", header="Kind", align="left"),
+        Column(key="count", header="Count"),
+        Column(key="items", header="Items", align="left"),
+        Column(key="image", kind="image"),
+    ]
+    blocks: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+    if limits.rows is not None and len(ranked) > limits.rows:
+        blocks.append(
+            Paragraph(
+                text=f"{len(ranked):,} groups of {noun}; the {limits.rows:,} largest are listed, and every one is in "
+                f"`{listed_in}`."
+            )
+        )
+    return blocks
+
+
+def outlier_section(output: Mapping[str, Any], sources: Sequence[str]) -> list[Block]:
+    """An Outliers Output's report: each flagged image with every flag it raised, then each metric's limits; flagged
+    boxes likewise, under their own heading. Each item is named by the source it belongs to, for its thumbnail."""
+    issues = list(output.get("rows") or [])
+    if not issues:
+        return [Paragraph(text="No image or box was flagged.")]
+    images = [issue for issue in issues if issue.get("target_index") is None]
+    boxes = [issue for issue in issues if issue.get("target_index") is not None]
+    blocks = _flagged(images, sources, boxes=False)
+    if boxes:
+        blocks.append(Section(title="Flagged boxes", blocks=_flagged(boxes, sources, boxes=True)))
+    return blocks
+
+
+def _flagged(issues: Sequence[Mapping[str, Any]], sources: Sequence[str], *, boxes: bool) -> list[Block]:
+    """The flagged table, then the limits table, for `issues`; keyed by source first where the run read several."""
+    if not issues:
+        return []
+    several = len(sources) > 1
+
+    def key(issue: Mapping[str, Any]) -> tuple[Cell, ...]:
+        where: tuple[Cell, ...] = (sources[int(issue.get("dataset_index") or 0)],) if several else ()
+        what: tuple[Cell, ...] = (issue["item_index"], issue["target_index"]) if boxes else (issue["item_index"],)
+        return (*where, *what)
+
+    def ref(subject: tuple[Cell, ...]) -> ItemRef:
+        source, rest = (str(subject[0]), subject[1:]) if several else (sources[0], subject)
+        return ItemRef.model_validate({"source": source, "index": rest[0], "target": rest[1] if boxes else None})
+
+    columns = [
+        *([Column(key="source", header="Source", align="left")] if several else []),
+        Column(key="item", header="Item"),
+        *([Column(key="box", header="Box")] if boxes else []),
+    ]
+    table = flagged_table(
+        issues,
+        key=key,
+        key_columns=columns,
+        classes=None,
+        noun="boxes" if boxes else "images",
+        groups=list(sources) if several else None,
+        ref=ref,
+        listed_in="output.rows",
+    )
+    return [*table, limits_table(issues, key=key)]
+
+
+def duplicate_section(output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block]:
+    """A Duplicates Output's report: each group of images, largest first, then each group at every other level, such
+    as boxes, under its own heading; then any extras. Each item is named by the source it belongs to."""
+    from dataeval_flow.evaluators._report import extras_blocks
+
+    rows = list(output.get("rows") or [])
+    present = list(dict.fromkeys(str(row["level"]) for row in rows))
+    levels = [level for level in ("item",) if level in present] + [level for level in present if level != "item"]
+    blocks: list[Block] = []
+    for level in levels:
+        groups = [
+            (str(row["dup_type"]), int(row["group_id"]), _members(row, sources))
+            for row in rows
+            if row["level"] == level
+        ]
+        if level == "item":
+            blocks.extend(groups_table(groups, "images", listed_in="output.rows"))
+        else:
+            noun = "boxes" if level == "target" else f"{level}s"
+            blocks.append(
+                Section(
+                    title=f"Duplicate {noun}",
+                    brief=f"{len(groups)} groups",
+                    blocks=groups_table(groups, noun, listed_in="output.rows"),
+                )
+            )
+    if not rows:
+        blocks.append(Paragraph(text="No duplicates found."))
+    return [*blocks, *extras_blocks(output, detailed=detailed)]
+
+
+def _members(row: Mapping[str, Any], sources: Sequence[str]) -> list[ItemRef]:
+    """A group's members as item references: each item, or box, in the source it belongs to."""
+    items = [int(index) for index in row["item_indices"]]
+    targets = row.get("target_indices") or [None] * len(items)
+    datasets = row.get("dataset_indices") or [0] * len(items)
+    several = len(sources) > 1
+    return [
+        ItemRef.model_validate(
+            {"source": sources[int(dataset)] if several else sources[0], "index": item, "target": target}
+        )
+        for item, target, dataset in zip(items, targets, datasets, strict=True)
+    ]

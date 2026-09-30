@@ -46,7 +46,20 @@ class Node:
     inputs: tuple[str, ...] = ()
     source: str | None = None
     result: Any = None
+    computed_on: tuple["Node", ...] = ()
+    """For an Output, the Dataset nodes it was computed on."""
+    config: Any = None
+    """For an Output, the settings of the step that made it: an evaluator's pool entry, or an inline step's config;
+    ``None`` for anything else."""
     _dataset: Any = field(default=None, repr=False)
+
+    @property
+    def items(self) -> int | None:
+        """For an Output, how many items the Datasets it was computed on hold together, measured when first read;
+        ``None`` for anything else."""
+        if self.type is not DataType.OUTPUT or not self.computed_on:
+            return None
+        return sum(len(node.value) for node in self.computed_on)
 
     @property
     def value(self) -> Any:

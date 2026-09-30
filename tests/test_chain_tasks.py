@@ -204,6 +204,23 @@ def test_a_chain_step_gets_the_output_dir_and_its_label_space_is_kept_once(plugi
 
 
 @pytest.mark.usefixtures("toys")
+def test_a_chain_whose_label_spaces_disagree_names_none_of_them(plugins) -> None:
+    plugins["dataeval_flow.transforms"].append(("toy-where", "tests.test_chain_tasks:Where"))
+    relabel = {"type": "Relabel", "params": {"class_remap": {"a": "x"}, "target": ["x", "b"]}}
+    workflow = {"name": "w", "inputs": ["a"], "steps": [{"name": "where", "transform": "toy-where", "input": "a"}]}
+    config = chain_pipeline(
+        workflows=[workflow],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        extra={"views": [{"name": "renamed", "operations": [relabel]}]},
+    )
+    source = config.sources[0].model_copy(update={"view": "renamed"})  # type: ignore[index]
+    result = run_tasks(config.model_copy(update={"sources": [source]}))["t"]
+    assert [record.source for record in result.metadata.label_space] == ["src", "where"]
+    assert len({record.digest for record in result.metadata.label_space}) == 2
+    assert result.metadata.label_space_digest is None
+
+
+@pytest.mark.usefixtures("toys")
 def test_the_tui_state_saves_a_custom_workflow_unchanged(tmp_path: Path) -> None:
     # A file-backed dataset: YAML cannot hold an in-memory one. Validation does not read the folder.
     config = PipelineConfig.model_validate(
@@ -306,6 +323,11 @@ def test_a_one_step_task_whose_step_fails_before_its_evaluator_runs_returns_a_fa
         result = run_task(task, config)
     assert isinstance(result, DuplicatesResult)
     assert (result.success, result.type, result.errors) == (False, "quality.duplicates", ["RuntimeError: no context"])
+
+
+def test_the_golden_normalizer_drops_a_thumbnail_s_encoded_bytes_and_keeps_its_item() -> None:
+    payload = {"assets": [{"data": "UklGR", "item": {"index": 0, "source": "src"}, "width": 16}]}
+    assert normalized(payload) == {"assets": [{"item": {"index": 0, "source": "src"}, "width": 16}]}
 
 
 def test_the_golden_normalizer_drops_volatile_keys_at_every_depth() -> None:

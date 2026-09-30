@@ -6,8 +6,8 @@ from pydantic import Field
 from typing_extensions import TypedDict
 
 from dataeval_flow._result import ResultMetadata
+from dataeval_flow.evaluators.quality._report import OutlierIssueRecord, OutlierIssuesDict
 from dataeval_flow.workflows._base import WorkflowOutput, WorkflowRawOutput, WorkflowReport
-from dataeval_flow.workflows._outliers import OutlierIssueRecord, OutlierIssuesDict
 from dataeval_flow.workflows._result import WorkflowResult
 
 __all__ = [
