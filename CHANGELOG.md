@@ -205,6 +205,9 @@
 
 ### Fixed
 
+- Data prioritization ranks a labeled pool under `policy: class_balanced`, where it always
+  raised "Cannot apply class_balanced policy: class_labels not provided"
+- Data prioritization succeeds when cleaning empties a pool, ranking it as empty, where the whole task failed
 - Classwise drift names each class from the datasets' `index2label`, where it showed the bare class index
 - The config builder keeps a pipeline's `result:`, `logging:`, `seed:` and `deterministic:` when it saves a
   config, where it dropped them, and the TUI runs with them

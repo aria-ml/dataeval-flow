@@ -10,7 +10,8 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
 - **Its ranked tables number items within the Dataset ranked.** With cleaning, that is the cleaned pool, not the
   pool: every step's section names items by the node it read (spec §7.4).
 - **`prioritize` reads the pool's labels.** Legacy passed Prioritize no `class_labels`; the evaluator passes the
-  pool's, so `policy: class_balanced` ranks by them wherever a pool has labels.
+  pool's, so `policy: class_balanced`, which legacy always refused ("class_labels not provided"), ranks by them
+  wherever a pool has labels.
 """
 
 import json

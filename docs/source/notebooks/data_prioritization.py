@@ -416,7 +416,8 @@ print(result.report())
 #
 # The pruning phase detects outliers and duplicates in both reference and incoming
 # data. The `reference-clean` and `pool-clean` steps record how many frames they dropped, and
-# the ranking holds only the pool frames `pool-clean` kept. You can verify whether pruning removed the injected corrupted samples.
+# the ranking holds only the pool frames `pool-clean` kept. You can verify whether pruning removed the injected
+# corrupted samples.
 
 # %%
 pool_clean = result.steps["pool-clean"].elements["test_src"]
