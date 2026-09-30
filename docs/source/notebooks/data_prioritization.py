@@ -303,7 +303,6 @@ print(f"Model saved to {model_path}")
 # - **Extractor**: Trained VehicleNet hooking the `embed` layer for 128-dimensional embeddings.
 # - **Method**: KNN with `hard_first` ordering to rank samples farthest from reference neighbors.
 # - **Pruning**: Outlier and duplicate detection to filter invalid samples before ranking.
-# - **Mode**: `preparatory` mode to output explicit clean and flagged index lists.
 
 # %%
 from dataeval_flow import PipelineConfig
@@ -326,7 +325,6 @@ workflow = DataPrioritizationConfig(
     k=5,
     order="hard_first",
     policy="difficulty",
-    mode="preparatory",
     cleaning=DataPrioritizationCleaningConfig(
         outlier_method="adaptive",
         outlier_flags=["dimension", "pixel", "visual"],
@@ -416,8 +414,8 @@ print(result.report())
 # ## Step 4: Inspect what pruning removed
 #
 # The pruning phase detects outliers and duplicates in both reference and incoming
-# data. In `preparatory` mode, `result.metadata` records clean indices and dropped
-# sample counts. You can verify whether pruning removed the injected corrupted samples.
+# data. `result.metadata` records how many samples it dropped, and the ranking holds only
+# the pool frames it kept. You can verify whether pruning removed the injected corrupted samples.
 
 # %%
 raw = result.output.raw
@@ -433,9 +431,9 @@ if raw.cleaning_summary is not None:
     print(f"  Total removed:       {cs['total_removed']}")
 
 # %%
-# Which pool indices were pruned?
+# Which pool indices were pruned? The ranking holds every pool frame pruning kept, by its index in the pool.
 all_test_indices = set(range(len(test_dataset)))
-clean_test_indices = set(meta.per_source_clean_indices.get("test_src", []))
+clean_test_indices = set(raw.prioritizations[0]["prioritized_indices"])
 pruned_indices = sorted(all_test_indices - clean_test_indices)
 
 print(f"Pool frames: {len(all_test_indices)} total, {len(clean_test_indices)} clean, {len(pruned_indices)} pruned")

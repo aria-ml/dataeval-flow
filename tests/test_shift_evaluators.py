@@ -1,4 +1,4 @@
-"""`shift.*` against real DataEval: a reference, and test images brightened out of its distribution."""
+"""The shift evaluators against real DataEval: a reference, and test images brightened out of its distribution."""
 
 from typing import Any
 

@@ -49,5 +49,6 @@ class TestDataCleaningWorkflow:
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
-        # Typed output check: exposes outlier and duplicate findings on the data payload
-        assert len(result.output.report.findings) > 0
+        # The preset's checks make its findings, and its `clean` step holds the cleaned dataset
+        assert result.findings
+        assert len(result.steps["clean"].output) > 0

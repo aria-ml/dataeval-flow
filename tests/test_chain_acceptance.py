@@ -57,10 +57,10 @@ def test_the_parent_specs_example_chain_runs_from_yaml(tmp_path: Path) -> None:
         _ONTOLOGY
         + """
 evaluators:
-  - {name: align, type: scope.label-alignment, ontology: vehicles}
-  - {name: dupes, type: quality.duplicates}
-  - {name: coverage, type: scope.coverage}
-  - {name: balance, type: bias.balance}
+  - {name: align, type: label-alignment, ontology: vehicles}
+  - {name: dupes, type: duplicates}
+  - {name: coverage, type: coverage}
+  - {name: balance, type: balance}
 workflows:
   - name: corpus
     inputs: [a, b]
@@ -100,7 +100,7 @@ def test_clean_remove_export_writes_a_corpus_without_the_duplicate(tmp_path: Pat
         _ONTOLOGY
         + """
 evaluators:
-  - {name: dupes, type: quality.duplicates}
+  - {name: dupes, type: duplicates}
 workflows:
   - name: clean_export
     inputs: [data]
@@ -126,7 +126,7 @@ _CONFORM = (
     _ONTOLOGY
     + """
 evaluators:
-  - {name: align, type: scope.label-alignment, ontology: vehicles}
+  - {name: align, type: label-alignment, ontology: vehicles}
 workflows:
   - name: conform_and_merge
     inputs: [a, b]
@@ -184,9 +184,9 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
 
 _CLEANING_REPORT = """
 evaluators:
-  - {name: outliers, type: quality.outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
-  - {name: dupes, type: quality.duplicates, merge_near_duplicates: true}
-  - {name: labels, type: quality.label-health}
+  - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
+  - {name: dupes, type: duplicates, merge_near_duplicates: true}
+  - {name: labels, type: label-health}
 
 workflows:
   - name: cleaning_report
@@ -194,11 +194,11 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by_class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image_outliers, check: outlier-rate, input: outliers}
-      - {name: target_outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by_class}
+      - {name: image-outliers, check: outlier-rate, input: outliers}
+      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outlier-rate, input: by-class}
       - {name: duplicates, check: duplicate-rate, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
 
@@ -213,7 +213,7 @@ def test_data_cleaning_s_report_runs_as_a_chain_and_every_output_shows_its_verdi
     assert result.health == {"status": "warning", "warnings": 3, "findings": 4, "failed_steps": []}
     payload = result.to_dict()
     assert [finding["step"] for finding in payload["findings"]] == [  # type: ignore[union-attr]
-        "image_outliers",
+        "image-outliers",
         "classwise",
         "duplicates",
         "imbalance",
@@ -232,8 +232,39 @@ def test_a_check_whose_evaluator_failed_is_not_assessed_in_a_run_from_yaml(tmp_p
     )
     with patch.object(OutliersEvaluator, "run", side_effect=RuntimeError("no stats")):
         result = _run(text, {"src": ToyImages(count=24)}, tmp_path, "report")
-    image = next(finding for finding in result.findings if finding.step == "image_outliers")
+    image = next(finding for finding in result.findings if finding.step == "image-outliers")
     assert (image.severity, image.brief) == ("info", "not assessed")
     assert image.description == "Not assessed: `outliers` was skipped: failed: RuntimeError: no stats."
     assert result.failed_steps == []
     assert result.health["status"] == "warning"  # the duplicates are still judged, and still warn
+
+
+def test_a_data_cleaning_step_hands_its_cleaned_dataset_to_an_export(tmp_path: Path) -> None:
+    text = """
+workflows:
+  - {name: basic_clean, type: data-cleaning, outlier_method: zscore, outlier_flags: [pixel, visual]}
+  - name: clean_export
+    inputs: [data]
+    steps:
+      - {name: cleaning, workflow: basic_clean, input: data}
+      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+tasks:
+  - {name: prep, workflow: clean_export, sources: [a]}
+"""
+    result = _run(text, {"a": _corpora()["a"]}, tmp_path, "prep")
+    assert result.success, result.errors
+    assert [(f.severity, f.title, f.step) for f in result.findings] == [
+        ("ok", "Image Outliers", "cleaning/image-outliers"),
+        ("ok", "Classwise Outliers", "cleaning/classwise"),
+        ("warning", "Duplicates", "cleaning/duplicates"),
+        ("info", "Label Distribution", "cleaning/imbalance"),
+    ]
+    assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
+    assert result.steps["cleaning/clean"].details == {
+        "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {"items": 1}, "outliers": {}},
+    }
+    written = _coco(tmp_path / "datasets" / "prep.corpus")
+    assert (len(written["images"]), len(written["annotations"])) == (23, 46)
+    reloaded = load_dataset(tmp_path / "datasets" / "prep.corpus", dataset_format="coco")
+    assert [reloaded[i][2]["source_id"] for i in range(23)] == [str(i) for i in range(24) if i != 9]

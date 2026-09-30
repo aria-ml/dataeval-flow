@@ -92,9 +92,6 @@ class TestSections:
         assert '<span class="brief">3 groups</span>' in fragment
         assert '<span class="badge warning">warning</span>' in fragment
 
-    def test_a_multi_line_title_breaks_where_it_does_in_text(self):
-        assert "<h1>Report<br>Second line</h1>" in render_html([Section(title="Report\nSecond line")])
-
 
 def _report(*findings: Section, title: str = "Data cleaning") -> Section:
     """A report as a result builds one: its envelope, the summary linking each finding, the findings, the config."""
@@ -126,27 +123,21 @@ class TestLayout:
             in fragment
         )
 
-    def test_a_title_s_first_sentence_heads_the_report_and_the_rest_reads_as_its_facts(self):
-        """A run's title is a sentence of facts: the page heads it with the first, and lines up the rest beneath."""
-        fragment = render_html(
-            [_report(_DUPLICATES, title="Data cleaning complete. Dataset: 261 items. Mode: advisory.")]
-        )
+    def test_the_header_draws_no_subtitle_line(self):
+        fragment = render_html([_report(_DUPLICATES, title="Data Cleaning")])
         assert (
-            '<header class="report-head"><h1>Data cleaning complete</h1><span class="badge warning">1 warning</span>'
-            '<p class="facts">Dataset: 261 items · Mode: advisory</p></header>'
-        ) in fragment
+            '<header class="report-head"><h1>Data Cleaning</h1><span class="badge warning">1 warning</span></header>'
+            in fragment
+        )
+        assert 'class="facts"' not in fragment
 
     @pytest.mark.parametrize(
-        ("title", "heading"),
-        [
-            ("Dataset splitting: 1000 items → 5 fold(s)", "Dataset splitting: 1000 items → 5 fold(s)"),
-            ("12 factors, 3 findings (1 blocking).", "12 factors, 3 findings (1 blocking)"),
-            ("quality.duplicates", "quality.duplicates"),
-        ],
+        "title",
+        ["Dataset splitting: 1000 items → 5 fold(s)", "12 factors, 3 findings (1 blocking).", "duplicates"],
     )
-    def test_a_title_of_one_sentence_heads_the_report_whole(self, title, heading):
+    def test_a_title_of_one_line_heads_the_report_whole(self, title):
         fragment = render_html([Section(title=title, blocks=[Paragraph(text="12 rows")])])
-        assert f'<header class="report-head"><h1>{heading}</h1></header>' in fragment
+        assert f'<header class="report-head"><h1>{title}</h1></header>' in fragment
 
     def test_a_report_with_no_warning_has_passed(self):
         assert '<span class="badge ok">passed</span></header>' in render_html([_report(_LABELS)])
@@ -272,6 +263,15 @@ class TestTables:
         fragment = render_html([self._TABLE])
         assert '<td class="left" data-value="cat">cat</td>' in fragment
         assert '<td class="right" data-value="75.0">75.0%</td>' in fragment
+
+    def test_a_text_cell_renders_backticks_as_code_as_prose_does(self):
+        table = Table(
+            columns=[Column(key="reads", header="Reads", align="left")], rows=[{"reads": "`few` ← `a` (src)\n`dupes`"}]
+        )
+        assert (
+            '<td class="left" data-value="`few` ← `a` (src)\n`dupes`">'
+            "<code>few</code> ← <code>a</code> (src)<br><code>dupes</code></td>"
+        ) in render_html([table])
 
     def test_a_bar_is_a_share_of_the_column_s_scale(self):
         fragment = render_html([self._TABLE])

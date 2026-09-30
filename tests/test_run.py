@@ -67,8 +67,8 @@ def test_an_extractor_config_needs_no_name() -> None:
     config = PipelineConfig.model_validate(
         {
             "extractors": [{"model": "flatten"}],
-            "evaluators": [{"type": "quality.duplicates", "cluster_sensitivity": 1.0}],
-            "tasks": [{"name": "t", "evaluator": "quality.duplicates", "sources": "src", "extractor": "flatten"}],
+            "evaluators": [{"type": "duplicates", "cluster_sensitivity": 1.0}],
+            "tasks": [{"name": "t", "evaluator": "duplicates", "sources": "src", "extractor": "flatten"}],
         }
     )
     assert config.extractors is not None
@@ -249,7 +249,7 @@ def test_run_tasks_keys_results_by_task() -> None:
 
 
 def test_load_config_reads_a_folder(tmp_path: Path) -> None:
-    (tmp_path / "a.yaml").write_text("evaluators:\n  - type: quality.duplicates\n")
+    (tmp_path / "a.yaml").write_text("evaluators:\n  - type: duplicates\n")
     (tmp_path / "b.yaml").write_text("seed: 3\n")
     config = load_config(tmp_path)
     assert config.seed == 3
@@ -262,16 +262,17 @@ def test_load_config_reads_a_file_named_as_a_string(tmp_path: Path) -> None:
 
 
 def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> None:
-    """The white image it flags, and both members of its exact and near duplicate groups, each captured once."""
+    """The white image its outliers flag (7), and both members of its exact (0, 5) and near (3, 9) duplicate groups,
+    each captured once. Each is named by ``data``, the preset's name for the Dataset ``run`` hands it."""
     config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
     result = run(config, ToyImages(count=40, near_duplicate=True))
     assert sorted(asset.item.index for asset in result.assets) == [0, 3, 5, 7, 9]
     assert {(asset.item.source, asset.media_type, asset.width, asset.height) for asset in result.assets} == {
-        ("dataset", "image/webp", 16, 16)
+        ("data", "image/webp", 16, 16)
     }
     page = result.to_html()
     assert page.count('<details class="thumb">') == 5
-    assert 'alt="dataset 7"' in page
+    assert 'alt="data 7"' in page
 
 
 def test_an_ood_run_reads_each_sample_s_thumbnail_from_its_own_test_source() -> None:
@@ -364,11 +365,12 @@ def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded
 
 
 def test_the_result_block_limits_a_run_s_tables() -> None:
-    """``max_rows`` and ``preview_rows`` reach the tables a real workflow builds, for that run alone."""
+    """``max_rows`` and ``preview_rows`` reach the tables a real preset's steps build, for that run alone."""
+    from dataeval_flow._blocks import Paragraph, Section, Table
     from dataeval_flow._tables import TableLimits, table_limits
     from dataeval_flow.config import ResultConfig
-    from dataeval_flow.workflows.data_cleaning import DataCleaningResult
-    from tests.finding_blocks import paragraphs, tables
+    from dataeval_flow.steps import ChainResult
+    from tests.finding_blocks import walk
 
     config = toy_pipeline(
         workflows=[DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"])],
@@ -377,9 +379,17 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     )
     config.result = ResultConfig(max_rows=1, preview_rows=-1, max_images=0)
     result = run_tasks(config)["t"]
-    assert isinstance(result, DataCleaningResult)
-    (duplicates,) = [finding for finding in result.findings if finding.title == "Duplicates"]
-    (groups,) = tables(duplicates)
+    assert isinstance(result, ChainResult)
+    assert result.steps["dupes"].type == "duplicates"
+    report = result._document(detailed=True).blocks
+    # The Duplicates finding shows the step it judged as its evidence.
+    (dupes,) = [
+        block for block in walk(report) if isinstance(block, Section) and block.title == "From Duplicates · dupes"
+    ]
+    blocks = list(walk(dupes.blocks))
+    (groups,) = [block for block in blocks if isinstance(block, Table)]
     assert (len(groups.rows), groups.preview) == (1, None)
-    assert "2 groups of images; the 1 largest are listed, and every one is in `output.raw`." in paragraphs(duplicates)
+    assert "2 groups of images; the 1 largest are listed, and every one is in `output.rows`." in [
+        block.text for block in blocks if isinstance(block, Paragraph)
+    ]
     assert table_limits() == TableLimits()

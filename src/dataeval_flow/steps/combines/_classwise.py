@@ -50,7 +50,7 @@ class ClasswiseOutliersConfig(CombineConfig):
     input: str = Field(description="The Dataset the outliers were found in; its labels name each item's class.")
     outliers: str = Field(
         description=(
-            "A `quality.outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`."
+            "An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`."
         )
     )
 
@@ -59,6 +59,7 @@ class ClasswiseOutliersCombine(Combine[ClasswiseOutliersConfig]):
     """``classwise-outliers``: how many of each class's items, or boxes for detection, an Outliers Output flagged."""
 
     name: ClassVar[str] = "classwise-outliers"
+    title: ClassVar[str] = "Outliers by Class"
     description: ClassVar[str] = "Pivots an Outliers Output by class: each class's flagged items or boxes."
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.DATASET, derives=frozenset({InputKind.METADATA})),
@@ -79,7 +80,7 @@ class ClasswiseOutliersCombine(Combine[ClasswiseOutliersConfig]):
         if metadata.multi_target and producer is not None and getattr(producer, "per_target", True) is not True:
             raise ValueError(
                 "classwise-outliers counts a detection Dataset's boxes, but `outliers` was not computed per box: "
-                "set `per_target: true` on its `quality.outliers` entry."
+                "set `per_target: true` on its `outliers` entry."
             )
         img_issues, target_issues = split_outlier_issues(inputs["outliers"].value.data())
         pivot = classwise_pivot(target_issues, img_issues, metadata)

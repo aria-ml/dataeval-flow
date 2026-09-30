@@ -321,12 +321,10 @@ class TestDriftMonitoringConfig:
         assert params.detectors[0].chunking is None
         assert params.detectors[0].classwise is False
         assert params.update_strategy is None
-        assert params.mode == "advisory"
 
     def test_full_config(self):
         params = DriftMonitoringConfig.model_validate(
             {
-                "mode": "preparatory",
                 "detectors": [
                     {
                         "method": "univariate",
@@ -343,7 +341,6 @@ class TestDriftMonitoringConfig:
                 },
             }
         )
-        assert params.mode == "preparatory"
         assert len(params.detectors) == 2
         assert params.detectors[0].chunking is not None
         assert params.detectors[0].chunking.chunk_size == 100

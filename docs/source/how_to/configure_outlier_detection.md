@@ -24,7 +24,6 @@ universally correct choice. It depends on how heavy-tailed your data is.
 workflows:
   - name: quality_check
     type: data-cleaning
-    mode: advisory
     outlier_method: modzscore
     outlier_flags: [dimension, pixel, visual]
 ```
@@ -81,7 +80,6 @@ extractors:
 workflows:
   - name: quality_check
     type: data-cleaning
-    mode: advisory
     outlier_method: adaptive
     outlier_flags: [dimension, pixel, visual]
     outlier_cluster_threshold: 3.5        # std devs from a cluster center
@@ -133,11 +131,11 @@ inspection.
 
 ## Related material
 
-- {doc}`configure_metadata_binning` — the `metadata_*` settings this workflow also accepts, `intrinsic_factors` for
-  measuring statistics into the metadata, and `value_range` for float imagery
+- {doc}`configure_metadata_binning` — the `metadata:` policy this workflow names, `intrinsic_factors` for measuring
+  statistics into the metadata, and `value_range` for float imagery
 - [Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) — the concepts behind outlier and duplicate
   detection
-- [Evaluator Catalog](../reference/evaluators.md) — `quality.outliers` runs the same detection alone, and takes
+- [Evaluator Catalog](../reference/evaluators.md) — `outliers` runs the same detection alone, and takes
   DataEval's own threshold spellings directly
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves

@@ -113,9 +113,7 @@ def _banner(block: Section, frame: Frame) -> list[str]:
     """The report itself: its title between rules, its content, and a closing rule."""
     rule = "=" * frame.width
     prefix = frame.indent + _STEP
-    title = [
-        line for part in block.title.split("\n") for line in _wrap(part.strip().upper(), prefix, prefix, frame.width)
-    ]
+    title = _wrap(block.title.strip().upper(), prefix, prefix, frame.width)
     inner = replace(frame, indent=frame.indent + _STEP, depth=1)
     return ["", rule, *title, rule, *render_text(block.blocks, inner), "", rule]
 
@@ -212,15 +210,25 @@ def summary_line(item: SummaryItem, frame: Frame) -> list[str]:
 
 
 def _summary(block: Summary, frame: Frame) -> list[str]:
-    if not block.items:
+    if block.failed:
+        steps = ", ".join(f"`{step}`" for step in block.failed)
+        noun = "step" if len(block.failed) == 1 else "steps"
+        also = f"; {block.warnings} warning(s) to review" if block.warnings else ""
+        health = f"Health: failed [!!] — {noun} {steps} failed{also}"
+    elif not block.items:
         return []
-    health = (
-        f"Health: {block.warnings} warning(s) [!!] — review flagged findings"
-        if block.warnings
-        else "Health: All checks passed [ok]"
-    )
-    lines = [line for item in block.items for line in summary_line(item, frame)]
-    return [*lines, "", *_wrap(health, frame.indent, frame.indent, frame.width)]
+    elif block.warnings:
+        health = f"Health: {block.warnings} warning(s) [!!] — review flagged findings"
+    else:
+        health = "Health: All checks passed [ok]"
+    lines: list[str] = []
+    group = ""
+    for item in block.items:
+        if item.group != group:
+            group = item.group
+            lines.extend(_wrap(group, frame.indent, frame.indent, frame.width) if group else [])
+        lines.extend(summary_line(item, frame.nested() if group else frame))
+    return [*lines, *([""] if lines else []), *_wrap(health, frame.indent, frame.indent, frame.width)]
 
 
 def _proportion(block: Proportion, frame: Frame) -> list[str]:

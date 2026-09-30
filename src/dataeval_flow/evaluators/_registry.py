@@ -9,23 +9,23 @@ from dataeval_flow.evaluators._evaluator import Evaluator
 __all__ = ["EVALUATORS", "get_evaluator", "list_evaluators"]
 
 _BUILTINS = {
-    "bias.balance": "dataeval_flow.evaluators.bias._evaluator:BalanceEvaluator",
-    "bias.diversity": "dataeval_flow.evaluators.bias._evaluator:DiversityEvaluator",
-    "bias.parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
-    "quality.duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
-    "quality.label-health": "dataeval_flow.evaluators.quality._evaluator:LabelHealthEvaluator",
-    "quality.outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
-    "scope.representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
-    "scope.coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
-    "scope.prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",
-    "scope.label-alignment": "dataeval_flow.evaluators.scope._evaluator:LabelAlignmentEvaluator",
-    "shift.drift-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:DriftDomainClassifierEvaluator",
-    "shift.drift-kneighbors": "dataeval_flow.evaluators.shift._evaluator:DriftKNeighborsEvaluator",
-    "shift.drift-mmd": "dataeval_flow.evaluators.shift._evaluator:DriftMMDEvaluator",
-    "shift.drift-univariate": "dataeval_flow.evaluators.shift._evaluator:DriftUnivariateEvaluator",
-    "shift.drift-wasserstein": "dataeval_flow.evaluators.shift._evaluator:DriftWassersteinEvaluator",
-    "shift.ood-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:OODDomainClassifierEvaluator",
-    "shift.ood-kneighbors": "dataeval_flow.evaluators.shift._evaluator:OODKNeighborsEvaluator",
+    "balance": "dataeval_flow.evaluators.bias._evaluator:BalanceEvaluator",
+    "diversity": "dataeval_flow.evaluators.bias._evaluator:DiversityEvaluator",
+    "parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
+    "duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
+    "label-health": "dataeval_flow.evaluators.quality._evaluator:LabelHealthEvaluator",
+    "outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
+    "representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
+    "coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
+    "prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",
+    "label-alignment": "dataeval_flow.evaluators.scope._evaluator:LabelAlignmentEvaluator",
+    "drift-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:DriftDomainClassifierEvaluator",
+    "drift-kneighbors": "dataeval_flow.evaluators.shift._evaluator:DriftKNeighborsEvaluator",
+    "drift-mmd": "dataeval_flow.evaluators.shift._evaluator:DriftMMDEvaluator",
+    "drift-univariate": "dataeval_flow.evaluators.shift._evaluator:DriftUnivariateEvaluator",
+    "drift-wasserstein": "dataeval_flow.evaluators.shift._evaluator:DriftWassersteinEvaluator",
+    "ood-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:OODDomainClassifierEvaluator",
+    "ood-kneighbors": "dataeval_flow.evaluators.shift._evaluator:OODKNeighborsEvaluator",
 }
 
 
@@ -44,7 +44,7 @@ def get_evaluator(name: str) -> type[Evaluator[Any, Any]]:
     Parameters
     ----------
     name : str
-        The evaluator's name: its type id, e.g. ``"quality.duplicates"``.
+        The evaluator's name: its type id, e.g. ``"duplicates"``.
 
     Returns
     -------

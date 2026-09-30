@@ -13,7 +13,7 @@ __all__ = ["DuplicatesResult", "LabelHealthOutput", "LabelHealthResult", "Outlie
 
 
 class DuplicatesResult(EvaluatorResult[DuplicatesOutput[Any, Any]]):
-    """The result of a ``quality.duplicates`` run: ``output`` is DataEval's ``DuplicatesOutput``.
+    """The result of a ``duplicates`` run: ``output`` is DataEval's ``DuplicatesOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
@@ -27,7 +27,7 @@ class DuplicatesResult(EvaluatorResult[DuplicatesOutput[Any, Any]]):
         with ``annotation_divergences`` and ``factor_cardinality`` under ``extras``, ``null`` unless the annotation or
         factor axis ran.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
@@ -41,7 +41,7 @@ class DuplicatesResult(EvaluatorResult[DuplicatesOutput[Any, Any]]):
 
 
 class OutliersResult(EvaluatorResult[OutliersOutput[Any]]):
-    """The result of a ``quality.outliers`` run: ``output`` is DataEval's ``OutliersOutput``.
+    """The result of an ``outliers`` run: ``output`` is DataEval's ``OutliersOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
@@ -53,7 +53,7 @@ class OutliersResult(EvaluatorResult[OutliersOutput[Any]]):
         DataEval's ``OutliersOutput``, so its own methods work: ``data()`` for the table of flagged items,
         ``aggregate_by_item()``, ``aggregate_by_metric()`` and the rest. Its JSON form is what ``to_dict()`` writes.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
@@ -67,7 +67,7 @@ class OutliersResult(EvaluatorResult[OutliersOutput[Any]]):
 
 
 class LabelHealthOutput(CoreOutput):
-    """``quality.label-health``'s output: how a Dataset's labels spread over its classes.
+    """``label-health``'s output: how a Dataset's labels spread over its classes.
 
     ``data()`` holds:
 
@@ -81,7 +81,7 @@ class LabelHealthOutput(CoreOutput):
 
 
 class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
-    """The result of a ``quality.label-health`` run; ``output`` is a
+    """The result of a ``label-health`` run; ``output`` is a
     :class:`~dataeval_flow.evaluators.quality.LabelHealthOutput`.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -94,8 +94,14 @@ class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
         The counts: ``data()`` holds ``item_count``, ``class_count``, ``label_count``, ``label_counts_per_class``,
         ``image_counts_per_class``, ``empty_image_count`` and ``label_source``.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The counts as fields, and a table of each class's labels and images."""
+        from dataeval_flow.evaluators.quality._report import label_health_section
+
+        return label_health_section(output)

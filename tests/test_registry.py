@@ -120,7 +120,7 @@ def test_a_broken_builtin_raises_and_leaves_nothing_half_loaded(name: str, targe
         group="dataeval_flow.tests.no-such-group",
         base=lambda: Evaluator,
         builtins={
-            "quality.duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
+            "duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
             name: target,
         },
     )
@@ -196,7 +196,7 @@ def test_a_plugin_may_list_another_kind_while_it_loads(plugins) -> None:
     assert "example.count" in _names()
     from tests.cross_kind_plugin import EVALUATORS_SEEN
 
-    assert "quality.duplicates" in EVALUATORS_SEEN
+    assert "duplicates" in EVALUATORS_SEEN
 
 
 def test_two_plugins_claiming_one_name_are_both_refused(plugins) -> None:

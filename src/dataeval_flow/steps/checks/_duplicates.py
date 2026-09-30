@@ -18,7 +18,7 @@ from dataeval_flow.workflows._base import Finding
 class DuplicateRateConfig(CheckConfig):
     """A `duplicate-rate` step's input, and the shares of a Dataset that may be exact and near duplicates."""
 
-    input: str = Field(description="A `quality.duplicates` Output.")
+    input: str = Field(description="A `duplicates` Output.")
     exact: float | None = Field(
         default=0.0,
         ge=0.0,

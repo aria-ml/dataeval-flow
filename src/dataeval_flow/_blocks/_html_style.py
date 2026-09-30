@@ -39,7 +39,6 @@ nav.contents h2 { font-size: 1rem; margin: 0.5rem 0; }
 .report-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap;
   border-bottom: 2px solid var(--ink); padding-bottom: 0.3rem; }
 .report-head h1 { margin: 0; }
-.report-head .facts { flex-basis: 100%; margin: 0.15rem 0 0; color: var(--muted); }
 dl.fields.provenance { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem;
   margin: 0.6rem 0 1.2rem; padding: 0.5rem 0.8rem; background: var(--soft); border-radius: 6px;
   color: var(--muted); font-size: 0.85rem; }
@@ -59,6 +58,7 @@ details.panel { border-left-color: var(--rule); margin-top: 1.5rem; }
 .badge { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; border-radius: 1rem; padding: 0.05rem 0.55rem;
   margin-left: 0.5rem; color: #fff; background: var(--info); vertical-align: middle; }
 .badge.ok { background: var(--ok); } .badge.warning { background: var(--warning); }
+.badge.failed { background: var(--mark); }
 code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
 code { font-size: 0.9em; background: var(--soft); padding: 0 0.2em; border-radius: 3px; }
 pre { background: var(--soft); padding: 0.75rem; overflow-x: auto; font-size: 0.85rem; }
@@ -71,9 +71,11 @@ th[aria-sort="ascending"]::after { content: " ▲"; } th[aria-sort="descending"]
 th:focus-visible, .tag:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
 .left, th.flags, td.flags { text-align: left; } .right { text-align: right; }
 table.summary td a { color: var(--ink); font-weight: 600; }
+table.summary tr.group th { padding-top: 0.6rem; color: var(--ink); text-align: left; }
 p.health { margin: 0.6rem 0; padding: 0.4rem 0.8rem; font-weight: 600; background: var(--soft);
   border-left: 4px solid var(--info); border-radius: 4px; }
 p.health.ok { border-left-color: var(--ok); } p.health.warning { border-left-color: var(--warning); }
+p.health.failed { border-left-color: var(--mark); }
 .filter { display: flex; align-items: center; gap: 0.6rem; margin: 0.5rem 0 0.2rem; }
 .filter input { font: inherit; font-size: 0.8rem; min-width: 14rem; padding: 0.15rem 0.5rem;
   color: var(--ink); background: var(--soft); border: 1px solid var(--rule); border-radius: 4px; }

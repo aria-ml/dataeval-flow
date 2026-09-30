@@ -54,6 +54,7 @@ class ExportTransform(Transform[ExportStepConfig]):
     its key. Skipped without an output directory."""
 
     name: ClassVar[str] = "export"
+    title: ClassVar[str] = "Export"
     description: ClassVar[str] = "Writes an object-detection Dataset to disk as COCO, YOLO or another datamaite format."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, kinds=frozenset({"object_detection"})),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.EXPORT),)

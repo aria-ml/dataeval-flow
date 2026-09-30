@@ -1,7 +1,8 @@
-"""Internal helper functions shared by data cleaning and parameter sweep workflows."""
+"""The embedding and cluster-merge helpers parameter-sweep runs data-cleaning's detection with, until its port to a wrapper over the data-cleaning preset (spec §10.4)."""  # noqa: E501
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -13,6 +14,15 @@ from dataeval_flow._cache import get_or_compute_cluster_result, get_or_compute_e
 from dataeval_flow.evaluators.quality._merge import merge_duplicate_outputs, merge_outlier_outputs
 
 _logger: logging.Logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CleaningRunContext:
+    """Extractor plumbing parameter-sweep's run hands to `_compute_embeddings` and the cluster-merge helpers."""
+
+    extractor_config: Any = None
+    transforms: Callable | None = None
+    batch_size: int | None = None
 
 
 def _compute_embeddings(

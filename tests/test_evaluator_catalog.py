@@ -3,6 +3,7 @@
 A task that breaks the rule costs a config error when the pipeline loads, not a walk over the data.
 """
 
+import re
 from typing import Any
 
 import pytest
@@ -15,23 +16,23 @@ from tests.evaluator_toys import _EXTRA_CONFIG, toy_run, toy_task_run
 
 # Each type's `SourceCount` value, and whether its tasks need, may name, or must not name an extractor (spec §3).
 _CATALOG: dict[str, tuple[str, str]] = {
-    "quality.duplicates": ("1+", "optional"),
-    "quality.label-health": ("1", "refused"),
-    "quality.outliers": ("1+", "optional"),
-    "bias.balance": ("1", "refused"),
-    "bias.diversity": ("1", "refused"),
-    "bias.parity": ("1", "refused"),
-    "scope.representation": ("1", "refused"),
-    "scope.coverage": ("1", "required"),
-    "scope.prioritize": ("1-2", "required"),
-    "scope.label-alignment": ("1", "refused"),
-    "shift.drift-domain-classifier": ("2", "required"),
-    "shift.drift-kneighbors": ("2", "required"),
-    "shift.drift-mmd": ("2", "required"),
-    "shift.drift-univariate": ("2", "required"),
-    "shift.drift-wasserstein": ("3", "required"),
-    "shift.ood-domain-classifier": ("2", "required"),
-    "shift.ood-kneighbors": ("2", "required"),
+    "duplicates": ("1+", "optional"),
+    "label-health": ("1", "refused"),
+    "outliers": ("1+", "optional"),
+    "balance": ("1", "refused"),
+    "diversity": ("1", "refused"),
+    "parity": ("1", "refused"),
+    "representation": ("1", "refused"),
+    "coverage": ("1", "required"),
+    "prioritize": ("1-2", "required"),
+    "label-alignment": ("1", "refused"),
+    "drift-domain-classifier": ("2", "required"),
+    "drift-kneighbors": ("2", "required"),
+    "drift-mmd": ("2", "required"),
+    "drift-univariate": ("2", "required"),
+    "drift-wasserstein": ("3", "required"),
+    "ood-domain-classifier": ("2", "required"),
+    "ood-kneighbors": ("2", "required"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.
@@ -65,6 +66,23 @@ def _types(rule: str) -> list[str]:
 
 def test_every_builtin_is_in_the_catalog():
     assert set(_BUILTINS) == set(_CATALOG)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("quality.outliers", "outliers"),
+        ("bias.balance", "balance"),
+        ("scope.coverage", "coverage"),
+        ("shift.drift-mmd", "drift-mmd"),
+    ],
+)
+def test_a_family_prefixed_id_is_unknown_and_the_refusal_names_the_plain_one(old: str, new: str):
+    with pytest.raises(ValidationError, match=re.escape(f"Unknown evaluator: '{old}'. Installed: ")) as refused:
+        PipelineConfig.model_validate({"evaluators": [{"name": "e", "type": old}]})
+    installed = str(refused.value).split("Installed: ", 1)[1].split("]", 1)[0]
+    assert f"'{new}'" in installed
+    assert f"'{old}'" not in installed
 
 
 @pytest.mark.parametrize("name", sorted(_CATALOG))

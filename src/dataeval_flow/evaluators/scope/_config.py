@@ -17,27 +17,27 @@ from dataeval_flow.evaluators.scope._result import CoverageResult, PrioritizeRes
 
 
 class RepresentationConfig(EvaluatorConfig[RepresentationResult]):
-    """Config for ``scope.representation``, DataEval's Representation.
+    """Config for ``representation``, DataEval's Representation.
 
     Counts the source's class labels against an ontology's leaves, and lists what to acquire for every leaf to reach
     its expected share. Needs a dataset with labels. With no ``ontology``, a flat one is synthesized from the
     dataset's ``index2label``, which can only name the classes the dataset declares.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators scope.representation`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators representation`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: representation
-            type: scope.representation
+            type: representation
             ontology: vehicles
             expected: {truck: 0.2}
     """
 
     type: str = Field(
-        default="scope.representation",
-        description="The evaluator type this entry configures: `scope.representation`.",
+        default="representation",
+        description="The evaluator type this entry configures: `representation`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
 
@@ -61,26 +61,24 @@ class RepresentationConfig(EvaluatorConfig[RepresentationResult]):
 
 
 class CoverageConfig(EvaluatorConfig[CoverageResult]):
-    """Config for ``scope.coverage``, DataEval's Coverage.
+    """Config for ``coverage``, DataEval's Coverage.
 
     Finds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks
     the coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;
     without them it runs over every item as one class, ``0``, and logs a warning.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators scope.coverage`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators coverage`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: coverage
-            type: scope.coverage
+            type: coverage
             num_observations: 30
     """
 
-    type: str = Field(
-        default="scope.coverage", description="The evaluator type this entry configures: `scope.coverage`."
-    )
+    type: str = Field(default="coverage", description="The evaluator type this entry configures: `coverage`.")
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.EMBEDDINGS, InputKind.LABELS}), sources=SourceCount.ONE
     )
@@ -133,20 +131,20 @@ class CoverageConfig(EvaluatorConfig[CoverageResult]):
 
 
 class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
-    """Config for ``scope.prioritize``, DataEval's Prioritize.
+    """Config for ``prioritize``, DataEval's Prioritize.
 
     Ranks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.
     A second source is the reference: the items are then ranked relative to it, as when choosing what to label next
     beside data already labeled. Needs an extractor on the task.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators scope.prioritize`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators prioritize`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: next_to_label
-            type: scope.prioritize
+            type: prioritize
             order: hard_first
 
         tasks:
@@ -156,9 +154,7 @@ class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
             extractor: bovw_ext
     """
 
-    type: str = Field(
-        default="scope.prioritize", description="The evaluator type this entry configures: `scope.prioritize`."
-    )
+    type: str = Field(default="prioritize", description="The evaluator type this entry configures: `prioritize`.")
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.EMBEDDINGS, InputKind.LABELS}), sources=SourceCount.ONE_OR_TWO
     )
@@ -215,7 +211,7 @@ class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
 
 
 class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
-    """The result of a ``scope.label-alignment`` run; ``output`` is a
+    """The result of a ``label-alignment`` run; ``output`` is a
     :class:`~dataeval_flow.evaluators.scope.LabelAlignmentOutput`.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -230,7 +226,7 @@ class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
         ``ambiguous_labels``, ``label_space_digest``). ``output.alignment`` is the same, as a pydantic model, and
         ``output.ontology`` the resolved ontology a ``conform`` step relabels onto.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
@@ -238,15 +234,15 @@ class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
 
 
 class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
-    """Config for ``scope.label-alignment``: how a Dataset's class names align to an ontology.
+    """Config for ``label-alignment``: how a Dataset's class names align to an ontology.
 
     Wraps ``dataeval.core.label_alignment``, with the remap written as labels to paste, the target vocabulary, and the
     label-space digest a conformed corpus carries. A ``conform`` step applies it.
     """
 
     type: str = Field(
-        default="scope.label-alignment",
-        description="The evaluator type this entry configures: `scope.label-alignment`.",
+        default="label-alignment",
+        description="The evaluator type this entry configures: `label-alignment`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
     ontology: dict[str, Any] | str = Field(

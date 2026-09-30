@@ -238,7 +238,7 @@ results = run_tasks(config, data_dir=Path("."), cache_dir=Path("./cache"))
 # %%
 for name, result in results.items():
     status = "OK " if result.success else "FAIL"
-    warnings = sum(1 for f in result.output.report.findings if f.severity == "warning") if result.success else 0
+    warnings = result.warning_count
     elapsed = result.metadata.execution_time_s or 0.0
     print(f"[{status}] {name:<16} {result.type:<16} {elapsed:>6.1f}s  {warnings} warning(s)")
     for error in result.errors:
@@ -256,8 +256,10 @@ clean_result, profile_result, split_result = results["clean_train"], results["pr
 # Each task result exposes three primary interfaces:
 #
 # - `result.report()`: Formatted text summary.
-# - `result.output.report.findings`: Structured finding objects.
-# - `result.output.raw`: Workflow-specific raw numerical metrics.
+# - `result.findings`: Structured finding objects.
+# - The numbers behind the findings. For `data-analysis` and `data-splitting`, `result.output.raw` holds the
+#   workflow-specific raw metrics. `data-cleaning` runs as a chain of steps, so its result holds each step's output
+#   in `result.steps`, by step name.
 #
 # You can call `report(detailed=False)` for high-level summaries, or `report(detailed=True)`
 # for per-finding breakdowns.
@@ -273,13 +275,13 @@ for result in results.values():
 # ### 5b. Structured findings
 #
 # Each finding includes a `title`, a `severity` (`ok`, `info`, or `warning`), a short `brief`, a
-# `description`, and its evidence as report `blocks`. You can query these programmatically in
-# automated CI/CD gates.
+# `description` (`None` where the brief says it all), and its evidence as report `blocks`. You can
+# query these programmatically in automated CI/CD gates.
 
 # %%
 for result in results.values():
     print(f"\n{result.type}")
-    for finding in result.output.report.findings:
+    for finding in result.findings:
         marker = {"warning": "[!!]", "ok": "[ok]"}.get(finding.severity, "[..]")
         print(f"  {marker} {finding.title:<34} {finding.brief or ''}")
 
@@ -287,26 +289,24 @@ for result in results.values():
 # ### 5c. Data cleaning: Inspect flagged images
 #
 # The cleaning report summarizes the count of flagged images. You can retrieve specific
-# sample indices from `result.output.raw` and slice `result.dataset` directly without reloading data.
+# sample indices from the `outliers` and `dupes` steps, whose outputs are DataEval's own, and slice
+# `result.sources` directly without reloading data. It holds each source the task read, after its view.
 
 # %%
-raw = clean_result.output.raw
+issues = clean_result.steps["outliers"].output.data()
+image_issues = issues.filter(issues["target_index"].is_null())  # the rest flag single boxes
+outlier_indices = sorted(set(image_issues["item_index"].to_list()))
+near_groups = clean_result.steps["dupes"].output.items.near
 
-outlier_issues = raw.img_outliers["issues"]
-outlier_indices = sorted({issue["item_index"] for issue in outlier_issues})
-near_groups = raw.duplicates["items"].get("near", [])
-
-print(f"Image outliers:        {len(outlier_indices)} images, {len(outlier_issues)} flags")
+print(f"Image outliers:        {len(outlier_indices)} images, {image_issues.height} flags")
 print(f"Near-duplicate groups: {len(near_groups)}")
 
 # %%
 from dataeval_plots import plot
 
-assert clean_result.dataset is not None
-
 if outlier_indices:
     _ = plot(
-        clean_result.dataset,
+        clean_result.sources["train_src"],
         indices=outlier_indices[:6],
         images_per_row=3,
         figsize=(12, 8),
@@ -432,7 +432,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # ### Run it
 #
 # Use `--user` so `/output` and `/cache` remain writable by your host account.
-# Use `-v` to print formatted reports to standard output.
+# The console prints each report's short form; `-v` prints the full reports instead.
 #
 # ```bash
 # cd dataeval-run
@@ -481,12 +481,13 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # # Inspect executed tasks
 # jq -r 'keys[]' output/results/result.json
 #
-# # Print findings and severities
-# jq -r 'to_entries[] | .key as $task | .value.report.findings[]
+# # Print findings and severities: data-cleaning lists its findings at the top of its entry, and the
+# # other workflows in their report
+# jq -r 'to_entries[] | .key as $task | (.value.findings // .value.report.findings)[]
 #        | "\($task)\t\(.severity)\t\(.title)"' output/results/result.json
 #
 # # Gate CI/CD pipelines on warnings
-# jq -e '[.[].report.findings[] | select(.severity == "warning")] | length == 0' \
+# jq -e '[.[].health.warnings] | add == 0' \
 #     output/results/result.json > /dev/null \
 #     && echo "PASS: no warnings" || echo "FAIL: warnings present"
 #

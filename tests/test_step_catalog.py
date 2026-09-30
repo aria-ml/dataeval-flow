@@ -25,8 +25,8 @@ def test_the_catalog_lists_every_built_in_step_of_every_kind() -> None:
     catalog = list_steps(plugins=False)
     kinds = {(entry.kind, entry.type) for entry in catalog.steps}
     assert {("transform", name) for name in TRANSFORM_BUILTINS} <= kinds
-    assert ("evaluator", "quality.duplicates") in kinds
-    assert ("evaluator", "scope.label-alignment") in kinds
+    assert ("evaluator", "duplicates") in kinds
+    assert ("evaluator", "label-alignment") in kinds
     assert ("workflow", "data-cleaning") in kinds
     assert catalog.format == 1
 
@@ -45,7 +45,7 @@ def test_an_entry_describes_its_ports_and_config() -> None:
     assert entry.inputs[1].classes == ["dataeval.scope.PrioritizeOutput"]
     assert entry.outputs[0].type == "dataset"
     assert "ranking" in entry.config_schema["properties"]
-    duplicates = next(e for e in list_steps(plugins=False).steps if e.type == "quality.duplicates")
+    duplicates = next(e for e in list_steps(plugins=False).steps if e.type == "duplicates")
     assert duplicates.inputs[0].count == "1+"
     assert "stats" in duplicates.inputs[0].derives
     assert duplicates.origin == "dataeval-flow"
@@ -62,7 +62,8 @@ def test_a_dataset_port_of_any_kind_says_any_and_other_ports_name_no_kinds() -> 
     assert steps["select"].inputs[1].kinds is None
     assert [port.kinds for port in steps["split"].outputs] == [["any"], ["any"], ["any"]]
     assert steps["export"].inputs[0].kinds == ["object_detection"]
-    assert steps["data-cleaning"].outputs[0].kinds is None
+    assert steps["data-analysis"].outputs[0].kinds is None
+    assert steps["data-cleaning"].outputs[0].kinds == ["any"]
 
 
 def test_a_port_writes_the_spec_keys() -> None:
@@ -91,7 +92,7 @@ def test_every_class_the_catalog_names_imports_from_a_public_path() -> None:
 def test_label_alignment_is_named_by_its_public_home() -> None:
     steps = {e.type: e for e in list_steps(plugins=False).steps}
     expected = ["dataeval_flow.evaluators.scope.LabelAlignmentOutput"]
-    assert steps["scope.label-alignment"].outputs[0].classes == expected
+    assert steps["label-alignment"].outputs[0].classes == expected
     assert steps["conform"].inputs[1].classes == expected
 
 

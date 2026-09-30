@@ -292,7 +292,7 @@ def _run_embedding_analysis(
         if dc.cache is not None:
             stack.enter_context(active_cache(dc.cache, emb_key))
         embeddings_obj = get_or_compute_embeddings(emb_dataset, dc.extractor, dc.transforms, dc.batch_size)
-    # As extracted: Coverage rescales them itself (force_unit_interval), as `scope.coverage` hands them over.
+    # As extracted: Coverage rescales them itself (force_unit_interval), as `coverage` hands them over.
     all_embeddings = np.asarray(embeddings_obj)
 
     # dataeval's coverage functions require strictly more embeddings than
@@ -643,6 +643,7 @@ class DataCoverageWorkflow(Workflow[DataCoverageConfig, DataCoverageResult]):
     """
 
     name: ClassVar[str] = "data-coverage"
+    title: ClassVar[str] = "Data Coverage"
     description: ClassVar[str] = "Analyze dataset scope and coverage for sufficiency"
 
     def run(self, config: DataCoverageConfig, context: WorkflowContext) -> DataCoverageResult:
@@ -749,7 +750,6 @@ class DataCoverageWorkflow(Workflow[DataCoverageConfig, DataCoverageResult]):
         report = DataCoverageReport(summary=summary, findings=findings)
 
         result_metadata = DataCoverageMetadata(
-            mode=config.mode,
             has_extractor=has_extractor,
             label_space_digest=_label_space_digest_of(raw),
         )

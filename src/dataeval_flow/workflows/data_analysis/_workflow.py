@@ -1175,6 +1175,7 @@ class DataAnalysisWorkflow(Workflow[DataAnalysisConfig, DataAnalysisResult]):
     """
 
     name: ClassVar[str] = "data-analysis"
+    title: ClassVar[str] = "Data Analysis"
     description: ClassVar[str] = "Comprehensive quality analysis across dataset splits"
 
     def run(self, config: DataAnalysisConfig, context: WorkflowContext) -> DataAnalysisResult:
@@ -1286,23 +1287,12 @@ class DataAnalysisWorkflow(Workflow[DataAnalysisConfig, DataAnalysisResult]):
 
         # Workflow-specific metadata
         result_metadata = DataAnalysisMetadata(
-            mode=config.mode,
             split_names=list(context.dataset_contexts.keys()),
         )
         # Recorded per split even though they now share one encoding: what varies is the
         # fit, not the policy. The digests being equal is what says so, and is what makes
         # the per-split statistics comparable.
         attach_binning(result_metadata, {name: d.metadata for name, d in split_data.items()}, run_policy)
-        if config.mode == "preparatory":
-            findings.append(
-                Finding(
-                    severity="info",
-                    title="Preparatory Mode",
-                    description="Review per-split outlier and duplicate counts to identify items for removal.",
-                    blocks=[Paragraph(text="Preparatory mode active.")],
-                )
-            )
-
         raw = DataAnalysisRawOutput(
             dataset_size=total_samples,
             splits=split_results,

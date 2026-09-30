@@ -240,7 +240,6 @@ class TestDataAnalysisConfig:
         assert p.diversity_method is None
         assert p.include_image_stats is False
         assert p.divergence_method is None
-        assert p.mode == "advisory"
 
     def test_all_methods_accepted(self):
         for method in ("adaptive", "zscore", "modzscore", "iqr"):
@@ -280,10 +279,6 @@ class TestDataAnalysisConfig:
     def test_invalid_divergence_method(self):
         with pytest.raises(ValidationError, match="divergence_method"):
             _make_params(divergence_method="kl")
-
-    def test_preparatory_mode(self):
-        p = _make_params(mode="preparatory")
-        assert p.mode == "preparatory"
 
 
 # ===========================================================================
@@ -1981,32 +1976,6 @@ class TestWorkflowRun:
         assert "train" in result.output.raw.splits  # type: ignore
         assert "test" in result.output.raw.splits  # type: ignore
         assert "train_vs_test" in result.output.raw.cross_split  # type: ignore
-
-    @patch(f"{_WF}._assess_bias")
-    @patch(f"{_WF}._assess_label_health")
-    @patch(f"{_WF}._assess_redundancy")
-    @patch(f"{_WF}._assess_image_quality")
-    @patch(f"{_WF}._compute_split_data")
-    def test_preparatory_mode(self, mock_compute, mock_iq, mock_rd, mock_lh, mock_bias):
-        mock_compute.return_value = MagicMock(dataset_len=50)
-        mock_iq.return_value = _make_image_quality()
-        mock_rd.return_value = _make_redundancy()
-        mock_lh.return_value = _make_label_health()
-        mock_bias.return_value = _make_bias()
-
-        wf = DataAnalysisWorkflow()
-        ds = MagicMock(__len__=MagicMock(return_value=50))
-        dc = DatasetContext(name="train", dataset=ds)
-        ctx = WorkflowContext(dataset_contexts={"train": dc})
-
-        result = wf.run(_make_params(mode="preparatory"), ctx)
-        assert result.success is True
-        assert result.metadata.mode == "preparatory"
-        titles = [f.title for f in result.output.report.findings]  # type: ignore
-        assert "Preparatory Mode" in titles
-        prep = next(f for f in result.output.report.findings if f.title == "Preparatory Mode")
-        assert prep.description == "Review per-split outlier and duplicate counts to identify items for removal."
-        assert paragraphs(prep) == ["Preparatory mode active."]
 
     @patch("dataeval_flow._embeddings.build_embeddings")
     @patch(f"{_WF}._assess_bias")

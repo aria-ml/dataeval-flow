@@ -12,7 +12,7 @@ __all__ = ["CoverageResult", "PrioritizeResult", "RepresentationResult"]
 
 
 class RepresentationResult(EvaluatorResult[RepresentationOutput]):
-    """The result of a ``scope.representation`` run: ``output`` is DataEval's ``RepresentationOutput``.
+    """The result of a ``representation`` run: ``output`` is DataEval's ``RepresentationOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
@@ -25,7 +25,7 @@ class RepresentationResult(EvaluatorResult[RepresentationOutput]):
         (``concept``, ``label``, ``parent``, ``action``, ``count``, ``target``, ``deficit``). ``leaf_coverage``,
         ``total_deficit``, ``violations`` and ``dark_branches`` are the summary ``to_dict()`` writes under ``extras``.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
@@ -33,7 +33,7 @@ class RepresentationResult(EvaluatorResult[RepresentationOutput]):
 
 
 class CoverageResult(EvaluatorResult[CoverageOutput]):
-    """The result of a ``scope.coverage`` run: ``output`` is DataEval's ``CoverageOutput``.
+    """The result of a ``coverage`` run: ``output`` is DataEval's ``CoverageOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
@@ -47,7 +47,7 @@ class CoverageResult(EvaluatorResult[CoverageOutput]):
         ``uncovered_indices``, ``coverage_radius`` and ``critical_value_radii`` are the source-wide results
         ``to_dict()`` writes under ``extras``.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
@@ -61,7 +61,7 @@ class CoverageResult(EvaluatorResult[CoverageOutput]):
 
 
 class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):
-    """The result of a ``scope.prioritize`` run: ``output`` is DataEval's ``PrioritizeOutput``.
+    """The result of a ``prioritize`` run: ``output`` is DataEval's ``PrioritizeOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
@@ -74,7 +74,7 @@ class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):
         and ``class_balanced()``. ``data()`` is the item indices in ranked order, which ``to_dict()`` writes as an
         array, with ``scores`` under ``extras``.
     metadata.evaluator
-        The evaluator type, e.g. ``quality.duplicates``.
+        The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.

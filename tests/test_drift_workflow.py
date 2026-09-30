@@ -476,7 +476,6 @@ class TestDriftMonitoringOutput:
         assert meta.detectors_used == []
         assert meta.chunking_enabled is False
         assert meta.classwise_enabled is False
-        assert meta.mode == "advisory"
 
     def test_json_serialization(self):
         raw = DriftMonitoringRawOutput(

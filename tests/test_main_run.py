@@ -580,7 +580,7 @@ class TestEvaluatorsCommand:
 
         assert _list_evaluators(None, as_json=False) == 0
         out = capsys.readouterr().out
-        assert "quality.duplicates" in out
+        assert any(line.split()[:1] == ["duplicates"] for line in out.splitlines())
         assert "consumes: stats, clusters (optional); sources: 1+" in out
 
     def test_json_listing_is_machine_readable(self, capsys: pytest.CaptureFixture):
@@ -594,7 +594,7 @@ class TestEvaluatorsCommand:
     def test_named_evaluator_prints_its_config_schema(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_evaluators
 
-        assert _list_evaluators("quality.duplicates", as_json=False) == 0
+        assert _list_evaluators("duplicates", as_json=False) == 0
         schema = json.loads(capsys.readouterr().out)
         assert "merge_near_duplicates" in schema["properties"]
 
@@ -608,7 +608,8 @@ class TestEvaluatorsCommand:
         from dataeval_flow.__main__ import _list_workflows
 
         _list_workflows(None, as_json=True)
-        assert not any(e["name"].startswith("quality.") for e in json.loads(capsys.readouterr().out))
+        names = {e["name"] for e in json.loads(capsys.readouterr().out)}
+        assert names.isdisjoint({"duplicates", "label-health", "outliers"})
 
     @patch("dataeval_flow.__main__._list_evaluators", return_value=0)
     @patch("dataeval_flow.__main__.parse_args")
@@ -617,7 +618,7 @@ class TestEvaluatorsCommand:
 
         args = MagicMock()
         args.command = "evaluators"
-        args.name = "quality.outliers"
+        args.name = "outliers"
         args.json = True
         mock_parse.return_value = args
 
@@ -625,10 +626,10 @@ class TestEvaluatorsCommand:
             main()
 
         assert exc_info.value.code == 0
-        mock_list.assert_called_once_with("quality.outliers", as_json=True)
+        mock_list.assert_called_once_with("outliers", as_json=True)
 
     def test_the_parser_accepts_the_command(self):
         from dataeval_flow.__main__ import _build_parser
 
-        args = _build_parser().parse_args(["evaluators", "quality.duplicates", "--json"])
-        assert (args.command, args.name, args.json) == ("evaluators", "quality.duplicates", True)
+        args = _build_parser().parse_args(["evaluators", "duplicates", "--json"])
+        assert (args.command, args.name, args.json) == ("evaluators", "duplicates", True)

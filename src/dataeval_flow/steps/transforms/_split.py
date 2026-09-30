@@ -76,6 +76,7 @@ class SplitTransform(Transform[SplitConfig]):
     """``split``: one train, val and test, from DataEval's ``split_dataset`` on the input's metadata."""
 
     name: ClassVar[str] = "split"
+    title: ClassVar[str] = "Split"
     description: ClassVar[str] = "Splits a Dataset into train, val and test, optionally stratified or grouped."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
     outputs: ClassVar[tuple[Port, ...]] = (
@@ -121,6 +122,7 @@ class KFoldTransform(Transform[KFoldConfig]):
     """``kfold``: `folds` train and val pairs, as lists keyed ``"0"`` to ``"k-1"``, and one test."""
 
     name: ClassVar[str] = "kfold"
+    title: ClassVar[str] = "K-Fold Split"
     description: ClassVar[str] = "Splits a Dataset into k train and val folds, and one test."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
     outputs: ClassVar[tuple[Port, ...]] = (

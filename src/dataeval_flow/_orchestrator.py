@@ -358,6 +358,8 @@ def _run_single_task(
     from dataeval_flow._kind import input_problem, result_type_of
     from dataeval_flow._tables import TableLimits
     from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.workflows._base import WorkflowConfig
+    from dataeval_flow.workflows._preset import Preset, expand_preset
     from dataeval_flow.workflows._result import WorkflowResult
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
@@ -413,10 +415,33 @@ def _run_single_task(
         result_type = result_type_of(runner, default)
         message = f"Task '{task.name}' runs {task.kind} '{instance.name}' ({instance.type}), which {problem}"
         refused = result_type.failed(type=runner.name, errors=[message])
+        from dataeval_flow.steps._result import ChainResult
+
+        if isinstance(refused, ChainResult):
+            refused._preset = isinstance(runner, Preset)  # noqa: SLF001 - a preset's refusal names its type
         # The envelope any other failed result carries. Nothing ran, so no time was spent running.
         _ensure_result_datasets(refused, dataset_contexts)
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, instance, config, data_dir=data_dir)
         return refused
+
+    # A preset's settings expand to a chain of steps, which runs as a custom workflow's, under the preset's type id.
+    if isinstance(runner, Preset) and isinstance(instance, WorkflowConfig):
+        chain, evaluators = expand_preset(instance, type(runner))
+        return _run_custom_task(
+            task,
+            chain,
+            config,
+            dataset_contexts,
+            resolved_sources,
+            setup,
+            data_dir=data_dir,
+            cache_dir=cache_dir,
+            output_dir=output_dir,
+            report_images=report_images,
+            limits=limits,
+            evaluators=evaluators,
+            entry=instance,
+        )
 
     # 5-7. Resolve the step's policies and ontology, then run it as a one-step graph.
     result, elapsed, ontology = _run_one_step(
@@ -592,8 +617,15 @@ def _run_custom_task(
     output_dir: Path | None,
     report_images: bool,
     limits: "TableLimits",
+    evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
+    entry: "WorkflowConfig[Any] | None" = None,
 ) -> "ChainResult":
-    """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's."""
+    """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's.
+
+    `entry` is the preset entry `workflow` was expanded from: the result carries its type id, and the envelope records
+    its settings rather than the chain's, and each conformed source's label space under its ontology. `evaluators`
+    are the entries the preset's steps name.
+    """
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
@@ -603,6 +635,8 @@ def _run_custom_task(
 
     names = task.source_names
     extractor_cfg = setup.config if setup is not None else None
+    type_id = entry.type if entry is not None else workflow.name
+    described = entry if entry is not None else workflow
     # `PipelineConfig` checks only the tasks it holds; a task run directly gets the same checks here, as a failed
     # result, like a workflow-type task's.
     problem = workflow.binding_problem(len(names))
@@ -612,11 +646,14 @@ def _run_custom_task(
         else binding_problems(task, workflow, config)
     )
     if problems:
-        refused = ChainResult.failed(type=workflow.name, errors=problems)
+        refused = ChainResult.failed(type=type_id, errors=problems)
         refused.metadata = ChainMetadata(workflow=workflow.name)
-        _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, workflow, config, data_dir=data_dir)
+        refused._preset = entry is not None  # noqa: SLF001 - the banner names a preset, not a custom workflow
+        _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, described, config, data_dir=data_dir)
         return refused
-    graph = build_graph(workflow, config)
+    # A preset entry's ontology resolves up front, as a workflow-type task's does, for the envelope to record.
+    ontology = _resolve_ontology(entry, config, data_dir) if entry is not None else None
+    graph = build_graph(workflow, config, evaluators=evaluators)
     inputs = bind_inputs(graph, names, dataset_contexts, {source.name: source for source in resolved_sources})
     slot_contexts: dict[str, list[DatasetContext]] = {}
     for index, slot in enumerate(graph.slots):
@@ -641,17 +678,19 @@ def _run_custom_task(
     with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
         chain = run_chain(graph, inputs, run_settings)
     elapsed = time.monotonic() - start
-    result = ChainResult.from_run(workflow.name, chain)
+    result = ChainResult.from_run(workflow.name, chain, type_id=type_id, preset=entry is not None)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
     result.sources = {source.name: source.realized() for source in resolved_sources}
     if report_images:
         _capture_chain_assets(result, chain, _unless_all(config.result.max_images))
-    _populate_result_metadata(result, resolved_sources, extractor_cfg, elapsed, workflow, config, data_dir=data_dir)
+    _populate_result_metadata(
+        result, resolved_sources, extractor_cfg, elapsed, described, config, data_dir=data_dir, ontology=ontology
+    )
     if chain.label_space:
         # The sources' records, where there are any, replaced the chain's own: keep both, the sources' first.
-        result.metadata.label_space = [*label_space_records(resolved_sources, None), *chain.label_space]
+        result.metadata.label_space = [*label_space_records(resolved_sources, ontology), *chain.label_space]
         # One vocabulary names the run's labels only where every record agrees, the sources' and the chain's.
         digests = {record.digest for record in result.metadata.label_space}
         result.metadata.label_space_digest = next(iter(digests)) if len(digests) == 1 else None
@@ -680,12 +719,17 @@ def _capture_chain_assets(result: "ChainResult", chain: "ChainRun", limit: int |
 
 
 def _run_target(
-    target: "Workflow[Any, Any] | Evaluator[Any, Any]", config: Any, context: "WorkflowContext"
+    target: "Workflow[Any, Any] | Evaluator[Any, Any]",
+    config: Any,
+    context: "WorkflowContext",
+    *,
+    stats_unions: "Mapping[str, ResolvedStatsPolicy] | None" = None,
 ) -> "Result[Any, Any]":
     """Run a workflow or an evaluator on a resolved context. Never raises: a failure becomes a failed result.
 
     The failed result is of the config's result class. Only the run itself is covered: resolving the task before it,
-    in :func:`_run_single_task`, raises on a config error, a transform's constructor included.
+    in :func:`_run_single_task`, raises on a config error, a transform's constructor included. `stats_unions` is what
+    a chain planned for an evaluator step's sources, handed to :func:`~dataeval_flow.evaluators._execute.execute`.
     """
     from dataeval_flow._kind import result_type_of
     from dataeval_flow._result import failure_message
@@ -694,7 +738,7 @@ def _run_target(
     from dataeval_flow.workflows._result import WorkflowResult
 
     if isinstance(target, Evaluator):
-        return execute(target, context, config)
+        return execute(target, context, config, stats_unions=stats_unions)
     result_type: type[WorkflowResult[Any, Any]] = result_type_of(target, WorkflowResult)
     if not isinstance(config, target.config_type):
         return result_type.failed(
@@ -791,6 +835,8 @@ def _populate_result_metadata(
     dataset_names = [
         operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
     ]
+    if workflow_instance is not None:
+        result._entry = workflow_instance.name  # noqa: SLF001 - the envelope's filler names the entry
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
@@ -828,6 +874,58 @@ def _populate_result_metadata(
     result.metadata.resolved_config = _build_resolved_config(
         resolved_sources, workflow_instance, extractor_cfg, pipeline_config, data_dir=data_dir
     )
+    result._set_nulls = _set_nulls(resolved_sources, workflow_instance, extractor_cfg)  # noqa: SLF001 - as `_entry`
+
+
+def _nulls_of(value: Any, path: tuple[str | int, ...]) -> set[tuple[str | int, ...]]:
+    """The paths, in ``value``'s dump, of the fields a model was given as ``None``, through nested models,
+    lists and mappings of them."""
+    from pydantic import BaseModel
+
+    found: set[tuple[str | int, ...]] = set()
+    if isinstance(value, BaseModel):
+        for name in value.model_fields_set:
+            item = getattr(value, name, None)
+            if item is None:
+                found.add((*path, name))
+            else:
+                found |= _nulls_of(item, (*path, name))
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            found |= _nulls_of(item, (*path, index))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            found |= _nulls_of(item, (*path, key))
+    return found
+
+
+def _set_nulls(
+    resolved_sources: "Sequence[ResolvedSource]",
+    workflow_instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig | None",
+    extractor_cfg: Any,
+) -> frozenset[tuple[str | int, ...]]:
+    """Where ``resolved_config`` holds a ``None`` the user wrote, so its report keeps it beside the unset defaults it
+    drops. The sources' dataset and view configs, the workflow or evaluator and the extractor are models, so tracked;
+    the rest of ``resolved_config`` (names, the seed) is plain values, where a ``None`` is always dropped."""
+    found: set[tuple[str | int, ...]] = set()
+    for index, resolved in enumerate(resolved_sources):
+        base: tuple[str | int, ...] = ("sources", index)
+        if resolved.is_merged:
+            for leaf, operand in enumerate(resolved.operands):
+                found |= _nulls_of(operand.view_config, (*base, "merge", leaf, "view_config"))
+                found |= _nulls_of(operand.dataset_config, (*base, "merge", leaf, "dataset_config"))
+            found |= _nulls_of(resolved.view_config, (*base, "view_config"))
+        else:
+            operand = resolved.operands[0]
+            found |= _nulls_of(operand.dataset_config, (*base, "dataset_config"))
+            found |= _nulls_of(operand.view_config, (*base, "view_config"))
+    if workflow_instance is not None:
+        from dataeval_flow.evaluators._base import EvaluatorConfig
+
+        key = "evaluator" if isinstance(workflow_instance, EvaluatorConfig) else "workflow"
+        found |= _nulls_of(workflow_instance, (key,))
+    found |= _nulls_of(extractor_cfg, ("extractor",))
+    return frozenset(found)
 
 
 def _operand_description(operand: "SourceOperand") -> str:
@@ -1096,9 +1194,9 @@ def run_task(
     -------
     Result
         The result of the workflow or evaluator the task runs, as that type's own result class —
-        ``isinstance(result, DataCleaningResult)`` narrows it. A run that raised returns a failed
-        result of the same class. A custom workflow's is a :class:`~dataeval_flow.steps.ChainResult`,
-        holding every step's outcome whether or not one failed.
+        ``isinstance(result, DriftMonitoringResult)`` narrows it. A run that raised returns a failed
+        result of the same class. A custom workflow's, or a preset's such as data-cleaning's, is a
+        :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
     """
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
     return _run_single_task(

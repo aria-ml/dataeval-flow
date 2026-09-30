@@ -30,6 +30,7 @@ class WrapTransform(Transform[WrapConfig]):
     """``wrap``: ``DetectionCrops`` turns each detection into a classification item. Video wrappers come later."""
 
     name: ClassVar[str] = "wrap"
+    title: ClassVar[str] = "Wrap"
     description: ClassVar[str] = "Wraps a Dataset in a DataEval wrapper that changes its kind, such as DetectionCrops."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)

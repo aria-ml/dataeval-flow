@@ -28,7 +28,7 @@ from dataeval_flow.workflows._base import Finding
 class OutlierRateConfig(CheckConfig):
     """An `outlier-rate` step's input, and the share of images that may be outliers."""
 
-    input: str = Field(description="A `quality.outliers` Output.")
+    input: str = Field(description="An `outliers` Output.")
     image: float | None = Field(
         default=3.0,
         ge=0.0,
@@ -58,20 +58,17 @@ class OutlierRateCheck(Check[OutlierRateConfig]):
         brief = f"{count} images ({round(pct, 1)}%)"
         if count == 0:
             severity = unjudged(config.image, "ok")
-            return [
-                Finding(severity=severity, title=self.title, brief=brief, description="No images flagged as outliers.")
-            ]
+            return [Finding(severity=severity, title=self.title, brief=brief)]
         severity = "warning" if exceeds(pct, config.image) else "info"
-        description = f"{count} images ({pct:.1f}%) flagged as outliers."
-        return [Finding(severity=severity, title=self.title, brief=brief, description=description)]
+        return [Finding(severity=severity, title=self.title, brief=brief)]
 
 
 class TargetOutlierRateConfig(CheckConfig):
     """A `target-outlier-rate` step's inputs, and the share of targets that may be outliers."""
 
-    input: str = Field(description="A `quality.outliers` Output computed per target (`per_target: true`).")
+    input: str = Field(description="An `outliers` Output computed per target (`per_target: true`).")
     labels: str = Field(
-        description="A `quality.label-health` Output on the same Dataset: its label count is the number of targets."
+        description="A `label-health` Output on the same Dataset: its label count is the number of targets."
     )
     target: float | None = Field(
         default=3.0,
@@ -112,7 +109,6 @@ class TargetOutlierRateCheck(Check[TargetOutlierRateConfig]):
                 severity=severity,
                 title=self.title,
                 brief=f"{count} targets ({pct}%)",
-                description=f"{count} bounding-box targets ({pct}%) flagged as outliers.",
             )
         ]
 
@@ -157,22 +153,16 @@ class ClasswiseOutlierRateCheck(Check[ClasswiseOutlierRateConfig]):
                     severity=unjudged(limit, "ok"),
                     title=self.title,
                     brief="no outliers detected",
-                    description="No outliers detected — classwise breakdown not applicable.",
                 )
             ]
         worst = max(pivot.rows, key=lambda row: row.pct)
         named = f"worst: {worst.class_name} ({worst.pct}%)"
         if limit is None:
             brief = named
-            description = f"Most outliers in {worst.class_name} ({worst.pct}%)."
         else:
             over = sum(row.pct > limit for row in pivot.rows)
             within = f"{over}/{len(pivot.rows)} classes over {limit}%" if over else f"all classes within {limit}%"
             brief = f"{named}, {within}"
-            description = (
-                f"Most outliers in {worst.class_name} ({worst.pct}%). "
-                f"{over}/{len(pivot.rows)} classes exceed {limit}% threshold."
-            )
         rows: list[dict[str, Cell]] = [
             {"class_name": row.class_name, "count": row.count, "pct": row.pct} for row in [*pivot.rows, pivot.total]
         ]
@@ -186,7 +176,6 @@ class ClasswiseOutlierRateCheck(Check[ClasswiseOutlierRateConfig]):
                 severity="warning" if exceeds(pivot.total.pct, limit) else "info",
                 title=self.title,
                 brief=brief,
-                description=description,
                 blocks=[Table(columns=columns, rows=rows)],
             )
         ]

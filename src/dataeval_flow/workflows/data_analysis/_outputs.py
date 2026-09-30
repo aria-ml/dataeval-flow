@@ -1,6 +1,6 @@
 """Data analysis workflow outputs."""
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -174,9 +174,6 @@ class DataAnalysisOutput(WorkflowOutput[DataAnalysisRawOutput, DataAnalysisRepor
 class DataAnalysisMetadata(ResultMetadata):
     """Metadata for the data-analysis workflow."""
 
-    mode: Literal["advisory", "preparatory"] = Field(
-        default="advisory", description="The `mode` the workflow ran in, as configured: `advisory` or `preparatory`."
-    )
     split_names: list[str] = Field(
         default_factory=list, description="The sources the run analysed as splits, in task order."
     )
@@ -197,8 +194,6 @@ class DataAnalysisResult(WorkflowResult[DataAnalysisMetadata, DataAnalysisOutput
         Per-split quality summaries keyed by split name
     output.raw.cross_split
         Pairwise cross-split comparisons keyed by "splitA_vs_splitB"
-    metadata.mode
-        The ``mode`` the workflow ran in, as configured: ``advisory`` or ``preparatory``.
     metadata.split_names
         The sources the run analysed as splits, in task order.
     """

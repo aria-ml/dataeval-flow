@@ -13,6 +13,7 @@ from PIL import Image
 from dataeval_flow._blocks import Asset, Block, Column, ItemRef, Section, Table
 from dataeval_flow._blocks._items import refs_in
 from dataeval_flow._capture import capture, references
+from tests.workflow_toys import register_count
 
 pytestmark = pytest.mark.required
 
@@ -180,35 +181,31 @@ class TestCapture:
 class TestTheRun:
     """Flow captures once a run returns, from the post-view datasets it read, and never fails a run over it."""
 
+    @pytest.fixture(autouse=True)
+    def _count(self, plugins):
+        register_count(plugins)
+
     @staticmethod
     def _run(monkeypatch: pytest.MonkeyPatch, *, success: bool = True, max_images: int | None = None) -> Any:
         import dataeval_flow._orchestrator as orchestrator
         from dataeval_flow import run_tasks
         from dataeval_flow.config import ResultConfig, TaskConfig
-        from dataeval_flow.workflows import Finding
-        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningResult
-        from dataeval_flow.workflows.data_cleaning._outputs import (
-            DataCleaningMetadata,
-            DataCleaningOutput,
-            DataCleaningRawOutput,
-            DataCleaningReport,
-        )
+        from dataeval_flow.workflows import Finding, WorkflowReport
         from tests.evaluator_toys import toy_pipeline
+        from tests.workflow_toys import ToyCountConfig, ToyCountMetadata, ToyCountOutput, ToyCountRaw, ToyCountResult
 
-        def naming_item_7(_runner: Any, _config: Any, _context: Any) -> DataCleaningResult:
+        def naming_item_7(_runner: Any, _config: Any, _context: Any) -> ToyCountResult:
             if not success:
-                return DataCleaningResult.failed(type="data-cleaning", errors=["boom"])
+                return ToyCountResult.failed(type="test.count", errors=["boom"])
             finding = Finding(title="Outliers", blocks=[_images(_ref(7, source="src"))])
-            output = DataCleaningOutput(
-                raw=DataCleaningRawOutput(dataset_size=12), report=DataCleaningReport(summary="s", findings=[finding])
+            output = ToyCountOutput(
+                raw=ToyCountRaw(dataset_size=12), report=WorkflowReport(summary="s", findings=[finding])
             )
-            return DataCleaningResult(
-                type="data-cleaning", success=True, output=output, metadata=DataCleaningMetadata()
-            )
+            return ToyCountResult(type="test.count", success=True, output=output, metadata=ToyCountMetadata())
 
         monkeypatch.setattr(orchestrator, "_run_target", naming_item_7)
         config = toy_pipeline(
-            workflows=[DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"])],
+            workflows=[ToyCountConfig(name="clean")],
             tasks=[TaskConfig(name="t", workflow="clean", sources="src")],
         )
         if max_images is not None:

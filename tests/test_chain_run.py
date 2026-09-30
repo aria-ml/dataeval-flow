@@ -12,9 +12,9 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._nodes import Missing, Node, NodeList
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator
 from dataeval_flow.steps import DataType, Port, Transform, TransformConfig, TransformContext
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningResult
 from tests.chain_toys import chain_pipeline, register_toys, run_toy_chain
 from tests.evaluator_toys import ToyImages
+from tests.workflow_toys import ToyCountConfig, ToyCountResult, register_count
 
 _DUPES = [DuplicatesConfig(name="dupes")]
 
@@ -24,6 +24,7 @@ pytestmark = pytest.mark.usefixtures("toys")
 @pytest.fixture
 def toys(plugins):
     register_toys(plugins)
+    register_count(plugins)
     DatasetCache.clear_instances()
     yield plugins
     DatasetCache.clear_instances()
@@ -157,7 +158,7 @@ def test_two_steps_reading_one_node_derive_its_statistics_once() -> None:
 
 
 def test_a_workflow_type_runs_as_a_step_on_an_intermediate_dataset() -> None:
-    clean = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"])
+    clean = ToyCountConfig(name="clean")
     run = _run(
         [
             {"name": "few", "transform": "toy-first", "input": "a", "n": 8},
@@ -166,7 +167,7 @@ def test_a_workflow_type_runs_as_a_step_on_an_intermediate_dataset() -> None:
         workflows=[clean],
     )
     assert run.steps["cleaned"].status == "ok"
-    assert isinstance(run.steps["cleaned"].result, DataCleaningResult)
+    assert isinstance(run.steps["cleaned"].result, ToyCountResult)
 
 
 def test_lineage_records_each_dataset_with_where_it_came_from() -> None:

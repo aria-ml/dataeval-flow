@@ -106,4 +106,5 @@ class TestSeedConfiguration:
 
         assert first.success
         assert second.success
-        assert first.output.raw.model_dump(mode="json") == second.output.raw.model_dump(mode="json")
+        assert first.to_dict()["findings"] == second.to_dict()["findings"]
+        assert first.steps["outliers"].output.data().equals(second.steps["outliers"].output.data())

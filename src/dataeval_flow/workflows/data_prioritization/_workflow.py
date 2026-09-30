@@ -281,6 +281,7 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
     """Data prioritization workflow using DataEval Prioritize."""
 
     name: ClassVar[str] = "data-prioritization"
+    title: ClassVar[str] = "Data Prioritization"
     description: ClassVar[str] = (
         "Prioritize unlabeled data for labeling based on a reference dataset and optional cleaning"
     )
@@ -314,7 +315,7 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
         # --- 5. Build clean embeddings ---
         ref_size = len(ref_dataset)
         ref_flagged = per_source_flagged.get("__reference__", set())
-        ref_mask, ref_clean_to_orig = _build_clean_mapping(ref_size, ref_flagged)
+        ref_mask, _ = _build_clean_mapping(ref_size, ref_flagged)
         clean_ref_embeddings = ref_embeddings[ref_mask]
 
         add_clean_info: dict[str, tuple[NDArray[np.float32], list[int], int]] = {}
@@ -335,7 +336,6 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
             cleaning_summary,
             total_removed,
             prioritization_results,
-            ref_clean_to_orig,
             add_clean_info,
         )
         # The views ranked, so each item the report pictures is read from the view it was ranked in.
@@ -456,7 +456,6 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
         cleaning_summary: CleaningSummaryDict | None,
         total_removed: int,
         prioritization_results: dict[str, tuple[list[int], list[float] | None]],
-        ref_clean_to_orig: list[int],
         add_clean_info: dict[str, tuple[NDArray[np.float32], list[int], int]],
     ) -> DataPrioritizationResult:
         """Build the final workflow result."""
@@ -492,25 +491,12 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
         report = DataPrioritizationReport(summary=summary, findings=findings)
 
         # Build metadata
-        per_source_clean: dict[str, list[int]] = {}
-        per_source_prioritized: dict[str, list[int]] = {}
-
-        if config.mode == "preparatory":
-            per_source_clean["__reference__"] = ref_clean_to_orig
-            for name, (_, clean_to_orig, _) in add_clean_info.items():
-                per_source_clean[name] = clean_to_orig
-            for name, (indices, _) in prioritization_results.items():
-                per_source_prioritized[name] = indices
-
         metadata = DataPrioritizationMetadata(
-            mode=config.mode,
             method=config.method,
             order=config.order,
             policy=config.policy,
             cleaning_enabled=config.cleaning is not None,
             items_removed_by_cleaning=total_removed,
-            per_source_clean_indices=per_source_clean,
-            per_source_prioritized_indices=per_source_prioritized,
         )
 
         return DataPrioritizationResult(

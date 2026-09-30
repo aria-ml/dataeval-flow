@@ -201,7 +201,6 @@ dataeval_flow.workflows.data_analysis:DataAnalysisResult
 dataeval_flow.workflows.data_analysis:DataAnalysisWorkflow
 dataeval_flow.workflows.data_cleaning:DataCleaningConfig
 dataeval_flow.workflows.data_cleaning:DataCleaningHealthThresholds
-dataeval_flow.workflows.data_cleaning:DataCleaningResult
 dataeval_flow.workflows.data_cleaning:DataCleaningWorkflow
 dataeval_flow.workflows.data_coverage:DataCoverageConfig
 dataeval_flow.workflows.data_coverage:DataCoverageHealthThresholds

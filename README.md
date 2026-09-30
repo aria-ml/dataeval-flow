@@ -430,7 +430,7 @@ where it can be reviewed and committed, so a later dataset is cut the same way:
 
 ```bash
 python -m dataeval_flow encoding output/results/result.json -o policy/factor_bins.json
-python -m dataeval_flow encoding output/results/result.json --task clean_my_data
+python -m dataeval_flow encoding output/results/result.json --task analyze_my_data
 ```
 
 Reference the committed descriptor from a metadata policy's `encoding` field. A run with

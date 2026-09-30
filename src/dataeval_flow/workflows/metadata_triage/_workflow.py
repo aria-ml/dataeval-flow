@@ -34,6 +34,7 @@ class MetadataTriageWorkflow(Workflow[MetadataTriageConfig, MetadataTriageResult
     """Surface what a metadata run silently failed to read, and suggest how to fix it."""
 
     name: ClassVar[str] = "metadata-triage"
+    title: ClassVar[str] = "Metadata Triage"
     description: ClassVar[str] = "Report unreadable and unpinned metadata factors, with suggested corrections"
 
     def run(self, config: MetadataTriageConfig, context: WorkflowContext) -> MetadataTriageResult:

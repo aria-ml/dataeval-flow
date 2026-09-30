@@ -122,9 +122,9 @@ a GPU; neither is intended as a caller-facing knob.
 | `--[no-]report-images` | Thumbnails of the items reports name   | `$DATAEVAL_REPORT_IMAGES`, else on                 |
 | `-h`, `--help`         | Print the interface help and exit      | —                                                  |
 
-`--verbose` is a counting flag: `-v` prints the text report to stdout, `-vv` adds `INFO`
-logs, and `-vvv` adds `DEBUG` logs. Artifacts are written to the output directory
-regardless of verbosity.
+`--verbose` is a counting flag. Without it, reports print to stdout in their short form;
+`-v` prints them in full, `-vv` adds `INFO` logs, and `-vvv` adds `DEBUG` logs.
+Artifacts are written to the output directory regardless of verbosity.
 
 Optional sub-commands (default is the headless pipeline):
 

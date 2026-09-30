@@ -25,7 +25,6 @@ from dataeval_flow.config.extractors import (
 )
 from dataeval_flow.workflows import Finding, WorkflowConfig, WorkflowRawOutput, WorkflowReport
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningOutput, DataCleaningRawOutput, DataCleaningReport
 
 pytestmark = pytest.mark.required
 
@@ -58,18 +57,14 @@ class TestDataCleaningConfig:
     def test_optional_defaults(self):
         """Optional fields have safe defaults."""
         params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)
-        assert params.mode == "advisory"
         assert params.outlier_threshold is None
 
     def test_custom_values(self):
         """Parameters accept custom values."""
-        params = DataCleaningConfig(
-            outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"], mode="preparatory"
-        )
+        params = DataCleaningConfig(outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"])
         assert params.outlier_method == "iqr"
         assert params.outlier_threshold == 2.5
         assert params.outlier_flags == ["pixel", "visual"]
-        assert params.mode == "preparatory"
 
     def test_invalid_outlier_method(self):
         """Invalid outlier_method raises ValidationError."""
@@ -105,16 +100,6 @@ class TestDataCleaningConfig:
             outlier_method="modzscore", outlier_flags=["dimension"], duplicate_flags=["hash_basic", "hash_d4"]
         )
         assert params.duplicate_flags == ["hash_basic", "hash_d4"]
-
-    def test_invalid_mode_rejected(self):
-        """Invalid mode raises ValidationError."""
-        with pytest.raises(ValidationError, match="mode"):
-            DataCleaningConfig(
-                outlier_method="modzscore",
-                outlier_flags=["dimension"],
-                outlier_threshold=None,
-                mode="invalid",  # type: ignore[arg-type]
-            )
 
 
 class TestYAMLValidationEdgeCases:
@@ -192,23 +177,8 @@ class TestUnifiedConfig:
             load_config(Path("/nonexistent/params.yaml"))
 
 
-class TestDataCleaningOutput:
-    """Test output schemas."""
-
-    def test_data_cleaning_raw_outputs_defaults(self):
-        """DataCleaningRawOutput has correct defaults."""
-        raw = DataCleaningRawOutput(dataset_size=100)
-        assert raw.dataset_size == 100
-        assert raw.duplicates == {"items": {}, "targets": {}}
-        assert raw.img_outliers == {"issues": [], "count": 0}
-        assert raw.label_stats == {}
-        assert raw.target_outliers is None
-
-    def test_data_cleaning_report(self):
-        """DataCleaningReport can be created."""
-        report = DataCleaningReport(summary="Test summary")
-        assert report.summary == "Test summary"
-        assert report.findings == []
+class TestFinding:
+    """A finding's evidence, read from its JSON form."""
 
     def test_reportable(self):
         """A finding holds its evidence as report blocks, read from their JSON form."""
@@ -228,35 +198,14 @@ class TestDataCleaningOutput:
         with pytest.raises(ValidationError, match="report_type"):
             Finding.model_validate({"title": "Test", "report_type": "table", "data": {"key": "value"}})
 
-    def test_data_cleaning_report_with_findings(self):
-        """DataCleaningReport can have findings."""
-        finding = Finding(title="Finding", description="Test finding")
-        report = DataCleaningReport(summary="Summary", findings=[finding])
-        assert len(report.findings) == 1
-        assert report.findings[0].title == "Finding"
-
-    def test_data_cleaning_outputs_combined(self):
-        """DataCleaningOutput combines raw and report."""
-        raw = DataCleaningRawOutput(dataset_size=50)
-        report = DataCleaningReport(summary="Complete")
-        outputs = DataCleaningOutput(raw=raw, report=report)
-
-        assert outputs.raw.dataset_size == 50
-        assert outputs.report.summary == "Complete"
-
 
 class TestBaseClasses:
     """Test base classes for workflow parameters and outputs."""
 
     def test_workflow_parameters_base(self):
-        """WorkflowConfig has mode with default."""
+        """WorkflowConfig needs only a type."""
         params = WorkflowConfig(type="x")
-        assert params.mode == "advisory"
-
-    def test_workflow_parameters_base_custom_mode(self):
-        """WorkflowConfig accepts custom mode."""
-        params = WorkflowConfig(type="x", mode="preparatory")
-        assert params.mode == "preparatory"
+        assert params.type == "x"
 
     def test_workflow_outputs_base(self):
         """WorkflowRawOutput requires dataset_size."""
@@ -267,18 +216,6 @@ class TestBaseClasses:
         """WorkflowReport requires summary."""
         report = WorkflowReport(summary="Test")
         assert report.summary == "Test"
-
-    def test_inheritance_data_cleaning_parameters(self):
-        """DataCleaningConfig inherits from WorkflowConfig."""
-        assert issubclass(DataCleaningConfig, WorkflowConfig)
-
-    def test_inheritance_data_cleaning_raw_outputs(self):
-        """DataCleaningRawOutput inherits from WorkflowRawOutput."""
-        assert issubclass(DataCleaningRawOutput, WorkflowRawOutput)
-
-    def test_inheritance_data_cleaning_report(self):
-        """DataCleaningReport inherits from WorkflowReport."""
-        assert issubclass(DataCleaningReport, WorkflowReport)
 
 
 class TestLoadConfigFromFolder:

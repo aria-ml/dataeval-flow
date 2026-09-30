@@ -1,6 +1,6 @@
 """A workflow's result: typed outputs, and the health verdict drawn from their findings."""
 
-__all__ = ["WorkflowResult", "finding_section", "summary_label"]
+__all__ = ["WorkflowResult", "element_key", "finding_section", "summary_label"]
 
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
@@ -28,12 +28,16 @@ def finding_section(finding: Finding) -> Section:
     )
 
 
-def summary_label(finding: Finding) -> str:
-    """A finding's summary line: its title, and the element a check judged where it ran once per element of a list."""
+def element_key(finding: Finding) -> str | None:
+    """The key of the list element a check judged where it ran once per element; ``None`` for any other finding."""
     step = finding.step or ""
-    if step.endswith("]") and "[" in step:
-        return f"{finding.title} [{step[step.index('[') + 1 : -1]}]"
-    return finding.title
+    return step[step.index("[") + 1 : -1] if step.endswith("]") and "[" in step else None
+
+
+def summary_label(finding: Finding) -> str:
+    """A finding named where its group is not: its title, then the element it judged, "Duplicates [train]"."""
+    key = element_key(finding)
+    return finding.title if key is None else f"{finding.title} [{key}]"
 
 
 class WorkflowResult(Result[TMetadata, TOutput]):
@@ -122,13 +126,10 @@ class WorkflowResult(Result[TMetadata, TOutput]):
             "findings": len(self.findings),
         }
 
-    def _report_title(self) -> str:
-        """The report's summary."""
-        return self.output.report.summary
-
     def _report_output(self, *, detailed: bool) -> list[Block]:
-        """The summary with the health line, every finding's section when *detailed*, then the metadata factors."""
-        blocks = self._summary_blocks()
+        """The summary sentence, the summary lines with the health line, every finding's section when *detailed*, then
+        the metadata factors."""
+        blocks: list[Block] = [Paragraph(text=self.output.report.summary), *self._summary_blocks()]
         if detailed:
             blocks.extend(finding_section(finding) for finding in self.findings)
         blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))
@@ -139,9 +140,20 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         return {"health": self.health, **self.output.model_dump(mode="json")}
 
     def _summary_blocks(self) -> list[Block]:
-        """One summary line per finding, then the health verdict: the warnings :attr:`warning_count` counted."""
+        """One summary line per finding, then the health verdict: failed, naming the required steps that failed, where
+        :attr:`health` says the run failed; else the warnings :attr:`warning_count` counted."""
         findings = self.findings
-        if not findings:
+        health = self.health
+        failed = list(health.get("failed_steps") or []) if health["status"] == "failed" else []
+        if not findings and not failed:
             return [Paragraph(text="No findings to report.")]
-        items = [SummaryItem(label=summary_label(f), value=f.brief or "", severity=f.severity) for f in findings]
-        return [Section(title="Summary", blocks=[Summary(items=items, warnings=self.warning_count)])]
+        # A finding of a check that ran once per element sits under its element's key, after those that did not.
+        keys = list(dict.fromkeys(key for f in findings if (key := element_key(f)) is not None))
+        ordered = [f for group in [None, *keys] for f in findings if element_key(f) == group]
+        items = [
+            SummaryItem(label=f.title, value=f.brief or "", severity=f.severity, group=element_key(f) or "")
+            for f in ordered
+        ]
+        summary = Summary(items=items, warnings=self.warning_count, failed=failed)
+        lede: list[Block] = [] if findings else [Paragraph(text="No findings to report.")]
+        return [Section(title="Summary", blocks=[*lede, summary])]

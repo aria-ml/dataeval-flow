@@ -6,9 +6,9 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
-from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
-from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningResult
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.steps._result import ChainResult
+from dataeval_flow.workflows._base import WorkflowConfig
 
 __all__ = ["DataCleaningConfig", "DataCleaningHealthThresholds"]
 
@@ -20,12 +20,12 @@ class DataCleaningHealthThresholds(BaseModel):
     threshold the corresponding finding is elevated to ``severity="warning"``;
     otherwise it stays at ``severity="info"``.
 
-    Set a threshold to ``None`` to disable the warning for that metric.
+    Set a threshold to ``None`` to judge nothing: its finding is still made, as ``info``.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    exact_duplicates: float = Field(
+    exact_duplicates: float | None = Field(
         default=0.0,
         ge=0.0,
         le=100.0,
@@ -37,7 +37,7 @@ class DataCleaningHealthThresholds(BaseModel):
             "(e.g. augmentation-before-split workflows)."
         ),
     )
-    near_duplicates: float = Field(
+    near_duplicates: float | None = Field(
         default=5.0,
         ge=0.0,
         le=100.0,
@@ -49,7 +49,7 @@ class DataCleaningHealthThresholds(BaseModel):
             "web-scraped datasets where some redundancy is expected."
         ),
     )
-    image_outliers: float = Field(
+    image_outliers: float | None = Field(
         default=3.0,
         ge=0.0,
         le=100.0,
@@ -60,7 +60,7 @@ class DataCleaningHealthThresholds(BaseModel):
             "real-world collections where high visual variance is expected."
         ),
     )
-    target_outliers: float = Field(
+    target_outliers: float | None = Field(
         default=3.0,
         ge=0.0,
         le=100.0,
@@ -71,7 +71,7 @@ class DataCleaningHealthThresholds(BaseModel):
             "with naturally high annotation variance (e.g. dense object detection)."
         ),
     )
-    classwise_outliers: float = Field(
+    classwise_outliers: float | None = Field(
         default=3.0,
         ge=0.0,
         le=100.0,
@@ -83,7 +83,7 @@ class DataCleaningHealthThresholds(BaseModel):
             "inherently high visual diversity."
         ),
     )
-    class_label_imbalance: float = Field(
+    class_label_imbalance: float | None = Field(
         default=5.0,
         ge=1.0,
         description=(
@@ -97,14 +97,11 @@ class DataCleaningHealthThresholds(BaseModel):
     )
 
 
-class DataCleaningConfig(
-    WorkflowConfig[DataCleaningResult],
-    MetadataConfigMixin,
-    _LegacyMetadataMixin,
-    _LegacyValueRangeMixin,
-    StatsConfigMixin,
-):
+class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigMixin):
     """The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.
+
+    The type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose
+    ``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).
 
     Required fields have no default and must be set, per CR-4.14-G-1
     (avoid application-specific defaults).

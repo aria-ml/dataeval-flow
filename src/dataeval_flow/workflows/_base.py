@@ -39,7 +39,7 @@ class WorkflowConfig(KindConfig, Generic[R]):
 
     Each workflow has one config class. A pipeline's ``workflows:`` entry is validated with the config class its
     ``type`` names, and :func:`~dataeval_flow.run` takes an instance directly. Every entry has a ``name``, which
-    tasks reference it by and which defaults to its ``type``, and the ``mode`` and ``ontology`` fields below.
+    tasks reference it by and which defaults to its ``type``, and the ``ontology`` field below.
 
     Subclassing
     -----------
@@ -95,10 +95,6 @@ class WorkflowConfig(KindConfig, Generic[R]):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    mode: Literal["advisory", "preparatory"] = Field(
-        default="advisory",
-        description="advisory: report only, preparatory: modify dataset",
-    )
     ontology: dict[str, Any] | str | None = Field(
         default=None,
         description=(

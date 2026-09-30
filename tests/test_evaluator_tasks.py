@@ -20,8 +20,8 @@ def _config(tasks: list[Any]) -> dict[str, Any]:
             {"name": "clean", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
         ],
         "evaluators": [
-            {"name": "dupes", "type": "quality.duplicates"},
-            {"name": "dupes_cluster", "type": "quality.duplicates", "cluster_sensitivity": 1.0},
+            {"name": "dupes", "type": "duplicates"},
+            {"name": "dupes_cluster", "type": "duplicates", "cluster_sensitivity": 1.0},
         ],
         "tasks": tasks,
     }
@@ -121,7 +121,7 @@ class TestEvaluatorTaskValidation:
         assert config.tasks[0].kind == "evaluator"
 
     def test_cluster_mode_needs_an_extractor(self):
-        match = r"runs evaluator 'dupes_cluster' \(quality\.duplicates\), which needs an extractor to produce clusters"
+        match = r"runs evaluator 'dupes_cluster' \(duplicates\), which needs an extractor to produce clusters"
         with pytest.raises(ValidationError, match=match):
             PipelineConfig.model_validate(_config([{"name": "t", "evaluator": "dupes_cluster", "sources": "a"}]))
 
@@ -152,7 +152,7 @@ class TestEvaluatorTaskValidation:
             "    evaluator: dupes\n"
             "    sources: a\n"
         )
-        (tmp_path / "01-evaluators.yaml").write_text("evaluators:\n  - name: dupes\n    type: quality.duplicates\n")
+        (tmp_path / "01-evaluators.yaml").write_text("evaluators:\n  - name: dupes\n    type: duplicates\n")
         config = load_config(tmp_path)
         assert config.tasks is not None
         assert config.tasks[0].kind == "evaluator"

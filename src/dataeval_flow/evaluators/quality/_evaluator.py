@@ -2,7 +2,8 @@
 
 Both read image statistics, and in cluster mode the clusters over the task's embeddings as
 well. ``find_duplicates`` and ``find_outliers`` are the only code here that calls DataEval,
-and they merge cluster results through the same functions ``data-cleaning`` uses.
+and they merge cluster results through the same functions ``parameter-sweep`` uses. ``data-cleaning``'s chain runs
+these evaluators.
 """
 
 __all__ = ["DuplicatesEvaluator", "LabelHealthEvaluator", "OutliersEvaluator", "find_duplicates", "find_outliers"]
@@ -73,9 +74,10 @@ def find_outliers(params: OutliersConfig, inputs: Sequence[EvaluatorInputs]) -> 
 
 
 class DuplicatesEvaluator(Evaluator[DuplicatesConfig, DuplicatesOutput[Any, Any]]):
-    """``quality.duplicates``: which images are exact or near duplicates, per DataEval's Duplicates."""
+    """``duplicates``: which images are exact or near duplicates, per DataEval's Duplicates."""
 
-    name: ClassVar[str] = "quality.duplicates"
+    name: ClassVar[str] = "duplicates"
+    title: ClassVar[str] = "Duplicates"
     description: ClassVar[str] = "Exact and near duplicate groups (DataEval Duplicates)"
     dataeval_class: ClassVar[type] = Duplicates
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
@@ -87,9 +89,10 @@ class DuplicatesEvaluator(Evaluator[DuplicatesConfig, DuplicatesOutput[Any, Any]
 
 
 class OutliersEvaluator(Evaluator[OutliersConfig, OutliersOutput[Any]]):
-    """``quality.outliers``: which images' statistics sit outside the threshold, per DataEval's Outliers."""
+    """``outliers``: which images' statistics sit outside the threshold, per DataEval's Outliers."""
 
-    name: ClassVar[str] = "quality.outliers"
+    name: ClassVar[str] = "outliers"
+    title: ClassVar[str] = "Outliers"
     description: ClassVar[str] = "Images whose statistics are outliers (DataEval Outliers)"
     dataeval_class: ClassVar[type] = Outliers
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
@@ -100,9 +103,10 @@ class OutliersEvaluator(Evaluator[OutliersConfig, OutliersOutput[Any]]):
 
 
 class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
-    """``quality.label-health``: how a Dataset's labels spread over its classes, per DataEval's ``label_stats``."""
+    """``label-health``: how a Dataset's labels spread over its classes, per DataEval's ``label_stats``."""
 
-    name: ClassVar[str] = "quality.label-health"
+    name: ClassVar[str] = "label-health"
+    title: ClassVar[str] = "Label Health"
     description: ClassVar[str] = "How a Dataset's labels spread over its classes (DataEval label_stats)"
     dataeval_class: ClassVar[Any] = label_stats
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "__call__"}

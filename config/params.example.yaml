@@ -301,11 +301,11 @@
 #
 # evaluators:
 #   - name: dupes
-#     type: quality.duplicates
+#     type: duplicates
 #     flags: [hash_basic, hash_d4]
 #
 #   - name: balance
-#     type: bias.balance          # reads metadata; a task naming an extractor is refused
+#     type: balance          # reads metadata; a task naming an extractor is refused
 #     class_imbalance_threshold: 0.2
 
 # -----------------------------------------------------------------------------

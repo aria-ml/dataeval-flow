@@ -49,11 +49,15 @@ class ExtractorSetup:
 
 @dataclass(frozen=True)
 class StepContext:
-    """What preflight resolved for one step: its metadata and stats policies, and its ontology."""
+    """What preflight resolved for one step: its metadata and stats policies, its ontology, and its stats unions."""
 
     metadata_policy: "ResolvedPolicy | None" = None
     stats_policy: "ResolvedStatsPolicy | None" = None
     ontology: "ResolvedOntology | None" = None
+    stats_unions: "Mapping[str, ResolvedStatsPolicy]" = field(default_factory=dict)
+    """By the address of a Dataset an evaluator step reads, the union of the statistics every evaluator step reading
+    that Dataset asks for, where it is wider than this step's own request. A list the step runs over is keyed by the
+    list's address; an element of it another step names alone, by the element's."""
 
 
 @dataclass(frozen=True)
@@ -137,6 +141,10 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
         record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
         steps[spec.name] = record
         nodes.update(produced)
+        # A preset step's declared output reads what the spliced step made.
+        for address, value in produced.items():
+            for alias in graph.aliases_of(address):
+                nodes[alias] = value
         if tracked:
             lineage.extend(_lineage(node) for node in _datasets(produced.values()))
         label_space.extend(records)
@@ -390,7 +398,7 @@ def _attempt(
     details: dict[str, Any] | None = None
     try:
         if spec.kind in ("evaluator", "workflow"):
-            result = _pooled(spec, inputs, settings)
+            result = _pooled(spec, inputs, settings, element)
             if not result.success:
                 failed = _failed(spec, inputs_text, list(result.errors), start, result)
                 return failed, _missing_outputs(spec, _failure_word(spec)), []
@@ -575,8 +583,12 @@ def _live(item: _Value) -> Any:
     return item.value if isinstance(item, Node) else None
 
 
-def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings) -> Any:
-    """An evaluator's or a workflow type's result, from a WorkflowContext over its input nodes."""
+def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None) -> Any:
+    """An evaluator's or a workflow type's result, from a WorkflowContext over its input nodes.
+
+    An evaluator step reading a Dataset other evaluator steps read also gets, by node, the union of their stats
+    requests that preflight planned, so the first of them computes the statistics every one reads in one pass.
+    """
     from dataeval_flow.workflows._context import WorkflowContext
 
     nodes = _datasets(inputs.values())
@@ -594,7 +606,24 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings) ->
     from dataeval_flow._orchestrator import _run_target
 
     runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
+    unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
+    if unions:  # otherwise the call is exactly a task's
+        return _run_target(runner, spec.config, context, stats_unions=unions)  # type: ignore[arg-type]
     return _run_target(runner, spec.config, context)  # type: ignore[arg-type]
+
+
+def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":
+    """The stats union preflight planned for `node`: by its address, or, as element `element` of a list the step runs
+    over, by the list's; ``None`` where it planned none."""
+    union = step.stats_unions.get(node.address)
+    if union is None and element is not None:
+        listed = (
+            planned
+            for address, planned in step.stats_unions.items()
+            if str(Address(address, key=element)) == node.address
+        )
+        union = next(listed, None)
+    return union
 
 
 def _context_for(node: Node, spec: StepSpec, setup: ExtractorSetup | None) -> "DatasetContext":

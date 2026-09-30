@@ -65,7 +65,7 @@ def detect_drift(
 ) -> DriftOutput[Any]:
     """Fit `detector` on the first source and predict on the last, chunked where `chunking` says so.
 
-    A middle source, which only ``shift.drift-wasserstein`` takes, is its validation set, fitted beside the reference.
+    A middle source, which only ``drift-wasserstein`` takes, is its validation set, fitted beside the reference.
     """
     reference, *validation, test = (require(i.embeddings, "embeddings", i.source) for i in inputs)
     fitted = detector.chunked(**chunked_arguments(chunking)) if chunking is not None else detector
@@ -73,9 +73,10 @@ def detect_drift(
 
 
 class DriftUnivariateEvaluator(Evaluator[DriftUnivariateConfig, DriftOutput[Any]]):
-    """``shift.drift-univariate``: whether the data drifted, one dimension at a time, per DataEval's DriftUnivariate."""
+    """``drift-univariate``: whether the data drifted, one dimension at a time, per DataEval's DriftUnivariate."""
 
-    name: ClassVar[str] = "shift.drift-univariate"
+    name: ClassVar[str] = "drift-univariate"
+    title: ClassVar[str] = "Drift (Univariate)"
     description: ClassVar[str] = "Per-dimension statistical tests for drift (DataEval DriftUnivariate)"
     dataeval_class: ClassVar[type] = DriftUnivariate
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
@@ -86,9 +87,10 @@ class DriftUnivariateEvaluator(Evaluator[DriftUnivariateConfig, DriftOutput[Any]
 
 
 class DriftMMDEvaluator(Evaluator[DriftMMDConfig, DriftOutput[Any]]):
-    """``shift.drift-mmd``: whether the data drifted, by maximum mean discrepancy, per DataEval's DriftMMD."""
+    """``drift-mmd``: whether the data drifted, by maximum mean discrepancy, per DataEval's DriftMMD."""
 
-    name: ClassVar[str] = "shift.drift-mmd"
+    name: ClassVar[str] = "drift-mmd"
+    title: ClassVar[str] = "Drift (MMD)"
     description: ClassVar[str] = "Maximum mean discrepancy between reference and test (DataEval DriftMMD)"
     dataeval_class: ClassVar[type] = DriftMMD
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
@@ -99,9 +101,10 @@ class DriftMMDEvaluator(Evaluator[DriftMMDConfig, DriftOutput[Any]]):
 
 
 class DriftKNeighborsEvaluator(Evaluator[DriftKNeighborsConfig, DriftOutput[Any]]):
-    """``shift.drift-kneighbors``: whether the data drifted, by neighbor distances, per DataEval's DriftKNeighbors."""
+    """``drift-kneighbors``: whether the data drifted, by neighbor distances, per DataEval's DriftKNeighbors."""
 
-    name: ClassVar[str] = "shift.drift-kneighbors"
+    name: ClassVar[str] = "drift-kneighbors"
+    title: ClassVar[str] = "Drift (K-Neighbors)"
     description: ClassVar[str] = (
         "Nearest-neighbor distances to the reference, tested for drift (DataEval DriftKNeighbors)"
     )
@@ -114,10 +117,11 @@ class DriftKNeighborsEvaluator(Evaluator[DriftKNeighborsConfig, DriftOutput[Any]
 
 
 class DriftWassersteinEvaluator(Evaluator[DriftWassersteinConfig, DriftOutput[Any]]):
-    """``shift.drift-wasserstein``: whether the data drifted past a validation baseline, per DataEval's
+    """``drift-wasserstein``: whether the data drifted past a validation baseline, per DataEval's
     DriftWasserstein."""
 
-    name: ClassVar[str] = "shift.drift-wasserstein"
+    name: ClassVar[str] = "drift-wasserstein"
+    title: ClassVar[str] = "Drift (Wasserstein)"
     description: ClassVar[str] = (
         "Per-dimension Wasserstein distance against a validation baseline (DataEval DriftWasserstein)"
     )
@@ -130,10 +134,11 @@ class DriftWassersteinEvaluator(Evaluator[DriftWassersteinConfig, DriftOutput[An
 
 
 class DriftDomainClassifierEvaluator(Evaluator[DriftDomainClassifierConfig, DriftOutput[Any]]):
-    """``shift.drift-domain-classifier``: whether a classifier tells the data apart, per DataEval's
+    """``drift-domain-classifier``: whether a classifier tells the data apart, per DataEval's
     DriftDomainClassifier."""
 
-    name: ClassVar[str] = "shift.drift-domain-classifier"
+    name: ClassVar[str] = "drift-domain-classifier"
+    title: ClassVar[str] = "Drift (Domain Classifier)"
     description: ClassVar[str] = "A classifier's ability to tell reference from test (DataEval DriftDomainClassifier)"
     dataeval_class: ClassVar[type] = DriftDomainClassifier
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
@@ -150,9 +155,10 @@ def detect_ood(detector: Any, inputs: Sequence[EvaluatorInputs]) -> OODOutput:
 
 
 class OODKNeighborsEvaluator(Evaluator[OODKNeighborsConfig, OODOutput]):
-    """``shift.ood-kneighbors``: which test items sit far from the reference, per DataEval's OODKNeighbors."""
+    """``ood-kneighbors``: which test items sit far from the reference, per DataEval's OODKNeighbors."""
 
-    name: ClassVar[str] = "shift.ood-kneighbors"
+    name: ClassVar[str] = "ood-kneighbors"
+    title: ClassVar[str] = "OOD (K-Neighbors)"
     description: ClassVar[str] = "Test items far from their nearest reference neighbors (DataEval OODKNeighbors)"
     dataeval_class: ClassVar[type] = OODKNeighbors
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
@@ -163,10 +169,11 @@ class OODKNeighborsEvaluator(Evaluator[OODKNeighborsConfig, OODOutput]):
 
 
 class OODDomainClassifierEvaluator(Evaluator[OODDomainClassifierConfig, OODOutput]):
-    """``shift.ood-domain-classifier``: which test items a classifier tells apart, per DataEval's
+    """``ood-domain-classifier``: which test items a classifier tells apart, per DataEval's
     OODDomainClassifier."""
 
-    name: ClassVar[str] = "shift.ood-domain-classifier"
+    name: ClassVar[str] = "ood-domain-classifier"
+    title: ClassVar[str] = "OOD (Domain Classifier)"
     description: ClassVar[str] = "Test items a classifier tells apart from the reference (DataEval OODDomainClassifier)"
     dataeval_class: ClassVar[type] = OODDomainClassifier
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT

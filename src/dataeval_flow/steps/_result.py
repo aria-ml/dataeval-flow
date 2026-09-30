@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field
 
-from dataeval_flow._blocks import Block
-from dataeval_flow._result import LineageRecord, ResultMetadata
+from dataeval_flow._blocks import Block, Scalar
+from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section
 from dataeval_flow.steps._step import StepKind
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows._result import WorkflowResult
@@ -145,21 +145,26 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             sources=sources,
         )
         self.steps: dict[str, StepResult] = dict(steps or {})
+        self._preset = False  # whether a preset entry's chain ran, which the banner names; a custom workflow has none
 
     @classmethod
-    def from_run(cls, name: str, run: "ChainRun") -> "ChainResult":
-        """The result of running custom workflow `name`: failed when any required step failed."""
+    def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None, preset: bool = False) -> "ChainResult":
+        """The result of running custom workflow `name`: failed when any required step failed. Its ``type`` is
+        `type_id`, a preset's type id, or `name` when unset; `preset` says a preset entry's chain ran, which the banner
+        names, where a custom workflow has no type."""
         failed = [step for step, record in run.steps.items() if record.status == "failed"]
         errors = [f"{step}: {'; '.join(_errors(run.steps[step]))}" for step in failed]
         metadata = ChainMetadata(workflow=name, lineage=list(run.lineage), label_space=list(run.label_space))
-        return cls(
-            type=name,
+        result = cls(
+            type=type_id or name,
             success=not failed,
             metadata=metadata,
             output=ChainOutput(dict(run.steps)) if not failed else None,
             errors=errors,
             steps=run.steps,
         )
+        result._preset = preset
+        return result
 
     @property
     def failed_steps(self) -> list[str]:
@@ -207,11 +212,17 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return payload
 
     def _report_title(self) -> str:
-        return self.type
+        return super()._report_title() if self._preset else self.metadata.workflow or self.type
+
+    def _report_ran(self) -> tuple[str, Scalar]:
+        return super()._report_ran() if self._preset else ("Workflow", f"{self._report_title()} (custom workflow)")
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
+        """Every step's report, whether or not a step failed; or, for a chain refused before any step ran, why."""
         from dataeval_flow._chain._report import chain_blocks
 
+        if not self.success and not self.steps:
+            return [failure_section(self.errors)]
         return chain_blocks(self, detailed=detailed)
 
     def _report_output(self, *, detailed: bool) -> list[Block]:

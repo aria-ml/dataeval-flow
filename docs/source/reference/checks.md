@@ -6,19 +6,19 @@ findings: each `ok`, `info` or `warning`, rolled up into the task's health, wher
 reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
-The built-in checks reproduce `data-cleaning`'s findings. A chain of them gives that workflow's findings, in the
-same order, with the same severities.
+The built-in checks are the ones `data-cleaning` runs: its findings are theirs. See
+[data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
 | Type | Kind | Reads | Makes |
 | --- | --- | --- | --- |
-| `outlier-rate` | check | `input`: a `quality.outliers` Output | Image Outliers |
-| `target-outlier-rate` | check | `input`: a `quality.outliers` Output run with `per_target: true`; `labels`: a `quality.label-health` Output | Target Outliers |
+| `outlier-rate` | check | `input`: an `outliers` Output | Image Outliers |
+| `target-outlier-rate` | check | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
-| `duplicate-rate` | check | `input`: a `quality.duplicates` Output | Duplicates |
-| `class-imbalance` | check | `input`: a `quality.label-health` Output | Label Distribution |
-| `classwise-outliers` | combine | `input`: a Dataset; `outliers`: a `quality.outliers` Output computed on it | outliers per class |
+| `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
+| `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
+| `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
 ## How thresholds work
 
@@ -29,7 +29,8 @@ made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
 `info` finding in its own name, briefed `not assessed`, whose description names that input and why it holds nothing:
 "Not assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
-per element, and each finding names its element: `imbalance[train]`.
+per element, and each finding names its element under `step`, as `imbalance[train]`. The report groups those findings
+by the element's key, `train`, in its summary and below it.
 
 ## Checks
 
@@ -40,7 +41,7 @@ The share of a Dataset's images with at least one image-level outlier flag. Conf
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.outliers` Output |
+| `input` | an address | required | An `outliers` Output |
 | `image` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
 
 With nothing flagged, the finding is `ok`.
@@ -53,8 +54,8 @@ box, as on a classification Dataset.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.outliers` Output run with `per_target: true` |
-| `labels` | an address | required | A `quality.label-health` Output on the same Dataset: its label count is the number of boxes |
+| `input` | an address | required | An `outliers` Output run with `per_target: true` |
+| `labels` | an address | required | A `label-health` Output on the same Dataset: its label count is the number of boxes |
 | `target` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
 
 ### `classwise-outlier-rate`
@@ -75,7 +76,7 @@ images.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.duplicates` Output |
+| `input` | an address | required | A `duplicates` Output |
 | `exact` | a percentage, or `null` | `0.0` | Most images that may sit in exact-duplicate groups before the finding warns |
 | `near` | a percentage, or `null` | `5.0` | Most images that may sit in near-duplicate groups before the finding warns |
 
@@ -87,7 +88,7 @@ Dataset declares no class. Its title reads "Label/Directory_Name Distribution" w
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.label-health` Output |
+| `input` | an address | required | A `label-health` Output |
 | `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class always warns |
 
 ## Combines
@@ -102,36 +103,58 @@ and a share of the class, most flagged first, and the total. Configured by
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset the outliers were found in; its labels name each item's class |
-| `outliers` | an address | required | A `quality.outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true` |
+| `outliers` | an address | required | An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true` |
 
 On a detection Dataset it refuses outliers not computed per box (`per_target: true`), rather than report none.
 
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
 
-## data-cleaning as a chain
+## data-cleaning is this chain
 
-These steps give `data-cleaning`'s findings, on the same Dataset, with its default thresholds:
+`data-cleaning` is a preset: its settings expand to a chain of steps, run on the task's one source, `data`. With
+`outlier_method: zscore`, `outlier_flags: [pixel, visual]` and the default thresholds, it runs these steps:
 
 ```yaml
 evaluators:
-  - {name: outliers, type: quality.outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
-  - {name: dupes, type: quality.duplicates, merge_near_duplicates: true}
-  - {name: labels, type: quality.label-health}
+  - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
+  - {name: dupes, type: duplicates, merge_near_duplicates: true}
+  - {name: labels, type: label-health}
 
 workflows:
-  - name: cleaning_report
+  - name: cleaning
     inputs: [data]
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by_class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image_outliers, check: outlier-rate, input: outliers}
-      - {name: target_outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by_class}
+      - {name: image-outliers, check: outlier-rate, input: outliers}
+      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outlier-rate, input: by-class}
       - {name: duplicates, check: duplicate-rate, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
+      - name: clean
+        transform: remove
+        input: data
+        plans:
+          dupes: {dup_types: [exact, near], keep: first}
+          outliers: {min_flags: 1}
 ```
 
-The chain's report differs in layout: each evaluator's section holds the evidence, the flagged items and the duplicate
-groups, and each check's section its finding.
+Its other settings go to the evaluators: `outlier_threshold`, `outlier_cluster_threshold`,
+`outlier_cluster_algorithm` and `outlier_n_clusters` to `outliers`, the `duplicate_*` settings to `dupes`, `metadata`
+to `labels`, and `stats` to both `outliers` and `dupes`. Each `health_thresholds` entry is the threshold of the check
+that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
+but the first of its group.
+
+Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
+Image Outliers, and the duplicate groups under Duplicates. The class counts sit under the first finding that read
+`labels`: Target Outliers where any box was flagged, else Label Distribution. A finding that read a step shown already
+names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `by-class` counted.
+`clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference campaigns,
+as {doc}`View a report as HTML <../notebooks/view_html_reports>` runs it: "Kept 162 of 261 images. Removed 99 images
+and 32 detections: 90 images named by `dupes`, 11 images and 32 detections by `outliers`." Two images were named by
+both plans. A Steps table lists every step, what it read, and why it made nothing where it did not.
+
+Run as a step of a custom workflow, `<step>.clean` reads the cleaned Dataset; see
+[Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets).

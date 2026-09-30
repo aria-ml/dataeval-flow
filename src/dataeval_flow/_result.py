@@ -202,6 +202,28 @@ TMetadata = TypeVar("TMetadata", bound=ResultMetadata)
 TOutput = TypeVar("TOutput")
 
 
+def _without_none(
+    value: Any, *, keep: frozenset[tuple[str | int, ...]] = frozenset(), path: tuple[str | int, ...] = ()
+) -> Any:
+    """``value`` without its ``None`` entries, through mappings and lists, but for the paths in ``keep``.
+
+    The report shows what was set: a ``None`` the user wrote is a setting, a ``None`` default is not.
+    """
+    if isinstance(value, dict):
+        return {
+            key: _without_none(item, keep=keep, path=(*path, key))
+            for key, item in value.items()
+            if item is not None or (*path, key) in keep
+        }
+    if isinstance(value, list):
+        return [
+            _without_none(item, keep=keep, path=(*path, index))
+            for index, item in enumerate(value)
+            if item is not None or (*path, index) in keep
+        ]
+    return value
+
+
 def _source_items(meta: ResultMetadata) -> list[tuple[str, Scalar]]:
     """What the run read: every source, or else the dataset and selection."""
     from dataeval_flow.workflows._base import render_label_source
@@ -272,16 +294,11 @@ def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: L
     return dest
 
 
-def _page_title(document: Section) -> str:
-    """A report's title on one line, as a page's title bar shows it."""
-    return " — ".join(part.strip() for part in document.title.split("\n"))
-
-
 def results_html(results: Sequence["Result[Any, Any]"], *, detailed: bool = True) -> str:
     """Every result's report on one page, as a run's ``result.html`` holds all of its tasks; *detailed* as `to_html`."""
     # The runner writes one page for the whole run, from the documents each result draws.
     documents = [result._document(detailed=detailed) for result in results]  # noqa: SLF001 - one page, many reports
-    title = _page_title(documents[0]) if len(documents) == 1 else "dataeval-flow results"
+    title = results[0]._page_title() if len(results) == 1 else "dataeval-flow results"  # noqa: SLF001 - as its report
     return html_page(title, documents, [result.assets for result in results])
 
 
@@ -373,6 +390,12 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         self.dataset = dataset
         self.sources = sources
         self.assets: list[Asset] = []
+        self._set_nulls: frozenset[tuple[str | int, ...]] = frozenset()
+        """Where ``metadata.resolved_config`` holds a ``None`` the user set, as key and index paths. Its report keeps
+        those and drops every other ``None``; empty for a result made outside a task."""
+        self._entry: str | None = None
+        """The name of the ``evaluators:`` or ``workflows:`` entry the task ran, which Flow sets when the run returns;
+        ``None`` for a result made outside a task."""
 
     @classmethod
     def failed(cls, *, type: str, errors: Sequence[str]) -> Self:  # noqa: A002
@@ -431,7 +454,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
             A complete HTML document.
         """
         document = self._document(detailed=detailed)
-        return html_page(_page_title(document), [document], [self.assets])
+        return html_page(self._page_title(), [document], [self.assets])
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.
@@ -469,26 +492,47 @@ class Result(ABC, Generic[TMetadata, TOutput]):
 
     def _document(self, *, detailed: bool) -> Section:
         """The whole report as blocks: the banner title, the envelope, the body, then the configuration."""
-        title = self._report_title() if self.success else self.type
+        title = self._report_title()
         blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
-            config = to_jsonable_python(self.metadata.resolved_config, fallback=str)
-            blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
+            config = _without_none(
+                to_jsonable_python(self.metadata.resolved_config, fallback=str), keep=self._set_nulls
+            )
+            if config:
+                blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)
 
     def _report_envelope(self) -> list[Block]:
-        """The envelope under the banner, or nothing when the metadata holds none of it."""
-        items = _envelope_items(self.metadata)
-        return [Fields(items=items)] if items else []
+        """The envelope under the banner: what ran, then the shared items."""
+        return [Fields(items=self._report_items())]
+
+    def _report_items(self) -> list[tuple[str, Scalar]]:
+        """The envelope's rows: the line naming what ran, then when it ran, how long, and what it read."""
+        return [self._report_ran(), *_envelope_items(self.metadata)]
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
         """The report's body: what this kind reports, or ``FAILED`` and each error for a failed run."""
         return self._report_output(detailed=detailed) if self.success else [failure_section(self.errors)]
 
-    @abstractmethod
     def _report_title(self) -> str:
-        """A successful run's banner title; a multi-line title renders one line per banner row."""
+        """The banner: what ran, by its friendly title."""
+        from dataeval_flow._step_title import step_title
+
+        return step_title(self.kind, self.type)
+
+    def _report_ran(self) -> tuple[str, Scalar]:
+        """The envelope's first row: ``Workflow: entry (id)``, or ``Evaluator: entry (id)`` for an evaluator task;
+        the id alone where the entry is not named or is the id."""
+        label = "Evaluator" if self.kind == "evaluator" else "Workflow"
+        ran = f"{self._entry} ({self.type})" if self._entry and self._entry != self.type else self.type
+        return label, ran
+
+    def _page_title(self) -> str:
+        """The page's title bar: the banner, then the entry where it differs from the id, so two reports of one
+        type tell apart in browser tabs."""
+        title = self._report_title()
+        return f"{title} — {self._entry}" if self._entry and self._entry not in (self.type, title) else title
 
     @abstractmethod
     def _report_output(self, *, detailed: bool) -> list[Block]:

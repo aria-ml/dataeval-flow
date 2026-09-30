@@ -2,10 +2,10 @@
   "kind": "workflow",
   "metadata": {
     "version": "1.0",
-    "timestamp": "2026-09-28T06:12:42.893978Z",
+    "timestamp": "2026-09-30T03:47:28.632115Z",
     "dataset_id": "dataset",
     "label_source": "protocol",
-    "model_id": null,
+    "model_id": "bovw_ext (bovw)",
     "preprocessor_id": null,
     "selection_id": null,
     "source_descriptions": [
@@ -22,730 +22,884 @@
             "version": "1",
             "dataset": {
               "type": "protocol",
-              "class": "ToyImages",
-              "id": "toy-0-40"
+              "class": "View",
+              "id": "datamaite"
             }
           }
         }
       ],
       "workflow": {
         "stats": null,
-        "value_range": null,
         "metadata": null,
-        "metadata_auto_bin_method": null,
-        "metadata_exclude": [],
-        "metadata_continuous_factor_bins": null,
-        "metadata_factor_source": null,
-        "name": "data-cleaning",
+        "name": "skysealand_cleaning",
         "type": "data-cleaning",
-        "mode": "advisory",
         "ontology": null,
-        "outlier_method": "zscore",
+        "outlier_method": "adaptive",
         "outlier_flags": [
+          "dimension",
           "pixel",
           "visual"
         ],
-        "outlier_threshold": null,
-        "outlier_cluster_threshold": null,
-        "outlier_cluster_algorithm": null,
-        "outlier_n_clusters": null,
+        "outlier_threshold": 3.5,
+        "outlier_cluster_threshold": 3.5,
+        "outlier_cluster_algorithm": "hdbscan",
+        "outlier_n_clusters": 4,
         "duplicate_flags": null,
         "duplicate_merge_near": true,
-        "duplicate_cluster_sensitivity": null,
-        "duplicate_cluster_algorithm": null,
-        "duplicate_n_clusters": null,
+        "duplicate_cluster_sensitivity": 0.5,
+        "duplicate_cluster_algorithm": "hdbscan",
+        "duplicate_n_clusters": 4,
         "health_thresholds": {
           "exact_duplicates": 0.0,
           "near_duplicates": 5.0,
-          "image_outliers": 3.0,
-          "target_outliers": 3.0,
-          "classwise_outliers": 3.0,
+          "image_outliers": 5.0,
+          "target_outliers": 10.0,
+          "classwise_outliers": 12.0,
           "class_label_imbalance": 5.0
         }
+      },
+      "extractor": {
+        "name": "bovw_ext",
+        "preprocessor": null,
+        "batch_size": 32,
+        "model": "bovw",
+        "vocab_size": 512
       }
     },
     "tool": "dataeval-flow",
-    "tool_version": "0.2.3.dev259+g1574a5ce2.d20260928",
-    "execution_time_s": 0.077,
-    "metadata_binning": {
-      "auto_bin_method": "uniform_width",
-      "encoding_digest": "01e7b720ff566d53",
-      "factor_source": "auto",
-      "requested_bins": {},
-      "excluded": [],
-      "factors": {},
-      "dropped": {},
-      "unusable": {},
-      "descriptor_version": 3,
-      "corrections": [],
-      "unreviewed": [],
-      "bin_expansion": {},
-      "injected_factors": []
-    },
-    "encoding_digest": "01e7b720ff566d53",
+    "tool_version": "0.2.3.dev408+g665f88de0.d20260930",
+    "execution_time_s": 15.663,
+    "metadata_binning": null,
+    "encoding_digest": null,
     "label_space_digest": null,
     "label_space": [],
-    "diagnostics": [],
-    "mode": "advisory",
-    "evaluators": [
-      "outliers",
-      "duplicates"
+    "diagnostics": [
+      "WARNING: dataeval.metadata: A user defined binning was not provided for height. Using the uniform_width method to discretize the data. It is recommended that the user rerun and supply the desired bins using the continuous_factor_bins parameter.",
+      "WARNING: dataeval.metadata: A user defined binning was not provided for width. Using the uniform_width method to discretize the data. It is recommended that the user rerun and supply the desired bins using the continuous_factor_bins parameter.",
+      "UserWarning: dataeval: `height` and `width` were binned automatically ('uniform_width') because no bins were declared. The bin count is derived from the data, so it is not stable across samples and the same factor measured twice may not be comparable. Declare cutoffs with continuous_factor_bins={\"height\": [...]} to control this."
     ],
-    "flagged_indices": [],
-    "clean_indices": [],
-    "removed_count": 0
-  },
-  "health": {
-    "status": "warning",
-    "warnings": 1,
-    "findings": 4
-  },
-  "raw": {
-    "dataset_size": 40,
-    "duplicates": {
-      "items": {
-        "exact": [
-          [
-            0,
-            5
-          ]
+    "workflow": "skysealand_cleaning",
+    "lineage": [
+      {
+        "name": "data",
+        "step": null,
+        "type": null,
+        "inputs": [],
+        "source": "dataset",
+        "digest": "91737a273d24",
+        "items": 20
+      },
+      {
+        "name": "clean",
+        "step": "clean",
+        "type": "remove",
+        "inputs": [
+          "data"
         ],
-        "near": [
-          {
-            "indices": [
-              3,
-              9
-            ],
-            "methods": [
-              "dhash",
-              "phash"
-            ],
-            "orientation": null
-          }
-        ]
-      },
-      "targets": {}
-    },
-    "img_outliers": {
-      "issues": [
-        {
-          "item_index": 7,
-          "metric_name": "brightness",
-          "metric_value": 255.0,
-          "direction": "upper",
-          "bound": 157.93633938921982,
-          "percentile": 98.75,
-          "population_mean": 67.4,
-          "population_std": 30.178779796406612
-        },
-        {
-          "item_index": 7,
-          "metric_name": "contrast",
-          "metric_value": 0.0,
-          "direction": "lower",
-          "bound": 1.0101296115491878,
-          "percentile": 1.25,
-          "population_mean": 1.9511721312999726,
-          "population_std": 0.3136808399169283
-        },
-        {
-          "item_index": 7,
-          "metric_name": "darkness",
-          "metric_value": 255.0,
-          "direction": "upper",
-          "bound": 224.41255580352308,
-          "percentile": 98.75,
-          "population_mean": 192.2125,
-          "population_std": 10.733351934507692
-        },
-        {
-          "item_index": 7,
-          "metric_name": "entropy",
-          "metric_value": 0.0,
-          "direction": "lower",
-          "bound": 2.714849633076877,
-          "percentile": 1.25,
-          "population_mean": 5.225540769100189,
-          "population_std": 0.8368970453411039
-        },
-        {
-          "item_index": 7,
-          "metric_name": "kurtosis",
-          "metric_value": 0.0,
-          "direction": "upper",
-          "bound": -0.5967598668390077,
-          "percentile": 98.75,
-          "population_mean": -1.1732185542583466,
-          "population_std": 0.1921528958064463
-        },
-        {
-          "item_index": 7,
-          "metric_name": "mean",
-          "metric_value": 255.0,
-          "direction": "upper",
-          "bound": 190.5180498066442,
-          "percentile": 98.75,
-          "population_mean": 130.1447587966919,
-          "population_std": 20.124430336650768
-        },
-        {
-          "item_index": 7,
-          "metric_name": "sharpness",
-          "metric_value": 0.0,
-          "direction": "lower",
-          "bound": 55.95073369952691,
-          "percentile": 1.25,
-          "population_mean": 108.21843948364258,
-          "population_std": 17.422568594705226
-        },
-        {
-          "item_index": 7,
-          "metric_name": "std",
-          "metric_value": 0.0,
-          "direction": "lower",
-          "bound": 37.165460377415606,
-          "percentile": 1.25,
-          "population_mean": 72.0215253829956,
-          "population_std": 11.618688335193333
-        },
-        {
-          "item_index": 7,
-          "metric_name": "var",
-          "metric_value": 0.0,
-          "direction": "lower",
-          "bound": 2690.423870992224,
-          "percentile": 1.25,
-          "population_mean": 5322.094128417969,
-          "population_std": 877.2234191419152
-        }
-      ],
-      "count": 9
-    },
-    "label_stats": {
-      "item_count": 40,
-      "class_count": 2,
-      "index2label": {
-        "0": "a",
-        "1": "b"
-      },
-      "label_counts_per_class": {
-        "a": 20,
-        "b": 20
-      }
-    },
-    "target_outliers": null,
-    "classwise_outliers": {
-      "count_basis": "image",
-      "rows": [
-        {
-          "class_name": "b",
-          "count": 1,
-          "pct": 5.0
-        },
-        {
-          "class_name": "Total",
-          "count": 1,
-          "pct": 2.5
-        }
-      ]
-    }
-  },
-  "report": {
-    "summary": "Data cleaning complete. Dataset: 40 items. Mode: advisory.",
-    "findings": [
-      {
-        "severity": "info",
-        "title": "Image Outliers",
-        "brief": "1 images (2.5%)",
-        "description": "1 images (2.5%) flagged as outliers. Limits: the mean \u00b1 3 standard deviations (z-score).",
-        "blocks": [
-          {
-            "type": "table",
-            "columns": [
-              {
-                "key": "image",
-                "kind": "image"
-              },
-              {
-                "key": "item",
-                "header": "Item"
-              },
-              {
-                "key": "class",
-                "header": "Class",
-                "align": "left"
-              },
-              {
-                "key": "flags",
-                "header": "Flags"
-              },
-              {
-                "key": "by",
-                "header": "Flagged by",
-                "kind": "flags"
-              }
-            ],
-            "rows": [
-              {
-                "item": 7,
-                "image": {
-                  "source": "dataset",
-                  "index": 7
-                },
-                "class": "b",
-                "flags": 9,
-                "by": [
-                  {
-                    "name": "brightness",
-                    "value": 255.0,
-                    "direction": "upper",
-                    "bound": 157.93633938921982,
-                    "percentile": 98.75,
-                    "mean": 67.4,
-                    "std": 30.178779796406612
-                  },
-                  {
-                    "name": "contrast",
-                    "value": 0.0,
-                    "direction": "lower",
-                    "bound": 1.0101296115491878,
-                    "percentile": 1.25,
-                    "mean": 1.9511721312999726,
-                    "std": 0.3136808399169283
-                  },
-                  {
-                    "name": "darkness",
-                    "value": 255.0,
-                    "direction": "upper",
-                    "bound": 224.41255580352308,
-                    "percentile": 98.75,
-                    "mean": 192.2125,
-                    "std": 10.733351934507692
-                  },
-                  {
-                    "name": "entropy",
-                    "value": 0.0,
-                    "direction": "lower",
-                    "bound": 2.714849633076877,
-                    "percentile": 1.25,
-                    "mean": 5.225540769100189,
-                    "std": 0.8368970453411039
-                  },
-                  {
-                    "name": "kurtosis",
-                    "value": 0.0,
-                    "direction": "upper",
-                    "bound": -0.5967598668390077,
-                    "percentile": 98.75,
-                    "mean": -1.1732185542583466,
-                    "std": 0.1921528958064463
-                  },
-                  {
-                    "name": "mean",
-                    "value": 255.0,
-                    "direction": "upper",
-                    "bound": 190.5180498066442,
-                    "percentile": 98.75,
-                    "mean": 130.1447587966919,
-                    "std": 20.124430336650768
-                  },
-                  {
-                    "name": "sharpness",
-                    "value": 0.0,
-                    "direction": "lower",
-                    "bound": 55.95073369952691,
-                    "percentile": 1.25,
-                    "mean": 108.21843948364258,
-                    "std": 17.422568594705226
-                  },
-                  {
-                    "name": "std",
-                    "value": 0.0,
-                    "direction": "lower",
-                    "bound": 37.165460377415606,
-                    "percentile": 1.25,
-                    "mean": 72.0215253829956,
-                    "std": 11.618688335193333
-                  },
-                  {
-                    "name": "var",
-                    "value": 0.0,
-                    "direction": "lower",
-                    "bound": 2690.423870992224,
-                    "percentile": 1.25,
-                    "mean": 5322.094128417969,
-                    "std": 877.2234191419152
-                  }
-                ]
-              }
-            ],
-            "preview": 10
-          },
-          {
-            "type": "table",
-            "columns": [
-              {
-                "key": "metric",
-                "header": "Metric"
-              },
-              {
-                "key": "count",
-                "header": "Count"
-              },
-              {
-                "key": "lower",
-                "header": "Lower",
-                "format": "{:.4g}"
-              },
-              {
-                "key": "upper",
-                "header": "Upper",
-                "format": "{:.4g}"
-              },
-              {
-                "key": "mean",
-                "header": "Mean",
-                "format": "{:.4g}"
-              },
-              {
-                "key": "std",
-                "header": "Std",
-                "format": "{:.4g}"
-              }
-            ],
-            "rows": [
-              {
-                "metric": "brightness",
-                "count": 1,
-                "lower": null,
-                "upper": 157.936339389,
-                "mean": 67.4,
-                "std": 30.178779796
-              },
-              {
-                "metric": "contrast",
-                "count": 1,
-                "lower": 1.010129612,
-                "upper": null,
-                "mean": 1.951172131,
-                "std": 0.31368084
-              },
-              {
-                "metric": "darkness",
-                "count": 1,
-                "lower": null,
-                "upper": 224.412555804,
-                "mean": 192.2125,
-                "std": 10.733351935
-              },
-              {
-                "metric": "entropy",
-                "count": 1,
-                "lower": 2.714849633,
-                "upper": null,
-                "mean": 5.225540769,
-                "std": 0.836897045
-              },
-              {
-                "metric": "kurtosis",
-                "count": 1,
-                "lower": null,
-                "upper": -0.596759867,
-                "mean": -1.173218554,
-                "std": 0.192152896
-              },
-              {
-                "metric": "mean",
-                "count": 1,
-                "lower": null,
-                "upper": 190.518049807,
-                "mean": 130.144758797,
-                "std": 20.124430337
-              },
-              {
-                "metric": "sharpness",
-                "count": 1,
-                "lower": 55.9507337,
-                "upper": null,
-                "mean": 108.218439484,
-                "std": 17.422568595
-              },
-              {
-                "metric": "std",
-                "count": 1,
-                "lower": 37.165460377,
-                "upper": null,
-                "mean": 72.021525383,
-                "std": 11.618688335
-              },
-              {
-                "metric": "var",
-                "count": 1,
-                "lower": 2690.423870992,
-                "upper": null,
-                "mean": 5322.094128418,
-                "std": 877.223419142
-              }
-            ]
-          },
-          {
-            "type": "fields",
-            "items": [
-              [
-                "Percentage",
-                2.5
-              ],
-              [
-                "Dataset size",
-                40
-              ]
-            ]
-          }
-        ]
-      },
-      {
-        "severity": "info",
-        "title": "Classwise Outliers",
-        "brief": "worst: b (5.0%), 1/1 classes over 3.0%",
-        "description": "Most outliers in b (5.0%). 1/1 classes exceed 3.0% threshold.",
-        "blocks": [
-          {
-            "type": "table",
-            "columns": [
-              {
-                "key": "class_name",
-                "header": "Class Name"
-              },
-              {
-                "key": "count",
-                "header": "Count"
-              },
-              {
-                "key": "pct",
-                "header": "%",
-                "format": "{:.1f}%"
-              }
-            ],
-            "rows": [
-              {
-                "class_name": "b",
-                "count": 1,
-                "pct": 5.0
-              },
-              {
-                "class_name": "Total",
-                "count": 1,
-                "pct": 2.5
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "severity": "warning",
-        "title": "Duplicates",
-        "brief": "2 exact (5.0%), 2 near (5.0%)",
-        "description": "1 exact duplicate groups, 1 near-duplicate groups found.",
-        "blocks": [
-          {
-            "type": "paragraph",
-            "text": "1 exact-duplicate groups (2 images)"
-          },
-          {
-            "type": "section",
-            "title": "1 near-duplicate groups (2 images)",
-            "blocks": [
-              {
-                "type": "fields",
-                "items": [
-                  [
-                    "Methods",
-                    "dhash, phash"
-                  ]
-                ]
-              }
-            ]
-          },
-          {
-            "type": "table",
-            "columns": [
-              {
-                "key": "group",
-                "header": "Group"
-              },
-              {
-                "key": "kind",
-                "header": "Kind",
-                "align": "left"
-              },
-              {
-                "key": "count",
-                "header": "Count"
-              },
-              {
-                "key": "items",
-                "header": "Items",
-                "align": "left"
-              },
-              {
-                "key": "image",
-                "kind": "image"
-              }
-            ],
-            "rows": [
-              {
-                "group": 0,
-                "kind": "exact",
-                "count": 2,
-                "items": "0, 5",
-                "image": [
-                  {
-                    "source": "dataset",
-                    "index": 0
-                  },
-                  {
-                    "source": "dataset",
-                    "index": 5
-                  }
-                ]
-              },
-              {
-                "group": 0,
-                "kind": "near",
-                "count": 2,
-                "items": "3, 9",
-                "image": [
-                  {
-                    "source": "dataset",
-                    "index": 3
-                  },
-                  {
-                    "source": "dataset",
-                    "index": 9
-                  }
-                ]
-              }
-            ],
-            "preview": 10
-          },
-          {
-            "type": "fields",
-            "items": [
-              [
-                "Exact groups",
-                1
-              ],
-              [
-                "Near groups",
-                1
-              ],
-              [
-                "Exact affected",
-                2
-              ],
-              [
-                "Near affected",
-                2
-              ]
-            ]
-          }
-        ]
-      },
-      {
-        "severity": "info",
-        "title": "Label Distribution",
-        "brief": "2 classes, 40 items, imbalance 1.0:1",
-        "description": "2 classes, 40 items.",
-        "blocks": [
-          {
-            "type": "table",
-            "columns": [
-              {
-                "key": "name",
-                "header": "Class"
-              },
-              {
-                "key": "value",
-                "header": "Count"
-              },
-              {
-                "key": "value",
-                "kind": "bar"
-              }
-            ],
-            "rows": [
-              {
-                "name": "a",
-                "value": 20
-              },
-              {
-                "name": "b",
-                "value": 20
-              }
-            ]
-          },
-          {
-            "type": "paragraph",
-            "text": "Labels protocol"
-          },
-          {
-            "type": "paragraph",
-            "text": "Balanced: all classes have equal counts"
-          }
-        ]
+        "source": null,
+        "digest": "8f988c5a0ade",
+        "items": 18
       }
     ]
   },
+  "health": {
+    "status": "warning",
+    "warnings": 2,
+    "findings": 4,
+    "failed_steps": []
+  },
+  "steps": {
+    "outliers": {
+      "kind": "evaluator",
+      "type": "outliers",
+      "status": "ok",
+      "inputs": [
+        "data"
+      ],
+      "dataeval": {
+        "name": "",
+        "version": "1.1.1.dev139+gdfc6146be",
+        "execution_time": null,
+        "execution_duration": null
+      },
+      "output": {
+        "shape": "table",
+        "columns": [
+          "item_index",
+          "target_index",
+          "metric_name",
+          "metric_value",
+          "direction",
+          "bound",
+          "percentile",
+          "population_mean",
+          "population_std"
+        ],
+        "rows": [
+          {
+            "item_index": 2,
+            "target_index": null,
+            "metric_name": "aspect_ratio",
+            "metric_value": -0.24469274282455444,
+            "direction": "lower",
+            "bound": 0.193204542055673,
+            "percentile": 2.5,
+            "population_mean": 0.525464041531086,
+            "population_std": 0.19047904694956458
+          },
+          {
+            "item_index": 2,
+            "target_index": 2,
+            "metric_name": "height",
+            "metric_value": 244.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 98.35329341317366,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 2,
+            "target_index": 2,
+            "metric_name": "size",
+            "metric_value": 46116.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 99.55089820359281,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 2,
+            "target_index": 3,
+            "metric_name": "height",
+            "metric_value": 231.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 97.75449101796407,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 2,
+            "target_index": 3,
+            "metric_name": "size",
+            "metric_value": 43890.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 99.25149700598803,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 7,
+            "target_index": 15,
+            "metric_name": "size",
+            "metric_value": 22022.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 97.1556886227545,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 10,
+            "target_index": 0,
+            "metric_name": "height",
+            "metric_value": 234.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 98.05389221556887,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 10,
+            "target_index": 0,
+            "metric_name": "size",
+            "metric_value": 189540.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 99.8502994011976,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 10,
+            "target_index": 0,
+            "metric_name": "width",
+            "metric_value": 810.0,
+            "direction": "upper",
+            "bound": 339.08617206940744,
+            "percentile": 99.8502994011976,
+            "population_mean": 68.84730538922156,
+            "population_std": 63.87246866387829
+          },
+          {
+            "item_index": 12,
+            "target_index": 0,
+            "metric_name": "kurtosis",
+            "metric_value": 7.826071262359619,
+            "direction": "upper",
+            "bound": 5.876541418805497,
+            "percentile": 99.8502994011976,
+            "population_mean": -0.05268554814566975,
+            "population_std": 1.3018637636339714
+          },
+          {
+            "item_index": 12,
+            "target_index": 2,
+            "metric_name": "kurtosis",
+            "metric_value": 6.850437641143799,
+            "direction": "upper",
+            "bound": 5.876541418805497,
+            "percentile": 99.55089820359281,
+            "population_mean": -0.05268554814566975,
+            "population_std": 1.3018637636339714
+          },
+          {
+            "item_index": 14,
+            "target_index": null,
+            "metric_name": "zeros",
+            "metric_value": 0.016268840059638023,
+            "direction": "upper",
+            "bound": 0.013554888973765642,
+            "percentile": 97.5,
+            "population_mean": 0.002546700115499334,
+            "population_std": 0.004877874527542922
+          },
+          {
+            "item_index": 14,
+            "target_index": 0,
+            "metric_name": "height",
+            "metric_value": 257.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 98.95209580838323,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 14,
+            "target_index": 1,
+            "metric_name": "height",
+            "metric_value": 255.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 98.65269461077844,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 14,
+            "target_index": 2,
+            "metric_name": "height",
+            "metric_value": 277.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 99.25149700598803,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 14,
+            "target_index": 2,
+            "metric_name": "size",
+            "metric_value": 21883.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 96.8562874251497,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 14,
+            "target_index": 5,
+            "metric_name": "height",
+            "metric_value": 291.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 99.55089820359281,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 14,
+            "target_index": 10,
+            "metric_name": "height",
+            "metric_value": 370.0,
+            "direction": "upper",
+            "bound": 229.04070373139317,
+            "percentile": 99.8502994011976,
+            "population_mean": 63.050898203592816,
+            "population_std": 43.70259226921805
+          },
+          {
+            "item_index": 14,
+            "target_index": 10,
+            "metric_name": "size",
+            "metric_value": 30710.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 98.35329341317366,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 15,
+            "target_index": 0,
+            "metric_name": "size",
+            "metric_value": 26319.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 97.75449101796407,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 15,
+            "target_index": 1,
+            "metric_name": "size",
+            "metric_value": 26702.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 98.05389221556887,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 19,
+            "target_index": 1,
+            "metric_name": "size",
+            "metric_value": 33972.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 98.65269461077844,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 19,
+            "target_index": 3,
+            "metric_name": "size",
+            "metric_value": 43769.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 98.95209580838323,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          },
+          {
+            "item_index": 19,
+            "target_index": 4,
+            "metric_name": "size",
+            "metric_value": 25208.0,
+            "direction": "upper",
+            "bound": 21050.214600152904,
+            "percentile": 97.45508982035928,
+            "population_mean": 5054.185628742515,
+            "population_std": 11744.644592590299
+          }
+        ]
+      },
+      "elapsed_s": 13.916
+    },
+    "labels": {
+      "kind": "evaluator",
+      "type": "label-health",
+      "status": "ok",
+      "inputs": [
+        "data"
+      ],
+      "dataeval": {
+        "name": "dataeval.core.label_stats",
+        "version": "1.1.1.dev139+gdfc6146be",
+        "execution_time": "2026-09-30T03:47:27.012921Z",
+        "execution_duration": 0.00013443499483400956
+      },
+      "output": {
+        "shape": "mapping",
+        "data": {
+          "item_count": 20,
+          "class_count": 4,
+          "label_count": 334,
+          "label_counts_per_class": {
+            "car": 183,
+            "airplane": 48,
+            "ship": 96,
+            "boat": 7
+          },
+          "image_counts_per_class": {
+            "car": 4,
+            "airplane": 6,
+            "ship": 9,
+            "boat": 3
+          },
+          "empty_image_count": 0,
+          "label_source": "protocol"
+        }
+      },
+      "elapsed_s": 0.128
+    },
+    "by-class": {
+      "kind": "combine",
+      "type": "classwise-outliers",
+      "status": "ok",
+      "inputs": [
+        "data",
+        "outliers"
+      ],
+      "output": {
+        "count_basis": "annotation",
+        "rows": [
+          {
+            "class_name": "ship",
+            "count": 14,
+            "pct": 14.6
+          },
+          {
+            "class_name": "airplane",
+            "count": 2,
+            "pct": 4.2
+          }
+        ],
+        "total": {
+          "class_name": "Total",
+          "count": 16,
+          "pct": 4.8
+        }
+      },
+      "elapsed_s": 0.026
+    },
+    "dupes": {
+      "kind": "evaluator",
+      "type": "duplicates",
+      "status": "ok",
+      "inputs": [
+        "data"
+      ],
+      "dataeval": {
+        "name": "dataeval.quality._duplicates.Duplicates.from_clusters",
+        "version": "1.1.1.dev139+gdfc6146be",
+        "execution_time": "2026-09-30T03:47:28.597432Z",
+        "execution_duration": 0.011227
+      },
+      "output": {
+        "shape": "table",
+        "columns": [
+          "group_id",
+          "level",
+          "dup_type",
+          "item_indices",
+          "unit_indices",
+          "track_indices",
+          "target_indices",
+          "address_levels",
+          "methods",
+          "span_start",
+          "span_end",
+          "containment",
+          "differs_on",
+          "annotation_divergence",
+          "mean_distance"
+        ],
+        "rows": [],
+        "extras": {
+          "annotation_divergences": null,
+          "factor_cardinality": null
+        }
+      },
+      "elapsed_s": 1.569
+    },
+    "image-outliers": {
+      "kind": "check",
+      "type": "outlier-rate",
+      "status": "ok",
+      "inputs": [
+        "outliers"
+      ],
+      "output": {
+        "findings": 1,
+        "warnings": 1
+      },
+      "elapsed_s": 0.002
+    },
+    "target-outliers": {
+      "kind": "check",
+      "type": "target-outlier-rate",
+      "status": "ok",
+      "inputs": [
+        "outliers",
+        "labels"
+      ],
+      "output": {
+        "findings": 1,
+        "warnings": 0
+      },
+      "elapsed_s": 0.005
+    },
+    "classwise": {
+      "kind": "check",
+      "type": "classwise-outlier-rate",
+      "status": "ok",
+      "inputs": [
+        "by-class"
+      ],
+      "output": {
+        "findings": 1,
+        "warnings": 0
+      },
+      "elapsed_s": 0.0
+    },
+    "duplicates": {
+      "kind": "check",
+      "type": "duplicate-rate",
+      "status": "ok",
+      "inputs": [
+        "dupes"
+      ],
+      "output": {
+        "findings": 0,
+        "warnings": 0
+      },
+      "elapsed_s": 0.003
+    },
+    "imbalance": {
+      "kind": "check",
+      "type": "class-imbalance",
+      "status": "ok",
+      "inputs": [
+        "labels"
+      ],
+      "output": {
+        "findings": 1,
+        "warnings": 1
+      },
+      "elapsed_s": 0.0
+    },
+    "clean": {
+      "kind": "transform",
+      "type": "remove",
+      "status": "ok",
+      "inputs": [
+        "data",
+        "dupes",
+        "outliers"
+      ],
+      "output": {
+        "items": 18,
+        "digest": "8f988c5a0ade"
+      },
+      "details": {
+        "removed": {
+          "items": 2,
+          "detections": 16,
+          "tracks": 0,
+          "frames": 0
+        },
+        "by_plan": {
+          "dupes": {},
+          "outliers": {
+            "items": 2,
+            "detections": 16
+          }
+        }
+      },
+      "elapsed_s": 0.012
+    }
+  },
+  "findings": [
+    {
+      "severity": "warning",
+      "title": "Image Outliers",
+      "brief": "2 images (10.0%)",
+      "description": null,
+      "blocks": [],
+      "step": "image-outliers"
+    },
+    {
+      "severity": "info",
+      "title": "Target Outliers",
+      "brief": "16 targets (4.8%)",
+      "description": null,
+      "blocks": [],
+      "step": "target-outliers"
+    },
+    {
+      "severity": "info",
+      "title": "Classwise Outliers",
+      "brief": "worst: ship (14.6%), 1/2 classes over 12.0%",
+      "description": null,
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            {
+              "key": "class_name",
+              "header": "Class Name"
+            },
+            {
+              "key": "count",
+              "header": "Count"
+            },
+            {
+              "key": "pct",
+              "header": "%",
+              "format": "{:.1f}%"
+            }
+          ],
+          "rows": [
+            {
+              "class_name": "ship",
+              "count": 14,
+              "pct": 14.6
+            },
+            {
+              "class_name": "airplane",
+              "count": 2,
+              "pct": 4.2
+            },
+            {
+              "class_name": "Total",
+              "count": 16,
+              "pct": 4.8
+            }
+          ]
+        }
+      ],
+      "step": "classwise"
+    },
+    {
+      "severity": "warning",
+      "title": "Label Distribution",
+      "brief": "4 classes, 20 items, imbalance 26.1:1",
+      "description": null,
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            {
+              "key": "name",
+              "header": "Class"
+            },
+            {
+              "key": "value",
+              "header": "Count"
+            },
+            {
+              "key": "value",
+              "kind": "bar"
+            }
+          ],
+          "rows": [
+            {
+              "name": "car",
+              "value": 183
+            },
+            {
+              "name": "ship",
+              "value": 96
+            },
+            {
+              "name": "airplane",
+              "value": 48
+            },
+            {
+              "name": "boat",
+              "value": 7
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Labels protocol"
+        },
+        {
+          "type": "paragraph",
+          "text": "Imbalance ratio: 26.1 (max/min)"
+        }
+      ],
+      "step": "imbalance"
+    }
+  ],
   "assets": [
     {
       "item": {
-        "source": "dataset",
-        "index": 0
+        "source": "data",
+        "index": 2
       },
       "media_type": "image/webp",
-      "width": 16,
-      "height": 16,
-      "data": "UklGRiABAABXRUJQVlA4IBQBAADwBQCdASoQABAAAUAmJbACdD2QOsA53b2APJVLE75r37X5AviP+2e4H+nf+Z4ED9Ky2mg7ueACkAD8/4gv7vg64C4dP7K8p+h//Fm8+VUpXD28XfEZs7haGF44RrzwaQYdyzpj7+WtXGfUnJzGqcCl1PA2mHE6ebA511jr/EGTW2/JFoPdXThbRkDVAP/X8W5jmb77/CWXH8P6/1RZsM+Fo2cidJqQ7ecvzjR+gKMBXbww3FtEIX8/y+++eW0cDXaHDAvvjx/oGWw2Ptmmb/wFoCXsz0xX2gHUevLY5V5rXnGEef2f8zKERX1mtueMn7iFk91X1RHZDc73V8DkZC4vjuTLIYyvUu8KeOVf8XagivNSWgA="
+      "width": 145,
+      "height": 192
     },
     {
       "item": {
-        "source": "dataset",
-        "index": 3
+        "source": "data",
+        "index": 2,
+        "target": 2
       },
       "media_type": "image/webp",
-      "width": 16,
-      "height": 16,
-      "data": "UklGRigBAABXRUJQVlA4IBwBAAAwBgCdASoQABAAAUAmJbACdDKpPYA/YD9o/aQKW54gviz/a+4B+nP+M6wH6V+w7+oB6Zg5MKzO6rP4APwzBQjAGjrrZrdI5NgOX5j/lzog6g3+Wn5M/MCluQJrtGJCmHZz7CKlvznn/1pbRpv9oiJMgfWhAy4NcEBJ9spizdvfXT9e1lmrz6/i+unh7txwMgyKJ+Zr4u+a2d4e3+Wy/ViLipWiR33un2Nj7j+VROaU2oPfENwLSTlf/C+xSUr5KmbSToRgbZL2uj9Uegdeqaolt8aXx7UkB26/0H95xn/8vOlroAnjnx0Z/NU4raNpLSP5nnNPDoe81mUfcDT2nton9emrxPHwkLB78ll2Frv4zKZTfOcSX8YfssxQAA=="
+      "width": 144,
+      "height": 192
     },
     {
       "item": {
-        "source": "dataset",
-        "index": 5
+        "source": "data",
+        "index": 2,
+        "target": 3
       },
       "media_type": "image/webp",
-      "width": 16,
-      "height": 16,
-      "data": "UklGRiABAABXRUJQVlA4IBQBAADwBQCdASoQABAAAUAmJbACdD2QOsA53b2APJVLE75r37X5AviP+2e4H+nf+Z4ED9Ky2mg7ueACkAD8/4gv7vg64C4dP7K8p+h//Fm8+VUpXD28XfEZs7haGF44RrzwaQYdyzpj7+WtXGfUnJzGqcCl1PA2mHE6ebA511jr/EGTW2/JFoPdXThbRkDVAP/X8W5jmb77/CWXH8P6/1RZsM+Fo2cidJqQ7ecvzjR+gKMBXbww3FtEIX8/y+++eW0cDXaHDAvvjx/oGWw2Ptmmb/wFoCXsz0xX2gHUevLY5V5rXnGEef2f8zKERX1mtueMn7iFk91X1RHZDc73V8DkZC4vjuTLIYyvUu8KeOVf8XagivNSWgA="
+      "width": 149,
+      "height": 192
     },
     {
       "item": {
-        "source": "dataset",
-        "index": 7
+        "source": "data",
+        "index": 7,
+        "target": 15
       },
       "media_type": "image/webp",
-      "width": 16,
-      "height": 16,
-      "data": "UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAAUAmJaQAA3AA/vz0AAA="
+      "width": 192,
+      "height": 73
     },
     {
       "item": {
-        "source": "dataset",
-        "index": 9
+        "source": "data",
+        "index": 10,
+        "target": 0
       },
       "media_type": "image/webp",
-      "width": 16,
-      "height": 16,
-      "data": "UklGRigBAABXRUJQVlA4IBwBAAAwBgCdASoQABAAAUAmJbACdDKpPYA/YD9o/aQKW54gviz/a+4B+nP+M6wH6V+w7+oB6Zg5MKzO6rP4APwzBQjAGjrrZrdI5NgOX5j/lzog6g3+Wn5M/MCluQJrtGJCmHZz7CKlvznn/1pbRpv9oiJMgfWhAy4NcEBJ9spizdvfXT9e1lmrz6/i+unh7txwMgyKJ+Zr4u+a2d4e3+Wy/ViLipWiR33un2Nj7j+VROaU2oPfENwLSTlf/C+xSUr5KmbSToRgbZL2uj9Uegdeqaolt8aXx7UkB26/0H95xn/8vOlroAnjnx0Z/NU4raNpLSP5nnNPDoe81mUfcDT2nton9emrxPHwkLB78ll2Frv4zKZTfOcSX8YfssxQAA=="
+      "width": 192,
+      "height": 62
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 12,
+        "target": 0
+      },
+      "media_type": "image/webp",
+      "width": 153,
+      "height": 139
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 12,
+        "target": 2
+      },
+      "media_type": "image/webp",
+      "width": 153,
+      "height": 107
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 14
+      },
+      "media_type": "image/webp",
+      "width": 192,
+      "height": 81
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 14,
+        "target": 0
+      },
+      "media_type": "image/webp",
+      "width": 59,
+      "height": 192
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 14,
+        "target": 1
+      },
+      "media_type": "image/webp",
+      "width": 33,
+      "height": 192
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 14,
+        "target": 2
+      },
+      "media_type": "image/webp",
+      "width": 55,
+      "height": 192
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 14,
+        "target": 5
+      },
+      "media_type": "image/webp",
+      "width": 45,
+      "height": 192
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 14,
+        "target": 10
+      },
+      "media_type": "image/webp",
+      "width": 44,
+      "height": 192
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 15,
+        "target": 0
+      },
+      "media_type": "image/webp",
+      "width": 192,
+      "height": 64
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 15,
+        "target": 1
+      },
+      "media_type": "image/webp",
+      "width": 192,
+      "height": 45
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 19,
+        "target": 1
+      },
+      "media_type": "image/webp",
+      "width": 192,
+      "height": 125
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 19,
+        "target": 3
+      },
+      "media_type": "image/webp",
+      "width": 192,
+      "height": 132
+    },
+    {
+      "item": {
+        "source": "data",
+        "index": 19,
+        "target": 4
+      },
+      "media_type": "image/webp",
+      "width": 192,
+      "height": 143
     }
   ]
 }

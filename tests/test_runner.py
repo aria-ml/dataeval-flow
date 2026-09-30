@@ -432,11 +432,11 @@ def _fake_evaluator_result(*, success: bool = True):
     from dataeval_flow.evaluators._result import EvaluatorMetadata
 
     return EvaluatorResult(
-        type="quality.duplicates",
+        type="duplicates",
         success=success,
         output=object() if success else None,
         serialized={"shape": "table", "columns": [], "rows": []} if success else None,
-        metadata=EvaluatorMetadata(evaluator="quality.duplicates"),
+        metadata=EvaluatorMetadata(evaluator="duplicates"),
         errors=[] if success else ["RuntimeError: boom"],
     )
 
@@ -684,4 +684,4 @@ class TestCIReports:
         from dataeval_flow._ci_reports import markdown_summary
 
         text = markdown_summary({"dups": _fake_evaluator_result()})
-        assert "`quality.duplicates` ran; an evaluator has no findings to list." in text
+        assert "`duplicates` ran; an evaluator has no findings to list." in text

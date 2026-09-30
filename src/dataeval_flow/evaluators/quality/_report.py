@@ -10,6 +10,7 @@ __all__ = [
     "flag_of",
     "flagged_table",
     "groups_table",
+    "label_health_section",
     "limits_sentence",
     "limits_table",
     "outlier_section",
@@ -23,9 +24,10 @@ from typing import Any, Literal, NotRequired
 
 from typing_extensions import TypedDict
 
-from dataeval_flow._blocks import Block, Cell, Column, Flag, ItemRef, Paragraph, Section, Table
+from dataeval_flow._blocks import Block, Cell, Column, Fields, Flag, ItemRef, Paragraph, Scalar, Section, Table
 from dataeval_flow._blocks._table import fair_shares
 from dataeval_flow._tables import group_cells, table_limits
+from dataeval_flow.workflows._base import render_label_source
 
 _logger = logging.getLogger(__name__)
 
@@ -344,3 +346,30 @@ def _members(row: Mapping[str, Any], sources: Sequence[str]) -> list[ItemRef]:
         )
         for item, target, dataset in zip(items, targets, datasets, strict=True)
     ]
+
+
+def label_health_section(output: Mapping[str, Any]) -> list[Block]:
+    """A ``label-health`` Output's report: its counts as fields, then each class's labels and images."""
+    data = output.get("data") or {}
+    fields: list[tuple[str, Scalar]] = [
+        ("Items", data.get("item_count")),
+        ("Classes", data.get("class_count")),
+        ("Labels", data.get("label_count")),
+        ("Empty images", data.get("empty_image_count")),
+    ]
+    if data.get("label_source"):
+        fields.append(("Label source", render_label_source(data["label_source"])))
+    fields_block = Fields(items=fields)
+    blocks: list[Block] = [fields_block]
+    labels, images = data.get("label_counts_per_class") or {}, data.get("image_counts_per_class") or {}
+    if labels:
+        columns = [
+            Column(key="class", header="Class"),
+            Column(key="labels", header="Labels"),
+            Column(key="images", header="Images"),
+        ]
+        rows: list[dict[str, Cell]] = [
+            {"class": str(name), "labels": count, "images": images.get(name, 0)} for name, count in labels.items()
+        ]
+        blocks.append(Table(columns=columns, rows=rows))
+    return blocks

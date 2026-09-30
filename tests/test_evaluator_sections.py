@@ -131,7 +131,7 @@ def test_an_evaluator_step_s_section_names_its_items_by_the_node_it_read() -> No
 def test_a_result_that_does_not_know_its_sources_reports_dataeval_s_output_as_it_came() -> None:
     run = _task(DuplicatesConfig(name="e"))
     bare = DuplicatesResult(
-        type="quality.duplicates",
+        type="duplicates",
         success=True,
         metadata=EvaluatorMetadata(),
         output=run.output,

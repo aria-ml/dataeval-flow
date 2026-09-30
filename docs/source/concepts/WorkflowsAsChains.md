@@ -43,13 +43,13 @@ Each step names exactly one kind:
 | Kind key | Names | Makes |
 | --- | --- | --- |
 | `evaluator:` | an `evaluators:` entry | that evaluator's DataEval output |
-| `workflow:` | a `workflows:` entry with a `type:` | that workflow's result, with its findings |
+| `workflow:` | a `workflows:` entry with a `type:` | that workflow's result, with its findings; or a preset's steps, [below](#workflow-types-as-presets) |
 | `transform:` | a built-in transform, with its settings beside it | one or more Datasets, or an export record |
 | `combine:` | a registered combine, with its settings beside it | an Output a check reads, made from Outputs |
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
 An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
-and optionally `extractor:` and `optional:`. A chain cannot run as a step of another chain.
+and optionally `extractor:` and `optional:`. A custom workflow cannot run as a step of another.
 
 Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 
@@ -60,16 +60,16 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 | `split` | a Dataset | `train`, `val` and `test`, from `test_frac`, `val_frac` or both |
 | `kfold` | a Dataset | `train` and `val`, each a list with one Dataset per fold, and `test` |
 | `wrap` | an object-detection Dataset | a classification Dataset with one item per detection (`wrapper: DetectionCrops`) |
-| `select` | a Dataset, and a `scope.prioritize` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
+| `select` | a Dataset, and a `prioritize` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
 | `remove` | a Dataset, and Duplicates or Outliers outputs computed on it (`plans:`) | the Dataset without what the plans name |
-| `conform` | a Dataset, and a `scope.label-alignment` of it (`alignment:`) | the Dataset relabelled onto the ontology |
+| `conform` | a Dataset, and a `label-alignment` of it (`alignment:`) | the Dataset relabelled onto the ontology |
 | `export` | an object-detection Dataset | a corpus on disk under the run's output directory, and a record of it |
 
 `remove`, `select` and `conform` apply an evaluator's output to a Dataset, and only to the Dataset it was computed on.
 The step that `plans:`, `ranking:` or `alignment:` names must have read exactly the Dataset the transform's own
 `input:` names. The config refuses anything else when it loads. One element of a step that ran once per element of a
 list was computed on that element: `dupes[0]`, where `dupes` read `kfold.train`, applies to `kfold.train[0]`. A
-`scope.prioritize` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
+`prioritize` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
 
 `dataeval-flow steps` lists every step a chain can use, and `dataeval-flow steps NAME` prints one step's ports and
 settings.
@@ -83,7 +83,7 @@ The [Check and Combine Catalog](../reference/checks.md) lists the built-in ones.
 
 ```yaml
 evaluators:
-  - {name: labels, type: quality.label-health}
+  - {name: labels, type: label-health}
 
 workflows:
   - name: judged
@@ -102,6 +102,10 @@ step. A threshold of `null` judges nothing: the finding is still made, as `info`
 
 A check is never skipped because an input produced nothing. It makes one `info` finding briefed `not assessed`,
 saying which input holds nothing and why, so the report shows what could not be judged.
+
+The report gives each finding a section of its own, with the evidence it judged below it: `duplicates`' finding holds
+the `dupes` step's duplicate groups. The steps no finding shows follow, then a table of every step.
+[Read evaluation outputs](../how_to/read_evaluation_outputs.md) describes the layout.
 
 ## Addresses and lists
 
@@ -155,14 +159,33 @@ tasks:
   - {name: watch, workflow: per_camera, sources: [train, cam1, cam2], extractor: bovw_ext}
 ```
 
-A key missing from one of the lists skips that element, and the reason names the key. Lists do not nest: a step that
+A key missing from one of the lists skips that element, and the reason names the key. A check run once per element
+makes each element's findings, and the report groups them under the element's key. Lists do not nest: a step that
 outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of
 its own, named by its key.
+
+## Workflow types as presets
+
+A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning` is the first. Its
+evaluators find outliers and duplicates, its checks judge them against `health_thresholds`, and its `clean` step
+removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists
+the chain. The other workflow types will follow. Until then, each runs as one step that makes its result, and its
+findings stay in that step.
+
+Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
+its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
+`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/dupes` and so on. The step's
+`optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
+chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`.
+
+Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
+while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain
+once per element, so `cleaning.clean` is a list with the same keys.
 
 ## Derived data
 
 Evaluators read statistics, metadata and embeddings. In a chain, Flow derives them from the Dataset each step reads,
-as it does from a source. Each Dataset derives its own, so a `bias.balance` step on `clean` reads the metadata of the
+as it does from a source. Each Dataset derives its own, so a `balance` step on `clean` reads the metadata of the
 cleaned corpus. Removing items makes a new Dataset, and everything is derived again from it.
 
 The same Dataset under the same policy is derived once. Two steps that read `merged`'s statistics share one
@@ -201,25 +224,21 @@ It holds the Dataset's address (`name`), the step that made it and that step's `
 
 ```json
 {"name": "clean", "step": "clean", "type": "remove", "inputs": ["merged"], "source": null,
- "digest": "1bf4dcfcadf4", "items": 47}
+ "digest": "ca2f57f5f4ad", "items": 47}
 ```
 
-The report opens each step's section with a lineage line naming every address the step read. Each Dataset among them
-is walked back through the first Dataset it was made from, to the source bound to it, and an Output is named as it is.
-For a `remove` step that read `merged` and the `dupes` Output, and for a step that read `split.train`:
+The report's Steps table names, under *Reads*, every address each step read, one per line. Each Dataset among them is
+walked back through the first Dataset it was made from, to the source bound to it, and an Output is named as it is.
+For a `remove` step that read `merged` and the `dupes` Output:
 
 ```text
-On `merged` ← `street_conformed` ← `street` (street_2024), `dupes`
-On `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024)
+`merged` ← `street_conformed` ← `street` (street_2024)
+`dupes`
 ```
 
-A step run once per element of a list is headed by the list, walked back through its elements to the source of each,
-and each element's section by its own element:
-
-```text
-On `cameras` (cam1, cam2)
-On `cameras[cam1]` (cam1)
-```
+A step that read `split.train` reads
+`` `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. A step run once per element
+of a list reads the list, walked back through its elements to the source of each: `` `cameras` (cam1, cam2) ``.
 
 The digest is what lets two results be compared. Two results that give a Dataset the same digest read the same data:
 the same sources, through the same steps and settings, to the same content. The content is what a step resolved from

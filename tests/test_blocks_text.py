@@ -49,9 +49,9 @@ class TestSiblings:
 
 class TestSections:
     def test_the_root_is_a_banner_around_its_content(self):
-        lines = render_text([Section(title="Data Cleaning\nsplit: train", blocks=[Paragraph(text="body")])])
+        lines = render_text([Section(title="Data Cleaning", blocks=[Paragraph(text="body")])])
         rule = "=" * DEFAULT_WIDTH
-        assert lines == ["", rule, "  DATA CLEANING", "  SPLIT: TRAIN", rule, "  body", "", rule]
+        assert lines == ["", rule, "  DATA CLEANING", rule, "  body", "", rule]
 
     def test_a_top_level_section_has_rules_and_a_right_aligned_brief(self):
         section = Section(title="Duplicates", brief="3 groups", blocks=[Paragraph(text="found some")])

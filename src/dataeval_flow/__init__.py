@@ -34,7 +34,7 @@ Discovery helpers live with each kind, and list every installed type, plugins in
 
     >>> from dataeval_flow.evaluators import list_evaluators
     >>> [cls.name for cls in list_evaluators()]
-    ['quality.duplicates', 'quality.outliers']
+    ['balance', 'coverage', ...]
 """
 
 from dataeval_flow._dataset import load_dataset

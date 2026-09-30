@@ -49,7 +49,7 @@ class ChunkedDriftConfig(BaseModel):
 
         evaluators:
           - name: mmd_chunked
-            type: shift.drift-mmd
+            type: drift-mmd
             chunking:
               chunk_count: 10
               threshold: [zscore, 2.5]
@@ -89,20 +89,20 @@ class ChunkedDriftConfig(BaseModel):
 
 
 class DriftUnivariateConfig(EvaluatorConfig[DriftUnivariateResult]):
-    """Config for ``shift.drift-univariate``, DataEval's DriftUnivariate.
+    """Config for ``drift-univariate``, DataEval's DriftUnivariate.
 
     Tests each embedding dimension of the second source against the first's with a univariate statistical test, and
     declares drift when any dimension drifts after a multiple-testing correction. Needs an extractor on the task, and
     two sources: the reference, then the data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-univariate`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators drift-univariate`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: ks
-            type: shift.drift-univariate
+            type: drift-univariate
             p_val: 0.01
 
         tasks:
@@ -113,8 +113,8 @@ class DriftUnivariateConfig(EvaluatorConfig[DriftUnivariateResult]):
     """
 
     type: str = Field(
-        default="shift.drift-univariate",
-        description="The evaluator type this entry configures: `shift.drift-univariate`.",
+        default="drift-univariate",
+        description="The evaluator type this entry configures: `drift-univariate`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
 
@@ -153,26 +153,24 @@ class DriftUnivariateConfig(EvaluatorConfig[DriftUnivariateResult]):
 
 
 class DriftMMDConfig(EvaluatorConfig[DriftMMDResult]):
-    """Config for ``shift.drift-mmd``, DataEval's DriftMMD.
+    """Config for ``drift-mmd``, DataEval's DriftMMD.
 
     Measures the maximum mean discrepancy between the two sources' embeddings, and tests it against a permutation
     estimate of its no-drift distribution. Needs an extractor on the task, and two sources: the reference, then the
     data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-mmd`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators drift-mmd`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: mmd
-            type: shift.drift-mmd
+            type: drift-mmd
             n_permutations: 500
     """
 
-    type: str = Field(
-        default="shift.drift-mmd", description="The evaluator type this entry configures: `shift.drift-mmd`."
-    )
+    type: str = Field(default="drift-mmd", description="The evaluator type this entry configures: `drift-mmd`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
 
     p_val: float | None = Field(
@@ -200,25 +198,25 @@ class DriftMMDConfig(EvaluatorConfig[DriftMMDResult]):
 
 
 class DriftKNeighborsConfig(EvaluatorConfig[DriftKNeighborsResult]):
-    """Config for ``shift.drift-kneighbors``, DataEval's DriftKNeighbors.
+    """Config for ``drift-kneighbors``, DataEval's DriftKNeighbors.
 
     Compares the test data's distances to their nearest reference neighbors with the reference's own. Needs an
     extractor on the task, and two sources: the reference, then the data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-kneighbors`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators drift-kneighbors`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: knn_drift
-            type: shift.drift-kneighbors
+            type: drift-kneighbors
             k: 5
     """
 
     type: str = Field(
-        default="shift.drift-kneighbors",
-        description="The evaluator type this entry configures: `shift.drift-kneighbors`.",
+        default="drift-kneighbors",
+        description="The evaluator type this entry configures: `drift-kneighbors`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
 
@@ -236,20 +234,20 @@ class DriftKNeighborsConfig(EvaluatorConfig[DriftKNeighborsResult]):
 
 
 class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
-    """Config for ``shift.drift-wasserstein``, DataEval's DriftWasserstein.
+    """Config for ``drift-wasserstein``, DataEval's DriftWasserstein.
 
     Compares each embedding dimension's Wasserstein distance from the reference to the test data with its distance to
     an in-distribution validation set, and declares drift where the ratio passes ``ratio_threshold``. Needs an
     extractor on the task, and three sources: the reference, the validation set, then the data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-wasserstein`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators drift-wasserstein`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: wasserstein
-            type: shift.drift-wasserstein
+            type: drift-wasserstein
 
         tasks:
           - name: drift_check
@@ -259,8 +257,8 @@ class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
     """
 
     type: str = Field(
-        default="shift.drift-wasserstein",
-        description="The evaluator type this entry configures: `shift.drift-wasserstein`.",
+        default="drift-wasserstein",
+        description="The evaluator type this entry configures: `drift-wasserstein`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.THREE)
 
@@ -279,27 +277,27 @@ class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
 
 
 class DriftDomainClassifierConfig(EvaluatorConfig[DriftDomainClassifierResult]):
-    """Config for ``shift.drift-domain-classifier``, DataEval's DriftDomainClassifier.
+    """Config for ``drift-domain-classifier``, DataEval's DriftDomainClassifier.
 
     Trains a classifier to tell the reference from the test data under cross-validation, and declares drift when it
     tells them apart better than ``threshold`` (AUROC). Needs an extractor on the task, and two sources: the
     reference, then the data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-domain-classifier`` prints the JSON
+    (``reference/evaluators``), and ``dataeval-flow evaluators drift-domain-classifier`` prints the JSON
     Schema.
 
     Example YAML::
 
         evaluators:
           - name: classifier_drift
-            type: shift.drift-domain-classifier
+            type: drift-domain-classifier
             threshold: 0.6
     """
 
     type: str = Field(
-        default="shift.drift-domain-classifier",
-        description="The evaluator type this entry configures: `shift.drift-domain-classifier`.",
+        default="drift-domain-classifier",
+        description="The evaluator type this entry configures: `drift-domain-classifier`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
 
@@ -317,25 +315,25 @@ class DriftDomainClassifierConfig(EvaluatorConfig[DriftDomainClassifierResult]):
 
 
 class OODKNeighborsConfig(EvaluatorConfig[OODKNeighborsResult]):
-    """Config for ``shift.ood-kneighbors``, DataEval's OODKNeighbors.
+    """Config for ``ood-kneighbors``, DataEval's OODKNeighbors.
 
     Scores each item of the second source by its distance to its nearest neighbors in the first, and flags those
     farther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the
     reference, then the data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-kneighbors`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators ood-kneighbors`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: knn_ood
-            type: shift.ood-kneighbors
+            type: ood-kneighbors
             distance_metric: euclidean
     """
 
     type: str = Field(
-        default="shift.ood-kneighbors", description="The evaluator type this entry configures: `shift.ood-kneighbors`."
+        default="ood-kneighbors", description="The evaluator type this entry configures: `ood-kneighbors`."
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
 
@@ -359,25 +357,25 @@ class OODKNeighborsConfig(EvaluatorConfig[OODKNeighborsResult]):
 
 
 class OODDomainClassifierConfig(EvaluatorConfig[OODDomainClassifierResult]):
-    """Config for ``shift.ood-domain-classifier``, DataEval's OODDomainClassifier.
+    """Config for ``ood-domain-classifier``, DataEval's OODDomainClassifier.
 
     Trains a classifier to tell each test item from the reference under repeated cross-validation, and flags the
     items it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-domain-classifier`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators ood-domain-classifier`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: classifier_ood
-            type: shift.ood-domain-classifier
+            type: ood-domain-classifier
             n_repeats: 10
     """
 
     type: str = Field(
-        default="shift.ood-domain-classifier",
-        description="The evaluator type this entry configures: `shift.ood-domain-classifier`.",
+        default="ood-domain-classifier",
+        description="The evaluator type this entry configures: `ood-domain-classifier`.",
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
 

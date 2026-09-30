@@ -45,6 +45,26 @@ def test_the_html_health_line_states_the_count_the_result_made() -> None:
     assert '<p class="health warning">2 warnings — review the flagged findings</p>' in fragment
 
 
+def test_the_text_health_line_of_a_failed_run_names_its_failed_steps_then_its_warnings() -> None:
+    assert render_text([Summary(items=[_WARNING], warnings=2, failed=["clean"])])[-1] == (
+        "Health: failed [!!] — step `clean` failed; 2 warning(s) to review"
+    )
+    assert render_text([Summary(items=[], warnings=0, failed=["a", "b"])]) == [
+        "Health: failed [!!] — steps `a`, `b` failed"
+    ]
+
+
+def test_the_html_health_line_and_badge_of_a_failed_run_name_its_failed_steps() -> None:
+    fragment = render_html([Summary(items=[_WARNING], warnings=2, failed=["clean"])])
+    assert '<p class="health failed">Step <code>clean</code> failed; 2 warnings to review</p>' in fragment
+    alone = render_html([Summary(items=[], warnings=0, failed=["a", "b"])])
+    assert alone == '<p class="health failed">Steps <code>a</code>, <code>b</code> failed</p>'
+    report = Section(
+        title="Run", blocks=[Section(title="Summary", blocks=[Summary(items=[], warnings=0, failed=["a"])])]
+    )
+    assert '<span class="badge failed">failed: a</span></header>' in render_html([report])
+
+
 def test_the_report_header_badge_states_the_count_its_summary_carries() -> None:
     report = Section(
         title="Run",

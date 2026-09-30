@@ -32,9 +32,9 @@ _CHAINS_BASE: dict[str, Any] = {
     **_BASE,
     "sources": [*_BASE["sources"], *({"name": name, "dataset": "ds"} for name in ("cam1", "cam2"))],
     "evaluators": [
-        {"name": "dupes", "type": "quality.duplicates"},
-        {"name": "balance", "type": "bias.balance"},
-        {"name": "mmd", "type": "shift.drift-mmd"},
+        {"name": "dupes", "type": "duplicates"},
+        {"name": "balance", "type": "balance"},
+        {"name": "mmd", "type": "drift-mmd"},
     ],
 }
 

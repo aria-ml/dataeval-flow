@@ -18,12 +18,12 @@ from dataeval_flow._stats import HASH_FLAG_MAP, columns_for, restrict_columns, s
 from dataeval_flow._stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow.workflows._base import Finding, Workflow
 from dataeval_flow.workflows._context import WorkflowContext
-from dataeval_flow.workflows.data_cleaning._internal import (
+from dataeval_flow.workflows.parameter_sweep._cleaning import (
+    CleaningRunContext,
     _compute_embeddings,
     _merge_duplicate_results,
     _merge_outlier_outputs,
 )
-from dataeval_flow.workflows.data_cleaning._workflow import CleaningRunContext
 from dataeval_flow.workflows.parameter_sweep._config import ParameterSweepConfig
 from dataeval_flow.workflows.parameter_sweep._outputs import (
     ParameterSweepMetadata,
@@ -77,6 +77,7 @@ class ParameterSweepWorkflow(Workflow[ParameterSweepConfig, ParameterSweepResult
     """Workflow to sweep parameters for data cleaning."""
 
     name: ClassVar[str] = "parameter-sweep"
+    title: ClassVar[str] = "Parameter Sweep"
     description: ClassVar[str] = "Sweep data cleaning parameters to analyze result sensitivity"
 
     def run(self, config: ParameterSweepConfig, context: WorkflowContext) -> ParameterSweepResult:

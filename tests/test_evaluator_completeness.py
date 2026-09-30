@@ -15,7 +15,7 @@ from tests.evaluator_toys import output_json, toy_run
 
 # Attributes that restate `data()` in another form: filtered views of its rows, or the array it returns.
 _VIEWS: dict[str, frozenset[str]] = {
-    "quality.duplicates": frozenset(
+    "duplicates": frozenset(
         {
             "crossing",
             "detections",
@@ -29,15 +29,15 @@ _VIEWS: dict[str, frozenset[str]] = {
             "tracks",
         }
     ),
-    "quality.outliers": frozenset({"outliers"}),
-    "scope.prioritize": frozenset({"indices"}),
+    "outliers": frozenset({"outliers"}),
+    "prioritize": frozenset({"indices"}),
     # `alignment` is the same `LabelAlignment` `data()` already dumps, as a model rather than a dict.
-    "scope.label-alignment": frozenset({"alignment"}),
+    "label-alignment": frozenset({"alignment"}),
 }
 
 # Attributes that echo the inputs or settings back, most kept by DataEval for re-detection. Never serialized.
 _ECHOES: dict[str, frozenset[str]] = {
-    "quality.duplicates": frozenset(
+    "duplicates": frozenset(
         {
             "annotation_digests",
             "calculation_results",
@@ -58,26 +58,26 @@ _ECHOES: dict[str, frozenset[str]] = {
             "verify_alignment",
         }
     ),
-    "quality.outliers": frozenset(
+    "outliers": frozenset(
         {"calculation_results", "cluster_stats", "cluster_threshold", "dataset_steps", "outlier_threshold"}
     ),
-    "quality.label-health": frozenset(),
-    "bias.balance": frozenset({"plot_type"}),
-    "bias.diversity": frozenset({"plot_type"}),
-    "bias.parity": frozenset(),
-    "scope.representation": frozenset(),
-    "scope.coverage": frozenset({"class_axis"}),
-    "scope.prioritize": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
-    "shift.drift-domain-classifier": frozenset(),
-    "shift.drift-kneighbors": frozenset(),
-    "shift.drift-mmd": frozenset(),
-    "shift.drift-univariate": frozenset(),
-    "shift.drift-wasserstein": frozenset(),
-    "shift.ood-domain-classifier": frozenset(),
-    "shift.ood-kneighbors": frozenset(),
+    "label-health": frozenset(),
+    "balance": frozenset({"plot_type"}),
+    "diversity": frozenset({"plot_type"}),
+    "parity": frozenset(),
+    "representation": frozenset(),
+    "coverage": frozenset({"class_axis"}),
+    "prioritize": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
+    "drift-domain-classifier": frozenset(),
+    "drift-kneighbors": frozenset(),
+    "drift-mmd": frozenset(),
+    "drift-univariate": frozenset(),
+    "drift-wasserstein": frozenset(),
+    "ood-domain-classifier": frozenset(),
+    "ood-kneighbors": frozenset(),
     # `ontology` is the config's own input, and `ontology_source` how the config named it, read back rather than
     # serialized: `conform` reaches both off the result.
-    "scope.label-alignment": frozenset({"ontology", "ontology_source"}),
+    "label-alignment": frozenset({"ontology", "ontology_source"}),
 }
 
 

@@ -4,7 +4,7 @@
 
 ### Added
 
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the sixteen types the Evaluator Catalog lists
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -39,7 +39,7 @@
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
-- `shift.drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
+- `drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
   `chunking:`; Wasserstein takes a validation source between the reference and the data to test
 - `SourceCount.THREE`, for an entry that takes exactly three sources
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
@@ -58,16 +58,16 @@
   `EvaluatorInputs`
 - `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` by `to_dict()`
   and `export()` and shown in reports
-- `quality.duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
+- `duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
   `segment_offset_tolerance`, `verify_alignment`, `min_track_frames`, `frame_sample`) and writes
   `annotation_divergences` and `factor_cardinality` under `extras`
-- `bias.balance`, `bias.diversity` and `bias.parity` evaluators, reading one source's metadata under its
+- `balance`, `diversity` and `parity` evaluators, reading one source's metadata under its
   `metadata:` policy
-- `scope.representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
+- `representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
   `index2label`
-- `scope.coverage` and `scope.prioritize` evaluators; a second `scope.prioritize` source is the reference its ranking
+- `coverage` and `prioritize` evaluators; a second `prioritize` source is the reference its ranking
   is relative to
-- `shift.ood-kneighbors` and `shift.ood-domain-classifier` evaluators
+- `ood-kneighbors` and `ood-domain-classifier` evaluators
 - An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
   output
 - Custom workflows: a `workflows:` entry with `inputs:` and `steps:` chains evaluators, workflow types and transforms,
@@ -79,7 +79,7 @@
   removal plans from Duplicates and Outliers), `conform` (relabelling onto an ontology, refusing loss beyond `allow:`)
   and `export` (writing to `<output>/datasets/<task>.<step>/`); plug-in transforms register under
   `dataeval_flow.transforms`
-- `scope.label-alignment` evaluator, aligning a source's class names to an ontology through
+- `label-alignment` evaluator, aligning a source's class names to an ontology through
   `dataeval.core.label_alignment`, as `data-coverage` aligns them
 - `ChainResult`, a custom workflow's result: each step's outcome in `steps`, readable when a step failed, and each
   Dataset's lineage in `metadata.lineage`, whose digests tell whether two results read the same data
@@ -88,6 +88,20 @@
   settings schema
 - A "Workflows as Chains of Steps" explanation, a how-to that writes a custom workflow, and a Transform Catalog with
   one reference entry per built-in transform
+- Presets: a workflow type can be a preset, whose settings expand to a chain of steps that runs as a custom
+  workflow's. As a task, a preset returns a `ChainResult` under its own type id; as a step of a custom workflow, its
+  chain runs inside yours as `<step>/<name>`, and `<step>.<output>` reads each Dataset it declares as an output
+- A chain computes each dataset's statistics in one pass over every family its steps read
+- `data-cleaning`'s `clean` step hands on the dataset without each image and box it flagged and each duplicate but the
+  first of its group, counting what it removed; a custom workflow that runs data-cleaning as a step reads it as
+  `<step>.clean`, and an `export` step on it replaces `mode: preparatory`
+- A friendly title on every step type, such as `K-Fold Split`, as `title` in `dataeval-flow steps NAME`, `--json`
+  and `list_steps()`
+- A chain's short report, `report(detailed=False)` and what the console prints without `-v`: its step count, its
+  summary and health, and a Steps table giving each step's status and why it made nothing where it did not
+- `by_plan` in a `remove` step's `details`, beside `removed`: what each plan named, at each level it named something
+- Report blocks' `in_text` on a table column, `failed` on a summary and `group` on a summary item, each left out
+  of the JSON at its default
 
 ### Changed
 
@@ -145,6 +159,42 @@
   `-v` and `result.txt` show it whole
 - `data-coverage` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
   per-dimension rescale had shifted `dispersion` and the coverage radius
+- Evaluators are named for what they compute, without a family prefix, and a prefixed name fails to load as an
+  unknown evaluator: `balance`, `diversity` and `parity` (were `bias.*`); `duplicates`, `label-health` and
+  `outliers` (were `quality.*`); `coverage`, `label-alignment`, `prioritize` and `representation` (were `scope.*`);
+  `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`,
+  `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
+- `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
+  against `health_thresholds`. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
+  and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids are:
+  `outliers`, `labels`, `by-class`, `dupes`, `image-outliers`, `target-outliers`, `classwise`, `duplicates`,
+  `imbalance` and `clean`
+- `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
+- A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
+  `dataeval-flow encoding` finds none in it
+- A report's banner is the friendly title of what ran, as `Data Cleaning`; a custom workflow's is its name. The
+  text report prints it in capitals; HTML keeps its case
+- A report's envelope opens with a line naming what ran, `Workflow: clean (data-cleaning)` or, for an evaluator task,
+  `Evaluator: dupes (duplicates)`: the id alone where the entry is unnamed or is the id, and
+  `Workflow: name (custom workflow)` for a custom workflow. In HTML it is the provenance list's first row, and the
+  page title adds the entry where it differs from the id, as `Data Cleaning — clean`
+- A chain's report gives each finding a section, holding the evidence it judged: each step it read, headed *From* and
+  the step's title, as `From Outliers`, or a line naming the finding it is shown under already. The steps no finding
+  shows follow, then a Steps table of every step's title, type, status, reads and note, where the report gave each
+  step a section headed `name (type)` and a line naming what it read. In HTML each finding is a card, and the Steps
+  table a folded panel; the text table leaves out the title
+- A step's heading is its type's title, with its name beside it where the name is not the type id: `Outliers`,
+  `Duplicates · dupes`
+- A chain whose checks ran once per element of a list groups their findings by the element's key, such as `train`
+  and `val`, in its summary and below it; in HTML each finding stays a card
+- `label-health`'s report lists each class's labels and images in a table
+- `remove`'s report says what it kept and what each plan named: "Kept 22 of 24 images. Removed 2 images: 1 named by
+  `dupes`, 1 by `outliers`."
+- The report's configuration leaves out settings left unset, and keeps a setting written as `null`; an evaluator's
+  report leaves out extras that hold nothing
+- The Image Outliers, Target Outliers, Classwise Outliers and Label Distribution findings have no `description`, which
+  repeated their brief
+- A text table too wide for the report wraps its text cells, with a blank line between its rows
 
 ### Fixed
 
@@ -156,7 +206,8 @@
 - Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
 - Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
-- Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with `quality.duplicates`
+- Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with the `duplicates`
+  evaluator
 - Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
 - Include source views in cache keys, invalidating cached embeddings, metadata, and statistics on edit
 - Relative `ontology:` paths now resolve against the run's data root rather than the process root
@@ -176,6 +227,10 @@
   source short
 - A key no config section defines is refused when the config loads, where it was dropped; a misspelled top-level key
   is named with the section it most resembles
+- The HTML report renders inline code in a table cell as it does in prose, where the cell showed the backticks
+- A chain refused before any step ran says why in its report, where it said only `Steps: 0 ran`
+- A report's health line and its HTML badge say `failed` where a required step failed, where they could say every
+  check passed
 
 ### Removed
 
@@ -192,6 +247,15 @@
 - A workflow's `output_schema`; its `<X>Result` type argument names the output
 - The `DriftDetectorConfig` and `OODDetectorConfig` unions; annotate with the detector classes
 - The `AutoBinMethod` and `FactorSource` aliases; their fields take the same strings
+- `DataCleaningResult`, with its metadata's `evaluators`, `flagged_indices`, `clean_indices` and `removed_count`;
+  a data-cleaning result is a `ChainResult`
+- `value_range`, `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and
+  `metadata_factor_source` on `data-cleaning`, which refuses them: declare the range on the dataset, and the binning in
+  a `metadata:` policy
+- `mode`, from every workflow config and from every result's metadata; a config that still writes it fails to load,
+  naming it
+- Data-prioritization's `per_source_clean_indices` and `per_source_prioritized_indices`
+- The "Preparatory Mode" findings that data-analysis and data-cleaning made
 
 ## v0.2.2
 

@@ -17,24 +17,24 @@ from dataeval_flow.evaluators.bias._result import BalanceResult, DiversityResult
 
 
 class BalanceConfig(EvaluatorConfig[BalanceResult], MetadataConfigMixin):
-    """Config for ``bias.balance``, DataEval's Balance.
+    """Config for ``balance``, DataEval's Balance.
 
     Measures the mutual information between each metadata factor and the class labels, and between pairs of factors.
     A factor that predicts the class is a shortcut a model can learn.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators bias.balance`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators balance`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: balance
-            type: bias.balance
+            type: balance
             metadata: standard
             class_imbalance_threshold: 0.2
     """
 
-    type: str = Field(default="bias.balance", description="The evaluator type this entry configures: `bias.balance`.")
+    type: str = Field(default="balance", description="The evaluator type this entry configures: `balance`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
 
     num_neighbors: int | None = Field(
@@ -82,25 +82,23 @@ class BalanceConfig(EvaluatorConfig[BalanceResult], MetadataConfigMixin):
 
 
 class DiversityConfig(EvaluatorConfig[DiversityResult], MetadataConfigMixin):
-    """Config for ``bias.diversity``, DataEval's Diversity.
+    """Config for ``diversity``, DataEval's Diversity.
 
     Measures how evenly each metadata factor's values are spread, overall and within each class. A factor whose
     values crowd into few bins under-represents the rest.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators bias.diversity`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators diversity`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: diversity
-            type: bias.diversity
+            type: diversity
             method: shannon
     """
 
-    type: str = Field(
-        default="bias.diversity", description="The evaluator type this entry configures: `bias.diversity`."
-    )
+    type: str = Field(default="diversity", description="The evaluator type this entry configures: `diversity`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
 
     method: Literal["simpson", "shannon"] | None = Field(
@@ -126,23 +124,23 @@ class DiversityConfig(EvaluatorConfig[DiversityResult], MetadataConfigMixin):
 
 
 class ParityConfig(EvaluatorConfig[ParityResult], MetadataConfigMixin):
-    """Config for ``bias.parity``, DataEval's Parity.
+    """Config for ``parity``, DataEval's Parity.
 
     Tests each metadata factor for association with the class labels (chi-squared, reported as Cramér's V). A factor
     significantly associated with the class is a shortcut a model can learn.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators bias.parity`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: parity
-            type: bias.parity
+            type: parity
             p_value_threshold: 0.01
     """
 
-    type: str = Field(default="bias.parity", description="The evaluator type this entry configures: `bias.parity`.")
+    type: str = Field(default="parity", description="The evaluator type this entry configures: `parity`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
 
     score_threshold: float | None = Field(

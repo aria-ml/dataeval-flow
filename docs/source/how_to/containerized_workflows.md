@@ -246,7 +246,6 @@ workflows:
       exact_duplicates: 0.0
       near_duplicates: 5.0
       image_outliers: 5.0
-    mode: advisory
 ```
 ````
 ````{tab-item} data-analysis
@@ -597,12 +596,13 @@ find workspace/output -type f
 # workspace/output/results/result.json
 # workspace/output/results/result.txt
 # workspace/output/results/result.html
-# workspace/output/results/encoding.json
 ```
 
 `result.json` is keyed by task name — each entry holds that task's `metadata`, `health`,
 `raw`, and `report` sections, the same data `result.to_dict()` returns in the Python
-API. `health` is the roll-up `--fail-on-warning` gates on. A pipeline can read it
+API. A `data-cleaning` task's entry, like a custom workflow's, holds `steps` and
+`findings` in place of `raw` and `report`: each step's outcome, and the findings its
+checks made. `health` is the roll-up `--fail-on-warning` gates on. A pipeline can read it
 directly:
 
 ```bash
@@ -615,8 +615,10 @@ holds the same reports as one self-contained page, the same as `result.to_html()
 offline in any browser, and prints or saves to PDF as it shows.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
-{doc}`Configure metadata binning <configure_metadata_binning>`. It is omitted when a
-run's tasks encoded their factors differently, since no single descriptor describes it.
+{doc}`Configure metadata binning <configure_metadata_binning>`. It is written only where
+a task records an encoding, as `data-analysis`, `data-coverage` and `ood-detection` do, so
+the `data-cleaning` run above writes none. It is also omitted when a run's tasks encoded
+their factors differently, since no single descriptor describes it.
 
 A pipeline's `result:` block shapes these files. Every key is optional:
 
@@ -638,7 +640,7 @@ report with `-v`, whatever `detail` says.
 
 ```bash
 jq -r 'keys[]' workspace/output/results/result.json
-jq -r '.clean_my_data.report.findings[] | "\(.severity)\t\(.title)"' \
+jq -r '.clean_my_data.findings[] | "\(.severity)\t\(.title)"' \
     workspace/output/results/result.json
 ```
 

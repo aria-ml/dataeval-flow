@@ -57,7 +57,10 @@ def test_removing_duplicates_drops_every_copy_but_the_first() -> None:
     assert clean.status == "ok"
     assert len(clean.output) == 11  # ToyImages' item 5 copies item 0
     assert 5 not in list(clean.output.resolve_indices())
-    assert clean.details == {"removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}}
+    assert clean.details == {
+        "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {"items": 1}},
+    }
 
 
 def test_removing_a_detection_keeps_its_item_and_changes_the_key() -> None:
@@ -74,7 +77,10 @@ def test_removing_a_detection_keeps_its_item_and_changes_the_key() -> None:
     )
     clean = result.steps["clean"]
     assert clean.status == "ok"
-    assert clean.details == {"removed": {"items": 0, "detections": 1, "tracks": 0, "frames": 0}}
+    assert clean.details == {
+        "removed": {"items": 0, "detections": 1, "tracks": 0, "frames": 0},
+        "by_plan": {"odd": {"detections": 1}},
+    }
     assert _labels(clean.output) == [[0, 1]] * 4 + [[0]] + [[0, 1]] * 7  # item 4 loses its white box
     assert list(clean.output.resolve_indices()) == list(range(12))
     assert list(result.steps["nothing"].output.resolve_indices()) == list(range(12))
@@ -94,7 +100,10 @@ def test_plans_that_remove_nothing_keep_every_item() -> None:
     )
     clean = result.steps["clean"]
     assert (clean.status, len(clean.output)) == ("ok", 8)
-    assert clean.details == {"removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0}}
+    assert clean.details == {
+        "removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {}},
+    }
 
 
 def test_plans_from_several_outputs_combine() -> None:
@@ -107,7 +116,10 @@ def test_plans_from_several_outputs_combine() -> None:
         dataset=ToyDetections([[0, 1]] * 12, {0: "car", 1: "person"}, duplicate_of={7: 2}, bright={(4, 1)}),
     )
     clean = result.steps["clean"]
-    assert clean.details == {"removed": {"items": 1, "detections": 1, "tracks": 0, "frames": 0}}
+    assert clean.details == {
+        "removed": {"items": 1, "detections": 1, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {"items": 1}, "odd": {"detections": 1}},
+    }
     assert list(clean.output.resolve_indices()) == [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11]  # item 7 copies item 2
     assert _labels(clean.output) == [[0, 1]] * 4 + [[0]] + [[0, 1]] * 6
 
@@ -209,7 +221,10 @@ def test_a_plan_computed_on_one_element_applies_to_that_element() -> None:
     assert (clean.status, clean.inputs) == ("ok", ["k.train[1]", "dupes[1]"])
     assert list(result.steps["k"].output["train"]["1"].resolve_indices()) == [0, 1, 2, 3, 4, 5]
     assert list(clean.output.resolve_indices()) == [0, 1, 2, 3, 4]  # ToyImages' item 5 copies item 0
-    assert clean.details == {"removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}}
+    assert clean.details == {
+        "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes[1]": {"items": 1}},
+    }
 
 
 def test_a_plan_computed_on_another_element_fails_the_load() -> None:
@@ -230,7 +245,7 @@ def test_a_plan_list_applies_to_the_list_it_was_computed_on_element_by_element()
 
 
 def test_the_report_section_counts_what_was_removed_at_each_level() -> None:
-    from dataeval_flow._blocks import Fields
+    from dataeval_flow._blocks import Paragraph
 
     result = _run(
         [
@@ -239,8 +254,24 @@ def test_the_report_section_counts_what_was_removed_at_each_level() -> None:
         ]
     )
     assert RemoveTransform().section(result.steps["clean"]) == [
-        Fields(items=[("Items", 1), ("Detections", 0), ("Tracks", 0), ("Frames", 0)])
+        Paragraph(text="Kept 11 of 12 images. Removed 1 image: 1 named by `dupes`.")
     ]
+
+
+def test_the_section_names_each_level_only_where_several_were_removed() -> None:
+    from dataeval_flow._blocks import Paragraph
+
+    detections = ToyDetections([[0, 1]] * 12, {0: "car", 1: "person"}, duplicate_of={7: 2}, bright={(4, 1)})
+    result = _run(
+        [
+            {"name": "dupes", "evaluator": "dupes", "input": "a"},
+            {"name": "odd", "evaluator": "box_outliers", "input": "a"},
+            {"name": "clean", "transform": "remove", "input": "a", "plans": {"dupes": {}, "odd": {}}},
+        ],
+        dataset=detections,
+    )
+    said = "Kept 11 of 12 images. Removed 1 image and 1 detection: 1 image named by `dupes`, 1 detection by `odd`."
+    assert RemoveTransform().section(result.steps["clean"]) == [Paragraph(text=said)]
 
 
 class _NothingToRemove(DuplicatesOutput):
@@ -262,5 +293,6 @@ def test_an_empty_plan_removes_nothing_and_counts_zero_at_every_level() -> None:
     made = transform.run(config, inputs, TransformContext(task="t", step="clean"))
     assert list(made["output"].resolve_indices()) == list(range(12))
     assert transform.details(config, inputs, made) == {
-        "removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0}
+        "removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {}},
     }

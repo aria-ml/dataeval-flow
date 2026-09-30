@@ -202,6 +202,13 @@ class Column(_Block):
     markers: list[tuple[str, Number]] = Field(
         default_factory=list, description="A bar column's `[label, value]` reference lines, such as drift thresholds."
     )
+    in_text: bool = Field(
+        default=True,
+        description=(
+            "Whether the text report draws this column. HTML always does. False for a column text can do without, "
+            "such as a title the section above already gives, where its room is scarce."
+        ),
+    )
 
 
 class Table(_Block):
@@ -270,17 +277,27 @@ class SummaryItem(_Block):
     label: str = Field(description="What the line is about.")
     value: str = Field(default="", description="A short value, such as a count.")
     severity: Severity = Field(default="info", description="The line's verdict: `warning`, `ok` or `info`.")
+    group: str = Field(
+        default="",
+        description="The sub-heading the line sits under, such as the split its finding judged; empty for none.",
+    )
 
 
 class Summary(_Block):
     """One line per finding, with a verdict marker each, then the health verdict: the warnings its result counted.
 
     ``warnings`` is the count the result made once, which every renderer states rather than recounting the lines.
+    ``failed`` names the required steps whose failure failed the run: the verdict is then failed, whatever the
+    warnings.
     """
 
     type: Literal["summary"] = Field(default="summary", description=_TYPE)
-    items: list[SummaryItem] = Field(description="The lines, in order.")
+    items: list[SummaryItem] = Field(description="The lines, in order; those of one group are kept together.")
     warnings: int = Field(ge=0, description="How many findings are warnings, as the result counted them.")
+    failed: list[str] = Field(
+        default_factory=list,
+        description="The required steps that failed, which fail the run whatever its warnings; empty where none did.",
+    )
 
 
 Block = Annotated[

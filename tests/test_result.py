@@ -8,41 +8,35 @@ from dataeval_flow import Result, ResultMetadata
 from dataeval_flow._result import results_html
 from dataeval_flow.evaluators import EvaluatorResult
 from dataeval_flow.evaluators._result import EvaluatorMetadata
-from dataeval_flow.workflows import WorkflowResult
-from dataeval_flow.workflows.data_cleaning import DataCleaningResult
-from dataeval_flow.workflows.data_cleaning._outputs import (
-    DataCleaningMetadata,
-    DataCleaningOutput,
-    DataCleaningRawOutput,
-    DataCleaningReport,
-)
+from dataeval_flow.workflows import WorkflowReport, WorkflowResult
 from tests.test_blocks_html import _well_formed
+from tests.workflow_toys import ToyCountMetadata, ToyCountOutput, ToyCountRaw, ToyCountResult
 
 
-def _output() -> DataCleaningOutput:
-    return DataCleaningOutput(
-        raw=DataCleaningRawOutput(dataset_size=3),
-        report=DataCleaningReport(summary="Data cleaning complete."),
+def _output() -> ToyCountOutput:
+    return ToyCountOutput(
+        raw=ToyCountRaw(dataset_size=3),
+        report=WorkflowReport(summary="Items counted."),
     )
 
 
-def _workflow(*, success: bool = True) -> DataCleaningResult:
-    return DataCleaningResult(
-        type="data-cleaning",
+def _workflow(*, success: bool = True) -> ToyCountResult:
+    return ToyCountResult(
+        type="test.count",
         success=success,
         output=_output() if success else None,
-        metadata=DataCleaningMetadata(),
+        metadata=ToyCountMetadata(),
         errors=[] if success else ["boom"],
     )
 
 
 def _evaluator(*, success: bool = True) -> EvaluatorResult[object]:
     return EvaluatorResult(
-        type="quality.duplicates",
+        type="duplicates",
         success=success,
         output=object() if success else None,
         serialized={"shape": "mapping", "data": {"groups": 0}} if success else None,
-        metadata=EvaluatorMetadata(evaluator="quality.duplicates"),
+        metadata=EvaluatorMetadata(evaluator="duplicates"),
         errors=[] if success else ["boom", "bang"],
     )
 
@@ -121,7 +115,7 @@ class TestOneShape:
 
     def test_type_names_what_ran(self, make, kind):
         result = make()
-        assert result.type in {"data-cleaning", "quality.duplicates"}
+        assert result.type in {"test.count", "duplicates"}
         assert not hasattr(result, "name")
 
     def test_a_dict_leads_with_the_kind_and_the_envelope(self, make, kind):
@@ -165,7 +159,7 @@ class TestOneShape:
         result = make()
         page = result.to_html()
         assert page.startswith("<!doctype html>")
-        heading = {"workflow": "Data cleaning complete", "evaluator": "quality.duplicates"}[kind]
+        heading = {"workflow": "test.count", "evaluator": "Duplicates"}[kind]
         assert f"<h1>{heading}</h1>" in page
         assert _well_formed(page)
         assert page.count("<script>") == 1
@@ -178,6 +172,33 @@ class TestOneShape:
     def test_an_empty_configuration_draws_no_section(self, make, kind):
         result = make()
         result.metadata.resolved_config = {}
+        assert "CONFIGURATION" not in result.report()
+
+    def test_the_configuration_leaves_out_settings_that_are_none_but_the_json_keeps_them(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {"seed": 1, "device": None, "nested": {"limit": None, "kept": 2}}
+        text = result.report()
+        assert "seed: 1" in text
+        assert "kept: 2" in text
+        assert "device" not in text
+        assert "limit" not in text
+        assert result.to_dict()["metadata"]["resolved_config"]["device"] is None
+
+    def test_the_configuration_keeps_a_none_it_was_told_was_set_through_lists_as_through_mappings(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {"sources": [{"x": None, "y": None, "z": 1}], "w": None}
+        result._set_nulls = frozenset({("sources", 0, "x")})
+        text = result.report()
+        assert "x: None" in text
+        assert "y" not in text.split("CONFIGURATION")[1]
+        assert "w:" not in text.split("CONFIGURATION")[1]
+        result.metadata.resolved_config = {"sources": [{"x": None}]}
+        result._set_nulls = frozenset()
+        assert "x: None" not in result.report()
+
+    def test_a_configuration_of_only_none_draws_no_section(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {"device": None}
         assert "CONFIGURATION" not in result.report()
 
     def test_a_non_json_value_in_the_configuration_renders_as_its_text(self, make, kind):
@@ -222,10 +243,10 @@ class TestOneShape:
 
 def test_isinstance_narrows_to_the_types_own_result():
     result: Result = _workflow()
-    assert isinstance(result, DataCleaningResult)
+    assert isinstance(result, ToyCountResult)
     assert isinstance(result, WorkflowResult)
     assert result.output.raw.dataset_size == 3
-    assert isinstance(result.metadata, DataCleaningMetadata)
+    assert isinstance(result.metadata, ToyCountMetadata)
 
 
 def test_only_a_workflow_carries_health():
@@ -242,16 +263,16 @@ def test_a_failed_workflow_has_no_findings_and_a_failed_health():
 
 
 def test_a_failed_result_of_a_class_carries_that_class_metadata():
-    failed = DataCleaningResult.failed(type="data-cleaning", errors=["boom"])
-    assert isinstance(failed, DataCleaningResult)
-    assert isinstance(failed.metadata, DataCleaningMetadata)
+    failed = ToyCountResult.failed(type="test.count", errors=["boom"])
+    assert isinstance(failed, ToyCountResult)
+    assert isinstance(failed.metadata, ToyCountMetadata)
     assert not failed.success
     assert failed.errors == ["boom"]
 
 
 def test_every_argument_is_keyword_only():
     with pytest.raises(TypeError, match="takes 1 positional argument"):
-        WorkflowResult("data-cleaning", True, _output(), ResultMetadata())  # type: ignore[misc]
+        WorkflowResult("test.count", True, _output(), ResultMetadata())  # type: ignore[misc]
 
 
 def test_every_result_of_a_run_shares_one_page():
@@ -262,7 +283,7 @@ def test_every_result_of_a_run_shares_one_page():
 
 
 def test_a_run_of_one_task_is_titled_by_its_report():
-    assert "<title>Data cleaning complete.</title>" in results_html([_workflow()])
+    assert "<title>test.count</title>" in results_html([_workflow()])
 
 
 def test_a_run_with_no_report_to_show_still_writes_a_page():

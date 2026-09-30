@@ -1,5 +1,6 @@
 """Running combine and check steps: findings, health, inputs that hold nothing, and lists (spec §5.6, §7, §9.1)."""
 
+import re
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -10,9 +11,9 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import Finding
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import CountGroups, GroupLimit, chain_pipeline, register_toys, run_chain_task, run_toy_chain
 from tests.evaluator_toys import ToyImages
+from tests.workflow_toys import ToyCountConfig, register_count
 
 pytestmark = pytest.mark.usefixtures("toys")
 
@@ -25,6 +26,7 @@ _LIST = [{"name": "cams", "list": True}]
 @pytest.fixture
 def toys(plugins):
     register_toys(plugins)
+    register_count(plugins)
     DatasetCache.clear_instances()
     yield plugins
     DatasetCache.clear_instances()
@@ -117,7 +119,7 @@ def test_a_check_run_once_per_element_names_each_element_it_judged() -> None:
     assert isinstance(section, Section)
     (summary,) = section.blocks
     assert isinstance(summary, Summary)
-    assert [item.label for item in summary.items] == ["Group count [s1]", "Group count [s2]"]
+    assert [(item.group, item.label) for item in summary.items] == [("s1", "Group count"), ("s2", "Group count")]
     assert summary.warnings == 2
 
 
@@ -149,7 +151,7 @@ def test_a_check_that_takes_a_whole_list_judges_it_once() -> None:
 
 
 def test_the_json_lists_only_check_findings_while_health_counts_a_workflow_step_s_too() -> None:
-    cleaning = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"])
+    cleaning = ToyCountConfig(name="clean")
     result = _result(
         {"name": "cleaning", "workflow": "clean", "input": "a"},
         _DUPES,
@@ -192,12 +194,15 @@ def test_a_combine_that_omits_an_output_port_fails_its_step() -> None:
     ]
 
 
-def test_a_check_step_s_report_section_shows_its_findings() -> None:
+def test_a_check_s_finding_is_a_top_level_section_beside_the_evidence_it_judged() -> None:
     result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 0})
-    # The text renderer capitalizes a top-level section's heading, and a step's section is one.
-    section = result.report(detailed=True, width=120).split("JUDGE (TOY-AT-MOST)", 1)[1]
-    assert "Group count" in section
-    assert "1 groups" in section
+    # The text renderer capitalizes a top-level section's heading, and a finding's section is one.
+    assert re.search(r"\n  GROUP COUNT +1 groups\n", result.report(detailed=True, width=120))
+    top_level = result._document(detailed=True).blocks
+    (finding,) = [block for block in top_level if isinstance(block, Section) and block.severity is not None]
+    assert (finding.title, finding.brief, finding.severity) == ("Group count", "1 groups", "warning")
+    # `count` is a combine with nothing to show, so the evidence is the Duplicates it counted.
+    assert [block.title for block in finding.blocks if isinstance(block, Section)] == ["From Duplicates · dupes"]
 
 
 def test_an_output_knows_the_datasets_it_was_computed_on_and_their_size() -> None:

@@ -19,7 +19,7 @@ from dataeval_flow.workflows._base import Finding, render_label_source
 class ClassImbalanceConfig(CheckConfig):
     """A `class-imbalance` step's input, and how uneven its classes may be."""
 
-    input: str = Field(description="A `quality.label-health` Output.")
+    input: str = Field(description="A `label-health` Output.")
     ratio: float | None = Field(
         default=5.0,
         ge=1.0,
@@ -64,7 +64,6 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
                 severity="warning" if empty or exceeds(ratio, config.ratio) else "info",
                 title="Label/Directory_Name Distribution" if source == "filepath" else self.title,
                 brief=f"{classes} classes, {items} items, imbalance {ratio}:1",
-                description=f"{classes} classes, {items} items.",
                 blocks=blocks,
             )
         ]

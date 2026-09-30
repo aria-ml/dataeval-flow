@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -10,7 +11,7 @@ from typing import Any
 import pytest
 
 from dataeval_flow._app._viewmodel._result_vm import FindingSummary, ResultViewModel, table_data
-from dataeval_flow._blocks import Column, Fields, Paragraph, Section, Table
+from dataeval_flow._blocks import Column, Fields, Flag, ItemRef, Paragraph, Section, Table
 from dataeval_flow.workflows import Finding
 
 pytestmark = pytest.mark.optional
@@ -291,20 +292,47 @@ class TestSegments:
         assert self._segments(empty) == [[empty]]
 
     def test_image_outliers_draw_their_flags_as_text_and_their_limits_as_a_data_table(self) -> None:
-        """A real cleaning finding: its lede and flags table as text, its limits table native, then its values."""
-        from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
-        from dataeval_flow.workflows.data_cleaning._outputs import DataCleaningRawOutput
-        from dataeval_flow.workflows.data_cleaning._report import build_findings
-
-        issues = [
-            {"item_index": 0, "metric_name": "brightness", "metric_value": 0.1},
-            {"item_index": 0, "metric_name": "contrast", "metric_value": 0.2},
+        """A finding shaped as data-cleaning's was: its lede and flags table as text, its limits table native, then
+        its values."""
+        unknown = math.nan
+        flags = [
+            Flag(
+                name=name, value=value, direction="upper", bound=unknown, percentile=unknown, mean=unknown, std=unknown
+            )
+            for name, value in (("brightness", 0.1), ("contrast", 0.2))
         ]
-        raw = DataCleaningRawOutput(dataset_size=29, img_outliers={"count": 2, "issues": issues})  # type: ignore[typeddict-item]
-        finding = next(
-            f
-            for f in build_findings(raw, None, DataCleaningHealthThresholds(), source="train")
-            if f.title == "Image Outliers"
+        finding = Finding(
+            severity="warning",
+            title="Image Outliers",
+            brief="1 images (3.4%)",
+            description="1 images (3.4%) flagged as outliers.",
+            blocks=[
+                Table(
+                    columns=[
+                        Column(key="image", header="", kind="image"),
+                        Column(key="item", header="Item"),
+                        Column(key="flags", header="Flags"),
+                        Column(key="by", header="Flagged by", kind="flags"),
+                    ],
+                    rows=[{"item": 0, "image": ItemRef(source="train", index=0), "flags": 2, "by": flags}],
+                    preview=10,
+                ),
+                Table(
+                    columns=[
+                        Column(key="metric", header="Metric"),
+                        Column(key="count", header="Count"),
+                        Column(key="lower", header="Lower", format="{:.4g}"),
+                        Column(key="upper", header="Upper", format="{:.4g}"),
+                        Column(key="mean", header="Mean", format="{:.4g}"),
+                        Column(key="std", header="Std", format="{:.4g}"),
+                    ],
+                    rows=[
+                        {"metric": metric, "count": 1, "lower": None, "upper": None, "mean": None, "std": None}
+                        for metric in ("brightness", "contrast")
+                    ],
+                ),
+                Fields(items=[("Percentage", 3.4), ("Dataset size", 29)]),
+            ],
         )
         text, limits, rest = ResultViewModel(_make_result(finding)).finding_segments(0)
         assert isinstance(text, list)
@@ -341,7 +369,7 @@ class TestEvaluatorResults:
         from dataeval_flow.evaluators._result import EvaluatorMetadata
 
         return EvaluatorResult(
-            type="quality.duplicates",
+            type="duplicates",
             success=True,
             output=object(),
             serialized={
@@ -349,7 +377,7 @@ class TestEvaluatorResults:
                 "columns": ["group_id", "item_indices"],
                 "rows": [{"group_id": 0, "item_indices": [0, 5]}],
             },
-            metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
+            metadata=EvaluatorMetadata(evaluator="duplicates", execution_time_s=1.25),
         )
 
     def test_it_is_recognized(self):
@@ -394,9 +422,9 @@ class TestEvaluatorResults:
         from dataeval_flow.evaluators._result import EvaluatorMetadata
 
         return EvaluatorResult(
-            type="quality.duplicates",
+            type="duplicates",
             success=False,
-            metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
+            metadata=EvaluatorMetadata(evaluator="duplicates", execution_time_s=1.25),
             errors=["boom: bad params"],
         )
 
@@ -436,11 +464,10 @@ class TestChainResults:
         rvm = ResultViewModel(chain_results["ok"])
         text = rvm.output_text()
         assert rvm.shows_output
-        # A step that ran carries no marker of its own; the counts above the sections give every step's status.
-        assert re.search(r"Ran:\s+2\n", text)
-        assert re.search(r"Failed:\s+0\n", text)
-        assert re.search(r"FEW \(TOY-FIRST\)\n", text)
-        assert re.search(r"DUPES \(QUALITY\.DUPLICATES\)\n", text)
+        # A step that ran carries no marker of its own; the count above the sections gives every step's status.
+        assert re.search(r"Steps:\s+2 ran\n", text)
+        assert re.search(r"TOY-FIRST · FEW\n", text)
+        assert re.search(r"DUPLICATES · DUPES\n", text)
         assert "Items:  6" in text
         assert rvm.status_tag() == " [green][ok][/green]"
 
@@ -450,10 +477,10 @@ class TestChainResults:
         result = chain_results["mixed"]
         rvm = ResultViewModel(result)
         text = rvm.output_text()
-        assert re.search(r"BOOM \(TOY-EXPLODE\)\s+failed\n", text)
+        assert re.search(r"TOY-EXPLODE · BOOM\s+failed\n", text)
         assert "RuntimeError: boom on a" in text
         cleaned = result.steps["clean"].result.findings
-        assert cleaned
-        assert rvm.finding_count() == len(cleaned)
-        assert rvm.summary_line().startswith(f"{len(cleaned)} findings")
+        assert len(cleaned) == 1
+        assert rvm.finding_count() == 1
+        assert rvm.summary_line().startswith("1 finding,")
         assert rvm.status_tag() == " [bold red][failed][/bold red]"

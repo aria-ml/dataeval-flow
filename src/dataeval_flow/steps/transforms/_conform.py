@@ -23,7 +23,7 @@ class ConformConfig(TransformConfig):
     """A `conform` step's settings: its input, the alignment of it, what loss it may accept, and overrides."""
 
     input: str = Field(description="The Dataset to relabel.")
-    alignment: str = Field(description="A `scope.label-alignment` step computed on `input`.")
+    alignment: str = Field(description="A `label-alignment` step computed on `input`.")
     allow: Literal["lossless", "lossy", "partial"] = Field(
         default="lossless",
         description="The most loss accepted: `lossy` lets classes collapse, `partial` drops unaligned classes.",
@@ -43,6 +43,7 @@ class ConformTransform(Transform[ConformConfig]):
     """
 
     name: ClassVar[str] = "conform"
+    title: ClassVar[str] = "Conform"
     description: ClassVar[str] = (
         "Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`."
     )

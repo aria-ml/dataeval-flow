@@ -127,7 +127,7 @@ def shifted_sources(count: int = 40, *, validation: bool = False) -> dict[str, T
 
 
 def exact_groups(rows: Sequence[dict[str, Any]]) -> set[tuple[int, ...]]:
-    """The item-level exact-duplicate groups in a ``quality.duplicates`` table, as sorted index tuples."""
+    """The item-level exact-duplicate groups in a ``duplicates`` table, as sorted index tuples."""
     return {tuple(sorted(row["item_indices"])) for row in rows if row["dup_type"] == "exact" and row["level"] == "item"}
 
 
@@ -139,28 +139,28 @@ def output_json(result: "Result[Any, Any]") -> dict[str, Any]:
 # Toy data each built-in evaluator can read, by type: the data `run` takes, and the extractor its task needs. Each
 # factory takes the item count, so a test can ask for an empty source. A task adding a type adds its row.
 _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
-    "quality.duplicates": lambda count: (ToyImages(count=count), None),
-    "quality.label-health": lambda count: (ToyImages(count=count), None),
-    "quality.outliers": lambda count: (ToyImages(count=count), None),
-    "bias.balance": lambda count: (ToyFactors(count=count), None),
-    "bias.diversity": lambda count: (ToyFactors(count=count), None),
-    "bias.parity": lambda count: (ToyFactors(count=count), None),
-    "scope.representation": lambda count: (ToyImages(count=count), None),
-    "scope.coverage": lambda count: (ToyImages(count=count), FLAT),
-    "scope.prioritize": lambda count: (ToyImages(count=count), FLAT),
-    "shift.drift-domain-classifier": lambda count: (shifted_sources(count), FLAT),
-    "shift.drift-kneighbors": lambda count: (shifted_sources(count), FLAT),
-    "shift.drift-mmd": lambda count: (shifted_sources(count), FLAT),
-    "shift.drift-univariate": lambda count: (shifted_sources(count), FLAT),
-    "shift.drift-wasserstein": lambda count: (shifted_sources(count, validation=True), FLAT),
-    "shift.ood-domain-classifier": lambda count: (shifted_sources(count), FLAT),
-    "shift.ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
-    "scope.label-alignment": lambda count: (ToyImages(count=count), None),
+    "duplicates": lambda count: (ToyImages(count=count), None),
+    "label-health": lambda count: (ToyImages(count=count), None),
+    "outliers": lambda count: (ToyImages(count=count), None),
+    "balance": lambda count: (ToyFactors(count=count), None),
+    "diversity": lambda count: (ToyFactors(count=count), None),
+    "parity": lambda count: (ToyFactors(count=count), None),
+    "representation": lambda count: (ToyImages(count=count), None),
+    "coverage": lambda count: (ToyImages(count=count), FLAT),
+    "prioritize": lambda count: (ToyImages(count=count), FLAT),
+    "drift-domain-classifier": lambda count: (shifted_sources(count), FLAT),
+    "drift-kneighbors": lambda count: (shifted_sources(count), FLAT),
+    "drift-mmd": lambda count: (shifted_sources(count), FLAT),
+    "drift-univariate": lambda count: (shifted_sources(count), FLAT),
+    "drift-wasserstein": lambda count: (shifted_sources(count, validation=True), FLAT),
+    "ood-domain-classifier": lambda count: (shifted_sources(count), FLAT),
+    "ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
+    "label-alignment": lambda count: (ToyImages(count=count), None),
 }
 
-# Config values a bare `config_type()` cannot supply, because the field has no default. `scope.label-alignment`
+# Config values a bare `config_type()` cannot supply, because the field has no default. `label-alignment`
 # needs a target ontology; a flat one matching `ToyImages`'s own `index2label` aligns losslessly.
-_EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {"scope.label-alignment": {"ontology": {"a": None, "b": None}}}
+_EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {"label-alignment": {"ontology": {"a": None, "b": None}}}
 
 
 def toy_run(name: str, count: int = 40) -> "EvaluatorResult[Any]":

@@ -10,7 +10,7 @@ dataeval-flow evaluators
 ```
 
 Each line names an evaluator type, what it consumes, and how many sources its task
-takes. `dataeval-flow evaluators quality.duplicates` prints that evaluator's
+takes. `dataeval-flow evaluators duplicates` prints that evaluator's
 parameters. The [Evaluator Catalog](../reference/evaluators.md) lists every type, what it consumes, and how many
 sources its task takes.
 
@@ -21,7 +21,7 @@ Add an entry under `evaluators:`, next to your datasets and sources:
 ```yaml
 evaluators:
   - name: dupes
-    type: quality.duplicates
+    type: duplicates
     flags: [hash_basic, hash_d4]
 ```
 
@@ -39,7 +39,7 @@ tasks:
     sources: [train, test]
 ```
 
-`quality.duplicates` searches every source you name together, so the task above
+`duplicates` searches every source you name together, so the task above
 also finds images duplicated between `train` and `test`.
 
 To add embedding-space near duplicates, set `cluster_sensitivity` and name an
@@ -54,7 +54,7 @@ extractors:
 
 evaluators:
   - name: dupes_cluster
-    type: quality.duplicates
+    type: duplicates
     cluster_sensitivity: 1.0
 
 tasks:
@@ -74,7 +74,7 @@ data to test:
 ```yaml
 evaluators:
   - name: mmd
-    type: shift.drift-mmd
+    type: drift-mmd
 
 tasks:
   - name: drift_check
@@ -83,7 +83,7 @@ tasks:
     extractor: bovw_ext
 ```
 
-`shift.drift-wasserstein` takes three sources: the reference, an in-distribution validation set, then the data to
+`drift-wasserstein` takes three sources: the reference, an in-distribution validation set, then the data to
 test.
 
 The config refuses, when it loads, a task that names the wrong number of sources or
@@ -98,7 +98,7 @@ under `output`:
 ```json
 {
   "kind": "evaluator",
-  "metadata": {"evaluator": "quality.duplicates", "dataeval": {"version": "1.1.1"}},
+  "metadata": {"evaluator": "duplicates", "dataeval": {"version": "1.1.1"}},
   "output": {
     "shape": "table",
     "columns": ["group_id", "level", "dup_type", "item_indices", "dataset_indices", "methods"],
@@ -127,7 +127,7 @@ from dataeval_flow.evaluators.quality import DuplicatesResult
 config = load_config(Path("config.yaml"))
 result = run_tasks(config, tasks="find_dupes", data_dir=Path("."))["find_dupes"]
 
-print(result.report())  # the text the CLI prints
+print(result.report())  # the full report: what -v prints and result.txt holds
 rows = result.to_dict()["output"]["rows"]  # the JSON-ready table
 assert isinstance(result, DuplicatesResult)
 native = result.output  # DataEval's own DuplicatesOutput

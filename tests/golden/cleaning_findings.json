@@ -1,0 +1,129 @@
+{
+  "classification": [
+    [
+      "warning",
+      "Image Outliers",
+      "1 images (4.2%)"
+    ],
+    [
+      "warning",
+      "Classwise Outliers",
+      "worst: b (8.3%), 1/1 classes over 3.0%"
+    ],
+    [
+      "warning",
+      "Duplicates",
+      "2 exact (8.3%), 0 near (0.0%)"
+    ],
+    [
+      "info",
+      "Label Distribution",
+      "2 classes, 24 items, imbalance 1.0:1"
+    ]
+  ],
+  "unlabelled": [
+    [
+      "warning",
+      "Image Outliers",
+      "1 images (4.2%)"
+    ],
+    [
+      "info",
+      "Classwise Outliers",
+      "worst: None (0.0%), all classes within 3.0%"
+    ],
+    [
+      "warning",
+      "Duplicates",
+      "2 exact (8.3%), 0 near (0.0%)"
+    ]
+  ],
+  "detection": [
+    [
+      "warning",
+      "Image Outliers",
+      "2 images (10.0%)"
+    ],
+    [
+      "warning",
+      "Target Outliers",
+      "2 targets (7.1%)"
+    ],
+    [
+      "warning",
+      "Classwise Outliers",
+      "worst: van (12.5%), 1/1 classes over 3.0%"
+    ],
+    [
+      "warning",
+      "Duplicates",
+      "2 exact (10.0%), 0 near (0.0%)"
+    ],
+    [
+      "info",
+      "Label Distribution",
+      "3 classes, 20 items, imbalance 1.3:1"
+    ]
+  ],
+  "no_duplicates": [
+    [
+      "ok",
+      "Image Outliers",
+      "0 images (0.0%)"
+    ],
+    [
+      "ok",
+      "Classwise Outliers",
+      "no outliers detected"
+    ],
+    [
+      "info",
+      "Label Distribution",
+      "2 classes, 6 items, imbalance 1.0:1"
+    ]
+  ],
+  "lenient_thresholds": [
+    [
+      "info",
+      "Image Outliers",
+      "1 images (4.2%)"
+    ],
+    [
+      "info",
+      "Classwise Outliers",
+      "worst: b (8.3%), all classes within 50.0%"
+    ],
+    [
+      "info",
+      "Duplicates",
+      "2 exact (8.3%), 0 near (0.0%)"
+    ],
+    [
+      "info",
+      "Label Distribution",
+      "2 classes, 24 items, imbalance 1.0:1"
+    ]
+  ],
+  "cluster_mode": [
+    [
+      "info",
+      "Image Outliers",
+      "1 images (2.5%)"
+    ],
+    [
+      "info",
+      "Classwise Outliers",
+      "worst: b (5.0%), 1/1 classes over 3.0%"
+    ],
+    [
+      "warning",
+      "Duplicates",
+      "2 exact (5.0%), 2 near (5.0%)"
+    ],
+    [
+      "info",
+      "Label Distribution",
+      "2 classes, 40 items, imbalance 1.0:1"
+    ]
+  ]
+}

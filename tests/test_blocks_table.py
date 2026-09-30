@@ -1,4 +1,5 @@
-"""Tables in text: aligned columns, charts drawn from numbers, and a layout that shrinks charts before it overflows."""
+"""Tables in text: aligned columns, charts drawn from numbers, and a layout that shrinks charts, then wraps text cells,
+before it overflows."""
 
 import pytest
 from pydantic import ValidationError
@@ -22,6 +23,17 @@ class TestImageColumns:
             rows=[{"image": ItemRef(source="train", index=41), "item": 41, "n": 2}],
         )
         assert _draw(table) == ["  Item  N", "  ----  -", "  41    2"]
+
+    def test_a_column_marked_out_of_text_is_left_out(self):
+        table = Table(
+            columns=[
+                Column(key="step", header="Step"),
+                Column(key="title", header="Title", in_text=False),
+                Column(key="n", header="N"),
+            ],
+            rows=[{"step": "dupes", "title": "Duplicates", "n": 2}],
+        )
+        assert _draw(table) == ["  Step   N", "  -----  -", "  dupes  2"]
 
     def test_a_table_of_images_alone_draws_nothing(self):
         table = Table(columns=[Column(key="image", kind="image")], rows=[{"image": ItemRef(source="t", index=0)}])
@@ -203,13 +215,68 @@ class TestFitting:
         assert [len(part) for part in lines[1].split("  ")] == [5, len(legend), 4]
         assert lines[0] == f"Range  {legend}  note"
 
-    def test_a_table_too_wide_to_shrink_overflows_rather_than_wrapping_cells(self):
+    def test_a_table_too_wide_for_its_room_wraps_its_text_cells_the_widest_first(self):
         table = Table(
             columns=[Column(key="a", header="a"), Column(key="b", header="b")], rows=[{"a": "x" * 50, "b": "y" * 50}]
         )
-        lines = _draw(table, width=60)
-        assert len(lines) == 3
-        assert len(lines[-1]) > 60
+        # 50 + 2 + 50 against 58 of room: neither cell has a place to break, so each is cut at 28.
+        assert _draw(table, width=60) == [
+            "  a" + " " * 56 + "b",
+            "  " + "-" * 28 + "  " + "-" * 28,
+            "  " + "x" * 28 + "  " + "y" * 28,
+            "  " + "x" * 22 + " " * 14 + "y" * 22,
+        ]
+
+    def test_a_table_that_fits_is_drawn_as_it_is(self):
+        table = Table(
+            columns=[Column(key="a", header="a", align="left"), Column(key="b", header="b", align="left")],
+            rows=[{"a": "one two", "b": "three-four"}, {"a": "x", "b": "y"}],
+        )
+        assert _draw(table, width=21) == [
+            "  a        b",
+            "  -------  ----------",
+            "  one two  three-four",
+            "  x        y",
+        ]
+
+    def test_a_wrapped_cell_breaks_before_a_lineage_arrow_first(self):
+        table = Table(
+            columns=[Column(key="step", header="Step"), Column(key="reads", header="Reads", align="left")],
+            rows=[{"step": "balance", "reads": "`split.train` ← `clean` ← `merged` ← `street` (street_2024)"}],
+        )
+        assert _draw(table, width=44) == [
+            "  Step     Reads",
+            "  -------  ---------------------------------",
+            "  balance  `split.train` ← `clean`",
+            "           ← `merged`",
+            "           ← `street` (street_2024)",
+        ]
+
+    def test_a_wrapped_cell_keeps_words_whole_then_hyphenated_parts_then_breaks_anywhere(self):
+        def draw(text: str, width: int) -> list[str]:
+            table = Table(columns=[Column(key="t", header="T", align="left")], rows=[{"t": text}])
+            return [line.strip() for line in _draw(table, width=width, indent="")[2:]]
+
+        assert draw("needs `boom`, which failed", 12) == ["needs", "`boom`,", "which failed"]
+        assert draw("classwise-outlier-rate", 12) == ["classwise-", "outlier-rate"]
+        assert draw("cleaning/image-outliers", 12) == ["cleaning/", "image-", "outliers"]
+        assert draw("abcdefghijklmnop", 6) == ["abcdef", "ghijkl", "mnop"]
+
+    def test_a_number_is_never_broken_and_a_header_never_narrowed(self):
+        table = Table(
+            columns=[Column(key="name", header="Name"), Column(key="n", header="Count")],
+            rows=[{"name": "a long name", "n": 1234567}],
+        )
+        lines = ["Name    Count", "----  -------", "a     1234567", "long", "name"]
+        assert _draw(table, width=13, indent="") == lines
+        # Narrower still, the row overflows rather than cut the number or the header.
+        assert _draw(table, width=12, indent="") == lines
+
+    def test_the_rows_of_a_wrapped_table_are_parted_by_a_blank_line(self):
+        table = Table(
+            columns=[Column(key="t", header="Text", align="left")], rows=[{"t": "one two"}, {"t": "three four"}]
+        )
+        assert _draw(table, width=5, indent="") == ["Text", "-----", "one", "two", "", "three", "four"]
 
 
 class TestSharedLayout:

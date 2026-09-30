@@ -1,10 +1,11 @@
-"""`quality.label-health`: a Dataset's labels counted by class, over DataEval's `label_stats` (spec §9.4)."""
+"""`label-health`: a Dataset's labels counted by class, over DataEval's `label_stats` (spec §9.4)."""
 
 from typing import Any, cast
 
 from dataeval import Metadata
 
 from dataeval_flow import run
+from dataeval_flow._blocks import Fields
 from dataeval_flow.evaluators import EvaluatorInputs
 from dataeval_flow.evaluators.quality import LabelHealthConfig, LabelHealthEvaluator, LabelHealthOutput
 from tests.chain_toys import ToyDetections
@@ -57,7 +58,36 @@ def test_it_says_where_the_labels_came_from() -> None:
     assert output.data()["label_source"] == "filepath"
 
 
-def test_its_json_is_the_counts_as_a_mapping_and_it_records_the_core_call() -> None:
+def test_its_report_shows_fields_and_a_table_of_classes_not_the_raw_output() -> None:
+    lines = [line.strip() for line in run(LabelHealthConfig(), ToyImages(count=6)).report().splitlines()]
+    assert [
+        line for line in lines if line.split(":")[0] in {"Items", "Classes", "Labels", "Empty images", "Label source"}
+    ] == ["Items:        6", "Classes:      2", "Labels:       6", "Empty images: 0", "Label source: protocol"]
+    assert lines[lines.index("Class  Labels  Images") + 2 :][:2] == ["a           3       3", "b           3       3"]
+    assert "label_counts_per_class" not in "\n".join(lines)
+    assert "OUTPUT" not in lines
+
+
+def test_its_report_leaves_out_a_label_source_the_dataset_does_not_say() -> None:
+    from dataeval_flow.evaluators.quality._report import label_health_section
+
+    data = {
+        "item_count": 2,
+        "class_count": 1,
+        "label_count": 0,
+        "label_counts_per_class": {},
+        "image_counts_per_class": {},
+        "empty_image_count": 2,
+        "label_source": None,
+    }
+    blocks = label_health_section({"shape": "mapping", "data": data})
+    fields = blocks[0]
+    assert isinstance(fields, Fields)
+    assert len(blocks) == 1  # fields only: no classes occur, so no table
+    assert all(key != "Label source" for key, _ in fields.items)
+
+
+def test_its_json_the_counts_as_a_mapping_and_it_records_the_core_call() -> None:
     result = run(LabelHealthConfig(), ToyImages(count=6))
     payload = output_json(result)
     assert payload["shape"] == "mapping"
