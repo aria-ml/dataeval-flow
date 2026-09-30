@@ -28,6 +28,7 @@ from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepE
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas import TaskConfig
+    from dataeval_flow.evaluators._base import EvaluatorConfig
 
 _ARTICLE = {
     DataType.DATASET: "a Dataset",
@@ -102,11 +103,14 @@ def build_graph(
     workflow: CustomWorkflowConfig,
     pipeline: "PipelineConfig",
     slot_keys: Mapping[str, tuple[str, ...]] | None = None,
+    *,
+    evaluators: Sequence["EvaluatorConfig[Any]"] = (),
 ) -> ChainGraph:
     """Resolve and type-check every step of `workflow` against `pipeline`.
 
     `slot_keys` holds a list slot's keys, the names of the sources a task binds to it. Without them, a key read from
-    the slot, or from a list broadcast over it, is taken on trust.
+    the slot, or from a list broadcast over it, is taken on trust. `evaluators` are entries a preset's steps name,
+    found before the pipeline's own.
 
     Raises
     ------
@@ -123,7 +127,7 @@ def build_graph(
     empty: dict[str, frozenset[str]] = {}
     for entry in workflow.steps:
         later.discard(entry.name)
-        spec = _resolve(entry, workflow, pipeline, types, later, specs, empty)
+        spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
         specs[entry.name] = spec
         fixed: dict[str, tuple[str, ...]] = {}
         if issubclass(spec.impl, Transform):
@@ -160,9 +164,9 @@ def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequen
 
 
 def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) -> list[str]:
-    """Why a task cannot run the custom workflow it names: a list key its sources do not bind, a missing extractor,
-    or two exports to one place. `graphs` holds each custom workflow's graph, by name, as :func:`build_graph` built
-    it."""
+    """Why a task cannot run the graph it names: a list key its sources do not bind, a missing extractor, or two
+    exports to one place. `graphs` holds the graph of each custom workflow and each preset entry, by name, as
+    :func:`build_graph` built it."""
     workflows = {
         workflow.name: workflow for workflow in pipeline.workflows or () if isinstance(workflow, CustomWorkflowConfig)
     }
@@ -172,7 +176,10 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
         graph = graphs.get(task.workflow) if task.kind == "workflow" else None
         if graph is None:
             continue
-        problems.extend(binding_problems(task, workflows[task.workflow], pipeline))
+        # A preset's slots take one source each, so only a custom workflow's list slot has keys to bind.
+        workflow = workflows.get(task.workflow)
+        if workflow is not None:
+            problems.extend(binding_problems(task, workflow, pipeline))
         problems.extend(_task_graph_problems(task, graph, owners))
     return problems
 
@@ -236,10 +243,11 @@ def _resolve(
     later: set[str],
     specs: dict[str, StepSpec],
     empty: dict[str, frozenset[str]],
+    evaluators: Sequence["EvaluatorConfig[Any]"],
 ) -> StepSpec:
     kind = entry.kind
     if kind in ("evaluator", "workflow"):
-        config, impl, addresses = _pooled(entry, pipeline)
+        config, impl, addresses = _pooled(entry, pipeline, evaluators)
         type_id = config.type
     else:
         config, impl, addresses = _inline(entry, pipeline)
@@ -301,13 +309,18 @@ def _inline(entry: StepEntry, pipeline: "PipelineConfig") -> tuple[Any, type[Ste
     return config, impl, addresses
 
 
-def _pooled(entry: StepEntry, pipeline: "PipelineConfig") -> tuple[Any, type[Step], dict[str, tuple[Address, ...]]]:
-    """An evaluator or workflow step's pool entry, its implementation, and its `input` addresses."""
+def _pooled(
+    entry: StepEntry, pipeline: "PipelineConfig", evaluators: Sequence["EvaluatorConfig[Any]"] = ()
+) -> tuple[Any, type[Step], dict[str, tuple[Address, ...]]]:
+    """An evaluator or workflow step's pool entry, its implementation, and its `input` addresses.
+
+    A preset's own evaluator entries, `evaluators`, are found before the pipeline's.
+    """
     from dataeval_flow.evaluators._registry import get_evaluator
     from dataeval_flow.workflows._registry import get_workflow
 
     kind = entry.kind
-    pool = pipeline.evaluators if kind == "evaluator" else pipeline.workflows
+    pool = [*evaluators, *(pipeline.evaluators or ())] if kind == "evaluator" else pipeline.workflows
     config = next((item for item in pool or () if item.name == entry.target), None)
     if config is None:
         raise GraphError(f"Step '{entry.name}' names {kind} '{entry.target}', which `{kind}s:` does not define.")

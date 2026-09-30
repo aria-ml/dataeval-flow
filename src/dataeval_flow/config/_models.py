@@ -497,14 +497,18 @@ class PipelineConfig(BaseModel):
 
     @model_validator(mode="after")
     def _check_custom_workflows(self) -> "PipelineConfig":
-        """Refuse a custom workflow whose steps do not connect, and a task it cannot run, before any data is read."""
-        from dataeval_flow._chain._graph import build_graph, task_problems
+        """Refuse a custom workflow whose steps do not connect, a preset entry whose chain does not, and a task
+        either cannot run, before any data is read."""
+        from dataeval_flow._chain._graph import ChainGraph, build_graph, task_problems
+        from dataeval_flow.workflows._preset import expand_preset, preset_of
 
-        graphs = {
-            workflow.name: build_graph(workflow, self)
-            for workflow in self.workflows or ()
-            if isinstance(workflow, CustomWorkflowConfig)
-        }
+        graphs: dict[str, ChainGraph] = {}
+        for workflow in self.workflows or ():
+            if isinstance(workflow, CustomWorkflowConfig):
+                graphs[workflow.name] = build_graph(workflow, self)
+            elif (preset := preset_of(workflow)) is not None:
+                chain, evaluators = expand_preset(workflow, preset)
+                graphs[workflow.name] = build_graph(chain, self, evaluators=evaluators)
         problems = task_problems(self, graphs)
         if problems:
             raise ValueError(" ".join(problems))

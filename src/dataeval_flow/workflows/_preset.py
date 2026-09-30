@@ -1,0 +1,110 @@
+"""Presets: workflow types whose settings expand to a chain of steps, which Flow runs as a custom workflow's."""
+
+__all__ = ["Preset", "PresetChain", "expand_preset", "preset_of"]
+
+from abc import abstractmethod
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from dataeval_flow._kind import is_abstract
+from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._workflow import CustomWorkflowConfig, StepEntry
+
+if TYPE_CHECKING:
+    from dataeval_flow.evaluators._base import EvaluatorConfig
+    from dataeval_flow.steps._result import ChainResult
+    from dataeval_flow.workflows._context import WorkflowContext
+
+
+@dataclass(frozen=True)
+class PresetChain:
+    """What one preset entry's settings expand to.
+
+    Attributes
+    ----------
+    steps
+        The steps, in the order they run: each a ``StepEntry``, or the mapping a config file would write for one.
+    evaluators
+        The evaluator entries the steps name. They are found before the pipeline's own ``evaluators:``, so a
+        preset's steps run with its settings whatever the pipeline defines.
+    """
+
+    steps: Sequence[StepEntry | Mapping[str, Any]]
+    evaluators: Sequence["EvaluatorConfig[Any]"] = ()
+
+
+class Preset:
+    """A workflow type whose settings expand to a chain of steps, which Flow runs as it runs a custom workflow's.
+
+    Mix it in ahead of the workflow base, with ``ChainResult`` as the result:
+    ``class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult])``. The config class stays the
+    type's settings. Declare:
+
+    - ``slots``: what the steps call the task's sources, in the order a task names them;
+    - ``outputs``: the Datasets a custom workflow may read when it runs the preset as a step. Each is named after
+      the step of the chain that makes it, which has one output;
+    - :meth:`chain`: the steps an entry's settings expand to, and the evaluator entries they name.
+
+    As a task, the result's ``type`` is the preset's type id and its steps are the chain's. As a step of a custom
+    workflow, named ``cleaning`` say, the chain is spliced in: its steps run as ``cleaning/<step>``, and
+    ``cleaning.<output>`` reads each declared output.
+    """
+
+    slots: ClassVar[tuple[str, ...]]
+    outputs: ClassVar[tuple[Port, ...]] = ()
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Require ``slots`` on a concrete preset, and outputs that are single Datasets."""
+        super().__init_subclass__(**kwargs)
+        if is_abstract(cls):
+            return
+        if not getattr(cls, "slots", ()):
+            raise TypeError(f"{cls.__name__} is a preset, so it must declare `slots`: what its steps call its inputs.")
+        wrong = [port.name for port in cls.outputs if port.type is not DataType.DATASET or port.is_list]
+        if wrong:
+            raise TypeError(
+                f"{cls.__name__} declares outputs {', '.join(wrong)}, which are not Datasets: a preset's outputs are "
+                "the Datasets its steps make."
+            )
+
+    @classmethod
+    @abstractmethod
+    def chain(cls, config: Any) -> PresetChain:
+        """The steps `config`'s settings expand to, and the evaluator entries they name."""
+
+    @classmethod
+    def output_ports(cls) -> tuple[Port, ...]:
+        """The Datasets a custom workflow may read when it runs this preset as a step."""
+        return cls.outputs
+
+    def run(self, config: Any, context: "WorkflowContext") -> "ChainResult":  # noqa: ARG002
+        """Refused: Flow runs a preset's chain of steps, through ``run_task`` or ``run``."""
+        raise TypeError(
+            f"{type(self).__name__} is a preset: Flow runs its chain of steps, through `run_task` or `run`, not "
+            "through `Workflow.run`."
+        )
+
+
+def preset_of(config: object) -> "type[Preset] | None":
+    """The preset `config`'s workflow type is; ``None`` for a custom workflow, an evaluator, or a type with a ``run``
+    of its own."""
+    from dataeval_flow.workflows._base import WorkflowConfig
+    from dataeval_flow.workflows._registry import get_workflow
+
+    if not isinstance(config, WorkflowConfig):
+        return None
+    try:
+        implementation = get_workflow(config.type)
+    except ValueError:
+        return None
+    return implementation if issubclass(implementation, Preset) else None
+
+
+def expand_preset(config: Any, preset: type[Preset]) -> tuple[CustomWorkflowConfig, tuple["EvaluatorConfig[Any]", ...]]:
+    """`config`'s chain, as a custom workflow named after the entry, and the evaluator entries its steps name."""
+    chain = preset.chain(config)
+    workflow = CustomWorkflowConfig.model_validate(
+        {"name": config.name, "inputs": list(preset.slots), "steps": list(chain.steps)}
+    )
+    return workflow, tuple(chain.evaluators)

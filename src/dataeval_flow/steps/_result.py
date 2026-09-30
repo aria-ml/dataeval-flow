@@ -147,13 +147,14 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         self.steps: dict[str, StepResult] = dict(steps or {})
 
     @classmethod
-    def from_run(cls, name: str, run: "ChainRun") -> "ChainResult":
-        """The result of running custom workflow `name`: failed when any required step failed."""
+    def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None) -> "ChainResult":
+        """The result of running custom workflow `name`: failed when any required step failed. Its ``type`` is
+        `type_id`, a preset's type id, or `name` when unset."""
         failed = [step for step, record in run.steps.items() if record.status == "failed"]
         errors = [f"{step}: {'; '.join(_errors(run.steps[step]))}" for step in failed]
         metadata = ChainMetadata(workflow=name, lineage=list(run.lineage), label_space=list(run.label_space))
         return cls(
-            type=name,
+            type=type_id or name,
             success=not failed,
             metadata=metadata,
             output=ChainOutput(dict(run.steps)) if not failed else None,

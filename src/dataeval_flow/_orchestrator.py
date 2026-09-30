@@ -358,6 +358,8 @@ def _run_single_task(
     from dataeval_flow._kind import input_problem, result_type_of
     from dataeval_flow._tables import TableLimits
     from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.workflows._base import WorkflowConfig
+    from dataeval_flow.workflows._preset import Preset, expand_preset
     from dataeval_flow.workflows._result import WorkflowResult
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
@@ -417,6 +419,25 @@ def _run_single_task(
         _ensure_result_datasets(refused, dataset_contexts)
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, instance, config, data_dir=data_dir)
         return refused
+
+    # A preset's settings expand to a chain of steps, which runs as a custom workflow's, under the preset's type id.
+    if isinstance(runner, Preset) and isinstance(instance, WorkflowConfig):
+        chain, evaluators = expand_preset(instance, type(runner))
+        return _run_custom_task(
+            task,
+            chain,
+            config,
+            dataset_contexts,
+            resolved_sources,
+            setup,
+            data_dir=data_dir,
+            cache_dir=cache_dir,
+            output_dir=output_dir,
+            report_images=report_images,
+            limits=limits,
+            evaluators=evaluators,
+            entry=instance,
+        )
 
     # 5-7. Resolve the step's policies and ontology, then run it as a one-step graph.
     result, elapsed, ontology = _run_one_step(
@@ -592,8 +613,14 @@ def _run_custom_task(
     output_dir: Path | None,
     report_images: bool,
     limits: "TableLimits",
+    evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
+    entry: "WorkflowConfig[Any] | None" = None,
 ) -> "ChainResult":
-    """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's."""
+    """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's.
+
+    `entry` is the preset entry `workflow` was expanded from: the result carries its type id, and the envelope records
+    its settings rather than the chain's. `evaluators` are the entries the preset's steps name.
+    """
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
@@ -603,6 +630,8 @@ def _run_custom_task(
 
     names = task.source_names
     extractor_cfg = setup.config if setup is not None else None
+    type_id = entry.type if entry is not None else workflow.name
+    described = entry if entry is not None else workflow
     # `PipelineConfig` checks only the tasks it holds; a task run directly gets the same checks here, as a failed
     # result, like a workflow-type task's.
     problem = workflow.binding_problem(len(names))
@@ -612,11 +641,11 @@ def _run_custom_task(
         else binding_problems(task, workflow, config)
     )
     if problems:
-        refused = ChainResult.failed(type=workflow.name, errors=problems)
+        refused = ChainResult.failed(type=type_id, errors=problems)
         refused.metadata = ChainMetadata(workflow=workflow.name)
-        _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, workflow, config, data_dir=data_dir)
+        _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, described, config, data_dir=data_dir)
         return refused
-    graph = build_graph(workflow, config)
+    graph = build_graph(workflow, config, evaluators=evaluators)
     inputs = bind_inputs(graph, names, dataset_contexts, {source.name: source for source in resolved_sources})
     slot_contexts: dict[str, list[DatasetContext]] = {}
     for index, slot in enumerate(graph.slots):
@@ -641,14 +670,14 @@ def _run_custom_task(
     with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
         chain = run_chain(graph, inputs, run_settings)
     elapsed = time.monotonic() - start
-    result = ChainResult.from_run(workflow.name, chain)
+    result = ChainResult.from_run(workflow.name, chain, type_id=type_id)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
     result.sources = {source.name: source.realized() for source in resolved_sources}
     if report_images:
         _capture_chain_assets(result, chain, _unless_all(config.result.max_images))
-    _populate_result_metadata(result, resolved_sources, extractor_cfg, elapsed, workflow, config, data_dir=data_dir)
+    _populate_result_metadata(result, resolved_sources, extractor_cfg, elapsed, described, config, data_dir=data_dir)
     if chain.label_space:
         # The sources' records, where there are any, replaced the chain's own: keep both, the sources' first.
         result.metadata.label_space = [*label_space_records(resolved_sources, None), *chain.label_space]
