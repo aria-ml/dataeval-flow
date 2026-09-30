@@ -541,6 +541,17 @@ resolve:version:
     - syft --version
     # Set up buildx builder for registry cache support (docker-container driver required for type=registry)
     - docker buildx create --use --name ci-builder || true
+    # BuildKit's registry cache keys the apt-upgrade layer on instruction text,
+    # so a CVE fixed upstream after that layer was last cached keeps getting
+    # served stale. `[bust-cache]` anywhere in the commit message forces apt to
+    # re-resolve against a fresh mirror; otherwise APT_CACHE_BUST stays at the
+    # Dockerfile's default and normal caching applies.
+    - |
+      if echo "${CI_COMMIT_MESSAGE}" | grep -qF '[bust-cache]'; then
+        export APT_CACHE_BUST="${CI_PIPELINE_ID}"
+      else
+        export APT_CACHE_BUST="0"
+      fi
 
 push:docker:
   extends: .push-setup
@@ -566,6 +577,7 @@ push:docker:
     - >-
       docker buildx build --target test
       --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
+      --build-arg APT_CACHE_BUST="${APT_CACHE_BUST}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT}
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-${VARIANT}
       --cache-to type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT},mode=max,image-manifest=true
@@ -582,6 +594,7 @@ push:docker:
     - >-
       docker buildx build --target prod
       --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
+      --build-arg APT_CACHE_BUST="${APT_CACHE_BUST}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT}
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-${VARIANT}
       -f docker/Dockerfile.${VARIANT}
@@ -623,6 +636,7 @@ push:docker:
     - >-
       docker buildx build --target scanned
       --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
+      --build-arg APT_CACHE_BUST="${APT_CACHE_BUST}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT}
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-${VARIANT}
       -f docker/Dockerfile.${VARIANT}
@@ -664,6 +678,7 @@ validate:docker:
     - >-
       docker buildx build --target test
       --build-arg DATAEVAL_FLOW_VERSION="${DATAEVAL_FLOW_VERSION}"
+      --build-arg APT_CACHE_BUST="${APT_CACHE_BUST}"
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-flow-${VARIANT}
       --cache-from type=registry,ref=${CI_CACHE_REPOSITORY}:dataeval-${VARIANT}
       -f docker/Dockerfile.${VARIANT} .

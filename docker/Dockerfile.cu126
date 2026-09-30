@@ -8,13 +8,22 @@
 # by docker/generate.py so the committed value is stable across regenerations.
 ARG DATAEVAL_FLOW_VERSION="0.0.0.dev0"
 
+# Cache-busting knob for the OS security-patch layers below. BuildKit keys its
+# registry cache on instruction text, so `apt-get upgrade` keeps replaying a
+# stale cache hit even after a CVE fix lands upstream. CI bumps this (see
+# .gitlab-ci.yml) when a commit message asks for a fresh apt resolve; a local
+# `docker build` leaves it at 0 and gets the normal cache behavior.
+ARG APT_CACHE_BUST=0
+
 # =============================================================================
 # Stage 1: Build — install prod-only deps, build clean venv
 # =============================================================================
 FROM ubuntu:24.04 AS build
 
+ARG APT_CACHE_BUST
 # Security patching (layer is cached and reused by prod stage)
-RUN apt-get update \
+RUN : "${APT_CACHE_BUST}" \
+    && apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
@@ -100,8 +109,10 @@ RUN nox -s docker_smoke
 # benefit, and is not a CS-1-S-2 trusted source. See docker/variants.yaml.
 FROM ubuntu:24.04 AS prod
 
+ARG APT_CACHE_BUST
 # Patch OS-level vulnerabilities from base image
-RUN apt-get update \
+RUN : "${APT_CACHE_BUST}" \
+    && apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
