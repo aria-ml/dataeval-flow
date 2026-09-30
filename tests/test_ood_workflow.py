@@ -621,7 +621,6 @@ class TestOODDetectionOutput:
         meta = OODDetectionMetadata()
         assert meta.detectors_used == []
         assert meta.metadata_insights_enabled is False
-        assert meta.mode == "advisory"
 
     def test_json_serialization(self):
         raw = OODDetectionRawOutput(

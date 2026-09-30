@@ -571,7 +571,6 @@ class DriftMonitoringWorkflow(Workflow[DriftMonitoringConfig, DriftMonitoringRes
         report = DriftMonitoringReport(summary=summary, findings=findings)
 
         result_metadata = DriftMonitoringMetadata(
-            mode=config.mode,
             detectors_used=list(detector_results.keys()),
             chunking_enabled=any(d.chunking is not None for d in config.detectors),
             classwise_enabled=_any_classwise(config.detectors),

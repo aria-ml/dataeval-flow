@@ -749,7 +749,6 @@ class DataCoverageWorkflow(Workflow[DataCoverageConfig, DataCoverageResult]):
         report = DataCoverageReport(summary=summary, findings=findings)
 
         result_metadata = DataCoverageMetadata(
-            mode=config.mode,
             has_extractor=has_extractor,
             label_space_digest=_label_space_digest_of(raw),
         )

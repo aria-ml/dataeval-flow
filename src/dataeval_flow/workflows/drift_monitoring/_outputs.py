@@ -1,6 +1,6 @@
 """Drift monitoring workflow outputs."""
 
-from typing import Any, Literal, NotRequired
+from typing import Any, NotRequired
 
 from pydantic import Field
 from typing_extensions import TypedDict
@@ -110,9 +110,6 @@ class DriftMonitoringOutput(WorkflowOutput[DriftMonitoringRawOutput, DriftMonito
 class DriftMonitoringMetadata(ResultMetadata):
     """Metadata for the drift-monitoring workflow."""
 
-    mode: Literal["advisory", "preparatory"] = Field(
-        default="advisory", description="The `mode` the workflow ran in, as configured: `advisory` or `preparatory`."
-    )
     detectors_used: list[str] = Field(
         default_factory=list, description="The detectors that produced results, as keyed in `detectors`."
     )
@@ -139,8 +136,6 @@ class DriftMonitoringResult(WorkflowResult[DriftMonitoringMetadata, DriftMonitor
         Per-detector results keyed by method name.
     output.raw.classwise
         Per-class drift results (one entry per detector). None if classwise disabled.
-    metadata.mode
-        The ``mode`` the workflow ran in, as configured: ``advisory`` or ``preparatory``.
     metadata.detectors_used
         The detectors that produced results, as keyed in ``detectors``.
     metadata.chunking_enabled

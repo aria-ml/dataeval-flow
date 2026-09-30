@@ -57,18 +57,14 @@ class TestDataCleaningConfig:
     def test_optional_defaults(self):
         """Optional fields have safe defaults."""
         params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)
-        assert params.mode == "advisory"
         assert params.outlier_threshold is None
 
     def test_custom_values(self):
         """Parameters accept custom values."""
-        params = DataCleaningConfig(
-            outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"], mode="preparatory"
-        )
+        params = DataCleaningConfig(outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"])
         assert params.outlier_method == "iqr"
         assert params.outlier_threshold == 2.5
         assert params.outlier_flags == ["pixel", "visual"]
-        assert params.mode == "preparatory"
 
     def test_invalid_outlier_method(self):
         """Invalid outlier_method raises ValidationError."""
@@ -104,16 +100,6 @@ class TestDataCleaningConfig:
             outlier_method="modzscore", outlier_flags=["dimension"], duplicate_flags=["hash_basic", "hash_d4"]
         )
         assert params.duplicate_flags == ["hash_basic", "hash_d4"]
-
-    def test_invalid_mode_rejected(self):
-        """Invalid mode raises ValidationError."""
-        with pytest.raises(ValidationError, match="mode"):
-            DataCleaningConfig(
-                outlier_method="modzscore",
-                outlier_flags=["dimension"],
-                outlier_threshold=None,
-                mode="invalid",  # type: ignore[arg-type]
-            )
 
 
 class TestYAMLValidationEdgeCases:
@@ -217,14 +203,9 @@ class TestBaseClasses:
     """Test base classes for workflow parameters and outputs."""
 
     def test_workflow_parameters_base(self):
-        """WorkflowConfig has mode with default."""
+        """WorkflowConfig needs only a type."""
         params = WorkflowConfig(type="x")
-        assert params.mode == "advisory"
-
-    def test_workflow_parameters_base_custom_mode(self):
-        """WorkflowConfig accepts custom mode."""
-        params = WorkflowConfig(type="x", mode="preparatory")
-        assert params.mode == "preparatory"
+        assert params.type == "x"
 
     def test_workflow_outputs_base(self):
         """WorkflowRawOutput requires dataset_size."""

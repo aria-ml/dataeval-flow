@@ -201,7 +201,7 @@ STEP_BUILDER_SECTIONS: dict[str, dict[str, str]] = {
     },
 }
 
-WORKFLOW_SKIP_FIELDS = frozenset({"name", "type", "mode"})
+WORKFLOW_SKIP_FIELDS = frozenset({"name", "type"})
 
 # ---------------------------------------------------------------------------
 # Registry helpers

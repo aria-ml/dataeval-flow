@@ -706,7 +706,6 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
         report = OODDetectionReport(summary=summary, findings=findings)
 
         result_metadata = OODDetectionMetadata(
-            mode=config.mode,
             detectors_used=list(detector_results.keys()),
             metadata_insights_enabled=config.metadata_insights and bool(ood_indices),
         )

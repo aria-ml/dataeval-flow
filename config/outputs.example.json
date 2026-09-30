@@ -38,7 +38,6 @@
         "metadata_factor_source": null,
         "name": "data-cleaning",
         "type": "data-cleaning",
-        "mode": "advisory",
         "ontology": null,
         "outlier_method": "zscore",
         "outlier_flags": [
@@ -86,7 +85,6 @@
     "label_space_digest": null,
     "label_space": [],
     "diagnostics": [],
-    "mode": "advisory",
     "evaluators": [
       "outliers",
       "duplicates"

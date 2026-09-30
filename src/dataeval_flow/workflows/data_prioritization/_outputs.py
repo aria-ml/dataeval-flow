@@ -1,7 +1,5 @@
 """Data prioritization workflow outputs."""
 
-from typing import Literal
-
 from pydantic import Field
 from typing_extensions import TypedDict
 
@@ -89,29 +87,12 @@ class DataPrioritizationOutput(WorkflowOutput[DataPrioritizationRawOutput, DataP
 class DataPrioritizationMetadata(ResultMetadata):
     """Metadata for the data-prioritization workflow."""
 
-    mode: Literal["advisory", "preparatory"] = Field(
-        default="advisory", description="The `mode` the workflow ran in, as configured: `advisory` or `preparatory`."
-    )
     method: str = Field(default="", description="Ranking method used.")
     order: str = Field(default="", description="Sort direction used.")
     policy: str = Field(default="", description="Selection policy used.")
     cleaning_enabled: bool = Field(default=False, description="Whether the task cleaned the sources before ranking.")
     items_removed_by_cleaning: int = Field(
         default=0, description="How many items cleaning removed, across every source."
-    )
-    per_source_clean_indices: dict[str, list[int]] = Field(
-        default_factory=dict,
-        description=(
-            "Per source, the indices of the items cleaning kept, the reference under `__reference__`. Empty unless "
-            "`mode` is `preparatory`."
-        ),
-    )
-    per_source_prioritized_indices: dict[str, list[int]] = Field(
-        default_factory=dict,
-        description=(
-            "Per source ranked against the reference, its item indices in priority order. Empty unless `mode` is "
-            "`preparatory`."
-        ),
     )
 
 
@@ -138,8 +119,6 @@ class DataPrioritizationResult(WorkflowResult[DataPrioritizationMetadata, DataPr
         Cleaning step summary. None if cleaning was skipped.
     output.raw.prioritizations
         Per-dataset prioritization results.
-    metadata.mode
-        The ``mode`` the workflow ran in, as configured: ``advisory`` or ``preparatory``.
     metadata.method
         Ranking method used.
     metadata.order
@@ -150,10 +129,4 @@ class DataPrioritizationResult(WorkflowResult[DataPrioritizationMetadata, DataPr
         Whether the task cleaned the sources before ranking.
     metadata.items_removed_by_cleaning
         How many items cleaning removed, across every source.
-    metadata.per_source_clean_indices
-        Per source, the indices of the items cleaning kept, the reference under ``__reference__``. Empty unless ``mode``
-        is ``preparatory``.
-    metadata.per_source_prioritized_indices
-        Per source ranked against the reference, its item indices in priority order. Empty unless ``mode`` is
-        ``preparatory``.
     """

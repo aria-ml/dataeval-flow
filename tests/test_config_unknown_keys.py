@@ -19,6 +19,7 @@ from dataeval_flow.config._schemas import (
 from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThresholds
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_coverage._config import DataCoverageConfig, DataCoverageHealthThresholds
 from dataeval_flow.workflows.data_prioritization._config import DataPrioritizationHealthThresholds
@@ -29,6 +30,7 @@ from dataeval_flow.workflows.drift_monitoring._config import (
 )
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
 from dataeval_flow.workflows.ood_detection._config import OODDetectionHealthThresholds
+from tests.chain_toys import chain_pipeline
 
 pytestmark = pytest.mark.required
 
@@ -110,3 +112,24 @@ class TestConfigFolder:
         (tmp_path / "compose.yaml").write_text("services:\n  flow:\n    image: dataeval-flow\n")
 
         assert merge_config_folder(tmp_path) == {"logging": {"app_level": "INFO"}}
+
+
+_STILL_WRITES_MODE = [
+    pytest.param(DataCleaningConfig, {"outlier_method": "zscore", "outlier_flags": ["pixel"]}, id="data-cleaning"),
+    pytest.param(DataCoverageConfig, {}, id="data-coverage"),
+    pytest.param(MetadataTriageConfig, {}, id="metadata-triage"),
+]
+
+
+@pytest.mark.parametrize(("model", "data"), _STILL_WRITES_MODE)
+def test_a_workflow_entry_that_still_writes_mode_is_refused(model: type[BaseModel], data: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError) as info:
+        model.model_validate({**data, "mode": "preparatory"})
+    assert [error["loc"] for error in info.value.errors() if error["type"] == "extra_forbidden"] == [("mode",)]
+
+
+def test_a_pipeline_whose_workflow_still_writes_mode_fails_to_load_naming_it() -> None:
+    entry = {"name": "c", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+    with pytest.raises(ValidationError) as info:
+        chain_pipeline(workflows=[{**entry, "mode": "advisory"}])
+    assert [error["loc"][-1] for error in info.value.errors() if error["type"] == "extra_forbidden"] == ["mode"]

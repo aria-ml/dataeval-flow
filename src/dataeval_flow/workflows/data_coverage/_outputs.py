@@ -363,9 +363,6 @@ class DataCoverageOutput(WorkflowOutput[DataCoverageRawOutput, DataCoverageRepor
 class DataCoverageMetadata(ResultMetadata):
     """Metadata for the data-coverage workflow."""
 
-    mode: Literal["advisory", "preparatory"] = Field(
-        default="advisory", description="The `mode` the workflow ran in, as configured: `advisory` or `preparatory`."
-    )
     has_extractor: bool = Field(default=False, description="Whether an extractor was configured")
 
 
@@ -396,8 +393,6 @@ class DataCoverageResult(WorkflowResult[DataCoverageMetadata, DataCoverageOutput
         Ontology label-space analysis (None when it could not run)
     output.raw.ontology_skipped_reason
         Why ontology analysis was skipped
-    metadata.mode
-        The ``mode`` the workflow ran in, as configured: ``advisory`` or ``preparatory``.
     metadata.has_extractor
         Whether an extractor was configured
     """

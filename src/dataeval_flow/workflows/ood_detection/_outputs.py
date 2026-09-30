@@ -1,6 +1,6 @@
 """OOD detection workflow outputs."""
 
-from typing import Literal, NotRequired
+from typing import NotRequired
 
 from pydantic import Field
 from typing_extensions import TypedDict
@@ -101,9 +101,6 @@ class OODDetectionOutput(WorkflowOutput[OODDetectionRawOutput, OODDetectionRepor
 class OODDetectionMetadata(ResultMetadata):
     """Metadata for the ood-detection workflow."""
 
-    mode: Literal["advisory", "preparatory"] = Field(
-        default="advisory", description="The `mode` the workflow ran in, as configured: `advisory` or `preparatory`."
-    )
     detectors_used: list[str] = Field(
         default_factory=list, description="The detectors that produced results, as keyed in `detectors`."
     )
@@ -135,8 +132,6 @@ class OODDetectionResult(WorkflowResult[OODDetectionMetadata, OODDetectionOutput
         Per-OOD-sample metadata factor deviations. None if metadata insights disabled.
     output.raw.factor_predictors
         Mutual information (bits) per metadata factor with OOD status. None if insights disabled.
-    metadata.mode
-        The ``mode`` the workflow ran in, as configured: ``advisory`` or ``preparatory``.
     metadata.detectors_used
         The detectors that produced results, as keyed in ``detectors``.
     metadata.metadata_insights_enabled

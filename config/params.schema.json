@@ -1432,16 +1432,6 @@
           "title": "Type",
           "type": "string"
         },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
         "ontology": {
           "anyOf": [
             {
@@ -1643,16 +1633,6 @@
           "default": "data-cleaning",
           "description": "The workflow type this entry configures: `data-cleaning`.",
           "title": "Type",
-          "type": "string"
-        },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
           "type": "string"
         },
         "ontology": {
@@ -2068,16 +2048,6 @@
           "title": "Type",
           "type": "string"
         },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
         "ontology": {
           "anyOf": [
             {
@@ -2468,16 +2438,6 @@
           "title": "Type",
           "type": "string"
         },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
         "ontology": {
           "anyOf": [
             {
@@ -2642,16 +2602,6 @@
           "default": "data-splitting",
           "description": "The workflow type this entry configures: `data-splitting`.",
           "title": "Type",
-          "type": "string"
-        },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
           "type": "string"
         },
         "ontology": {
@@ -3474,16 +3424,6 @@
           "default": "drift-monitoring",
           "description": "The workflow type this entry configures: `drift-monitoring`.",
           "title": "Type",
-          "type": "string"
-        },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
           "type": "string"
         },
         "ontology": {
@@ -4808,16 +4748,6 @@
           "title": "Type",
           "type": "string"
         },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
         "ontology": {
           "anyOf": [
             {
@@ -5001,16 +4931,6 @@
           "default": "ood-detection",
           "description": "The workflow type this entry configures: `ood-detection`.",
           "title": "Type",
-          "type": "string"
-        },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
           "type": "string"
         },
         "ontology": {
@@ -6404,16 +6324,6 @@
           "default": "parameter-sweep",
           "description": "The workflow type this entry configures: `parameter-sweep`.",
           "title": "Type",
-          "type": "string"
-        },
-        "mode": {
-          "default": "advisory",
-          "description": "advisory: report only, preparatory: modify dataset",
-          "enum": [
-            "advisory",
-            "preparatory"
-          ],
-          "title": "Mode",
           "type": "string"
         },
         "ontology": {
