@@ -271,10 +271,13 @@ def _tree(block: Tree, _ctx: HtmlContext) -> str:
 
 
 def _summary(block: Summary, _ctx: HtmlContext) -> str:
-    rows = "".join(
-        f"<tr><td>{escape(item.label)}</td><td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
-        for item in block.items
-    )
+    rows = ""
+    group = ""
+    for item in block.items:
+        if item.group != group:
+            group = item.group
+            rows += f'<tr class="group"><th colspan="3">{escape(group)}</th></tr>' if group else ""
+        rows += f"<tr><td>{escape(item.label)}</td><td>{escape(item.value)}</td><td>{badge(item.severity)}</td></tr>"
     warnings = block.warnings
     counted = f"{warnings} warning{'s' if warnings != 1 else ''}"
     if block.failed:

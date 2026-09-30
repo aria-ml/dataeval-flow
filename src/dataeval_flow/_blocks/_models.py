@@ -277,6 +277,10 @@ class SummaryItem(_Block):
     label: str = Field(description="What the line is about.")
     value: str = Field(default="", description="A short value, such as a count.")
     severity: Severity = Field(default="info", description="The line's verdict: `warning`, `ok` or `info`.")
+    group: str = Field(
+        default="",
+        description="The sub-heading the line sits under, such as the split its finding judged; empty for none.",
+    )
 
 
 class Summary(_Block):
@@ -288,7 +292,7 @@ class Summary(_Block):
     """
 
     type: Literal["summary"] = Field(default="summary", description=_TYPE)
-    items: list[SummaryItem] = Field(description="The lines, in order.")
+    items: list[SummaryItem] = Field(description="The lines, in order; those of one group are kept together.")
     warnings: int = Field(ge=0, description="How many findings are warnings, as the result counted them.")
     failed: list[str] = Field(
         default_factory=list,

@@ -119,7 +119,7 @@ def test_a_check_run_once_per_element_names_each_element_it_judged() -> None:
     assert isinstance(section, Section)
     (summary,) = section.blocks
     assert isinstance(summary, Summary)
-    assert [item.label for item in summary.items] == ["Group count [s1]", "Group count [s2]"]
+    assert [(item.group, item.label) for item in summary.items] == [("s1", "Group count"), ("s2", "Group count")]
     assert summary.warnings == 2
 
 

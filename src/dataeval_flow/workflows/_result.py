@@ -1,6 +1,6 @@
 """A workflow's result: typed outputs, and the health verdict drawn from their findings."""
 
-__all__ = ["WorkflowResult", "finding_section", "summary_label"]
+__all__ = ["WorkflowResult", "element_key", "finding_section", "summary_label"]
 
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
@@ -28,12 +28,16 @@ def finding_section(finding: Finding) -> Section:
     )
 
 
-def summary_label(finding: Finding) -> str:
-    """A finding's summary line: its title, and the element a check judged where it ran once per element of a list."""
+def element_key(finding: Finding) -> str | None:
+    """The key of the list element a check judged where it ran once per element; ``None`` for any other finding."""
     step = finding.step or ""
-    if step.endswith("]") and "[" in step:
-        return f"{finding.title} [{step[step.index('[') + 1 : -1]}]"
-    return finding.title
+    return step[step.index("[") + 1 : -1] if step.endswith("]") and "[" in step else None
+
+
+def summary_label(finding: Finding) -> str:
+    """A finding named where its group is not: its title, then the element it judged, "Duplicates [train]"."""
+    key = element_key(finding)
+    return finding.title if key is None else f"{finding.title} [{key}]"
 
 
 class WorkflowResult(Result[TMetadata, TOutput]):
@@ -143,7 +147,13 @@ class WorkflowResult(Result[TMetadata, TOutput]):
         failed = list(health.get("failed_steps") or []) if health["status"] == "failed" else []
         if not findings and not failed:
             return [Paragraph(text="No findings to report.")]
-        items = [SummaryItem(label=summary_label(f), value=f.brief or "", severity=f.severity) for f in findings]
+        # A finding of a check that ran once per element sits under its element's key, after those that did not.
+        keys = list(dict.fromkeys(key for f in findings if (key := element_key(f)) is not None))
+        ordered = [f for group in [None, *keys] for f in findings if element_key(f) == group]
+        items = [
+            SummaryItem(label=f.title, value=f.brief or "", severity=f.severity, group=element_key(f) or "")
+            for f in ordered
+        ]
         summary = Summary(items=items, warnings=self.warning_count, failed=failed)
         lede: list[Block] = [] if findings else [Paragraph(text="No findings to report.")]
         return [Section(title="Summary", blocks=[*lede, summary])]

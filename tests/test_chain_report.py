@@ -233,13 +233,15 @@ def test_a_check_run_once_per_element_shows_each_element_s_findings_beside_that_
     result = _chain(_DUPES, _COUNT, _JUDGE, datasets=_CAMS, lists=True)
     assert _outline(result) == [
         ("Summary", None, None),
-        ("Group count [s1]", "1 groups", "warning"),
-        ("Group count [s2]", "1 groups", "warning"),
+        ("s1", None, None),
+        ("s2", None, None),
         ("Steps", None, None),
         ("Configuration", None, None),
     ]
-    assert _evidence(_section(result, "Group count [s1]")) == ["From Duplicates · dupes [s1]"]
-    assert _evidence(_section(result, "Group count [s2]")) == ["From Duplicates · dupes [s2]"]
+    for key in ("s1", "s2"):
+        (finding,) = [block for block in _section(result, key).blocks if isinstance(block, Section)]
+        assert (finding.title, finding.brief, finding.severity) == ("Group count", "1 groups", "warning")
+        assert _evidence(finding) == [f"From Duplicates · dupes [{key}]"]
 
 
 def test_an_element_no_finding_read_stays_with_the_other_steps() -> None:
@@ -252,12 +254,14 @@ def test_an_element_no_finding_read_stays_with_the_other_steps() -> None:
         result = _chain(_DUPES, _COUNT, _JUDGE, datasets=_CAMS, lists=True)
     assert _outline(result) == [
         ("Summary", None, None),
-        ("Group count [s1]", "1 groups", "warning"),
+        ("s1", None, None),
         ("Duplicates · dupes", None, None),
         ("Steps", None, None),
         ("Configuration", None, None),
     ]
-    assert _evidence(_section(result, "Group count [s1]")) == ["From Duplicates · dupes [s1]"]
+    (finding,) = [block for block in _section(result, "s1").blocks if isinstance(block, Section)]
+    assert (finding.title, finding.brief, finding.severity) == ("Group count", "1 groups", "warning")
+    assert _evidence(finding) == ["From Duplicates · dupes [s1]"]
     rest = _section(result, "Duplicates · dupes")
     assert [block.title for block in rest.blocks if isinstance(block, Section)] == ["[s2]"]
     (table,) = _section(result, "Steps").blocks
@@ -310,7 +314,7 @@ def test_a_check_with_a_failed_element_lists_that_element_among_the_other_steps(
         result = _chain(_DUPES, _COUNT, _JUDGE, datasets=_CAMS, lists=True)
     assert _outline(result) == [
         ("Summary", None, None),
-        ("Group count [s1]", "1 groups", "warning"),
+        ("s1", None, None),
         ("Duplicates · dupes", None, None),
         ("Group count · judge", "failed", None),
         ("Steps", None, None),
@@ -409,3 +413,97 @@ def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
         Summary(items=[], warnings=0, failed=["boom"]),
     ]
     assert '<p class="health failed">Step <code>boom</code> failed</p>' in result.to_html()
+
+
+def _by_split() -> ChainResult:
+    """data-cleaning run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
+    tidy = {"name": "tidy", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel", "visual"]}
+    workflow = {
+        "name": "w",
+        "inputs": [{"name": "splits", "list": True}],
+        "steps": [{"name": "cleaning", "workflow": "tidy", "input": "splits"}],
+    }
+    config = chain_pipeline(
+        workflows=[tidy, workflow],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["train", "val"]}],
+        datasets={"train": ToyImages(count=24), "val": ToyImages(count=12)},
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    return result
+
+
+_SPLIT_BRIEFS = {
+    "train": [
+        ("Image Outliers", "1 images (4.2%)", "warning"),
+        ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
+        ("Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
+        ("Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "info"),
+    ],
+    "val": [
+        ("Image Outliers", "1 images (8.3%)", "warning"),
+        ("Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "warning"),
+        ("Duplicates", "2 exact (16.7%), 0 near (0.0%)", "warning"),
+        ("Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "info"),
+    ],
+}
+
+
+def test_data_cleaning_over_two_splits_groups_its_findings_by_split() -> None:
+    result = _by_split()
+    assert _outline(result) == [
+        ("Summary", None, None),
+        ("train", None, None),
+        ("val", None, None),
+        ("Remove · cleaning/clean", None, None),
+        ("Steps", None, None),
+        ("Configuration", None, None),
+    ]
+
+
+def test_each_split_s_section_holds_its_four_findings_with_their_briefs_and_evidence() -> None:
+    result = _by_split()
+    for key, briefs in _SPLIT_BRIEFS.items():
+        section = _section(result, key)
+        findings = [block for block in section.blocks if isinstance(block, Section)]
+        assert [(block.title, block.brief, block.severity) for block in findings] == briefs
+        assert [_evidence(block) for block in findings] == [
+            [f"From Outliers · cleaning/outliers [{key}]"],
+            [f"Evidence: Outliers · cleaning/outliers [{key}], under Image Outliers [{key}]."],
+            [f"From Duplicates · cleaning/dupes [{key}]"],
+            [f"From Label Health · cleaning/labels [{key}]"],
+        ]
+
+
+def test_the_summary_lists_each_split_s_findings_under_the_split_s_name() -> None:
+    (summary,) = [block for block in _section(_by_split(), "Summary").blocks if isinstance(block, Summary)]
+    assert [(item.group, item.label, item.value, item.severity) for item in summary.items] == [
+        (key, title, brief, severity) for key, briefs in _SPLIT_BRIEFS.items() for title, brief, severity in briefs
+    ]
+    assert summary.warnings == 6
+
+
+def test_the_text_report_names_each_split_above_its_findings_in_the_summary_and_below() -> None:
+    text = _by_split().report()
+    lines = [line for line in text.splitlines() if line.strip() in {"train", "val", "TRAIN", "VAL"}]
+    assert lines == ["  train", "  val", "  TRAIN", "  VAL"]
+    assert "    Image Outliers ..................................... 1 images (4.2%)  [!!]" in text
+    assert "  Image Outliers — 1 images (4.2%)" in text
+    assert max(len(line) for line in text.splitlines()) <= 80
+
+
+def test_the_html_summary_has_a_heading_row_per_split() -> None:
+    html = _by_split().to_html()
+    assert html.count('<tr class="group"><th colspan="3">') == 2
+
+
+def test_findings_of_a_check_that_did_not_run_per_element_come_first_ungrouped() -> None:
+    worst = {"name": "worst", "check": "toy-worst", "input": "count"}
+    result = _chain(_DUPES, _COUNT, _JUDGE, worst, datasets=_CAMS, lists=True)
+    assert [title for title, *_ in _outline(result)][:4] == ["Summary", "Worst group count", "s1", "s2"]
+    (summary,) = [block for block in _section(result, "Summary").blocks if isinstance(block, Summary)]
+    assert [(item.group, item.label) for item in summary.items] == [
+        ("", "Worst group count"),
+        ("s1", "Group count"),
+        ("s2", "Group count"),
+    ]

@@ -64,14 +64,20 @@ def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
     table: top-level sections alongside Configuration. The other steps are those not shown as evidence that have
     something to show, a check among them only where it did not complete."""
     evidence = Evidence(result, detailed=detailed)
-    # A check that ran once per element shows each element's findings beside that element's evidence, key by key.
-    findings = [
-        section
-        for record in result.steps.values()
-        if record.kind == "check"
-        for run in ([record] if record.elements is None else record.elements.values())
-        for section in finding_sections(run, evidence)
-    ]
+    # A check that ran once per element shows each element's findings beside that element's evidence, in a section of
+    # that element's key; the findings of checks that did not run per element come first, ungrouped.
+    ungrouped: list[Block] = []
+    groups: dict[str, list[Block]] = {}
+    for record in result.steps.values():
+        if record.kind != "check":
+            continue
+        if record.elements is None:
+            ungrouped.extend(finding_sections(record, evidence))
+            continue
+        for key, element in record.elements.items():
+            if sections := finding_sections(element, evidence):
+                groups.setdefault(key, []).extend(sections)
+    findings = [*ungrouped, *(Section(title=key, blocks=blocks) for key, blocks in groups.items())]
     others = [section for record in result.steps.values() if (section := _other(record, evidence)) is not None]
     return [
         Fields(items=[("Steps", _count(result.steps.values()))]),
@@ -129,7 +135,9 @@ class Evidence:
 
 def finding_sections(record: "StepResult", evidence: Evidence) -> list[Section]:
     """One section per finding `record` made, a check that ran once or one element of one: the finding's own blocks,
-    then the evidence it judged, from the steps `record` read."""
+    then the evidence it judged, from the steps `record` read. A section is titled by the finding, without the element
+    it judged: the chain's report groups an element's findings under its key. Evidence points back to a finding by the
+    title that names its element."""
     from dataeval_flow.workflows._result import finding_section, summary_label
 
     findings = record.output if record.status == "ok" and record.elements is None else None
@@ -138,7 +146,7 @@ def finding_sections(record: "StepResult", evidence: Evidence) -> list[Section]:
         own, title = finding_section(finding), summary_label(finding)
         sections.append(
             Section(
-                title=title,
+                title=own.title,
                 brief=own.brief,
                 severity=own.severity,
                 blocks=[*own.blocks, *evidence.blocks(record.inputs, title)],

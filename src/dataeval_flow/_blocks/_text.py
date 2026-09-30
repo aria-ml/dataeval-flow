@@ -223,7 +223,13 @@ def _summary(block: Summary, frame: Frame) -> list[str]:
         health = f"Health: {block.warnings} warning(s) [!!] — review flagged findings"
     else:
         health = "Health: All checks passed [ok]"
-    lines = [line for item in block.items for line in summary_line(item, frame)]
+    lines: list[str] = []
+    group = ""
+    for item in block.items:
+        if item.group != group:
+            group = item.group
+            lines.extend(_wrap(group, frame.indent, frame.indent, frame.width) if group else [])
+        lines.extend(summary_line(item, frame.nested() if group else frame))
     return [*lines, *([""] if lines else []), *_wrap(health, frame.indent, frame.indent, frame.width)]
 
 
