@@ -270,7 +270,8 @@ unset for ordinary integer imagery — the `[0, 1]` and `0–255` float conventi
 
 ```{warning}
 **Deprecated.** `value_range` on a workflow, and `include_image_stats` on `data-analysis`, are the older spellings
-of the two settings above. Both still work and both are removed in the next minor version.
+of the two settings above. Both still work, on the workflows that still take them, and both are removed in the next
+minor version; `data-cleaning` already refuses `value_range`.
 `include_image_stats: true` means `intrinsic_factors: [visual, pixel]`. Setting a workflow's `value_range` alongside
 a disagreeing one on the dataset is an error rather than a merge.
 ```

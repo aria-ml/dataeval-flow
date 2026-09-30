@@ -177,7 +177,11 @@ chain of steps.
 ```json
 {
   "kind":     "workflow",
-  "metadata": { "timestamp": "...", "workflow": "skysealand_cleaning", "lineage": [] },
+  "metadata": {
+    "timestamp": "...",
+    "workflow":  "skysealand_cleaning",
+    "lineage":   [ { "name": "data", "items": 300 }, { "name": "clean", "step": "clean", "items": 273 } ]
+  },
   "health":   { "status": "warning", "warnings": 1, "findings": 4, "failed_steps": [] },
   "steps":    { "outliers": { "kind": "evaluator", "type": "quality.outliers", "status": "ok" } },
   "findings": [ { "step": "image_outliers", "title": "Image Outliers", "severity": "warning" } ]

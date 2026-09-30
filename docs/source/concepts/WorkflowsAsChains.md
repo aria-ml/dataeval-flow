@@ -49,7 +49,7 @@ Each step names exactly one kind:
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
 An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
-and optionally `extractor:` and `optional:`. A chain cannot run as a step of another chain.
+and optionally `extractor:` and `optional:`. A custom workflow cannot run as a step of another.
 
 Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 

@@ -131,7 +131,7 @@ workflow = DataCleaningConfig(
         image_outliers=5.0,  # Relaxed from 3% default for four collection sites and varied sensors
         target_outliers=10.0,  # Relaxed from 3% default for annotation variance in object detection
         classwise_outliers=12.0,  # Relaxed from 3% default for diverse class appearances
-        class_label_imbalance=5.0,  # Default; SkySeaLand sits near 1.9:1, well inside it
+        class_label_imbalance=5.0,  # Default; the 300-frame sample sits at 2.4:1, well inside it
     ),
 )
 
