@@ -92,8 +92,8 @@ class TestSections:
         assert '<span class="brief">3 groups</span>' in fragment
         assert '<span class="badge warning">warning</span>' in fragment
 
-    def test_a_multi_line_title_breaks_where_it_does_in_text(self):
-        assert "<h1>Report<br>Second line</h1>" in render_html([Section(title="Report\nSecond line")])
+    def test_a_multi_line_title_heads_the_report_with_its_first_line_and_subtitles_the_rest(self):
+        assert '<h1>Report</h1><p class="facts">Second line</p>' in render_html([Section(title="Report\nSecond line")])
 
 
 def _report(*findings: Section, title: str = "Data cleaning") -> Section:
@@ -126,27 +126,22 @@ class TestLayout:
             in fragment
         )
 
-    def test_a_title_s_first_sentence_heads_the_report_and_the_rest_reads_as_its_facts(self):
-        """A run's title is a sentence of facts: the page heads it with the first, and lines up the rest beneath."""
-        fragment = render_html(
-            [_report(_DUPLICATES, title="Data cleaning complete. Dataset: 261 items. Mode: advisory.")]
-        )
+    def test_a_title_s_second_line_reads_as_its_subtitle(self):
+        """A run's title is its friendly title, then the entry that ran it and its id: the page sets the second line
+        beneath the heading as a subtitle, not as another heading line."""
+        fragment = render_html([_report(_DUPLICATES, title="Data Cleaning\nclean · data-cleaning")])
         assert (
-            '<header class="report-head"><h1>Data cleaning complete</h1><span class="badge warning">1 warning</span>'
-            '<p class="facts">Dataset: 261 items · Mode: advisory</p></header>'
+            '<header class="report-head"><h1>Data Cleaning</h1><span class="badge warning">1 warning</span>'
+            '<p class="facts">clean · data-cleaning</p></header>'
         ) in fragment
 
     @pytest.mark.parametrize(
-        ("title", "heading"),
-        [
-            ("Dataset splitting: 1000 items → 5 fold(s)", "Dataset splitting: 1000 items → 5 fold(s)"),
-            ("12 factors, 3 findings (1 blocking).", "12 factors, 3 findings (1 blocking)"),
-            ("duplicates", "duplicates"),
-        ],
+        "title",
+        ["Dataset splitting: 1000 items → 5 fold(s)", "12 factors, 3 findings (1 blocking).", "duplicates"],
     )
-    def test_a_title_of_one_sentence_heads_the_report_whole(self, title, heading):
+    def test_a_title_of_one_line_heads_the_report_whole(self, title):
         fragment = render_html([Section(title=title, blocks=[Paragraph(text="12 rows")])])
-        assert f'<header class="report-head"><h1>{heading}</h1></header>' in fragment
+        assert f'<header class="report-head"><h1>{title}</h1></header>' in fragment
 
     def test_a_report_with_no_warning_has_passed(self):
         assert '<span class="badge ok">passed</span></header>' in render_html([_report(_LABELS)])

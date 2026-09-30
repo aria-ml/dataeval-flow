@@ -159,7 +159,7 @@ class TestOneShape:
         result = make()
         page = result.to_html()
         assert page.startswith("<!doctype html>")
-        heading = {"workflow": "Items counted", "evaluator": "duplicates"}[kind]
+        heading = {"workflow": "test.count", "evaluator": "Duplicates"}[kind]
         assert f"<h1>{heading}</h1>" in page
         assert _well_formed(page)
         assert page.count("<script>") == 1
@@ -256,7 +256,7 @@ def test_every_result_of_a_run_shares_one_page():
 
 
 def test_a_run_of_one_task_is_titled_by_its_report():
-    assert "<title>Items counted.</title>" in results_html([_workflow()])
+    assert "<title>test.count</title>" in results_html([_workflow()])
 
 
 def test_a_run_with_no_report_to_show_still_writes_a_page():

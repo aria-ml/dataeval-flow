@@ -29,6 +29,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
     """
 
     name: ClassVar[str] = "data-cleaning"
+    title: ClassVar[str] = "Data Cleaning"
     description: ClassVar[str] = "Outlier and duplicate detection for image datasets, and the dataset without them"
     slots: ClassVar[tuple[str, ...]] = ("data",)
     outputs: ClassVar[tuple[Port, ...]] = (Port("clean", DataType.DATASET),)

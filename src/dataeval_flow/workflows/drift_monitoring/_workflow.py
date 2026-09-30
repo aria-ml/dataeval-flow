@@ -426,6 +426,7 @@ class DriftMonitoringWorkflow(Workflow[DriftMonitoringConfig, DriftMonitoringRes
     """Drift monitoring workflow using DataEval shift detectors."""
 
     name: ClassVar[str] = "drift-monitoring"
+    title: ClassVar[str] = "Drift Monitoring"
     description: ClassVar[str] = "Monitor incoming data for distribution drift against a reference dataset"
 
     def run(self, config: DriftMonitoringConfig, context: WorkflowContext) -> DriftMonitoringResult:

@@ -373,6 +373,9 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         self.dataset = dataset
         self.sources = sources
         self.assets: list[Asset] = []
+        self.entry: str | None = None
+        """The name of the ``evaluators:`` or ``workflows:`` entry the task ran, which Flow sets when the run returns;
+        ``None`` for a result made outside a task."""
 
     @classmethod
     def failed(cls, *, type: str, errors: Sequence[str]) -> Self:  # noqa: A002
@@ -469,7 +472,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
 
     def _document(self, *, detailed: bool) -> Section:
         """The whole report as blocks: the banner title, the envelope, the body, then the configuration."""
-        title = self._report_title() if self.success else self.type
+        title = self._report_title()
         blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
@@ -486,9 +489,16 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         """The report's body: what this kind reports, or ``FAILED`` and each error for a failed run."""
         return self._report_output(detailed=detailed) if self.success else [failure_section(self.errors)]
 
-    @abstractmethod
     def _report_title(self) -> str:
-        """A successful run's banner title; a multi-line title renders one line per banner row."""
+        """The banner: what ran, by its friendly title, then the entry that ran it beside its id, on a second line."""
+        from dataeval_flow._chain._report import step_title
+
+        title, subtitle = step_title(self.kind, self.type), self._report_subtitle()
+        return title if subtitle == title else f"{title}\n{subtitle}"
+
+    def _report_subtitle(self) -> str:
+        """The banner's second line: ``entry · id``, or the id alone where the entry is not named or is the id."""
+        return self.type if not self.entry or self.entry == self.type else f"{self.entry} · {self.type}"
 
     @abstractmethod
     def _report_output(self, *, detailed: bool) -> list[Block]:

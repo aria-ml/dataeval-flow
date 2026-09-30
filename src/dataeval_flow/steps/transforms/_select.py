@@ -34,6 +34,7 @@ class SelectTransform(Transform[SelectConfig]):
     """``select``: ``Indices(ranking.indices[:n])`` over the Dataset the ranking was computed on."""
 
     name: ClassVar[str] = "select"
+    title: ClassVar[str] = "Select"
     description: ClassVar[str] = "Keeps the top of a Prioritize ranking of the same Dataset."
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.DATASET),

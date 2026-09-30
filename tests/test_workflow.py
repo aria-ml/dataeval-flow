@@ -156,7 +156,7 @@ class TestReportText:
         result = _make_result()
         out = result.report()
         assert "No findings to report." in out
-        assert "TEST SUMMARY" in out  # summary is uppercased in the banner
+        assert "Test Summary" in out  # the summary opens the body, below the banner
 
     def test_findings_with_warnings(self):
         """Findings with warnings show count in health line."""
@@ -169,7 +169,7 @@ class TestReportText:
         result = _make_result(output=_output(report))
         out = result.report()
         assert "2 warning(s)" in out
-        assert "FINDINGS TEST" in out
+        assert "Findings Test" in out
 
     def test_findings_no_warnings(self):
         """Findings with no warnings show 'All checks passed' in health line."""

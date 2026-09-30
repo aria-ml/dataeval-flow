@@ -643,6 +643,7 @@ class DataCoverageWorkflow(Workflow[DataCoverageConfig, DataCoverageResult]):
     """
 
     name: ClassVar[str] = "data-coverage"
+    title: ClassVar[str] = "Data Coverage"
     description: ClassVar[str] = "Analyze dataset scope and coverage for sufficiency"
 
     def run(self, config: DataCoverageConfig, context: WorkflowContext) -> DataCoverageResult:

@@ -213,17 +213,6 @@ def _health(report: Section) -> str:
     return f'<span class="badge warning">{summary.warnings} warning{"s" if summary.warnings != 1 else ""}</span>'
 
 
-def _title_and_facts(title: str) -> tuple[str, str]:
-    """A report's title as its page heads it: the first sentence, then the rest as a line of facts beneath.
-
-    A run's title reads as a sentence of facts, such as ``Data cleaning complete. Dataset: 261 items.``,
-    which a heading would set as one long line. A title of one sentence is the heading whole.
-    """
-    first, _, rest = title.strip().partition(". ")
-    facts = (part.strip().rstrip(".") for part in rest.split(". "))
-    return first.rstrip("."), " · ".join(fact for fact in facts if fact)
-
-
 def _report(block: Section, ctx: HtmlContext) -> str:
     """A result's report: a header with its title and verdict, its envelope as the provenance, then the rest.
 
@@ -233,7 +222,8 @@ def _report(block: Section, ctx: HtmlContext) -> str:
     """
     brief = f' <span class="brief">{escape(block.brief)}</span>' if block.brief else ""
     verdict = badge(block.severity) if block.severity else _health(block)
-    title, facts = _title_and_facts(block.title)
+    title, _, rest = block.title.strip().partition("\n")
+    facts = " · ".join(part.strip() for part in rest.split("\n") if part.strip())
     line = f'<p class="facts">{escape(facts)}</p>' if facts else ""
     head = f'<header class="report-head"><h1>{_heading(title)}{brief}</h1>{verdict}{line}</header>'
     cards = _cards(block, f"{ctx.anchor}-" if ctx.anchor else "")

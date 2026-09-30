@@ -59,6 +59,7 @@ class ClasswiseOutliersCombine(Combine[ClasswiseOutliersConfig]):
     """``classwise-outliers``: how many of each class's items, or boxes for detection, an Outliers Output flagged."""
 
     name: ClassVar[str] = "classwise-outliers"
+    title: ClassVar[str] = "Outliers by Class"
     description: ClassVar[str] = "Pivots an Outliers Output by class: each class's flagged items or boxes."
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.DATASET, derives=frozenset({InputKind.METADATA})),

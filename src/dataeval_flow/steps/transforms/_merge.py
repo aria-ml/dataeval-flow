@@ -22,6 +22,7 @@ class MergeTransform(Transform[MergeConfig]):
     """``merge``: DataEval's ``merge_datasets``; the inputs must share ``index2label``, which ``conform`` gives them."""
 
     name: ClassVar[str] = "merge"
+    title: ClassVar[str] = "Merge"
     description: ClassVar[str] = "Concatenates Datasets that share a label vocabulary, in order."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET, count=SourceCount.TWO_OR_MORE),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)

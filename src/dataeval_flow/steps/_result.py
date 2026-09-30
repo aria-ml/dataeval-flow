@@ -208,7 +208,16 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return payload
 
     def _report_title(self) -> str:
-        return self.type
+        from dataeval_flow.workflows._registry import WORKFLOWS
+
+        if self.type in WORKFLOWS.names():
+            return super()._report_title()
+        return f"{self.metadata.workflow or self.type}\n{self._report_subtitle()}"
+
+    def _report_subtitle(self) -> str:
+        from dataeval_flow.workflows._registry import WORKFLOWS
+
+        return super()._report_subtitle() if self.type in WORKFLOWS.names() else "custom workflow"
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
         from dataeval_flow._chain._report import chain_blocks

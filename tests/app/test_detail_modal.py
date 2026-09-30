@@ -539,6 +539,6 @@ class TestChainDetail:
             app.push_screen(modal)
             await pilot.pause()
             drawn = "\n".join(str(widget.render()) for widget in modal.query(Static))
-            assert "CLEAN (TEST.COUNT)" in drawn
+            assert "TEST.COUNT · CLEAN" in drawn
             assert "RuntimeError: boom on a" in drawn
             assert not modal.query(_FindingHeader)

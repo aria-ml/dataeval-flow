@@ -830,6 +830,8 @@ def _populate_result_metadata(
     dataset_names = [
         operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
     ]
+    if workflow_instance is not None:
+        result.entry = workflow_instance.name
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)

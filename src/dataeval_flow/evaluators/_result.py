@@ -141,10 +141,6 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
         """A failed result of this class, its envelope naming the evaluator that failed."""
         return cls(type=type, success=False, metadata=EvaluatorMetadata(evaluator=type), errors=errors)
 
-    def _report_title(self) -> str:
-        """The evaluator's type."""
-        return self.type
-
     def _report_envelope(self) -> list[Block]:
         """The shared envelope, with the DataEval version that made the determinations."""
         items = [*_envelope_items(self.metadata), ("DataEval", self.metadata.dataeval.version)]

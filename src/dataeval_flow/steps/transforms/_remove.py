@@ -82,6 +82,7 @@ class RemoveTransform(Transform[RemoveConfig]):
     """
 
     name: ClassVar[str] = "remove"
+    title: ClassVar[str] = "Remove"
     description: ClassVar[str] = "Removes the items, detections or tracks that Duplicates and Outliers plans name."
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.DATASET),

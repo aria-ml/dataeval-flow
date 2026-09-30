@@ -281,6 +281,7 @@ class DataPrioritizationWorkflow(Workflow[DataPrioritizationConfig, DataPrioriti
     """Data prioritization workflow using DataEval Prioritize."""
 
     name: ClassVar[str] = "data-prioritization"
+    title: ClassVar[str] = "Data Prioritization"
     description: ClassVar[str] = (
         "Prioritize unlabeled data for labeling based on a reference dataset and optional cleaning"
     )

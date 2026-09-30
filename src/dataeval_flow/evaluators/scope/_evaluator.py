@@ -53,6 +53,7 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
     Representation."""
 
     name: ClassVar[str] = "representation"
+    title: ClassVar[str] = "Representation"
     description: ClassVar[str] = "Class counts against an ontology's leaves (DataEval Representation)"
     dataeval_class: ClassVar[type] = Representation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "evaluate"}
@@ -104,6 +105,7 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
     """``coverage``: which items the rest of the data does not cover, per DataEval's Coverage."""
 
     name: ClassVar[str] = "coverage"
+    title: ClassVar[str] = "Coverage"
     description: ClassVar[str] = "Embedding-space coverage, broken down by class (DataEval Coverage)"
     dataeval_class: ClassVar[type] = Coverage
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {
@@ -129,6 +131,7 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
     """``prioritize``: the first source's items ranked by difficulty, per DataEval's Prioritize."""
 
     name: ClassVar[str] = "prioritize"
+    title: ClassVar[str] = "Prioritization"
     description: ClassVar[str] = "Items ranked by difficulty, optionally against a reference (DataEval Prioritize)"
     dataeval_class: ClassVar[type] = Prioritize
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {
@@ -151,6 +154,7 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
     """``label-alignment``: how the Dataset's class names align to an ontology, per DataEval's label_alignment."""
 
     name: ClassVar[str] = "label-alignment"
+    title: ClassVar[str] = "Label Alignment"
     description: ClassVar[str] = (
         "How a Dataset's class names align to an ontology: the remap, and whether it is lossless."
     )

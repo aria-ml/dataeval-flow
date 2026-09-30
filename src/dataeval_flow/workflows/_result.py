@@ -122,13 +122,10 @@ class WorkflowResult(Result[TMetadata, TOutput]):
             "findings": len(self.findings),
         }
 
-    def _report_title(self) -> str:
-        """The report's summary."""
-        return self.output.report.summary
-
     def _report_output(self, *, detailed: bool) -> list[Block]:
-        """The summary with the health line, every finding's section when *detailed*, then the metadata factors."""
-        blocks = self._summary_blocks()
+        """The summary sentence, the summary lines with the health line, every finding's section when *detailed*, then
+        the metadata factors."""
+        blocks: list[Block] = [Paragraph(text=self.output.report.summary), *self._summary_blocks()]
         if detailed:
             blocks.extend(finding_section(finding) for finding in self.findings)
         blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))

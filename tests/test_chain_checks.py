@@ -196,7 +196,7 @@ def test_a_combine_that_omits_an_output_port_fails_its_step() -> None:
 def test_a_check_step_s_report_section_shows_its_findings() -> None:
     result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 0})
     # The text renderer capitalizes a top-level section's heading, and a step's section is one.
-    section = result.report(detailed=True, width=120).split("JUDGE (TOY-AT-MOST)", 1)[1]
+    section = result.report(detailed=True, width=120).split("GROUP COUNT · JUDGE", 1)[1]
     assert "Group count" in section
     assert "1 groups" in section
 

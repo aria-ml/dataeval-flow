@@ -467,8 +467,8 @@ class TestChainResults:
         # A step that ran carries no marker of its own; the counts above the sections give every step's status.
         assert re.search(r"Ran:\s+2\n", text)
         assert re.search(r"Failed:\s+0\n", text)
-        assert re.search(r"FEW \(TOY-FIRST\)\n", text)
-        assert re.search(r"DUPES \(DUPLICATES\)\n", text)
+        assert re.search(r"TOY-FIRST · FEW\n", text)
+        assert re.search(r"DUPLICATES · DUPES\n", text)
         assert "Items:  6" in text
         assert rvm.status_tag() == " [green][ok][/green]"
 
@@ -478,7 +478,7 @@ class TestChainResults:
         result = chain_results["mixed"]
         rvm = ResultViewModel(result)
         text = rvm.output_text()
-        assert re.search(r"BOOM \(TOY-EXPLODE\)\s+failed\n", text)
+        assert re.search(r"TOY-EXPLODE · BOOM\s+failed\n", text)
         assert "RuntimeError: boom on a" in text
         cleaned = result.steps["clean"].result.findings
         assert len(cleaned) == 1

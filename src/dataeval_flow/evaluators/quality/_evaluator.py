@@ -77,6 +77,7 @@ class DuplicatesEvaluator(Evaluator[DuplicatesConfig, DuplicatesOutput[Any, Any]
     """``duplicates``: which images are exact or near duplicates, per DataEval's Duplicates."""
 
     name: ClassVar[str] = "duplicates"
+    title: ClassVar[str] = "Duplicates"
     description: ClassVar[str] = "Exact and near duplicate groups (DataEval Duplicates)"
     dataeval_class: ClassVar[type] = Duplicates
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
@@ -91,6 +92,7 @@ class OutliersEvaluator(Evaluator[OutliersConfig, OutliersOutput[Any]]):
     """``outliers``: which images' statistics sit outside the threshold, per DataEval's Outliers."""
 
     name: ClassVar[str] = "outliers"
+    title: ClassVar[str] = "Outliers"
     description: ClassVar[str] = "Images whose statistics are outliers (DataEval Outliers)"
     dataeval_class: ClassVar[type] = Outliers
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
@@ -104,6 +106,7 @@ class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
     """``label-health``: how a Dataset's labels spread over its classes, per DataEval's ``label_stats``."""
 
     name: ClassVar[str] = "label-health"
+    title: ClassVar[str] = "Label Health"
     description: ClassVar[str] = "How a Dataset's labels spread over its classes (DataEval label_stats)"
     dataeval_class: ClassVar[Any] = label_stats
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "__call__"}

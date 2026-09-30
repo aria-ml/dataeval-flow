@@ -38,6 +38,7 @@ class BalanceEvaluator(Evaluator[BalanceConfig, BalanceOutput]):
     """``balance``: how much each metadata factor says about the class label, per DataEval's Balance."""
 
     name: ClassVar[str] = "balance"
+    title: ClassVar[str] = "Balance"
     description: ClassVar[str] = "Mutual information between metadata factors and class labels (DataEval Balance)"
     dataeval_class: ClassVar[type] = Balance
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
@@ -53,6 +54,7 @@ class DiversityEvaluator(Evaluator[DiversityConfig, DiversityOutput]):
     """``diversity``: how evenly each metadata factor's values are spread, per DataEval's Diversity."""
 
     name: ClassVar[str] = "diversity"
+    title: ClassVar[str] = "Diversity"
     description: ClassVar[str] = "How evenly metadata factor values are spread (DataEval Diversity)"
     dataeval_class: ClassVar[type] = Diversity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
@@ -68,6 +70,7 @@ class ParityEvaluator(Evaluator[ParityConfig, ParityOutput]):
     """``parity``: which metadata factors are associated with the class label, per DataEval's Parity."""
 
     name: ClassVar[str] = "parity"
+    title: ClassVar[str] = "Parity"
     description: ClassVar[str] = "Association between metadata factors and class labels (DataEval Parity)"
     dataeval_class: ClassVar[type] = Parity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE

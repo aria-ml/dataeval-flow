@@ -135,6 +135,7 @@ class DataSplittingWorkflow(Workflow[DataSplittingConfig, DataSplittingResult]):
     """
 
     name: ClassVar[str] = "data-splitting"
+    title: ClassVar[str] = "Data Splitting"
     description: ClassVar[str] = (
         "Assess dataset balance/diversity, produce stratified train/val/test "
         "splits, and optionally rebalance the train split."

@@ -43,9 +43,19 @@ class Step:
     """
 
     name: ClassVar[str]
+    title: ClassVar[str]
+    """The friendly name a report and a palette show, such as ``K-Fold Split``. A class that declares a ``name`` and no
+    ``title`` takes its ``name``, so a plugin needs none. A check's ``title`` is also its finding's title."""
     description: ClassVar[str]
     kind: ClassVar[StepKind]
     config_type: ClassVar[type[BaseModel]]
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Fall back to the ``name`` as the ``title`` where a class declares a name and no title. A check must declare
+        its own, which is its finding's title."""
+        super().__init_subclass__(**kwargs)
+        if "name" in cls.__dict__ and "title" not in cls.__dict__ and getattr(cls, "kind", None) != "check":
+            cls.title = cls.name
 
     @classmethod
     def input_ports(cls) -> tuple[Port, ...]:

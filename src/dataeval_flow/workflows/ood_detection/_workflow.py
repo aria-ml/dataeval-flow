@@ -548,6 +548,7 @@ class OODDetectionWorkflow(Workflow[OODDetectionConfig, OODDetectionResult]):
     """OOD detection workflow using DataEval OOD detectors."""
 
     name: ClassVar[str] = "ood-detection"
+    title: ClassVar[str] = "OOD Detection"
     description: ClassVar[str] = "Detect out-of-distribution samples in test data against a reference dataset"
 
     def run(self, config: OODDetectionConfig, context: WorkflowContext) -> OODDetectionResult:

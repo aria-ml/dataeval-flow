@@ -43,6 +43,7 @@ class ConformTransform(Transform[ConformConfig]):
     """
 
     name: ClassVar[str] = "conform"
+    title: ClassVar[str] = "Conform"
     description: ClassVar[str] = (
         "Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`."
     )

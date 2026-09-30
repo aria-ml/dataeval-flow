@@ -100,13 +100,13 @@ def test_the_report_has_a_section_per_step_headed_by_its_lineage() -> None:
     text = result.report(detailed=True, width=120)
     # The text renderer capitalizes a top-level section's heading, like every other report's (Configuration,
     # a workflow's Summary): a step's section is a peer of those, not nested under a synthetic wrapper.
-    for heading in ("FEW (TOY-FIRST)", "DUPES (DUPLICATES)", "BOOM (TOY-EXPLODE)", "AFTER (TOY-KEEP)"):
+    for heading in ("TOY-FIRST · FEW", "DUPLICATES · DUPES", "TOY-EXPLODE · BOOM", "TOY-KEEP · AFTER"):
         assert heading in text
     assert "`few` ← `a` (src)" in text
     assert "RuntimeError: boom on few" in text
     assert "needs `boom`, which failed" in text
 
-    titles = ["few (toy-first)", "dupes (duplicates)", "boom (toy-explode)", "after (toy-keep)"]
+    titles = ["toy-first · few", "Duplicates · dupes", "toy-explode · boom", "toy-keep · after"]
     top_level = result._document(detailed=True).blocks
     step_sections = [block for block in top_level if isinstance(block, Section) and block.title in titles]
     assert [section.title for section in step_sections] == titles
@@ -225,9 +225,9 @@ def test_each_step_is_a_top_level_section_in_chain_order_with_its_elements_neste
     )
     sections = [block for block in result._document(detailed=True).blocks if isinstance(block, Section)]
     assert [section.title for section in sections] == [
-        "parts (toy-spread)",
-        "dupes (duplicates)",
-        "kept (toy-keep)",
+        "toy-spread · parts",
+        "Duplicates · dupes",
+        "toy-keep · kept",
     ]
     nested = [[block.title for block in section.blocks if isinstance(block, Section)] for section in sections]
     assert nested == [[], ["[0]", "[1]"], []]

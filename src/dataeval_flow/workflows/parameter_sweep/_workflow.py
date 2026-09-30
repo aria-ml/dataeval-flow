@@ -77,6 +77,7 @@ class ParameterSweepWorkflow(Workflow[ParameterSweepConfig, ParameterSweepResult
     """Workflow to sweep parameters for data cleaning."""
 
     name: ClassVar[str] = "parameter-sweep"
+    title: ClassVar[str] = "Parameter Sweep"
     description: ClassVar[str] = "Sweep data cleaning parameters to analyze result sensitivity"
 
     def run(self, config: ParameterSweepConfig, context: WorkflowContext) -> ParameterSweepResult:

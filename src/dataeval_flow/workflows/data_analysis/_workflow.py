@@ -1175,6 +1175,7 @@ class DataAnalysisWorkflow(Workflow[DataAnalysisConfig, DataAnalysisResult]):
     """
 
     name: ClassVar[str] = "data-analysis"
+    title: ClassVar[str] = "Data Analysis"
     description: ClassVar[str] = "Comprehensive quality analysis across dataset splits"
 
     def run(self, config: DataAnalysisConfig, context: WorkflowContext) -> DataAnalysisResult:

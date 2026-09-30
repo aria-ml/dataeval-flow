@@ -1,6 +1,6 @@
 """A chain's report: a summary, then one section per step, headed by where its Datasets came from."""
 
-__all__ = ["chain_blocks", "lineage_line"]
+__all__ = ["chain_blocks", "lineage_line", "step_heading"]
 
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
@@ -50,16 +50,39 @@ def _line(parts: Sequence[str], sources: Sequence[str]) -> str:
     return f"{text} ({', '.join(sources)})" if sources else text
 
 
+def step_title(kind: str, type_id: str) -> str:
+    """The friendly title of step type `type_id` of `kind`, or the id itself when no such type is registered."""
+    from dataeval_flow.evaluators._registry import EVALUATORS
+    from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
+    from dataeval_flow.workflows._registry import WORKFLOWS
+
+    registry = {
+        "evaluator": EVALUATORS,
+        "transform": TRANSFORMS,
+        "combine": COMBINES,
+        "check": CHECKS,
+        "workflow": WORKFLOWS,
+    }.get(kind)
+    return registry.get(type_id).title if registry is not None and type_id in registry.names() else type_id
+
+
+def step_heading(record: "StepResult") -> str:
+    """A step's heading: its type's friendly title, with its name set beside it where that differs from the type id:
+    "Outliers" for step `outliers`, "Duplicates · dupes" for step `dupes`."""
+    title = step_title(record.kind, record.type)
+    return title if record.name == record.type else f"{title} · {record.name}"
+
+
 def chain_blocks(result: "ChainResult", *, detailed: bool) -> list[Block]:
     """The summary, then one section per step, in run order, as top-level sections alongside Configuration."""
     counts = {status: sum(r.status == status for r in result.steps.values()) for status in ("ok", "failed", "skipped")}
     steps: list[Block] = [
         Section(
-            title=f"{name} ({record.type})",
+            title=step_heading(record),
             brief=None if record.status == "ok" else record.status,
             blocks=_step(record, result, detailed=detailed),
         )
-        for name, record in result.steps.items()
+        for record in result.steps.values()
     ]
     return [
         Fields(
