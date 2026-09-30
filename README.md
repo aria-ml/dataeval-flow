@@ -3,16 +3,32 @@
 
 # DataEval Flow
 
-DataEval Flow provides workflow orchestration for DataEval evaluators, packaging
-data cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
-detection, splitting, prioritization, and parameter-sweep pipelines behind a
-single declarative configuration format and both headless and interactive CLIs.
+DataEval Flow is a composable, containerized workflow engine for DataEval. It
+modularizes DataEval's analytic capabilities into steps that users chain into
+workflows of their own, and containerizes them so the same pipeline runs
+identically anywhere. Data
+cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
+detection, splitting, prioritization, and parameter-sweep pipelines ship as
+presets built from those steps, behind a single declarative configuration format
+and both headless and interactive CLIs.
 
 📖 **Documentation:** <https://dataeval-flow.readthedocs.io/>
 
 ## What DataEval Flow is for
 
 <!-- start needs -->
+
+DataEval Flow turns DataEval's analytics into a composable workflow engine, in
+two complementary ways:
+
+- **Composable.** Each capability, such as duplicate detection, outlier detection,
+  splitting, or export, is a self-contained step with declared inputs and
+  outputs. Users compose steps into their own workflows in configuration, and
+  the built-in workflows are presets made from the same steps. The set is
+  extensible: new steps can be added as plugins.
+- **Containerized.** Steps run in a reproducible, CUDA-enabled container (or
+  locally), so a pipeline behaves the same on a laptop, a cluster, or an
+  air-gapped system, and emits the same machine-readable results.
 
 DataEval Flow lets T&E engineers compose and run multi-stage data evaluation
 pipelines without writing Python glue code. Pipelines are described in YAML or

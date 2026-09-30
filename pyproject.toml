@@ -1,7 +1,7 @@
 [project]
 name = "dataeval-flow"
 dynamic = ["version"]
-description = "DataEval Workflows container for data evaluation"
+description = "Composable workflow engine for DataEval analytics"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11,<3.15"
