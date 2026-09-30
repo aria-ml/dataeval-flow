@@ -240,7 +240,7 @@ class Finding(BaseModel):
     )
 
     @model_serializer(mode="wrap")
-    def _without_defaults(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+    def _without_defaults(self, handler: SerializerFunctionWrapHandler):  # noqa: ANN202 - an annotation would flatten the serialization schema
         """Leave `step` out while it holds its default, so existing JSON is unchanged."""
         data = handler(self)
         if self.step is None:

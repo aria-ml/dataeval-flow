@@ -99,3 +99,13 @@ def test_the_metadata_factors_section_is_marked_as_reference() -> None:
 def test_a_section_s_mark_is_left_out_of_the_json_while_false() -> None:
     assert "reference" not in Section(title="x").model_dump(mode="json")
     assert Section(title="x", reference=True).model_dump(mode="json")["reference"] is True
+
+
+def test_a_finding_leaves_an_unset_step_out_of_its_json_and_keeps_a_set_one() -> None:
+    assert "step" not in Finding(title="x").model_dump(mode="json")
+    assert Finding(title="x", step="judge").model_dump(mode="json")["step"] == "judge"
+
+
+def test_a_finding_keeps_its_fields_in_the_serialization_schema() -> None:
+    properties = Finding.model_json_schema(mode="serialization")["properties"]
+    assert {"title", "severity"} <= set(properties)
