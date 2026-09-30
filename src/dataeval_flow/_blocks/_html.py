@@ -97,6 +97,21 @@ def _is_finding(block: Block) -> bool:
     return isinstance(block, Section) and block.severity is not None
 
 
+def _is_group(block: Block) -> bool:
+    """Whether *block*, directly under a report, groups findings: a section with no verdict of its own that holds
+    nothing but sections carrying one, such as a chain's findings for one split."""
+    return (
+        isinstance(block, Section)
+        and block.severity is None
+        and bool(block.blocks)
+        and all(isinstance(child, Section) and child.severity is not None for child in block.blocks)
+    )
+
+
+def _slug(title: str) -> str:
+    return _NOT_A_NAME.sub("-", title.lower()).strip("-") or "finding"
+
+
 def _is_summary(block: Block) -> bool:
     """Whether *block*, directly under a report, is its summary: the section holding its findings' lines."""
     return isinstance(block, Section) and any(isinstance(child, Summary) for child in block.blocks)
@@ -107,15 +122,16 @@ def _cards(report: Section, prefix: str) -> list[str | None]:
 
     A card is named after its finding's title, numbered from 2 where that name is taken, even by a
     card whose own title ends in a number, and prefixed with its report's anchor where the page holds
-    several reports, so every ``id`` is its own.
+    several reports, so every ``id`` is its own. A group of findings takes an ``id`` the same way, and its cards'
+    ids begin with it.
     """
     taken: set[str] = set()
     cards: list[str | None] = []
     for block in report.blocks:
-        if not (isinstance(block, Section) and _is_finding(block)):
+        if not (isinstance(block, Section) and (_is_finding(block) or _is_group(block))):
             cards.append(None)
             continue
-        name = f"{prefix}{_NOT_A_NAME.sub('-', block.title.lower()).strip('-') or 'finding'}"
+        name = f"{prefix}{_slug(block.title)}"
         card, number = name, 1
         while card in taken:
             number += 1
@@ -181,17 +197,40 @@ def _section(block: Section, ctx: HtmlContext) -> str:
     brief = f' <span class="brief">{escape(block.brief)}</span>' if block.brief else ""
     mark = f" {badge(block.severity)}" if block.severity else ""
     heading = f"<h{level}>{_heading(block.title)}{brief}{mark}</h{level}>"
-    children = ctx.render(block.blocks)
+    children = ctx.render(block.blocks) if not (ctx.depth == 1 and _is_group(block)) else _group_cards(block, ctx)
     body = f"\n{children}" if children else ""
     if ctx.depth == 1 and block.severity:
-        # A warning is open on arrival, as it asks for a look; the rest read as one line until opened.
-        card = f' id="{escape(ctx.anchor)}"' if ctx.anchor else ""
-        opened = " open" if block.severity == "warning" else ""
-        return f'<details class="card {block.severity}"{card}{opened}><summary>{heading}</summary>{body}</details>'
+        return _card(block, heading, body, ctx.anchor)
     if ctx.depth == 1 and block.reference:
         return f'<details class="panel"><summary>{heading}</summary>{body}</details>'
     classes = f"section {block.severity}" if block.severity else "section"
-    return f'<section class="{classes}">{heading}{body}</section>'
+    named = f' id="{escape(ctx.anchor)}"' if ctx.anchor else ""
+    return f'<section class="{classes}"{named}>{heading}{body}</section>'
+
+
+def _card(block: Section, heading: str, body: str, anchor: str | None) -> str:
+    """A finding as a card: a warning is open on arrival, as it asks for a look; the rest stay one line."""
+    card = f' id="{escape(anchor)}"' if anchor else ""
+    opened = " open" if block.severity == "warning" else ""
+    return f'<details class="card {block.severity}"{card}{opened}><summary>{heading}</summary>{body}</details>'
+
+
+def _group_cards(group: Section, ctx: HtmlContext) -> str:
+    """A group's findings, each a card like a top-level finding, its ``id`` after the group's."""
+    taken: set[str] = set()
+    parts: list[str] = []
+    for child in (block for block in group.blocks if isinstance(block, Section)):
+        name = f"{ctx.anchor}-{_slug(child.title)}" if ctx.anchor else _slug(child.title)
+        anchor, number = name, 1
+        while anchor in taken:
+            number += 1
+            anchor = f"{name}-{number}"
+        taken.add(anchor)
+        brief = f' <span class="brief">{escape(child.brief)}</span>' if child.brief else ""
+        heading = f"<h3>{_heading(child.title)}{brief} {badge(child.severity or 'info')}</h3>"
+        inner = ctx.render(child.blocks)
+        parts.append(_card(child, heading, f"\n{inner}" if inner else "", anchor))
+    return "\n".join(parts)
 
 
 def _health(report: Section) -> str:
@@ -234,7 +273,7 @@ def _report(block: Section, ctx: HtmlContext) -> str:
     if rest and isinstance(first := rest[0], Fields):
         provenance = _fields(first, ctx, css="fields provenance")
         rest, cards = rest[1:], cards[1:]
-    if any(_is_finding(child) for child in rest):
+    if any(_is_finding(child) or _is_group(child) for child in rest):
         kept = [i for i, child in enumerate(rest) if not _is_summary(child)]
         rest, cards = [rest[i] for i in kept], [cards[i] for i in kept]
     children = ctx.render(rest, anchors=cards)

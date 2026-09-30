@@ -492,8 +492,10 @@ def test_the_text_report_names_each_split_above_its_findings_in_the_summary_and_
     assert max(len(line) for line in text.splitlines()) <= 80
 
 
-def test_the_html_summary_has_a_heading_row_per_split() -> None:
-    html = _by_split().to_html()
+def test_a_summary_drawn_in_html_has_a_heading_row_per_split() -> None:
+    from dataeval_flow._blocks._html import render_html
+
+    html = render_html([_section(_by_split(), "Summary")])
     assert html.count('<tr class="group"><th colspan="3">') == 2
 
 
@@ -507,3 +509,16 @@ def test_findings_of_a_check_that_did_not_run_per_element_come_first_ungrouped()
         ("s1", "Group count"),
         ("s2", "Group count"),
     ]
+
+
+def test_the_html_keeps_each_grouped_finding_a_card_under_its_split_s_heading() -> None:
+    page = _by_split().to_html()
+    assert page.count('<details class="card ') == 8
+    assert page.count('<details class="card warning"') == 6
+    assert page.count('<details class="card warning" id="') == 6
+    assert page.count('<details class="card info" id="') == 2
+    assert 'id="train-image-outliers"' in page
+    assert 'id="val-image-outliers"' in page
+    assert '<table class="summary">' not in page
+    assert "<h2>train</h2>" in page
+    assert "<h2>val</h2>" in page
