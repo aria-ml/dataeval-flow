@@ -17,7 +17,7 @@
 # # Triage a dataset's metadata
 #
 # In this tutorial, you will identify metadata columns that failed to load or parse, and generate
-# configuration fixes using the `metadata-triage` workflow on SeaDrone telemetry.
+# configuration fixes using the `metadata-triage` preset on SeaDrone telemetry.
 
 # %% [markdown]
 # **Target audience**: You are an engineer or data scientist who needs to verify
@@ -34,7 +34,7 @@
 # ## What you will do
 #
 # - Load a sample of the SeaDrone object-detection dataset with telemetry metadata.
-# - Run the `metadata-triage` workflow and inspect the generated report.
+# - Run the `metadata-triage` preset and inspect the generated report.
 # - Identify dropped or unparseable columns and review suggested remedies.
 # - Review factors that parse cleanly but require remediation, such as unique identifiers and sentinel values.
 # - Inspect the suggested policy configuration.
@@ -120,7 +120,7 @@ config = PipelineConfig(
 )
 
 # %% [markdown]
-# ## Step 2: Run the triage workflow
+# ## Step 2: Run the triage preset
 #
 # You can run the task using `run_task()`, then print the execution status and generated report.
 
@@ -130,6 +130,13 @@ print(f"success={result.success}  health={result.health['status']}")
 
 # %%
 print(result.report())
+
+# %% [markdown]
+# The preset's `triage` step holds the issues, the suggested policy and the verification, and its `issues` step
+# makes the findings the report shows.
+
+# %%
+triage = result.steps["triage"].output.data()
 
 # %% [markdown]
 # ### Reading the report
@@ -161,10 +168,10 @@ print(result.report())
 # `latitude` contains the string `'N'`. Because automated triage cannot determine what `'N'` represents,
 # it generates a remap rule with a `null` target and sets `complete=False`.
 #
-# You can inspect individual findings in `result.output.raw.findings`:
+# You can inspect individual findings in the `triage` step's `findings`:
 
 # %%
-latitude = next(f for f in result.output.raw.findings if f.factor == "latitude")
+latitude = next(f for f in triage["findings"] if f.factor == "latitude")
 
 print("category :", latitude.category)
 print("severity :", latitude.severity)
@@ -219,7 +226,7 @@ print("runnable :", latitude.suggestion.complete)
 # You can inspect this policy directly.
 
 # %%
-print(result.output.raw.suggested_policy_yaml)
+print(triage["suggested_policy_yaml"])
 
 # %% [markdown]
 # You can review the suggested policy sections:
@@ -269,7 +276,7 @@ policy = MetadataPolicyConfig.model_validate(
         ],
         # Exclude object identifier
         "exclude": ["object_id"],
-        "continuous_factor_bins": result.output.raw.suggested_policy["continuous_factor_bins"],
+        "continuous_factor_bins": triage["suggested_policy"]["continuous_factor_bins"],
     }
 )
 
@@ -283,11 +290,10 @@ result2 = run_task(task, corrected)
 print(f"success={result2.success}  health={result2.health['status']}")
 
 # %%
-before = result.output.raw
-after = result2.output.raw
-print(f"factors : {before.factor_count} -> {after.factor_count}")
-print(f"findings: {len(before.findings)} -> {len(after.findings)}")
-print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
+after = result2.steps["triage"].output.data()
+print(f"factors : {triage['factor_count']} -> {after['factor_count']}")
+print(f"findings: {len(triage['findings'])} -> {len(after['findings'])}")
+print(f"blocking: {triage['counts'].get('blocking', 0)} -> {after['counts'].get('blocking', 0)}")
 
 # %% [markdown]
 # All blocking findings are resolved, the recovered columns are included as factors, and pipeline
@@ -323,7 +329,7 @@ print(f"blocking: {result.metadata.blocking} -> {result2.metadata.blocking}")
 
 # ### Verification results
 #
-# You can inspect the `VERIFIED` section of the report to see the results of applying suggested
+# You can read the Verified finding in the report to see the results of applying suggested
 # corrections in a trial pass:
 #
 # ```text

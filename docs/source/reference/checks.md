@@ -215,3 +215,26 @@ workflows:
 Without `cleaning:`, only `rank` and `selected` run, reading `pools` and `reference`. `duplicate_exact_only: true`
 makes both plans' `dup_types` `[exact]`. With neither `n` nor `fraction`, `selected` keeps every item
 (`fraction: 1.0`). The chain has no checks, so it makes no findings.
+
+## metadata-triage is this chain
+
+`metadata-triage` is a preset too: its settings expand to two steps on the task's one source, `data`. With its
+defaults, it runs:
+
+```yaml
+evaluators:
+  - {name: triage, type: triage}
+
+workflows:
+  - name: triage_chain
+    inputs: [data]
+    steps:
+      - {name: triage, evaluator: triage, input: data}
+      - {name: issues, check: metadata-issues, input: triage}
+```
+
+- `metadata:`, `verify`, `default_bins` and `min_missing_fraction` are `triage`'s settings, and `max_examples` is
+  `issues`'.
+- Its findings are `issues`': one per kind of issue, then the suggested policy and what verification recovered.
+- The chain makes no Dataset, so it declares no output.
+- Its result's `metadata_binning` records the encoding `triage` read, which `dataeval-flow encoding` writes out.
