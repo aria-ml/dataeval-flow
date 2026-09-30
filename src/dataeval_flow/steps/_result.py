@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field
 
-from dataeval_flow._blocks import Block
+from dataeval_flow._blocks import Block, Scalar
 from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section
 from dataeval_flow.steps._step import StepKind
 from dataeval_flow.workflows._base import Finding
@@ -212,12 +212,10 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return payload
 
     def _report_title(self) -> str:
-        if self._preset:
-            return super()._report_title()
-        return f"{self.metadata.workflow or self.type}\n{self._report_subtitle()}"
+        return super()._report_title() if self._preset else self.metadata.workflow or self.type
 
-    def _report_subtitle(self) -> str:
-        return super()._report_subtitle() if self._preset else "custom workflow"
+    def _report_ran(self) -> tuple[str, Scalar]:
+        return super()._report_ran() if self._preset else ("Workflow", f"{self._report_title()} (custom workflow)")
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
         """Every step's report, whether or not a step failed; or, for a chain refused before any step ran, why."""

@@ -105,27 +105,38 @@ def _banner(report: str) -> list[str]:
     return [line.strip() for line in lines[rules[0] + 1 : rules[1]]]
 
 
+def _first_line(report: str) -> str:
+    """The envelope's first line: the first content line under the banner's closing rule."""
+    lines = report.splitlines()
+    rules = [i for i, line in enumerate(lines) if set(line) == {"="}]
+    return " ".join(lines[rules[1] + 1].split())
+
+
 def _run(config: Any, task: str = "t") -> Any:
     result = run_tasks(config)[task]
     assert result.success, result.errors
     return result
 
 
-def test_a_preset_task_is_headed_by_its_title_and_named_beneath() -> None:
+def test_a_preset_task_is_headed_by_its_title_and_named_in_the_envelope() -> None:
     config = chain_pipeline(
         workflows=[_CLEAN],
         tasks=[{"name": "t", "workflow": "clean", "sources": ["src"]}],
         datasets={"src": ToyImages()},
     )
-    assert _banner(_run(config).report()) == ["DATA CLEANING", "CLEAN · DATA-CLEANING"]
+    report = _run(config).report()
+    assert _banner(report) == ["DATA CLEANING"]
+    assert _first_line(report) == "Workflow: clean (data-cleaning)"
 
 
-def test_an_evaluator_task_is_headed_by_its_title_and_named_beneath() -> None:
+def test_an_evaluator_task_is_headed_by_its_title_and_named_in_the_envelope() -> None:
     config = chain_pipeline(
         evaluators=[{"name": "dupes", "type": "duplicates"}],
         tasks=[{"name": "t", "workflow": "dupes", "sources": ["src"], "kind": "evaluator"}],
     )
-    assert _banner(_run(config).report()) == ["DUPLICATES", "DUPES · DUPLICATES"]
+    report = _run(config).report()
+    assert _banner(report) == ["DUPLICATES"]
+    assert _first_line(report) == "Evaluator: dupes (duplicates)"
 
 
 def test_a_custom_workflow_is_headed_by_its_name() -> None:
@@ -141,7 +152,8 @@ def test_a_custom_workflow_is_headed_by_its_name() -> None:
     )
     result = _run(config)
     assert isinstance(result, ChainResult)
-    assert _banner(result.report()) == ["MINE", "CUSTOM WORKFLOW"]
+    assert _banner(result.report()) == ["MINE"]
+    assert _first_line(result.report()) == "Workflow: mine (custom workflow)"
 
 
 def test_a_legacy_workflow_keeps_its_summary_in_the_body(plugins: dict[str, list[tuple[str, str]]]) -> None:
@@ -152,7 +164,8 @@ def test_a_legacy_workflow_keeps_its_summary_in_the_body(plugins: dict[str, list
     )
     result = _run(config)
     lines = result.report().splitlines()
-    assert _banner(result.report()) == ["TEST.COUNT", "TC · TEST.COUNT"]
+    assert _banner(result.report()) == ["TEST.COUNT"]
+    assert _first_line(result.report()) == "Workflow: tc (test.count)"
     assert lines[lines.index("  Source:    src (src_data)") + 2] == "  Items counted."
 
 
@@ -163,10 +176,11 @@ def test_a_failed_result_is_headed_the_same_way() -> None:
     )
     result = _run(config)
     failed = type(result).failed(type="duplicates", errors=["boom"])
-    assert _banner(failed.report())[0] == "DUPLICATES"
+    assert _banner(failed.report()) == ["DUPLICATES"]
+    assert _first_line(failed.report()) == "Evaluator: duplicates"
 
 
-def test_the_html_banner_sets_the_id_line_as_a_subtitle() -> None:
+def test_the_html_header_holds_the_title_and_the_provenance_opens_with_what_ran() -> None:
     config = chain_pipeline(
         workflows=[_CLEAN],
         tasks=[{"name": "t", "workflow": "clean", "sources": ["src"]}],
@@ -174,7 +188,9 @@ def test_the_html_banner_sets_the_id_line_as_a_subtitle() -> None:
     )
     html = _run(config).to_html()
     assert "<h1>Data Cleaning</h1>" in html
-    assert '<p class="facts">clean · data-cleaning</p>' in html
+    assert 'class="facts"' not in html
+    assert '<dl class="fields provenance"><dt>Workflow</dt><dd>clean (data-cleaning)</dd>' in html
+    assert "<title>Data Cleaning — clean</title>" in html
 
 
 def _record(name: str, type_id: str, kind: str) -> StepResult:
@@ -189,12 +205,14 @@ def test_a_step_is_headed_by_its_type_title_and_named_where_it_differs() -> None
     assert step_heading(_record("x", "not-registered", "transform")) == "not-registered · x"
 
 
-def test_run_of_a_config_with_the_default_entry_name_collapses_the_subtitle() -> None:
+def test_run_of_a_config_with_the_default_entry_name_names_the_id_alone() -> None:
     result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel"]), ToyImages())
-    assert _banner(result.report()) == ["DATA CLEANING", "DATA-CLEANING"]
+    assert _banner(result.report()) == ["DATA CLEANING"]
+    assert _first_line(result.report()) == "Workflow: data-cleaning"
+    assert "<title>Data Cleaning</title>" in result.to_html()
 
 
-def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_banner() -> None:
+def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_envelope() -> None:
     config = chain_pipeline(
         workflows=[_CLEAN],
         tasks=[{"name": "t", "workflow": "clean", "sources": ["src"]}],
@@ -203,14 +221,16 @@ def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_banner() -> None:
     with patch.object(TRANSFORMS.get("remove"), "run", side_effect=RuntimeError("boom")):
         result = run_tasks(config)["t"]
     assert not result.success
-    assert _banner(result.report()) == ["DATA CLEANING", "CLEAN · DATA-CLEANING"]
+    assert _banner(result.report()) == ["DATA CLEANING"]
+    assert _first_line(result.report()) == "Workflow: clean (data-cleaning)"
 
 
-def test_a_preset_task_refused_before_it_runs_keeps_its_entry_in_the_banner() -> None:
+def test_a_preset_task_refused_before_it_runs_keeps_its_entry_in_the_envelope() -> None:
     config = chain_pipeline(workflows=[_CLEAN], datasets={"a": ToyImages(), "b": ToyImages()})
     result = run_task(TaskConfig(name="t", workflow="clean", sources=["a", "b"]), config)
     assert not result.success
-    assert _banner(result.report()) == ["DATA CLEANING", "CLEAN · DATA-CLEANING"]
+    assert _banner(result.report()) == ["DATA CLEANING"]
+    assert _first_line(result.report()) == "Workflow: clean (data-cleaning)"
 
 
 def test_a_custom_workflow_named_like_a_preset_is_still_a_custom_workflow() -> None:
@@ -220,4 +240,6 @@ def test_a_custom_workflow_named_like_a_preset_is_still_a_custom_workflow() -> N
         evaluators=[{"name": "dupes", "type": "duplicates"}],
         tasks=[{"name": "t", "workflow": "data-cleaning", "sources": ["src"]}],
     )
-    assert _banner(_run(config).report()) == ["DATA-CLEANING", "CUSTOM WORKFLOW"]
+    report = _run(config).report()
+    assert _banner(report) == ["DATA-CLEANING"]
+    assert _first_line(report) == "Workflow: data-cleaning (custom workflow)"

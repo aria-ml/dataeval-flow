@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 
 from pydantic import BaseModel, Field
 
-from dataeval_flow._blocks import Block, Fields
-from dataeval_flow._result import Result, ResultMetadata, _envelope_items
+from dataeval_flow._blocks import Block, Scalar
+from dataeval_flow._result import Result, ResultMetadata
 from dataeval_flow._tables import table_limits
 
 if TYPE_CHECKING:
@@ -141,10 +141,9 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
         """A failed result of this class, its envelope naming the evaluator that failed."""
         return cls(type=type, success=False, metadata=EvaluatorMetadata(evaluator=type), errors=errors)
 
-    def _report_envelope(self) -> list[Block]:
+    def _report_items(self) -> list[tuple[str, Scalar]]:
         """The shared envelope, with the DataEval version that made the determinations."""
-        items = [*_envelope_items(self.metadata), ("DataEval", self.metadata.dataeval.version)]
-        return [Fields(items=list(items))]
+        return [*super()._report_items(), ("DataEval", self.metadata.dataeval.version)]
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
         """This evaluator's own section where it has one, else DataEval's output as it came; when not *detailed*,

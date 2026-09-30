@@ -32,8 +32,8 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
     expected = """
 ================================================================================
   DATA CLEANING
-  CLEAN · DATA-CLEANING
 ================================================================================
+  Workflow:  clean (data-cleaning)
   Source:    dataset (dataset)
 
   Steps: 10 ran

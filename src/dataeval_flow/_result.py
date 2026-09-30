@@ -294,16 +294,11 @@ def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: L
     return dest
 
 
-def _page_title(document: Section) -> str:
-    """A report's title on one line, as a page's title bar shows it."""
-    return " — ".join(part.strip() for part in document.title.split("\n"))
-
-
 def results_html(results: Sequence["Result[Any, Any]"], *, detailed: bool = True) -> str:
     """Every result's report on one page, as a run's ``result.html`` holds all of its tasks; *detailed* as `to_html`."""
     # The runner writes one page for the whole run, from the documents each result draws.
     documents = [result._document(detailed=detailed) for result in results]  # noqa: SLF001 - one page, many reports
-    title = _page_title(documents[0]) if len(documents) == 1 else "dataeval-flow results"
+    title = results[0]._page_title() if len(results) == 1 else "dataeval-flow results"  # noqa: SLF001 - as its report
     return html_page(title, documents, [result.assets for result in results])
 
 
@@ -459,7 +454,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
             A complete HTML document.
         """
         document = self._document(detailed=detailed)
-        return html_page(_page_title(document), [document], [self.assets])
+        return html_page(self._page_title(), [document], [self.assets])
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.
@@ -509,24 +504,35 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         return Section(title=title, blocks=blocks)
 
     def _report_envelope(self) -> list[Block]:
-        """The envelope under the banner, or nothing when the metadata holds none of it."""
-        items = _envelope_items(self.metadata)
-        return [Fields(items=items)] if items else []
+        """The envelope under the banner: what ran, then the shared items."""
+        return [Fields(items=self._report_items())]
+
+    def _report_items(self) -> list[tuple[str, Scalar]]:
+        """The envelope's rows: the line naming what ran, then when it ran, how long, and what it read."""
+        return [self._report_ran(), *_envelope_items(self.metadata)]
 
     def _report_body(self, *, detailed: bool) -> list[Block]:
         """The report's body: what this kind reports, or ``FAILED`` and each error for a failed run."""
         return self._report_output(detailed=detailed) if self.success else [failure_section(self.errors)]
 
     def _report_title(self) -> str:
-        """The banner: what ran, by its friendly title, then the entry that ran it beside its id, on a second line."""
+        """The banner: what ran, by its friendly title."""
         from dataeval_flow._step_title import step_title
 
-        title, subtitle = step_title(self.kind, self.type), self._report_subtitle()
-        return title if subtitle == title else f"{title}\n{subtitle}"
+        return step_title(self.kind, self.type)
 
-    def _report_subtitle(self) -> str:
-        """The banner's second line: ``entry · id``, or the id alone where the entry is not named or is the id."""
-        return self.type if not self._entry or self._entry == self.type else f"{self._entry} · {self.type}"
+    def _report_ran(self) -> tuple[str, Scalar]:
+        """The envelope's first row: ``Workflow: entry (id)``, or ``Evaluator: entry (id)`` for an evaluator task;
+        the id alone where the entry is not named or is the id."""
+        label = "Evaluator" if self.kind == "evaluator" else "Workflow"
+        named = self._entry and self._entry != self.type
+        return label, f"{self._entry} ({self.type})" if named else self.type
+
+    def _page_title(self) -> str:
+        """The page's title bar: the banner, then the entry where it differs from the id, so two reports of one
+        type tell apart in browser tabs."""
+        title = self._report_title()
+        return f"{title} — {self._entry}" if self._entry and self._entry not in (self.type, title) else title
 
     @abstractmethod
     def _report_output(self, *, detailed: bool) -> list[Block]:

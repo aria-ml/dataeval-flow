@@ -92,9 +92,6 @@ class TestSections:
         assert '<span class="brief">3 groups</span>' in fragment
         assert '<span class="badge warning">warning</span>' in fragment
 
-    def test_a_multi_line_title_heads_the_report_with_its_first_line_and_subtitles_the_rest(self):
-        assert '<h1>Report</h1><p class="facts">Second line</p>' in render_html([Section(title="Report\nSecond line")])
-
 
 def _report(*findings: Section, title: str = "Data cleaning") -> Section:
     """A report as a result builds one: its envelope, the summary linking each finding, the findings, the config."""
@@ -126,14 +123,13 @@ class TestLayout:
             in fragment
         )
 
-    def test_a_title_s_second_line_reads_as_its_subtitle(self):
-        """A run's title is its friendly title, then the entry that ran it and its id: the page sets the second line
-        beneath the heading as a subtitle, not as another heading line."""
-        fragment = render_html([_report(_DUPLICATES, title="Data Cleaning\nclean · data-cleaning")])
+    def test_the_header_draws_no_subtitle_line(self):
+        fragment = render_html([_report(_DUPLICATES, title="Data Cleaning")])
         assert (
-            '<header class="report-head"><h1>Data Cleaning</h1><span class="badge warning">1 warning</span>'
-            '<p class="facts">clean · data-cleaning</p></header>'
-        ) in fragment
+            '<header class="report-head"><h1>Data Cleaning</h1><span class="badge warning">1 warning</span></header>'
+            in fragment
+        )
+        assert 'class="facts"' not in fragment
 
     @pytest.mark.parametrize(
         "title",

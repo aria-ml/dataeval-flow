@@ -142,8 +142,8 @@ def _cards(report: Section, prefix: str) -> list[str | None]:
 
 
 def _heading(title: str) -> str:
-    """A title as the page shows it: escaped, with each of its lines on its own line."""
-    return "<br>".join(escape(part.strip()) for part in title.split("\n"))
+    """A title as the page shows it: escaped."""
+    return escape(title.strip())
 
 
 def _contents(reports: Sequence[Section]) -> str:
@@ -151,8 +151,7 @@ def _contents(reports: Sequence[Section]) -> str:
     if len(reports) < 2:
         return ""
     items = "".join(
-        f'<li><a href="#r{number}">{escape(" — ".join(part.strip() for part in report.title.split(chr(10))))}</a></li>'
-        for number, report in enumerate(reports, 1)
+        f'<li><a href="#r{number}">{escape(report.title.strip())}</a></li>' for number, report in enumerate(reports, 1)
     )
     return f'<nav class="contents"><h2>Reports</h2><ol>{items}</ol></nav>'
 
@@ -263,10 +262,7 @@ def _report(block: Section, ctx: HtmlContext) -> str:
     """
     brief = f' <span class="brief">{escape(block.brief)}</span>' if block.brief else ""
     verdict = badge(block.severity) if block.severity else _health(block)
-    title, _, rest = block.title.strip().partition("\n")
-    facts = " · ".join(part.strip() for part in rest.split("\n") if part.strip())
-    line = f'<p class="facts">{escape(facts)}</p>' if facts else ""
-    head = f'<header class="report-head"><h1>{_heading(title)}{brief}</h1>{verdict}{line}</header>'
+    head = f'<header class="report-head"><h1>{_heading(block.title)}{brief}</h1>{verdict}</header>'
     cards = _cards(block, f"{ctx.anchor}-" if ctx.anchor else "")
     rest = list(block.blocks)
     provenance = ""

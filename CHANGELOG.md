@@ -172,9 +172,12 @@
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
   `dataeval-flow encoding` finds none in it
-- A report's banner is the friendly title of what ran, over the entry that ran it beside its id, as `Data Cleaning`
-  over `clean · data-cleaning`; a custom workflow's is its name, over `custom workflow`. The text report prints the
-  banner in capitals; HTML keeps its case
+- A report's banner is the friendly title of what ran, as `Data Cleaning`; a custom workflow's is its name. The
+  text report prints it in capitals; HTML keeps its case
+- A report's envelope opens with a line naming what ran, `Workflow: clean (data-cleaning)` or, for an evaluator task,
+  `Evaluator: dupes (duplicates)`: the id alone where the entry is unnamed or is the id, and
+  `Workflow: name (custom workflow)` for a custom workflow. In HTML it is the provenance list's first row, and the
+  page title adds the entry where it differs from the id, as `Data Cleaning — clean`
 - A chain's report gives each finding a section, holding the evidence it judged: each step it read, headed *From* and
   the step's title, as `From Outliers`, or a line naming the finding it is shown under already. The steps no finding
   shows follow, then a Steps table of every step's title, type, status, reads and note, where the report gave each

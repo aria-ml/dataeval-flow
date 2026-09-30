@@ -141,9 +141,9 @@ def show(page: str, height: int = 720) -> None:
 # ## The same report, as text and as HTML
 #
 # `report()` gives the text report, 80 columns wide, for a terminal or a log. The data-cleaning report opens with its
-# banner, `Data Cleaning` over `clean · data-cleaning`, the run's metadata, how many of its steps ran, and a summary
-# line per finding. Then it gives each finding a section, with the steps it judged below it, and ends with the `clean`
-# step's section, a table of every step, and the configuration:
+# banner, `Data Cleaning`, then the run's metadata, which opens with `Workflow: clean (data-cleaning)`, how many of its
+# steps ran, and a summary line per finding. Then it gives each finding a section, with the steps it judged below it,
+# and ends with the `clean` step's section, a table of every step, and the configuration:
 
 # %% tags=["hide-output"]
 print(clean.report())

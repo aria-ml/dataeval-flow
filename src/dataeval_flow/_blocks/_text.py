@@ -113,9 +113,7 @@ def _banner(block: Section, frame: Frame) -> list[str]:
     """The report itself: its title between rules, its content, and a closing rule."""
     rule = "=" * frame.width
     prefix = frame.indent + _STEP
-    title = [
-        line for part in block.title.split("\n") for line in _wrap(part.strip().upper(), prefix, prefix, frame.width)
-    ]
+    title = _wrap(block.title.strip().upper(), prefix, prefix, frame.width)
     inner = replace(frame, indent=frame.indent + _STEP, depth=1)
     return ["", rule, *title, rule, *render_text(block.blocks, inner), "", rule]
 

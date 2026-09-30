@@ -26,10 +26,13 @@ print(result.report(detailed=False))  # the short form, which the console prints
 
 A workflow's report is laid out in this order:
 
-1. **Banner** — the friendly title of what ran, such as `Drift Monitoring`, and under it the config entry that ran
-   it beside its type id, such as `drift · drift-monitoring`. Where the entry is named after its type, the second
-   line is the id alone. The text report prints the banner in capitals; HTML keeps its case.
-2. **Provenance** — timestamp, duration, the sources the run read, model and preprocessor identifiers.
+1. **Banner** — the friendly title of what ran, such as `Drift Monitoring`. The text report prints it in capitals;
+   HTML keeps its case, and its page title adds the entry where it differs from the id, as
+   `Drift Monitoring — drift`.
+2. **Provenance** — opens with a line naming what ran: `Workflow: drift (drift-monitoring)`, the config entry beside
+   its type id, or `Evaluator: dupes (duplicates)` for an evaluator task. Where the entry is named after its type, the
+   line is the id alone, as `Workflow: drift-monitoring`. Then the timestamp, duration, the sources the run read,
+   model and preprocessor identifiers.
 3. **Summary sentence** — the workflow's one-line account of the run, such as
    `Drift monitoring complete. Reference: 261 items, Test: 909 items.`
 4. **Summary** — one line per finding, then a health line. A run with no findings says `No findings to report.`
@@ -56,7 +59,8 @@ cells, such as its *Item*, name each item.
 A chain's report, a custom workflow's or a {term}`preset <Preset>`'s such as `data-cleaning`'s, puts each finding
 beside the evidence it judged:
 
-1. **Banner** and **provenance**, as above. A custom workflow's banner is its name, over `custom workflow`.
+1. **Banner** and **provenance**, as above. A custom workflow's banner is its name, and its provenance opens with
+   `Workflow: name (custom workflow)`.
 2. **Steps** — how many ran: `Steps: 10 ran`, or `Steps: 5 (3 ran, 1 failed, 1 skipped)` where some did not.
 3. **Summary** — one line per finding, then the health line.
 4. **Findings** — a section per finding, headed by its title and brief. It holds the finding's own description and
