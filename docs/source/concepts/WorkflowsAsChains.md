@@ -156,7 +156,8 @@ tasks:
 ```
 
 A key missing from one of the lists skips that element, and the reason names the key. Lists do not nest: a step that
-outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of its own, named by its key.
+outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of
+its own, named by its key.
 
 ## Derived data
 

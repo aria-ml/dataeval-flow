@@ -274,8 +274,8 @@ thresholds.
 
 The output below comes from running the workflow as section 3 leaves it, through `corpus`, on two small synthetic
 corpora of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
-`truck` and `pedestrian`. The steps sections 4 and 5 add were not part of that run, so nothing here reports coverage, balance or a
-split, and no check judges a finding.
+`truck` and `pedestrian`. The steps sections 4 and 5 add were not part of that run, so nothing here reports coverage,
+balance or a split, and no check judges a finding.
 
 The text report opens with a summary of the steps, then gives each step a section of its own, headed by the Dataset it
 read walked back to its source:
