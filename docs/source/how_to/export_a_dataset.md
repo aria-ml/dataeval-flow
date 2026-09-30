@@ -1,8 +1,8 @@
 # Export a dataset
 
 Declare an `exports:` block to write a {term}`source <Source>` out as a dataset on disk, together with the provenance
-that produced it. It takes a conformed corpus out of the tool: merged, relabeled, and filtered as the config
-describes. This guide covers declaring an export, the available formats, what the emitted corpus carries, and what it
+that produced it. It takes a conformed dataset out of the tool: merged, relabeled, and filtered as the config
+describes. This guide covers declaring an export, the available formats, what the emitted dataset carries, and what it
 does not.
 
 ## Declare an export
@@ -11,7 +11,7 @@ An export names a source and a format:
 
 ```yaml
 exports:
-  - name: conformed_corpus
+  - name: conformed_dataset
     source: merged
     format: coco
 ```
@@ -43,7 +43,7 @@ Each sample keeps its split, so a format that lays out per-split directories kee
 
 ```yaml
 exports:
-  - name: conformed_corpus
+  - name: conformed_dataset
     source: merged
     mode: replace
 ```
@@ -54,7 +54,7 @@ exports:
 | `replace` | Clears the destination first |
 | `append` | Writes into what is already there |
 
-The default refuses so a re-run cannot overwrite a corpus somebody is using. `replace` empties the destination
+The default refuses so a re-run cannot overwrite a dataset somebody is using. `replace` empties the destination
 before the write and does not restore it if the write then fails. `append` may leave stale files behind that a reload
 of the destination would pick up.
 
@@ -69,18 +69,18 @@ ontologies:
     source: config/label_ontology.jsonld
 
 exports:
-  - name: conformed_corpus
+  - name: conformed_dataset
     source: merged
     ontology: vehicles
 ```
 
-If you omit it while a workflow declares one, the digests will not match: the corpus carries a label-space identity
+If you omit it while a workflow declares one, the digests will not match: the dataset carries a label-space identity
 the run's envelope does not. The run warns and names the workflows that declare one, so you can copy the value
 across.
 
 ## Read the provenance the export writes
 
-Every export writes a `provenance.json` beside the corpus, shaped `{"runs": [...]}` with one entry per write. Each
+Every export writes a `provenance.json` beside the dataset, shaped `{"runs": [...]}` with one entry per write. Each
 entry records:
 
 - the tool and its version, and when the write happened,
@@ -96,11 +96,11 @@ sidecar is written for every format.
 
 The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `data-coverage`
 audit stamps. Declare the same ontology on the audit, on the workflows, and on the export, and one digest match ties
-an emitted corpus to the run that produced it and to the audit that justified its vocabulary.
+an emitted dataset to the run that produced it and to the audit that justified its vocabulary.
 
 ## Know what an export drops
 
-An export is not lossless. Detections are rebuilt from the realized corpus, because a view can filter and relabel
+An export is not lossless. Detections are rebuilt from the realized dataset, because a view can filter and relabel
 boxes and nothing then maps an output detection back to the annotation it came from. Each box keeps its geometry and
 its class. Dropped are:
 
@@ -129,12 +129,12 @@ A merged source exports like any other, with two differences.
 Each emitted `file_name` is prefixed with its operand's position, as `0/img_000.png`. Two operands numbering their
 images independently would otherwise overwrite each other on disk.
 
-The merged datum id is carried as `source_id` in the per-image metadata, so `0:17` in the corpus stays traceable to
+The merged datum id is carried as `source_id` in the per-image metadata, so `0:17` in the dataset stays traceable to
 item `17` of the first operand.
 
 ## Related material
 
-- {doc}`build_dataset_views` — the views that conform and merge a corpus before it is exported
+- {doc}`build_dataset_views` — the views that conform and merge a dataset before it is exported
 - {doc}`declare_an_ontology` — declaring the label space an export records
 - [Provenance](../concepts/Provenance.md) — the label-space digest that joins an export, a run, and an audit
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `ExportConfig`

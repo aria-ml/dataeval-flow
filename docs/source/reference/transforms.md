@@ -209,7 +209,7 @@ top-level `exports:`.
 
 Reads `input`, one object-detection Dataset. Makes an export record: `path`, `format`, `mode`, `items` and
 `provenance`. Handed a list (a list input, a list output such as `kfold.train`, or a step run once per element), it
-writes each element under its key: `datasets/<to>/<key>/`, such as `datasets/t.corpus/0/` for fold 0. A key that is
+writes each element under its key: `datasets/<to>/<key>/`, such as `datasets/t.dataset/0/` for fold 0. A key that is
 not one plain directory name fails its element, and the others are still written.
 
 | Field | Takes | Default | Description |

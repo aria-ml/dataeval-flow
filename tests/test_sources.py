@@ -278,7 +278,7 @@ class TestResolveSource:
             assert operand.cache_key in resolved.cache_key
 
     def test_merged_cache_key_covers_an_operand_view(self):
-        """An operand's view is applied before the merge, so it changes the corpus."""
+        """An operand's view is applied before the merge, so it changes the dataset."""
         config = _merge_config()
         before = resolve_source("merged", config).cache_key
         assert config.sources is not None

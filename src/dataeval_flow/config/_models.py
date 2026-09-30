@@ -59,7 +59,7 @@ class SourceConfig(BaseModel):
     """Named source definition — bundles a dataset with an optional view.
 
     Name a `dataset` to read one dataset, or `merge` to concatenate other sources
-    into one corpus.
+    into one dataset.
 
     YAML example::
 
@@ -83,7 +83,7 @@ class SourceConfig(BaseModel):
     merge: Sequence[str] | None = Field(
         default=None,
         description=(
-            "Sources to concatenate into one corpus, in the order given. Name either this "
+            "Sources to concatenate into one dataset, in the order given. Name either this "
             "or `dataset`, not both. Give every operand a view whose `Relabel` passes the "
             "identical `target`, or their integer labels denote different classes and the "
             "merge is refused. Each datum's id becomes '<position>:<id>', so an item keeps "
@@ -409,7 +409,7 @@ class PipelineConfig(BaseModel):
         default=None,
         description=(
             "Named datasets to write out, referenced by source. Declared here rather than "
-            "on a task, so a corpus is written whether or not a task reads it."
+            "on a task, so a dataset is written whether or not a task reads it."
         ),
     )
 

@@ -39,7 +39,7 @@ class TestTopLevelKeys:
 
     def test_a_misspelled_section_fails_the_load_naming_the_section_it_resembles(self, tmp_path: Path) -> None:
         path = tmp_path / "pipeline.yaml"
-        path.write_text("exprots:\n  - {name: corpus, source: merged}\n")  # codespell:ignore
+        path.write_text("exprots:\n  - {name: dataset, source: merged}\n")  # codespell:ignore
 
         with pytest.raises(ValidationError, match=r"'exprots'.*did you mean 'exports'"):
             load_config(path)

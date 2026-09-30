@@ -6,7 +6,7 @@ write it as a custom workflow: a `workflows:` entry whose `steps:` each read wha
 builds one in three stages. [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas behind
 it.
 
-## 1. Conform two corpora and merge them
+## 1. Conform two datasets and merge them
 
 Two object-detection collections name their classes differently: `street_2024` labels `car` and `person`, and
 `drone_2025` labels `car`, `truck` and `pedestrian`. To merge them, relabel both onto one vocabulary first. Declare the
@@ -158,7 +158,7 @@ workflows:
         input: merged
         plans:
           dupes: {keep: first}
-      - {name: corpus, transform: export, input: clean, format: coco}
+      - {name: dataset, transform: export, input: clean, format: coco}
 ```
 
 `allow:` says how much loss a `conform` step accepts. Each level accepts everything the one before it does:
@@ -182,9 +182,9 @@ defaults, which for duplicates removes every exact copy but the first. Several p
 names is removed.
 
 `export` writes `clean` under the run's output directory, at `out/datasets/<task>.<step>/`: here
-`out/datasets/build.corpus/`. Handed a list, such as `kfold.train`, it writes each element under its key:
-`out/datasets/build.corpus/0/` and so on. `to:` names another directory, and `mode:` says what to do when it already
-holds a dataset (`error` by default, `replace` or `append`). Beside the corpus, `provenance.json` records the sources it
+`out/datasets/build.dataset/`. Handed a list, such as `kfold.train`, it writes each element under its key:
+`out/datasets/build.dataset/0/` and so on. `to:` names another directory, and `mode:` says what to do when it already
+holds a dataset (`error` by default, `replace` or `append`). Beside the dataset, `provenance.json` records the sources it
 came from, with the dataset and view each read, and the lineage of what was written. Its `label_space` list holds each
 source's Relabel, then each conform on the way, with its remap and ontology digest. A Dataset a chain made is written
 with its pixels encoded, not by reference to the image files, even where no step changed them. A run without `-o`
@@ -192,7 +192,7 @@ writes nothing, and the export step is skipped with the reason "the run has no o
 
 ## 4. Check coverage and bias, and split
 
-Add an extractor, two evaluators, and the steps that read the cleaned corpus:
+Add an extractor, two evaluators, and the steps that read the cleaned dataset:
 
 ```yaml
 extractors:
@@ -226,7 +226,7 @@ workflows:
         input: merged
         plans:
           dupes: {keep: first}
-      - {name: corpus, transform: export, input: clean, format: coco}
+      - {name: dataset, transform: export, input: clean, format: coco}
       - {name: crops, transform: wrap, input: clean, wrapper: DetectionCrops, params: {min_size: 32}}
       - {name: coverage, evaluator: coverage, input: crops}
       - {name: balance, evaluator: balance, input: clean}
@@ -243,7 +243,7 @@ tasks:
 Notice:
 
 - `wrap` turns each detection into an item of its own, which is what makes coverage per detection and per class. On
-  the detection corpus itself, `coverage` would measure whole images as one class, and warn that it has no class
+  the detection dataset itself, `coverage` would measure whole images as one class, and warn that it has no class
   breakdown.
 - `params:` passes DataEval's `DetectionCrops` arguments. `min_size: 32` drops boxes whose shorter side is under 32
   pixels, as `data-coverage`'s `crop_min_size` does: a tiny crop carries no SIFT features for BoVW to describe.
@@ -284,7 +284,7 @@ workflows:
         input: merged
         plans:
           dupes: {keep: first}
-      - {name: corpus, transform: export, input: clean, format: coco}
+      - {name: dataset, transform: export, input: clean, format: coco}
       - {name: crops, transform: wrap, input: clean, wrapper: DetectionCrops, params: {min_size: 32}}
       - {name: coverage, evaluator: coverage, input: crops}
       - {name: balance, evaluator: balance, input: clean}
@@ -295,8 +295,8 @@ workflows:
       - {name: imbalance, check: class-imbalance, input: labels, ratio: 3.0}
 ```
 
-`merged_duplicates` judges the duplicates in the merged corpus, before `remove`. It warns where more than 0% of the
-images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned corpus's largest class
+`merged_duplicates` judges the duplicates in the merged dataset, before `remove`. It warns where more than 0% of the
+images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned dataset's largest class
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
 `--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
 Duplicates finding holds `dupes`' duplicate groups, and the Label Distribution finding holds `labels`' class counts.
@@ -319,7 +319,7 @@ workflows:
     inputs: [data]
     steps:
       - {name: cleaning, workflow: tidy, input: data}
-      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+      - {name: dataset, transform: export, input: cleaning.clean, format: coco}
 
 tasks:
   - name: street
@@ -336,15 +336,15 @@ config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workfl
 
 ## 7. Read the result
 
-The output below comes from running the workflow as section 3 leaves it, through `corpus`, on two small synthetic
-corpora of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
+The output below comes from running the workflow as section 3 leaves it, through `dataset`, on two small synthetic
+datasets of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
 `truck` and `pedestrian`. The steps sections 4 and 5 add were not part of that run, so nothing here reports coverage,
 balance or a split, and no check judges a finding.
 
 The console prints `Steps: 8 ran`, `No findings to report.` and a line per step, each `ok`: with no finding and no
 failed step, there is no health to state. The full report, in `out/results/result.txt`, gives each step a section of
 its own, since no finding shows any as evidence. `clean`'s says what it kept and what each plan named, and
-`corpus`'s where it wrote:
+`dataset`'s where it wrote:
 
 ```text
 ================================================================================
@@ -353,15 +353,15 @@ its own, since no finding shows any as evidence. `clean`'s says what it kept and
   Kept 47 of 48 images. Removed 1 image: 1 named by `dupes`.
 
 ================================================================================
-  EXPORT · CORPUS
+  EXPORT · DATASET
 ================================================================================
-  Path:   out/datasets/build.corpus
+  Path:   out/datasets/build.dataset
   Format: coco
   Images: 47
 ```
 
 A Steps table follows the steps' sections, before the configuration. It gives each step's type and status, why it
-made nothing where it did not, and each Dataset it read, walked back to its source: `corpus` reads
+made nothing where it did not, and each Dataset it read, walked back to its source: `dataset` reads
 `` `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. The HTML report's table adds each step's title,
 which the text report leaves to the step's section.
 
@@ -403,13 +403,13 @@ config = load_config(Path("pipeline.yaml"))
 result = run_tasks(config, tasks="build", data_dir=Path("."), output_dir=Path("out"))["build"]
 assert isinstance(result, ChainResult)
 
-clean = result.steps["clean"].output  # the cleaned corpus, a DataEval View
+clean = result.steps["clean"].output  # the cleaned dataset, a DataEval View
 train = result.steps["split"].output["train"]  # a step with several outputs holds each by name
 for record in result.metadata.lineage:
     print(record.name, record.items, record.digest)
 ```
 
-`clean` is a DataEval `View` over the merged corpus, so you can go on to train on it or evaluate it from Python.
+`clean` is a DataEval `View` over the merged dataset, so you can go on to train on it or evaluate it from Python.
 Without `output_dir`, the export step is skipped and nothing is written.
 
 ## 8. See which steps you can chain
@@ -437,7 +437,7 @@ workflow = CustomWorkflowConfig(
     steps=[
         StepEntry(name="dupes", evaluator="dupes", input="data"),
         StepEntry(name="clean", transform="remove", input="data", plans={"dupes": {"keep": "first"}}),
-        StepEntry(name="corpus", transform="export", input="clean", format="coco"),
+        StepEntry(name="dataset", transform="export", input="clean", format="coco"),
     ],
 )
 workflow.save("config/workflows.yaml")  # the config/ directory must already exist
@@ -463,7 +463,7 @@ workflows:
     plans:
       dupes:
         keep: first
-  - name: corpus
+  - name: dataset
     transform: export
     input: clean
     format: coco

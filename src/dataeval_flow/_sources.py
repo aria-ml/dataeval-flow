@@ -2,7 +2,7 @@
 
 A source names either one dataset or a `merge` of other sources. Resolving one flattens
 that to its leaf datasets, loads each, applies the view it is conformed under, and
-concatenates the results into the corpus a task reads. `label_space_records` reports the
+concatenates the results into the dataset a task reads. `label_space_records` reports the
 vocabulary each of those views conformed its labels to, one record per view, so a result
 carries the label space it was produced under.
 """
@@ -149,7 +149,7 @@ class ResolvedSource:
         """Return the dataset with this source's own view applied.
 
         A task gets :attr:`dataset` and :attr:`view_config` separately and lets the
-        workflow apply the view. Use this where you need the finished corpus, such as
+        workflow apply the view. Use this where you need the finished dataset, such as
         writing it out.
         """
         from dataeval_flow._view import build_view
@@ -267,9 +267,9 @@ def _load_operand(
 def _operand_key(operand: SourceOperand) -> str:
     """Return an operand's cache identity, covering the view it is merged under.
 
-    An operand's view is applied before the merge, so it is part of the corpus rather
+    An operand's view is applied before the merge, so it is part of the dataset rather
     than something the workflow applies later. Fold it into the key, or narrowing one
-    operand's view would serve the previous corpus's cached embeddings.
+    operand's view would serve the previous dataset's cached embeddings.
     """
     view = operand.view_config.model_dump_json(fallback=repr) if operand.view_config is not None else "none"
     return f"{operand.cache_key}+view:{view}"

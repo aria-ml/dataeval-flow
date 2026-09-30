@@ -2,7 +2,7 @@
 
 A first pass over 500 images, a run restricted to two classes, a reproducible random sample — all of these are
 {term}`views <View>`: named, ordered pipelines of dataset operations applied before a workflow sees the data. A view
-also conforms a dataset to a shared vocabulary, which lets two datasets be merged into one corpus.
+also conforms a dataset to a shared vocabulary, which lets two datasets be merged into one dataset.
 
 ## Used in these tutorials
 
@@ -154,7 +154,7 @@ view = ViewConfig(
 source = SourceConfig(name="skysealand_src", dataset="skysealand_train", view="sample500")
 ```
 
-## Merge sources into one corpus
+## Merge sources into one dataset
 
 Merging composes sources, not datasets, because each operand needs its own `Relabel`. Two datasets almost never
 number their classes the same way. Each is conformed to a shared vocabulary before concatenation, and the `Relabel`
@@ -200,7 +200,7 @@ sources:
     merge: [m3fd_conformed, drone_conformed]
 ```
 
-An operand's view is applied before the merge, so it is part of the corpus. Everything else a view can do applies to
+An operand's view is applied before the merge, so it is part of the dataset. Everything else a view can do applies to
 an operand too: filter, limit, crop.
 
 ### Give every operand the identical target
@@ -223,7 +223,7 @@ same dataset produces on its own. Strip the prefix to match them back.
 
 ### Apply a view after the merge
 
-A merged source may carry its own `view:`, applied to the concatenated corpus:
+A merged source may carry its own `view:`, applied to the concatenated dataset:
 
 ```yaml
 sources:
@@ -253,7 +253,7 @@ keystrokes: an unseeded one produces a new view on every run and nothing is ever
 {doc}`reuse_results_with_cache`.
 
 A merged source's key covers every operand and the view it was merged under, so narrowing one operand's view
-invalidates that corpus and nothing else.
+invalidates that dataset and nothing else.
 
 ## A note on the legacy vocabulary
 
@@ -264,7 +264,7 @@ keys are still accepted and emit a `DeprecationWarning`. New configs should use 
 
 - [Reproducibility](../concepts/Reproducibility.md) — why a seeded, declarative view is part of a defensible result
 - {doc}`reuse_results_with_cache` — how the view participates in the cache key
-- {doc}`export_a_dataset` — write a conformed or merged corpus out as a dataset on disk
-- [Provenance](../concepts/Provenance.md) — what the envelope records about a merged corpus and the label
+- {doc}`export_a_dataset` — write a conformed or merged dataset out as a dataset on disk
+- [Provenance](../concepts/Provenance.md) — what the envelope records about a merged dataset and the label
   space it was read under
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — `ViewConfig` and `ViewOperation`

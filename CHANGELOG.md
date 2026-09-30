@@ -13,7 +13,7 @@
 - Top-level `ontologies:` key defining named label spaces referenced by workflows
 - `concepts:` on ontology entries to add or override concepts by id without altering source artifacts
 - Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
-- `merge:` on sources to concatenate multiple inputs into one corpus, unified via `Relabel` views
+- `merge:` on sources to concatenate multiple inputs into one dataset, unified via `Relabel` views
 - Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
 - `ontology:` support across all workflows, attaching the vocabulary audit digest to results
 - `label_space` on result envelopes, recording conformed vocabulary and matching audit digest

@@ -1276,7 +1276,7 @@ class TestExportConfig:
     def test_defaults_to_coco_and_refuses_to_overwrite(self):
         from dataeval_flow.config import ExportConfig
 
-        export = ExportConfig(name="corpus", source="merged")
+        export = ExportConfig(name="dataset", source="merged")
         assert export.format == "coco"
         assert export.mode == "error"
 
@@ -1284,7 +1284,7 @@ class TestExportConfig:
         from dataeval_flow.config import ExportConfig
 
         with pytest.raises(ValidationError):
-            ExportConfig(name="corpus", source="merged", format="parquet")  # type: ignore[arg-type]
+            ExportConfig(name="dataset", source="merged", format="parquet")  # type: ignore[arg-type]
 
     def test_every_declared_format_is_a_datamaite_output_format(self):
         """Pinned rather than left open, so a typo is a config error."""
@@ -1301,11 +1301,11 @@ class TestExportConfig:
         from dataeval_flow import PipelineConfig
         from dataeval_flow.config import ExportConfig
 
-        config = PipelineConfig(exports=[ExportConfig(name="corpus", source="merged")])
+        config = PipelineConfig(exports=[ExportConfig(name="dataset", source="merged")])
         assert config.exports is not None
-        assert config.exports[0].name == "corpus"
+        assert config.exports[0].name == "dataset"
 
-    @pytest.mark.parametrize("name", ["", "/etc/corpus", "nested/corpus", "nested\\corpus", ".", ".."])
+    @pytest.mark.parametrize("name", ["", "/etc/dataset", "nested/dataset", "nested\\dataset", ".", ".."])
     def test_a_name_that_is_not_one_directory_segment_is_refused(self, name):
         """The name becomes a directory under the run's output, so it cannot be a path."""
         from dataeval_flow.config import ExportConfig
@@ -1316,13 +1316,13 @@ class TestExportConfig:
     def test_a_plain_name_is_kept(self):
         from dataeval_flow.config import ExportConfig
 
-        assert ExportConfig(name="conformed_corpus.v2", source="merged").name == "conformed_corpus.v2"
+        assert ExportConfig(name="conformed_dataset.v2", source="merged").name == "conformed_dataset.v2"
 
     @pytest.mark.parametrize(
         ("name", "loads"),
         [
-            ("corpus", True),
-            ("conformed_corpus.v2", True),
+            ("dataset", True),
+            ("conformed_dataset.v2", True),
             (".hidden", True),
             ("..x", True),
             ("x..", True),

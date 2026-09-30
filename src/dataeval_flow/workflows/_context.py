@@ -46,7 +46,7 @@ class DatasetContext:
     batch_size: int | None = None
     """The extractor's batch size, or ``None`` for DataEval's global default."""
     label_source: "str | Sequence[str] | None" = None
-    """Where the labels came from: one value, or one per operand where a merged corpus reads more than one
+    """Where the labels came from: one value, or one per operand where a merged dataset reads more than one
     provenance."""
     value_range: "tuple[float, float] | None" = None
     """The interval the dataset's imagery occupies, as its dataset config declares it, or ``None``."""

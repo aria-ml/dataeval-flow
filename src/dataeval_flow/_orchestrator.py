@@ -249,11 +249,11 @@ def _resolve_stats_policy(
 
 
 def _label_source_of(label_sources: "Sequence[str | None]") -> "str | Sequence[str] | None":
-    """Return where a corpus's labels came from, given each operand's provenance.
+    """Return where a dataset's labels came from, given each operand's provenance.
 
     Report None where no operand knows its provenance, and the shared value where every
     operand reports the same one.  Otherwise report one entry per operand in merge order,
-    writing an unknown provenance as "unknown": a corpus read from two provenances has two
+    writing an unknown provenance as "unknown": a dataset read from two provenances has two
     answers, and reporting one of them hides the other.
     """
     distinct = set(label_sources)
