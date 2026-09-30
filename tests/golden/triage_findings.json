@@ -1,0 +1,976 @@
+{
+  "altitude": {
+    "findings": [
+      [
+        "info",
+        "Unpinned continuous bins",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Suggested policy",
+        "add to configuration under `metadata:`"
+      ],
+      [
+        "info",
+        "Verified",
+        "1 recovered"
+      ]
+    ],
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [],
+      "descriptor_version": 3,
+      "dropped": {},
+      "encoding_digest": "4590f6355425ac8c",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {
+        "altitude": {
+          "distribution": {
+            "cells": 160,
+            "histogram": [
+              1,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              1,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              1,
+              1,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              2,
+              1,
+              0,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              1,
+              0,
+              2,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              1,
+              0,
+              1,
+              0,
+              2,
+              1,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              1,
+              0,
+              1,
+              1
+            ],
+            "quantiles": {
+              "0.0": 27.559113243068367,
+              "0.01": 39.59287666420286,
+              "0.05": 81.55261736351271,
+              "0.25": 280.4087579860399,
+              "0.5": 528.5892632600217,
+              "0.75": 787.096941554801,
+              "0.95": 950.4636963259353,
+              "0.99": 969.9254132161326,
+              "1.0": 980.7371998012386
+            }
+          },
+          "encoding": {
+            "edges": [
+              "-inf",
+              265.8536348826109,
+              504.1481565221535,
+              742.442678161696,
+              "inf"
+            ],
+            "kind": "bins",
+            "method": "uniform_width",
+            "provenance": "derived"
+          },
+          "fit": {
+            "bins": [
+              {
+                "code": 1,
+                "count": 14,
+                "max": 262.3133404418495,
+                "min": 27.559113243068367
+              },
+              {
+                "code": 2,
+                "count": 12,
+                "max": 485.1909744316351,
+                "min": 276.89120404537084
+              },
+              {
+                "code": 3,
+                "count": 14,
+                "max": 724.7899407735337,
+                "min": 509.4958815215094
+              },
+              {
+                "code": 4,
+                "count": 20,
+                "max": 980.7371998012386,
+                "min": 750.3646726300526
+              }
+            ],
+            "empty": []
+          },
+          "level": "unit",
+          "n_distinct": 60,
+          "names": {
+            "1": "< 265.854",
+            "2": "[265.854, 504.148)",
+            "3": "[504.148, 742.443)",
+            "4": ">= 742.443"
+          },
+          "rows": 60,
+          "type": "continuous"
+        }
+      },
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [
+        "altitude"
+      ],
+      "unusable": {}
+    },
+    "suggested_policy_yaml": "metadata:\n- name: standard\n  continuous_factor_bins:\n    altitude: 4\n"
+  },
+  "latitude": {
+    "findings": [
+      [
+        "warning",
+        "Unreadable factors",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Suggested policy",
+        "add to configuration under `metadata:`"
+      ],
+      [
+        "info",
+        "Verified",
+        "0 recovered"
+      ]
+    ],
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [],
+      "descriptor_version": 3,
+      "dropped": {
+        "latitude": [
+          "mixed_types"
+        ]
+      },
+      "encoding_digest": "01e7b720ff566d53",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {},
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [],
+      "unusable": {
+        "latitude": {
+          "counts": {
+            "numeric": 50,
+            "text": 10
+          },
+          "distinct": {
+            "numeric": [
+              0.0,
+              1.0,
+              11.0,
+              12.0,
+              13.0,
+              14.0,
+              15.0,
+              16.0,
+              18.0,
+              19.0,
+              2.0,
+              21.0,
+              22.0,
+              23.0,
+              25.0,
+              26.0,
+              27.0,
+              28.0,
+              29.0,
+              30.0,
+              32.0,
+              33.0,
+              34.0,
+              35.0,
+              36.0,
+              37.0,
+              39.0,
+              4.0,
+              40.0,
+              41.0,
+              42.0,
+              43.0,
+              44.0,
+              46.0,
+              47.0,
+              48.0,
+              49.0,
+              5.0,
+              50.0,
+              51.0,
+              53.0,
+              54.0,
+              55.0,
+              56.0,
+              57.0,
+              58.0,
+              6.0,
+              7.0,
+              8.0,
+              9.0
+            ],
+            "text": [
+              "N",
+              "S"
+            ]
+          },
+          "level": "unit",
+          "reasons": [
+            "mixed_types"
+          ],
+          "repairable": true,
+          "sampled": false
+        }
+      }
+    },
+    "suggested_policy_yaml": "metadata:\n- name: standard\n  corrections:\n  - kind: remap\n    factor: latitude\n    rules:\n    - match: N\n      to: null        # TODO\n    - match: S\n      to: null        # TODO\n"
+  },
+  "mixed_weight": {
+    "findings": [
+      [
+        "warning",
+        "Unreadable factors",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Suggested policy",
+        "add to configuration under `metadata:`"
+      ],
+      [
+        "info",
+        "Verified",
+        "1 recovered"
+      ]
+    ],
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [],
+      "descriptor_version": 3,
+      "dropped": {
+        "weight": [
+          "mixed_types"
+        ]
+      },
+      "encoding_digest": "01e7b720ff566d53",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {},
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [],
+      "unusable": {
+        "weight": {
+          "counts": {
+            "numeric": 54,
+            "text": 6
+          },
+          "distinct": {
+            "numeric": [
+              1021,
+              1042,
+              1066,
+              1132,
+              1176,
+              1226,
+              1268,
+              1327,
+              1601,
+              1643,
+              1714,
+              1994,
+              2402,
+              2405,
+              3058,
+              3158,
+              3397,
+              3462,
+              4036,
+              4069,
+              4153,
+              4381,
+              4687,
+              4848,
+              5029,
+              5089,
+              5204,
+              5331,
+              5348,
+              5434,
+              5479,
+              5853,
+              5923,
+              6058,
+              6095,
+              6177,
+              6203,
+              6364,
+              6367,
+              6484,
+              6835,
+              6837,
+              7119,
+              7439,
+              7506,
+              7526,
+              7859,
+              7905,
+              8302,
+              8480,
+              8600,
+              8765,
+              8846,
+              8977
+            ],
+            "text": [
+              "3,218",
+              "4,225",
+              "6,195",
+              "7,112",
+              "7,772",
+              "7,804"
+            ]
+          },
+          "level": "unit",
+          "reasons": [
+            "mixed_types"
+          ],
+          "repairable": true,
+          "sampled": false
+        }
+      }
+    },
+    "suggested_policy_yaml": "metadata:\n- name: standard\n  corrections:\n  - kind: parse_value\n    factor: weight\n    drop:\n    - ','\n"
+  },
+  "named_policy": {
+    "findings": [
+      [
+        "info",
+        "Degenerate factors",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Unpinned continuous bins",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Suggested policy",
+        "add to configuration under `metadata:`"
+      ]
+    ],
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [
+        {
+          "decimal": ".",
+          "drop": [
+            ","
+          ],
+          "factor": "weight",
+          "kind": "parse_value",
+          "provenance": "declared"
+        }
+      ],
+      "descriptor_version": 3,
+      "dropped": {},
+      "encoding_digest": "a9e10ff47ce29c93",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {
+        "weight": {
+          "distribution": {
+            "cells": 160,
+            "histogram": [
+              3,
+              0,
+              1,
+              1,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              0,
+              1,
+              0,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              0,
+              1,
+              1,
+              1,
+              2,
+              0,
+              0,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              1
+            ],
+            "quantiles": {
+              "0.0": 1021.0,
+              "0.01": 1042.0,
+              "0.05": 1132.0,
+              "0.25": 3158.0,
+              "0.5": 5348.0,
+              "0.75": 6837.0,
+              "0.95": 8600.0,
+              "0.99": 8846.0,
+              "1.0": 8977.0
+            }
+          },
+          "encoding": {
+            "edges": [
+              "-inf",
+              3010.0,
+              4999.0,
+              6988.0,
+              "inf"
+            ],
+            "kind": "bins",
+            "method": "uniform_width",
+            "provenance": "derived"
+          },
+          "fit": {
+            "bins": [
+              {
+                "code": 1,
+                "count": 14,
+                "max": 2405,
+                "min": 1021
+              },
+              {
+                "code": 2,
+                "count": 12,
+                "max": 4848,
+                "min": 3058
+              },
+              {
+                "code": 3,
+                "count": 19,
+                "max": 6837,
+                "min": 5029
+              },
+              {
+                "code": 4,
+                "count": 15,
+                "max": 8977,
+                "min": 7112
+              }
+            ],
+            "empty": []
+          },
+          "level": "unit",
+          "n_distinct": 60,
+          "names": {
+            "1": "< 3010",
+            "2": "[3010, 4999)",
+            "3": "[4999, 6988)",
+            "4": ">= 6988"
+          },
+          "rows": 60,
+          "type": "continuous"
+        }
+      },
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [
+        "weight"
+      ],
+      "unusable": {}
+    },
+    "suggested_policy_yaml": "metadata:\n- name: standard\n  exclude:\n  - weight\n"
+  },
+  "occlusion": {
+    "findings": [
+      [
+        "warning",
+        "Unreadable factors",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Suggested policy",
+        "add to configuration under `metadata:`"
+      ],
+      [
+        "info",
+        "Verified",
+        "0 recovered"
+      ]
+    ],
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [],
+      "descriptor_version": 3,
+      "dropped": {
+        "occlusion": [
+          "mixed_types"
+        ]
+      },
+      "encoding_digest": "01e7b720ff566d53",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {},
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [],
+      "unusable": {
+        "occlusion": {
+          "counts": {
+            "numeric": 54,
+            "text": 6
+          },
+          "distinct": {
+            "numeric": [
+              0.0,
+              0.1,
+              0.2,
+              0.30000000000000004,
+              0.4,
+              0.5,
+              0.6000000000000001,
+              0.7000000000000001,
+              0.8,
+              0.9,
+              1.0,
+              1.1,
+              1.2000000000000002,
+              1.3,
+              1.4000000000000001,
+              1.5,
+              1.6,
+              1.7000000000000002,
+              1.8,
+              1.9000000000000001,
+              2.0,
+              2.1,
+              2.2,
+              2.3000000000000003,
+              2.4000000000000004,
+              2.5,
+              2.6,
+              2.7,
+              2.8000000000000003,
+              2.9000000000000004
+            ],
+            "text": [
+              "high"
+            ]
+          },
+          "level": "instance",
+          "reasons": [
+            "mixed_types"
+          ],
+          "repairable": true,
+          "sampled": false
+        }
+      }
+    },
+    "suggested_policy_yaml": "metadata:\n- name: standard\n  corrections:\n  - kind: remap\n    factor: occlusion\n    rules:\n    - match: high\n      to: null        # TODO\n"
+  },
+  "unverified": {
+    "findings": [
+      [
+        "warning",
+        "Unreadable factors",
+        "1 factors"
+      ],
+      [
+        "info",
+        "Suggested policy",
+        "add to configuration under `metadata:`"
+      ]
+    ],
+    "metadata_binning": {
+      "auto_bin_method": "uniform_width",
+      "bin_expansion": {},
+      "corrections": [],
+      "descriptor_version": 3,
+      "dropped": {
+        "weight": [
+          "mixed_types"
+        ]
+      },
+      "encoding_digest": "01e7b720ff566d53",
+      "excluded": [],
+      "factor_source": "auto",
+      "factors": {},
+      "injected_factors": [],
+      "requested_bins": {},
+      "unreviewed": [],
+      "unusable": {
+        "weight": {
+          "counts": {
+            "numeric": 54,
+            "text": 6
+          },
+          "distinct": {
+            "numeric": [
+              1021,
+              1042,
+              1066,
+              1132,
+              1176,
+              1226,
+              1268,
+              1327,
+              1601,
+              1643,
+              1714,
+              1994,
+              2402,
+              2405,
+              3058,
+              3158,
+              3397,
+              3462,
+              4036,
+              4069,
+              4153,
+              4381,
+              4687,
+              4848,
+              5029,
+              5089,
+              5204,
+              5331,
+              5348,
+              5434,
+              5479,
+              5853,
+              5923,
+              6058,
+              6095,
+              6177,
+              6203,
+              6364,
+              6367,
+              6484,
+              6835,
+              6837,
+              7119,
+              7439,
+              7506,
+              7526,
+              7859,
+              7905,
+              8302,
+              8480,
+              8600,
+              8765,
+              8846,
+              8977
+            ],
+            "text": [
+              "3,218",
+              "4,225",
+              "6,195",
+              "7,112",
+              "7,772",
+              "7,804"
+            ]
+          },
+          "level": "unit",
+          "reasons": [
+            "mixed_types"
+          ],
+          "repairable": true,
+          "sampled": false
+        }
+      }
+    },
+    "suggested_policy_yaml": "metadata:\n- name: standard\n  corrections:\n  - kind: parse_value\n    factor: weight\n    drop:\n    - ','\n"
+  }
+}

@@ -3,10 +3,8 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
 from dataeval import Metadata
-from dataeval.protocols import DatasetMetadata
 
 from dataeval_flow._binning_report import distribution_blocks
 from dataeval_flow._blocks import Code, Distribution, ItemRef, Proportion
@@ -23,6 +21,7 @@ from dataeval_flow.workflows.metadata_triage._outputs import (
 )
 from tests.finding_blocks import blocks_of, bullets, column, fields, paragraphs, rendered, sections, tables
 from tests.test_triage import _numeric, _record
+from tests.triage_toys import AltitudeDataset, LatitudeDataset, MixedWeightDataset, OcclusionDataset
 
 
 def test_parameters_default_to_verifying():
@@ -44,75 +43,14 @@ def test_outputs_round_trip_as_json():
     assert outputs.model_dump(mode="json")["raw"]["findings"] == []
 
 
-class _MixedWeightDataset:
-    """Classification items whose ``weight`` reading mixes numerals with numerals wearing
-    commas.
-
-    Built by walking the dataset; ``Metadata.from_factors`` refuses a mixed-dtype column
-    outright (``reject_mixed_values``). The held-back path this fixture needs exists only
-    for metadata read off a dataset — see ``tests/test_binning.py::_MixedDataset``,
-    which this mirrors.
-    """
-
-    def __init__(self, n: int = 60) -> None:
-        self._n = n
-        rng = np.random.default_rng(0)
-        self._weight = rng.integers(1000, 9000, n)
-
-    @property
-    def metadata(self) -> DatasetMetadata:
-        return {"id": "mixed-weight", "index2label": {0: "cat", 1: "dog"}}
-
-    def __len__(self) -> int:
-        return self._n
-
-    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
-        one_hot = np.zeros(2, dtype=np.float32)
-        one_hot[index % 2] = 1.0
-        image = np.zeros((3, 8, 8), dtype=np.float32)
-        raw = int(self._weight[index])
-        # Every tenth reading is a numeral wearing commas rather than a plain number.
-        weight: Any = f"{raw:,}" if index % 10 == 0 else raw
-        datum: dict[str, Any] = {"id": index, "weight": weight}
-        return image, one_hot, datum
-
-
 def _mixed_metadata(n: int = 60) -> Metadata:
     """Metadata whose ``weight`` factor mixes numerals with numerals wearing commas."""
-    return Metadata(_MixedWeightDataset(n))
-
-
-class _AltitudeDataset:
-    """Classification items with a continuous ``altitude`` factor nobody pinned.
-
-    All-numeric: the point is a column that reads cleanly and lands as ``unbinned``
-    (a cut DataEval derived from this draw), so its suggestion is a bin count,
-    not a correction.
-    """
-
-    def __init__(self, n: int = 60) -> None:
-        self._n = n
-        rng = np.random.default_rng(1)
-        self._altitude = rng.uniform(0.0, 1000.0, n)
-
-    @property
-    def metadata(self) -> DatasetMetadata:
-        return {"id": "altitude", "index2label": {0: "cat", 1: "dog"}}
-
-    def __len__(self) -> int:
-        return self._n
-
-    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
-        one_hot = np.zeros(2, dtype=np.float32)
-        one_hot[index % 2] = 1.0
-        image = np.zeros((3, 8, 8), dtype=np.float32)
-        datum: dict[str, Any] = {"id": index, "altitude": float(self._altitude[index])}
-        return image, one_hot, datum
+    return Metadata(MixedWeightDataset(n))
 
 
 def _altitude_metadata(n: int = 60) -> Metadata:
     """Metadata whose ``altitude`` factor is continuous and cut from this draw."""
-    return Metadata(_AltitudeDataset(n))
+    return Metadata(AltitudeDataset(n))
 
 
 def _describe(metadata: Metadata) -> dict:
@@ -137,7 +75,7 @@ def test_a_mixed_column_is_found_and_a_correction_suggested():
 
 def test_execute_runs_end_to_end_on_a_real_dataset():
     context = WorkflowContext(
-        dataset_contexts={"default": DatasetContext(name="default", dataset=_MixedWeightDataset())},
+        dataset_contexts={"default": DatasetContext(name="default", dataset=MixedWeightDataset())},
     )
     result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
 
@@ -434,7 +372,7 @@ def test_verification_failure_is_surfaced_not_silent():
     from unittest.mock import patch
 
     context = WorkflowContext(
-        dataset_contexts={"default": DatasetContext(name="default", dataset=_MixedWeightDataset())},
+        dataset_contexts={"default": DatasetContext(name="default", dataset=MixedWeightDataset())},
     )
     with patch.object(MetadataTriageWorkflow, "_verify", side_effect=RuntimeError("boom")):
         result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
@@ -648,37 +586,6 @@ def test_a_box_plot_in_a_triage_finding_fits_the_width():
 # ---------------------------------------------------------------------------
 
 
-class _LatitudeDataset:
-    """Classification items whose ``latitude`` reads as a number, except where it reads ``'N'`` or ``'S'``."""
-
-    metadata: DatasetMetadata = DatasetMetadata({"id": "latitude", "index2label": {0: "cat", 1: "dog"}})
-
-    def __len__(self) -> int:
-        return 60
-
-    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
-        one_hot = np.zeros(2, dtype=np.float32)
-        one_hot[index % 2] = 1.0
-        latitude: Any = "N" if index % 7 == 3 else "S" if index == 20 else float(index)
-        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, {"id": index, "latitude": latitude}
-
-
-class _OcclusionDataset:
-    """Detections, two boxes an image, whose ``occlusion`` reads ``'high'`` on every fifth image's second box."""
-
-    metadata: DatasetMetadata = DatasetMetadata({"id": "occlusion", "index2label": {0: "cat", 1: "dog"}})
-
-    def __len__(self) -> int:
-        return 30
-
-    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
-        from tests.test_coverage_workflow import _Target
-
-        occlusion: list[Any] = [0.1 * index, "high" if index % 5 == 0 else 0.2]
-        target = _Target([[2, 2, 20, 20], [8, 8, 30, 30]], [0, 1])
-        return np.zeros((3, 32, 32), dtype=np.uint8), target, {"id": index, "occlusion": occlusion}
-
-
 def _unreadable(dataset: Any) -> Any:
     context = WorkflowContext(dataset_contexts={"train": DatasetContext(name="train", dataset=dataset)})
     result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
@@ -686,7 +593,7 @@ def _unreadable(dataset: Any) -> Any:
 
 
 def test_each_problem_value_is_listed_most_rows_first_with_up_to_eight_of_its_items():
-    finding = _unreadable(_LatitudeDataset())
+    finding = _unreadable(LatitudeDataset())
     assert "Where the values that read as text are:" in paragraphs(finding)
     (table,) = tables(finding)
     assert [c.header for c in table.columns] == ["Value", "Count", "Items", ""]
@@ -698,7 +605,7 @@ def test_each_problem_value_is_listed_most_rows_first_with_up_to_eight_of_its_it
 
 
 def test_a_value_below_the_item_is_placed_by_its_box():
-    (table,) = tables(_unreadable(_OcclusionDataset()))
+    (table,) = tables(_unreadable(OcclusionDataset()))
     assert column(table, "value") == ["high"]
     assert column(table, "image")[0] == [ItemRef(source="train", index=i, target=1) for i in (0, 5, 10, 15, 20, 25)]
 
