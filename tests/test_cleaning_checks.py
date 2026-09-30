@@ -68,8 +68,11 @@ _OUTLIER_TITLES = {"Image Outliers", "Target Outliers", "Classwise Outliers"}
 #   detection: warning Image Outliers 2 images (10.0%); warning Target Outliers 2 targets (7.1%); warning Classwise
 #     Outliers worst: van (12.5%), 1/1 classes over 3.0%; warning Duplicates 2 exact (10.0%), 0 near (0.0%); info
 #     Label Distribution 3 classes, 20 items, imbalance 1.3:1
+#   no duplicates (6 images, none copied): ok Image Outliers 0 images (0.0%); ok Classwise Outliers no outliers
+#     detected; info Label Distribution 2 classes, 6 items, imbalance 1.0:1; and no Duplicates finding at all
 _DATASETS: dict[str, Callable[[], Any]] = {
     "classification": lambda: ToyImages(count=24),
+    "no duplicates": lambda: ToyImages(count=6),
     "unlabelled": lambda: ToyImages(count=24, labeled=False),
     "detection": lambda: ToyDetections(
         [[0, 1], [1], [0], [1, 1], [0]] * 4,
@@ -282,6 +285,8 @@ _ALL_STEPS = [
 def test_data_cleaning_s_whole_report_agrees_as_a_chain(name: str) -> None:
     legacy, chain = _both(_ALL_STEPS, _DATASETS[name]())
     assert _verdicts(chain) == _verdicts(legacy)
+    if name == "no duplicates":
+        assert "Duplicates" not in {f.title for f in [*legacy, *chain]}
     assert {finding.step for finding in chain} <= {step["name"] for step in _ALL_STEPS if "check" in step}
 
 
