@@ -270,7 +270,37 @@ outnumbers its smallest by more than 3 to 1. The task's health now says `warning
 `--fail-on-warning` fails the run. The [Check and Combine Catalog](../reference/checks.md) lists every check and its
 thresholds.
 
-## 6. Read the result
+## 6. Run data-cleaning as a step
+
+A workflow type that is a preset, such as `data-cleaning`, runs as a step with its whole chain: its evaluators, the
+checks that judge them against its `health_thresholds`, and a `clean` step that removes each flagged image and box,
+and each duplicate but the first. Name the entry with `workflow:`, and read the cleaned Dataset as `cleaning.clean`:
+
+```yaml
+workflows:
+  - name: tidy
+    type: data-cleaning
+    outlier_method: adaptive
+    outlier_flags: [dimension, pixel, visual]
+
+  - name: street_clean
+    inputs: [data]
+    steps:
+      - {name: cleaning, workflow: tidy, input: data}
+      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+
+tasks:
+  - name: street
+    workflow: street_clean
+    sources: [street_2024]
+```
+
+`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/dupes` and so on, to `cleaning/clean`, each
+with a section of its own in the report. Its checks' findings count toward the task's health, as section 5's do.
+Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.dupes` fail the
+config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) says more.
+
+## 7. Read the result
 
 The output below comes from running the workflow as section 3 leaves it, through `corpus`, on two small synthetic
 corpora of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
@@ -334,7 +364,7 @@ for record in result.metadata.lineage:
 `clean` is a DataEval `View` over the merged corpus, so you can go on to train on it or evaluate it from Python.
 Without `output_dir`, the export step is skipped and nothing is written.
 
-## 7. See which steps you can chain
+## 8. See which steps you can chain
 
 ```bash
 dataeval-flow steps
@@ -345,7 +375,7 @@ prints one step's catalog entry, including the schema of its settings, and `--js
 kinds share a name, write it as `KIND:NAME`, as in `transform:split`. From Python, `list_steps()` in
 `dataeval_flow.steps` returns the same catalog.
 
-## 8. Save a workflow from Python
+## 9. Save a workflow from Python
 
 `CustomWorkflowConfig` builds a workflow in Python, and `save` writes it into a config file:
 

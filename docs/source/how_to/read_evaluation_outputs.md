@@ -102,6 +102,9 @@ holds everything the text report holds, laid out for reading on screen:
   Esc, to put it back. An item without a thumbnail is named instead.
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
+A chain's report, `data-cleaning`'s among them, is laid out by step instead of by finding: each step is a section
+headed by its name and type, and a check's findings sit in its step's section, each with its severity.
+
 Flow takes the thumbnails once a run is done, from the datasets the run read: one per item, at most 192 pixels
 across, and at most 200 per result. A pipeline's `result: max_images:` sets that limit: `0` embeds none, and `-1`
 every item the report names. The
@@ -117,10 +120,10 @@ without those controls.
 
 The page prints (or saves as PDF from the browser's print dialog) in the light palette. Before it prints, its script
 opens every finding and shows every row a filter hid. With scripts blocked, each finding and panel prints as the
-reader left it. Hover cards don't print, and thumbnails print at their own size. In data cleaning, each outlier
-finding's limits table gives
-each metric's limits and its population's mean and standard deviation, and says `varies` where its flags' figures
-differ. Percentiles, and data analysis's populations, show only in the hover cards and the JSON.
+reader left it. Hover cards don't print, and thumbnails print at their own size. In data cleaning, the `outliers`
+step's limits tables give each metric's limits and its population's mean and standard deviation, and say `varies`
+where its flags' figures differ. Percentiles, and data analysis's populations, show only in the hover cards and the
+JSON.
 
 The page is UTF-8, so write it with `encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every
 task's report on one page, unless the pipeline's `result:` block says otherwise (see
@@ -166,6 +169,24 @@ outputs, and `report` the same findings the text report renders — summary stri
 with a `title`, `severity`, `brief`, `description`, and `blocks`: its evidence as typed report blocks, one object
 per block with its `type`. `assets` holds the thumbnails, as the end of the next section describes. `kind`
 distinguishes this from an evaluator's envelope, covered next.
+
+A chain's result has `steps` and a top-level `findings` in place of `raw` and `report`. A custom workflow's result
+is one, and so is a `data-cleaning` result: `data-cleaning` is a {term}`preset <Preset>`, whose settings expand to a
+chain of steps.
+
+```json
+{
+  "kind":     "workflow",
+  "metadata": { "timestamp": "...", "workflow": "skysealand_cleaning", "lineage": [] },
+  "health":   { "status": "warning", "warnings": 1, "findings": 4, "failed_steps": [] },
+  "steps":    { "outliers": { "kind": "evaluator", "type": "quality.outliers", "status": "ok" } },
+  "findings": [ { "step": "image_outliers", "title": "Image Outliers", "severity": "warning" } ]
+}
+```
+
+`steps` holds each step by name, in run order, with its kind, type, status, the addresses it read and what it made.
+`findings` lists the check steps' findings, each shaped as below and naming its step under `step`. `health` also
+lists the steps that failed. {doc}`write_a_custom_workflow` shows more of a chain's JSON.
 
 ### Findings and their report blocks
 
@@ -304,11 +325,11 @@ The `metadata` block is what makes a finding auditable and interoperable with ot
 envelope and you can reproduce the run without the original config file.
 
 Workflows extend this envelope with their own fields, so `metadata` carries more than the table above. A
-`data-cleaning` result, for example, also records `mode`, `evaluators`, `flagged_indices`, `clean_indices`, and
-`removed_count`. Treat the table as the guaranteed floor, not the full set: each workflow's result class in the
+`data-cleaning` result, for example, is a chain's, and records `workflow`, the entry's name, and `lineage`, each
+Dataset in the chain with what made it. It records no metadata encoding, so its `metadata_binning` is `null`. Treat
+the table as the guaranteed floor, not the full set: each result class in the
 {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
-{py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningResult`, lists the `metadata` fields it adds under
-**Fields**.
+{py:class}`~dataeval_flow.steps.ChainResult`, lists the `metadata` fields it adds under **Fields**.
 
 ## Evaluator results
 
@@ -336,9 +357,6 @@ workflow-specific outputs:
 ```python
 result = run_task(task, config)
 
-# data-cleaning
-flagged = result.output.raw.img_outliers
-
 # data-coverage
 onto_findings = result.output.raw.ontology
 uncovered = result.output.raw.coverage.uncovered  # each uncovered item, its box and class, and its distance
@@ -346,8 +364,21 @@ uncovered = result.output.raw.coverage.uncovered  # each uncovered item, its box
 
 Each workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the
 {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
-{py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningResult`, lists every `output.raw` field and what it holds
+{py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageResult`, lists every `output.raw` field and what it holds
 under **Fields**. Narrow a result to that class with `isinstance`, and your editor and type checker know the fields too.
+
+A chain's result, a `data-cleaning` result among them, is a {py:class}`~dataeval_flow.steps.ChainResult` and has no
+`output.raw`. Its `steps` hold each step's output, by step name: an evaluator step's is DataEval's own output, a
+check's is its findings, and a transform's is the Dataset it made, a DataEval `View`:
+
+```python
+result = run_task(task, config)  # a data-cleaning task
+
+outliers = result.steps["outliers"].output  # DataEval's Outliers output
+flags = outliers.data()  # one row per flag: its item, its box if any, the metric, its value and the limit crossed
+duplicates = result.steps["dupes"].output  # DataEval's Duplicates output
+cleaned = result.steps["clean"].output  # without each flagged image and box, and each duplicate but the first
+```
 
 ### How metadata factors were treated
 
@@ -376,12 +407,15 @@ or `target`, which is unrelated and unchanged. Classwise outlier pivots report `
 
 Two more fields are useful for follow-up work and are deliberately *not* serialized into the envelope:
 
-- `result.dataset` — the resolved, post-view dataset the workflow ran on, for pulling up the images behind a finding.
-- `result.sources` — for multi-split workflows such as `data-analysis`, a mapping of source name to resolved dataset.
+- `result.dataset` — the resolved, post-view dataset a one-source workflow ran on, for pulling up the images behind a
+  finding.
+- `result.sources` — for multi-split workflows such as `data-analysis`, and for every chain, `data-cleaning` among
+  them, a mapping of source name to resolved dataset.
 
 ```python
-for issue in result.output.raw.img_outliers["issues"]:
-    image, target, meta = result.dataset[issue["item_index"]]
+dataset = result.sources["train"]  # a data-cleaning task on the source `train`
+for item in result.steps["outliers"].output.data()["item_index"].unique().sort():
+    image, target, meta = dataset[item]
 ```
 
 ## Checking whether a run succeeded

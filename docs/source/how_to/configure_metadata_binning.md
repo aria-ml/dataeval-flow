@@ -17,9 +17,11 @@ The three `metadata_*` settings are accepted by every workflow that builds metad
 | Workflow | Reads metadata for |
 | --- | --- |
 | `data-analysis` | balance, diversity, per-factor summaries |
-| `data-cleaning` | classwise outlier attribution and label statistics |
 | `data-coverage` | class balance, factor gap analysis, factor-to-class mutual information |
 | `ood-detection` | factor deviation and predictors for flagged samples |
+
+`data-cleaning` takes a policy's name, `metadata:`, but none of the `metadata_*` settings, and records no encoding:
+its result's `metadata_binning` and `encoding_digest` are `null`.
 
 ## Define the policy once and share it
 
@@ -41,9 +43,11 @@ workflows:
   - name: coverage_check
     type: data-coverage
     metadata: standard
-  - name: quality_check
-    type: data-cleaning
+  - name: profile
+    type: data-analysis
     metadata: standard        # same policy — and the digests prove it
+    outlier_method: adaptive
+    outlier_flags: [dimension, pixel, visual]
 ```
 
 A policy carries everything that decides how a factor becomes a code: `encoding`, `factor_levels`, `strict`,

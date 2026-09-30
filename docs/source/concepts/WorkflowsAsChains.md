@@ -43,7 +43,7 @@ Each step names exactly one kind:
 | Kind key | Names | Makes |
 | --- | --- | --- |
 | `evaluator:` | an `evaluators:` entry | that evaluator's DataEval output |
-| `workflow:` | a `workflows:` entry with a `type:` | that workflow's result, with its findings |
+| `workflow:` | a `workflows:` entry with a `type:` | that workflow's result, with its findings; or a preset's steps, [below](#workflow-types-as-presets) |
 | `transform:` | a built-in transform, with its settings beside it | one or more Datasets, or an export record |
 | `combine:` | a registered combine, with its settings beside it | an Output a check reads, made from Outputs |
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
@@ -158,6 +158,24 @@ tasks:
 A key missing from one of the lists skips that element, and the reason names the key. Lists do not nest: a step that
 outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of
 its own, named by its key.
+
+## Workflow types as presets
+
+A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning` is the first. Its
+evaluators find outliers and duplicates, its checks judge them against `health_thresholds`, and its `clean` step
+removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists
+the chain. The other workflow types will follow. Until then, each runs as one step that makes its result, and its
+findings stay in that step.
+
+Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
+its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
+`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/dupes` and so on. The step's
+`optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
+chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image_outliers`.
+
+Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
+while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain
+once per element, so `cleaning.clean` is a list with the same keys.
 
 ## Derived data
 

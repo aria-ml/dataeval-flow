@@ -16,7 +16,8 @@
 # %% [markdown]
 # # Clean a dataset
 #
-# Flag outliers and duplicates in SkySeaLand using the config-driven `data-cleaning` workflow.
+# Flag outliers and duplicates in SkySeaLand using the config-driven `data-cleaning` workflow, and take the dataset
+# without them.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer or data scientist vetting an
@@ -36,7 +37,7 @@
 # - Run `run_task()` to detect statistical outliers and image duplicates.
 # - Inspect the cleaning report and evaluate health status indicators.
 # - Visually inspect flagged outlier and duplicate images using `dataeval-plots`.
-# - Run preparatory mode to generate index lists of clean and flagged samples.
+# - Take the cleaned dataset from the workflow's `clean` step, and see how an `export` step writes it.
 
 # %% [markdown]
 # ## What you will learn
@@ -46,8 +47,9 @@
 # - How to configure outlier detection parameters and duplicate sensitivity.
 # - How to set health thresholds to trigger warning statuses.
 # - How to interpret the formatted cleaning report.
+# - How to read the result's findings, and what each of the workflow's steps found.
 # - How to inspect flagged samples with `dataeval-plots`.
-# - How advisory mode (reporting only) differs from preparatory mode (index filtering).
+# - How to get the dataset without what the workflow flagged, and write it to disk.
 
 # %% [markdown]
 # ## Prerequisites
@@ -112,9 +114,8 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningHealthThresholds
 
-advisory_workflow = DataCleaningConfig(
-    name="skysealand_advisory_clean",
-    mode="advisory",
+workflow = DataCleaningConfig(
+    name="skysealand_cleaning",
     outlier_method="adaptive",  # Use adaptive thresholding for outliers
     outlier_threshold=3.5,
     outlier_flags=["dimension", "pixel", "visual"],  # All image stat groups
@@ -136,7 +137,7 @@ advisory_workflow = DataCleaningConfig(
 
 task = TaskConfig(
     name="skysealand_clean",
-    workflow="skysealand_advisory_clean",
+    workflow="skysealand_cleaning",
     sources="skysealand_src",
     extractor="bovw_ext",
 )
@@ -162,7 +163,7 @@ config = PipelineConfig(
     extractors=[
         BoVWExtractorConfig(name="bovw_ext", vocab_size=512, batch_size=32),
     ],
-    workflows=[advisory_workflow],
+    workflows=[workflow],
     tasks=[task],
 )
 
@@ -182,12 +183,31 @@ result = run_task(task, config, cache_dir=Path("./cache"))
 print(result.report())
 
 # %% [markdown]
+# ### Findings and steps
+#
+# `data-cleaning` is a preset: its settings expand to a chain of steps, and the report above gives each step a
+# section. Evaluators find the outliers and duplicates and count the labels, checks judge what they found against
+# `health_thresholds`, and `clean` removes what was flagged. `run_task()` returns a `ChainResult` holding each step
+# by name, in run order:
+
+# %%
+print(list(result.steps))
+
+# %% [markdown]
+# `result.findings` holds the checks' findings, the ones the report's summary lists:
+
+# %%
+for finding in result.findings:
+    print(f"{finding.severity:<8} {finding.title:<20} {finding.brief}")
+
+# %% [markdown]
 # ### Understanding health status
 #
 # The **Health** summary line indicates whether findings exceeded configured
 # thresholds:
 #
-# - **info** (`[ok]`): Finding is within the allowable threshold.
+# - **ok** (`[ok]`): Nothing was flagged.
+# - **info** (`[..]`): Finding is within the allowable threshold.
 # - **warning** (`[!!]`): Finding exceeds the threshold and requires review.
 #
 # You can configure health thresholds using `DataCleaningHealthThresholds` on
@@ -224,30 +244,31 @@ print(result.report())
 # You can inspect flagged images with `dataeval-plots` to determine whether
 # detected anomalies represent data quality errors or acceptable operational variation.
 #
-# You can access `result.dataset` directly to retrieve images without reloading from disk.
+# `result.sources` holds the dataset each source read, after its view: here the 300 frames the workflow ran on, which
+# the flagged indices refer to. You can retrieve images from it without reloading from disk.
 
 # %%
-assert result.dataset is not None
-ds = result.dataset
+ds = result.sources["skysealand_src"]
 
 # %% [markdown]
 # #### Outlier images
 #
-# You can extract image indices flagged by statistical checks (such as brightness,
-# entropy, or dimensions) and display a sample.
+# The `outliers` step's output is DataEval's own Outliers output. Its `data()` gives one row per flag: the image,
+# the box where a box was flagged, the metric (such as brightness, entropy, or a dimension), its value, and the limit
+# it crossed. You can extract the images flagged as a whole and display a sample.
 
 # %%
-raw = result.output.raw
+outliers = result.steps["outliers"].output
+issues = outliers.data()
 
-# Collect unique outlier image indices, grouped by image
-outlier_issues = raw.img_outliers["issues"]
-outlier_grouped: dict[int, list[str]] = {
-    idx: [i["metric_name"] for i in outlier_issues if i["item_index"] == idx]
-    for idx in {i["item_index"] for i in outlier_issues}
-}
+# Image-level flags name no box; the rest flag single boxes.
+image_issues = issues.filter(issues["target_index"].is_null())
+outlier_grouped: dict[int, list[str]] = {}
+for row in image_issues.iter_rows(named=True):
+    outlier_grouped.setdefault(row["item_index"], []).append(row["metric_name"])
 
 outlier_indices = sorted(outlier_grouped)
-print(f"Image outliers: {len(outlier_indices)} images flagged, {len(outlier_issues)} total flags")
+print(f"Image outliers: {len(outlier_indices)} images flagged, {image_issues.height} total flags")
 
 # %%
 from dataeval_plots import plot
@@ -264,78 +285,71 @@ if outlier_indices:
 # #### Duplicate images
 #
 # You can plot duplicate groups side by side (both exact and near duplicates) to
-# verify whether images are redundant.
+# verify whether images are redundant. The `dupes` step's output is DataEval's own
+# Duplicates output, and its `items` holds the groups of whole images.
 #
 # SkySeaLand contains distinct captures without duplicates in this sample. When
 # duplicate images are detected in a dataset, each group renders here for visual inspection.
 
 # %%
-exact_groups = raw.duplicates["items"].get("exact", [])
-near_groups = raw.duplicates["items"].get("near", [])
+duplicates = result.steps["dupes"].output.items
+exact_groups = duplicates.exact
+near_groups = duplicates.near
 
 print(f"Exact duplicate groups: {len(exact_groups)}")
 print(f"Near  duplicate groups: {len(near_groups)}")
 
 # %%
 # Plot exact duplicate groups (if any)
-for i, group in enumerate(exact_groups[:3]):
-    indices = group if isinstance(group, list) else group["indices"]
+for i, indices in enumerate(exact_groups[:3]):
     print(f"\nExact group {i}: indices {indices}")
     _ = plot(ds, indices=indices, images_per_row=len(indices), figsize=(4 * len(indices), 4), show_labels=True)
 
 # %%
 # Plot near duplicate groups (if any)
-for i, group in enumerate(near_groups[:3]):
-    indices = group["indices"]
-    methods = group.get("methods", [])
+for i, (indices, methods) in enumerate(near_groups[:3]):
     print(f"\nNear group {i}: indices {indices}  (methods: {methods})")
     _ = plot(ds, indices=indices, images_per_row=len(indices), figsize=(4 * len(indices), 4), show_labels=True)
 
 # %% [markdown]
-# ## Step 3: Preparatory mode: Get clean indices
+# ## Step 3: Take the cleaned dataset
 #
-# Run the workflow with `mode="preparatory"` to compute clean indices and flagged
-# indices for downstream filtering.
+# The chain's last step, `clean`, removes each flagged image and box, and each duplicate but the first of its group.
+# Its output is a DataEval `View` of the images that survived, which you can go on to train on or evaluate from
+# Python. Its `details` count what it removed at each level: images (`items`) and boxes (`detections`).
 
 # %%
-# Define a preparatory pipeline with mode="preparatory"
-# Copy the advisory workflow and change name + mode
-prep_workflow = advisory_workflow.model_copy(
-    update={"name": "skysealand_prep_clean", "mode": "preparatory"},
-)
+clean = result.steps["clean"].output
+print(f"Images before cleaning: {len(ds)}")
+print(f"Images after cleaning:  {len(clean)}")
+print(f"Removed: {result.steps['clean'].details['removed']}")
 
-task_prep = TaskConfig(
-    name="skysealand-clean-prep",
-    workflow="skysealand_prep_clean",
-    sources="skysealand_src",
-    extractor="bovw_ext",
-)
-
-config_prep = PipelineConfig(
-    seed=0,
-    datasets=config.datasets,
-    views=config.views,
-    sources=config.sources,
-    extractors=config.extractors,
-    workflows=[advisory_workflow, prep_workflow],
-    tasks=[task_prep],
-)
-
-result_prep = run_task(task_prep, config_prep, cache_dir=Path("./cache"))
-
-# %% tags=["remove_cell"]
-if not result_prep.success:
-    print(f"Workflow failed: {result_prep.errors}")
-assert result_prep.success
-
-# %%
-meta = result_prep.metadata
-print(f"Mode: {meta.mode}")
-print(f"Flagged for removal : {meta.removed_count}")
-print(f"Retained (clean)    : {len(meta.clean_indices)}")
-
-if meta.flagged_indices:
-    print(f"\nFirst 20 flagged indices: {meta.flagged_indices[:20]}")
+# %% [markdown]
+# To write the cleaned dataset to disk, run the `data-cleaning` entry as a step of a custom workflow, and add an
+# `export` step that reads the step's `clean` output, `cleaning.clean`. `export` writes object-detection datasets,
+# which SkySeaLand is. `data_cleaning.yaml`, beside this notebook, holds this tutorial's pipeline with that workflow
+# and a task to run it:
+#
+# ```yaml
+# workflows:
+#   - name: clean_export
+#     inputs: [data]
+#     steps:
+#       - {name: cleaning, workflow: skysealand_cleaning, input: data}
+#       - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+#
+# tasks:
+#   - name: skysealand_export
+#     workflow: clean_export
+#     sources: skysealand_src
+#     extractor: bovw_ext
+# ```
+#
+# Run from this notebook's directory, `dataeval-flow --config data_cleaning.yaml --output ./output` runs both tasks.
+# In `skysealand_export`, the `cleaning` step runs the chain above as `cleaning/outliers`, `cleaning/labels`, and so on
+# to `cleaning/clean`, and `corpus` writes the cleaned dataset in COCO format under
+# `output/datasets/skysealand_export.corpus/`. Without `--output`, nothing is written, and the export step is skipped.
+# See {doc}`Chain steps into a workflow of your own <../how_to/write_a_custom_workflow>`.
 
 # %% [markdown]
 # ## Results Exploration: Export results
@@ -354,9 +368,9 @@ print(json_str[:500] + "\n...")
 # - Use BoVW feature extractors without external model dependencies.
 # - Set health thresholds to control warning generation.
 # - Run the workflow via `run_task()` on a dataset view.
-# - Read the cleaning report and evaluate health statuses.
+# - Read the cleaning report, its findings, and evaluate health statuses.
 # - Visually inspect flagged outliers and duplicates using `dataeval-plots`.
-# - Use preparatory mode to extract clean and flagged index lists for downstream filtering.
+# - Take the cleaned dataset from the `clean` step, and write it with an `export` step.
 # - Export cleaning results to JSON format.
 
 # %% [markdown]

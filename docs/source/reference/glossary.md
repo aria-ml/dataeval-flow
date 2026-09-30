@@ -43,7 +43,8 @@ Coverage
 Data Cleaning
     The process of identifying and flagging quality issues in a dataset —
     {term}`outliers<Outlier>`, {term}`duplicates<Duplicates>`, and label
-    anomalies. See the
+    anomalies. The `data-cleaning` workflow's `clean` step hands on the dataset
+    without the samples it flagged, and an `export` step writes it to disk. See the
     [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html).
 
 DataEval
@@ -126,11 +127,6 @@ Metadata Level
     Introduced in DataEval v1.1, replacing the fixed image/target split. Distinct
     from the `level` reported on duplicate groups, which is `item` or `target`.
 
-Mode
-    Whether a workflow reports or acts. `advisory` (the default) flags findings
-    and leaves the dataset untouched; `preparatory` applies the workflow's
-    remedy — for example, removing the samples data cleaning flagged.
-
 ONNX
     Open Neural Network Exchange — an open model format. DataEval Flow can use an
     ONNX model as a {term}`feature extractor<Extractor>` for embedding
@@ -166,6 +162,12 @@ Pipeline
 Preprocessor
     A named, ordered image-transform pipeline (built on torchvision transforms)
     applied to samples before {term}`extraction<Extractor>`.
+
+Preset
+    A {term}`workflow<Workflow>` type whose settings expand to a chain of steps:
+    evaluators, the checks that judge what they found, and the transforms that
+    make Datasets. `data-cleaning` is one. See
+    [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md).
 
 Prioritization
     Ranking abundant or unlabeled samples by how informative they are for

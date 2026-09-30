@@ -1,8 +1,10 @@
-# Data Cleaning — Advisory Workflow
+# Data Cleaning
 # Mirrors the configuration in data_cleaning.py
 # All paths are relative to the data root (docs/source/notebooks/)
 #
-# You can execute this workflow with `dataeval-flow --config data_cleaning.yaml`
+# You can execute this workflow with `dataeval-flow --config data_cleaning.yaml`.
+# With `--output ./output`, the skysealand_export task also writes the cleaned dataset
+# under output/datasets/skysealand_export.corpus/.
 #
 # yaml-language-server: $schema=../../../config/params.schema.json
 
@@ -35,9 +37,8 @@ extractors:
     batch_size: 32
 
 workflows:
-  - name: skysealand_advisory_clean
+  - name: skysealand_cleaning
     type: data-cleaning
-    mode: advisory
     # Outlier detection
     outlier_method: adaptive
     outlier_threshold: 3.5
@@ -58,8 +59,20 @@ workflows:
       classwise_outliers: 12.0
       class_label_imbalance: 5.0
 
+  # data-cleaning as a step: `cleaning.clean` is the dataset without what it flagged
+  - name: clean_export
+    inputs: [data]
+    steps:
+      - {name: cleaning, workflow: skysealand_cleaning, input: data}
+      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+
 tasks:
   - name: skysealand_clean
-    workflow: skysealand_advisory_clean
+    workflow: skysealand_cleaning
+    sources: skysealand_src
+    extractor: bovw_ext
+
+  - name: skysealand_export
+    workflow: clean_export
     sources: skysealand_src
     extractor: bovw_ext

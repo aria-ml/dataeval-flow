@@ -57,7 +57,6 @@ extractors:
 workflows:
   - name: quality_check
     type: data-cleaning
-    mode: advisory             # report only; do not modify the dataset
     outlier_method: adaptive
     outlier_flags: [dimension, pixel, visual]
 

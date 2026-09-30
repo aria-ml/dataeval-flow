@@ -6,8 +6,8 @@ findings: each `ok`, `info` or `warning`, rolled up into the task's health, wher
 reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
-The built-in checks reproduce `data-cleaning`'s findings. A chain of them gives that workflow's findings, in the
-same order, with the same severities.
+The built-in checks are the ones `data-cleaning` runs: its findings are theirs. See
+[data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -108,9 +108,10 @@ On a detection Dataset it refuses outliers not computed per box (`per_target: tr
 
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
 
-## data-cleaning as a chain
+## data-cleaning is this chain
 
-These steps give `data-cleaning`'s findings, on the same Dataset, with its default thresholds:
+`data-cleaning` is a preset: its settings expand to a chain of steps, run on the task's one source, `data`. With
+`outlier_method: zscore`, `outlier_flags: [pixel, visual]` and the default thresholds, it runs these steps:
 
 ```yaml
 evaluators:
@@ -119,7 +120,7 @@ evaluators:
   - {name: labels, type: quality.label-health}
 
 workflows:
-  - name: cleaning_report
+  - name: cleaning
     inputs: [data]
     steps:
       - {name: outliers, evaluator: outliers, input: data}
@@ -131,7 +132,21 @@ workflows:
       - {name: classwise, check: classwise-outlier-rate, input: by_class}
       - {name: duplicates, check: duplicate-rate, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
+      - name: clean
+        transform: remove
+        input: data
+        plans:
+          dupes: {dup_types: [exact, near], keep: first}
+          outliers: {min_flags: 1}
 ```
 
-The chain's report differs in layout: each evaluator's section holds the evidence, the flagged items and the duplicate
-groups, and each check's section its finding.
+Its other settings go to the evaluators: `outlier_threshold`, `outlier_cluster_threshold`,
+`outlier_cluster_algorithm` and `outlier_n_clusters` to `outliers`, the `duplicate_*` settings to `dupes`, `metadata`
+to `labels`, and `stats` to both `outliers` and `dupes`. Each `health_thresholds` entry is the threshold of the check
+that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
+but the first of its group.
+
+Its report gives each step a section: each evaluator's holds the evidence, the flagged items and the duplicate groups,
+each check's its finding, and `clean`'s the counts it removed at each level. Run as a step of a custom workflow,
+`<step>.clean` reads the cleaned Dataset; see
+[Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets).
