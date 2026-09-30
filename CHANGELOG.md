@@ -75,6 +75,9 @@
   per element of a list; a task runs one with `workflow:`, and a failed step skips only what reads it
 - `CustomWorkflowConfig` and `StepEntry` build a custom workflow in Python, and `save()` writes it into a config file;
   loading and saving a config, from the TUI or the config builder too, keeps custom workflows as written
+- `save()` and `to_yaml()` on a custom workflow take `definitions`, as `run()` does: the evaluator entries, views,
+  policies and other named entries its steps refer to are written beside it, each with its name, its type and the
+  settings that differ from their defaults, so a saved block loads and runs on new data on its own
 - Nine transforms for custom workflows: `view`, `merge`, `split`, `kfold`, `wrap`, `select`, `remove` (DataEval's
   removal plans from Duplicates and Outliers), `conform` (relabelling onto an ontology, refusing loss beyond `allow:`)
   and `export` (writing to `<output>/datasets/<task>.<step>/`); plug-in transforms register under

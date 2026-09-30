@@ -2,35 +2,19 @@
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
 __all__ = ["run"]
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset, FeatureExtractor
 
-    from dataeval_flow.config._schemas._metadata import MetadataPolicyConfig
-    from dataeval_flow.config._schemas._ontology import OntologyConfig
-    from dataeval_flow.config._schemas._preprocessor import PreprocessorConfig
-    from dataeval_flow.config._schemas._stats import StatsPolicyConfig
-    from dataeval_flow.config._schemas._view import ViewConfig
+    from dataeval_flow.config._definitions import Definition as _Definition
     from dataeval_flow.config.extractors._base import ExtractorConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.steps._workflow import CustomWorkflowConfig
     from dataeval_flow.workflows._base import WorkflowConfig
-
-    # What `definitions` takes: the named entries `config` and `extractor`, or a custom workflow's steps, refer to.
-    _Definition: TypeAlias = (
-        MetadataPolicyConfig
-        | StatsPolicyConfig
-        | OntologyConfig
-        | PreprocessorConfig
-        | EvaluatorConfig[Any]
-        | WorkflowConfig[Any]
-        | ViewConfig
-        | ExtractorConfig
-    )
 
 R = TypeVar("R")
 
@@ -139,6 +123,7 @@ def run(
         )
     """
     from dataeval_flow._orchestrator import run_task
+    from dataeval_flow.config._definitions import definition_pools
     from dataeval_flow.config._models import PipelineConfig, SourceConfig
     from dataeval_flow.config._schemas._dataset import DatasetProtocolConfig
     from dataeval_flow.config._schemas._task import TaskConfig
@@ -148,7 +133,7 @@ def run(
     datasets: dict[str, AnnotatedDataset[Any]] = dict(data) if isinstance(data, Mapping) else {"dataset": data}
     if not datasets:
         raise ValueError("run() needs at least one dataset.")
-    pools = _pools(definitions)
+    pools = definition_pools(definitions, caller="run()")
     extractors: list[ExtractorConfig] = []
     if extractor is not None:
         extractors.append(
@@ -187,37 +172,3 @@ def run(
         "R | ChainResult",
         run_task(task, pipeline, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir),
     )
-
-
-def _pools(definitions: Sequence[object]) -> dict[str, list[Any]]:
-    """Sort `definitions` into the ``PipelineConfig`` pools they belong to, keyed by field name."""
-    from dataeval_flow.config._schemas._metadata import MetadataPolicyConfig
-    from dataeval_flow.config._schemas._ontology import OntologyConfig
-    from dataeval_flow.config._schemas._preprocessor import PreprocessorConfig
-    from dataeval_flow.config._schemas._stats import StatsPolicyConfig
-    from dataeval_flow.config._schemas._view import ViewConfig
-    from dataeval_flow.config.extractors._base import ExtractorConfig
-    from dataeval_flow.evaluators._base import EvaluatorConfig
-    from dataeval_flow.workflows._base import WorkflowConfig
-
-    fields: dict[type, str] = {
-        MetadataPolicyConfig: "metadata",
-        StatsPolicyConfig: "stats",
-        OntologyConfig: "ontologies",
-        PreprocessorConfig: "preprocessors",
-        EvaluatorConfig: "evaluators",
-        WorkflowConfig: "workflows",
-        ViewConfig: "views",
-        ExtractorConfig: "extractors",
-    }
-    pools: dict[str, list[Any]] = {}
-    for definition in definitions:
-        field = next((name for cls, name in fields.items() if isinstance(definition, cls)), None)
-        if field is None:
-            raise TypeError(
-                f"run() cannot use a {type(definition).__name__} as a definition; it takes MetadataPolicyConfig, "
-                "StatsPolicyConfig, OntologyConfig, PreprocessorConfig, EvaluatorConfig, WorkflowConfig, ViewConfig "
-                "and ExtractorConfig."
-            )
-        pools.setdefault(field, []).append(definition)
-    return pools

@@ -1,14 +1,17 @@
 """A custom workflow's own shape, and its round-trip through a config file (spec §3)."""
 
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow import PipelineConfig, load_config, run
+from dataeval_flow.config.extractors import FlattenExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import CustomWorkflowConfig, InputSlot, StepEntry
+from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningHealthThresholds
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 
@@ -157,6 +160,81 @@ def test_save_refuses_a_file_that_is_no_config(tmp_path: Path) -> None:
     path.write_text("services:\n  flow: {}\n")
     with pytest.raises(ValueError, match="not a pipeline config"):
         CustomWorkflowConfig.model_validate(_WRITTEN).save(path)
+
+
+# A cleaning chain to save and reuse: duplicates found and removed, with its own evaluator entry.
+_CLEAN = {
+    "name": "my_clean",
+    "inputs": ["data"],
+    "steps": [
+        {"name": "dupes", "evaluator": "dupes", "input": "data"},
+        {"name": "clean", "transform": "remove", "input": "data", "plans": {"dupes": {"keep": "first"}}},
+    ],
+}
+_DUPES = DuplicatesConfig(name="dupes", merge_near_duplicates=False)
+_DUPES_WRITTEN = {"name": "dupes", "type": "duplicates", "merge_near_duplicates": False}
+
+
+def test_to_yaml_writes_each_definition_beside_the_workflow_as_written() -> None:
+    workflow = CustomWorkflowConfig.model_validate(_CLEAN)
+    assert yaml.safe_load(workflow.to_yaml(definitions=[_DUPES])) == {
+        "evaluators": [_DUPES_WRITTEN],
+        "workflows": [_CLEAN],
+    }
+
+
+def test_save_writes_each_definition_into_its_section_with_the_settings_it_was_given(tmp_path: Path) -> None:
+    path = tmp_path / "my_clean.yaml"
+    CustomWorkflowConfig.model_validate(_CLEAN).save(path, definitions=[_DUPES, FlattenExtractorConfig(name="flat")])
+    assert yaml.safe_load(path.read_text()) == {
+        "evaluators": [_DUPES_WRITTEN],
+        "extractors": [{"name": "flat", "model": "flatten"}],
+        "workflows": [_CLEAN],
+    }
+
+
+def test_each_saved_definition_loads_back_as_it_was(tmp_path: Path) -> None:
+    # `image_outliers: null` judges nothing, where the default judges: a setting given as `None` must survive.
+    cleaning = DataCleaningConfig(
+        name="basic",
+        outlier_method="zscore",
+        outlier_flags=["pixel"],
+        health_thresholds=DataCleaningHealthThresholds(image_outliers=None),
+    )
+    path = tmp_path / "my_clean.yaml"
+    CustomWorkflowConfig.model_validate(_CLEAN).save(
+        path, definitions=[_DUPES, FlattenExtractorConfig(name="flat"), cleaning]
+    )
+    loaded = load_config(path)
+    assert list(loaded.evaluators or []) == [_DUPES]
+    assert list(loaded.extractors or []) == [FlattenExtractorConfig(name="flat")]
+    assert [entry for entry in loaded.workflows or [] if entry.name == "basic"] == [cleaning]
+
+
+def test_a_saved_block_runs_on_a_new_dataset(tmp_path: Path) -> None:
+    path = tmp_path / "my_clean.yaml"
+    CustomWorkflowConfig.model_validate(_CLEAN).save(path, definitions=[_DUPES])
+    recipe = load_config(path)
+    (workflow,) = recipe.workflows or []
+    assert isinstance(workflow, CustomWorkflowConfig)
+    result = run(workflow, ToyImages(count=12), definitions=list(recipe.evaluators or []))
+    assert result.success, result.errors
+    assert len(result.steps["clean"].output) == 11
+
+
+def test_save_replaces_a_definition_of_its_name_and_keeps_the_others(tmp_path: Path) -> None:
+    path = tmp_path / "my_clean.yaml"
+    other = {"name": "outliers", "type": "outliers", "flags": ["pixel"]}
+    path.write_text(yaml.safe_dump({"evaluators": [{"name": "dupes", "type": "duplicates"}, other]}, sort_keys=False))
+    CustomWorkflowConfig.model_validate(_CLEAN).save(path, definitions=[_DUPES])
+    assert yaml.safe_load(path.read_text())["evaluators"] == [_DUPES_WRITTEN, other]
+
+
+def test_save_refuses_a_definition_it_cannot_write_and_writes_nothing(tmp_path: Path) -> None:
+    path = tmp_path / "my_clean.yaml"
+    with pytest.raises(TypeError, match=re.escape("save() cannot use a dict as a definition")):
+        CustomWorkflowConfig.model_validate(_CLEAN).save(path, definitions=[{"name": "dupes"}])  # type: ignore[list-item]
+    assert not path.exists()
 
 
 def test_the_schema_offers_a_custom_workflow_branch() -> None:

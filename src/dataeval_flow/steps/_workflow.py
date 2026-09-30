@@ -2,9 +2,9 @@
 
 __all__ = ["KIND_KEYS", "CustomWorkflowConfig", "InputSlot", "StepEntry"]
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import yaml
 from pydantic import (
@@ -20,6 +20,9 @@ from pydantic import (
 
 from dataeval_flow.steps._address import STEP_NAME_PATTERN
 from dataeval_flow.steps._step import StepConfig, StepKind
+
+if TYPE_CHECKING:
+    from dataeval_flow.config._definitions import Definition
 
 KIND_KEYS: tuple[StepKind, ...] = ("evaluator", "workflow", "transform", "combine", "check")
 
@@ -213,15 +216,30 @@ class CustomWorkflowConfig(BaseModel):
             fits = source_count == len(singles)
         return None if fits else f"takes {wanted}, but the task names {source_count}."
 
-    def to_yaml(self) -> str:
-        """This workflow as a config fragment: a ``workflows:`` list holding this entry, as written."""
-        return yaml.safe_dump({"workflows": [self.model_dump(mode="json")]}, sort_keys=False)
+    def to_yaml(self, definitions: "Sequence[Definition]" = ()) -> str:
+        """This workflow as a config fragment: each of `definitions` in its section, then a ``workflows:`` list holding
+        this entry, each as written.
 
-    def save(self, path: str | Path) -> Path:
-        """Write this workflow into the config fragment at `path`, replacing the entry of its name.
+        `definitions` takes what :func:`~dataeval_flow.run`'s does: the evaluator entries, views, policies and other
+        named entries the steps refer to. With them, the fragment loads and runs on its own.
 
-        The file's other keys and other workflows are kept, in place. A file that does not exist is created. A file
-        that holds keys but no pipeline section is refused. PyYAML keeps no comments, so a rewritten file loses them.
+        Raises
+        ------
+        TypeError
+            When a definition is none of the types `definitions` takes.
+        """
+        return yaml.safe_dump(self._fragment({}, definitions, caller="to_yaml()"), sort_keys=False)
+
+    def save(self, path: str | Path, definitions: "Sequence[Definition]" = ()) -> Path:
+        """Write this workflow, and each of `definitions`, into the config fragment at `path`.
+
+        Each entry replaces the entry of its name in its section, or is added after them. `definitions` takes what
+        :func:`~dataeval_flow.run`'s does: the evaluator entries, views, policies and other named entries the steps
+        refer to, so the file holds a block that loads and runs on new data on its own. Each is written with its name,
+        its type and the settings that differ from their defaults.
+
+        The file's other keys and entries are kept, in place. A file that does not exist is created. A file that holds
+        keys but no pipeline section is refused. PyYAML keeps no comments, so a rewritten file loses them.
 
         Returns
         -------
@@ -232,6 +250,8 @@ class CustomWorkflowConfig(BaseModel):
         ------
         ValueError
             When `path` holds YAML that is not a pipeline config fragment.
+        TypeError
+            When a definition is none of the types `definitions` takes. Nothing is written.
         """
         from dataeval_flow.config._models import top_level_keys
 
@@ -240,14 +260,29 @@ class CustomWorkflowConfig(BaseModel):
         data = {} if data is None else data
         if not isinstance(data, Mapping) or (data and top_level_keys().isdisjoint(data)):
             raise ValueError(f"{path} is not a pipeline config fragment; refusing to rewrite it.")
-        data = dict(data)
-        entry = self.model_dump(mode="json")
-        workflows = list(data.get("workflows") or [])
-        names = [item.get("name") if isinstance(item, Mapping) else None for item in workflows]
-        if self.name in names:
-            workflows[names.index(self.name)] = entry
-        else:
-            workflows.append(entry)
-        data["workflows"] = workflows
-        path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        fragment = self._fragment(data, definitions, caller="save()")
+        path.write_text(yaml.safe_dump(fragment, sort_keys=False), encoding="utf-8")
         return path
+
+    def _fragment(self, data: Mapping[str, Any], definitions: "Sequence[Definition]", *, caller: str) -> dict[str, Any]:
+        """`data` with each of `definitions` in its section, then this workflow in ``workflows:``, each written as a
+        config file writes it and replacing the entry of its name."""
+        from dataeval_flow.config._definitions import definition_pools, entry_as_written
+
+        fragment = dict(data)
+        for section, entries in definition_pools(definitions, caller=caller).items():
+            for entry in entries:
+                fragment[section] = _replaced(fragment.get(section), entry_as_written(entry))
+        fragment["workflows"] = _replaced(fragment.get("workflows"), self.model_dump(mode="json"))
+        return fragment
+
+
+def _replaced(entries: Any, entry: dict[str, Any]) -> list[Any]:
+    """`entries` with `entry` in place of the one of its name, or after them."""
+    items = list(entries or [])
+    names = [item.get("name") if isinstance(item, Mapping) else None for item in items]
+    if entry["name"] in names:
+        items[names.index(entry["name"])] = entry
+    else:
+        items.append(entry)
+    return items
