@@ -158,3 +158,12 @@ def test_data_prioritization_runs_as_a_step_after_data_cleaning_over_the_pools()
     assert result.success, result.errors
     assert list(result.steps["ranking/selected"].elements or {}) == ["p1", "p2"]
     assert list(result.steps["again"].elements or {}) == ["p1", "p2"]
+
+
+def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
+    sources = {"ref": ToyImages(count=80), "p1": ToyImages(count=80, seed=1), "p2": ToyImages(count=2, seed=2)}
+    cleaning = {"outlier_method": "zscore", "outlier_flags": ["visual"], "outlier_threshold": 0.99}
+    result = _task(sources, cleaning=cleaning)
+    assert _selected(result) == {"p1": 72, "p2": 0}
+    assert result.report()
+    assert cast(Mapping[str, Any], result.to_dict()["steps"])["rank"]

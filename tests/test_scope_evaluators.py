@@ -16,7 +16,7 @@ from dataeval_flow.evaluators.scope import (
     RepresentationConfig,
     RepresentationResult,
 )
-from dataeval_flow.evaluators.scope._evaluator import usable_labels
+from dataeval_flow.evaluators.scope._evaluator import PrioritizeEvaluator, usable_labels
 from tests.evaluator_toys import FLAT, ToyImages, output_json
 
 
@@ -133,3 +133,19 @@ class TestPrioritize:
         easy = output_json(run(PrioritizeConfig(order="easy_first"), ToyImages(count=40), extractor=FLAT))["data"]
         hard = output_json(run(PrioritizeConfig(order="hard_first"), ToyImages(count=40), extractor=FLAT))["data"]
         assert hard == easy[::-1]
+
+
+class TestPrioritizeEmptySources:
+    def test_an_empty_dataset_ranks_to_an_empty_ranking(self):
+        empty = EvaluatorInputs(source="pool", embeddings=np.empty((0, 4), dtype=np.float32))
+        reference = EvaluatorInputs(source="ref", embeddings=np.random.default_rng(0).random((10, 4)))
+        output = PrioritizeEvaluator().run(PrioritizeConfig(), [empty, reference])
+        assert output.data().tolist() == []
+        assert output.scores is not None
+        assert output.scores.tolist() == []
+
+    def test_an_empty_reference_is_refused_by_name(self):
+        pool = EvaluatorInputs(source="pool", embeddings=np.random.default_rng(0).random((10, 4)), labels=None)
+        empty = EvaluatorInputs(source="ref", embeddings=np.empty((0, 4), dtype=np.float32))
+        with pytest.raises(ValueError, match="`ref` has no items to rank against."):
+            PrioritizeEvaluator().run(PrioritizeConfig(), [pool, empty])
