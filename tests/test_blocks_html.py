@@ -268,6 +268,15 @@ class TestTables:
         assert '<td class="left" data-value="cat">cat</td>' in fragment
         assert '<td class="right" data-value="75.0">75.0%</td>' in fragment
 
+    def test_a_text_cell_renders_backticks_as_code_as_prose_does(self):
+        table = Table(
+            columns=[Column(key="reads", header="Reads", align="left")], rows=[{"reads": "`few` ← `a` (src)\n`dupes`"}]
+        )
+        assert (
+            '<td class="left" data-value="`few` ← `a` (src)\n`dupes`">'
+            "<code>few</code> ← <code>a</code> (src)<br><code>dupes</code></td>"
+        ) in render_html([table])
+
     def test_a_bar_is_a_share_of_the_column_s_scale(self):
         fragment = render_html([self._TABLE])
         assert '<span class="bar" style="margin-left:0%;width:100%"></span>' in fragment

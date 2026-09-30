@@ -336,3 +336,9 @@ def test_a_wrapped_reads_cell_breaks_before_a_lineage_arrow() -> None:
         "  dupes  Duplicates  duplicates  ok      `few` ← `k`",
         "                                         ← `a` (src)",
     ]
+
+
+def test_the_steps_panel_renders_what_a_step_read_as_code() -> None:
+    page = _cleaning().to_html()
+    assert '<td class="left" data-value="`dupes`"><code>dupes</code></td>' in page
+    assert ">`dupes`<" not in page

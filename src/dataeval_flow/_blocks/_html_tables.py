@@ -6,7 +6,7 @@ import math
 from collections.abc import Mapping
 
 from dataeval_flow._blocks._flags import card, flags_in, ordered, tag_text
-from dataeval_flow._blocks._html_base import HtmlContext, escape, num, pct, series_class
+from dataeval_flow._blocks._html_base import HtmlContext, escape, inline, num, pct, series_class
 from dataeval_flow._blocks._html_scale import draw_scale
 from dataeval_flow._blocks._items import item_name, refs_in
 from dataeval_flow._blocks._models import Asset, Cell, Column, Flag, ItemRef, Table
@@ -157,7 +157,8 @@ def _cell(column: Column, value: Cell, index: int, extent: tuple[float, float], 
     elif column.kind == "sparkline":
         content = _sparkline(value)
     else:
-        content = "<br>".join(escape(line) for line in cell_text(column, value).split("\n"))
+        # As prose reads: backtick spans as code, each line break kept.
+        content = inline(cell_text(column, value))
     return f'<td class="{align}" data-value="{_raw(value)}">{content}</td>'
 
 
