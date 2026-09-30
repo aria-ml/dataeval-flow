@@ -88,6 +88,12 @@
   settings schema
 - A "Workflows as Chains of Steps" explanation, a how-to that writes a custom workflow, and a Transform Catalog with
   one reference entry per built-in transform
+- Presets: a workflow type can be a preset, whose settings expand to a chain of steps that runs as a custom
+  workflow's. As a task, a preset returns a `ChainResult` under its own type id; as a step of a custom workflow, its
+  chain runs inside yours as `<step>/<name>`, and `<step>.<output>` reads each Dataset it declares as an output
+- `data-cleaning`'s `clean` step hands on the dataset without each image and box it flagged and each duplicate but the
+  first of its group, counting what it removed; a custom workflow that runs data-cleaning as a step reads it as
+  `<step>.clean`, and an `export` step on it replaces `mode: preparatory`
 
 ### Changed
 
@@ -145,6 +151,14 @@
   `-v` and `result.txt` show it whole
 - `data-coverage` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
   per-dimension rescale had shifted `dispersion` and the coverage radius
+- `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
+  against `health_thresholds`. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
+  and `run()` on a `DataCleaningConfig` is typed to `ChainResult`
+- `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
+- A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
+  `dataeval-flow encoding` finds none in it
+- On a cold cache, a `data-cleaning` run reads its dataset for statistics twice, once for the outlier statistics and
+  once for the hashes, where it read it once; a known cost until one pass computes both
 
 ### Fixed
 
@@ -192,6 +206,15 @@
 - A workflow's `output_schema`; its `<X>Result` type argument names the output
 - The `DriftDetectorConfig` and `OODDetectorConfig` unions; annotate with the detector classes
 - The `AutoBinMethod` and `FactorSource` aliases; their fields take the same strings
+- `DataCleaningResult`, with its metadata's `evaluators`, `flagged_indices`, `clean_indices` and `removed_count`;
+  a data-cleaning result is a `ChainResult`
+- `value_range`, `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and
+  `metadata_factor_source` on `data-cleaning`, which refuses them: declare the range on the dataset, and the binning in
+  a `metadata:` policy
+- `mode`, from every workflow config and from every result's metadata; a config that still writes it fails to load,
+  naming it
+- Data-prioritization's `per_source_clean_indices` and `per_source_prioritized_indices`
+- The "Preparatory Mode" findings that data-analysis and data-cleaning made
 
 ## v0.2.2
 
