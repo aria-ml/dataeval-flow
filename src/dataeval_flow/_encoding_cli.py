@@ -35,8 +35,8 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     """The one record to write, or a message saying why there is not one."""
     if not records:
         raise ValueError(
-            "This result records no encodings. Only a workflow that builds metadata "
-            "produces one — data-analysis, data-coverage or ood-detection.",
+            "This result records no encodings. Only a result that built metadata records one: a custom "
+            "workflow or preset whose steps read metadata, or data-analysis, data-coverage or ood-detection.",
         )
     if task is not None:
         if task not in records:
@@ -61,8 +61,8 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     rendered = {name: text for name, record in records.items() if (text := _rendered(name, record)) is not None}
     if not rendered:
         raise ValueError(
-            "This result records no encodings. Only a workflow that builds metadata "
-            "produces one — data-analysis, data-coverage or ood-detection.",
+            "This result records no encodings. Only a result that built metadata records one: a custom "
+            "workflow or preset whose steps read metadata, or data-analysis, data-coverage or ood-detection.",
         )
     if len(set(rendered.values())) == 1:
         return records[next(iter(rendered))]
