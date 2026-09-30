@@ -39,5 +39,5 @@ class MetadataIssuesCheck(Check[MetadataIssuesConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(TriageOutput,)),)
 
     def run(self, config: MetadataIssuesConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """Legacy metadata-triage's findings, from the `triage` Output's data."""
+        """metadata-triage's findings, from the `triage` Output's data."""
         return build_findings(inputs["input"].value.data(), config.max_examples)

@@ -1,31 +1,16 @@
-"""Records `triage_findings.json` from the legacy metadata-triage workflow, before its port to a preset.
+"""Recorded `triage_findings.json` from the legacy metadata-triage workflow, before its port to a preset. It now refuses
+to run.
 
-Run it once, on the legacy workflow: `.venv/bin/python -m tests.golden.generate_triage`. For each case it records the
-findings as severity, title and brief, in order; the suggested policy stanza; and the binning record the result's
-envelope carries. The preset must agree with all three (spec §10.10).
+Commit 7a1f238 ran it once, on the legacy workflow, to record each case's findings, suggested stanza and binning record.
+The preset must agree with them (spec §10.10).
+
+The port deleted the legacy workflow, so `metadata-triage` now names the preset. Run now, this would record the
+preset's own output as the golden the preset is tested against, and the agreement test would only compare the preset
+with itself. `tests/test_triage_golden.py` lists the preset's deliberate differences from the legacy run.
 """
 
-import json
-from pathlib import Path
-from typing import Any
-
-from dataeval_flow import run_tasks
-from tests.golden.triage import CASES, pipeline
-
-
-def record(name: str) -> dict[str, Any]:
-    """Case `name`'s findings, suggested stanza and binning record, read off the legacy result."""
-    result = run_tasks(pipeline(name))["t"]
-    assert result.success, result.errors
-    return {
-        "findings": [[f.severity, f.title, f.brief] for f in result.output.report.findings],  # type: ignore[attr-defined]
-        "suggested_policy_yaml": result.output.raw.suggested_policy_yaml,  # type: ignore[attr-defined]
-        "metadata_binning": result.metadata.metadata_binning,
-    }
-
-
 if __name__ == "__main__":
-    golden = {name: record(name) for name in sorted(CASES)}
-    path = Path(__file__).parent / "triage_findings.json"
-    path.write_text(json.dumps(golden, indent=2, sort_keys=True) + "\n")
-    print(f"wrote {path}")
+    raise SystemExit(
+        "generate_triage records from the legacy metadata-triage workflow, which the port to a preset deleted: run "
+        "now, it would record the preset's own output, and the agreement test would compare the preset with itself."
+    )

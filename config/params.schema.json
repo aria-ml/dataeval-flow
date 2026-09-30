@@ -4681,78 +4681,8 @@
     },
     "MetadataTriageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
       "properties": {
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
-          "title": "Metadata Continuous Factor Bins"
-        },
-        "metadata_factor_source": {
-          "anyOf": [
-            {
-              "enum": [
-                "coded",
-                "values",
-                "auto"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
-          "title": "Metadata Factor Source"
-        },
         "metadata": {
           "anyOf": [
             {

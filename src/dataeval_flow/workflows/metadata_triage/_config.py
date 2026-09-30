@@ -5,14 +5,14 @@ from typing import ClassVar
 from pydantic import Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, _LegacyMetadataMixin
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
+from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
-from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageResult
 
 __all__ = ["MetadataTriageConfig"]
 
 
-class MetadataTriageConfig(WorkflowConfig[MetadataTriageResult], MetadataConfigMixin, _LegacyMetadataMixin):
+class MetadataTriageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
     """The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.
 
     Deliberately thin.  There is no ``suggest`` toggle — suggesting is what the workflow is
@@ -22,6 +22,9 @@ class MetadataTriageConfig(WorkflowConfig[MetadataTriageResult], MetadataConfigM
     No extractor, no embeddings and no statistics unless the policy declares
     ``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the
     cheapest workflow in the suite and the natural first task in a pipeline.
+
+    Its settings expand to two steps: the ``triage`` evaluator, which takes ``metadata``, ``verify``,
+    ``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.
 
     Example YAML::
 

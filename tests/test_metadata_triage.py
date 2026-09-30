@@ -6,21 +6,17 @@ from unittest.mock import MagicMock
 import pytest
 from dataeval import Metadata
 
+from dataeval_flow import run
 from dataeval_flow._binning_report import distribution_blocks
 from dataeval_flow._blocks import Code, Distribution, ItemRef, Proportion
+from dataeval_flow._cache import DatasetCache
 from dataeval_flow._policy import ResolvedPolicy, build_correction
 from dataeval_flow._triage import TriageFinding, find_issues
 from dataeval_flow._triage_report import build_findings, minority_kind, summarize
 from dataeval_flow.config import ParseValueCorrectionConfig
 from dataeval_flow.evaluators.quality import VerificationEntry
 from dataeval_flow.evaluators.quality._triage import _factor_recovered, places, verify
-from dataeval_flow.workflows import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
-from dataeval_flow.workflows.metadata_triage._outputs import (
-    MetadataTriageOutput,
-    MetadataTriageRawOutput,
-    MetadataTriageReport,
-)
 from tests.finding_blocks import blocks_of, bullets, column, fields, paragraphs, rendered, sections, tables
 from tests.test_triage import _numeric, _record
 from tests.triage_toys import AltitudeDataset, LatitudeDataset, MixedWeightDataset, OcclusionDataset
@@ -37,12 +33,6 @@ def test_parameters_default_to_verifying():
 def test_parameters_accept_a_named_policy():
     # MetadataConfigMixin is what makes `metadata: standard` resolve.
     assert MetadataTriageConfig(metadata="standard").metadata == "standard"
-
-
-def test_outputs_round_trip_as_json():
-    raw = MetadataTriageRawOutput(dataset_size=10)
-    outputs = MetadataTriageOutput(raw=raw, report=MetadataTriageReport(summary="none"))
-    assert outputs.model_dump(mode="json")["raw"]["findings"] == []
 
 
 def _mixed_metadata(n: int = 60) -> Metadata:
@@ -75,21 +65,17 @@ def test_a_mixed_column_is_found_and_a_correction_suggested():
     assert to_policy_stanza(findings)["corrections"][0]["kind"] == "parse_value"
 
 
-def test_execute_runs_end_to_end_on_a_real_dataset():
-    context = WorkflowContext(
-        dataset_contexts={"default": DatasetContext(name="default", dataset=MixedWeightDataset())},
-    )
-    result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
+def test_the_preset_runs_end_to_end_on_a_real_dataset():
+    result = run(MetadataTriageConfig(), MixedWeightDataset())
 
     assert result.success is True
-    assert any(f.factor == "weight" for f in result.output.raw.findings)
-    assert result.output.raw.suggested_policy_yaml
-    assert "parse_value" in result.output.raw.suggested_policy_yaml
-    weight = [v for v in result.output.raw.verification if v.factor == "weight"]
-    assert weight
-    assert weight[0].recovered is True
-    assert result.output.report.findings
-    assert result.metadata.blocking >= 1
+    data = result.steps["triage"].output.data()
+    assert any(f.factor == "weight" for f in data["findings"])
+    assert "parse_value" in data["suggested_policy_yaml"]
+    (weight,) = [v for v in data["verification"] if v.factor == "weight"]
+    assert weight.recovered is True
+    assert result.findings
+    assert data["counts"]["blocking"] == 1
 
 
 def test_build_correction_is_public():
@@ -334,27 +320,6 @@ def test_no_verification_and_no_error_adds_no_reportable():
     assert build_findings({}, max_examples=20) == []
 
 
-def test_verification_failure_is_surfaced_not_silent():
-    """A verification exception is reported as unverified, not swallowed.
-
-    Upstream: 'reported as unverified, not as a failed run'. A reader must see that
-    verification was attempted and failed, distinct from `verify: false` or having
-    nothing to verify.
-    """
-    from unittest.mock import patch
-
-    context = WorkflowContext(
-        dataset_contexts={"default": DatasetContext(name="default", dataset=MixedWeightDataset())},
-    )
-    with patch("dataeval_flow.evaluators.quality._triage.verify", side_effect=RuntimeError("boom")):
-        result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
-
-    assert result.success is True  # the findings are worth having without verification
-    assert result.output.raw.verification == []
-    assert result.output.raw.verification_error == "boom"
-    assert any(f.title == "Verification failed" for f in result.output.report.findings)
-
-
 # ---------------------------------------------------------------------------
 # Report blocks: each finding's evidence, as the report draws it
 # ---------------------------------------------------------------------------
@@ -546,9 +511,9 @@ def test_a_box_plot_in_a_triage_finding_fits_the_width():
 
 
 def _unreadable(dataset: Any) -> Any:
-    context = WorkflowContext(dataset_contexts={"train": DatasetContext(name="train", dataset=dataset)})
-    result = MetadataTriageWorkflow().run(MetadataTriageConfig(), context)
-    return next(f for f in result.output.report.findings if f.title == "Unreadable factors")
+    DatasetCache.clear_instances()
+    result = run(MetadataTriageConfig(), dataset)
+    return next(f for f in result.findings if f.title == "Unreadable factors")
 
 
 def test_each_problem_value_is_listed_most_rows_first_with_up_to_eight_of_its_items():
@@ -560,13 +525,13 @@ def test_each_problem_value_is_listed_most_rows_first_with_up_to_eight_of_its_it
         ("N", 9, "3, 10, 17, 24, 31, 38, 45, 52, … 1 more"),
         ("S", 1, "20"),
     ]
-    assert column(table, "image")[1] == [ItemRef(source="train", index=20)]
+    assert column(table, "image")[1] == [ItemRef(source="data", index=20)]
 
 
 def test_a_value_below_the_item_is_placed_by_its_box():
     (table,) = tables(_unreadable(OcclusionDataset()))
     assert column(table, "value") == ["high"]
-    assert column(table, "image")[0] == [ItemRef(source="train", index=i, target=1) for i in (0, 5, 10, 15, 20, 25)]
+    assert column(table, "image")[0] == [ItemRef(source="data", index=i, target=1) for i in (0, 5, 10, 15, 20, 25)]
 
 
 def test_a_column_dropped_for_naming_its_rows_is_placed_nowhere():
@@ -612,7 +577,7 @@ def test_a_tie_takes_text_for_the_problem_values():
 def test_past_500_problem_values_a_paragraph_counts_the_rest():
     record = _record(unusable={"weight": _unreadable_weight(["6,000"])})
     raw = {"findings": find_issues(record)}
-    where = {"weight": [(f"{n:,}", 1, [ItemRef(source="train", index=n)]) for n in range(1000, 1502)]}
+    where = {"weight": [(f"{n:,}", 1, [ItemRef(source="data", index=n)]) for n in range(1000, 1502)]}
     (finding,) = build_findings({**raw, "places": where}, max_examples=20)
     (table,) = tables(finding)
     assert len(table.rows) == 500
