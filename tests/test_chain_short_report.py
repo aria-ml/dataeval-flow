@@ -64,7 +64,14 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
   imbalance        ok
   clean            ok
 
+================================================================================
+  METADATA FACTORS
+================================================================================
+  Encoding:        <digest>
+  Auto-bin method: uniform_width
+
 """
+    short = re.sub(r"Encoding:        [0-9a-f]{16}", "Encoding:        <digest>", short)
     assert short.split(f"{_RULE}\n  CONFIGURATION")[0] == expected
     assert "  CONFIGURATION" in short  # as a workflow result's short form: `_document` adds it whatever `detailed`
 

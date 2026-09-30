@@ -93,6 +93,7 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
         ("Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "info"),
         ("Remove · clean", None, None),
         ("Steps", None, None),
+        ("Metadata Factors", None, None),
         ("Configuration", None, None),
     ]
     assert _evidence(_section(result, "Image Outliers")) == ["From Outliers"]
@@ -142,7 +143,7 @@ def test_the_steps_table_says_what_each_step_is_what_it_read_and_why_it_made_not
 def test_the_text_steps_table_leaves_out_the_title_each_step_s_section_already_gives() -> None:
     lines = _cleaning().report().splitlines()
     start = lines.index("  STEPS") + 2
-    assert lines[start : lines.index("  CONFIGURATION") - 2] == [
+    assert lines[start : lines.index("  METADATA FACTORS") - 2] == [
         "  Step             Type                    Status  Reads         Note",
         "  ---------------  ----------------------  ------  ------------  -----------",
         "  outliers         outliers                ok      `data` (src)",
@@ -283,6 +284,7 @@ def test_a_failed_check_is_listed_among_the_other_steps_with_its_failure() -> No
         ("Duplicates · duplicates", "failed", None),
         ("Remove · clean", None, None),
         ("Steps", None, None),
+        ("Metadata Factors", None, None),
         ("Configuration", None, None),
     ]
     assert _section(result, "Duplicates · duplicates").blocks == [
@@ -457,6 +459,7 @@ def test_data_cleaning_over_two_splits_groups_its_findings_by_split() -> None:
         ("val", None, None),
         ("Remove · cleaning/clean", None, None),
         ("Steps", None, None),
+        ("Metadata Factors", None, None),
         ("Configuration", None, None),
     ]
 

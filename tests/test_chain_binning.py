@@ -74,6 +74,14 @@ def test_a_chain_reading_no_metadata_records_no_encoding() -> None:
     )
     assert result.metadata.metadata_binning is None
     assert result.metadata.encoding_digest is None
+    # Only DataEval's own diagnostics, which this run raised, could still fill the section: no encoding is shown.
+    assert "Auto-bin method" not in result.report(detailed=True)
+
+
+def test_a_chain_reading_metadata_reports_its_factors() -> None:
+    report = _chain([_READ_LABELS]).report(detailed=True)
+    assert "METADATA FACTORS" in report.upper()
+    assert "angle" in report
 
 
 def test_two_steps_reading_one_encoding_make_one_record() -> None:

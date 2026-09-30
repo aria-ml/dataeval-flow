@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field
 
+from dataeval_flow._binning_report import binning_blocks
 from dataeval_flow._blocks import Block, Scalar
 from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section
 from dataeval_flow.steps._step import StepKind
@@ -226,7 +227,9 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
 
         if not self.success and not self.steps:
             return [failure_section(self.errors)]
-        return chain_blocks(self, detailed=detailed)
+        blocks = chain_blocks(self, detailed=detailed)
+        blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))
+        return blocks
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
         return self._report_body(detailed=detailed)

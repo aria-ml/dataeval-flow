@@ -141,3 +141,9 @@ def test_dataeval_flow_encoding_finds_the_record_and_writes_its_descriptor() -> 
     assert isinstance(result, ChainResult)
     records = _binning_records({"t": {"metadata": result.to_dict()["metadata"]}})
     assert "altitude" in descriptor_from_record(records["t"])["factors"]
+
+
+def test_its_detailed_report_shows_the_metadata_factors() -> None:
+    result = run(MetadataTriageConfig(), AltitudeDataset())
+    assert "METADATA FACTORS" in result.report(detailed=True).upper()
+    assert "altitude" in result.report(detailed=True)
