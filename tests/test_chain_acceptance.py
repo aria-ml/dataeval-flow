@@ -237,3 +237,33 @@ def test_a_check_whose_evaluator_failed_is_not_assessed_in_a_run_from_yaml(tmp_p
     assert image.description == "Not assessed: `outliers` was skipped: failed: RuntimeError: no stats."
     assert result.failed_steps == []
     assert result.health["status"] == "warning"  # the duplicates are still judged, and still warn
+
+
+def test_a_data_cleaning_step_hands_its_cleaned_dataset_to_an_export(tmp_path: Path) -> None:
+    text = """
+workflows:
+  - {name: basic_clean, type: data-cleaning, outlier_method: zscore, outlier_flags: [pixel, visual]}
+  - name: clean_export
+    inputs: [data]
+    steps:
+      - {name: cleaning, workflow: basic_clean, input: data}
+      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+tasks:
+  - {name: prep, workflow: clean_export, sources: [a]}
+"""
+    result = _run(text, {"a": _corpora()["a"]}, tmp_path, "prep")
+    assert result.success, result.errors
+    assert [(f.severity, f.title, f.step) for f in result.findings] == [
+        ("ok", "Image Outliers", "cleaning/image_outliers"),
+        ("ok", "Classwise Outliers", "cleaning/classwise"),
+        ("warning", "Duplicates", "cleaning/duplicates"),
+        ("info", "Label Distribution", "cleaning/imbalance"),
+    ]
+    assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
+    assert result.steps["cleaning/clean"].details == {
+        "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}
+    }
+    written = _coco(tmp_path / "datasets" / "prep.corpus")
+    assert (len(written["images"]), len(written["annotations"])) == (23, 46)
+    reloaded = load_dataset(tmp_path / "datasets" / "prep.corpus", dataset_format="coco")
+    assert [reloaded[i][2]["source_id"] for i in range(23)] == [str(i) for i in range(24) if i != 9]
