@@ -432,5 +432,7 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_ic.assert_called_once()
-        # Once for each step that reads statistics: `outliers` and `dupes`.
+        # Two steps each request their own statistics families from the same node, `outliers` the outlier
+        # families and `dupes` the hash families, and each is computed once. One pass over their union is future
+        # engine work (a deliberate difference, listed in `tests/test_cleaning_golden.py`).
         assert mock_get_stats.call_count == 2
