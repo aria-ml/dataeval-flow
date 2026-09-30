@@ -123,7 +123,7 @@ class TestPipelineConfigEvaluators:
 
     def test_an_unknown_type_is_refused(self):
         with pytest.raises(ValidationError):
-            PipelineConfig.model_validate({"evaluators": [{"name": "x", "type": "quality.nope"}]})
+            PipelineConfig.model_validate({"evaluators": [{"name": "x", "type": "nope"}]})
 
     def test_names_are_unique(self):
         with pytest.raises(ValidationError, match="Duplicate name 'd' in evaluators"):

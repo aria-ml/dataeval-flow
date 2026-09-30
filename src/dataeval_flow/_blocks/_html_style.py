@@ -72,6 +72,7 @@ th[aria-sort="ascending"]::after { content: " ▲"; } th[aria-sort="descending"]
 th:focus-visible, .tag:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
 .left, th.flags, td.flags { text-align: left; } .right { text-align: right; }
 table.summary td a { color: var(--ink); font-weight: 600; }
+table.summary tr.group th { padding-top: 0.6rem; color: var(--ink); text-align: left; }
 p.health { margin: 0.6rem 0; padding: 0.4rem 0.8rem; font-weight: 600; background: var(--soft);
   border-left: 4px solid var(--info); border-radius: 4px; }
 p.health.ok { border-left-color: var(--ok); } p.health.warning { border-left-color: var(--warning); }
