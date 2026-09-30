@@ -11,12 +11,11 @@ from tests.test_metadata_injection import _ICDataset, _ODDataset
 
 pytestmark = pytest.mark.required
 
-WORKFLOWS = ["data-cleaning", "data-coverage", "data-analysis"]
+WORKFLOWS = ["data-coverage", "data-analysis"]
 
 
 # Minimal valid params per workflow: only the fields with no default.
 _PARAMS = {
-    "data-cleaning": {"outlier_method": "adaptive", "outlier_flags": ["pixel"]},
     "data-coverage": {},
     "data-analysis": {"outlier_method": "adaptive", "outlier_flags": ["pixel"]},
 }
@@ -49,9 +48,9 @@ def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0
 def _binning(result_metadata, split: str = "default") -> dict:
     """The binning record, whichever envelope shape the workflow reports.
 
-    `data-analysis` is the one multi-split workflow of the three; it reports a record per
-    split. Cleaning and coverage report one dataset's record flat. Unwrapping here makes
-    the parametrisation assert record presence for every workflow.
+    `data-analysis` is the one multi-split workflow of the two; it reports a record per split.
+    Coverage reports one dataset's record flat. Unwrapping here makes the parametrisation
+    assert record presence for every workflow.
     """
     record = result_metadata.metadata_binning
     per_split = record.get("per_split")
@@ -132,7 +131,7 @@ def test_no_statistic_is_computed_twice(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cache_module, "_do_compute_stats", _spy)
     _run(
-        "data-cleaning",
+        "data-analysis",
         _ICDataset(),
         {"intrinsic_factors": ("visual", "pixel"), "continuous_factor_bins": {"brightness": 4}},
         cache=DatasetCache(cache_dir=tmp_path, dataset_name="ds"),
@@ -144,8 +143,8 @@ def test_no_statistic_is_computed_twice(monkeypatch, tmp_path):
 
 def test_injection_and_no_injection_do_not_share_a_cache_entry():
     """Keyed by the factor set, or a warmed cache reintroduces the bug it closed."""
-    with_stats = _run("data-cleaning", _ICDataset(), {"intrinsic_factors": ("visual",)})
-    without = _run("data-cleaning", _ICDataset(), {})
+    with_stats = _run("data-analysis", _ICDataset(), {"intrinsic_factors": ("visual",)})
+    without = _run("data-analysis", _ICDataset(), {})
     assert "brightness" in _binning(with_stats)["factors"]
     assert "brightness" not in _binning(without)["factors"]
 
@@ -157,8 +156,8 @@ def test_value_range_keys_the_metadata_cache():
     mechanism, not that the mechanism is wired to the cache.
     """
     policy_fields = {"intrinsic_factors": ("visual",), "continuous_factor_bins": {"brightness": 4}}
-    unit = _run("data-cleaning", _ICDataset(), policy_fields, value_range=(0.0, 1.0))
-    byte = _run("data-cleaning", _ICDataset(), policy_fields, value_range=(0.0, 255.0))
+    unit = _run("data-analysis", _ICDataset(), policy_fields, value_range=(0.0, 1.0))
+    byte = _run("data-analysis", _ICDataset(), policy_fields, value_range=(0.0, 255.0))
 
     unit_edges = _binning(unit)["factors"]["brightness"]["encoding"]["edges"]
     byte_edges = _binning(byte)["factors"]["brightness"]["encoding"]["edges"]
@@ -166,6 +165,6 @@ def test_value_range_keys_the_metadata_cache():
 
 
 def test_hashes_are_never_injected():
-    result = _run("data-cleaning", _ICDataset(), {"intrinsic_factors": ("hash",)})
+    result = _run("data-analysis", _ICDataset(), {"intrinsic_factors": ("hash",)})
     factors = set(_binning(result)["factors"])
     assert not factors & {"xxhash", "phash", "dhash", "phash_d4", "dhash_d4"}

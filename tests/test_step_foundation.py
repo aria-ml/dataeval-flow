@@ -20,7 +20,7 @@ from dataeval_flow.steps import (
     parse_address,
 )
 from dataeval_flow.steps._registry import TRANSFORMS
-from dataeval_flow.workflows.data_cleaning import DataCleaningResult, DataCleaningWorkflow
+from tests.workflow_toys import ToyCountResult, ToyCountWorkflow
 
 
 @pytest.mark.parametrize(
@@ -69,11 +69,11 @@ def test_an_evaluator_is_a_step_whose_ports_come_from_its_inputs_and_output_clas
 
 
 def test_a_workflow_is_a_step_whose_output_is_its_result() -> None:
-    (port,) = DataCleaningWorkflow.input_ports()
+    (port,) = ToyCountWorkflow.input_ports()
     assert (port.type, port.count) == (DataType.DATASET, SourceCount.ONE)
-    (out,) = DataCleaningWorkflow.output_ports()
-    assert (out.type, out.classes) == (DataType.WORKFLOW_RESULT, (DataCleaningResult,))
-    assert DataCleaningWorkflow.kind == "workflow"
+    (out,) = ToyCountWorkflow.output_ports()
+    assert (out.type, out.classes) == (DataType.WORKFLOW_RESULT, (ToyCountResult,))
+    assert ToyCountWorkflow.kind == "workflow"
 
 
 class _KeepConfig(TransformConfig):

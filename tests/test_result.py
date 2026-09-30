@@ -8,30 +8,24 @@ from dataeval_flow import Result, ResultMetadata
 from dataeval_flow._result import results_html
 from dataeval_flow.evaluators import EvaluatorResult
 from dataeval_flow.evaluators._result import EvaluatorMetadata
-from dataeval_flow.workflows import WorkflowResult
-from dataeval_flow.workflows.data_cleaning import DataCleaningResult
-from dataeval_flow.workflows.data_cleaning._outputs import (
-    DataCleaningMetadata,
-    DataCleaningOutput,
-    DataCleaningRawOutput,
-    DataCleaningReport,
-)
+from dataeval_flow.workflows import WorkflowReport, WorkflowResult
 from tests.test_blocks_html import _well_formed
+from tests.workflow_toys import ToyCountMetadata, ToyCountOutput, ToyCountRaw, ToyCountResult
 
 
-def _output() -> DataCleaningOutput:
-    return DataCleaningOutput(
-        raw=DataCleaningRawOutput(dataset_size=3),
-        report=DataCleaningReport(summary="Data cleaning complete."),
+def _output() -> ToyCountOutput:
+    return ToyCountOutput(
+        raw=ToyCountRaw(dataset_size=3),
+        report=WorkflowReport(summary="Items counted."),
     )
 
 
-def _workflow(*, success: bool = True) -> DataCleaningResult:
-    return DataCleaningResult(
-        type="data-cleaning",
+def _workflow(*, success: bool = True) -> ToyCountResult:
+    return ToyCountResult(
+        type="test.count",
         success=success,
         output=_output() if success else None,
-        metadata=DataCleaningMetadata(),
+        metadata=ToyCountMetadata(),
         errors=[] if success else ["boom"],
     )
 
@@ -121,7 +115,7 @@ class TestOneShape:
 
     def test_type_names_what_ran(self, make, kind):
         result = make()
-        assert result.type in {"data-cleaning", "quality.duplicates"}
+        assert result.type in {"test.count", "quality.duplicates"}
         assert not hasattr(result, "name")
 
     def test_a_dict_leads_with_the_kind_and_the_envelope(self, make, kind):
@@ -165,7 +159,7 @@ class TestOneShape:
         result = make()
         page = result.to_html()
         assert page.startswith("<!doctype html>")
-        heading = {"workflow": "Data cleaning complete", "evaluator": "quality.duplicates"}[kind]
+        heading = {"workflow": "Items counted", "evaluator": "quality.duplicates"}[kind]
         assert f"<h1>{heading}</h1>" in page
         assert _well_formed(page)
         assert page.count("<script>") == 1
@@ -222,10 +216,10 @@ class TestOneShape:
 
 def test_isinstance_narrows_to_the_types_own_result():
     result: Result = _workflow()
-    assert isinstance(result, DataCleaningResult)
+    assert isinstance(result, ToyCountResult)
     assert isinstance(result, WorkflowResult)
     assert result.output.raw.dataset_size == 3
-    assert isinstance(result.metadata, DataCleaningMetadata)
+    assert isinstance(result.metadata, ToyCountMetadata)
 
 
 def test_only_a_workflow_carries_health():
@@ -242,16 +236,16 @@ def test_a_failed_workflow_has_no_findings_and_a_failed_health():
 
 
 def test_a_failed_result_of_a_class_carries_that_class_metadata():
-    failed = DataCleaningResult.failed(type="data-cleaning", errors=["boom"])
-    assert isinstance(failed, DataCleaningResult)
-    assert isinstance(failed.metadata, DataCleaningMetadata)
+    failed = ToyCountResult.failed(type="test.count", errors=["boom"])
+    assert isinstance(failed, ToyCountResult)
+    assert isinstance(failed.metadata, ToyCountMetadata)
     assert not failed.success
     assert failed.errors == ["boom"]
 
 
 def test_every_argument_is_keyword_only():
     with pytest.raises(TypeError, match="takes 1 positional argument"):
-        WorkflowResult("data-cleaning", True, _output(), ResultMetadata())  # type: ignore[misc]
+        WorkflowResult("test.count", True, _output(), ResultMetadata())  # type: ignore[misc]
 
 
 def test_every_result_of_a_run_shares_one_page():
@@ -262,7 +256,7 @@ def test_every_result_of_a_run_shares_one_page():
 
 
 def test_a_run_of_one_task_is_titled_by_its_report():
-    assert "<title>Data cleaning complete.</title>" in results_html([_workflow()])
+    assert "<title>Items counted.</title>" in results_html([_workflow()])
 
 
 def test_a_run_with_no_report_to_show_still_writes_a_page():

@@ -28,15 +28,28 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import OnnxExtractorConfig
 from dataeval_flow.workflows import WorkflowResult
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig
+from tests.workflow_toys import (
+    ToyCountConfig,
+    ToyCountMetadata,
+    ToyCountOutput,
+    ToyCountRaw,
+    ToyCountResult,
+    register_count,
+)
 
 pytestmark = pytest.mark.required
 
-# Shared workflow instance used across tests
-_CLEAN_INSTANCE = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
 
-# data-cleaning only ever reads its first source, so it declares `SourceCount.ONE`. These
+@pytest.fixture(autouse=True)
+def _count(plugins):
+    register_count(plugins)
+
+
+# Shared workflow instance used across tests
+_CLEAN_INSTANCE = ToyCountConfig(name="clean")
+
+# test.count only ever reads its first source, so it declares `SourceCount.ONE`. These
 # orchestrator-mechanics tests exercise multi-source resolution independent of any one
 # workflow's semantics; data-analysis's `SourceCount.ONE_OR_MORE` accepts what they pass.
 _MULTI_SOURCE_INSTANCE = DataAnalysisConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
@@ -225,12 +238,10 @@ class TestRunTask:
     @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_validates_params(self, mock_load_ds: MagicMock):
         """_run_single_task hands the workflow its config, an instance of the workflow's config_type."""
-        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-
         config, task = self._build_config_and_task()
         mock_load_ds.return_value = MagicMock()
 
-        mock_wf = self._mock_workflow(config_type=DataCleaningConfig)
+        mock_wf = self._mock_workflow(config_type=ToyCountConfig)
 
         with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
             result = _run_single_task(task, config)
@@ -240,8 +251,8 @@ class TestRunTask:
         mock_wf.run.assert_called_once()
         call_args = mock_wf.run.call_args
         params = call_args[0][0]
-        assert isinstance(params, DataCleaningConfig)
-        assert params.outlier_method == "zscore"
+        assert isinstance(params, ToyCountConfig)
+        assert params.minimum == 0
 
     def test_run_task_raises_on_missing_source(self):
         """_run_single_task raises ValueError when source not found."""
@@ -260,6 +271,7 @@ class TestRunTask:
         """_run_single_task raises ValueError when extractor not found."""
         config, _ = self._build_config_and_task()
         config.extractors = []  # Empty list — no extractors defined
+        config.workflows = [ToyCountConfig(name="clean", clusters=True)]
 
         task = TaskConfig(name="t", workflow="clean", sources="src_test", extractor="nonexistent")
         mock_load_ds.return_value = MagicMock()
@@ -1185,7 +1197,7 @@ class TestBuildResolvedConfig:
 
         assert "workflow" in cfg
         assert cfg["workflow"]["name"] == "clean"
-        assert cfg["workflow"]["type"] == "data-cleaning"
+        assert cfg["workflow"]["type"] == "test.count"
 
     def test_extractor_included(self):
         """Extractor config is included when not None."""
@@ -1399,24 +1411,18 @@ class _TinyDataset:
 
 
 def _real_result(*, success: bool, **kwargs: Any):
-    """A genuine DataCleaningResult — MagicMock would mask the None we care about."""
-    from dataeval_flow.workflows.data_cleaning import DataCleaningResult
-    from dataeval_flow.workflows.data_cleaning._outputs import (
-        DataCleaningMetadata,
-        DataCleaningOutput,
-        DataCleaningRawOutput,
-        DataCleaningReport,
-    )
+    """A genuine ToyCountResult — MagicMock would mask the None we care about."""
+    from dataeval_flow.workflows import WorkflowReport
 
-    output = DataCleaningOutput(
-        raw=DataCleaningRawOutput(dataset_size=0),
-        report=DataCleaningReport(summary="", findings=[]),
+    output = ToyCountOutput(
+        raw=ToyCountRaw(dataset_size=0),
+        report=WorkflowReport(summary="", findings=[]),
     )
-    return DataCleaningResult(
-        type="data-cleaning",
+    return ToyCountResult(
+        type="test.count",
         success=success,
         output=output if success else None,
-        metadata=DataCleaningMetadata(),
+        metadata=ToyCountMetadata(),
         errors=[] if success else ["boom"],
         **kwargs,
     )

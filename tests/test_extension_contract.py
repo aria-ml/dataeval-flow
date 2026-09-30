@@ -17,21 +17,22 @@ from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleani
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig, DataSplittingResult
 from tests.evaluator_toys import ToyImages, toy_pipeline
 from tests.example_plugin import CountConfig
+from tests.workflow_toys import ToyCountConfig, ToyCountResult
 
 
 def test_a_concrete_workflow_must_declare_its_identity() -> None:
     with pytest.raises(TypeError, match="must declare name, description"):
 
-        class Nameless(Workflow[DataCleaningConfig, DataCleaningResult]):
-            def run(self, config: DataCleaningConfig, context: WorkflowContext) -> DataCleaningResult:
+        class Nameless(Workflow[ToyCountConfig, ToyCountResult]):
+            def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
                 raise NotImplementedError
 
 
 def test_an_abstract_intermediate_base_is_exempt() -> None:
-    class SharedBase(Workflow[DataCleaningConfig, DataCleaningResult]):
+    class SharedBase(Workflow[ToyCountConfig, ToyCountResult]):
         """A plugin's own base: it defines no `run`, so it stays abstract."""
 
-    assert SharedBase.config_type is DataCleaningConfig
+    assert SharedBase.config_type is ToyCountConfig
 
 
 def test_an_unparameterized_concrete_workflow_is_rejected() -> None:
@@ -60,7 +61,7 @@ def test_name_defaults_to_the_type() -> None:
     assert DataSplittingConfig(name="split_a").name == "split_a"
 
 
-class _Untyped(WorkflowConfig[DataCleaningResult]):
+class _Untyped(WorkflowConfig[ToyCountResult]):
     """A config whose class gives ``type`` no default."""
 
 
@@ -119,11 +120,11 @@ class _UnresultedEvaluatorConfig(EvaluatorConfig):  # type: ignore[type-arg]
 def test_a_workflow_whose_config_names_no_result_class_is_rejected() -> None:
     with pytest.raises(TypeError, match=r"parameterize its base with one, e\.g\. .*WorkflowConfig\[MyResult\]"):
 
-        class Unresulted(Workflow[_UnresultedWorkflowConfig, DataCleaningResult]):
+        class Unresulted(Workflow[_UnresultedWorkflowConfig, ToyCountResult]):
             name: ClassVar[str] = "x.unresulted"
             description: ClassVar[str] = "Its config names no result class."
 
-            def run(self, config: _UnresultedWorkflowConfig, context: WorkflowContext) -> DataCleaningResult:
+            def run(self, config: _UnresultedWorkflowConfig, context: WorkflowContext) -> ToyCountResult:
                 raise NotImplementedError
 
 
@@ -140,68 +141,68 @@ def test_an_evaluator_whose_config_names_no_result_class_is_rejected() -> None:
                 raise NotImplementedError
 
 
-class _Forgetful(Workflow[DataCleaningConfig, DataCleaningResult]):
+class _Forgetful(Workflow[ToyCountConfig, ToyCountResult]):
     """Returns nothing, as a run that forgets its ``return`` does."""
 
     name: ClassVar[str] = "x.forgetful"
     description: ClassVar[str] = "Returns None."
 
-    def run(self, config: DataCleaningConfig, context: WorkflowContext) -> DataCleaningResult:
+    def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
         return None  # type: ignore[return-value]
 
 
 def test_a_run_that_returns_no_result_becomes_a_failed_result() -> None:
-    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel"])
+    config = ToyCountConfig()
     result = _run_target(_Forgetful(), config, WorkflowContext())
-    assert isinstance(result, DataCleaningResult)
+    assert isinstance(result, ToyCountResult)
     assert not result.success
-    assert result.errors == ["x.forgetful returned NoneType, not a DataCleaningResult"]
+    assert result.errors == ["x.forgetful returned NoneType, not a ToyCountResult"]
 
 
 @pytest.mark.parametrize("result", [DataSplittingResult, WorkflowResult[Any, Any]], ids=["another", "broader"])
 def test_a_workflow_must_produce_the_result_its_config_names(result: Any) -> None:
     """Else `run()`, typed by the config's result class, would type a result the workflow never returns."""
-    with pytest.raises(TypeError, match=r"Mismatched returns .*, but its config DataCleaningConfig names DataCleaning"):
+    with pytest.raises(TypeError, match=r"Mismatched returns .*, but its config ToyCountConfig names ToyCount"):
 
-        class Mismatched(Workflow[DataCleaningConfig, result]):
+        class Mismatched(Workflow[ToyCountConfig, result]):
             name: ClassVar[str] = "x.mismatched"
             description: ClassVar[str] = "Names another result class than its config does."
 
-            def run(self, config: DataCleaningConfig, context: WorkflowContext) -> Any:
+            def run(self, config: ToyCountConfig, context: WorkflowContext) -> Any:
                 raise NotImplementedError
 
 
-class _AnnotatedCleaningResult(DataCleaningResult):
-    """A narrower result than ``DataCleaningConfig`` names, which ``run()``'s type still covers."""
+class _AnnotatedCountResult(ToyCountResult):
+    """A narrower result than ``ToyCountConfig`` names, which ``run()``'s type still covers."""
 
 
 def test_a_narrower_result_than_the_config_names_is_accepted() -> None:
-    class Narrower(Workflow[DataCleaningConfig, _AnnotatedCleaningResult]):
+    class Narrower(Workflow[ToyCountConfig, _AnnotatedCountResult]):
         name: ClassVar[str] = "x.narrower"
         description: ClassVar[str] = "Returns a subclass of its config's result class."
 
-        def run(self, config: DataCleaningConfig, context: WorkflowContext) -> _AnnotatedCleaningResult:
+        def run(self, config: ToyCountConfig, context: WorkflowContext) -> _AnnotatedCountResult:
             raise NotImplementedError
 
-    assert Narrower.config_type is DataCleaningConfig
+    assert Narrower.config_type is ToyCountConfig
 
 
-class _Mislabelled(Workflow[DataCleaningConfig, DataCleaningResult]):
+class _Mislabelled(Workflow[ToyCountConfig, ToyCountResult]):
     """Returns another workflow's result, which its annotation cannot stop at run time."""
 
     name: ClassVar[str] = "x.mislabelled"
     description: ClassVar[str] = "Returns a DataSplittingResult."
 
-    def run(self, config: DataCleaningConfig, context: WorkflowContext) -> DataCleaningResult:
+    def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
         return DataSplittingResult.failed(type="data-splitting", errors=["not mine"])  # type: ignore[return-value]
 
 
 def test_a_run_that_returns_another_result_class_becomes_a_failed_result() -> None:
-    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel"])
+    config = ToyCountConfig()
     result = _run_target(_Mislabelled(), config, WorkflowContext())
-    assert type(result) is DataCleaningResult
+    assert type(result) is ToyCountResult
     assert not result.success
-    assert result.errors == ["x.mislabelled returned DataSplittingResult, not a DataCleaningResult"]
+    assert result.errors == ["x.mislabelled returned DataSplittingResult, not a ToyCountResult"]
 
 
 class _MetalessOutput:

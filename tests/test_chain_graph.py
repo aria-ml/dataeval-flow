@@ -9,9 +9,9 @@ from dataeval_flow._chain._graph import build_graph
 from dataeval_flow.evaluators.bias import BalanceConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.evaluators.scope import CoverageConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
+from tests.workflow_toys import ToyCountConfig, register_count
 
 _POOLS: dict[str, Any] = {
     "evaluators": [DuplicatesConfig(name="dupes"), BalanceConfig(name="balance"), CoverageConfig(name="cov")],
@@ -21,6 +21,7 @@ _POOLS: dict[str, Any] = {
 @pytest.fixture
 def toys(plugins):
     register_toys(plugins)
+    register_count(plugins)
     return plugins
 
 
@@ -157,7 +158,7 @@ def test_a_valid_workflow_resolves_each_step_and_marks_broadcasts() -> None:
     config = chain_pipeline(
         workflows=[
             _workflow(steps, inputs=["one", {"name": "all", "list": True}]),
-            DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"]),
+            ToyCountConfig(name="clean"),
         ],
         **_POOLS,
         datasets={"src": ToyImages(), "more": ToyImages(seed=1)},

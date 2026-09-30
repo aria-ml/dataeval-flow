@@ -96,15 +96,16 @@ async def _wait_for_result(pilot, results: list) -> None:  # type: ignore[type-a
 
 @pytest.fixture
 def chain_results(plugins: dict[str, list[tuple[str, str]]]) -> Iterator[dict[str, Any]]:
-    """Two custom workflows' results: `ok`, whose two steps both run, and `mixed`, whose data-cleaning step
+    """Two custom workflows' results: `ok`, whose two steps both run, and `mixed`, whose test.count step
     completes before its second step raises."""
     from dataeval_flow import run_tasks
     from dataeval_flow._cache import DatasetCache
     from dataeval_flow.evaluators.quality import DuplicatesConfig
-    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
     from tests.chain_toys import chain_pipeline, register_toys
+    from tests.workflow_toys import ToyCountConfig, register_count
 
     register_toys(plugins)
+    register_count(plugins)
     DatasetCache.clear_instances()
     ok = {
         "name": "ok",
@@ -123,7 +124,7 @@ def chain_results(plugins: dict[str, list[tuple[str, str]]]) -> Iterator[dict[st
         ],
     }
     config = chain_pipeline(
-        workflows=[ok, mixed, DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel"])],
+        workflows=[ok, mixed, ToyCountConfig(name="clean")],
         evaluators=[DuplicatesConfig(name="dupes")],
         tasks=[{"name": name, "workflow": name, "sources": ["src"]} for name in ("ok", "mixed")],
     )

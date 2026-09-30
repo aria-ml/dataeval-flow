@@ -23,10 +23,10 @@ from dataeval_flow.steps import (
     TransformConfig,
     TransformContext,
 )
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 from tests.golden.rerouting import CASES, approximately, normalized
+from tests.workflow_toys import ToyCountConfig, register_count
 
 GOLDEN = Path(__file__).parent / "golden"
 
@@ -266,11 +266,15 @@ def test_a_one_step_task_makes_its_evaluator_once() -> None:
     ("kind", "entry"),
     [
         ("evaluator", DuplicatesConfig(name="target")),
-        ("workflow", DataCleaningConfig(name="target", outlier_method="zscore", outlier_flags=["pixel"])),
+        ("workflow", ToyCountConfig(name="target")),
     ],
 )
-def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_no_lineage(kind: str, entry) -> None:
+def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_no_lineage(
+    kind: str, entry, plugins
+) -> None:
     from unittest.mock import patch
+
+    register_count(plugins)
 
     from dataeval_flow import _orchestrator
     from dataeval_flow._chain import _run as engine

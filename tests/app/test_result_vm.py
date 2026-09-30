@@ -453,7 +453,7 @@ class TestChainResults:
         assert re.search(r"BOOM \(TOY-EXPLODE\)\s+failed\n", text)
         assert "RuntimeError: boom on a" in text
         cleaned = result.steps["clean"].result.findings
-        assert cleaned
-        assert rvm.finding_count() == len(cleaned)
-        assert rvm.summary_line().startswith(f"{len(cleaned)} findings")
+        assert len(cleaned) == 1
+        assert rvm.finding_count() == 1
+        assert rvm.summary_line().startswith("1 finding,")
         assert rvm.status_tag() == " [bold red][failed][/bold red]"
