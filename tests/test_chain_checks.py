@@ -174,6 +174,24 @@ def test_a_check_that_returns_something_other_than_findings_fails_its_step() -> 
     assert result.steps["judge"].errors == ["TypeError: check 'toy-at-most' returned int, not findings."]
 
 
+def test_a_check_that_returns_one_finding_instead_of_a_list_fails_its_step() -> None:
+    with patch.object(GroupLimit, "run", return_value=Finding(title="x")):
+        result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count"})
+    assert result.failed_steps == ["judge"]
+    assert result.steps["judge"].errors == [
+        "TypeError: check 'toy-at-most' returned a Finding, not a list of findings."
+    ]
+
+
+def test_a_combine_that_omits_an_output_port_fails_its_step() -> None:
+    with patch.object(CountGroups, "run", return_value={}):
+        result = _result(_DUPES, _COUNT)
+    assert result.failed_steps == ["count"]
+    assert result.steps["count"].errors == [
+        "TypeError: combine 'toy-count-groups' returned no `output`: a combine returns every output port it declares."
+    ]
+
+
 def test_a_check_step_s_report_section_shows_its_findings() -> None:
     result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 0})
     # The text renderer capitalizes a top-level section's heading, and a step's section is one.

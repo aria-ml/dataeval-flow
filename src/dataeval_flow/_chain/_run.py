@@ -472,6 +472,11 @@ def _combine(
         task=settings.task, step=spec.name, derive_metadata=lambda node: _metadata(node, step.metadata_policy)
     )
     made = impl.run(spec.config, inputs, context)
+    missing = [port.name for port in spec.outputs if port.name not in made]
+    if missing:
+        raise TypeError(
+            f"combine '{spec.type}' returned no `{missing[0]}`: a combine returns every output port it declares."
+        )
     computed_on = _computed_on(inputs)
     return {
         port.name: Node(
@@ -491,7 +496,10 @@ def _combine(
 def _check(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None) -> dict[str, _Value]:
     """Run a check; each finding is stamped with the step, and with the element's key where it ran once per element."""
     impl: Check[Any] = spec.impl()  # type: ignore[assignment]
-    found = list(impl.run(spec.config, inputs, CheckContext(task=settings.task, step=spec.name)))
+    returned = impl.run(spec.config, inputs, CheckContext(task=settings.task, step=spec.name))
+    if isinstance(returned, Finding):
+        raise TypeError(f"check '{spec.type}' returned a Finding, not a list of findings.")
+    found = list(returned)
     strays = [type(item).__name__ for item in found if not isinstance(item, Finding)]
     if strays:
         raise TypeError(f"check '{spec.type}' returned {', '.join(strays)}, not findings.")
