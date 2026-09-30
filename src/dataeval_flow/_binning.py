@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 __all__ = [
     "attach_binning",
     "describe_binning",
+    "describe_under",
     "descriptor_from_record",
     "divergent_factors",
     "encodings_agree",
@@ -483,16 +484,63 @@ def describe_binning(
     return to_serializable(record)
 
 
+def describe_under(metadata: "Metadata", policy: "ResolvedPolicy | None") -> dict[str, Any]:
+    """`metadata`'s binning record under `policy`, as a result's envelope records it; DataEval's defaults for ``None``.
+
+    Reads the resolved policy, not a workflow's ``metadata_*`` fields: naming a policy leaves those fields empty, and a
+    run under a named policy would otherwise record ``excluded: []`` and DataEval's default factor source. Raises what
+    describing raises; :func:`attach_binning` is what never does.
+    """
+    from dataeval.flags import ImageStats
+
+    from dataeval_flow._metadata import expand_declared_bins, resolve_families, stat_names_for
+    from dataeval_flow._policy import ResolvedPolicy
+
+    policy = policy or ResolvedPolicy()
+    excluded = list(policy.exclude) or None
+    declared = dict(policy.continuous_factor_bins) or None
+
+    # The statistics a policy's families produce, band-group and level prefixes
+    # included.  Derived from the flags, not the Metadata, so a cache hit, which never
+    # ran the injector, marks the same factors as a cache miss.
+    #
+    # A stats policy decides which views the injector reads, so the names it produces
+    # carry those views' prefixes: `factors_from: [~, rgb]` injects `rgb_brightness`
+    # beside `brightness`. Deriving from the statistic names alone would leave every
+    # band factor out of this record.
+    injected: set[str] = set()
+    if policy.intrinsic_factors:
+        families = resolve_families("image", policy.intrinsic_factors)
+        # Band views are an image-statistics idea, so a non-image modality keeps the
+        # bare names. Describing never narrows harder than this: `_inject` is where a
+        # mismatch is an error.
+        if policy.stats is None or not isinstance(families, ImageStats):
+            bare = set(stat_names_for(families))
+        else:
+            from dataeval_flow._stats import columns_for
+
+            bare = columns_for(policy.stats.factors_from, families)
+        injected = set(bare) | {f"{level}_{name}" for level in ("unit", "instance") for name in bare}
+
+    # The bins as applied, not as spelled: `unmatched_bin_requests` is a set
+    # difference against the factor names, and the declared bare name is not one.
+    requested = expand_declared_bins(declared, metadata.factor_names, metadata.levels) if declared else None
+    return describe_binning(
+        metadata,
+        excluded=excluded,
+        requested_bins=requested,
+        factor_source=policy.factor_source,
+        declared_bins=declared,
+        injected=sorted(injected),
+    )
+
+
 def attach_binning(
     result_metadata: "ResultMetadata",
     metadata: "Metadata | Mapping[str, Metadata]",
     policy: "ResolvedPolicy",
 ) -> None:
-    """Record binning decisions on a workflow's metadata envelope.
-
-    Reads the resolved policy, not the workflow's ``metadata_*`` fields: naming a
-    policy leaves those fields empty, and a run under a named policy would
-    otherwise record ``excluded: []`` and DataEval's default factor source.
+    """Record binning decisions on a workflow's metadata envelope, each described by :func:`describe_under`.
 
     Accepts either a single ``Metadata`` or a mapping of split name to one, so a
     multi-split workflow records each split separately — splits are binned
@@ -507,55 +555,12 @@ def attach_binning(
     Never raises: an upstream column rename costs the record, not the run.
     """
     try:
-        from dataeval.flags import ImageStats
-
-        from dataeval_flow._metadata import expand_declared_bins, resolve_families, stat_names_for
-
-        excluded = list(policy.exclude) or None
-        declared = dict(policy.continuous_factor_bins) or None
-        source = policy.factor_source
-
-        # The statistics a policy's families produce, band-group and level prefixes
-        # included.  Derived from the flags, not the Metadata, so a cache hit, which never
-        # ran the injector, marks the same factors as a cache miss.
-        #
-        # A stats policy decides which views the injector reads, so the names it produces
-        # carry those views' prefixes: `factors_from: [~, rgb]` injects `rgb_brightness`
-        # beside `brightness`. Deriving from the statistic names alone would leave every
-        # band factor out of this record.
-        injected: set[str] = set()
-        if policy.intrinsic_factors:
-            families = resolve_families("image", policy.intrinsic_factors)
-            # Band views are an image-statistics idea, so a non-image modality keeps the
-            # bare names. This function never raises, so the narrowing degrades rather
-            # than rejecting. `_inject` is where a mismatch is an error.
-            if policy.stats is None or not isinstance(families, ImageStats):
-                bare = set(stat_names_for(families))
-            else:
-                from dataeval_flow._stats import columns_for
-
-                bare = columns_for(policy.stats.factors_from, families)
-            injected = set(bare) | {f"{level}_{name}" for level in ("unit", "instance") for name in bare}
-
-        def _describe(md: "Metadata") -> dict[str, Any]:
-            # The bins as applied, not as spelled: `unmatched_bin_requests` is a set
-            # difference against the factor names, and the declared bare name is not one.
-            requested = expand_declared_bins(declared, md.factor_names, md.levels) if declared else None
-            return describe_binning(
-                md,
-                excluded=excluded,
-                requested_bins=requested,
-                factor_source=source,
-                declared_bins=declared,
-                injected=sorted(injected),
-            )
-
         if isinstance(metadata, Mapping):
-            per_split = {name: _describe(md) for name, md in metadata.items()}
+            per_split = {name: describe_under(md, policy) for name, md in metadata.items()}
             result_metadata.metadata_binning = {"per_split": per_split}
             result_metadata.encoding_digest = _common_digest(per_split.values())
         else:
-            record = _describe(metadata)
+            record = describe_under(metadata, policy)
             result_metadata.metadata_binning = record
             result_metadata.encoding_digest = record.get("encoding_digest")
     except Exception:

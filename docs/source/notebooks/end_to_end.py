@@ -117,7 +117,7 @@ print(f"Classes:     {train_ds.metadata['index2label']}")
 # %% [markdown]
 # ## Step 2: Analyze the metadata
 #
-# Before you commit to a `metadata:` policy, run the `metadata-triage` workflow. It flags factors
+# Before you commit to a `metadata:` policy, run the `metadata-triage` preset. It flags factors
 # that carry no information and factors whose bin counts would otherwise be derived silently
 # (and unstably) at run time.
 #
@@ -159,12 +159,13 @@ triage_config = PipelineConfig(
 triage_result = run_task(triage_config.tasks[0], triage_config, data_dir=Path("."), cache_dir=Path("./cache"))
 
 # %%
-findings = triage_result.output.raw.findings
+triage = triage_result.steps["triage"].output.data()
+findings = triage["findings"]
 degenerate = sorted({f.factor for f in findings if f.category == "degenerate"})
 unbinned = sorted({f.factor for f in findings if f.category == "unbinned"})
 
-print(f"Factors:              {triage_result.output.raw.factor_count}")
-print(f"Findings:             {len(findings)} ({triage_result.metadata.blocking} blocking)")
+print(f"Factors:              {triage['factor_count']}")
+print(f"Findings:             {len(findings)} ({triage['counts'].get('blocking', 0)} blocking)")
 print(f"Degenerate (exclude): {degenerate}")
 print(f"Need explicit bins:   {len(unbinned)} factors")
 

@@ -108,6 +108,9 @@
 - `n` and `fraction` on `data-prioritization`: its `selected` step keeps each pool's top `n`, or that share rounded up;
   unset, it keeps every item in ranked order
 - A `prioritize` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
+- `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
+  `verify`, what the repair recovers
+- `metadata-issues`, a check: metadata-triage's findings, made from a `factor-triage` Output
 
 ### Changed
 
@@ -179,9 +182,12 @@
   and each pool, `rank` (`prioritize`) ranks each pool against the reference, and `selected` (`select`) keeps the top
   of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
   Pruning warning and each pool's info finding are gone
+- `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings. It
+  returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
-- A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
-  `dataeval-flow encoding` finds none in it
+- A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
+  `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
+  where they read several. `dataeval-flow encoding` reads it
 - A report's banner is the friendly title of what ran, as `Data Cleaning`; a custom workflow's is its name. The
   text report prints it in capitals; HTML keeps its case
 - A report's envelope opens with a line naming what ran, `Workflow: clean (data-cleaning)` or, for an evaluator task,
@@ -272,6 +278,9 @@
   naming it
 - Data-prioritization's `per_source_clean_indices` and `per_source_prioritized_indices`
 - The "Preparatory Mode" findings that data-analysis and data-cleaning made
+- `MetadataTriageResult`, with its metadata's `blocking` and `verified`; a metadata-triage result is a `ChainResult`
+- `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source` on
+  `metadata-triage`, which refuses them: declare the binning in a `metadata:` policy
 
 ## v0.2.2
 

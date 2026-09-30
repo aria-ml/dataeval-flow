@@ -4,12 +4,21 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from dataeval.quality import DuplicatesOutput, OutliersOutput
+from pydantic import BaseModel, Field
 
 from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
-__all__ = ["DuplicatesResult", "LabelHealthOutput", "LabelHealthResult", "OutliersResult"]
+__all__ = [
+    "DuplicatesResult",
+    "FactorTriageOutput",
+    "FactorTriageResult",
+    "LabelHealthOutput",
+    "LabelHealthResult",
+    "OutliersResult",
+    "VerificationEntry",
+]
 
 
 class DuplicatesResult(EvaluatorResult[DuplicatesOutput[Any, Any]]):
@@ -105,3 +114,65 @@ class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
         from dataeval_flow.evaluators.quality._report import label_health_section
 
         return label_health_section(output)
+
+
+class VerificationEntry(BaseModel):
+    """What one suggestion actually did when it was read back.
+
+    ``recovered`` is the question worth asking.  A suggestion can be well-formed, run
+    cleanly and still not work — upstream is explicit that a reading leaving every row
+    holding its own value has not made the column a factor — so a stanza is worth checking
+    before it is committed to a config.
+    """
+
+    factor: str = Field(description="The factor the suggestion repairs.")
+    applied: bool = Field(description="Whether the suggestion was complete enough to apply.")
+    recovered: bool = Field(description="Whether reading the metadata back under it recovered the factor.")
+    detail: str = Field(description="One line saying what the reading produced.")
+
+
+class FactorTriageOutput(CoreOutput):
+    """``factor-triage``'s output: what a Dataset's metadata failed to read, and a policy that repairs it.
+
+    ``data()`` holds:
+
+    - ``findings``: each issue, worst first, a ``TriageFinding``: its ``factor``, ``category``, ``severity``,
+      ``reasons``, ``remedy`` and ``detail``, and a ``suggestion`` where one repairs it;
+    - ``suggested_policy``: every suggestion merged into one metadata policy body; ``suggested_policy_yaml``: the same
+      as YAML, to paste under a config's ``metadata:`` key;
+    - ``verification``: per suggestion, a :class:`VerificationEntry` saying whether reading the metadata back under it
+      ``applied`` and ``recovered`` the factor; empty unless ``verify`` is on;
+    - ``verification_error``: why verification raised, or ``None``. It tells a failed verification from
+      ``verify: false`` and from nothing to verify, all of which leave ``verification`` empty;
+    - ``counts``: how many issues fall in each category, and in each severity;
+    - ``factor_count``: how many factors the metadata read;
+    - ``places``: by factor, where each of a mixed column's problem values sits: the value, how many rows hold it, and
+      the first of their items.
+    """
+
+
+class FactorTriageResult(EvaluatorResult[FactorTriageOutput]):
+    """The result of a ``factor-triage`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.quality.FactorTriageOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``findings``, ``suggested_policy``, ``suggested_policy_yaml``, ``verification``,
+        ``verification_error``, ``counts``, ``factor_count`` and ``places``.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """How many factors it read, and its issues by category and severity."""
+        from dataeval_flow._triage_report import triage_section
+
+        return triage_section(output)

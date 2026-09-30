@@ -1,4 +1,7 @@
-"""Finding builders for the metadata triage workflow."""
+"""How metadata triage reads to a person: the `metadata-issues` check's findings, and the `triage` step's section.
+
+Spec §10.10.
+"""
 
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
@@ -20,9 +23,8 @@ from dataeval_flow._blocks import (
 from dataeval_flow._tables import group_cells, table_limits
 from dataeval_flow._triage import TriageFinding
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows.metadata_triage._outputs import MetadataTriageRawOutput
 
-__all__ = ["Places", "build_findings", "minority_kind", "summarize"]
+__all__ = ["Places", "build_findings", "minority_kind", "summarize", "triage_section"]
 
 # Each problem value of a factor, most rows first: the value, how many rows hold it, and the first few of their items.
 Places = Mapping[str, Sequence[tuple[str, int, Sequence[ItemRef]]]]
@@ -72,17 +74,21 @@ def minority_kind(counts: Mapping[str, int]) -> str | None:
     return min(counts, key=lambda kind: (counts[kind], kind != "text"))
 
 
-def build_findings(raw: MetadataTriageRawOutput, max_examples: int, places: Places | None = None) -> list[Finding]:
-    """One Finding per category that produced a finding.
+def build_findings(data: Mapping[str, Any], max_examples: int) -> list[Finding]:
+    """One Finding per category that holds an issue, then the suggested policy, then what verification found.
 
-    ``severity`` is ``"warning"`` only where the category holds a blocking finding, which is
-    what makes ``WorkflowResult.health`` flag on exactly those: a blocking finding means the
-    run did less than the configuration asked for without saying so. *places*, by factor, are
-    where each of a mixed column's problem values sits, for its items to be pictured.
+    `data` is a `factor-triage` Output's ``data()``: its ``findings``, ``suggested_policy_yaml``, ``verification``,
+    ``verification_error`` and ``places``, any of which may be absent. ``severity`` is ``"warning"`` only where the
+    category holds a blocking issue, which is what makes the chain's health flag on exactly those: a blocking issue
+    means the run did less than the configuration asked for without saying so. ``places``, by factor, are where each
+    of a mixed column's problem values sits, for its items to be pictured.
     """
+    issues: list[TriageFinding] = list(data.get("findings") or [])
+    places: Places = data.get("places") or {}
+    verification: list[Any] = list(data.get("verification") or [])
     findings: list[Finding] = []
     for category in _ORDER:
-        group = [f for f in raw.findings if f.category == category]
+        group = [f for f in issues if f.category == category]
         if not group:
             continue
         blocking = any(f.severity == "blocking" for f in group)
@@ -91,31 +97,31 @@ def build_findings(raw: MetadataTriageRawOutput, max_examples: int, places: Plac
         if category == "floor_mass":
             blocks = _floor_mass_blocks(group)
         elif shared := _COLLAPSED.get(category):
-            blocks = [Paragraph(text=shared), *_collapsed_sections(group, list(raw.findings))]
+            blocks = [Paragraph(text=shared), *_collapsed_sections(group, issues)]
         else:
-            blocks = [_finding_section(finding, max_examples, (places or {}).get(finding.factor)) for finding in group]
+            blocks = [_finding_section(finding, max_examples, places.get(finding.factor)) for finding in group]
         findings.append(
             Finding(severity=severity, title=_TITLES[category], brief=f"{len(group)} factors", blocks=blocks)
         )
-    if raw.suggested_policy_yaml:
+    if suggested := data.get("suggested_policy_yaml"):
         findings.append(
             Finding(
                 severity="info",
                 title="Suggested policy",
                 brief="add to configuration under `metadata:`",
-                blocks=[Code(text=raw.suggested_policy_yaml.rstrip("\n"), language="yaml")],
+                blocks=[Code(text=suggested.rstrip("\n"), language="yaml")],
             )
         )
-    if raw.verification:
+    if verification:
         findings.append(
             Finding(
                 severity="info",
                 title="Verified",
-                brief=f"{sum(1 for v in raw.verification if v.recovered)} recovered",
-                blocks=[Fields(items=[(v.factor, v.detail) for v in raw.verification])],
+                brief=f"{sum(1 for v in verification if v.recovered)} recovered",
+                blocks=[Fields(items=[(v.factor, v.detail) for v in verification])],
             )
         )
-    elif raw.verification_error:
+    elif error := data.get("verification_error"):
         # Distinct from the section above being absent for `verify: false` or nothing to
         # verify: a reader must be able to tell "verification blew up" from those two, and
         # an omitted section says nothing at all.
@@ -124,7 +130,7 @@ def build_findings(raw: MetadataTriageRawOutput, max_examples: int, places: Plac
                 severity="warning",
                 title="Verification failed",
                 brief="not verified",
-                blocks=[Paragraph(text=raw.verification_error)],
+                blocks=[Paragraph(text=error)],
             )
         )
     return findings
@@ -264,10 +270,24 @@ def _examples(finding: TriageFinding, max_examples: int) -> list[tuple[str, Scal
     return items
 
 
-def summarize(raw: MetadataTriageRawOutput) -> dict[str, Any]:
-    """Counts by category and by severity, for the raw outputs."""
-    counts: dict[str, Any] = {}
-    for finding in raw.findings:
+def summarize(findings: Sequence[TriageFinding]) -> dict[str, int]:
+    """How many issues fall in each category, and in each severity."""
+    counts: dict[str, int] = {}
+    for finding in findings:
         counts[finding.category] = counts.get(finding.category, 0) + 1
         counts[finding.severity] = counts.get(finding.severity, 0) + 1
     return counts
+
+
+def triage_section(output: Mapping[str, Any]) -> list[Block]:
+    """A `factor-triage` Output's report section: how many factors it read, and how many issues of each category (by its
+    finding's title) and each severity ("<severity> issues") it found. Each category's detail is in its finding,
+    beside which the chain's report shows this."""
+    data = output.get("data") or {}
+    counts: Mapping[str, int] = data.get("counts") or {}
+    items: list[tuple[str, Scalar]] = [
+        ("Factors", data.get("factor_count")),
+        ("Issues", len(data.get("findings") or [])),
+        *((_TITLES.get(key, f"{key} issues"), count) for key, count in counts.items()),
+    ]
+    return [Fields(items=items)]

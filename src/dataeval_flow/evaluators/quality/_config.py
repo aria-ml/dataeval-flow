@@ -5,7 +5,7 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["DuplicatesConfig", "LabelHealthConfig", "OutliersConfig"]
+__all__ = ["DuplicatesConfig", "FactorTriageConfig", "LabelHealthConfig", "OutliersConfig"]
 
 import functools
 import operator
@@ -19,7 +19,12 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._threshold import ThresholdSpec
-from dataeval_flow.evaluators.quality._result import DuplicatesResult, LabelHealthResult, OutliersResult
+from dataeval_flow.evaluators.quality._result import (
+    DuplicatesResult,
+    FactorTriageResult,
+    LabelHealthResult,
+    OutliersResult,
+)
 
 if TYPE_CHECKING:
     from dataeval.flags import ImageStats
@@ -347,3 +352,45 @@ class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin)
 
     type: str = Field(default="label-health", description="The evaluator type this entry configures: `label-health`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
+
+
+class FactorTriageConfig(EvaluatorConfig[FactorTriageResult], MetadataConfigMixin):
+    """Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.
+
+    Reads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It
+    suggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the
+    suggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.
+
+    Example YAML::
+
+        evaluators:
+          - name: triage
+            type: factor-triage
+            metadata: standard
+    """
+
+    type: str = Field(default="factor-triage", description="The evaluator type this entry configures: `factor-triage`.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
+
+    verify: bool = Field(
+        default=True,
+        description=(
+            "Re-read the metadata under the complete suggestions and report what they "
+            "recover. Costs no second dataset walk: `repair` returns a copy sharing the store."
+        ),
+    )
+    default_bins: int = Field(
+        default=10,
+        ge=2,
+        description=(
+            "Bin count a suggestion falls back to where the run left no fit to read. Where "
+            "there is one, the populated bins of the derived cut are carried forward instead, "
+            "which pins the cut the run used rather than substituting a different one."
+        ),
+    )
+    min_missing_fraction: float = Field(
+        default=0.2,
+        ge=0.0,
+        le=1.0,
+        description="Share of rows recording no value above which a factor is called degenerate.",
+    )

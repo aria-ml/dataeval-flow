@@ -275,7 +275,9 @@ class TestRegistry:
         assert get_evaluator("test.stat-names") is _StatNames
 
     def test_an_unknown_type_names_the_known_ones(self):
-        with pytest.raises(ValueError, match=r"Unknown evaluator: 'nope'. Installed: \[.*'test.stat-names'\]"):
+        with pytest.raises(
+            ValueError, match=r"Unknown evaluator: 'nope'. Installed: \[.*'factor-triage'.*'test.stat-names'\]"
+        ):
             get_evaluator("nope")
 
     def test_the_listing_says_what_each_consumes(self):

@@ -72,6 +72,10 @@ dataeval_flow.evaluators.bias:ParityResult
 dataeval_flow.evaluators.quality:DuplicatesConfig
 dataeval_flow.evaluators.quality:DuplicatesEvaluator
 dataeval_flow.evaluators.quality:DuplicatesResult
+dataeval_flow.evaluators.quality:FactorTriageConfig
+dataeval_flow.evaluators.quality:FactorTriageEvaluator
+dataeval_flow.evaluators.quality:FactorTriageOutput
+dataeval_flow.evaluators.quality:FactorTriageResult
 dataeval_flow.evaluators.quality:LabelHealthConfig
 dataeval_flow.evaluators.quality:LabelHealthEvaluator
 dataeval_flow.evaluators.quality:LabelHealthOutput
@@ -80,6 +84,7 @@ dataeval_flow.evaluators.quality:OutliersConfig
 dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
 dataeval_flow.evaluators.quality:ThresholdSpec
+dataeval_flow.evaluators.quality:VerificationEntry
 dataeval_flow.evaluators.scope:CoverageConfig
 dataeval_flow.evaluators.scope:CoverageEvaluator
 dataeval_flow.evaluators.scope:CoverageResult
@@ -156,6 +161,8 @@ dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
 dataeval_flow.steps.checks:DuplicateRateCheck
 dataeval_flow.steps.checks:DuplicateRateConfig
+dataeval_flow.steps.checks:MetadataIssuesCheck
+dataeval_flow.steps.checks:MetadataIssuesConfig
 dataeval_flow.steps.checks:OutlierRateCheck
 dataeval_flow.steps.checks:OutlierRateConfig
 dataeval_flow.steps.checks:TargetOutlierRateCheck
@@ -223,7 +230,6 @@ dataeval_flow.workflows.drift_monitoring:DriftMonitoringResult
 dataeval_flow.workflows.drift_monitoring:DriftMonitoringWorkflow
 dataeval_flow.workflows.drift_monitoring:UpdateStrategyConfig
 dataeval_flow.workflows.metadata_triage:MetadataTriageConfig
-dataeval_flow.workflows.metadata_triage:MetadataTriageResult
 dataeval_flow.workflows.metadata_triage:MetadataTriageWorkflow
 dataeval_flow.workflows.ood_detection:OODDetectionConfig
 dataeval_flow.workflows.ood_detection:OODDetectionHealthThresholds

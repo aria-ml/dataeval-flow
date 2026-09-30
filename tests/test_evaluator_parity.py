@@ -42,6 +42,9 @@ _WIRING: dict[str, frozenset[str]] = {
     "label-alignment": frozenset({"matchers"}),
 }
 
+# Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.
+_FLOW_ONLY: frozenset[str] = frozenset({"factor-triage"})
+
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
 _CONVERTED: set[tuple[str, str]] = {("duplicates", "flags"), ("outliers", "flags")}
 
@@ -100,7 +103,7 @@ def _refuses(annotation: Any, sample: Any) -> bool:
 
 
 def test_every_builtin_has_a_wiring_list():
-    missing = sorted(set(_BUILTINS) - set(_WIRING))
+    missing = sorted(set(_BUILTINS) - set(_WIRING) - _FLOW_ONLY)
     assert not missing, f"add {missing} to _WIRING"
 
 

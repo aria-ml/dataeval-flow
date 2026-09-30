@@ -27,6 +27,7 @@ _TITLES = {
     "duplicates": "Duplicates",
     "label-health": "Label Health",
     "outliers": "Outliers",
+    "factor-triage": "Factor Triage",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
     "prioritize": "Prioritization",

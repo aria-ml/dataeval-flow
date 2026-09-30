@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field
 
+from dataeval_flow._binning_report import binning_blocks
 from dataeval_flow._blocks import Block, Scalar
 from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section
 from dataeval_flow.steps._step import StepKind
@@ -151,10 +152,13 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
     def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None, preset: bool = False) -> "ChainResult":
         """The result of running custom workflow `name`: failed when any required step failed. Its ``type`` is
         `type_id`, a preset's type id, or `name` when unset; `preset` says a preset entry's chain ran, which the banner
-        names, where a custom workflow has no type."""
+        names, where a custom workflow has no type. Its envelope records the encodings its steps read (spec §10.10)."""
         failed = [step for step, record in run.steps.items() if record.status == "failed"]
         errors = [f"{step}: {'; '.join(_errors(run.steps[step]))}" for step in failed]
         metadata = ChainMetadata(workflow=name, lineage=list(run.lineage), label_space=list(run.label_space))
+        from dataeval_flow._chain._reads import attach_reads
+
+        attach_reads(metadata, run.reads)
         result = cls(
             type=type_id or name,
             success=not failed,
@@ -223,7 +227,9 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
 
         if not self.success and not self.steps:
             return [failure_section(self.errors)]
-        return chain_blocks(self, detailed=detailed)
+        blocks = chain_blocks(self, detailed=detailed)
+        blocks.extend(binning_blocks(self.metadata.metadata_binning, self.metadata.diagnostics, detailed=detailed))
+        return blocks
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
         return self._report_body(detailed=detailed)

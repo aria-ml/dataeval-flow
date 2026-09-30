@@ -6,8 +6,8 @@ findings: each `ok`, `info` or `warning`, rolled up into the task's health, wher
 reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
-The built-in checks are the ones `data-cleaning` runs: its findings are theirs. See
-[data-cleaning is this chain](#data-cleaning-is-this-chain).
+The built-in checks are the ones `data-cleaning` runs, whose findings are theirs, and `metadata-issues`, which makes
+`metadata-triage`'s. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -18,6 +18,7 @@ The built-in checks are the ones `data-cleaning` runs: its findings are theirs. 
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
+| `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
 ## How thresholds work
@@ -90,6 +91,22 @@ Dataset declares no class. Its title reads "Label/Directory_Name Distribution" w
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class always warns |
+
+### `metadata-issues`
+
+The findings `metadata-triage` makes, from a `factor-triage` Output, in this order:
+
+1. One finding per kind of issue `factor-triage` found. It is a warning where any issue of that kind is blocking,
+   meaning the run did less than its configuration asked, and info otherwise.
+2. "Suggested policy", holding the stanza to paste under `metadata:`.
+3. "Verified", saying what each suggestion recovered, or "Verification failed", a warning, when verification raised.
+
+It has no thresholds. Configured by {py:class}`~dataeval_flow.steps.checks.MetadataIssuesConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `factor-triage` Output |
+| `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
 
 ## Combines
 
@@ -198,3 +215,26 @@ workflows:
 Without `cleaning:`, only `rank` and `selected` run, reading `pools` and `reference`. `duplicate_exact_only: true`
 makes both plans' `dup_types` `[exact]`. With neither `n` nor `fraction`, `selected` keeps every item
 (`fraction: 1.0`). The chain has no checks, so it makes no findings.
+
+## metadata-triage is this chain
+
+`metadata-triage` is a preset too: its settings expand to two steps on the task's one source, `data`. With its
+defaults, it runs:
+
+```yaml
+evaluators:
+  - {name: triage, type: factor-triage}
+
+workflows:
+  - name: triage_chain
+    inputs: [data]
+    steps:
+      - {name: triage, evaluator: triage, input: data}
+      - {name: issues, check: metadata-issues, input: triage}
+```
+
+- `metadata:`, `verify`, `default_bins` and `min_missing_fraction` are `triage`'s settings, and `max_examples` is
+  `issues`'.
+- Its findings are `issues`': one per kind of issue, then the suggested policy and what verification recovered.
+- The chain makes no Dataset, so it declares no output.
+- Its result's `metadata_binning` records the encoding `triage` read, which `dataeval-flow encoding` writes out.

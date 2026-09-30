@@ -20,8 +20,10 @@ The three `metadata_*` settings are accepted by every workflow that builds metad
 | `data-coverage` | class balance, factor gap analysis, factor-to-class mutual information |
 | `ood-detection` | factor deviation and predictors for flagged samples |
 
-`data-cleaning` takes a policy's name, `metadata:`, but none of the `metadata_*` settings, and records no encoding:
-its result's `metadata_binning` and `encoding_digest` are `null`.
+`data-cleaning` takes a policy's name, `metadata:`, but none of the `metadata_*` settings. A custom workflow's or
+preset's result records the encodings its steps read in `metadata_binning`: one record, or `per_split` keyed by Dataset
+address where the steps read several Datasets or one Dataset two ways. A chain whose steps read no metadata records
+none, and its `metadata_binning` and `encoding_digest` are `null`.
 
 ## Define the policy once and share it
 
@@ -278,8 +280,8 @@ a disagreeing one on the dataset is an error rather than a merge.
 
 ## Read back what the run did
 
-Every result records its binning decisions. The record appears in the text report under **METADATA FACTORS** and in
-the result envelope at `metadata.metadata_binning`:
+Every result that built metadata records its binning decisions. The record appears in the text report under
+**METADATA FACTORS** and in the result envelope at `metadata.metadata_binning`:
 
 ```text
 --------------------------------------------------------------------------------

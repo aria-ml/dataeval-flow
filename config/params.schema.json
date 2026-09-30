@@ -493,6 +493,48 @@
       "title": "CheckStep_duplicate-rate",
       "type": "object"
     },
+    "CheckStep_metadata-issues": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `factor-triage` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in a finding. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        },
+        "check": {
+          "const": "metadata-issues",
+          "description": "`metadata-issues`: Warns where metadata triage found a factor the run could not read as configured.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_metadata-issues",
+      "type": "object"
+    },
     "CheckStep_outlier-rate": {
       "additionalProperties": false,
       "properties": {
@@ -1274,6 +1316,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_duplicate-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_metadata-issues"
               },
               {
                 "$ref": "#/$defs/CheckStep_outlier-rate"
@@ -4062,6 +4107,60 @@
       "title": "ExportConfig",
       "type": "object"
     },
+    "FactorTriageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "factor-triage",
+          "default": "factor-triage",
+          "description": "The evaluator type this entry configures: `factor-triage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "verify": {
+          "default": true,
+          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
+          "title": "Verify",
+          "type": "boolean"
+        },
+        "default_bins": {
+          "default": 10,
+          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
+          "minimum": 2,
+          "title": "Default Bins",
+          "type": "integer"
+        },
+        "min_missing_fraction": {
+          "default": 0.2,
+          "description": "Share of rows recording no value above which a factor is called degenerate.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Missing Fraction",
+          "type": "number"
+        }
+      },
+      "title": "FactorTriageConfig",
+      "type": "object"
+    },
     "FlattenExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for simple flattening (no model).\n\nYAML example::\n\n    extractors:\n      - name: flat_extractor\n        model: flatten",
@@ -4636,78 +4735,8 @@
     },
     "MetadataTriageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
       "properties": {
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
-          "title": "Metadata Continuous Factor Bins"
-        },
-        "metadata_factor_source": {
-          "anyOf": [
-            {
-              "enum": [
-                "coded",
-                "values",
-                "auto"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
-          "title": "Metadata Factor Source"
-        },
         "metadata": {
           "anyOf": [
             {
@@ -9005,6 +9034,9 @@
               },
               {
                 "$ref": "#/$defs/DuplicatesConfig"
+              },
+              {
+                "$ref": "#/$defs/FactorTriageConfig"
               },
               {
                 "$ref": "#/$defs/LabelAlignmentConfig"
