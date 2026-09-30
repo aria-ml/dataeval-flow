@@ -123,6 +123,22 @@ def test_a_transform_s_read_is_recorded_beside_an_evaluator_s() -> None:
     assert list(_binning(result)["per_split"]) == ["data", "split.train"]
 
 
+_OUTLIERS = {"name": "outliers", "evaluator": "outliers", "input": "data"}
+
+
+def test_a_combine_s_read_reaches_the_record_when_no_evaluator_read_metadata() -> None:
+    evaluators = [{"name": "outliers", "type": "outliers"}]
+    assert _chain([_OUTLIERS], evaluators=evaluators).metadata.metadata_binning is None
+    result = _chain(
+        [_OUTLIERS, {"name": "by-class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"}],
+        evaluators=evaluators,
+    )
+    record = _binning(result)
+    assert "per_split" not in record
+    assert sorted(record["factors"]) == ["angle", "site"]
+    assert result.metadata.encoding_digest == record["encoding_digest"]
+
+
 def test_a_record_that_cannot_be_described_costs_the_record_not_the_run(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
