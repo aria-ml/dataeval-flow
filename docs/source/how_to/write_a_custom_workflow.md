@@ -74,8 +74,42 @@ dataeval-flow -c pipeline.yaml -o out/
 ```
 
 The config is checked as it loads: every address must name an input or an earlier step, and every setting must be one
-its transform takes. Then the steps run in order, and `aerial_conformed` fails. The report gives each step a section,
-headed by its type's title and its name:
+its transform takes. Then the steps run in order, and `aerial_conformed` fails. The console prints the report's short
+form: how many steps ran, the summary, and a line per step with why it made nothing where it did not. Below its
+banner and above its configuration:
+
+```text
+  Steps: 5 (3 ran, 1 failed, 1 skipped)
+
+================================================================================
+  SUMMARY
+================================================================================
+  No findings to report.
+
+  Health: failed [!!] — step `aerial_conformed` failed
+
+================================================================================
+  STEPS
+================================================================================
+  Step              Status   Note
+  ----------------  -------  ---------------------------------------------------
+  align_street      ok
+
+  align_aerial      ok
+
+  street_conformed  ok
+
+  aerial_conformed  failed   ValueError: The alignment is lossy, beyond `allow:
+                             lossless`: car, truck collapse onto Vehicle. Set
+                             `allow: lossy` to accept it, or settle classes with
+                             `class_remap:`.
+
+  merged            skipped  needs `aerial_conformed`, which failed
+```
+
+The note is too long for its column, so the table wraps its cells and leaves a blank line between rows.
+`out/results/result.txt`, and the console with `-v`, hold the full report, which gives each step a section headed by
+its type's title and its name:
 
 ```text
 ================================================================================
@@ -294,8 +328,9 @@ tasks:
 ```
 
 `cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/dupes` and so on, to `cleaning/clean`. In the
-report, each of its checks' findings has a section, with the steps it judged below it, and `cleaning/clean` has one of
-its own. Its checks' findings count toward the task's health, as section 5's do.
+report, each of its checks' findings has a section, with the steps it judged below it, headed such as
+`From Outliers · cleaning/outliers`, and `cleaning/clean` has one of its own, `Remove · cleaning/clean`. Its checks'
+findings count toward the task's health, as section 5's do.
 Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.dupes` fail the
 config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) says more.
 
@@ -306,9 +341,17 @@ corpora of 24 images each: `street_2024` names `car` and `person` and copies one
 `truck` and `pedestrian`. The steps sections 4 and 5 add were not part of that run, so nothing here reports coverage,
 balance or a split, and no check judges a finding.
 
-The text report opens with how many steps ran, then gives each step a section of its own:
+The console prints `Steps: 8 ran`, `No findings to report.` and a line per step, each `ok`: with no finding and no
+failed step, there is no health to state. The full report, in `out/results/result.txt`, gives each step a section of
+its own, since no finding shows any as evidence. `clean`'s says what it kept and what each plan named, and
+`corpus`'s where it wrote:
 
 ```text
+================================================================================
+  REMOVE · CLEAN
+================================================================================
+  Kept 47 of 48 images. Removed 1 image: 1 named by `dupes`.
+
 ================================================================================
   EXPORT · CORPUS
 ================================================================================
@@ -317,8 +360,8 @@ The text report opens with how many steps ran, then gives each step a section of
   Images: 47
 ```
 
-A Steps table closes the report, before the configuration. It gives each step's type and status, why it made nothing
-where it did not, and each Dataset it read, walked back to its source: `corpus` reads
+A Steps table follows the steps' sections, before the configuration. It gives each step's type and status, why it
+made nothing where it did not, and each Dataset it read, walked back to its source: `corpus` reads
 `` `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. The HTML report's table adds each step's title,
 which the text report leaves to the step's section.
 
@@ -335,10 +378,14 @@ each Dataset in the chain. Trimmed to the `clean` step:
   "steps": {
     "clean": {"kind": "transform", "type": "remove", "status": "ok", "inputs": ["merged", "dupes"],
               "output": {"items": 47, "digest": "ca2f57f5f4ad"},
-              "details": {"removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}}}
+              "details": {"removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
+                          "by_plan": {"dupes": {"items": 1}}}}
   }
 }
 ```
+
+`details` counts what `remove` removed at each level, and `by_plan` what each plan named, at the levels where it named
+something. Plans may name the same item, so their counts can add up to more than `removed`.
 
 That run's health status is `ok`: it ran evaluators and transforms only, and evaluators judge nothing. A chain's health
 rolls up its checks' findings and those of the workflow types it runs as steps, and is `failed` when a required step fails.
@@ -372,7 +419,8 @@ dataeval-flow steps
 ```
 
 Each line names a step's kind and type, the ports it reads and makes, and what it does. `dataeval-flow steps remove`
-prints one step's catalog entry, including the schema of its settings, and `--json` prints the whole catalog. When two
+prints one step's catalog entry, including its friendly title, the one its report headings use, and the schema of its
+settings, and `--json` prints the whole catalog. When two
 kinds share a name, write it as `KIND:NAME`, as in `transform:split`. From Python, `list_steps()` in
 `dataeval_flow.steps` returns the same catalog.
 

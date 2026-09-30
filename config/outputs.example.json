@@ -596,6 +596,13 @@
           "detections": 16,
           "tracks": 0,
           "frames": 0
+        },
+        "by_plan": {
+          "dupes": {},
+          "outliers": {
+            "items": 2,
+            "detections": 16
+          }
         }
       },
       "elapsed_s": 0.012
@@ -606,7 +613,7 @@
       "severity": "warning",
       "title": "Image Outliers",
       "brief": "2 images (10.0%)",
-      "description": "2 images (10.0%) flagged as outliers.",
+      "description": null,
       "blocks": [],
       "step": "image-outliers"
     },
@@ -614,7 +621,7 @@
       "severity": "info",
       "title": "Target Outliers",
       "brief": "16 targets (4.8%)",
-      "description": "16 bounding-box targets (4.8%) flagged as outliers.",
+      "description": null,
       "blocks": [],
       "step": "target-outliers"
     },
@@ -622,7 +629,7 @@
       "severity": "info",
       "title": "Classwise Outliers",
       "brief": "worst: ship (14.6%), 1/2 classes over 12.0%",
-      "description": "Most outliers in ship (14.6%). 1/2 classes exceed 12.0% threshold.",
+      "description": null,
       "blocks": [
         {
           "type": "table",
@@ -666,7 +673,7 @@
       "severity": "warning",
       "title": "Label Distribution",
       "brief": "4 classes, 20 items, imbalance 26.1:1",
-      "description": "4 classes, 20 items.",
+      "description": null,
       "blocks": [
         {
           "type": "table",

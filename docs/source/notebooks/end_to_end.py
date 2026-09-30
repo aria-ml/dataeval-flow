@@ -275,8 +275,8 @@ for result in results.values():
 # ### 5b. Structured findings
 #
 # Each finding includes a `title`, a `severity` (`ok`, `info`, or `warning`), a short `brief`, a
-# `description`, and its evidence as report `blocks`. You can query these programmatically in
-# automated CI/CD gates.
+# `description` (`None` where the brief says it all), and its evidence as report `blocks`. You can
+# query these programmatically in automated CI/CD gates.
 
 # %%
 for result in results.values():
@@ -432,7 +432,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # ### Run it
 #
 # Use `--user` so `/output` and `/cache` remain writable by your host account.
-# Use `-v` to print formatted reports to standard output.
+# The console prints each report's short form; `-v` prints the full reports instead.
 #
 # ```bash
 # cd dataeval-run

@@ -185,10 +185,11 @@ print(result.report())
 # %% [markdown]
 # ### Findings and steps
 #
-# `data-cleaning` is a preset: its settings expand to a chain of steps, and the report above gives each step a
-# section. Evaluators find the outliers and duplicates and count the labels, checks judge what they found against
-# `health_thresholds`, and `clean` removes what was flagged. `run_task()` returns a `ChainResult` holding each step
-# by name, in run order:
+# `data-cleaning` is a preset: its settings expand to a chain of steps. Evaluators find the outliers and duplicates
+# and count the labels, checks judge what they found against `health_thresholds`, and `clean` removes what was
+# flagged. The report above gives each finding a section, with the evaluators it judged below it, then a section
+# for each step no finding showed, such as `clean`, and a table of every step. `run_task()` returns a `ChainResult`
+# holding each step by name, in run order:
 
 # %%
 print(list(result.steps))
@@ -316,7 +317,8 @@ for i, (indices, methods) in enumerate(near_groups[:3]):
 #
 # The chain's last step, `clean`, removes each flagged image and box, and each duplicate but the first of its group.
 # Its output is a DataEval `View` of the images that survived, which you can go on to train on or evaluate from
-# Python. Its `details` count what it removed at each level: images (`items`) and boxes (`detections`).
+# Python. Its `details` count what it removed at each level, images (`items`) and boxes (`detections`), and under
+# `by_plan` what each plan named, `dupes` and `outliers`.
 
 # %%
 clean = result.steps["clean"].output

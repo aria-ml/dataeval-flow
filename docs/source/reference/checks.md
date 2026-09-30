@@ -29,7 +29,8 @@ made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
 `info` finding in its own name, briefed `not assessed`, whose description names that input and why it holds nothing:
 "Not assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
-per element, and each finding names its element: `imbalance[train]`.
+per element, and each finding names its element under `step`, as `imbalance[train]`. The report groups those findings
+by the element's key, `train`, in its summary and below it.
 
 ## Checks
 
@@ -146,9 +147,14 @@ to `labels`, and `stats` to both `outliers` and `dupes`. Each `health_thresholds
 that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
 but the first of its group.
 
-Its report gives each finding a section, with the evaluator it judged below it: the flagged items under Image Outliers,
-the duplicate groups under Duplicates, and the class counts under Label Distribution. `clean`'s section follows with
-the counts it removed at each level, and a Steps table lists every step, what it read, and why it made nothing where it
-did not. Run as a step of a custom workflow,
-`<step>.clean` reads the cleaned Dataset; see
+Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
+Image Outliers, and the duplicate groups under Duplicates. The class counts sit under the first finding that read
+`labels`: Target Outliers where any box was flagged, else Label Distribution. A finding that read a step shown already
+names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `by-class` counted.
+`clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference campaigns,
+as {doc}`View a report as HTML <../notebooks/view_html_reports>` runs it: "Kept 162 of 261 images. Removed 99 images
+and 32 detections: 90 images named by `dupes`, 11 images and 32 detections by `outliers`." Two images were named by
+both plans. A Steps table lists every step, what it read, and why it made nothing where it did not.
+
+Run as a step of a custom workflow, `<step>.clean` reads the cleaned Dataset; see
 [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets).

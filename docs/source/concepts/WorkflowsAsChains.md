@@ -103,6 +103,10 @@ step. A threshold of `null` judges nothing: the finding is still made, as `info`
 A check is never skipped because an input produced nothing. It makes one `info` finding briefed `not assessed`,
 saying which input holds nothing and why, so the report shows what could not be judged.
 
+The report gives each finding a section of its own, with the evidence it judged below it: `duplicates`' finding holds
+the `dupes` step's duplicate groups. The steps no finding shows follow, then a table of every step.
+[Read evaluation outputs](../how_to/read_evaluation_outputs.md) describes the layout.
+
 ## Addresses and lists
 
 A step names what it reads by address:
@@ -155,7 +159,8 @@ tasks:
   - {name: watch, workflow: per_camera, sources: [train, cam1, cam2], extractor: bovw_ext}
 ```
 
-A key missing from one of the lists skips that element, and the reason names the key. Lists do not nest: a step that
+A key missing from one of the lists skips that element, and the reason names the key. A check run once per element
+makes each element's findings, and the report groups them under the element's key. Lists do not nest: a step that
 outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of
 its own, named by its key.
 
@@ -219,7 +224,7 @@ It holds the Dataset's address (`name`), the step that made it and that step's `
 
 ```json
 {"name": "clean", "step": "clean", "type": "remove", "inputs": ["merged"], "source": null,
- "digest": "1bf4dcfcadf4", "items": 47}
+ "digest": "ca2f57f5f4ad", "items": 47}
 ```
 
 The report's Steps table names, under *Reads*, every address each step read, one per line. Each Dataset among them is

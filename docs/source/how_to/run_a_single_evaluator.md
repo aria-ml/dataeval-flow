@@ -127,7 +127,7 @@ from dataeval_flow.evaluators.quality import DuplicatesResult
 config = load_config(Path("config.yaml"))
 result = run_tasks(config, tasks="find_dupes", data_dir=Path("."))["find_dupes"]
 
-print(result.report())  # the text the CLI prints
+print(result.report())  # the full report: what -v prints and result.txt holds
 rows = result.to_dict()["output"]["rows"]  # the JSON-ready table
 assert isinstance(result, DuplicatesResult)
 native = result.output  # DataEval's own DuplicatesOutput
