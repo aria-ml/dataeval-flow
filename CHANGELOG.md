@@ -108,9 +108,9 @@
 - `n` and `fraction` on `data-prioritization`: its `selected` step keeps each pool's top `n`, or that share rounded up;
   unset, it keeps every item in ranked order
 - A `prioritize` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
-- `triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
+- `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
   `verify`, what the repair recovers
-- `metadata-issues`, a check: metadata-triage's findings, made from a `triage` Output
+- `metadata-issues`, a check: metadata-triage's findings, made from a `factor-triage` Output
 
 ### Changed
 
@@ -182,8 +182,8 @@
   and each pool, `rank` (`prioritize`) ranks each pool against the reference, and `selected` (`select`) keeps the top
   of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
   Pruning warning and each pool's info finding are gone
-- `metadata-triage` is a preset: `triage` reads the metadata, and `metadata-issues` makes its findings. It returns a
-  `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
+- `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings. It
+  returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,

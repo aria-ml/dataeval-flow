@@ -497,7 +497,7 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `triage` Output.",
+          "description": "A `factor-triage` Output.",
           "title": "Input",
           "type": "string"
         },
@@ -4107,6 +4107,60 @@
       "title": "ExportConfig",
       "type": "object"
     },
+    "FactorTriageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "factor-triage",
+          "default": "factor-triage",
+          "description": "The evaluator type this entry configures: `factor-triage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "verify": {
+          "default": true,
+          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
+          "title": "Verify",
+          "type": "boolean"
+        },
+        "default_bins": {
+          "default": 10,
+          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
+          "minimum": 2,
+          "title": "Default Bins",
+          "type": "integer"
+        },
+        "min_missing_fraction": {
+          "default": 0.2,
+          "description": "Share of rows recording no value above which a factor is called degenerate.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Missing Fraction",
+          "type": "number"
+        }
+      },
+      "title": "FactorTriageConfig",
+      "type": "object"
+    },
     "FlattenExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for simple flattening (no model).\n\nYAML example::\n\n    extractors:\n      - name: flat_extractor\n        model: flatten",
@@ -4681,7 +4735,7 @@
     },
     "MetadataTriageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -8306,60 +8360,6 @@
       "title": "TransformStep_wrap",
       "type": "object"
     },
-    "TriageConfig": {
-      "additionalProperties": false,
-      "description": "Config for ``triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: triage\n        metadata: standard",
-      "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "triage",
-          "default": "triage",
-          "description": "The evaluator type this entry configures: `triage`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "verify": {
-          "default": true,
-          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
-          "title": "Verify",
-          "type": "boolean"
-        },
-        "default_bins": {
-          "default": 10,
-          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
-          "minimum": 2,
-          "title": "Default Bins",
-          "type": "integer"
-        },
-        "min_missing_fraction": {
-          "default": 0.2,
-          "description": "Share of rows recording no value above which a factor is called degenerate.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Min Missing Fraction",
-          "type": "number"
-        }
-      },
-      "title": "TriageConfig",
-      "type": "object"
-    },
     "UncertaintyExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for uncertainty estimation models.\n\nYAML example::\n\n    extractors:\n      - name: unc_extractor\n        model: uncertainty\n        model_path: \"./classifier.pt\"\n        preds_type: logits",
@@ -9036,6 +9036,9 @@
                 "$ref": "#/$defs/DuplicatesConfig"
               },
               {
+                "$ref": "#/$defs/FactorTriageConfig"
+              },
+              {
                 "$ref": "#/$defs/LabelAlignmentConfig"
               },
               {
@@ -9058,9 +9061,6 @@
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"
-              },
-              {
-                "$ref": "#/$defs/TriageConfig"
               }
             ]
           },

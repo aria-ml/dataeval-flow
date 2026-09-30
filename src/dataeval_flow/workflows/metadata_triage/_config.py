@@ -23,7 +23,7 @@ class MetadataTriageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
     ``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the
     cheapest workflow in the suite and the natural first task in a pipeline.
 
-    Its settings expand to two steps: the ``triage`` evaluator, which takes ``metadata``, ``verify``,
+    Its settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,
     ``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.
 
     Example YAML::

@@ -12,11 +12,11 @@ from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = [
     "DuplicatesResult",
+    "FactorTriageOutput",
+    "FactorTriageResult",
     "LabelHealthOutput",
     "LabelHealthResult",
     "OutliersResult",
-    "TriageOutput",
-    "TriageResult",
     "VerificationEntry",
 ]
 
@@ -131,8 +131,8 @@ class VerificationEntry(BaseModel):
     detail: str = Field(description="One line saying what the reading produced.")
 
 
-class TriageOutput(CoreOutput):
-    """``triage``'s output: what a Dataset's metadata failed to read, and a policy that repairs it.
+class FactorTriageOutput(CoreOutput):
+    """``factor-triage``'s output: what a Dataset's metadata failed to read, and a policy that repairs it.
 
     ``data()`` holds:
 
@@ -151,8 +151,9 @@ class TriageOutput(CoreOutput):
     """
 
 
-class TriageResult(EvaluatorResult[TriageOutput]):
-    """The result of a ``triage`` run; ``output`` is a :class:`~dataeval_flow.evaluators.quality.TriageOutput`.
+class FactorTriageResult(EvaluatorResult[FactorTriageOutput]):
+    """The result of a ``factor-triage`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.quality.FactorTriageOutput`.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope

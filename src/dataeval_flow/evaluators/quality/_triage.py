@@ -1,11 +1,11 @@
-"""``triage``: what a Dataset's metadata failed to read, and a policy that repairs it (spec §10.10).
+"""``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it (spec §10.10).
 
 Flow's own evaluator over DataEval's ``Metadata``: it describes how each factor was read, finds what the run could not
 read as configured (``dataeval_flow._triage``), and, with ``verify``, reads the metadata back under the suggestions,
 which ``Metadata.repair`` does without a second walk.
 """
 
-__all__ = ["TriageEvaluator", "describe", "places", "verify"]
+__all__ = ["FactorTriageEvaluator", "describe", "places", "verify"]
 
 import logging
 import time
@@ -29,23 +29,23 @@ from dataeval_flow.evaluators._core import execution
 from dataeval_flow.evaluators._evaluator import Evaluator
 from dataeval_flow.evaluators._fields import require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
-from dataeval_flow.evaluators.quality._config import TriageConfig
-from dataeval_flow.evaluators.quality._result import TriageOutput, VerificationEntry
+from dataeval_flow.evaluators.quality._config import FactorTriageConfig
+from dataeval_flow.evaluators.quality._result import FactorTriageOutput, VerificationEntry
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
 
-class TriageEvaluator(Evaluator[TriageConfig, TriageOutput]):
-    """``triage``: what a Dataset's metadata failed to read, the policy stanza that repairs it, and what the repair
-    recovers."""
+class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
+    """``factor-triage``: what a Dataset's metadata failed to read, the policy stanza that repairs it, and what the
+    repair recovers."""
 
-    name: ClassVar[str] = "triage"
-    title: ClassVar[str] = "Metadata Triage"
+    name: ClassVar[str] = "factor-triage"
+    title: ClassVar[str] = "Factor Triage"
     description: ClassVar[str] = "What a Dataset's metadata failed to read, and a policy that repairs it"
     dataeval_class: ClassVar[Any] = Metadata
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "repair"}
 
-    def run(self, config: TriageConfig, inputs: Sequence[EvaluatorInputs]) -> TriageOutput:
+    def run(self, config: FactorTriageConfig, inputs: Sequence[EvaluatorInputs]) -> FactorTriageOutput:
         """Describe the source's metadata, find what it failed to read, suggest repairs, and verify them."""
         (source,) = inputs
         metadata = require(source.metadata, "metadata", source.source)
@@ -74,7 +74,7 @@ class TriageEvaluator(Evaluator[TriageConfig, TriageOutput]):
             "factor_count": len(record.get("factors") or {}),
             "places": places(metadata, findings, source.source),
         }
-        return TriageOutput(data, execution("dataeval_flow.triage", started, time.monotonic() - clock, {}))
+        return FactorTriageOutput(data, execution("dataeval_flow.factor_triage", started, time.monotonic() - clock, {}))
 
 
 def describe(metadata: Any, policy: Any) -> dict[str, Any]:

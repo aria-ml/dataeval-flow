@@ -5,7 +5,7 @@ __all__ = ["MetadataTriageWorkflow"]
 
 from typing import ClassVar
 
-from dataeval_flow.evaluators.quality import TriageConfig
+from dataeval_flow.evaluators.quality import FactorTriageConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
@@ -18,8 +18,8 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
 
     The settings expand to two steps on the task's one source, ``data``:
 
-    - ``triage`` (the ``triage`` evaluator): each factor the run could not read as configured, a policy stanza that
-      repairs them, and, with ``verify``, what the repair recovers;
+    - ``triage`` (the ``factor-triage`` evaluator): each factor the run could not read as configured, a policy stanza
+      that repairs them, and, with ``verify``, what the repair recovers;
     - ``issues`` (the ``metadata-issues`` check): one finding per kind of issue, a warning where any is blocking, then
       the suggested policy, and what verification recovered or that it failed.
 
@@ -34,7 +34,7 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
     @classmethod
     def chain(cls, config: MetadataTriageConfig) -> PresetChain:
         """The ``triage`` entry these settings configure, and the check that makes its findings."""
-        triage = TriageConfig(
+        triage = FactorTriageConfig(
             name="triage",
             metadata=config.metadata,
             verify=config.verify,

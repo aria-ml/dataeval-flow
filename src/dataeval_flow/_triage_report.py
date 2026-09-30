@@ -77,7 +77,7 @@ def minority_kind(counts: Mapping[str, int]) -> str | None:
 def build_findings(data: Mapping[str, Any], max_examples: int) -> list[Finding]:
     """One Finding per category that holds an issue, then the suggested policy, then what verification found.
 
-    `data` is a `triage` Output's ``data()``: its ``findings``, ``suggested_policy_yaml``, ``verification``,
+    `data` is a `factor-triage` Output's ``data()``: its ``findings``, ``suggested_policy_yaml``, ``verification``,
     ``verification_error`` and ``places``, any of which may be absent. ``severity`` is ``"warning"`` only where the
     category holds a blocking issue, which is what makes the chain's health flag on exactly those: a blocking issue
     means the run did less than the configuration asked for without saying so. ``places``, by factor, are where each
@@ -280,7 +280,7 @@ def summarize(findings: Sequence[TriageFinding]) -> dict[str, int]:
 
 
 def triage_section(output: Mapping[str, Any]) -> list[Block]:
-    """A `triage` Output's report section: how many factors it read, and how many issues of each category (by its
+    """A `factor-triage` Output's report section: how many factors it read, and how many issues of each category (by its
     finding's title) and each severity ("<severity> issues") it found. Each category's detail is in its finding,
     beside which the chain's report shows this."""
     data = output.get("data") or {}

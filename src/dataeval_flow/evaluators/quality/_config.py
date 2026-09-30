@@ -5,7 +5,7 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["DuplicatesConfig", "LabelHealthConfig", "OutliersConfig", "TriageConfig"]
+__all__ = ["DuplicatesConfig", "FactorTriageConfig", "LabelHealthConfig", "OutliersConfig"]
 
 import functools
 import operator
@@ -19,7 +19,12 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._threshold import ThresholdSpec
-from dataeval_flow.evaluators.quality._result import DuplicatesResult, LabelHealthResult, OutliersResult, TriageResult
+from dataeval_flow.evaluators.quality._result import (
+    DuplicatesResult,
+    FactorTriageResult,
+    LabelHealthResult,
+    OutliersResult,
+)
 
 if TYPE_CHECKING:
     from dataeval.flags import ImageStats
@@ -349,8 +354,8 @@ class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin)
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
 
 
-class TriageConfig(EvaluatorConfig[TriageResult], MetadataConfigMixin):
-    """Config for ``triage``: what a Dataset's metadata failed to read, and a policy that repairs it.
+class FactorTriageConfig(EvaluatorConfig[FactorTriageResult], MetadataConfigMixin):
+    """Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.
 
     Reads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It
     suggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the
@@ -360,11 +365,11 @@ class TriageConfig(EvaluatorConfig[TriageResult], MetadataConfigMixin):
 
         evaluators:
           - name: triage
-            type: triage
+            type: factor-triage
             metadata: standard
     """
 
-    type: str = Field(default="triage", description="The evaluator type this entry configures: `triage`.")
+    type: str = Field(default="factor-triage", description="The evaluator type this entry configures: `factor-triage`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
 
     verify: bool = Field(

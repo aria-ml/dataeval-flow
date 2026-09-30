@@ -4,6 +4,10 @@ __all__ = [
     "DuplicatesConfig",
     "DuplicatesEvaluator",
     "DuplicatesResult",
+    "FactorTriageConfig",
+    "FactorTriageEvaluator",
+    "FactorTriageOutput",
+    "FactorTriageResult",
     "LabelHealthConfig",
     "LabelHealthEvaluator",
     "LabelHealthOutput",
@@ -12,23 +16,24 @@ __all__ = [
     "OutliersEvaluator",
     "OutliersResult",
     "ThresholdSpec",
-    "TriageConfig",
-    "TriageEvaluator",
-    "TriageOutput",
-    "TriageResult",
     "VerificationEntry",
 ]
 
 from dataeval_flow.evaluators._threshold import ThresholdSpec
-from dataeval_flow.evaluators.quality._config import DuplicatesConfig, LabelHealthConfig, OutliersConfig, TriageConfig
+from dataeval_flow.evaluators.quality._config import (
+    DuplicatesConfig,
+    FactorTriageConfig,
+    LabelHealthConfig,
+    OutliersConfig,
+)
 from dataeval_flow.evaluators.quality._evaluator import DuplicatesEvaluator, LabelHealthEvaluator, OutliersEvaluator
 from dataeval_flow.evaluators.quality._result import (
     DuplicatesResult,
+    FactorTriageOutput,
+    FactorTriageResult,
     LabelHealthOutput,
     LabelHealthResult,
     OutliersResult,
-    TriageOutput,
-    TriageResult,
     VerificationEntry,
 )
-from dataeval_flow.evaluators.quality._triage import TriageEvaluator
+from dataeval_flow.evaluators.quality._triage import FactorTriageEvaluator

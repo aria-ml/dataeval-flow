@@ -276,7 +276,7 @@ class TestRegistry:
 
     def test_an_unknown_type_names_the_known_ones(self):
         with pytest.raises(
-            ValueError, match=r"Unknown evaluator: 'nope'. Installed: \[.*'test.stat-names', 'triage'\]"
+            ValueError, match=r"Unknown evaluator: 'nope'. Installed: \[.*'factor-triage'.*'test.stat-names'\]"
         ):
             get_evaluator("nope")
 

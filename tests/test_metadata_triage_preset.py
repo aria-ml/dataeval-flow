@@ -1,4 +1,4 @@
-"""The metadata-triage preset: the `triage` evaluator and the `metadata-issues` check, on the task's one source
+"""The metadata-triage preset: the `factor-triage` evaluator and the `metadata-issues` check, on the task's one source
 (spec §10.10)."""
 
 import re
@@ -12,7 +12,7 @@ from dataeval_flow import run, run_tasks
 from dataeval_flow._binning import descriptor_from_record
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._encoding_cli import _binning_records
-from dataeval_flow.evaluators.quality import TriageConfig
+from dataeval_flow.evaluators.quality import FactorTriageConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
 from tests.chain_toys import chain_pipeline
@@ -35,7 +35,7 @@ def test_the_settings_expand_to_triage_and_its_check() -> None:
     )
     chain = MetadataTriageWorkflow.chain(config)
     (triage,) = chain.evaluators
-    assert isinstance(triage, TriageConfig)
+    assert isinstance(triage, FactorTriageConfig)
     assert (triage.name, triage.metadata, triage.verify, triage.default_bins, triage.min_missing_fraction) == (
         "triage",
         "weights",

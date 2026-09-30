@@ -1,4 +1,4 @@
-"""The `triage` evaluator and the `metadata-issues` check, run as steps of a custom workflow (spec §10.10)."""
+"""The `factor-triage` evaluator and the `metadata-issues` check, run as steps of a custom workflow (spec §10.10)."""
 
 import json
 from typing import Any
@@ -29,7 +29,7 @@ def _chain(dataset: Any, *, triage: dict[str, Any] | None = None, issues: dict[s
         {"name": "issues", "check": "metadata-issues", "input": "triage", **(issues or {})},
     ]
     config = chain_pipeline(
-        evaluators=[{"name": "triage", "type": "triage", **(triage or {})}],
+        evaluators=[{"name": "triage", "type": "factor-triage", **(triage or {})}],
         workflows=[{"name": "w", "inputs": ["data"], "steps": steps}],
         tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
         datasets={"src": dataset},

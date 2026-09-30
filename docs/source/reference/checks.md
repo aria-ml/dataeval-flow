@@ -18,7 +18,7 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
-| `metadata-issues` | check | `input`: a `triage` Output | one finding per kind of issue, Suggested policy, Verified |
+| `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
 ## How thresholds work
@@ -94,10 +94,10 @@ Dataset declares no class. Its title reads "Label/Directory_Name Distribution" w
 
 ### `metadata-issues`
 
-The findings `metadata-triage` makes, from a `triage` Output, in this order:
+The findings `metadata-triage` makes, from a `factor-triage` Output, in this order:
 
-1. One finding per kind of issue `triage` found. It is a warning where any issue of that kind is blocking, meaning the
-   run did less than its configuration asked, and info otherwise.
+1. One finding per kind of issue `factor-triage` found. It is a warning where any issue of that kind is blocking,
+   meaning the run did less than its configuration asked, and info otherwise.
 2. "Suggested policy", holding the stanza to paste under `metadata:`.
 3. "Verified", saying what each suggestion recovered, or "Verification failed", a warning, when verification raised.
 
@@ -105,7 +105,7 @@ It has no thresholds. Configured by {py:class}`~dataeval_flow.steps.checks.Metad
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `triage` Output |
+| `input` | an address | required | A `factor-triage` Output |
 | `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
 
 ## Combines
@@ -223,7 +223,7 @@ defaults, it runs:
 
 ```yaml
 evaluators:
-  - {name: triage, type: triage}
+  - {name: triage, type: factor-triage}
 
 workflows:
   - name: triage_chain

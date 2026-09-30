@@ -4,7 +4,7 @@ its suggested policy stanza; and the binning record on its envelope (spec §10.1
 Deliberate differences from its legacy run (spec §10.3 item 3), each with its reason:
 
 - **The envelope's `blocking` and `verified` counts are gone.** The findings, the chain's `warning_count`, and the
-  `triage` Output's `counts` and `verification` say the same.
+  `factor-triage` Output's `counts` and `verification` say the same.
 - **The result no longer carries the `dataset` it read.** A chain's steps hold the Datasets they read and made.
 - **The `metadata_*` fields are gone.** A config names a policy under `metadata:` instead, as data-cleaning's does.
 - **It names its items by the chain's input, `data`, not by the source** (spec §7.4).
