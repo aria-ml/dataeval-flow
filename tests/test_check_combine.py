@@ -140,7 +140,7 @@ def test_an_evaluator_a_combine_and_a_check_chain_at_load() -> None:
     config = _pipeline(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 1})
     graph = build_graph(config.workflows[0], config)  # type: ignore[index,arg-type]
     assert [(spec.kind, spec.type) for spec in graph.steps] == [
-        ("evaluator", "quality.duplicates"),
+        ("evaluator", "duplicates"),
         ("combine", "toy-count-groups"),
         ("check", "toy-at-most"),
     ]

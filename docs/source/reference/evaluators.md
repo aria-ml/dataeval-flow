@@ -2,7 +2,8 @@
 
 Each evaluator runs one DataEval evaluator and reports its determinations, with no
 health status (see [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md)).
-An evaluator's `type` is DataEval's module and class, in kebab case. To run one, see
+An evaluator's `type` names what it computes, in kebab case, after DataEval's class where
+there is one (`drift-mmd` runs `DriftMMD`). To run one, see
 [Run a single evaluator](../how_to/run_a_single_evaluator.md); for a worked example per
 family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 
@@ -10,23 +11,23 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 
 | Type | DataEval class | Consumes | Sources | Extractor |
 | --- | --- | --- | --- | --- |
-| `bias.balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
-| `bias.diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
-| `bias.parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
-| `quality.duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
-| `quality.outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
-| `quality.label-health` | `dataeval.core.label_stats` | metadata | 1 | refused |
-| `scope.representation` | `dataeval.scope.Representation` | labels | 1 | refused |
-| `scope.coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
-| `scope.prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
-| `scope.label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
-| `shift.drift-domain-classifier` | `dataeval.shift.DriftDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
-| `shift.drift-kneighbors` | `dataeval.shift.DriftKNeighbors` | embeddings | 2: the reference, then the data to test | required |
-| `shift.drift-mmd` | `dataeval.shift.DriftMMD` | embeddings | 2: the reference, then the data to test | required |
-| `shift.drift-univariate` | `dataeval.shift.DriftUnivariate` | embeddings | 2: the reference, then the data to test | required |
-| `shift.drift-wasserstein` | `dataeval.shift.DriftWasserstein` | embeddings | 3: the reference, a validation set, then the data to test | required |
-| `shift.ood-domain-classifier` | `dataeval.shift.OODDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
-| `shift.ood-kneighbors` | `dataeval.shift.OODKNeighbors` | embeddings | 2: the reference, then the data to test | required |
+| `balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
+| `diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
+| `parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
+| `duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
+| `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
+| `label-health` | `dataeval.core.label_stats` | metadata | 1 | refused |
+| `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
+| `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
+| `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
+| `label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
+| `drift-domain-classifier` | `dataeval.shift.DriftDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
+| `drift-kneighbors` | `dataeval.shift.DriftKNeighbors` | embeddings | 2: the reference, then the data to test | required |
+| `drift-mmd` | `dataeval.shift.DriftMMD` | embeddings | 2: the reference, then the data to test | required |
+| `drift-univariate` | `dataeval.shift.DriftUnivariate` | embeddings | 2: the reference, then the data to test | required |
+| `drift-wasserstein` | `dataeval.shift.DriftWasserstein` | embeddings | 3: the reference, a validation set, then the data to test | required |
+| `ood-domain-classifier` | `dataeval.shift.OODDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
+| `ood-kneighbors` | `dataeval.shift.OODKNeighbors` | embeddings | 2: the reference, then the data to test | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -46,7 +47,7 @@ extractor. They are explained in DataEval's
 are documented in the
 [DataEval `dataeval.bias` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/bias/index.html).
 
-### `bias.balance`
+### `balance`
 
 How much each metadata factor tells about the class label, and each pair of factors about each other.
 Configured by {py:class}`~dataeval_flow.evaluators.bias.BalanceConfig`; runs `dataeval.bias.Balance`.
@@ -63,7 +64,7 @@ Configured by {py:class}`~dataeval_flow.evaluators.bias.BalanceConfig`; runs `da
 Output: a mapping of three tables. `balance` has each factor's mutual information with the class labels, `factors`
 each factor pair's, and `classwise` each class's against each factor.
 
-### `bias.diversity`
+### `diversity`
 
 How evenly each metadata factor's values are spread, overall and within each class. Configured by
 {py:class}`~dataeval_flow.evaluators.bias.DiversityConfig`; runs `dataeval.bias.Diversity`.
@@ -78,7 +79,7 @@ How evenly each metadata factor's values are spread, overall and within each cla
 Output: a mapping of two tables. `factors` has each factor's diversity and whether it is low, and `classwise` each
 class's.
 
-### `bias.parity`
+### `parity`
 
 Which metadata factors are associated with the class label. Configured by
 {py:class}`~dataeval_flow.evaluators.bias.ParityConfig`; runs `dataeval.bias.Parity`.
@@ -100,7 +101,7 @@ Both quality evaluators are explained in DataEval's
 and their classes are documented in the
 [DataEval `dataeval.quality` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/quality/index.html).
 
-### `quality.duplicates`
+### `duplicates`
 
 Which images are exact or near duplicates of each other, across every source the
 task names. Configured by {py:class}`~dataeval_flow.evaluators.quality.DuplicatesConfig`;
@@ -130,7 +131,7 @@ Output: a table with one row per duplicate group (`group_id`, `level`, `dup_type
 `extras` holds `annotation_divergences` and `factor_cardinality`, `null` unless the annotation or factor axis
 ran.
 
-### `quality.outliers`
+### `outliers`
 
 Which images' statistics sit outside the threshold, across every source the task
 names. Configured by {py:class}`~dataeval_flow.evaluators.quality.OutliersConfig`; runs
@@ -150,7 +151,7 @@ names. Configured by {py:class}`~dataeval_flow.evaluators.quality.OutliersConfig
 Output: a table with one row per flagged statistic (`item_index`, `metric_name`,
 `metric_value`, and `target_index` for per-target results).
 
-### `quality.label-health`
+### `label-health`
 
 How a Dataset's labels spread over its classes: how many labels each class has, how many items carry each, and how
 many items carry none. The `class-imbalance` and `target-outlier-rate` checks read it. Configured by
@@ -168,12 +169,12 @@ Output: a mapping of `item_count`, `class_count` (the classes the Dataset declar
 ## Scope
 
 The scope evaluators read one source's labels, and, for coverage and prioritization, its embeddings through the
-task's extractor. `scope.representation` is explained in DataEval's
+task's extractor. `representation` is explained in DataEval's
 [Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html), and the classes are
 documented in the
 [DataEval `dataeval.scope` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/scope/index.html).
 
-### `scope.representation`
+### `representation`
 
 Which of an ontology's classes fall short of their share of the source, and what to acquire. It needs a dataset
 with labels, and fails, naming the source, without them. Configured by
@@ -188,7 +189,7 @@ Output: a table, the worklist, with one row per concept short of its target (`co
 `action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, and the `violations` and
 `dark_branches` tables.
 
-### `scope.coverage`
+### `coverage`
 
 Which items sit in sparse regions of the embedding space, uncovered by the rest of the data, broken down by class.
 With no label per item (a dataset without labels, or a detection dataset's labels per target), it runs over every
@@ -208,7 +209,7 @@ Output: a table with one row per class (`class`, `count`, `uncovered`, `uncovere
 `isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius` and
 `critical_value_radii`.
 
-### `scope.prioritize`
+### `prioritize`
 
 The first source's items ranked from easiest to hardest, or the reverse. A second source is the reference: the
 ranking is then relative to it, as when choosing what to label next beside data already labeled. Configured by
@@ -227,7 +228,7 @@ ranking is then relative to it, as when choosing what to label next beside data 
 
 Output: an array of the first source's item indices in ranked order. `extras` holds each item's `scores`.
 
-### `scope.label-alignment`
+### `label-alignment`
 
 How a Dataset's class names align to an ontology: the remap, the target vocabulary, and whether the vocabulary
 carries over losslessly. A `conform` step applies the remap, gated by how much loss it declares it will accept.
@@ -262,7 +263,7 @@ each chunk of the data against the spread of the reference's chunks, rather than
 Each drift type's output is a mapping: `drifted`, `distance`, `threshold`, `metric_name`, `feature_names`, and
 `details`. `details` holds the test's statistics, or, with `chunking`, a table with one row per chunk.
 
-### `shift.drift-univariate`
+### `drift-univariate`
 
 Each embedding dimension tested on its own, drift declared when any drifts after a multiple-testing correction.
 Configured by {py:class}`~dataeval_flow.evaluators.shift.DriftUnivariateConfig`; runs
@@ -277,7 +278,7 @@ Configured by {py:class}`~dataeval_flow.evaluators.shift.DriftUnivariateConfig`;
 | `n_features` | `n_features` | inferred from the embeddings |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
-### `shift.drift-mmd`
+### `drift-mmd`
 
 The maximum mean discrepancy between the two sources, tested against a permutation estimate of its no-drift
 distribution. Configured by {py:class}`~dataeval_flow.evaluators.shift.DriftMMDConfig`; runs
@@ -290,7 +291,7 @@ distribution. Configured by {py:class}`~dataeval_flow.evaluators.shift.DriftMMDC
 | `permutation_batch_size` | `permutation_batch_size`: a count, or `auto` | DataEval's default (`auto`) |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
-### `shift.drift-kneighbors`
+### `drift-kneighbors`
 
 The data's distances to their nearest reference neighbors, compared with the reference's own. Configured by
 {py:class}`~dataeval_flow.evaluators.shift.DriftKNeighborsConfig`; runs `dataeval.shift.DriftKNeighbors`.
@@ -302,7 +303,7 @@ The data's distances to their nearest reference neighbors, compared with the ref
 | `p_val` | `p_val` (without chunking) | DataEval's default (`0.05`) |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
-### `shift.drift-wasserstein`
+### `drift-wasserstein`
 
 Each dimension's Wasserstein distance from the reference to the data, against its distance to an in-distribution
 validation set: the task's middle source, which DataEval requires. Configured by
@@ -314,7 +315,7 @@ validation set: the task's middle source, which DataEval requires. Configured by
 | `n_features` | `n_features` | inferred from the embeddings |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
-### `shift.drift-domain-classifier`
+### `drift-domain-classifier`
 
 A classifier trained to tell the reference from the data under cross-validation. Drift is declared when it does
 better than `threshold` (AUROC). Configured by
@@ -327,7 +328,7 @@ better than `threshold` (AUROC). Configured by
 | `threshold` | `threshold`: an AUROC, or with `chunking` a `[lower, upper]` pair | DataEval's default (`0.55`) |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
-### `shift.ood-kneighbors`
+### `ood-kneighbors`
 
 Each test item scored by its distance to its nearest reference neighbors, flagged beyond the distance
 `threshold_perc` percent of the reference stays within. Configured by
@@ -341,7 +342,7 @@ Each test item scored by its distance to its nearest reference neighbors, flagge
 
 Output: a mapping. `is_ood` and `instance_score` hold one value per test item, and `feature_score` is `null`.
 
-### `shift.ood-domain-classifier`
+### `ood-domain-classifier`
 
 A classifier trained to tell each test item from the reference under repeated cross-validation, flagging the items
 it separates well. Configured by {py:class}`~dataeval_flow.evaluators.shift.OODDomainClassifierConfig`; runs
@@ -359,5 +360,5 @@ Output: a mapping. `is_ood` and `instance_score` hold one value per test item, a
 
 ## Not in the catalog yet
 
-`shift.drift-reconstruction`, `shift.ood-reconstruction` and `performance.sufficiency` train a PyTorch model,
-which a config file cannot describe yet.
+DataEval's `DriftReconstruction`, `OODReconstruction` and `Sufficiency` train a PyTorch model, which a config file
+cannot describe yet.

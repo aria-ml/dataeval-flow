@@ -19,7 +19,7 @@ class SelectConfig(TransformConfig):
     """A `select` step's settings: its input, the ranking of it, and how many to keep."""
 
     input: str = Field(description="The Dataset to select from.")
-    ranking: str = Field(description="A `scope.prioritize` step computed on `input`.")
+    ranking: str = Field(description="A `prioritize` step computed on `input`.")
     n: int | None = Field(default=None, ge=1, description="How many items to keep.")
     fraction: float | None = Field(default=None, gt=0.0, le=1.0, description="The share of items to keep, rounded up.")
 

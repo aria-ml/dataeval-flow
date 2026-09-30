@@ -14,9 +14,9 @@ removes from or relabels the Datasets earlier steps made, or writes one to disk.
 | `merge` | `input`: two or more Datasets | a Dataset | `dataeval.data.merge_datasets` |
 | `split` | `input`: a Dataset | `train`, `val` and `test` | `dataeval.data.split_dataset` |
 | `kfold` | `input`: a Dataset | `train` and `val`, one per fold, and `test` | `dataeval.data.split_dataset` |
-| `select` | `input`: a Dataset; `ranking`: a `scope.prioritize` Output | a Dataset | `dataeval.data.Indices` |
-| `remove` | `input`: a Dataset; `plans`: `quality.duplicates` or `quality.outliers` Outputs | a Dataset | `deduplicate` and `prune`, then `dataeval.data.Indices(plan, exclude=True)` |
-| `conform` | `input`: a Dataset; `alignment`: a `scope.label-alignment` Output | a Dataset | `dataeval.data.Relabel` |
+| `select` | `input`: a Dataset; `ranking`: a `prioritize` Output | a Dataset | `dataeval.data.Indices` |
+| `remove` | `input`: a Dataset; `plans`: `duplicates` or `outliers` Outputs | a Dataset | `deduplicate` and `prune`, then `dataeval.data.Indices(plan, exclude=True)` |
+| `conform` | `input`: a Dataset; `alignment`: a `label-alignment` Output | a Dataset | `dataeval.data.Relabel` |
 | `export` | `input`: an object-detection Dataset | an export record | the datamaite writers that top-level `exports:` use |
 
 ## How settings work
@@ -128,24 +128,24 @@ outside `0` to `folds - 1`. To rebalance each fold's training set, follow `kfold
 
 `select`, `remove` and `conform` apply an evaluator step's output to a Dataset, and only to the Dataset it was computed
 on. The step their `ranking:`, `plans:` or `alignment:` names must have read exactly their `input`, except that a
-`scope.prioritize` ranking may also read a reference set after it, so for `select` only its first input must be
+`prioritize` ranking may also read a reference set after it, so for `select` only its first input must be
 `input`. Anything else fails the config load.
 
 ### `select`
 
-Keeps the top of a `scope.prioritize` ranking of the same Dataset, in ranked order. Configured by
+Keeps the top of a `prioritize` ranking of the same Dataset, in ranked order. Configured by
 {py:class}`~dataeval_flow.steps.transforms.SelectConfig`; runs `View(input, Indices(ranking.indices[:n]))`.
 
-Reads `input`, a Dataset, and `ranking`, a `scope.prioritize` Output. Makes one Dataset.
+Reads `input`, a Dataset, and `ranking`, a `prioritize` Output. Makes one Dataset.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to select from |
-| `ranking` | the address of a `scope.prioritize` step | required | The ranking, computed on `input` |
+| `ranking` | the address of a `prioritize` step | required | The ranking, computed on `input` |
 | `n` | a whole number, 1 or more | none | How many items to keep |
 | `fraction` | a number above 0, up to 1 | none | The share of items to keep, rounded up |
 
-Name exactly one of `n` and `fraction`. A `scope.prioritize` step may read a reference set after the Dataset it
+Name exactly one of `n` and `fraction`. A `prioritize` step may read a reference set after the Dataset it
 ranks, so only its first input must be `input`.
 
 ### `remove`
@@ -153,7 +153,7 @@ ranks, so only its first input must be `input`.
 Removes what Duplicates and Outliers removal plans name, from the Dataset they were computed on. Configured by
 {py:class}`~dataeval_flow.steps.transforms.RemoveConfig`; runs `View(input, Indices(plan, exclude=True))`.
 
-Reads `input`, a Dataset, and `plans`, one or more `quality.duplicates` or `quality.outliers` Outputs. Makes one
+Reads `input`, a Dataset, and `plans`, one or more `duplicates` or `outliers` Outputs. Makes one
 Dataset.
 
 | Field | Takes | Default | Description |
@@ -163,9 +163,9 @@ Dataset.
 
 Each `plans` entry's arguments are passed to DataEval's plan method:
 
-- **A `quality.duplicates` step:** `DuplicatesOutput.deduplicate`, taking `dup_types`, `keep`, `exclude_groups` and
+- **A `duplicates` step:** `DuplicatesOutput.deduplicate`, taking `dup_types`, `keep`, `exclude_groups` and
   `levels`.
-- **A `quality.outliers` step:** `OutliersOutput.prune`, taking `metrics` and `min_flags`.
+- **An `outliers` step:** `OutliersOutput.prune`, taking `metrics` and `min_flags`.
 
 `{}` takes DataEval's defaults: for duplicates, every exact copy but the first is removed. Each argument's name and
 value is checked against the method when the config loads. The plans combine, so whatever any of them names is removed,
@@ -178,12 +178,12 @@ alike.
 Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`. Configured by
 {py:class}`~dataeval_flow.steps.transforms.ConformConfig`; runs `View(input, Relabel(remap, target=ontology))`.
 
-Reads `input`, a Dataset, and `alignment`, a `scope.label-alignment` Output. Makes one Dataset.
+Reads `input`, a Dataset, and `alignment`, a `label-alignment` Output. Makes one Dataset.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to relabel |
-| `alignment` | the address of a `scope.label-alignment` step | required | The alignment, computed on `input` |
+| `alignment` | the address of a `label-alignment` step | required | The alignment, computed on `input` |
 | `allow` | `lossless`, `lossy` or `partial` | `lossless` | The most loss accepted |
 | `class_remap` | a mapping from a source class to a concept, by id or by a label no other concept shares | `{}` | Overrides of the alignment's remap |
 

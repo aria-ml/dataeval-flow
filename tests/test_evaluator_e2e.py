@@ -29,11 +29,11 @@ class TestRunTask:
         assert result.success, result.errors
         assert exact_groups(output_json(result)["rows"]) == {(0, 5)}
         meta = result.metadata
-        assert meta.evaluator == "quality.duplicates"
+        assert meta.evaluator == "duplicates"
         assert meta.dataset_id == "toy"
         assert meta.execution_time_s is not None
         assert meta.source_descriptions
-        assert meta.resolved_config["evaluator"]["type"] == "quality.duplicates"
+        assert meta.resolved_config["evaluator"]["type"] == "duplicates"
         assert "workflow" not in meta.resolved_config
         assert result.dataset is not None
 
@@ -76,7 +76,7 @@ class TestRunTask:
         )
         result = run_task(task, config)
         assert not result.success
-        assert re.search(r"Task 'dupes_task2' runs evaluator 'dupes' \(quality\.duplicates\), which", result.errors[0])
+        assert re.search(r"Task 'dupes_task2' runs evaluator 'dupes' \(duplicates\), which", result.errors[0])
 
     def test_run_task_checks_a_workflow_task_outside_config_tasks(self):
         """The same out-of-`config.tasks` check, for a workflow task: `data-cleaning` takes

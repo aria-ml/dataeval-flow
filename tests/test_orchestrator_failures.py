@@ -38,7 +38,7 @@ def test_an_evaluator_exception_becomes_a_failed_result_naming_the_evaluator() -
         result = run_task(task, config)
     assert isinstance(result, DuplicatesResult)
     assert not result.success
-    assert result.metadata.evaluator == "quality.duplicates"
+    assert result.metadata.evaluator == "duplicates"
     assert result.errors == ["RuntimeError: boom"], "the same form a failed workflow records"
     with pytest.raises(RuntimeError, match="boom"):
         _ = result.output

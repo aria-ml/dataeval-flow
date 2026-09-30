@@ -183,7 +183,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "name",
         nargs="?",
         default=None,
-        help="Evaluator type to describe (e.g. quality.duplicates). Omit to list them all.",
+        help="Evaluator type to describe (e.g. duplicates). Omit to list them all.",
     )
     evaluators_parser.add_argument(
         "--json",

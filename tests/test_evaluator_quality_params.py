@@ -59,7 +59,7 @@ class TestDuplicatesConfig:
     def test_a_misspelled_argument_fails_the_load(self):
         """A typo must not silently run DataEval's default."""
         with pytest.raises(ValidationError, match="merge_near_duplicate"):
-            DuplicatesConfig.model_validate({"name": "d", "type": "quality.duplicates", "merge_near_duplicate": True})
+            DuplicatesConfig.model_validate({"name": "d", "type": "duplicates", "merge_near_duplicate": True})
 
     @pytest.mark.parametrize(
         ("field", "value"),
@@ -113,8 +113,8 @@ class TestPipelineConfigEvaluators:
         config = PipelineConfig.model_validate(
             {
                 "evaluators": [
-                    {"name": "d", "type": "quality.duplicates"},
-                    {"name": "o", "type": "quality.outliers", "outlier_threshold": "zscore"},
+                    {"name": "d", "type": "duplicates"},
+                    {"name": "o", "type": "outliers", "outlier_threshold": "zscore"},
                 ]
             }
         )
@@ -128,5 +128,5 @@ class TestPipelineConfigEvaluators:
     def test_names_are_unique(self):
         with pytest.raises(ValidationError, match="Duplicate name 'd' in evaluators"):
             PipelineConfig.model_validate(
-                {"evaluators": [{"name": "d", "type": "quality.duplicates"}, {"name": "d", "type": "quality.outliers"}]}
+                {"evaluators": [{"name": "d", "type": "duplicates"}, {"name": "d", "type": "outliers"}]}
             )

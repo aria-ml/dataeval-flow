@@ -36,7 +36,7 @@ ontologies:
 
 evaluators:
   - name: align
-    type: scope.label-alignment
+    type: label-alignment
     ontology: vehicles
 
 workflows:
@@ -106,7 +106,7 @@ Add a duplicates evaluator, and grow the workflow:
 ```yaml
 evaluators:
   - name: dupes
-    type: quality.duplicates
+    type: duplicates
 
 workflows:
   - name: combine
@@ -143,8 +143,8 @@ other concept shares. An override can settle a class that aligned to nothing, an
 to accept. An override for a class the Dataset does not have fails the step, naming the classes it has, so a misspelled
 class cannot pass unnoticed.
 
-`plans:` names the evaluator steps whose findings `remove` applies, by address. Each must be a `quality.duplicates` or
-`quality.outliers` step computed on the same Dataset as the `remove` step's `input`. Each holds the arguments of
+`plans:` names the evaluator steps whose findings `remove` applies, by address. Each must be a `duplicates` or
+`outliers` step computed on the same Dataset as the `remove` step's `input`. Each holds the arguments of
 DataEval's plan method: `deduplicate` for duplicates (`dup_types`, `keep`, `exclude_groups`, `levels`), and `prune` for
 outliers (`metrics`, `min_flags`). Their names and values are checked when the config loads. `{}` takes DataEval's
 defaults, which for duplicates removes every exact copy but the first. Several plans combine: whatever any of them
@@ -172,9 +172,9 @@ extractors:
 
 evaluators:
   - name: coverage
-    type: scope.coverage
+    type: coverage
   - name: balance
-    type: bias.balance
+    type: balance
 
 workflows:
   - name: combine
@@ -212,7 +212,7 @@ tasks:
 Notice:
 
 - `wrap` turns each detection into an item of its own, which is what makes coverage per detection and per class. On
-  the detection corpus itself, `scope.coverage` would measure whole images as one class, and warn that it has no class
+  the detection corpus itself, `coverage` would measure whole images as one class, and warn that it has no class
   breakdown.
 - `params:` passes DataEval's `DetectionCrops` arguments. `min_size: 32` drops boxes whose shorter side is under 32
   pixels, as `data-coverage`'s `crop_min_size` does: a tiny crop carries no SIFT features for BoVW to describe.
@@ -232,7 +232,7 @@ workflow:
 ```yaml
 evaluators:
   - name: labels
-    type: quality.label-health
+    type: label-health
 
 workflows:
   - name: combine
@@ -429,7 +429,7 @@ Loading a config and saving it, from the TUI or the config builder, keeps every 
 
 - [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) — steps, addresses and lists, derived data,
   failures and lineage
-- [Declare an ontology](declare_an_ontology.md) — the vocabulary `scope.label-alignment` aligns to
+- [Declare an ontology](declare_an_ontology.md) — the vocabulary `label-alignment` aligns to
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
 - [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings

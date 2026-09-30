@@ -111,7 +111,7 @@
   "steps": {
     "outliers": {
       "kind": "evaluator",
-      "type": "quality.outliers",
+      "type": "outliers",
       "status": "ok",
       "inputs": [
         "data"
@@ -406,7 +406,7 @@
     },
     "labels": {
       "kind": "evaluator",
-      "type": "quality.label-health",
+      "type": "label-health",
       "status": "ok",
       "inputs": [
         "data"
@@ -473,7 +473,7 @@
     },
     "dupes": {
       "kind": "evaluator",
-      "type": "quality.duplicates",
+      "type": "duplicates",
       "status": "ok",
       "inputs": [
         "data"

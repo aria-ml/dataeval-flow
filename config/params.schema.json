@@ -163,7 +163,7 @@
     },
     "BalanceConfig": {
       "additionalProperties": false,
-      "description": "Config for ``bias.balance``, DataEval's Balance.\n\nMeasures the mutual information between each metadata factor and the class labels, and between pairs of factors.\nA factor that predicts the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.balance`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: balance\n        type: bias.balance\n        metadata: standard\n        class_imbalance_threshold: 0.2",
+      "description": "Config for ``balance``, DataEval's Balance.\n\nMeasures the mutual information between each metadata factor and the class labels, and between pairs of factors.\nA factor that predicts the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators balance`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: balance\n        type: balance\n        metadata: standard\n        class_imbalance_threshold: 0.2",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -184,9 +184,9 @@
           "type": "string"
         },
         "type": {
-          "const": "bias.balance",
-          "default": "bias.balance",
-          "description": "The evaluator type this entry configures: `bias.balance`.",
+          "const": "balance",
+          "default": "balance",
+          "description": "The evaluator type this entry configures: `balance`.",
           "title": "Type",
           "type": "string"
         },
@@ -333,7 +333,7 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `quality.label-health` Output.",
+          "description": "A `label-health` Output.",
           "title": "Input",
           "type": "string"
         },
@@ -432,7 +432,7 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `quality.duplicates` Output.",
+          "description": "A `duplicates` Output.",
           "title": "Input",
           "type": "string"
         },
@@ -497,7 +497,7 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `quality.outliers` Output.",
+          "description": "An `outliers` Output.",
           "title": "Input",
           "type": "string"
         },
@@ -547,12 +547,12 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `quality.outliers` Output computed per target (`per_target: true`).",
+          "description": "An `outliers` Output computed per target (`per_target: true`).",
           "title": "Input",
           "type": "string"
         },
         "labels": {
-          "description": "A `quality.label-health` Output on the same Dataset: its label count is the number of targets.",
+          "description": "A `label-health` Output on the same Dataset: its label count is the number of targets.",
           "title": "Labels",
           "type": "string"
         },
@@ -601,7 +601,7 @@
     },
     "ChunkedDriftConfig": {
       "additionalProperties": false,
-      "description": "How a drift detector splits its data into chunks: the arguments of DataEval's ``chunked()``.\n\nNamed for DataEval's ``ChunkedDrift``, which ``chunked()`` returns. Set it as a drift entry's ``chunking:`` to\ntest each chunk of the data against the spread of the reference's chunks, rather than the data as a whole. Give\n``chunk_size`` or ``chunk_count``.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd_chunked\n        type: shift.drift-mmd\n        chunking:\n          chunk_count: 10\n          threshold: [zscore, 2.5]",
+      "description": "How a drift detector splits its data into chunks: the arguments of DataEval's ``chunked()``.\n\nNamed for DataEval's ``ChunkedDrift``, which ``chunked()`` returns. Set it as a drift entry's ``chunking:`` to\ntest each chunk of the data against the spread of the reference's chunks, rather than the data as a whole. Give\n``chunk_size`` or ``chunk_count``.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd_chunked\n        type: drift-mmd\n        chunking:\n          chunk_count: 10\n          threshold: [zscore, 2.5]",
       "properties": {
         "chunk_size": {
           "anyOf": [
@@ -1055,7 +1055,7 @@
           "type": "string"
         },
         "outliers": {
-          "description": "A `quality.outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`.",
+          "description": "An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`.",
           "title": "Outliers",
           "type": "string"
         },
@@ -1089,7 +1089,7 @@
     },
     "CoverageConfig": {
       "additionalProperties": false,
-      "description": "Config for ``scope.coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: scope.coverage\n        num_observations: 30",
+      "description": "Config for ``coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: coverage\n        num_observations: 30",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -1097,9 +1097,9 @@
           "type": "string"
         },
         "type": {
-          "const": "scope.coverage",
-          "default": "scope.coverage",
-          "description": "The evaluator type this entry configures: `scope.coverage`.",
+          "const": "coverage",
+          "default": "coverage",
+          "description": "The evaluator type this entry configures: `coverage`.",
           "title": "Type",
           "type": "string"
         },
@@ -2844,7 +2844,7 @@
     },
     "DiversityConfig": {
       "additionalProperties": false,
-      "description": "Config for ``bias.diversity``, DataEval's Diversity.\n\nMeasures how evenly each metadata factor's values are spread, overall and within each class. A factor whose\nvalues crowd into few bins under-represents the rest.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.diversity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: diversity\n        type: bias.diversity\n        method: shannon",
+      "description": "Config for ``diversity``, DataEval's Diversity.\n\nMeasures how evenly each metadata factor's values are spread, overall and within each class. A factor whose\nvalues crowd into few bins under-represents the rest.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators diversity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: diversity\n        type: diversity\n        method: shannon",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -2865,9 +2865,9 @@
           "type": "string"
         },
         "type": {
-          "const": "bias.diversity",
-          "default": "bias.diversity",
-          "description": "The evaluator type this entry configures: `bias.diversity`.",
+          "const": "diversity",
+          "default": "diversity",
+          "description": "The evaluator type this entry configures: `diversity`.",
           "title": "Type",
           "type": "string"
         },
@@ -3184,7 +3184,7 @@
     },
     "DriftDomainClassifierConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.drift-domain-classifier``, DataEval's DriftDomainClassifier.\n\nTrains a classifier to tell the reference from the test data under cross-validation, and declares drift when it\ntells them apart better than ``threshold`` (AUROC). Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-domain-classifier`` prints the JSON\nSchema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_drift\n        type: shift.drift-domain-classifier\n        threshold: 0.6",
+      "description": "Config for ``drift-domain-classifier``, DataEval's DriftDomainClassifier.\n\nTrains a classifier to tell the reference from the test data under cross-validation, and declares drift when it\ntells them apart better than ``threshold`` (AUROC). Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-domain-classifier`` prints the JSON\nSchema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_drift\n        type: drift-domain-classifier\n        threshold: 0.6",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3192,9 +3192,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.drift-domain-classifier",
-          "default": "shift.drift-domain-classifier",
-          "description": "The evaluator type this entry configures: `shift.drift-domain-classifier`.",
+          "const": "drift-domain-classifier",
+          "default": "drift-domain-classifier",
+          "description": "The evaluator type this entry configures: `drift-domain-classifier`.",
           "title": "Type",
           "type": "string"
         },
@@ -3256,7 +3256,7 @@
     },
     "DriftKNeighborsConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.drift-kneighbors``, DataEval's DriftKNeighbors.\n\nCompares the test data's distances to their nearest reference neighbors with the reference's own. Needs an\nextractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_drift\n        type: shift.drift-kneighbors\n        k: 5",
+      "description": "Config for ``drift-kneighbors``, DataEval's DriftKNeighbors.\n\nCompares the test data's distances to their nearest reference neighbors with the reference's own. Needs an\nextractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_drift\n        type: drift-kneighbors\n        k: 5",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3264,9 +3264,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.drift-kneighbors",
-          "default": "shift.drift-kneighbors",
-          "description": "The evaluator type this entry configures: `shift.drift-kneighbors`.",
+          "const": "drift-kneighbors",
+          "default": "drift-kneighbors",
+          "description": "The evaluator type this entry configures: `drift-kneighbors`.",
           "title": "Type",
           "type": "string"
         },
@@ -3334,7 +3334,7 @@
     },
     "DriftMMDConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.drift-mmd``, DataEval's DriftMMD.\n\nMeasures the maximum mean discrepancy between the two sources' embeddings, and tests it against a permutation\nestimate of its no-drift distribution. Needs an extractor on the task, and two sources: the reference, then the\ndata to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-mmd`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd\n        type: shift.drift-mmd\n        n_permutations: 500",
+      "description": "Config for ``drift-mmd``, DataEval's DriftMMD.\n\nMeasures the maximum mean discrepancy between the two sources' embeddings, and tests it against a permutation\nestimate of its no-drift distribution. Needs an extractor on the task, and two sources: the reference, then the\ndata to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-mmd`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd\n        type: drift-mmd\n        n_permutations: 500",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3342,9 +3342,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.drift-mmd",
-          "default": "shift.drift-mmd",
-          "description": "The evaluator type this entry configures: `shift.drift-mmd`.",
+          "const": "drift-mmd",
+          "default": "drift-mmd",
+          "description": "The evaluator type this entry configures: `drift-mmd`.",
           "title": "Type",
           "type": "string"
         },
@@ -3534,7 +3534,7 @@
     },
     "DriftUnivariateConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.drift-univariate``, DataEval's DriftUnivariate.\n\nTests each embedding dimension of the second source against the first's with a univariate statistical test, and\ndeclares drift when any dimension drifts after a multiple-testing correction. Needs an extractor on the task, and\ntwo sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-univariate`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: ks\n        type: shift.drift-univariate\n        p_val: 0.01\n\n    tasks:\n      - name: drift_check\n        evaluator: ks\n        sources: [train, operational]\n        extractor: bovw_ext",
+      "description": "Config for ``drift-univariate``, DataEval's DriftUnivariate.\n\nTests each embedding dimension of the second source against the first's with a univariate statistical test, and\ndeclares drift when any dimension drifts after a multiple-testing correction. Needs an extractor on the task, and\ntwo sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-univariate`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: ks\n        type: drift-univariate\n        p_val: 0.01\n\n    tasks:\n      - name: drift_check\n        evaluator: ks\n        sources: [train, operational]\n        extractor: bovw_ext",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3542,9 +3542,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.drift-univariate",
-          "default": "shift.drift-univariate",
-          "description": "The evaluator type this entry configures: `shift.drift-univariate`.",
+          "const": "drift-univariate",
+          "default": "drift-univariate",
+          "description": "The evaluator type this entry configures: `drift-univariate`.",
           "title": "Type",
           "type": "string"
         },
@@ -3650,7 +3650,7 @@
     },
     "DriftWassersteinConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.drift-wasserstein``, DataEval's DriftWasserstein.\n\nCompares each embedding dimension's Wasserstein distance from the reference to the test data with its distance to\nan in-distribution validation set, and declares drift where the ratio passes ``ratio_threshold``. Needs an\nextractor on the task, and three sources: the reference, the validation set, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.drift-wasserstein`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: wasserstein\n        type: shift.drift-wasserstein\n\n    tasks:\n      - name: drift_check\n        evaluator: wasserstein\n        sources: [train, validation, operational]\n        extractor: bovw_ext",
+      "description": "Config for ``drift-wasserstein``, DataEval's DriftWasserstein.\n\nCompares each embedding dimension's Wasserstein distance from the reference to the test data with its distance to\nan in-distribution validation set, and declares drift where the ratio passes ``ratio_threshold``. Needs an\nextractor on the task, and three sources: the reference, the validation set, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-wasserstein`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: wasserstein\n        type: drift-wasserstein\n\n    tasks:\n      - name: drift_check\n        evaluator: wasserstein\n        sources: [train, validation, operational]\n        extractor: bovw_ext",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3658,9 +3658,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.drift-wasserstein",
-          "default": "shift.drift-wasserstein",
-          "description": "The evaluator type this entry configures: `shift.drift-wasserstein`.",
+          "const": "drift-wasserstein",
+          "default": "drift-wasserstein",
+          "description": "The evaluator type this entry configures: `drift-wasserstein`.",
           "title": "Type",
           "type": "string"
         },
@@ -3710,7 +3710,7 @@
     },
     "DuplicatesConfig": {
       "additionalProperties": false,
-      "description": "Config for ``quality.duplicates``, DataEval's Duplicates.\n\nDetermines which images are exact or near duplicates of each other, across every source\nthe task names. Setting ``cluster_sensitivity`` adds embedding-space near duplicates,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators quality.duplicates`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: dupes\n        type: quality.duplicates\n        flags: [hash_basic, hash_d4]",
+      "description": "Config for ``duplicates``, DataEval's Duplicates.\n\nDetermines which images are exact or near duplicates of each other, across every source\nthe task names. Setting ``cluster_sensitivity`` adds embedding-space near duplicates,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators duplicates`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: dupes\n        type: duplicates\n        flags: [hash_basic, hash_d4]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -3731,9 +3731,9 @@
           "type": "string"
         },
         "type": {
-          "const": "quality.duplicates",
-          "default": "quality.duplicates",
-          "description": "The evaluator type this entry configures: `quality.duplicates`.",
+          "const": "duplicates",
+          "default": "duplicates",
+          "description": "The evaluator type this entry configures: `duplicates`.",
           "title": "Type",
           "type": "string"
         },
@@ -4339,7 +4339,7 @@
     },
     "LabelAlignmentConfig": {
       "additionalProperties": false,
-      "description": "Config for ``scope.label-alignment``: how a Dataset's class names align to an ontology.\n\nWraps ``dataeval.core.label_alignment``, with the remap written as labels to paste, the target vocabulary, and the\nlabel-space digest a conformed corpus carries. A ``conform`` step applies it.",
+      "description": "Config for ``label-alignment``: how a Dataset's class names align to an ontology.\n\nWraps ``dataeval.core.label_alignment``, with the remap written as labels to paste, the target vocabulary, and the\nlabel-space digest a conformed corpus carries. A ``conform`` step applies it.",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -4347,9 +4347,9 @@
           "type": "string"
         },
         "type": {
-          "const": "scope.label-alignment",
-          "default": "scope.label-alignment",
-          "description": "The evaluator type this entry configures: `scope.label-alignment`.",
+          "const": "label-alignment",
+          "default": "label-alignment",
+          "description": "The evaluator type this entry configures: `label-alignment`.",
           "title": "Type",
           "type": "string"
         },
@@ -4383,7 +4383,7 @@
     },
     "LabelHealthConfig": {
       "additionalProperties": false,
-      "description": "Config for ``quality.label-health``: how a Dataset's labels spread over its classes.\n\nWraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset\ndeclares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks\nread it.\n\nExample YAML::\n\n    evaluators:\n      - name: labels\n        type: quality.label-health",
+      "description": "Config for ``label-health``: how a Dataset's labels spread over its classes.\n\nWraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset\ndeclares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks\nread it.\n\nExample YAML::\n\n    evaluators:\n      - name: labels\n        type: label-health",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -4404,9 +4404,9 @@
           "type": "string"
         },
         "type": {
-          "const": "quality.label-health",
-          "default": "quality.label-health",
-          "description": "The evaluator type this entry configures: `quality.label-health`.",
+          "const": "label-health",
+          "default": "label-health",
+          "description": "The evaluator type this entry configures: `label-health`.",
           "title": "Type",
           "type": "string"
         }
@@ -5107,7 +5107,7 @@
     },
     "OODDomainClassifierConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.ood-domain-classifier``, DataEval's OODDomainClassifier.\n\nTrains a classifier to tell each test item from the reference under repeated cross-validation, and flags the\nitems it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-domain-classifier`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_ood\n        type: shift.ood-domain-classifier\n        n_repeats: 10",
+      "description": "Config for ``ood-domain-classifier``, DataEval's OODDomainClassifier.\n\nTrains a classifier to tell each test item from the reference under repeated cross-validation, and flags the\nitems it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-domain-classifier`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_ood\n        type: ood-domain-classifier\n        n_repeats: 10",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -5115,9 +5115,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.ood-domain-classifier",
-          "default": "shift.ood-domain-classifier",
-          "description": "The evaluator type this entry configures: `shift.ood-domain-classifier`.",
+          "const": "ood-domain-classifier",
+          "default": "ood-domain-classifier",
+          "description": "The evaluator type this entry configures: `ood-domain-classifier`.",
           "title": "Type",
           "type": "string"
         },
@@ -5198,7 +5198,7 @@
     },
     "OODKNeighborsConfig": {
       "additionalProperties": false,
-      "description": "Config for ``shift.ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators shift.ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: shift.ood-kneighbors\n        distance_metric: euclidean",
+      "description": "Config for ``ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: ood-kneighbors\n        distance_metric: euclidean",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -5206,9 +5206,9 @@
           "type": "string"
         },
         "type": {
-          "const": "shift.ood-kneighbors",
-          "default": "shift.ood-kneighbors",
-          "description": "The evaluator type this entry configures: `shift.ood-kneighbors`.",
+          "const": "ood-kneighbors",
+          "default": "ood-kneighbors",
+          "description": "The evaluator type this entry configures: `ood-kneighbors`.",
           "title": "Type",
           "type": "string"
         },
@@ -5461,7 +5461,7 @@
     },
     "OutliersConfig": {
       "additionalProperties": false,
-      "description": "Config for ``quality.outliers``, DataEval's Outliers.\n\nDetermines which images' statistics sit outside ``outlier_threshold``, across every\nsource the task names. Setting ``cluster_threshold`` adds embedding-space outliers,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators quality.outliers`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: outliers\n        type: quality.outliers\n        flags: [pixel, visual]\n        outlier_threshold: [zscore, 3.0]",
+      "description": "Config for ``outliers``, DataEval's Outliers.\n\nDetermines which images' statistics sit outside ``outlier_threshold``, across every\nsource the task names. Setting ``cluster_threshold`` adds embedding-space outliers,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators outliers`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: outliers\n        type: outliers\n        flags: [pixel, visual]\n        outlier_threshold: [zscore, 3.0]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -5482,9 +5482,9 @@
           "type": "string"
         },
         "type": {
-          "const": "quality.outliers",
-          "default": "quality.outliers",
-          "description": "The evaluator type this entry configures: `quality.outliers`.",
+          "const": "outliers",
+          "default": "outliers",
+          "description": "The evaluator type this entry configures: `outliers`.",
           "title": "Type",
           "type": "string"
         },
@@ -6509,7 +6509,7 @@
     },
     "ParityConfig": {
       "additionalProperties": false,
-      "description": "Config for ``bias.parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators bias.parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: bias.parity\n        p_value_threshold: 0.01",
+      "description": "Config for ``parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: parity\n        p_value_threshold: 0.01",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -6530,9 +6530,9 @@
           "type": "string"
         },
         "type": {
-          "const": "bias.parity",
-          "default": "bias.parity",
-          "description": "The evaluator type this entry configures: `bias.parity`.",
+          "const": "parity",
+          "default": "parity",
+          "description": "The evaluator type this entry configures: `parity`.",
           "title": "Type",
           "type": "string"
         },
@@ -6748,7 +6748,7 @@
     },
     "PrioritizeConfig": {
       "additionalProperties": false,
-      "description": "Config for ``scope.prioritize``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.prioritize`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: scope.prioritize\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
+      "description": "Config for ``prioritize``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators prioritize`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: prioritize\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6756,9 +6756,9 @@
           "type": "string"
         },
         "type": {
-          "const": "scope.prioritize",
-          "default": "scope.prioritize",
-          "description": "The evaluator type this entry configures: `scope.prioritize`.",
+          "const": "prioritize",
+          "default": "prioritize",
+          "description": "The evaluator type this entry configures: `prioritize`.",
           "title": "Type",
           "type": "string"
         },
@@ -7232,7 +7232,7 @@
     },
     "RepresentationConfig": {
       "additionalProperties": false,
-      "description": "Config for ``scope.representation``, DataEval's Representation.\n\nCounts the source's class labels against an ontology's leaves, and lists what to acquire for every leaf to reach\nits expected share. Needs a dataset with labels. With no ``ontology``, a flat one is synthesized from the\ndataset's ``index2label``, which can only name the classes the dataset declares.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators scope.representation`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: representation\n        type: scope.representation\n        ontology: vehicles\n        expected: {truck: 0.2}",
+      "description": "Config for ``representation``, DataEval's Representation.\n\nCounts the source's class labels against an ontology's leaves, and lists what to acquire for every leaf to reach\nits expected share. Needs a dataset with labels. With no ``ontology``, a flat one is synthesized from the\ndataset's ``index2label``, which can only name the classes the dataset declares.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators representation`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: representation\n        type: representation\n        ontology: vehicles\n        expected: {truck: 0.2}",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -7240,9 +7240,9 @@
           "type": "string"
         },
         "type": {
-          "const": "scope.representation",
-          "default": "scope.representation",
-          "description": "The evaluator type this entry configures: `scope.representation`.",
+          "const": "representation",
+          "default": "representation",
+          "description": "The evaluator type this entry configures: `representation`.",
           "title": "Type",
           "type": "string"
         },
@@ -7772,7 +7772,7 @@
           "type": "string"
         },
         "alignment": {
-          "description": "A `scope.label-alignment` step computed on `input`.",
+          "description": "A `label-alignment` step computed on `input`.",
           "title": "Alignment",
           "type": "string"
         },
@@ -8087,7 +8087,7 @@
           "type": "string"
         },
         "ranking": {
-          "description": "A `scope.prioritize` step computed on `input`.",
+          "description": "A `prioritize` step computed on `input`.",
           "title": "Ranking",
           "type": "string"
         },
@@ -8998,31 +8998,10 @@
                 "$ref": "#/$defs/BalanceConfig"
               },
               {
-                "$ref": "#/$defs/DiversityConfig"
-              },
-              {
-                "$ref": "#/$defs/ParityConfig"
-              },
-              {
-                "$ref": "#/$defs/DuplicatesConfig"
-              },
-              {
-                "$ref": "#/$defs/LabelHealthConfig"
-              },
-              {
-                "$ref": "#/$defs/OutliersConfig"
-              },
-              {
                 "$ref": "#/$defs/CoverageConfig"
               },
               {
-                "$ref": "#/$defs/LabelAlignmentConfig"
-              },
-              {
-                "$ref": "#/$defs/PrioritizeConfig"
-              },
-              {
-                "$ref": "#/$defs/RepresentationConfig"
+                "$ref": "#/$defs/DiversityConfig"
               },
               {
                 "$ref": "#/$defs/DriftDomainClassifierConfig"
@@ -9040,10 +9019,31 @@
                 "$ref": "#/$defs/DriftWassersteinConfig"
               },
               {
+                "$ref": "#/$defs/DuplicatesConfig"
+              },
+              {
+                "$ref": "#/$defs/LabelAlignmentConfig"
+              },
+              {
+                "$ref": "#/$defs/LabelHealthConfig"
+              },
+              {
                 "$ref": "#/$defs/OODDomainClassifierConfig"
               },
               {
                 "$ref": "#/$defs/OODKNeighborsConfig"
+              },
+              {
+                "$ref": "#/$defs/OutliersConfig"
+              },
+              {
+                "$ref": "#/$defs/ParityConfig"
+              },
+              {
+                "$ref": "#/$defs/PrioritizeConfig"
+              },
+              {
+                "$ref": "#/$defs/RepresentationConfig"
               }
             ]
           },

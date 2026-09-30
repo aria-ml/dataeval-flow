@@ -21,14 +21,14 @@ def _config() -> dict[str, Any]:
     return {
         "datasets": [{"name": "ds", "format": "huggingface", "path": "./d", "task": "image_classification"}],
         "sources": [{"name": "a", "dataset": "ds"}],
-        "evaluators": [{"name": "dupes", "type": "quality.duplicates", "flags": ["hash_basic"]}],
+        "evaluators": [{"name": "dupes", "type": "duplicates", "flags": ["hash_basic"]}],
         "tasks": [{"name": "t", "evaluator": "dupes", "sources": "a", "enabled": True}],
     }
 
 
 def test_evaluators_is_a_section():
     assert "evaluators" in SECTION_KEYS
-    assert set(get_variant_choices("evaluators") or []) >= {"quality.duplicates", "quality.outliers"}
+    assert set(get_variant_choices("evaluators") or []) >= {"duplicates", "outliers"}
 
 
 def test_a_load_and_save_keeps_evaluators_and_their_tasks():
@@ -67,7 +67,7 @@ def test_snippets_name_the_evaluator():
     task = _config()["tasks"][0]
     assert "evaluator: dupes" in _item_to_yaml_snippet("tasks", task)
     assert "dupes" in snippet_task_with_execution(task)
-    assert "quality.duplicates" in _item_to_yaml_snippet("evaluators", _config()["evaluators"][0])
+    assert "[dim]duplicates[/dim]" in _item_to_yaml_snippet("evaluators", _config()["evaluators"][0])
 
 
 class TestTriStateBoolFields:
@@ -82,7 +82,7 @@ class TestTriStateBoolFields:
                 section="evaluators",
                 existing={
                     "name": "dupes",
-                    "type": "quality.duplicates",
+                    "type": "duplicates",
                     "flags": ["hash_basic"],
                     "merge_near_duplicates": False,
                 },
@@ -116,7 +116,7 @@ class TestTriStateBoolFields:
             await pilot.pause()
 
             modal.query_one("#md-name", Input).value = "dupes2"
-            modal.query_one("#md-disc", Select).value = "quality.duplicates"
+            modal.query_one("#md-disc", Select).value = "duplicates"
             await pilot.pause()
 
             select = modal.query_one(f"#{modal._wid('merge_near_duplicates')}", Select)
@@ -137,7 +137,7 @@ class TestTriStateBoolFields:
                 section="evaluators",
                 existing={
                     "name": "dupes",
-                    "type": "quality.duplicates",
+                    "type": "duplicates",
                     "flags": ["hash_basic"],
                     "merge_near_duplicates": None,
                 },

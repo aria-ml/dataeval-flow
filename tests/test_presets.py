@@ -66,8 +66,8 @@ def test_a_preset_s_envelope_records_its_entry() -> None:
 
 
 def test_a_preset_s_own_evaluators_are_found_before_the_pipeline_s() -> None:
-    result = _task(ToyImages(count=12), evaluators=[{"name": "dupes", "type": "quality.outliers", "flags": ["pixel"]}])
-    assert result.steps["dupes"].type == "quality.duplicates"
+    result = _task(ToyImages(count=12), evaluators=[{"name": "dupes", "type": "outliers", "flags": ["pixel"]}])
+    assert result.steps["dupes"].type == "duplicates"
 
 
 def test_run_takes_a_preset_config() -> None:
@@ -156,7 +156,7 @@ def _outer(
             {"name": "toy", "type": "toy-preset"},
             {"name": "outer", "inputs": inputs or ["data"], "steps": steps},
         ],
-        evaluators=[{"name": "dupes", "type": "quality.duplicates"}],
+        evaluators=[{"name": "dupes", "type": "duplicates"}],
         tasks=[{"name": "t", "workflow": "outer", "sources": list(datasets)}],
         datasets=datasets,
         extractor=extractor,

@@ -292,7 +292,7 @@ def _run_embedding_analysis(
         if dc.cache is not None:
             stack.enter_context(active_cache(dc.cache, emb_key))
         embeddings_obj = get_or_compute_embeddings(emb_dataset, dc.extractor, dc.transforms, dc.batch_size)
-    # As extracted: Coverage rescales them itself (force_unit_interval), as `scope.coverage` hands them over.
+    # As extracted: Coverage rescales them itself (force_unit_interval), as `coverage` hands them over.
     all_embeddings = np.asarray(embeddings_obj)
 
     # dataeval's coverage functions require strictly more embeddings than

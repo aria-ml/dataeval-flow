@@ -1,8 +1,8 @@
 """A chain computes each Dataset's statistics in one pass over every family its evaluator steps read (spec §5.5).
 
 Each run goes through the orchestrator, so the preflight plans it, on a cold cache. The flags are what DataEval was
-asked to compute, in order: on the toy images, `quality.outliers` with `flags: [pixel, visual]` reads
-`PIXEL | VISUAL`, and `quality.duplicates` by default reads `HASH_DUPLICATES_BASIC`.
+asked to compute, in order: on the toy images, `outliers` with `flags: [pixel, visual]` reads
+`PIXEL | VISUAL`, and `duplicates` by default reads `HASH_DUPLICATES_BASIC`.
 """
 
 from typing import Any

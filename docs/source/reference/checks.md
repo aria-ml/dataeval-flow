@@ -13,12 +13,12 @@ The built-in checks are the ones `data-cleaning` runs: its findings are theirs. 
 
 | Type | Kind | Reads | Makes |
 | --- | --- | --- | --- |
-| `outlier-rate` | check | `input`: a `quality.outliers` Output | Image Outliers |
-| `target-outlier-rate` | check | `input`: a `quality.outliers` Output run with `per_target: true`; `labels`: a `quality.label-health` Output | Target Outliers |
+| `outlier-rate` | check | `input`: an `outliers` Output | Image Outliers |
+| `target-outlier-rate` | check | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
-| `duplicate-rate` | check | `input`: a `quality.duplicates` Output | Duplicates |
-| `class-imbalance` | check | `input`: a `quality.label-health` Output | Label Distribution |
-| `classwise-outliers` | combine | `input`: a Dataset; `outliers`: a `quality.outliers` Output computed on it | outliers per class |
+| `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
+| `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
+| `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
 ## How thresholds work
 
@@ -40,7 +40,7 @@ The share of a Dataset's images with at least one image-level outlier flag. Conf
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.outliers` Output |
+| `input` | an address | required | An `outliers` Output |
 | `image` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
 
 With nothing flagged, the finding is `ok`.
@@ -53,8 +53,8 @@ box, as on a classification Dataset.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.outliers` Output run with `per_target: true` |
-| `labels` | an address | required | A `quality.label-health` Output on the same Dataset: its label count is the number of boxes |
+| `input` | an address | required | An `outliers` Output run with `per_target: true` |
+| `labels` | an address | required | A `label-health` Output on the same Dataset: its label count is the number of boxes |
 | `target` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
 
 ### `classwise-outlier-rate`
@@ -75,7 +75,7 @@ images.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.duplicates` Output |
+| `input` | an address | required | A `duplicates` Output |
 | `exact` | a percentage, or `null` | `0.0` | Most images that may sit in exact-duplicate groups before the finding warns |
 | `near` | a percentage, or `null` | `5.0` | Most images that may sit in near-duplicate groups before the finding warns |
 
@@ -87,7 +87,7 @@ Dataset declares no class. Its title reads "Label/Directory_Name Distribution" w
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `quality.label-health` Output |
+| `input` | an address | required | A `label-health` Output |
 | `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class always warns |
 
 ## Combines
@@ -102,7 +102,7 @@ and a share of the class, most flagged first, and the total. Configured by
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset the outliers were found in; its labels name each item's class |
-| `outliers` | an address | required | A `quality.outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true` |
+| `outliers` | an address | required | An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true` |
 
 On a detection Dataset it refuses outliers not computed per box (`per_target: true`), rather than report none.
 
@@ -115,9 +115,9 @@ The config refuses an `outliers` computed on another Dataset when it loads, as `
 
 ```yaml
 evaluators:
-  - {name: outliers, type: quality.outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
-  - {name: dupes, type: quality.duplicates, merge_near_duplicates: true}
-  - {name: labels, type: quality.label-health}
+  - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
+  - {name: dupes, type: duplicates, merge_near_duplicates: true}
+  - {name: labels, type: label-health}
 
 workflows:
   - name: cleaning

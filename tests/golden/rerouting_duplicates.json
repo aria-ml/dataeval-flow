@@ -27,7 +27,7 @@
     "dataset_id": "toy",
     "diagnostics": [],
     "encoding_digest": null,
-    "evaluator": "quality.duplicates",
+    "evaluator": "duplicates",
     "label_source": "protocol",
     "label_space": [],
     "label_space_digest": null,
@@ -52,7 +52,7 @@
         "redundancy_radius": null,
         "segment_offset_tolerance": null,
         "stats": null,
-        "type": "quality.duplicates",
+        "type": "duplicates",
         "verify_alignment": null
       },
       "sources": [

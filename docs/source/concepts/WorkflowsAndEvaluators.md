@@ -12,7 +12,7 @@ Each tier encodes more policy than the one below it.
 | --- | --- | --- | --- |
 | Encodes | No policy: pure computation | DataEval's policy: a threshold or gate, and a determination made against it | Flow's policy on top: health and readiness, judged from those determinations |
 | Answers | "What are the hashes? The statistics?" | "Which images are duplicates? Did the test set drift at p < 0.05?" | "Is this data clean enough? Is it ready to train on?" |
-| Example | `phash`, `compute_stats` | `bias.balance`, `scope.coverage`, `shift.drift-mmd` | `data-cleaning`, `drift-monitoring` |
+| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `data-cleaning`, `drift-monitoring` |
 | Output | Raw numbers | Determinations (flags, groups, p-values) and the numbers behind them | Findings with a health status |
 | Configured under | not exposed | `evaluators:`, run by a task's `evaluator:` | `workflows:`, run by a task's `workflow:` |
 
@@ -50,11 +50,11 @@ hold an evaluator's output to thresholds, and those of the workflow types it run
 
 ## Why both can run DataEval's Duplicates
 
-`quality.duplicates` and `data-cleaning` both call DataEval's Duplicates. Their
+`duplicates` and `data-cleaning` both call DataEval's Duplicates. Their
 cluster-mode results are merged with the statistical ones through the same shared
 code, and their `from_stats` calls are tested to agree, so on the same data they
 find the same groups. `data-cleaning` adds outlier detection, label statistics,
-per-class breakdowns and a health verdict on top. `quality.duplicates` stops at the
+per-class breakdowns and a health verdict on top. `duplicates` stops at the
 groups.
 
 ## Core functions are not exposed

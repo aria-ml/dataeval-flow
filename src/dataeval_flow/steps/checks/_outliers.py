@@ -28,7 +28,7 @@ from dataeval_flow.workflows._base import Finding
 class OutlierRateConfig(CheckConfig):
     """An `outlier-rate` step's input, and the share of images that may be outliers."""
 
-    input: str = Field(description="A `quality.outliers` Output.")
+    input: str = Field(description="An `outliers` Output.")
     image: float | None = Field(
         default=3.0,
         ge=0.0,
@@ -69,9 +69,9 @@ class OutlierRateCheck(Check[OutlierRateConfig]):
 class TargetOutlierRateConfig(CheckConfig):
     """A `target-outlier-rate` step's inputs, and the share of targets that may be outliers."""
 
-    input: str = Field(description="A `quality.outliers` Output computed per target (`per_target: true`).")
+    input: str = Field(description="An `outliers` Output computed per target (`per_target: true`).")
     labels: str = Field(
-        description="A `quality.label-health` Output on the same Dataset: its label count is the number of targets."
+        description="A `label-health` Output on the same Dataset: its label count is the number of targets."
     )
     target: float | None = Field(
         default=3.0,

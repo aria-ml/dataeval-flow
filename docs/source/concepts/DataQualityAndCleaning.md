@@ -23,7 +23,7 @@ which covers how outliers, duplicates, and label issues are detected and what ea
 signal means.
 
 To run only duplicate or outlier detection, without the rest of data cleaning or its
-health thresholds, use the `quality.duplicates` or `quality.outliers` evaluator — see
+health thresholds, use the `duplicates` or `outliers` evaluator — see
 [Run a single evaluator](../how_to/run_a_single_evaluator.md).
 
 ## When to use it

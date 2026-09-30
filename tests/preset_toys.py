@@ -16,7 +16,7 @@ class ToyPresetConfig(WorkflowConfig[ChainResult]):
     """Duplicates found, judged against `exact`, and removed."""
 
     type: str = Field(default="toy-preset", description="The workflow type this entry configures.")
-    # Clusters are optional, as for `quality.duplicates`, so a step running this preset may name an extractor.
+    # Clusters are optional, as for `duplicates`, so a step running this preset may name an extractor.
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.STATS}), optional=frozenset({InputKind.CLUSTERS}), sources=SourceCount.ONE
     )

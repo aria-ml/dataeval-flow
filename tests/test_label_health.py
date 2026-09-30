@@ -1,4 +1,4 @@
-"""`quality.label-health`: a Dataset's labels counted by class, over DataEval's `label_stats` (spec §9.4)."""
+"""`label-health`: a Dataset's labels counted by class, over DataEval's `label_stats` (spec §9.4)."""
 
 from typing import Any, cast
 

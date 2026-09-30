@@ -18,8 +18,8 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
 
     The settings expand to this chain, run on the task's one source, ``data``:
 
-    - ``outliers`` (``quality.outliers``, per box on detection data), ``labels`` (``quality.label-health``),
-      ``by_class`` (``classwise-outliers``) and ``dupes`` (``quality.duplicates``);
+    - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``labels`` (``label-health``),
+      ``by_class`` (``classwise-outliers``) and ``dupes`` (``duplicates``);
     - the checks ``image_outliers``, ``target_outliers``, ``classwise``, ``duplicates`` and ``imbalance``, each
       judged against its ``health_thresholds`` entry;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the

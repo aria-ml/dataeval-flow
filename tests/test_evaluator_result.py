@@ -17,11 +17,11 @@ def _result(
     serialized: dict[str, Any], *, success: bool = True, errors: tuple[str, ...] = ()
 ) -> EvaluatorResult[object]:
     return EvaluatorResult(
-        type="quality.duplicates",
+        type="duplicates",
         success=success,
         output=object() if success else None,
         serialized=serialized if success else None,
-        metadata=EvaluatorMetadata(evaluator="quality.duplicates", dataeval=DataEvalExecution(version="1.1.1")),
+        metadata=EvaluatorMetadata(evaluator="duplicates", dataeval=DataEvalExecution(version="1.1.1")),
         errors=list(errors),
     )
 
@@ -42,7 +42,7 @@ class TestToDict:
         assert payload["output"] == _table(1)
         metadata = payload["metadata"]
         assert isinstance(metadata, dict)
-        assert metadata["evaluator"] == "quality.duplicates"
+        assert metadata["evaluator"] == "duplicates"
         dataeval_meta = metadata["dataeval"]
         assert isinstance(dataeval_meta, dict)
         assert dataeval_meta["version"] == "1.1.1"
@@ -59,7 +59,7 @@ class TestToDict:
 class TestReport:
     def test_it_carries_no_verdict(self):
         text = _result(_table(2)).report()
-        assert "QUALITY.DUPLICATES" in text
+        assert "DUPLICATES" in text
         assert "OUTPUT" in text
         assert "Health" not in text
         assert "SUMMARY" not in text

@@ -1,4 +1,4 @@
-"""`scope.*` against real DataEval, on toy images whose labels and embeddings are known."""
+"""The scope evaluators against real DataEval, on toy images whose labels and embeddings are known."""
 
 import logging
 from typing import Any, TypedDict
@@ -93,7 +93,7 @@ class TestCoverage:
 class TestUsableLabels:
     def test_one_label_per_item_is_used(self):
         source = EvaluatorInputs(source="s", labels=np.array([0, 1]), index2label={0: "a", 1: "b"})
-        labels = usable_labels(source, 2, "scope.coverage")
+        labels = usable_labels(source, 2, "coverage")
         assert labels is not None
         assert labels.tolist() == [0, 1]
 
@@ -101,14 +101,14 @@ class TestUsableLabels:
         """A detection dataset's labels count targets, so they do not line up with one embedding per item."""
         source = EvaluatorInputs(source="s", labels=np.array([0, 1, 1]), index2label={})
         with caplog.at_level(logging.WARNING):
-            assert usable_labels(source, 2, "scope.coverage") is None
+            assert usable_labels(source, 2, "coverage") is None
         assert "has 3 labels for 2 items, one per target rather than one per item" in caplog.text
 
     def test_a_source_without_labels_says_so(self, caplog: pytest.LogCaptureFixture):
         source = EvaluatorInputs(source="s", labels=np.array([], dtype=np.intp), index2label={})
         with caplog.at_level(logging.WARNING):
-            assert usable_labels(source, 2, "scope.prioritize") is None
-        assert "scope.prioritize: source 's' has no labels" in caplog.text
+            assert usable_labels(source, 2, "prioritize") is None
+        assert "prioritize: source 's' has no labels" in caplog.text
 
 
 class TestPrioritize:

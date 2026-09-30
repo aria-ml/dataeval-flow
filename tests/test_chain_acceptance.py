@@ -57,10 +57,10 @@ def test_the_parent_specs_example_chain_runs_from_yaml(tmp_path: Path) -> None:
         _ONTOLOGY
         + """
 evaluators:
-  - {name: align, type: scope.label-alignment, ontology: vehicles}
-  - {name: dupes, type: quality.duplicates}
-  - {name: coverage, type: scope.coverage}
-  - {name: balance, type: bias.balance}
+  - {name: align, type: label-alignment, ontology: vehicles}
+  - {name: dupes, type: duplicates}
+  - {name: coverage, type: coverage}
+  - {name: balance, type: balance}
 workflows:
   - name: corpus
     inputs: [a, b]
@@ -100,7 +100,7 @@ def test_clean_remove_export_writes_a_corpus_without_the_duplicate(tmp_path: Pat
         _ONTOLOGY
         + """
 evaluators:
-  - {name: dupes, type: quality.duplicates}
+  - {name: dupes, type: duplicates}
 workflows:
   - name: clean_export
     inputs: [data]
@@ -126,7 +126,7 @@ _CONFORM = (
     _ONTOLOGY
     + """
 evaluators:
-  - {name: align, type: scope.label-alignment, ontology: vehicles}
+  - {name: align, type: label-alignment, ontology: vehicles}
 workflows:
   - name: conform_and_merge
     inputs: [a, b]
@@ -184,9 +184,9 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
 
 _CLEANING_REPORT = """
 evaluators:
-  - {name: outliers, type: quality.outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
-  - {name: dupes, type: quality.duplicates, merge_near_duplicates: true}
-  - {name: labels, type: quality.label-health}
+  - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
+  - {name: dupes, type: duplicates, merge_near_duplicates: true}
+  - {name: labels, type: label-health}
 
 workflows:
   - name: cleaning_report

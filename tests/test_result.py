@@ -32,11 +32,11 @@ def _workflow(*, success: bool = True) -> ToyCountResult:
 
 def _evaluator(*, success: bool = True) -> EvaluatorResult[object]:
     return EvaluatorResult(
-        type="quality.duplicates",
+        type="duplicates",
         success=success,
         output=object() if success else None,
         serialized={"shape": "mapping", "data": {"groups": 0}} if success else None,
-        metadata=EvaluatorMetadata(evaluator="quality.duplicates"),
+        metadata=EvaluatorMetadata(evaluator="duplicates"),
         errors=[] if success else ["boom", "bang"],
     )
 
@@ -115,7 +115,7 @@ class TestOneShape:
 
     def test_type_names_what_ran(self, make, kind):
         result = make()
-        assert result.type in {"test.count", "quality.duplicates"}
+        assert result.type in {"test.count", "duplicates"}
         assert not hasattr(result, "name")
 
     def test_a_dict_leads_with_the_kind_and_the_envelope(self, make, kind):
@@ -159,7 +159,7 @@ class TestOneShape:
         result = make()
         page = result.to_html()
         assert page.startswith("<!doctype html>")
-        heading = {"workflow": "Items counted", "evaluator": "quality.duplicates"}[kind]
+        heading = {"workflow": "Items counted", "evaluator": "duplicates"}[kind]
         assert f"<h1>{heading}</h1>" in page
         assert _well_formed(page)
         assert page.count("<script>") == 1

@@ -67,8 +67,8 @@ def test_an_extractor_config_needs_no_name() -> None:
     config = PipelineConfig.model_validate(
         {
             "extractors": [{"model": "flatten"}],
-            "evaluators": [{"type": "quality.duplicates", "cluster_sensitivity": 1.0}],
-            "tasks": [{"name": "t", "evaluator": "quality.duplicates", "sources": "src", "extractor": "flatten"}],
+            "evaluators": [{"type": "duplicates", "cluster_sensitivity": 1.0}],
+            "tasks": [{"name": "t", "evaluator": "duplicates", "sources": "src", "extractor": "flatten"}],
         }
     )
     assert config.extractors is not None
@@ -249,7 +249,7 @@ def test_run_tasks_keys_results_by_task() -> None:
 
 
 def test_load_config_reads_a_folder(tmp_path: Path) -> None:
-    (tmp_path / "a.yaml").write_text("evaluators:\n  - type: quality.duplicates\n")
+    (tmp_path / "a.yaml").write_text("evaluators:\n  - type: duplicates\n")
     (tmp_path / "b.yaml").write_text("seed: 3\n")
     config = load_config(tmp_path)
     assert config.seed == 3
@@ -380,9 +380,9 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     config.result = ResultConfig(max_rows=1, preview_rows=-1, max_images=0)
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
-    assert result.steps["dupes"].type == "quality.duplicates"
+    assert result.steps["dupes"].type == "duplicates"
     report = result._document(detailed=True).blocks
-    (dupes,) = [block for block in report if isinstance(block, Section) and block.title == "dupes (quality.duplicates)"]
+    (dupes,) = [block for block in report if isinstance(block, Section) and block.title == "dupes (duplicates)"]
     blocks = list(walk(dupes.blocks))
     (groups,) = [block for block in blocks if isinstance(block, Table)]
     assert (len(groups.rows), groups.preview) == (1, None)

@@ -39,7 +39,7 @@
 - `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
 - `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
-- `shift.drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
+- `drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
   `chunking:`; Wasserstein takes a validation source between the reference and the data to test
 - `SourceCount.THREE`, for an entry that takes exactly three sources
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
@@ -58,16 +58,16 @@
   `EvaluatorInputs`
 - `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` by `to_dict()`
   and `export()` and shown in reports
-- `quality.duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
+- `duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
   `segment_offset_tolerance`, `verify_alignment`, `min_track_frames`, `frame_sample`) and writes
   `annotation_divergences` and `factor_cardinality` under `extras`
-- `bias.balance`, `bias.diversity` and `bias.parity` evaluators, reading one source's metadata under its
+- `balance`, `diversity` and `parity` evaluators, reading one source's metadata under its
   `metadata:` policy
-- `scope.representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
+- `representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
   `index2label`
-- `scope.coverage` and `scope.prioritize` evaluators; a second `scope.prioritize` source is the reference its ranking
+- `coverage` and `prioritize` evaluators; a second `prioritize` source is the reference its ranking
   is relative to
-- `shift.ood-kneighbors` and `shift.ood-domain-classifier` evaluators
+- `ood-kneighbors` and `ood-domain-classifier` evaluators
 - An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
   output
 - Custom workflows: a `workflows:` entry with `inputs:` and `steps:` chains evaluators, workflow types and transforms,
@@ -79,7 +79,7 @@
   removal plans from Duplicates and Outliers), `conform` (relabelling onto an ontology, refusing loss beyond `allow:`)
   and `export` (writing to `<output>/datasets/<task>.<step>/`); plug-in transforms register under
   `dataeval_flow.transforms`
-- `scope.label-alignment` evaluator, aligning a source's class names to an ontology through
+- `label-alignment` evaluator, aligning a source's class names to an ontology through
   `dataeval.core.label_alignment`, as `data-coverage` aligns them
 - `ChainResult`, a custom workflow's result: each step's outcome in `steps`, readable when a step failed, and each
   Dataset's lineage in `metadata.lineage`, whose digests tell whether two results read the same data
@@ -152,6 +152,11 @@
   `-v` and `result.txt` show it whole
 - `data-coverage` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
   per-dimension rescale had shifted `dispersion` and the coverage radius
+- Evaluators are named for what they compute, without a family prefix, and a prefixed name fails to load as an
+  unknown evaluator: `balance`, `diversity` and `parity` (were `bias.*`); `duplicates`, `label-health` and
+  `outliers` (were `quality.*`); `coverage`, `label-alignment`, `prioritize` and `representation` (were `scope.*`);
+  `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`,
+  `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
 - `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
   against `health_thresholds`. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
   and `run()` on a `DataCleaningConfig` is typed to `ChainResult`
@@ -169,7 +174,8 @@
 - Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
 - Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
-- Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with `quality.duplicates`
+- Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with the `duplicates`
+  evaluator
 - Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
 - Include source views in cache keys, invalidating cached embeddings, metadata, and statistics on edit
 - Relative `ontology:` paths now resolve against the run's data root rather than the process root

@@ -22,28 +22,28 @@ _NAMES = [cls.name for cls in list_evaluators()]
 # The DataEval `Config` fields a config file cannot express: objects and runtime choices, which the task supplies
 # (the extractor, its batch size) or Flow leaves to DataEval. Kept here rather than on a public class.
 _WIRING: dict[str, frozenset[str]] = {
-    "quality.duplicates": frozenset({"extractor", "batch_size"}),
-    "quality.label-health": frozenset(),
-    "quality.outliers": frozenset({"extractor", "batch_size"}),
-    "bias.balance": frozenset(),
-    "bias.diversity": frozenset(),
-    "bias.parity": frozenset(),
-    "scope.representation": frozenset(),
-    "scope.coverage": frozenset({"extractor", "batch_size"}),
-    "scope.prioritize": frozenset({"extractor", "batch_size"}),
-    "shift.drift-domain-classifier": frozenset({"extractor", "update_strategy"}),
-    "shift.drift-kneighbors": frozenset({"extractor", "update_strategy"}),
-    "shift.drift-mmd": frozenset({"extractor", "update_strategy", "sigma", "device"}),
-    "shift.drift-univariate": frozenset({"extractor", "update_strategy"}),
-    "shift.drift-wasserstein": frozenset({"extractor", "update_strategy"}),
-    "shift.ood-domain-classifier": frozenset({"extractor"}),
-    "shift.ood-kneighbors": frozenset({"extractor"}),
+    "duplicates": frozenset({"extractor", "batch_size"}),
+    "label-health": frozenset(),
+    "outliers": frozenset({"extractor", "batch_size"}),
+    "balance": frozenset(),
+    "diversity": frozenset(),
+    "parity": frozenset(),
+    "representation": frozenset(),
+    "coverage": frozenset({"extractor", "batch_size"}),
+    "prioritize": frozenset({"extractor", "batch_size"}),
+    "drift-domain-classifier": frozenset({"extractor", "update_strategy"}),
+    "drift-kneighbors": frozenset({"extractor", "update_strategy"}),
+    "drift-mmd": frozenset({"extractor", "update_strategy", "sigma", "device"}),
+    "drift-univariate": frozenset({"extractor", "update_strategy"}),
+    "drift-wasserstein": frozenset({"extractor", "update_strategy"}),
+    "ood-domain-classifier": frozenset({"extractor"}),
+    "ood-kneighbors": frozenset({"extractor"}),
     # `matchers` holds objects a config file cannot express.
-    "scope.label-alignment": frozenset({"matchers"}),
+    "label-alignment": frozenset({"matchers"}),
 }
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
-_CONVERTED: set[tuple[str, str]] = {("quality.duplicates", "flags"), ("quality.outliers", "flags")}
+_CONVERTED: set[tuple[str, str]] = {("duplicates", "flags"), ("outliers", "flags")}
 
 
 def _dataeval_fields(cls: "type | Callable[..., Any]") -> dict[str, Any]:

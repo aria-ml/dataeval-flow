@@ -326,7 +326,7 @@ def test_a_one_step_task_whose_step_fails_before_its_evaluator_runs_returns_a_fa
     with patch.object(_orchestrator, "_run_target", side_effect=RuntimeError("no context")):
         result = run_task(task, config)
     assert isinstance(result, DuplicatesResult)
-    assert (result.success, result.type, result.errors) == (False, "quality.duplicates", ["RuntimeError: no context"])
+    assert (result.success, result.type, result.errors) == (False, "duplicates", ["RuntimeError: no context"])
 
 
 def test_the_golden_normalizer_drops_a_thumbnail_s_encoded_bytes_and_keeps_its_item() -> None:

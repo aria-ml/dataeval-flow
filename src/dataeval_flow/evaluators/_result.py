@@ -50,7 +50,7 @@ class DataEvalExecution(BaseModel):
 class EvaluatorMetadata(ResultMetadata):
     """The JATIC envelope for an evaluator result."""
 
-    evaluator: str = Field(default="", description="The evaluator type, e.g. `quality.duplicates`.")
+    evaluator: str = Field(default="", description="The evaluator type, e.g. `duplicates`.")
     dataeval: DataEvalExecution = Field(
         default_factory=DataEvalExecution,
         description=(

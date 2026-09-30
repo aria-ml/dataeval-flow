@@ -254,7 +254,7 @@ _POOLS = """datasets:
 sources:
   - {name: s, dataset: d}
 evaluators:
-  - {name: dupes, type: quality.duplicates}
+  - {name: dupes, type: duplicates}
 workflows:
   - name: w
     inputs: [a, b]

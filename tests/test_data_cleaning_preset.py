@@ -144,7 +144,7 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
                 ],
             },
         ],
-        evaluators=[{"name": "labels", "type": "quality.label-health"}],
+        evaluators=[{"name": "labels", "type": "label-health"}],
         tasks=[{"name": "t", "workflow": "outer", "sources": ["s1", "s2"]}],
         datasets={"s1": ToyImages(count=12), "s2": ToyImages(count=24)},
     )

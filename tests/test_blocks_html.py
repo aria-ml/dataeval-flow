@@ -141,7 +141,7 @@ class TestLayout:
         [
             ("Dataset splitting: 1000 items → 5 fold(s)", "Dataset splitting: 1000 items → 5 fold(s)"),
             ("12 factors, 3 findings (1 blocking).", "12 factors, 3 findings (1 blocking)"),
-            ("quality.duplicates", "quality.duplicates"),
+            ("duplicates", "duplicates"),
         ],
     )
     def test_a_title_of_one_sentence_heads_the_report_whole(self, title, heading):

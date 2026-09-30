@@ -41,13 +41,13 @@ _CLEANING = {
 _EVALUATORS = [
     {
         "name": "outliers",
-        "type": "quality.outliers",
+        "type": "outliers",
         "flags": ["pixel", "visual"],
         "outlier_threshold": "zscore",
         "per_target": True,
     },
-    {"name": "labels", "type": "quality.label-health"},
-    {"name": "dupes", "type": "quality.duplicates", "merge_near_duplicates": True},
+    {"name": "labels", "type": "label-health"},
+    {"name": "dupes", "type": "duplicates", "merge_near_duplicates": True},
 ]
 _OUTLIER_STEPS = [
     {"name": "outliers", "evaluator": "outliers", "input": "data"},
@@ -259,7 +259,7 @@ def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> No
     assert isinstance(result, ChainResult)
     message = (
         "classwise-outliers counts a detection Dataset's boxes, but `outliers` was not computed per box: "
-        "set `per_target: true` on its `quality.outliers` entry."
+        "set `per_target: true` on its `outliers` entry."
     )
     by_class = result.steps["by_class"]
     assert by_class.status == "failed"

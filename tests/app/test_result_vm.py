@@ -369,7 +369,7 @@ class TestEvaluatorResults:
         from dataeval_flow.evaluators._result import EvaluatorMetadata
 
         return EvaluatorResult(
-            type="quality.duplicates",
+            type="duplicates",
             success=True,
             output=object(),
             serialized={
@@ -377,7 +377,7 @@ class TestEvaluatorResults:
                 "columns": ["group_id", "item_indices"],
                 "rows": [{"group_id": 0, "item_indices": [0, 5]}],
             },
-            metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
+            metadata=EvaluatorMetadata(evaluator="duplicates", execution_time_s=1.25),
         )
 
     def test_it_is_recognized(self):
@@ -422,9 +422,9 @@ class TestEvaluatorResults:
         from dataeval_flow.evaluators._result import EvaluatorMetadata
 
         return EvaluatorResult(
-            type="quality.duplicates",
+            type="duplicates",
             success=False,
-            metadata=EvaluatorMetadata(evaluator="quality.duplicates", execution_time_s=1.25),
+            metadata=EvaluatorMetadata(evaluator="duplicates", execution_time_s=1.25),
             errors=["boom: bad params"],
         )
 
@@ -468,7 +468,7 @@ class TestChainResults:
         assert re.search(r"Ran:\s+2\n", text)
         assert re.search(r"Failed:\s+0\n", text)
         assert re.search(r"FEW \(TOY-FIRST\)\n", text)
-        assert re.search(r"DUPES \(QUALITY\.DUPLICATES\)\n", text)
+        assert re.search(r"DUPES \(DUPLICATES\)\n", text)
         assert "Items:  6" in text
         assert rvm.status_tag() == " [green][ok][/green]"
 

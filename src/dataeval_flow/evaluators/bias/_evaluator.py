@@ -35,9 +35,9 @@ def balance_arguments(config: BalanceConfig, policy: "ResolvedPolicy | None") ->
 
 
 class BalanceEvaluator(Evaluator[BalanceConfig, BalanceOutput]):
-    """``bias.balance``: how much each metadata factor says about the class label, per DataEval's Balance."""
+    """``balance``: how much each metadata factor says about the class label, per DataEval's Balance."""
 
-    name: ClassVar[str] = "bias.balance"
+    name: ClassVar[str] = "balance"
     description: ClassVar[str] = "Mutual information between metadata factors and class labels (DataEval Balance)"
     dataeval_class: ClassVar[type] = Balance
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
@@ -50,9 +50,9 @@ class BalanceEvaluator(Evaluator[BalanceConfig, BalanceOutput]):
 
 
 class DiversityEvaluator(Evaluator[DiversityConfig, DiversityOutput]):
-    """``bias.diversity``: how evenly each metadata factor's values are spread, per DataEval's Diversity."""
+    """``diversity``: how evenly each metadata factor's values are spread, per DataEval's Diversity."""
 
-    name: ClassVar[str] = "bias.diversity"
+    name: ClassVar[str] = "diversity"
     description: ClassVar[str] = "How evenly metadata factor values are spread (DataEval Diversity)"
     dataeval_class: ClassVar[type] = Diversity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
@@ -65,9 +65,9 @@ class DiversityEvaluator(Evaluator[DiversityConfig, DiversityOutput]):
 
 
 class ParityEvaluator(Evaluator[ParityConfig, ParityOutput]):
-    """``bias.parity``: which metadata factors are associated with the class label, per DataEval's Parity."""
+    """``parity``: which metadata factors are associated with the class label, per DataEval's Parity."""
 
-    name: ClassVar[str] = "bias.parity"
+    name: ClassVar[str] = "parity"
     description: ClassVar[str] = "Association between metadata factors and class labels (DataEval Parity)"
     dataeval_class: ClassVar[type] = Parity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE

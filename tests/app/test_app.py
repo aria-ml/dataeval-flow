@@ -1734,7 +1734,7 @@ class TestCustomWorkflowItem:
                 {
                     "datasets": [{"name": "ds1", "format": "image_folder", "path": "images"}],
                     "sources": [{"name": "src", "dataset": "ds1"}],
-                    "evaluators": [{"name": "dupes", "type": "quality.duplicates"}],
+                    "evaluators": [{"name": "dupes", "type": "duplicates"}],
                     "workflows": [workflow],
                     "tasks": [{"name": "t", "workflow": "w", "sources": ["src"]}],
                 },

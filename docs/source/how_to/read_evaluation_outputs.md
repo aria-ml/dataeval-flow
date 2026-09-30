@@ -183,7 +183,7 @@ chain of steps.
     "lineage":   [ { "name": "data", "items": 300 }, { "name": "clean", "step": "clean", "items": 273 } ]
   },
   "health":   { "status": "warning", "warnings": 1, "findings": 4, "failed_steps": [] },
-  "steps":    { "outliers": { "kind": "evaluator", "type": "quality.outliers", "status": "ok" } },
+  "steps":    { "outliers": { "kind": "evaluator", "type": "outliers", "status": "ok" } },
   "findings": [ { "step": "image_outliers", "title": "Image Outliers", "severity": "warning" } ]
 }
 ```
@@ -344,7 +344,7 @@ evaluator produces:
 ```json
 {
   "kind": "evaluator",
-  "metadata": { "evaluator": "quality.duplicates", "dataeval": { "version": "1.1.1" } },
+  "metadata": { "evaluator": "duplicates", "dataeval": { "version": "1.1.1" } },
   "output": { "shape": "table", "columns": ["group_id", "..."], "rows": [] }
 }
 ```

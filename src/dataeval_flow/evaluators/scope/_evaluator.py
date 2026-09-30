@@ -49,10 +49,10 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 
 class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutput]):
-    """``scope.representation``: which of an ontology's classes fall short of their share, per DataEval's
+    """``representation``: which of an ontology's classes fall short of their share, per DataEval's
     Representation."""
 
-    name: ClassVar[str] = "scope.representation"
+    name: ClassVar[str] = "representation"
     description: ClassVar[str] = "Class counts against an ontology's leaves (DataEval Representation)"
     dataeval_class: ClassVar[type] = Representation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "evaluate"}
@@ -66,7 +66,7 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
         labels = require(source.labels, "labels", source.source)
         if len(labels) == 0:
             raise ValueError(
-                f"Source '{source.source}' has no labels: its dataset's targets carry none, and scope.representation "
+                f"Source '{source.source}' has no labels: its dataset's targets carry none, and `representation` "
                 "counts class labels."
             )
         index2label = dict(source.index2label or {})
@@ -101,9 +101,9 @@ def usable_labels(source: EvaluatorInputs, count: int, evaluator: str) -> "NDArr
 
 
 class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
-    """``scope.coverage``: which items the rest of the data does not cover, per DataEval's Coverage."""
+    """``coverage``: which items the rest of the data does not cover, per DataEval's Coverage."""
 
-    name: ClassVar[str] = "scope.coverage"
+    name: ClassVar[str] = "coverage"
     description: ClassVar[str] = "Embedding-space coverage, broken down by class (DataEval Coverage)"
     dataeval_class: ClassVar[type] = Coverage
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {
@@ -126,9 +126,9 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
 
 
 class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
-    """``scope.prioritize``: the first source's items ranked by difficulty, per DataEval's Prioritize."""
+    """``prioritize``: the first source's items ranked by difficulty, per DataEval's Prioritize."""
 
-    name: ClassVar[str] = "scope.prioritize"
+    name: ClassVar[str] = "prioritize"
     description: ClassVar[str] = "Items ranked by difficulty, optionally against a reference (DataEval Prioritize)"
     dataeval_class: ClassVar[type] = Prioritize
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {
@@ -148,9 +148,9 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
 
 
 class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutput]):
-    """``scope.label-alignment``: how the Dataset's class names align to an ontology, per DataEval's label_alignment."""
+    """``label-alignment``: how the Dataset's class names align to an ontology, per DataEval's label_alignment."""
 
-    name: ClassVar[str] = "scope.label-alignment"
+    name: ClassVar[str] = "label-alignment"
     description: ClassVar[str] = (
         "How a Dataset's class names align to an ontology: the remap, and whether it is lossless."
     )
@@ -161,7 +161,7 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
         """Align the source's class names to the task's ontology with DataEval's ``label_alignment``."""
         (source,) = inputs
         if source.ontology is None:
-            raise ValueError("scope.label-alignment needs its `ontology:` to load.")
+            raise ValueError("`label-alignment` needs its `ontology:` to load.")
         index2label = dict(source.index2label or {})
         names = [index2label[index] for index in sorted(index2label)]
         started, clock = datetime.now(UTC), time.monotonic()

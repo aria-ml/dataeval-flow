@@ -1,4 +1,4 @@
-"""`bias.*` against real DataEval, on metadata where `site` follows the class and `angle` does not."""
+"""The bias evaluators against real DataEval, on metadata where `site` follows the class and `angle` does not."""
 
 from typing import Any
 

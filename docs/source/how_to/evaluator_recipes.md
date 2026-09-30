@@ -17,10 +17,10 @@ metadata:
 
 evaluators:
   - name: balance
-    type: bias.balance
+    type: balance
     metadata: standard
   - name: parity
-    type: bias.parity
+    type: parity
     metadata: standard
 
 tasks:
@@ -35,7 +35,7 @@ tasks:
 Notice:
 
 - `metadata:` names a policy, so both evaluators read their factors under the one encoding.
-- `bias.balance`'s `factor_source`, left unset, follows the policy's `factor_source` where it sets one.
+- `balance`'s `factor_source`, left unset, follows the policy's `factor_source` where it sets one.
 - Neither task names an extractor — the bias evaluators read metadata only, and refuse one.
 
 `shortcuts`' output (trimmed; from a small run):
@@ -111,9 +111,9 @@ ontologies:
 
 evaluators:
   - name: representation
-    type: scope.representation
+    type: representation
   - name: representation_vehicles
-    type: scope.representation
+    type: representation
     ontology: vehicles
     expected: {truck: 0.2}
 
@@ -172,7 +172,7 @@ Which items sit in embedding-space regions the rest of the data does not cover?
 ```yaml
 evaluators:
   - name: coverage
-    type: scope.coverage
+    type: coverage
     num_observations: 20
 
 tasks:
@@ -232,7 +232,7 @@ Given an unlabeled pool and what is already labeled, which unlabeled items are t
 ```yaml
 evaluators:
   - name: next_to_label
-    type: scope.prioritize
+    type: prioritize
     order: hard_first
 
 tasks:
@@ -285,14 +285,14 @@ Has the operational data drifted from the reference it was validated against?
 ```yaml
 evaluators:
   - name: mmd
-    type: shift.drift-mmd
+    type: drift-mmd
   - name: mmd_chunked
-    type: shift.drift-mmd
+    type: drift-mmd
     chunking:
       chunk_size: 100
       threshold: [zscore, 3.0]
   - name: wasserstein
-    type: shift.drift-wasserstein
+    type: drift-wasserstein
 
 tasks:
   - name: drift
@@ -314,7 +314,7 @@ Notice:
 - Sources run the reference first, then the data to test.
 - `chunking:` tests each chunk of the data against the spread of the reference's chunks; DataEval needs at least
   three reference chunks, so `chunk_size` must be small enough to give it that many.
-- `shift.drift-wasserstein` takes a validation source between the two.
+- `drift-wasserstein` takes a validation source between the two.
 
 `drift`'s output (trimmed; from a small run):
 
@@ -409,7 +409,7 @@ Which items of the operational data sit outside the distribution the reference e
 ```yaml
 evaluators:
   - name: ood
-    type: shift.ood-kneighbors
+    type: ood-kneighbors
     distance_metric: euclidean
 
 tasks:
@@ -459,7 +459,7 @@ result = run(OODKNeighborsConfig(distance_metric="euclidean"), sources, extracto
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator and parameter
 - [Run a single evaluator](run_a_single_evaluator.md) — the mechanics: defining an evaluator, adding a task, and
   reading the result
-- [Declare an ontology](declare_an_ontology.md) — defining a label space `scope.representation` can check against
+- [Declare an ontology](declare_an_ontology.md) — defining a label space `representation` can check against
 - [Configure metadata binning](configure_metadata_binning.md) — how a `metadata:` policy encodes the factors bias
   evaluators read
 - [Read evaluation outputs](read_evaluation_outputs.md) — the result envelope both evaluators and workflows share

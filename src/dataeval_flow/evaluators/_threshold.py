@@ -1,6 +1,6 @@
 """The threshold forms a config file can write: DataEval's ``ThresholdLike``, less the objects it cannot build.
 
-``quality.outliers`` passes them to DataEval as they are; ``chunking:`` resolves them with DataEval's
+``outliers`` passes them to DataEval as they are; ``chunking:`` resolves them with DataEval's
 ``resolve_threshold``, because ``chunked()`` takes a ``Threshold`` object.
 """
 

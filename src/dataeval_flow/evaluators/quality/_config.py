@@ -106,7 +106,7 @@ class _QualityConfig(EvaluatorConfig[R], StatsConfigMixin, Generic[R]):
 
 
 class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
-    """Config for ``quality.duplicates``, DataEval's Duplicates.
+    """Config for ``duplicates``, DataEval's Duplicates.
 
     Determines which images are exact or near duplicates of each other, across every source
     the task names. Setting ``cluster_sensitivity`` adds embedding-space near duplicates,
@@ -114,19 +114,17 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the
     Evaluator Catalog (``reference/evaluators``), and
-    ``dataeval-flow evaluators quality.duplicates`` prints the JSON Schema.
+    ``dataeval-flow evaluators duplicates`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: dupes
-            type: quality.duplicates
+            type: duplicates
             flags: [hash_basic, hash_d4]
     """
 
-    type: str = Field(
-        default="quality.duplicates", description="The evaluator type this entry configures: `quality.duplicates`."
-    )
+    type: str = Field(default="duplicates", description="The evaluator type this entry configures: `duplicates`.")
     flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
         default=None,
         min_length=1,
@@ -256,7 +254,7 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
 
 
 class OutliersConfig(_QualityConfig[OutliersResult]):
-    """Config for ``quality.outliers``, DataEval's Outliers.
+    """Config for ``outliers``, DataEval's Outliers.
 
     Determines which images' statistics sit outside ``outlier_threshold``, across every
     source the task names. Setting ``cluster_threshold`` adds embedding-space outliers,
@@ -264,20 +262,18 @@ class OutliersConfig(_QualityConfig[OutliersResult]):
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the
     Evaluator Catalog (``reference/evaluators``), and
-    ``dataeval-flow evaluators quality.outliers`` prints the JSON Schema.
+    ``dataeval-flow evaluators outliers`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: outliers
-            type: quality.outliers
+            type: outliers
             flags: [pixel, visual]
             outlier_threshold: [zscore, 3.0]
     """
 
-    type: str = Field(
-        default="quality.outliers", description="The evaluator type this entry configures: `quality.outliers`."
-    )
+    type: str = Field(default="outliers", description="The evaluator type this entry configures: `outliers`.")
     flags: Sequence[Literal["dimension", "pixel", "visual"]] | None = Field(
         default=None,
         min_length=1,
@@ -336,7 +332,7 @@ class OutliersConfig(_QualityConfig[OutliersResult]):
 
 
 class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin):
-    """Config for ``quality.label-health``: how a Dataset's labels spread over its classes.
+    """Config for ``label-health``: how a Dataset's labels spread over its classes.
 
     Wraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset
     declares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks
@@ -346,10 +342,8 @@ class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin)
 
         evaluators:
           - name: labels
-            type: quality.label-health
+            type: label-health
     """
 
-    type: str = Field(
-        default="quality.label-health", description="The evaluator type this entry configures: `quality.label-health`."
-    )
+    type: str = Field(default="label-health", description="The evaluator type this entry configures: `label-health`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
