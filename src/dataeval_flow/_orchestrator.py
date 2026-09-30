@@ -643,7 +643,7 @@ def _run_custom_task(
     problems = (
         [f"Task '{task.name}' runs workflow '{workflow.name}', which {problem}"]
         if problem is not None
-        else binding_problems(task, workflow, config)
+        else binding_problems(task, workflow, config, evaluators)
     )
     if problems:
         refused = ChainResult.failed(type=type_id, errors=problems)

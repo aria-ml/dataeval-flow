@@ -8,6 +8,7 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows import Workflow, WorkflowConfig
 from dataeval_flow.workflows._preset import Preset, PresetChain
 
@@ -30,7 +31,7 @@ class ToyPreset(Preset, Workflow[ToyPresetConfig, ChainResult]):
 
     name: ClassVar[str] = "toy-preset"
     description: ClassVar[str] = "Finds, judges and removes duplicates."
-    slots: ClassVar[tuple[str, ...]] = ("data",)
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
     outputs: ClassVar[tuple[Port, ...]] = (Port("kept", DataType.DATASET),)
 
     @classmethod
@@ -58,7 +59,7 @@ class BrokenPreset(Preset, Workflow[BrokenPresetConfig, ChainResult]):
 
     name: ClassVar[str] = "toy-broken-preset"
     description: ClassVar[str] = "Reads a step it does not have."
-    slots: ClassVar[tuple[str, ...]] = ("data",)
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
     @classmethod
     def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
@@ -78,7 +79,7 @@ class GonePreset(Preset, Workflow[GonePresetConfig, ChainResult]):
 
     name: ClassVar[str] = "toy-gone-preset"
     description: ClassVar[str] = "Declares an output no step makes."
-    slots: ClassVar[tuple[str, ...]] = ("data",)
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
     outputs: ClassVar[tuple[Port, ...]] = (Port("gone", DataType.DATASET),)
 
     @classmethod
@@ -90,7 +91,39 @@ class GonePreset(Preset, Workflow[GonePresetConfig, ChainResult]):
         )
 
 
+class ToyPoolPresetConfig(WorkflowConfig[ChainResult]):
+    """Duplicates found in a reference, and found and removed in each pool."""
+
+    type: str = Field(default="toy-pool-preset", description="The workflow type this entry configures.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.STATS}), sources=SourceCount.TWO_OR_MORE)
+
+
+class ToyPoolPreset(Preset, Workflow[ToyPoolPresetConfig, ChainResult]):
+    """A single slot and a list slot: the reference's duplicates found once, each pool's found and removed."""
+
+    name: ClassVar[str] = "toy-pool-preset"
+    description: ClassVar[str] = "Finds duplicates in a reference, and removes each pool's own."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = (
+        "reference",
+        InputSlot.model_validate({"name": "pools", "list": True}),
+    )
+    outputs: ClassVar[tuple[Port, ...]] = (Port("kept", DataType.DATASET),)
+
+    @classmethod
+    def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
+        """The reference's duplicates, each pool's, and each pool without its own."""
+        return PresetChain(
+            steps=[
+                {"name": "reference-dupes", "evaluator": "dupes", "input": "reference"},
+                {"name": "dupes", "evaluator": "dupes", "input": "pools"},
+                {"name": "kept", "transform": "remove", "input": "pools", "plans": {"dupes": {}}},
+            ],
+            evaluators=[DuplicatesConfig(name="dupes")],
+        )
+
+
 _PRESETS = {
+    "toy-pool-preset": "tests.preset_toys:ToyPoolPreset",
     "toy-preset": "tests.preset_toys:ToyPreset",
     "toy-broken-preset": "tests.preset_toys:BrokenPreset",
     "toy-gone-preset": "tests.preset_toys:GonePreset",

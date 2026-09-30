@@ -16,6 +16,7 @@ from dataeval_flow._chain._graph import ChainGraph, build_graph
 from dataeval_flow._chain._preflight import _slots_reached
 from dataeval_flow.steps import ChainResult, CustomWorkflowConfig, list_steps
 from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows import Workflow, WorkflowConfig
 from dataeval_flow.workflows._preset import Preset, PresetChain, preset_of
 from tests.chain_toys import chain_pipeline
@@ -119,7 +120,7 @@ def test_a_preset_s_outputs_are_datasets() -> None:
         class _Findings(Preset, Workflow[ToyPresetConfig, ChainResult]):
             name: ClassVar[str] = "toy-preset"
             description: ClassVar[str] = "Declares findings."
-            slots: ClassVar[tuple[str, ...]] = ("data",)
+            slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
             outputs: ClassVar[tuple[Port, ...]] = (Port("rate", DataType.FINDINGS),)
 
             @classmethod
@@ -275,3 +276,89 @@ def test_a_step_reading_a_preset_output_descends_from_the_slot_the_preset_read()
     graph = _graph(_outer(_steps("data"), {"src": ToyImages()}))
     assert _slots_reached(graph)["again"] == ["data"]
     assert graph.aliases == {"cleaning.kept": "cleaning/kept"}
+
+
+_POOLED = {"name": "pooled", "type": "toy-pool-preset"}
+
+
+def _pooled_sources() -> dict[str, Any]:
+    return {"ref": ToyImages(count=12), "p1": ToyImages(count=12, seed=1), "p2": ToyImages(count=24, seed=2)}
+
+
+def test_a_preset_s_list_slot_takes_every_source_after_its_single_slots() -> None:
+    sources = _pooled_sources()
+    config = chain_pipeline(
+        workflows=[_POOLED], tasks=[{"name": "t", "workflow": "pooled", "sources": list(sources)}], datasets=sources
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert result.steps["reference-dupes"].elements is None
+    assert list(result.steps["dupes"].elements or {}) == ["p1", "p2"]
+    kept = result.steps["kept"].elements or {}
+    assert {key: len(element.output) for key, element in kept.items()} == {"p1": 11, "p2": 23}
+
+
+def test_a_preset_with_a_list_slot_is_refused_a_task_without_a_source_for_it() -> None:
+    message = (
+        "Task 't' runs workflow 'pooled' (toy-pool-preset), which takes two or more sources, but the task names 1."
+    )
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        chain_pipeline(
+            workflows=[_POOLED],
+            tasks=[{"name": "t", "workflow": "pooled", "sources": ["ref"]}],
+            datasets={"ref": ToyImages(count=4)},
+        )
+
+
+def test_a_preset_step_s_list_slot_reads_a_list() -> None:
+    config = chain_pipeline(
+        workflows=[
+            _POOLED,
+            {
+                "name": "outer",
+                "inputs": ["ref", {"name": "pools", "list": True}],
+                "steps": [
+                    {"name": "cleaning", "workflow": "pooled", "input": ["ref", "pools"]},
+                    {"name": "again", "evaluator": "dupes", "input": "cleaning.kept"},
+                ],
+            },
+        ],
+        evaluators=[{"name": "dupes", "type": "duplicates"}],
+        tasks=[{"name": "t", "workflow": "outer", "sources": ["ref", "p1", "p2"]}],
+        datasets=_pooled_sources(),
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert list(result.steps) == ["cleaning/reference-dupes", "cleaning/dupes", "cleaning/kept", "again"]
+    kept = result.steps["cleaning/kept"].elements or {}
+    assert {key: len(element.output) for key, element in kept.items()} == {"p1": 11, "p2": 23}
+    assert list(result.steps["again"].elements or {}) == ["p1", "p2"]
+
+
+def test_a_preset_step_s_list_slot_is_refused_one_dataset() -> None:
+    steps = [{"name": "cleaning", "workflow": "pooled", "input": ["ref", "ref"]}]
+    message = "Step 'cleaning' binds `ref` to `pools`, which takes a list of Datasets, but `ref` is one Dataset."
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        chain_pipeline(
+            workflows=[_POOLED, {"name": "outer", "inputs": ["ref"], "steps": steps}],
+            tasks=[{"name": "t", "workflow": "outer", "sources": ["ref"]}],
+            datasets={"ref": ToyImages(count=4)},
+        )
+
+
+def test_only_a_preset_s_last_slot_may_be_a_list() -> None:
+    with pytest.raises(TypeError, match=re.escape("only a preset's last slot may take a list of sources")):
+
+        class _ListFirst(Preset, Workflow[ToyPresetConfig, ChainResult]):
+            name: ClassVar[str] = "toy-list-first"
+            description: ClassVar[str] = "A list slot ahead of a single one."
+            slots: ClassVar[tuple[str | InputSlot, ...]] = (
+                InputSlot.model_validate({"name": "pools", "list": True}),
+                "reference",
+            )
+
+            @classmethod
+            def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
+                return PresetChain(steps=[])

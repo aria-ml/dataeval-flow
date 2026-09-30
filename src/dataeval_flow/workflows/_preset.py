@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from dataeval_flow._kind import is_abstract
 from dataeval_flow.steps._port import DataType, Port
-from dataeval_flow.steps._workflow import CustomWorkflowConfig, StepEntry
+from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
 if TYPE_CHECKING:
     from dataeval_flow.evaluators._base import EvaluatorConfig
@@ -41,7 +41,8 @@ class Preset:
     ``class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult])``. The config class stays the
     type's settings. Declare:
 
-    - ``slots``: what the steps call the task's sources, in the order a task names them;
+    - ``slots``: what the steps call the task's sources, in the order a task names them. The last may be a list slot,
+      ``InputSlot.model_validate({"name": "pools", "list": True})``, which takes every source left, keyed by name;
     - ``outputs``: the Datasets a custom workflow may read when it runs the preset as a step. Each is named after
       the step of the chain that makes it, which has one output;
     - :meth:`chain`: the steps an entry's settings expand to, and the evaluator entries they name.
@@ -51,7 +52,7 @@ class Preset:
     ``cleaning.<output>`` reads each declared output.
     """
 
-    slots: ClassVar[tuple[str, ...]]
+    slots: ClassVar[tuple[str | InputSlot, ...]]
     outputs: ClassVar[tuple[Port, ...]] = ()
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -61,12 +62,22 @@ class Preset:
             return
         if not getattr(cls, "slots", ()):
             raise TypeError(f"{cls.__name__} is a preset, so it must declare `slots`: what its steps call its inputs.")
+        if any(isinstance(slot, InputSlot) and slot.is_list for slot in cls.slots[:-1]):
+            raise TypeError(
+                f"{cls.__name__} declares a list slot before its last: only a preset's last slot may take a list of "
+                "sources."
+            )
         wrong = [port.name for port in cls.outputs if port.type is not DataType.DATASET or port.is_list]
         if wrong:
             raise TypeError(
                 f"{cls.__name__} declares outputs {', '.join(wrong)}, which are not Datasets: a preset's outputs are "
                 "the Datasets its steps make."
             )
+
+    @classmethod
+    def slot_names(cls) -> tuple[str, ...]:
+        """What the steps call each input, in the order a task names them."""
+        return tuple(slot if isinstance(slot, str) else slot.name for slot in cls.slots)
 
     @classmethod
     @abstractmethod
