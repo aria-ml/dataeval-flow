@@ -4,7 +4,7 @@
 
 ### Added
 
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the sixteen types the Evaluator Catalog lists
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -95,6 +95,13 @@
 - `data-cleaning`'s `clean` step hands on the dataset without each image and box it flagged and each duplicate but the
   first of its group, counting what it removed; a custom workflow that runs data-cleaning as a step reads it as
   `<step>.clean`, and an `export` step on it replaces `mode: preparatory`
+- A friendly title on every step type, such as `K-Fold Split`, as `title` in `dataeval-flow steps NAME`, `--json`
+  and `list_steps()`
+- A chain's short report, `report(detailed=False)` and what the console prints without `-v`: its step count, its
+  summary and health, and a Steps table giving each step's status and why it made nothing where it did not
+- `by_plan` in a `remove` step's `details`, beside `removed`: what each plan named, at each level it named something
+- Report blocks' `in_text` on a table column, `failed` on a summary and `group` on a summary item, each left out
+  of the JSON at its default
 
 ### Changed
 
@@ -165,6 +172,25 @@
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
   `dataeval-flow encoding` finds none in it
+- A report's banner is the friendly title of what ran, over the entry that ran it beside its id, as `Data Cleaning`
+  over `clean · data-cleaning`; a custom workflow's is its name, over `custom workflow`
+- A chain's report gives each finding a section, holding the evidence it judged: each step it read, headed *From* and
+  the step's title, as `From Outliers`, or a line naming the finding it is shown under already. The steps no finding
+  shows follow, then a Steps table of every step's title, type, status, reads and note, where the report gave each
+  step a section headed `name (type)` and a line naming what it read. In HTML each finding is a card, and the Steps
+  table a folded panel; the text table leaves out the title
+- A step's heading is its type's title, with its name beside it where the name is not the type id: `Outliers`,
+  `Duplicates · dupes`
+- A chain whose checks ran once per element of a list groups their findings by the element's key, such as `train`
+  and `val`, in its summary and below it; in HTML each finding stays a card
+- `label-health`'s report lists each class's labels and images in a table
+- `remove`'s report says what it kept and what each plan named: "Kept 22 of 24 images. Removed 2 images: 1 named by
+  `dupes`, 1 by `outliers`."
+- The report's configuration leaves out settings left unset, and keeps a setting written as `null`; an evaluator's
+  report leaves out extras that hold nothing
+- The Image Outliers, Target Outliers, Classwise Outliers and Label Distribution findings have no `description`, which
+  repeated their brief
+- A text table too wide for the report wraps its text cells, with a blank line between its rows
 
 ### Fixed
 
@@ -197,6 +223,10 @@
   source short
 - A key no config section defines is refused when the config loads, where it was dropped; a misspelled top-level key
   is named with the section it most resembles
+- The HTML report renders inline code in a table cell as it does in prose, where the cell showed the backticks
+- A chain refused before any step ran says why in its report, where it said only `Steps: 0 ran`
+- A report's health line and its HTML badge say `failed` where a required step failed, where they could say every
+  check passed
 
 ### Removed
 
