@@ -117,6 +117,32 @@ def test_run_returns_the_chain_and_the_cleaned_dataset() -> None:
     assert len(clean) == 10
 
 
+def _configuration(result: ChainResult) -> list[str]:
+    text = result.report().splitlines()
+    return [line.strip() for line in text[text.index("  CONFIGURATION") :]]
+
+
+def test_the_report_keeps_a_threshold_the_user_set_to_null_and_drops_unset_defaults() -> None:
+    shown = _configuration(_task(ToyImages(count=12), health_thresholds={"image_outliers": None}))
+    assert "image_outliers: None" in shown
+    assert "stats: None" not in shown
+    assert "metadata: None" not in shown
+    assert not [line for line in shown if line.endswith(": None") and line != "image_outliers: None"]
+
+
+def test_the_report_keeps_every_threshold_the_user_nulled() -> None:
+    nulls = {
+        "near_duplicates": None,
+        "image_outliers": None,
+        "target_outliers": None,
+        "classwise_outliers": None,
+        "class_label_imbalance": None,
+    }
+    shown = _configuration(_task(ToyImages(count=12), health_thresholds=nulls))
+    assert "health_thresholds:" in shown
+    assert sorted(line for line in shown if line.endswith(": None")) == sorted(f"{key}: None" for key in nulls)
+
+
 def test_a_null_threshold_judges_nothing() -> None:
     result = _task(ToyImages(count=12), health_thresholds={"image_outliers": None})
     assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (8.3%)", "image-outliers")

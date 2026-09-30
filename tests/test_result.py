@@ -184,6 +184,18 @@ class TestOneShape:
         assert "limit" not in text
         assert result.to_dict()["metadata"]["resolved_config"]["device"] is None
 
+    def test_the_configuration_keeps_a_none_it_was_told_was_set_through_lists_as_through_mappings(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {"sources": [{"x": None, "y": None, "z": 1}], "w": None}
+        result._set_nulls = frozenset({("sources", 0, "x")})
+        text = result.report()
+        assert "x: None" in text
+        assert "y" not in text.split("CONFIGURATION")[1]
+        assert "w:" not in text.split("CONFIGURATION")[1]
+        result.metadata.resolved_config = {"sources": [{"x": None}]}
+        result._set_nulls = frozenset()
+        assert "x: None" not in result.report()
+
     def test_a_configuration_of_only_none_draws_no_section(self, make, kind):
         result = make()
         result.metadata.resolved_config = {"device": None}

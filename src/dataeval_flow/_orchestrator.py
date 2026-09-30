@@ -874,6 +874,58 @@ def _populate_result_metadata(
     result.metadata.resolved_config = _build_resolved_config(
         resolved_sources, workflow_instance, extractor_cfg, pipeline_config, data_dir=data_dir
     )
+    result._set_nulls = _set_nulls(resolved_sources, workflow_instance, extractor_cfg)  # noqa: SLF001 - as `_entry`
+
+
+def _nulls_of(value: Any, path: tuple[str | int, ...]) -> set[tuple[str | int, ...]]:
+    """The paths, in ``value``'s dump, of the fields a model was given as ``None``, through nested models,
+    lists and mappings of them."""
+    from pydantic import BaseModel
+
+    found: set[tuple[str | int, ...]] = set()
+    if isinstance(value, BaseModel):
+        for name in value.model_fields_set:
+            item = getattr(value, name, None)
+            if item is None:
+                found.add((*path, name))
+            else:
+                found |= _nulls_of(item, (*path, name))
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            found |= _nulls_of(item, (*path, index))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            found |= _nulls_of(item, (*path, key))
+    return found
+
+
+def _set_nulls(
+    resolved_sources: "Sequence[ResolvedSource]",
+    workflow_instance: "WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig | None",
+    extractor_cfg: Any,
+) -> frozenset[tuple[str | int, ...]]:
+    """Where ``resolved_config`` holds a ``None`` the user wrote, so its report keeps it beside the unset defaults it
+    drops. The sources' dataset and view configs, the workflow or evaluator and the extractor are models, so tracked;
+    the rest of ``resolved_config`` (names, the seed) is plain values, where a ``None`` is always dropped."""
+    found: set[tuple[str | int, ...]] = set()
+    for index, resolved in enumerate(resolved_sources):
+        base: tuple[str | int, ...] = ("sources", index)
+        if resolved.is_merged:
+            for leaf, operand in enumerate(resolved.operands):
+                found |= _nulls_of(operand.view_config, (*base, "merge", leaf, "view_config"))
+                found |= _nulls_of(operand.dataset_config, (*base, "merge", leaf, "dataset_config"))
+            found |= _nulls_of(resolved.view_config, (*base, "view_config"))
+        else:
+            operand = resolved.operands[0]
+            found |= _nulls_of(operand.dataset_config, (*base, "dataset_config"))
+            found |= _nulls_of(operand.view_config, (*base, "view_config"))
+    if workflow_instance is not None:
+        from dataeval_flow.evaluators._base import EvaluatorConfig
+
+        key = "evaluator" if isinstance(workflow_instance, EvaluatorConfig) else "workflow"
+        found |= _nulls_of(workflow_instance, (key,))
+    found |= _nulls_of(extractor_cfg, ("extractor",))
+    return frozenset(found)
 
 
 def _operand_description(operand: "SourceOperand") -> str:

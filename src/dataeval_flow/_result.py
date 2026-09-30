@@ -202,10 +202,25 @@ TMetadata = TypeVar("TMetadata", bound=ResultMetadata)
 TOutput = TypeVar("TOutput")
 
 
-def _without_none(value: Any) -> Any:
-    """``value`` without its ``None`` entries, at any depth of its mappings: the report shows what was set."""
+def _without_none(
+    value: Any, *, keep: frozenset[tuple[str | int, ...]] = frozenset(), path: tuple[str | int, ...] = ()
+) -> Any:
+    """``value`` without its ``None`` entries, through mappings and lists, but for the paths in ``keep``.
+
+    The report shows what was set: a ``None`` the user wrote is a setting, a ``None`` default is not.
+    """
     if isinstance(value, dict):
-        return {key: _without_none(item) for key, item in value.items() if item is not None}
+        return {
+            key: _without_none(item, keep=keep, path=(*path, key))
+            for key, item in value.items()
+            if item is not None or (*path, key) in keep
+        }
+    if isinstance(value, list):
+        return [
+            _without_none(item, keep=keep, path=(*path, index))
+            for index, item in enumerate(value)
+            if item is not None or (*path, index) in keep
+        ]
     return value
 
 
@@ -380,6 +395,9 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         self.dataset = dataset
         self.sources = sources
         self.assets: list[Asset] = []
+        self._set_nulls: frozenset[tuple[str | int, ...]] = frozenset()
+        """Where ``metadata.resolved_config`` holds a ``None`` the user set, as key and index paths. Its report keeps
+        those and drops every other ``None``; empty for a result made outside a task."""
         self._entry: str | None = None
         """The name of the ``evaluators:`` or ``workflows:`` entry the task ran, which Flow sets when the run returns;
         ``None`` for a result made outside a task."""
@@ -483,7 +501,9 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
-            config = _without_none(to_jsonable_python(self.metadata.resolved_config, fallback=str))
+            config = _without_none(
+                to_jsonable_python(self.metadata.resolved_config, fallback=str), keep=self._set_nulls
+            )
             if config:
                 blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)

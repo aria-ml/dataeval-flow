@@ -40,12 +40,14 @@ def _noun(level: str, count: int) -> str:
 
 
 def _plan_count(levels: dict[str, int], *, single: bool) -> str:
+    """What one plan named, by level: ``0`` for none, a bare count under a single level, else with nouns."""
     if not levels:
         return "0"
     return _list([str(count) if single else _noun(level, count) for level, count in levels.items()])
 
 
 def _list(parts: list[str]) -> str:
+    """``parts`` as prose: ``a``, ``a and b``, ``a, b and c``."""
     return parts[0] if len(parts) == 1 else f"{', '.join(parts[:-1])} and {parts[-1]}"
 
 
