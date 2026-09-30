@@ -18,7 +18,7 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class CleaningRunContext:
-    """Extractor plumbing passed from execute() to _run_cleaning()."""
+    """Extractor plumbing parameter-sweep's run hands to `_compute_embeddings` and the cluster-merge helpers."""
 
     extractor_config: Any = None
     transforms: Callable | None = None
