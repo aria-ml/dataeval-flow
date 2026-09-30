@@ -33,8 +33,8 @@ def serialized_of(result: "EvaluatorResult[Any]") -> dict[str, Any]:
 
 
 def extras_blocks(output: Mapping[str, Any], *, detailed: bool) -> list[Block]:
-    """An output's extras, in a section of their own; none where it has none."""
-    extras = output.get("extras")
+    """An output's extras, in a section of their own, leaving out those that are ``None``; none where none remain."""
+    extras = {key: value for key, value in (output.get("extras") or {}).items() if value is not None}
     return [Section(title="Extras", blocks=_mapping_blocks(extras, detailed=detailed))] if extras else []
 
 

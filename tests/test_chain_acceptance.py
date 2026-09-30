@@ -261,7 +261,8 @@ tasks:
     ]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
     assert result.steps["cleaning/clean"].details == {
-        "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0}
+        "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {"items": 1}, "outliers": {}},
     }
     written = _coco(tmp_path / "datasets" / "prep.corpus")
     assert (len(written["images"]), len(written["annotations"])) == (23, 46)

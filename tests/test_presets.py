@@ -179,7 +179,10 @@ def test_a_preset_step_runs_its_chain_inside_the_custom_workflow() -> None:
     ]
     assert result.steps["again"].inputs == ["cleaning.kept"]
     assert len(result.steps["final"].output) == 11
-    assert result.steps["final"].details == {"removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0}}
+    assert result.steps["final"].details == {
+        "removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"again": {}},
+    }
 
 
 def test_a_preset_step_runs_its_whole_chain_once_per_element_of_a_list() -> None:

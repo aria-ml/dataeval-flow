@@ -93,7 +93,20 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
 def test_clean_removes_each_flagged_item_and_each_duplicate_but_the_first() -> None:
     clean = _task(ToyImages(count=12)).steps["clean"]
     assert len(clean.output) == 10
-    assert clean.details == {"removed": {"items": 2, "detections": 0, "tracks": 0, "frames": 0}}
+    assert clean.details == {
+        "removed": {"items": 2, "detections": 0, "tracks": 0, "frames": 0},
+        "by_plan": {"dupes": {"items": 1}, "outliers": {"items": 1}},
+    }
+
+
+def test_clean_says_what_it_kept_and_what_each_plan_named() -> None:
+    from dataeval_flow._blocks import Paragraph
+    from dataeval_flow.steps.transforms import RemoveTransform
+
+    clean = _task(ToyImages(count=24)).steps["clean"]
+    assert RemoveTransform().section(clean) == [
+        Paragraph(text="Kept 22 of 24 images. Removed 2 images: 1 named by `dupes`, 1 by `outliers`.")
+    ]
 
 
 def test_run_returns_the_chain_and_the_cleaned_dataset() -> None:

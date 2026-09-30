@@ -202,6 +202,13 @@ TMetadata = TypeVar("TMetadata", bound=ResultMetadata)
 TOutput = TypeVar("TOutput")
 
 
+def _without_none(value: Any) -> Any:
+    """``value`` without its ``None`` entries, at any depth of its mappings: the report shows what was set."""
+    if isinstance(value, dict):
+        return {key: _without_none(item) for key, item in value.items() if item is not None}
+    return value
+
+
 def _source_items(meta: ResultMetadata) -> list[tuple[str, Scalar]]:
     """What the run read: every source, or else the dataset and selection."""
     from dataeval_flow.workflows._base import render_label_source
@@ -476,8 +483,9 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
-            config = to_jsonable_python(self.metadata.resolved_config, fallback=str)
-            blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
+            config = _without_none(to_jsonable_python(self.metadata.resolved_config, fallback=str))
+            if config:
+                blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)
 
     def _report_envelope(self) -> list[Block]:

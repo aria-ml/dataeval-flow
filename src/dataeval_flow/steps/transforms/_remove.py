@@ -17,6 +17,36 @@ from dataeval_flow.steps._step import Transform, TransformConfig, TransformConte
 _METHODS: tuple[tuple[type, str], ...] = ((DuplicatesOutput, "deduplicate"), (OutliersOutput, "prune"))
 # A plan address's kind (``SourceIndex.kind``) to the level its removal is counted under.
 _LEVELS: dict[str | None, str] = {None: "items", "instance": "detections", "track": "tracks", "unit": "frames"}
+# Each level as a report says it, singular and plural: an item of a Dataset is an image.
+_NOUNS: dict[str, tuple[str, str]] = {
+    "items": ("image", "images"),
+    "detections": ("detection", "detections"),
+    "tracks": ("track", "tracks"),
+    "frames": ("frame", "frames"),
+}
+
+
+def _counted(plan: RemovalPlan) -> dict[str, int]:
+    """How many rows a plan names at each level."""
+    counts = dict.fromkeys(_LEVELS.values(), 0)
+    for address in plan:
+        counts[_LEVELS.get(address.kind, "detections")] += 1
+    return counts
+
+
+def _noun(level: str, count: int) -> str:
+    """``count`` at ``level`` as a report says it: ``1 image``, ``2 detections``."""
+    return f"{count} {_NOUNS[level][count != 1]}"
+
+
+def _plan_count(levels: dict[str, int], *, single: bool) -> str:
+    if not levels:
+        return "0"
+    return _list([str(count) if single else _noun(level, count) for level, count in levels.items()])
+
+
+def _list(parts: list[str]) -> str:
+    return parts[0] if len(parts) == 1 else f"{', '.join(parts[:-1])} and {parts[-1]}"
 
 
 def _method(cls: type) -> str:
@@ -92,6 +122,7 @@ class RemoveTransform(Transform[RemoveConfig]):
     same_node: ClassVar[tuple[str, ...]] = ("plans",)
 
     _plan: RemovalPlan
+    _named: dict[str, RemovalPlan]
 
     @classmethod
     def bound_problem(cls, config: RemoveConfig, classes: Mapping[str, tuple[type, ...]]) -> str | None:
@@ -115,10 +146,13 @@ class RemoveTransform(Transform[RemoveConfig]):
         # One node when `plans` names one address, a list of them otherwise, in the mapping's order.
         nodes = inputs["plans"] if isinstance(inputs["plans"], list) else [inputs["plans"]]
         plan = RemovalPlan()
-        for arguments, node in zip(config.plans.values(), nodes, strict=True):
+        named: dict[str, RemovalPlan] = {}
+        for (address, arguments), node in zip(config.plans.items(), nodes, strict=True):
             output = node.value
-            plan = plan | getattr(output, _method(type(output)))(**arguments)
+            named[address] = getattr(output, _method(type(output)))(**arguments)
+            plan = plan | named[address]
         self._plan = plan
+        self._named = named
         return {"output": View(inputs["input"].value, Indices(plan, exclude=True))}
 
     def digest(
@@ -136,15 +170,33 @@ class RemoveTransform(Transform[RemoveConfig]):
         inputs: Mapping[str, Any],  # noqa: ARG002
         outputs: Mapping[str, Any],  # noqa: ARG002
     ) -> dict[str, Any]:
-        """How many rows were removed at each level."""
-        counts = dict.fromkeys(_LEVELS.values(), 0)
-        for address in self._plan:
-            counts[_LEVELS.get(address.kind, "detections")] += 1
-        return {"removed": counts}
+        """How many rows were removed at each level, and how many each plan named, where plans may overlap."""
+        by_plan = {
+            address: {level: count for level, count in _counted(plan).items() if count}
+            for address, plan in self._named.items()
+        }
+        return {"removed": _counted(self._plan), "by_plan": by_plan}
 
     def section(self, record: Any) -> list[Any]:
-        """The counts removed at each level."""
-        from dataeval_flow._blocks import Fields
+        """What was kept and removed, at the levels the Dataset has, and what each plan named."""
+        from dataeval_flow._blocks import Paragraph
 
-        removed = (record.details or {}).get("removed", {})
-        return [Fields(items=[(level.title(), count) for level, count in removed.items()])]
+        details = record.details or {}
+        removed = {level: count for level, count in details.get("removed", {}).items() if count}
+        kept = len(record.output) if hasattr(record.output, "__len__") else None
+        total = None if kept is None else kept + details.get("removed", {}).get("items", 0)
+        lines = []
+        if kept is not None:
+            lines.append(f"Kept {kept} of {total} images.")
+        if not removed:
+            lines.append("Nothing removed.")
+            return [Paragraph(text=" ".join(lines))]
+        says = _list([_noun(level, count) for level, count in removed.items()])
+        # Under one level the plans' counts need no noun; under several each says which level it counted.
+        single = len(removed) == 1
+        named = [
+            f"{_plan_count(levels, single=single)} {'named by' if index == 0 else 'by'} `{address}`"
+            for index, (address, levels) in enumerate(details.get("by_plan", {}).items())
+        ]
+        lines.append(f"Removed {says}{': ' + ', '.join(named) if named else ''}.")
+        return [Paragraph(text=" ".join(lines))]

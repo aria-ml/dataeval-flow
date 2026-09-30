@@ -99,3 +99,9 @@ class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The counts as fields, and a table of each class's labels and images."""
+        from dataeval_flow.evaluators.quality._report import label_health_section
+
+        return label_health_section(output)

@@ -174,6 +174,21 @@ class TestOneShape:
         result.metadata.resolved_config = {}
         assert "CONFIGURATION" not in result.report()
 
+    def test_the_configuration_leaves_out_settings_that_are_none_but_the_json_keeps_them(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {"seed": 1, "device": None, "nested": {"limit": None, "kept": 2}}
+        text = result.report()
+        assert "seed: 1" in text
+        assert "kept: 2" in text
+        assert "device" not in text
+        assert "limit" not in text
+        assert result.to_dict()["metadata"]["resolved_config"]["device"] is None
+
+    def test_a_configuration_of_only_none_draws_no_section(self, make, kind):
+        result = make()
+        result.metadata.resolved_config = {"device": None}
+        assert "CONFIGURATION" not in result.report()
+
     def test_a_non_json_value_in_the_configuration_renders_as_its_text(self, make, kind):
         from pathlib import Path
 

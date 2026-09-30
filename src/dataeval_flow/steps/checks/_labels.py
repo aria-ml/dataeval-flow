@@ -64,7 +64,6 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
                 severity="warning" if empty or exceeds(ratio, config.ratio) else "info",
                 title="Label/Directory_Name Distribution" if source == "filepath" else self.title,
                 brief=f"{classes} classes, {items} items, imbalance {ratio}:1",
-                description=f"{classes} classes, {items} items.",
                 blocks=blocks,
             )
         ]

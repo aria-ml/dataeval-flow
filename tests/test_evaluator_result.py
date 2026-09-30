@@ -97,6 +97,15 @@ class TestReport:
         assert "coverage_radius: 0.5" in text
         assert "… and 5 more" in text
 
+    def test_extras_left_out_where_none_and_the_section_where_all_are(self):
+        output = {**_table(1), "extras": {"coverage_radius": 0.5, "annotation_divergences": None}}
+        text = _result(output).report()
+        assert "coverage_radius: 0.5" in text
+        assert "annotation_divergences" not in text
+        bare = {**_table(1), "extras": {"annotation_divergences": None, "factor_cardinality": None}}
+        assert "Extras" not in _result(bare).report()
+        assert _result(bare)._serialized == bare
+
     def test_a_table_among_the_extras_is_its_own_section(self):
         output = {**_table(1), "extras": {"violations": _table(2)}}
         lines = [line.strip() for line in _result(output).report().splitlines()]

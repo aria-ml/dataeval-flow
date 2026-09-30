@@ -172,11 +172,16 @@ def test_outlier_rate_counts_each_image_once_and_warns_past_its_limit() -> None:
 
 def test_outlier_rate_with_nothing_flagged_passes() -> None:
     (finding,) = OutlierRateCheck().run(OutlierRateConfig(input="o"), {"input": _node(_issues([]), 10)}, _CONTEXT)
-    assert (finding.severity, finding.brief, finding.description) == (
-        "ok",
-        "0 images (0.0%)",
-        "No images flagged as outliers.",
-    )
+    assert (finding.severity, finding.brief, finding.description) == ("ok", "0 images (0.0%)", None)
+
+
+def test_the_rate_checks_leave_out_a_description_that_only_repeats_the_brief() -> None:
+    labels = LabelHealthOutput({"label_count": 20}, None)
+    flagged = {"input": _node(_issues([(0, 0), (2, None)]), 10)}
+    (image,) = OutlierRateCheck().run(OutlierRateConfig(input="o"), flagged, _CONTEXT)
+    targets = {"input": _node(_issues([(0, 0), (2, 1)])), "labels": _node(labels)}
+    (target,) = TargetOutlierRateCheck().run(TargetOutlierRateConfig(input="o", labels="l"), targets, _CONTEXT)
+    assert (image.description, target.description) == (None, None)
 
 
 def test_target_outlier_rate_is_a_share_of_the_labels() -> None:
@@ -207,6 +212,7 @@ def test_classwise_outlier_rate_names_the_worst_class_and_counts_those_over() ->
         "Classwise Outliers",
         "worst: van (30.0%), 1/2 classes over 10.0%",
     )
+    assert finding.description is None
 
 
 def test_classwise_outlier_rate_without_a_limit_names_the_worst_and_judges_nothing() -> None:
@@ -369,6 +375,7 @@ def test_class_imbalance_is_the_largest_class_over_the_smallest() -> None:
         "Label Distribution",
         "3 classes, 14 items, imbalance 6.0:1",
     )
+    assert finding.description is None
 
 
 def test_class_imbalance_names_labels_read_from_file_paths() -> None:
