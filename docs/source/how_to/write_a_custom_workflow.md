@@ -474,8 +474,14 @@ Building the workflow checks its slots, its step names, and each transform's set
 reads a folder as one pipeline, so `dataeval-flow -c config/` runs a `workflows.yaml` beside your other config files.
 Loading a config and saving it, from the TUI or the config builder, keeps every custom workflow as written.
 
+`save` and `to_yaml` also take `definitions`, the entries the steps name, as `run` does:
+`workflow.save("config/workflows.yaml", definitions=[DuplicatesConfig(name="dupes")])` writes the `dupes` entry
+beside the workflow, so the file loads and runs on its own. [Reuse a cleaning chain on new data](reuse_a_workflow.md)
+keeps a chain that way and runs it on each new dataset.
+
 ## See also
 
+- [Reuse a cleaning chain on new data](reuse_a_workflow.md) — keep a chain and run it on each new dataset
 - [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) — steps, addresses and lists, derived data,
   failures and lineage
 - [Declare an ontology](declare_an_ontology.md) — the vocabulary `label-alignment` aligns to

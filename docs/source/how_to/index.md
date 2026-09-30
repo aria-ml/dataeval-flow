@@ -85,6 +85,7 @@ configure_metadata_binning
 :hidden:
 
 write_a_custom_workflow
+reuse_a_workflow
 ```
 
 :::{list-table}
@@ -94,6 +95,8 @@ write_a_custom_workflow
 - - {doc}`Chain steps into a workflow of your own <write_a_custom_workflow>`
   - Conform and merge two datasets, remove their duplicates, export the result, and check and split what is left, as
     one chain of steps.
+- - {doc}`Reuse a cleaning chain on new data <reuse_a_workflow>`
+  - Keep a chain in your config, in a file each project loads, or saved from Python, and run it on each new dataset.
 
 :::
 
