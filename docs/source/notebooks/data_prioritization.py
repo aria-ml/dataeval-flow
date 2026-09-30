@@ -405,7 +405,8 @@ assert result.success
 # %% [markdown]
 # ### Prioritization report
 #
-# The report summarizes how many items were ranked and by what method.
+# The report lists each step of the preset. Its `rank` step pictures the 25 highest-priority
+# and the 25 lowest-priority frames.
 
 # %%
 print(result.report())
@@ -414,29 +415,21 @@ print(result.report())
 # ## Step 4: Inspect what pruning removed
 #
 # The pruning phase detects outliers and duplicates in both reference and incoming
-# data. `result.metadata` records how many samples it dropped, and the ranking holds only
-# the pool frames it kept. You can verify whether pruning removed the injected corrupted samples.
+# data. The `reference-clean` and `pool-clean` steps record how many frames they dropped, and
+# the ranking holds only the pool frames `pool-clean` kept. You can verify whether pruning removed the injected corrupted samples.
 
 # %%
-raw = result.output.raw
-meta = result.metadata
-
-print(f"Pruning enabled: {meta.cleaning_enabled}")
-print(f"Items removed by pruning: {meta.items_removed_by_cleaning}")
-
-if raw.cleaning_summary is not None:
-    cs = raw.cleaning_summary
-    print(f"  Outliers flagged:    {cs['outliers_flagged']}")
-    print(f"  Duplicates flagged:  {cs['duplicates_flagged']}")
-    print(f"  Total removed:       {cs['total_removed']}")
+pool_clean = result.steps["pool-clean"].elements["test_src"]
+reference_clean = result.steps["reference-clean"]
+print(f"Removed from the reference: {reference_clean.details['removed']['items']} frames")
+print(f"Removed from the pool:      {pool_clean.details['removed']['items']} frames")
 
 # %%
-# Which pool indices were pruned? The ranking holds every pool frame pruning kept, by its index in the pool.
+# Which pool frames were pruned? `pool-clean` holds the frames it kept, by their index in the pool.
+kept = pool_clean.output.resolve_indices()
 all_test_indices = set(range(len(test_dataset)))
-clean_test_indices = set(raw.prioritizations[0]["prioritized_indices"])
-pruned_indices = sorted(all_test_indices - clean_test_indices)
-
-print(f"Pool frames: {len(all_test_indices)} total, {len(clean_test_indices)} clean, {len(pruned_indices)} pruned")
+pruned_indices = sorted(all_test_indices - set(kept))
+print(f"Pool frames: {len(all_test_indices)} total, {len(kept)} clean, {len(pruned_indices)} pruned")
 
 # Check overlap with known corrupted ranges
 corrupted_ranges = {
@@ -470,8 +463,10 @@ if other_pruned:
 
 
 # %%
-prioritized = result.output.raw.prioritizations[0]
-top_indices = prioritized["prioritized_indices"]
+# `selected` holds the pool in ranked order. Its indices count within the cleaned pool, so map them back through
+# `pool-clean`'s to index the pool itself.
+selected = result.steps["selected"].elements["test_src"].output
+top_indices = [kept[i] for i in selected.resolve_indices()]
 
 # `pool_labels` was read straight off the view; the corruption wrapper alters pixels only,
 # so a frame's ground-truth label is the same whether or not it was corrupted.
@@ -578,17 +573,28 @@ except ImportError:
     print("Install matplotlib to visualize: pip install matplotlib")
 
 # %% [markdown]
+# ## Step 7: Keep the top of the ranking
+#
+# Set `n:` or `fraction:` on the workflow and each pool's top items become `selected`, a Dataset
+# a custom workflow can hand to later steps. Here you keep the top 100 frames for a labeling batch.
+
+# %%
+top_100 = config.model_copy(update={"workflows": [workflow.model_copy(update={"n": 100})]})
+batch = run_task(task, top_100, cache_dir=Path("./cache")).steps["selected"].elements["test_src"].output
+print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of the ranking")
+
+# %% [markdown]
 # ## Conclusion
 #
 # In this tutorial, you learned how to:
 #
 # - Train a custom embedding extractor on reference data.
 # - Configure the `data-prioritization` workflow with KNN distance metrics and `hard_first` ordering.
-# - Prune outliers and duplicates before ranking using integrated cleaning parameters.
-# - Execute prioritization workflows via `run_task()`.
+# - Prune outliers and duplicates before ranking with cleaning steps.
+# - Run the preset via `run_task()`.
 # - Benchmark prioritization results against random selection baselines.
 # - Contrast distance-based prioritization with model uncertainty sampling.
-# - Export clean and prioritized index arrays for labeling queues.
+# - Keep the top of each ranking as `selected`, with `n` or `fraction`.
 
 # %% [markdown]
 # ## Next steps

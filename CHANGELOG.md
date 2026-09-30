@@ -102,6 +102,9 @@
 - `by_plan` in a `remove` step's `details`, beside `removed`: what each plan named, at each level it named something
 - Report blocks' `in_text` on a table column, `failed` on a summary and `group` on a summary item, each left out
   of the JSON at its default
+- `n` and `fraction` on `data-prioritization`: its `selected` step keeps each pool's top `n`, or that share rounded up;
+  unset, it keeps every item in ranked order
+- A `prioritize` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
 
 ### Changed
 
@@ -169,6 +172,10 @@
   and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids are:
   `outliers`, `labels`, `by-class`, `dupes`, `image-outliers`, `target-outliers`, `classwise`, `duplicates`,
   `imbalance` and `clean`
+- `data-prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
+  and each pool, `rank` (`prioritize`) ranks each pool against the reference, and `selected` (`select`) keeps the top
+  of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
+  Pruning warning and each pool's info finding are gone
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A `data-cleaning` result records no encoding: its `metadata_binning` and `encoding_digest` are `null`, so
   `dataeval-flow encoding` finds none in it
@@ -249,6 +256,9 @@
 - The `AutoBinMethod` and `FactorSource` aliases; their fields take the same strings
 - `DataCleaningResult`, with its metadata's `evaluators`, `flagged_indices`, `clean_indices` and `removed_count`;
   a data-cleaning result is a `ChainResult`
+- `DataPrioritizationResult`, `DataPrioritizationHealthThresholds` and the `CleaningSummaryDict` and
+  `PerDatasetPrioritizationDict` output types; a data-prioritization result is a `ChainResult`
+- `health_thresholds` and `value_range` on `data-prioritization`, which refuses them: declare the range on the dataset
 - `value_range`, `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and
   `metadata_factor_source` on `data-cleaning`, which refuses them: declare the range on the dataset, and the binning in
   a `metadata:` policy

@@ -166,11 +166,11 @@ its own, named by its key.
 
 ## Workflow types as presets
 
-A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning` is the first. Its
-evaluators find outliers and duplicates, its checks judge them against `health_thresholds`, and its `clean` step
-removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists
-the chain. The other workflow types will follow. Until then, each runs as one step that makes its result, and its
-findings stay in that step.
+A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning` and `data-prioritization`
+are presets. Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `health_thresholds`,
+and its `clean` step removes what they flagged. The [Check and Combine
+Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists the chain. The other workflow types will follow.
+Until then, each runs as one step that makes its result, and its findings stay in that step.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
@@ -180,7 +180,9 @@ chain's, listed at the top of the JSON, each naming its step, such as `cleaning/
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
 while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain
-once per element, so `cleaning.clean` is a list with the same keys.
+once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
+data-prioritization's `pools` is, and a step running it binds that input to a list, such as
+`input: [ref, cleaning.clean]`.
 
 ## Derived data
 

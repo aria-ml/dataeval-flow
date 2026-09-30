@@ -14,9 +14,10 @@ spends a labeling budget on territory the dataset does not yet cover; ranking by
 difficulty concentrates review where a model is most likely to fail. Either way,
 prioritization turns a fixed budget into the largest improvement.
 
-In DataEval Flow, the `data-prioritization` workflow ranks a pool source against a
-reference and returns ordered indices with their scores, supporting different
-prioritization methods and orderings (hardest-first or easiest-first). The
+In DataEval Flow, `data-prioritization` is a preset: it ranks each pool source against the
+reference, optionally after cleaning steps, and its `selected` output keeps the top of each
+ranking (`n:` or `fraction:`). See [the preset's chain](../reference/checks.md#data-prioritization-is-this-chain).
+It supports different prioritization methods and orderings (hardest-first or easiest-first). The
 orchestration layer makes this a declarative, reproducible step; the ranking
 methods — and the embedding and performance-estimation machinery they rest on —
 are DataEval's. The relevant science is explained authoritatively in DataEval's

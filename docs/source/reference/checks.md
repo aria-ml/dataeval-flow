@@ -158,3 +158,43 @@ both plans. A Steps table lists every step, what it read, and why it made nothin
 
 Run as a step of a custom workflow, `<step>.clean` reads the cleaned Dataset; see
 [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets).
+
+## data-prioritization is this chain
+
+`data-prioritization` is a preset too: its settings expand to a chain of steps, run on the task's sources, the first
+the `reference` and the rest the `pools`. With `cleaning:` set (`outlier_method: zscore`,
+`outlier_flags: [pixel, visual]`), `method: knn`, `k: 5` and `n: 200`, it runs these steps:
+
+```yaml
+evaluators:
+  - {name: rank, type: prioritize, method: knn, k: 5, order: hard_first, policy: difficulty, num_bins: 50, n_init: auto}
+  - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore}
+  - {name: dupes, type: duplicates, merge_near_duplicates: true}
+
+workflows:
+  - name: prioritization
+    inputs: [reference, {name: pools, list: true}]
+    steps:
+      - {name: reference-outliers, evaluator: outliers, input: reference}
+      - {name: reference-dupes, evaluator: dupes, input: reference}
+      - name: reference-clean
+        transform: remove
+        input: reference
+        plans:
+          reference-dupes: {dup_types: [exact, near], keep: first}
+          reference-outliers: {min_flags: 1}
+      - {name: pool-outliers, evaluator: outliers, input: pools}
+      - {name: pool-dupes, evaluator: dupes, input: pools}
+      - name: pool-clean
+        transform: remove
+        input: pools
+        plans:
+          pool-dupes: {dup_types: [exact, near], keep: first}
+          pool-outliers: {min_flags: 1}
+      - {name: rank, evaluator: rank, input: [pool-clean, reference-clean]}
+      - {name: selected, transform: select, input: pool-clean, ranking: rank, n: 200}
+```
+
+Without `cleaning:`, only `rank` and `selected` run, reading `pools` and `reference`. `duplicate_exact_only: true`
+makes both plans' `dup_types` `[exact]`. With neither `n` nor `fraction`, `selected` keeps every item
+(`fraction: 1.0`). The chain has no checks, so it makes no findings.
