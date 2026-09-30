@@ -36,7 +36,7 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     if not records:
         raise ValueError(
             "This result records no encodings. Only a workflow that builds metadata "
-            "produces one — data-analysis, data-cleaning, data-coverage or ood-detection.",
+            "produces one — data-analysis, data-coverage or ood-detection.",
         )
     if task is not None:
         if task not in records:
@@ -62,7 +62,7 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     if not rendered:
         raise ValueError(
             "This result records no encodings. Only a workflow that builds metadata "
-            "produces one — data-analysis, data-cleaning, data-coverage or ood-detection.",
+            "produces one — data-analysis, data-coverage or ood-detection.",
         )
     if len(set(rendered.values())) == 1:
         return records[next(iter(rendered))]
