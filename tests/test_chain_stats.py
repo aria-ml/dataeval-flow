@@ -38,14 +38,25 @@ def _cold_cache(plugins):
     DatasetCache.clear_instances()
 
 
-def _computed(config: PipelineConfig, task: str = "t") -> list[dict[str | None, ImageStats]]:
-    """What each computation of statistics running `task` asked for, in order; every step must succeed."""
+def _run(config: PipelineConfig, task: str = "t") -> tuple[ChainResult, list[tuple[int, dict[str | None, Any]]]]:
+    """Run `task`: its result, and each computation of statistics it made, in order, as how many items it read and
+    what it asked for."""
     with patch.object(cache_module, "_do_compute_stats", wraps=cache_module._do_compute_stats) as compute:
         result = run_tasks(config, task)[task]
     assert isinstance(result, ChainResult)
+    return result, [(len(call.args[0]), call.args[1].request) for call in compute.call_args_list]
+
+
+def _all_ok(result: ChainResult) -> None:
     assert result.success, result.errors
     assert {name: step.status for name, step in result.steps.items()} == dict.fromkeys(result.steps, "ok")
-    return [call.args[1].request for call in compute.call_args_list]
+
+
+def _computed(config: PipelineConfig, task: str = "t") -> list[dict[str | None, ImageStats]]:
+    """What each computation of statistics running `task` asked for, in order; every step must succeed."""
+    result, computed = _run(config, task)
+    _all_ok(result)
+    return [request for _, request in computed]
 
 
 def _custom(steps: list[dict[str, Any]], inputs: list[Any] | None = None, **datasets: Any) -> PipelineConfig:
@@ -132,6 +143,52 @@ def test_an_element_one_step_names_alone_computes_what_the_list_s_readers_read_t
         {None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH_DUPLICATES_BASIC},
         {None: ImageStats.PIXEL | ImageStats.VISUAL},
     ]
+
+
+def test_a_step_whose_stats_request_is_refused_fails_alone_and_the_others_still_compute_once() -> None:
+    steps = [{"name": "unhashed", "evaluator": "unhashed", "input": "data"}, *_BOTH]
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": ["data"], "steps": steps}],
+        evaluators=[*_EVALUATORS, DuplicatesConfig(name="unhashed", stats="pixels")],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        extra={"stats": [{"name": "pixels", "measure": [{"bands": None, "families": ["pixel"]}]}]},
+    )
+    result, computed = _run(config)
+    assert computed == [(12, {None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH_DUPLICATES_BASIC})]
+    assert {name: step.status for name, step in result.steps.items()} == {
+        "unhashed": "failed",
+        "outliers": "ok",
+        "dupes": "ok",
+    }
+    refused = (
+        "ValueError: Stats policy 'pixels' does not measure dhash, phash, xxhash, which `flags` asks for on view '~'. "
+        "`measure` is a complete statement, so add those families to its `{bands: ~}` entry, or stop asking for them."
+    )
+    assert result.steps["unhashed"].errors == [refused]
+
+
+def test_steps_reading_a_preset_step_s_output_compute_once_on_the_node_it_names() -> None:
+    cleaning = {
+        "name": "cleaning",
+        "type": "data-cleaning",
+        "outlier_method": "zscore",
+        "outlier_flags": ["pixel", "visual"],
+    }
+    steps = [
+        {"name": "cleaning", "workflow": "cleaning", "input": "data"},
+        {"name": "outliers", "evaluator": "outliers", "input": "cleaning.clean"},
+        {"name": "dupes", "evaluator": "dupes", "input": "cleaning.clean"},
+    ]
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": ["data"], "steps": steps}, cleaning],
+        evaluators=_EVALUATORS,
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+    )
+    result, computed = _run(config)
+    _all_ok(result)
+    union = {None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH_DUPLICATES_BASIC}
+    # `data` holds 12 toy images; `cleaning/clean`, the node `cleaning.clean` names, the 10 data-cleaning keeps.
+    assert computed == [(12, union), (10, union)]
 
 
 def _policies(toy_multiband_dataset: Any, outliers: dict[str, Any], dupes: dict[str, Any]) -> PipelineConfig:

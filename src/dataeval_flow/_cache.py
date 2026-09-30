@@ -61,6 +61,7 @@ __all__ = [
     "METRIC_TO_FLAG",
     "DatasetCache",
     "active_cache",
+    "caching_active",
     "get_or_compute_cluster_result",
     "get_or_compute_embeddings",
     "get_or_compute_metadata",
@@ -170,6 +171,11 @@ def active_cache(cache: "DatasetCache", selection_key: str) -> Generator[None]:
         yield
     finally:
         _active_cache.reset(token)
+
+
+def caching_active() -> bool:
+    """Whether an :func:`active_cache` block is open, so that :func:`get_or_compute_stats` and its siblings cache."""
+    return _active_cache.get() is not None
 
 
 # ---------------------------------------------------------------------------

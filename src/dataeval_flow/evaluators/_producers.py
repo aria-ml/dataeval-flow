@@ -52,13 +52,15 @@ def produce_stats(pc: ProducerContext) -> dict[str, Any]:
     requested instead: the first step to ask computes it in one pass, and every later one reads it from the cache. The
     evaluator still gets its own policy, and keeps only its own columns. Without a cache every request is computed in
     full, so asking for the union would compute it again for every step: each step asks for its own.
+
+    The first step to read a node computes the families the node's other readers need as well, so an error computing
+    one of those families surfaces on that first step, not on the step that reads it.
     """
-    from dataeval_flow._cache import _active_cache, get_or_compute_stats
+    from dataeval_flow._cache import caching_active, get_or_compute_stats
     from dataeval_flow._stats import stats_policy_for
 
     policy = stats_policy_for(pc.workflow_context, **pc.config.stats_request())
-    cached = _active_cache.get() is not None
-    request = pc.stats_union if pc.stats_union is not None and cached else policy
+    request = pc.stats_union if pc.stats_union is not None and caching_active() else policy
     stats = get_or_compute_stats(request, dataset=pc.dataset, value_range=pc.dataset_context.value_range)
     return {"stats": stats, "stats_policy": policy}
 

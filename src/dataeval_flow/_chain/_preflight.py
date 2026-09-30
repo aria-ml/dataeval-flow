@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from dataeval_flow._chain._graph import ChainGraph, GraphError, StepSpec
 from dataeval_flow._chain._nodes import Node, NodeList
 from dataeval_flow._chain._run import StepContext
+from dataeval_flow.steps._address import Address
 from dataeval_flow.steps._step import Transform
 
 if TYPE_CHECKING:
@@ -80,7 +81,7 @@ def _with_stats_unions(graph: ChainGraph, contexts: Mapping[str, StepContext]) -
             for (base, key), requests in _requests_of(read, readers).items():
                 union = _union(policy, requests)
                 if union.request != policy.request:
-                    unions[base if key is None else f"{base}[{key}]"] = union
+                    unions[str(Address(base, key=key))] = union
         if unions:
             planned[name] = replace(contexts[name], stats_unions=unions)
     return planned

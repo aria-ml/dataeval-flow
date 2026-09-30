@@ -617,7 +617,12 @@ def _stats_union(step: StepContext, node: Node, element: str | None) -> "Resolve
     over, by the list's; ``None`` where it planned none."""
     union = step.stats_unions.get(node.address)
     if union is None and element is not None:
-        union = step.stats_unions.get(node.address.removesuffix(f"[{element}]"))
+        listed = (
+            planned
+            for address, planned in step.stats_unions.items()
+            if str(Address(address, key=element)) == node.address
+        )
+        union = next(listed, None)
     return union
 
 
