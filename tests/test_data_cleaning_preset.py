@@ -5,6 +5,7 @@ removes 2 and keeps 10; 24 toy images keep 22. Read through a view that shuffles
 hold nothing to remove.
 """
 
+import logging
 import re
 from typing import Any
 
@@ -15,7 +16,14 @@ from pydantic import ValidationError
 import dataeval_flow._cache as cache_module
 from dataeval_flow import PipelineConfig, run, run_task, run_tasks
 from dataeval_flow._cache import DatasetCache
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig, ViewConfig, ViewOperation
+from dataeval_flow.config import (
+    DatasetProtocolConfig,
+    OntologyConfig,
+    SourceConfig,
+    TaskConfig,
+    ViewConfig,
+    ViewOperation,
+)
 from dataeval_flow.config.extractors import FlattenExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, LabelHealthConfig, OutliersConfig
 from dataeval_flow.steps import ChainResult, list_steps
@@ -24,6 +32,7 @@ from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleani
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 from tests.example_plugin import MeanConfig
+from tests.workflow_toys import register_count
 
 _BASE: dict[str, Any] = {
     "name": "cleaning",
@@ -198,6 +207,66 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
 def test_a_retired_field_is_refused(field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match=re.escape(field)):
         DataCleaningConfig.model_validate({"outlier_method": "zscore", "outlier_flags": ["pixel"], field: value})
+
+
+def _conformed(ontology: str, plugins: dict[str, list[tuple[str, str]]]) -> PipelineConfig:
+    """A data-cleaning task and a workflow-type task, `test.count`, each naming `ontology`, on one source read through
+    a view that relabels `a` and `b` as `cat` and `dog`."""
+    register_count(plugins)
+    relabel = ViewOperation(type="Relabel", params={"class_remap": {"a": "cat", "b": "dog"}, "target": ["cat", "dog"]})
+    animals = OntologyConfig(
+        name="animals",
+        concepts=[  # type: ignore[arg-type]
+            {"id": "animal", "label": "animal"},
+            {"id": "cat", "label": "cat", "parents": ["animal"]},
+            {"id": "dog", "label": "dog", "parents": ["animal"]},
+        ],
+    )
+    return chain_pipeline(
+        workflows=[{**_BASE, "ontology": ontology}, {"name": "count", "type": "test.count", "ontology": ontology}],
+        tasks=[
+            {"name": "cleaning", "workflow": "cleaning", "sources": ["src"]},
+            {"name": "count", "workflow": "count", "sources": ["src"]},
+        ],
+        datasets={"src": ToyImages(count=12)},
+        extra={
+            "sources": [SourceConfig(name="src", dataset="src_data", view="conform")],
+            "views": [ViewConfig(name="conform", operations=[relabel])],
+            "ontologies": [animals],
+        },
+    )
+
+
+def test_a_data_cleaning_entry_s_ontology_is_recorded_as_a_workflow_type_task_s_is(
+    plugins: dict[str, list[tuple[str, str]]],
+) -> None:
+    results = run_tasks(_conformed("animals", plugins))
+    cleaning, count = results["cleaning"], results["count"]
+    assert cleaning.success, cleaning.errors
+    assert [(r.source, r.ontology, r.ontology_digest) for r in cleaning.metadata.label_space] == [
+        ("src", "animals", "1a56aa26a662")
+    ]
+    assert cleaning.metadata.label_space_digest == "ae6c1114cbae"
+    assert cleaning.metadata.label_space == count.metadata.label_space
+    assert cleaning.metadata.label_space_digest == count.metadata.label_space_digest
+
+
+def test_a_data_cleaning_entry_s_ontology_that_does_not_resolve_is_logged_as_a_workflow_type_task_s_is(
+    plugins: dict[str, list[tuple[str, str]]], caplog: pytest.LogCaptureFixture
+) -> None:
+    message = (
+        "Task ontology could not be resolved: could not read ontology file 'missing.ttl': [Errno 2] No such file or "
+        "directory: 'missing.ttl' No ontology named 'missing.ttl' is declared under `ontologies:` either. Declared: "
+        "animals."
+    )
+    with caplog.at_level(logging.WARNING, logger="dataeval_flow._orchestrator"):
+        results = run_tasks(_conformed("missing.ttl", plugins))
+    cleaning, count = results["cleaning"], results["count"]
+    assert cleaning.success, cleaning.errors
+    # One warning per task: data-cleaning's, then test.count's.
+    assert [r.message for r in caplog.records if "ontology" in r.message] == [message, message]
+    assert [(r.ontology, r.ontology_digest) for r in cleaning.metadata.label_space] == [(None, None)]
+    assert cleaning.metadata.label_space == count.metadata.label_space
 
 
 def test_the_catalog_lists_the_cleaned_dataset_as_data_cleaning_s_output() -> None:

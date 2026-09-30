@@ -619,7 +619,8 @@ def _run_custom_task(
     """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's.
 
     `entry` is the preset entry `workflow` was expanded from: the result carries its type id, and the envelope records
-    its settings rather than the chain's. `evaluators` are the entries the preset's steps name.
+    its settings rather than the chain's, and each conformed source's label space under its ontology. `evaluators`
+    are the entries the preset's steps name.
     """
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
@@ -645,6 +646,8 @@ def _run_custom_task(
         refused.metadata = ChainMetadata(workflow=workflow.name)
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, described, config, data_dir=data_dir)
         return refused
+    # A preset entry's ontology resolves up front, as a workflow-type task's does, for the envelope to record.
+    ontology = _resolve_ontology(entry, config, data_dir) if entry is not None else None
     graph = build_graph(workflow, config, evaluators=evaluators)
     inputs = bind_inputs(graph, names, dataset_contexts, {source.name: source for source in resolved_sources})
     slot_contexts: dict[str, list[DatasetContext]] = {}
@@ -677,10 +680,12 @@ def _run_custom_task(
     result.sources = {source.name: source.realized() for source in resolved_sources}
     if report_images:
         _capture_chain_assets(result, chain, _unless_all(config.result.max_images))
-    _populate_result_metadata(result, resolved_sources, extractor_cfg, elapsed, described, config, data_dir=data_dir)
+    _populate_result_metadata(
+        result, resolved_sources, extractor_cfg, elapsed, described, config, data_dir=data_dir, ontology=ontology
+    )
     if chain.label_space:
         # The sources' records, where there are any, replaced the chain's own: keep both, the sources' first.
-        result.metadata.label_space = [*label_space_records(resolved_sources, None), *chain.label_space]
+        result.metadata.label_space = [*label_space_records(resolved_sources, ontology), *chain.label_space]
         # One vocabulary names the run's labels only where every record agrees, the sources' and the chain's.
         digests = {record.digest for record in result.metadata.label_space}
         result.metadata.label_space_digest = next(iter(digests)) if len(digests) == 1 else None
