@@ -1,5 +1,7 @@
 """`quality.label-health`: a Dataset's labels counted by class, over DataEval's `label_stats` (spec §9.4)."""
 
+from typing import Any, cast
+
 from dataeval import Metadata
 
 from dataeval_flow import run
@@ -50,7 +52,7 @@ def test_a_dataset_without_labels_counts_none_and_still_declares_its_classes() -
 
 
 def test_it_says_where_the_labels_came_from() -> None:
-    source = EvaluatorInputs(source="s", metadata=Metadata(ToyImages(count=4)), label_source="filepath")
+    source = EvaluatorInputs(source="s", metadata=Metadata(cast("Any", ToyImages(count=4))), label_source="filepath")
     output = LabelHealthEvaluator().run(LabelHealthConfig(), [source])
     assert output.data()["label_source"] == "filepath"
 

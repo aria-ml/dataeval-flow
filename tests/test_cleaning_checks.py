@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import LabelHealthOutput
-from dataeval_flow.steps import CheckContext
+from dataeval_flow.steps import ChainResult, CheckContext
 from dataeval_flow.steps.checks import (
     ClassImbalanceCheck,
     ClassImbalanceConfig,
@@ -252,6 +252,7 @@ def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> No
         datasets={"src": _DATASETS["detection"]()},
     )
     result = run_tasks(config)["chain"]
+    assert isinstance(result, ChainResult)
     message = (
         "classwise-outliers counts a detection Dataset's boxes, but `outliers` was not computed per box: "
         "set `per_target: true` on its `quality.outliers` entry."
@@ -261,6 +262,7 @@ def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> No
     assert f"ValueError: {message}" in " ".join(by_class.errors)
     (finding,) = [f for f in result.findings if f.title == "Classwise Outliers"]
     assert (finding.severity, finding.title, finding.brief) == ("info", "Classwise Outliers", "not assessed")
+    assert finding.description is not None
     assert finding.description.startswith(
         "Not assessed: `by_class` failed: ValueError: classwise-outliers counts a detection Dataset's boxes"
     )

@@ -1,7 +1,7 @@
 """Evaluators report in their own sections: flagged items, duplicate groups, uncovered items, ranked factors (§9.6)."""
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from dataeval_flow import run_task
 from dataeval_flow._blocks import Block, ItemRef, Paragraph, Section, Table
@@ -93,13 +93,13 @@ def test_a_duplicates_section_over_two_sources_names_each_item_s_own_source() ->
     result = _task(DuplicatesConfig(name="e"), sources=("a", "b"))
     (table,) = _tables(result._report_output(detailed=True))
     assert table.rows[0]["count"] == 4  # items 0 and 5, in each source
-    assert sorted((ref.source, ref.index) for ref in table.rows[0]["image"]) == [
+    assert sorted((ref.source, ref.index) for ref in cast("list[ItemRef]", table.rows[0]["image"])) == [
         ("a", 0),
         ("a", 5),
         ("b", 0),
         ("b", 5),
     ]
-    assert all({ref.source for ref in row["image"]} == {"a", "b"} for row in table.rows)
+    assert all({ref.source for ref in cast("list[ItemRef]", row["image"])} == {"a", "b"} for row in table.rows)
 
 
 def test_a_coverage_section_pictures_the_uncovered_items() -> None:

@@ -1,6 +1,6 @@
 """Running combine and check steps: findings, health, inputs that hold nothing, and lists (spec §5.6, §7, §9.1)."""
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
@@ -11,7 +11,7 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import Finding
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from tests.chain_toys import AtMost, CountGroups, chain_pipeline, register_toys, run_chain_task, run_toy_chain
+from tests.chain_toys import CountGroups, GroupLimit, chain_pipeline, register_toys, run_chain_task, run_toy_chain
 from tests.evaluator_toys import ToyImages
 
 pytestmark = pytest.mark.usefixtures("toys")
@@ -52,7 +52,7 @@ def test_a_combine_s_output_feeds_a_check_whose_findings_reach_the_result() -> N
     result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count", "most": 0})
     assert result.findings == [Finding(severity="warning", title="Group count", brief="1 groups", step="judge")]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 1, "failed_steps": []}
-    payload = result.to_dict()
+    payload = cast("dict[str, Any]", result.to_dict())
     assert payload["findings"] == [
         {
             "severity": "warning",
@@ -168,7 +168,7 @@ def test_the_json_lists_only_check_findings_while_health_counts_a_workflow_step_
 
 
 def test_a_check_that_returns_something_other_than_findings_fails_its_step() -> None:
-    with patch.object(AtMost, "run", return_value=[1]):
+    with patch.object(GroupLimit, "run", return_value=[1]):
         result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-at-most", "input": "count"})
     assert result.failed_steps == ["judge"]
     assert result.steps["judge"].errors == ["TypeError: check 'toy-at-most' returned int, not findings."]

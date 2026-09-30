@@ -26,7 +26,7 @@ from dataeval_flow.steps import (
 )
 from dataeval_flow.steps._registry import CHECKS
 from dataeval_flow.workflows import Finding
-from tests.chain_toys import AtMostConfig, chain_pipeline, register_toys
+from tests.chain_toys import GroupLimitConfig, chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 
 pytestmark = pytest.mark.usefixtures("toys")
@@ -60,7 +60,7 @@ def test_a_check_step_s_thresholds_are_validated_by_its_config() -> None:
         {"name": "judge", "check": "toy-at-most", "input": "count", "most": 2},
     )
     config = workflow.steps[2].config
-    assert isinstance(config, AtMostConfig)
+    assert isinstance(config, GroupLimitConfig)
     assert (config.input, config.most) == ("count", 2.0)
 
 

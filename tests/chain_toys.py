@@ -219,12 +219,12 @@ class CountGroups(Combine[CountGroupsConfig]):
         return {"output": GroupCount(groups=len(inputs["input"].value.data()))}
 
 
-class AtMostConfig(CheckConfig):
+class GroupLimitConfig(CheckConfig):
     input: str
     most: float | None = 0.0
 
 
-class AtMost(Check[AtMostConfig]):
+class GroupLimit(Check[GroupLimitConfig]):
     """Warns when a count of groups passes `most`; `None` judges nothing."""
 
     name: ClassVar[str] = "toy-at-most"
@@ -232,7 +232,7 @@ class AtMost(Check[AtMostConfig]):
     title: ClassVar[str] = "Group count"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(GroupCount,)),)
 
-    def run(self, config: AtMostConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+    def run(self, config: GroupLimitConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
         count = inputs["input"].value.groups
         severity = "info" if config.most is None else ("warning" if count > config.most else "ok")
         return [Finding(severity=severity, title=self.title, brief=f"{count} groups")]
@@ -272,7 +272,7 @@ _TOYS = {
 
 
 _COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
-_CHECK_TOYS = {"toy-at-most": "tests.chain_toys:AtMost", "toy-worst": "tests.chain_toys:Worst"}
+_CHECK_TOYS = {"toy-at-most": "tests.chain_toys:GroupLimit", "toy-worst": "tests.chain_toys:Worst"}
 
 
 def register_toys(plugins: dict[str, list[tuple[str, str]]]) -> None:
