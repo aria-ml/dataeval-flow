@@ -65,6 +65,8 @@ def _slots_reached(graph: ChainGraph) -> dict[str, list[str]]:
         origin[spec.name] = found
         for port in spec.outputs:
             origin[spec.output_address(port)] = found
+            for alias in graph.aliases_of(spec.output_address(port)):
+                origin[alias] = found
     return reached
 
 
@@ -111,6 +113,9 @@ def check_kinds(graph: ChainGraph, inputs: Mapping[str, Node | NodeList]) -> dic
                     kind = made.get(port.name)
                     kinds[spec.output_address(port)] = kind
                     reaching[spec.output_address(port)] = {kind} if kind is not None else set()
+                    for alias in graph.aliases_of(spec.output_address(port)):
+                        kinds[alias] = kinds[spec.output_address(port)]
+                        reaching[alias] = reaching[spec.output_address(port)]
     return kinds
 
 

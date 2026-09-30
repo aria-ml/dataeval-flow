@@ -4,14 +4,17 @@ The literals were measured on the toy datasets: 12 toy images hold one exact-dup
 (16.7%) sit in exact-duplicate groups, and removing all but the first of each group keeps 11.
 """
 
+import re
 from typing import Any, ClassVar
 
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import run, run_tasks
+from dataeval_flow import PipelineConfig, run, run_tasks
 from dataeval_flow._cache import DatasetCache
-from dataeval_flow.steps import ChainResult, list_steps
+from dataeval_flow._chain._graph import ChainGraph, build_graph
+from dataeval_flow._chain._preflight import _slots_reached
+from dataeval_flow.steps import ChainResult, CustomWorkflowConfig, list_steps
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.workflows import Workflow, WorkflowConfig
 from dataeval_flow.workflows._preset import Preset, PresetChain, preset_of
@@ -130,3 +133,142 @@ class _UnregisteredConfig(WorkflowConfig[ChainResult]):
 
 def test_a_workflow_type_no_plugin_registers_is_no_preset() -> None:
     assert preset_of(_UnregisteredConfig(name="x")) is None
+
+
+def _steps(source: str) -> list[dict[str, Any]]:
+    """The toy preset over `source`, then duplicates found again on what it kept, and removed by that finding."""
+    return [
+        {"name": "cleaning", "workflow": "toy", "input": source},
+        {"name": "again", "evaluator": "dupes", "input": "cleaning.kept"},
+        {"name": "final", "transform": "remove", "input": "cleaning.kept", "plans": {"again": {}}},
+    ]
+
+
+def _outer(
+    steps: list[dict[str, Any]],
+    datasets: dict[str, Any],
+    *,
+    inputs: list[Any] | None = None,
+    extractor: bool = False,
+) -> PipelineConfig:
+    return chain_pipeline(
+        workflows=[
+            {"name": "toy", "type": "toy-preset"},
+            {"name": "outer", "inputs": inputs or ["data"], "steps": steps},
+        ],
+        evaluators=[{"name": "dupes", "type": "quality.duplicates"}],
+        tasks=[{"name": "t", "workflow": "outer", "sources": list(datasets)}],
+        datasets=datasets,
+        extractor=extractor,
+    )
+
+
+def _graph(config: PipelineConfig) -> ChainGraph:
+    workflow = next(w for w in config.workflows or () if isinstance(w, CustomWorkflowConfig) and w.name == "outer")
+    return build_graph(workflow, config)
+
+
+def test_a_preset_step_runs_its_chain_inside_the_custom_workflow() -> None:
+    result = run_tasks(_outer(_steps("data"), {"src": ToyImages(count=12)}))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert list(result.steps) == ["cleaning/dupes", "cleaning/rate", "cleaning/kept", "again", "final"]
+    assert result.steps["cleaning/kept"].inputs == ["data", "cleaning/dupes"]
+    assert [(f.severity, f.brief, f.step) for f in result.findings] == [
+        ("warning", "2 exact (16.7%), 0 near (0.0%)", "cleaning/rate")
+    ]
+    assert result.steps["again"].inputs == ["cleaning.kept"]
+    assert len(result.steps["final"].output) == 11
+    assert result.steps["final"].details == {"removed": {"items": 0, "detections": 0, "tracks": 0, "frames": 0}}
+
+
+def test_a_preset_step_runs_its_whole_chain_once_per_element_of_a_list() -> None:
+    config = _outer(
+        _steps("splits"),
+        {"s1": ToyImages(count=12), "s2": ToyImages(count=24)},
+        inputs=[{"name": "splits", "list": True}],
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert [(f.brief, f.step) for f in result.findings] == [
+        ("2 exact (16.7%), 0 near (0.0%)", "cleaning/rate[s1]"),
+        ("2 exact (8.3%), 0 near (0.0%)", "cleaning/rate[s2]"),
+    ]
+    kept = result.steps["cleaning/kept"].elements or {}
+    assert {key: len(element.output) for key, element in kept.items()} == {"s1": 11, "s2": 23}
+    final = result.steps["final"].elements or {}
+    assert {key: len(element.output) for key, element in final.items()} == {"s1": 11, "s2": 23}
+
+
+@pytest.mark.parametrize(
+    ("address", "message"),
+    [
+        ("cleaning.dupes", "Step 'again' reads `cleaning.dupes`, but `cleaning` has outputs kept."),
+        (
+            "cleaning",
+            "Step 'again' reads `cleaning`, but step 'cleaning' has outputs kept: name one, such as `cleaning.kept`.",
+        ),
+        ("cleaning/dupes", "'cleaning/dupes' is not an address"),
+    ],
+)
+def test_only_a_preset_step_s_declared_outputs_can_be_read(address: str, message: str) -> None:
+    steps = [
+        {"name": "cleaning", "workflow": "toy", "input": "data"},
+        {"name": "again", "evaluator": "dupes", "input": address},
+    ]
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        _outer(steps, {"src": ToyImages(count=4)})
+
+
+def test_a_preset_step_reads_one_dataset_per_slot() -> None:
+    steps = [{"name": "cleaning", "workflow": "toy", "input": ["data", "data"]}]
+    message = "Step 'cleaning' runs workflow 'toy' (toy-preset), whose inputs are `data`, but the step names 2."
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        _outer(steps, {"src": ToyImages(count=4)})
+
+
+def test_a_preset_step_reads_datasets() -> None:
+    steps = [
+        {"name": "d", "evaluator": "dupes", "input": "data"},
+        {"name": "cleaning", "workflow": "toy", "input": "d"},
+    ]
+    message = "Step 'cleaning' reads `d`, which is an Output, but workflow 'toy' (toy-preset) reads Datasets."
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        _outer(steps, {"src": ToyImages(count=4)})
+
+
+def test_a_preset_step_whose_declared_output_no_step_makes_is_refused() -> None:
+    message = "declares output `gone`, but no step of its chain named `gone` makes one Dataset"
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        chain_pipeline(
+            workflows=[
+                {"name": "gone", "type": "toy-gone-preset"},
+                {"name": "outer", "inputs": ["data"], "steps": [{"name": "g", "workflow": "gone", "input": "data"}]},
+            ]
+        )
+
+
+def test_an_optional_preset_step_makes_each_step_of_its_chain_optional() -> None:
+    config = _outer([{"name": "cleaning", "workflow": "toy", "input": "data", "optional": True}], {"src": ToyImages()})
+    assert [(spec.name, spec.optional) for spec in _graph(config).steps] == [
+        ("cleaning/dupes", True),
+        ("cleaning/rate", True),
+        ("cleaning/kept", True),
+    ]
+
+
+def test_a_preset_step_s_extractor_reaches_each_step_of_its_chain_that_embeds() -> None:
+    steps = [{"name": "cleaning", "workflow": "toy", "input": "data", "extractor": "flat"}]
+    config = _outer(steps, {"src": ToyImages()}, extractor=True)
+    assert [(spec.name, spec.extractor) for spec in _graph(config).steps] == [
+        ("cleaning/dupes", "flat"),
+        ("cleaning/rate", None),
+        ("cleaning/kept", None),
+    ]
+
+
+def test_a_step_reading_a_preset_output_descends_from_the_slot_the_preset_read() -> None:
+    graph = _graph(_outer(_steps("data"), {"src": ToyImages()}))
+    assert _slots_reached(graph)["again"] == ["data"]
+    assert graph.aliases == {"cleaning.kept": "cleaning/kept"}

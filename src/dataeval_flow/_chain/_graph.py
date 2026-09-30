@@ -14,7 +14,7 @@ __all__ = [
 
 import builtins
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
@@ -26,9 +26,11 @@ from dataeval_flow.steps._step import InlineStep, Step, StepKind, Transform, por
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
 if TYPE_CHECKING:
+    from dataeval_flow._chain._presets import Spliced
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
+    from dataeval_flow.workflows._preset import Preset
 
 _ARTICLE = {
     DataType.DATASET: "a Dataset",
@@ -97,6 +99,13 @@ class ChainGraph:
     slots: tuple[InputSlot, ...]
     steps: tuple[StepSpec, ...]
     one_step: bool = False
+    aliases: Mapping[str, str] = field(default_factory=dict)
+    """Each declared output of a preset step, such as `cleaning.clean`, to the address of the spliced step that
+    makes it, `cleaning/clean`."""
+
+    def aliases_of(self, address: str) -> tuple[str, ...]:
+        """The addresses that read what `address` holds: each declared output of a preset step made there."""
+        return tuple(alias for alias, target in self.aliases.items() if target == address)
 
 
 def build_graph(
@@ -105,12 +114,14 @@ def build_graph(
     slot_keys: Mapping[str, tuple[str, ...]] | None = None,
     *,
     evaluators: Sequence["EvaluatorConfig[Any]"] = (),
+    slot_types: Mapping[str, ValueType] | None = None,
 ) -> ChainGraph:
     """Resolve and type-check every step of `workflow` against `pipeline`.
 
     `slot_keys` holds a list slot's keys, the names of the sources a task binds to it. Without them, a key read from
     the slot, or from a list broadcast over it, is taken on trust. `evaluators` are entries a preset's steps name,
-    found before the pipeline's own.
+    found before the pipeline's own. `slot_types` types a slot as given: a preset's slot, spliced in as a step,
+    holds whatever that step reads.
 
     Raises
     ------
@@ -118,15 +129,24 @@ def build_graph(
         Naming the step and the address that does not connect.
     """
     keys = slot_keys or {}
+    given = slot_types or {}
     types: dict[str, ValueType] = {
-        slot.name: ValueType(DataType.DATASET, is_list=slot.is_list, keys=keys.get(slot.name))
+        slot.name: given.get(slot.name) or ValueType(DataType.DATASET, is_list=slot.is_list, keys=keys.get(slot.name))
         for slot in workflow.inputs
     }
     later = {entry.name for entry in workflow.steps}
     specs: dict[str, StepSpec] = {}
     empty: dict[str, frozenset[str]] = {}
+    aliases: dict[str, str] = {}
     for entry in workflow.steps:
         later.discard(entry.name)
+        preset = _preset_step(entry, pipeline)
+        if preset is not None:
+            spliced = _splice(entry, *preset, workflow, pipeline, types, later, empty)
+            specs.update((spec.name, spec) for spec in spliced.steps)
+            aliases.update(spliced.aliases)
+            types.update(spliced.types)
+            continue
         spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
         specs[entry.name] = spec
         fixed: dict[str, tuple[str, ...]] = {}
@@ -138,7 +158,7 @@ def build_graph(
             types[spec.output_address(port)] = ValueType(
                 port.type, port.classes, port.is_list or spec.broadcast, keys, step=spec.name
             )
-    return ChainGraph(workflow.name, tuple(workflow.inputs), tuple(specs.values()))
+    return ChainGraph(workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases)
 
 
 def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequence[str]) -> ChainGraph:
@@ -329,15 +349,63 @@ def _pooled(
             f"Step '{entry.name}' names workflow '{entry.target}', a custom workflow: only a workflow type (`type:`) "
             "runs as a step."
         )
+    impl = (get_evaluator if kind == "evaluator" else get_workflow)(config.type)
+    return config, impl, {"input": _input_addresses(entry)}
+
+
+def _input_addresses(entry: StepEntry) -> tuple[Address, ...]:
+    """The addresses an evaluator or workflow step's `input` names, refused when it names none or one is no address."""
     if entry.input is None:
         raise GraphError(f"Step '{entry.name}' reads nothing: give it `input:`.")
     raw = [entry.input] if isinstance(entry.input, str) else list(entry.input)
     try:
-        found = tuple(parse_address(text) for text in raw)
+        return tuple(parse_address(text) for text in raw)
     except ValueError as error:
         raise GraphError(f"Step '{entry.name}': {error}") from error
-    impl = (get_evaluator if kind == "evaluator" else get_workflow)(config.type)
-    return config, impl, {"input": found}
+
+
+def _preset_step(entry: StepEntry, pipeline: "PipelineConfig") -> "tuple[Any, type[Preset]] | None":
+    """The pool entry and the preset a `workflow:` step runs, when that entry's type is a preset; else ``None``."""
+    from dataeval_flow.workflows._preset import preset_of
+
+    if entry.kind != "workflow":
+        return None
+    config = next((item for item in pipeline.workflows or () if item.name == entry.target), None)
+    preset = preset_of(config)
+    return (config, preset) if preset is not None else None
+
+
+def _splice(
+    entry: StepEntry,
+    config: Any,
+    preset: "type[Preset]",
+    workflow: CustomWorkflowConfig,
+    pipeline: "PipelineConfig",
+    types: dict[str, ValueType],
+    later: set[str],
+    empty: dict[str, frozenset[str]],
+) -> "Spliced":
+    """A preset step's chain, spliced in, refused unless the step reads one Dataset per slot."""
+    from dataeval_flow._chain._presets import splice_preset
+
+    found = _input_addresses(entry)
+    if len(found) != len(preset.slots):
+        slots = ", ".join(f"`{slot}`" for slot in preset.slots)
+        raise GraphError(
+            f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose inputs are {slots}, but the "
+            f"step names {len(found)}."
+        )
+    bound: list[tuple[Address, ValueType]] = []
+    for address in found:
+        value = _typed(address, entry, workflow, types, later, empty)
+        if value.type is not DataType.DATASET:
+            raise GraphError(
+                f"Step '{entry.name}' reads `{address}`, which is {_ARTICLE[value.type]}, but workflow "
+                f"'{entry.target}' ({config.type}) reads Datasets."
+            )
+        bound.append((address, value))
+    _check_extractor(entry, "workflow", config.type, config, pipeline)
+    return splice_preset(entry, config, preset, pipeline, dict(zip(preset.slots, bound, strict=True)))
 
 
 def _bind_inputs(

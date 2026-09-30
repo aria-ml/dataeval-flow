@@ -137,6 +137,10 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
         record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
         steps[spec.name] = record
         nodes.update(produced)
+        # A preset step's declared output reads what the spliced step made.
+        for address, value in produced.items():
+            for alias in graph.aliases_of(address):
+                nodes[alias] = value
         if tracked:
             lineage.extend(_lineage(node) for node in _datasets(produced.values()))
         label_space.extend(records)
