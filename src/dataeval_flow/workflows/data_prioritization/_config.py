@@ -1,20 +1,16 @@
-"""The ``data-prioritization`` workflow's config, its cleaning step and health thresholds."""
+"""The ``data-prioritization`` preset's config and its cleaning block."""
 
 from collections.abc import Sequence
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import StatsConfigMixin
-from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
-from dataeval_flow.workflows.data_prioritization._outputs import DataPrioritizationResult
+from dataeval_flow.steps._result import ChainResult
+from dataeval_flow.workflows._base import WorkflowConfig
 
-__all__ = [
-    "DataPrioritizationCleaningConfig",
-    "DataPrioritizationHealthThresholds",
-    "DataPrioritizationConfig",
-]
+__all__ = ["DataPrioritizationCleaningConfig", "DataPrioritizationConfig"]
 
 MethodType = Literal["knn", "kmeans_distance", "kmeans_complexity", "hdbscan_distance", "hdbscan_complexity"]
 OrderType = Literal["easy_first", "hard_first"]
@@ -24,8 +20,8 @@ PolicyType = Literal["difficulty", "stratified", "class_balanced"]
 class DataPrioritizationCleaningConfig(BaseModel):
     """Optional cleaning sub-config for outlier/duplicate removal before prioritization.
 
-    When provided, outlier and duplicate detection runs across all datasets
-    before prioritization.  Flagged items are excluded from the ranking.
+    When provided, the reference and each pool lose their outliers, and each duplicate but the first of its group,
+    before ranking.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -56,24 +52,11 @@ class DataPrioritizationCleaningConfig(BaseModel):
     )
 
 
-class DataPrioritizationHealthThresholds(BaseModel):
-    """Thresholds that control finding severity for the prioritization report."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    cleaning_removed_pct_warning: float = Field(
-        default=20.0,
-        ge=0.0,
-        le=100.0,
-        description="Warn if cleaning removes more than this percentage of the combined dataset.",
-    )
-
-
-class DataPrioritizationConfig(WorkflowConfig[DataPrioritizationResult], _LegacyValueRangeMixin, StatsConfigMixin):
+class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
     """The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.
 
     Requires at least two sources: the first is the reference (labeled) dataset,
-    and subsequent sources are unlabeled data pools to prioritize.
+    and each later source is a pool, ranked against it on its own.
 
     Example YAML::
 
@@ -83,6 +66,7 @@ class DataPrioritizationConfig(WorkflowConfig[DataPrioritizationResult], _Legacy
             method: knn
             k: 10
             order: hard_first
+            n: 200
             cleaning:
               outlier_method: adaptive
               outlier_flags: [dimension, pixel]
@@ -143,8 +127,26 @@ class DataPrioritizationConfig(WorkflowConfig[DataPrioritizationResult], _Legacy
         description="Optional cleaning config. When set, outlier/duplicate detection runs before prioritization.",
     )
 
-    # --- Health thresholds ---
-    health_thresholds: DataPrioritizationHealthThresholds = Field(
-        default_factory=DataPrioritizationHealthThresholds,
-        description="Warning thresholds for the prioritization report.",
+    # --- Selection ---
+    n: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all."
+        ),
     )
+    fraction: float | None = Field(
+        default=None,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "The share of each pool's ranked items `selected` keeps, rounded up. "
+            "With `n` also unset, it keeps them all."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _one_amount(self) -> "DataPrioritizationConfig":
+        if self.n is not None and self.fraction is not None:
+            raise ValueError("A `data-prioritization` entry takes `n:` or `fraction:`, not both.")
+        return self

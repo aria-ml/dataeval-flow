@@ -395,14 +395,15 @@ test_cases:
     name: Prioritization Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that DataPrioritizationWorkflow ranks synthetic samples and
-      produces a typed WorkflowResult.
+      Verify that the data-prioritization preset ranks a pool of synthetic samples against a
+      reference, and its selected step holds the pool in ranked order.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic dataset configured
     expected_results:
-      - DataPrioritizationWorkflow.run returns success=True
-      - result.output exposes ranked indices
+      - The data-prioritization task returns success=True
+      - result.steps["selected"] holds the pool's selection, keyed by pool
+      - result.report() returns a non-empty string
 
   "13-1":
     name: Parameter Sweep Workflow

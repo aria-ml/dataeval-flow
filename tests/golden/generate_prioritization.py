@@ -1,31 +1,17 @@
-"""Records `prioritization_rankings.json` from the legacy data-prioritization workflow, before its port to a preset.
+"""Recorded `prioritization_rankings.json` from the legacy data-prioritization workflow, before its port to a preset.
+It now refuses to run.
 
-Run it once, on the legacy workflow: `.venv/bin/python -m tests.golden.generate_prioritization`. For each case it
-records each pool's ranking, as indices into the pool, and how many items cleaning removed from each source. The
+Commit e603f6f ran it once, on the legacy workflow, to record each case's pool rankings and per-source removals. The
 preset must agree with them (spec §10.9).
+
+The port deleted the legacy workflow, so `data-prioritization` now names the preset. Run now, this would record the
+preset's own output as the golden the preset is tested against, and the agreement test would only compare the preset
+with itself. `tests/test_prioritization_golden.py` lists the preset's deliberate differences from the legacy run.
 """
 
-import json
-from pathlib import Path
-from typing import Any
-
-from dataeval_flow import run_tasks
-from tests.golden.prioritization import CASES, pipeline
-
-
-def record(name: str) -> dict[str, dict[str, Any]]:
-    """Case `name`'s rankings and removals, read off the legacy result."""
-    result = run_tasks(pipeline(name))["t"]
-    assert result.success, result.errors
-    raw = result.output.raw  # type: ignore[attr-defined]
-    rankings = {p["source_name"]: [int(i) for i in p["prioritized_indices"]] for p in raw.prioritizations}
-    pools = {p["source_name"]: p["original_size"] - p["cleaned_size"] for p in raw.prioritizations}
-    total = raw.cleaning_summary["total_removed"] if raw.cleaning_summary is not None else 0
-    return {"rankings": rankings, "removed": {"ref": total - sum(pools.values()), **pools}}
-
-
 if __name__ == "__main__":
-    golden = {name: record(name) for name in sorted(CASES)}
-    path = Path(__file__).parent / "prioritization_rankings.json"
-    path.write_text(json.dumps(golden, indent=2) + "\n")
-    print(f"wrote {path}")
+    raise SystemExit(
+        "generate_prioritization records from the legacy data-prioritization workflow, which the port to a preset "
+        "deleted: run now, it would record the preset's own output, and the agreement test would compare the preset "
+        "with itself."
+    )

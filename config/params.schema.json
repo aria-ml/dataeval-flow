@@ -2304,7 +2304,7 @@
     },
     "DataPrioritizationCleaningConfig": {
       "additionalProperties": false,
-      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, outlier and duplicate detection runs across all datasets\nbefore prioritization.  Flagged items are excluded from the ranking.",
+      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, the reference and each pool lose their outliers, and each duplicate but the first of its group,\nbefore ranking.",
       "properties": {
         "outlier_method": {
           "description": "Statistical method for outlier detection.",
@@ -2387,7 +2387,7 @@
     },
     "DataPrioritizationConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand subsequent sources are unlabeled data pools to prioritize.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
+      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        n: 200\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
       "properties": {
         "stats": {
           "anyOf": [
@@ -2401,30 +2401,6 @@
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
-        },
-        "value_range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "deprecated": true,
-          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
-          "title": "Value Range"
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -2564,28 +2540,37 @@
           "default": null,
           "description": "Optional cleaning config. When set, outlier/duplicate detection runs before prioritization."
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataPrioritizationHealthThresholds",
-          "description": "Warning thresholds for the prioritization report."
+        "n": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all.",
+          "title": "N"
+        },
+        "fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The share of each pool's ranked items `selected` keeps, rounded up. With `n` also unset, it keeps them all.",
+          "title": "Fraction"
         }
       },
       "title": "DataPrioritizationConfig",
-      "type": "object"
-    },
-    "DataPrioritizationHealthThresholds": {
-      "additionalProperties": false,
-      "description": "Thresholds that control finding severity for the prioritization report.",
-      "properties": {
-        "cleaning_removed_pct_warning": {
-          "default": 20.0,
-          "description": "Warn if cleaning removes more than this percentage of the combined dataset.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Cleaning Removed Pct Warning",
-          "type": "number"
-        }
-      },
-      "title": "DataPrioritizationHealthThresholds",
       "type": "object"
     },
     "DataSplittingConfig": {

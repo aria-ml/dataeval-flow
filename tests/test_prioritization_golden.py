@@ -1,15 +1,58 @@
 """data-prioritization agrees with what it produced before its port: each pool's ranking, as indices into the pool,
-and how many items cleaning removed from each source (spec §10.9)."""
+and how many items cleaning removed from each source (spec §10.9).
+
+Deliberate differences from its legacy run (spec §10.3 item 3), each with its reason:
+
+- **It makes no findings.** Legacy made a "Pruning" finding, a warning when cleaning removed more than
+  `cleaning_removed_pct_warning` of all items, and an info finding per pool. Ranking judges nothing, and the chain has
+  no checks. A removal-rate check can bring Pruning back once `remove` exposes its counts to checks. The `rank` step's
+  section lists what the info findings showed.
+- **Its ranked tables number items within the Dataset ranked.** With cleaning, that is the cleaned pool, not the
+  pool: every step's section names items by the node it read (spec §7.4).
+- **`prioritize` reads the pool's labels.** Legacy passed Prioritize no `class_labels`; the evaluator passes the
+  pool's, so `policy: class_balanced` ranks by them wherever a pool has labels.
+"""
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from tests.golden.generate_prioritization import record
-from tests.golden.prioritization import CASES
+from dataeval_flow import run_tasks
+from dataeval_flow.steps import ChainResult
+from tests.golden.prioritization import CASES, pipeline
 
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "prioritization_rankings.json").read_text())
+
+
+def _produced(result: ChainResult) -> dict[str, dict[str, Any]]:
+    """Each pool's selection, as indices into the pool, and how many items cleaning removed from each source.
+
+    `View.resolve_indices()` counts within the view's own parent, so with cleaning, a selection's indices are mapped
+    through `pool-clean`'s to reach the pool.
+    """
+    steps = result.steps
+    selected = steps["selected"].elements or {}
+    if "pool-clean" not in steps:
+        return {
+            "rankings": {
+                pool: [int(i) for i in element.output.resolve_indices()] for pool, element in selected.items()
+            },
+            "removed": {"ref": 0, **dict.fromkeys(selected, 0)},
+        }
+    cleaned = steps["pool-clean"].elements or {}
+    kept = {pool: element.output.resolve_indices() for pool, element in cleaned.items()}
+    reference = steps["reference-clean"].details or {}
+    return {
+        "rankings": {
+            pool: [int(kept[pool][i]) for i in element.output.resolve_indices()] for pool, element in selected.items()
+        },
+        "removed": {
+            "ref": reference["removed"]["items"],
+            **{pool: (element.details or {})["removed"]["items"] for pool, element in cleaned.items()},
+        },
+    }
 
 
 def test_every_case_is_recorded() -> None:
@@ -18,4 +61,7 @@ def test_every_case_is_recorded() -> None:
 
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_data_prioritization_gives_the_rankings_it_gave_before_its_port(name: str) -> None:
-    assert record(name) == _GOLDEN[name]
+    result = run_tasks(pipeline(name))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert _produced(result) == _GOLDEN[name]

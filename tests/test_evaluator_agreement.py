@@ -14,7 +14,7 @@ from dataeval.config import set_seed
 from dataeval_flow import PipelineConfig, Result, run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
-from dataeval_flow.evaluators.scope import CoverageConfig, PrioritizeConfig, RepresentationConfig
+from dataeval_flow.evaluators.scope import CoverageConfig, RepresentationConfig
 from dataeval_flow.evaluators.shift import (
     DriftDomainClassifierConfig,
     DriftKNeighborsConfig,
@@ -25,7 +25,6 @@ from dataeval_flow.evaluators.shift import (
 )
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisResult
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageResult
-from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig, DataPrioritizationResult
 from dataeval_flow.workflows.drift_monitoring import (
     DriftDetectorDomainClassifier,
     DriftDetectorKNeighbors,
@@ -139,29 +138,6 @@ def test_representation_agrees_with_data_coverage():
     assert table["extras"]["total_deficit"] == representation.total_deficit
     assert table["extras"]["violations"]["rows"] == _json([row.model_dump() for row in representation.violations])
     assert table["extras"]["dark_branches"]["rows"] == _json([row.model_dump() for row in representation.dark_branches])
-
-
-def test_prioritize_agrees_with_data_prioritization():
-    """The workflow reads the reference first; the evaluator reads it second."""
-    datasets = {"labeled": ToyImages(count=40), "unlabeled": ToyImages(count=40, seed=1)}
-    tasks = [
-        TaskConfig(name="workflow", workflow="wf", sources=["labeled", "unlabeled"], extractor="flat"),
-        TaskConfig(
-            name="evaluator", workflow="ev", sources=["unlabeled", "labeled"], kind="evaluator", extractor="flat"
-        ),
-    ]
-    config = toy_pipeline(
-        workflows=[DataPrioritizationConfig(name="wf", order="hard_first")],
-        evaluators=[PrioritizeConfig(name="ev", order="hard_first")],
-        tasks=tasks,
-        datasets=datasets,
-        extractor=True,
-    )
-    workflow_result, evaluator_result = _run(config, tasks[0]), _run(config, tasks[1])
-    assert isinstance(workflow_result, DataPrioritizationResult)
-    (ranking,) = workflow_result.output.raw.prioritizations
-    assert output_json(evaluator_result)["data"] == ranking["prioritized_indices"]
-    assert output_json(evaluator_result)["extras"]["scores"] == pytest.approx(ranking["scores"])
 
 
 @pytest.mark.parametrize(
