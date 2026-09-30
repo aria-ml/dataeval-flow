@@ -52,10 +52,8 @@ class TestDataPrioritizationWorkflow:
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
-        # Typed output check: ranked indices exposed for the non-reference source
-        # (ref is the reference; pool is the source ranked against it).
-        prioritizations = result.output.raw.prioritizations
-        assert len(prioritizations) == 1
-        (pool_result,) = prioritizations
-        assert pool_result["source_name"] == "pool"
-        assert len(pool_result["prioritized_indices"]) == pool_result["cleaned_size"]
+        # The preset's `selected` step holds each pool in ranked order: all of it, with neither `n` nor `fraction` set
+        selected = result.steps["selected"].elements
+        assert selected is not None
+        assert list(selected) == ["pool"]
+        assert len(selected["pool"].output) > 0

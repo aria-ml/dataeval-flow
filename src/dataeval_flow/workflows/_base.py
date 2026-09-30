@@ -180,7 +180,7 @@ def effective_value_range(
 def render_label_source(label_source: "str | Sequence[str] | None") -> str:
     """Render a label provenance for a report line.
 
-    A merged corpus carries one entry per operand, so join them rather than printing the
+    A merged dataset carries one entry per operand, so join them rather than printing the
     list: the reader wants the provenances, not their repr.
     """
     if label_source is None:

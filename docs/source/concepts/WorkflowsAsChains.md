@@ -1,7 +1,7 @@
 # Workflows as Chains of Steps
 
 A workflow type such as `data-cleaning` runs one fixed analysis. A **custom workflow** is one you write: a chain of
-steps, each reading what an earlier step made. One custom workflow can conform two corpora onto an ontology, merge
+steps, each reading what an earlier step made. One custom workflow can conform two datasets onto an ontology, merge
 them, remove the duplicates, check what is left, split it and write it out, all from YAML.
 
 ## A workflow is a chain of steps
@@ -23,7 +23,7 @@ workflows:
     steps:
       - {name: dupes, evaluator: dupes, input: data}
       - {name: clean, transform: remove, input: data, plans: {dupes: {keep: first}}}
-      - {name: corpus, transform: export, input: clean}
+      - {name: dataset, transform: export, input: clean}
 
 tasks:
   - {name: prep, workflow: clean_export, sources: [train]}
@@ -63,7 +63,7 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 | `select` | a Dataset, and a `prioritize` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
 | `remove` | a Dataset, and Duplicates or Outliers outputs computed on it (`plans:`) | the Dataset without what the plans name |
 | `conform` | a Dataset, and a `label-alignment` of it (`alignment:`) | the Dataset relabelled onto the ontology |
-| `export` | an object-detection Dataset | a corpus on disk under the run's output directory, and a record of it |
+| `export` | an object-detection Dataset | a dataset on disk under the run's output directory, and a record of it |
 
 `remove`, `select` and `conform` apply an evaluator's output to a Dataset, and only to the Dataset it was computed on.
 The step that `plans:`, `ranking:` or `alignment:` names must have read exactly the Dataset the transform's own
@@ -166,11 +166,11 @@ its own, named by its key.
 
 ## Workflow types as presets
 
-A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning` is the first. Its
-evaluators find outliers and duplicates, its checks judge them against `health_thresholds`, and its `clean` step
-removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists
-the chain. The other workflow types will follow. Until then, each runs as one step that makes its result, and its
-findings stay in that step.
+A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning` and `data-prioritization`
+are presets. Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `health_thresholds`,
+and its `clean` step removes what they flagged. The [Check and Combine
+Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists the chain. The other workflow types will follow.
+Until then, each runs as one step that makes its result, and its findings stay in that step.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
@@ -180,13 +180,15 @@ chain's, listed at the top of the JSON, each naming its step, such as `cleaning/
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
 while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain
-once per element, so `cleaning.clean` is a list with the same keys.
+once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
+data-prioritization's `pools` is, and a step running it binds that input to a list, such as
+`input: [ref, cleaning.clean]`.
 
 ## Derived data
 
 Evaluators read statistics, metadata and embeddings. In a chain, Flow derives them from the Dataset each step reads,
 as it does from a source. Each Dataset derives its own, so a `balance` step on `clean` reads the metadata of the
-cleaned corpus. Removing items makes a new Dataset, and everything is derived again from it.
+cleaned dataset. Removing items makes a new Dataset, and everything is derived again from it.
 
 The same Dataset under the same policy is derived once. Two steps that read `merged`'s statistics share one
 computation. With a disk cache (`--cache`), a Dataset a chain made is cached under its own key, as a source is, so a
@@ -246,7 +248,7 @@ the data: the plan `remove` applied, the indices `select`, `split` and `kfold` c
 So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing one
 detection changes the digest though the number of items stays the same.
 
-An `export` step writes into the corpus's `provenance.json` each source the Dataset descends from, with the dataset and
+An `export` step writes into the dataset's `provenance.json` each source the Dataset descends from, with the dataset and
 view it read; the lineage of the Dataset it wrote; and a `label_space` list shaped as a top-level export's. The list
 holds each source's own Relabel records first, as a top-level export of that source writes them, then one record per
 `conform` on the way, in chain order, with its remap and ontology digest and the step's address as its `source`.

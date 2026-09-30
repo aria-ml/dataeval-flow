@@ -4,7 +4,7 @@
 #
 # You can execute this workflow with `dataeval-flow --config data_cleaning.yaml`.
 # With `--output ./output`, the skysealand_export task also writes the cleaned dataset
-# under output/datasets/skysealand_export.corpus/.
+# under output/datasets/skysealand_export.dataset/.
 #
 # yaml-language-server: $schema=../../../config/params.schema.json
 
@@ -64,7 +64,7 @@ workflows:
     inputs: [data]
     steps:
       - {name: cleaning, workflow: skysealand_cleaning, input: data}
-      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+      - {name: dataset, transform: export, input: cleaning.clean, format: coco}
 
 tasks:
   - name: skysealand_clean

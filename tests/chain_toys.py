@@ -322,7 +322,7 @@ class ToyDetections:
         self._labels = [list(item) for item in labels]
         self._copy = dict(duplicate_of or {})
         self._bright = set(bright)
-        self._seed = zlib.crc32(dataset_id.encode())  # two corpora never share an image by accident
+        self._seed = zlib.crc32(dataset_id.encode())  # two datasets never share an image by accident
         self.metadata = DatasetMetadata(id=dataset_id, index2label=dict(index2label))
 
     def __len__(self) -> int:

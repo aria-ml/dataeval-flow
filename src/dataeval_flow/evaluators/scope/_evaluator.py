@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from dataeval.core import label_alignment
+from dataeval.core import RankResult, label_alignment
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -145,8 +145,15 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
         data, *rest = inputs
         embeddings = require(data.embeddings, "embeddings", data.source)
         reference = require(rest[0].embeddings, "embeddings", rest[0].source) if rest else None
-        labels = usable_labels(data, len(embeddings), self.name)
+        if reference is not None and not len(reference):
+            raise ValueError(f"`{rest[0].source}` has no items to rank against.")
         prioritize = Prioritize(**dataeval_arguments(config), reference=reference)
+        if not len(embeddings):
+            # DataEval refuses no embeddings; a pool emptied by cleaning ranks to an empty ranking.
+            _logger.warning("%s: source '%s' has no items, so its ranking is empty.", self.name, data.source)
+            empty = RankResult(indices=np.empty(0, dtype=np.intp), scores=np.empty(0, dtype=np.float32))
+            return PrioritizeOutput(empty, prioritize.method, prioritize.order, prioritize.policy, prioritize.num_bins)
+        labels = usable_labels(data, len(embeddings), self.name)
         return prioritize.evaluate(embeddings, class_labels=labels)
 
 

@@ -22,7 +22,6 @@ from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThre
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_coverage._config import DataCoverageConfig, DataCoverageHealthThresholds
-from dataeval_flow.workflows.data_prioritization._config import DataPrioritizationHealthThresholds
 from dataeval_flow.workflows.drift_monitoring._config import (
     ChunkingConfig,
     DriftMonitoringHealthThresholds,
@@ -40,7 +39,7 @@ class TestTopLevelKeys:
 
     def test_a_misspelled_section_fails_the_load_naming_the_section_it_resembles(self, tmp_path: Path) -> None:
         path = tmp_path / "pipeline.yaml"
-        path.write_text("exprots:\n  - {name: corpus, source: merged}\n")  # codespell:ignore
+        path.write_text("exprots:\n  - {name: dataset, source: merged}\n")  # codespell:ignore
 
         with pytest.raises(ValidationError, match=r"'exprots'.*did you mean 'exports'"):
             load_config(path)
@@ -79,7 +78,6 @@ _NESTED = [
     pytest.param(DataAnalysisHealthThresholds, {}, id="analysis-thresholds"),
     pytest.param(DataCleaningHealthThresholds, {}, id="cleaning-thresholds"),
     pytest.param(DataCoverageHealthThresholds, {}, id="coverage-thresholds"),
-    pytest.param(DataPrioritizationHealthThresholds, {}, id="prioritization-thresholds"),
     pytest.param(DriftMonitoringHealthThresholds, {}, id="drift-thresholds"),
     pytest.param(OODDetectionHealthThresholds, {}, id="ood-thresholds"),
     pytest.param(ChunkingConfig, {"chunk_size": 100}, id="drift-chunking"),

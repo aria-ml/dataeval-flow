@@ -1,6 +1,6 @@
 """Write a resolved source out as a dataset, with the provenance that produced it.
 
-An export is not lossless. Detections are rebuilt from the realized corpus: a view can
+An export is not lossless. Detections are rebuilt from the realized dataset: a view can
 filter and relabel them, and nothing maps an output detection back to its source
 annotation. An export carries each box's geometry and class, and drops the source
 annotation id, `area`, `segmentation`, `iscrowd` and the per-detection attributes. Read a
@@ -85,7 +85,7 @@ def build_od_dataset(
         The source to write. Its own view is applied here.
     dataset_metadata : DatasetMetadata
         Provenance to attach, including the taxonomy. The taxonomy is filled in from the
-        corpus's vocabulary when it is not already set.
+        dataset's vocabulary when it is not already set.
 
     Returns
     -------
@@ -222,7 +222,7 @@ def _sample(
     *,
     merged: bool,
 ) -> "ImageObjectDetectionSample":
-    """Build one output sample from one datum of the realized corpus."""
+    """Build one output sample from one datum of the realized dataset."""
     from datamaite import ImageObjectDetectionSample
 
     image, target, meta = datum
@@ -231,7 +231,7 @@ def _sample(
 
     return ImageObjectDetectionSample(
         # Allocate an integer: COCO's writer skips a sample whose image_id is not an int,
-        # and a merged corpus's ids are strings.
+        # and a merged dataset's ids are strings.
         image_id=ordinal,
         path_or_uri=reference.path_or_uri,
         image_bytes=reference.image_bytes,
@@ -315,7 +315,7 @@ def _with_taxonomy(
     index2label: "Mapping[int, str]",
     source_name: str,
 ) -> "DatasetMetadata":
-    """Fill in the taxonomy from the corpus's vocabulary, keeping any already set."""
+    """Fill in the taxonomy from the dataset's vocabulary, keeping any already set."""
     import dataclasses
 
     from datamaite import CategoryEntry, Taxonomy
@@ -342,10 +342,10 @@ def export_provenance(
 ) -> "DatasetMetadata":
     """Build the dataset metadata an export carries.
 
-    Record what a reader needs to answer where this corpus came from: each operand's
+    Record what a reader needs to answer where this dataset came from: each operand's
     dataset and the mapping that conformed it, the ontology it was conformed to, and the
     label-space digests. The digests are the join — the same values the result envelope
-    carries and a coverage audit stamped, so an emitted corpus can be matched back to
+    carries and a coverage audit stamped, so an emitted dataset can be matched back to
     the run and the audit that justified its vocabulary.
 
     Parameters
@@ -373,7 +373,7 @@ def export_provenance(
     records = label_space_records([resolved], ontology)
     # Key by the source whose view applied the Relabel. A merged source's own view gets a
     # record under the merged source's own name, which matches no operand: that Relabel
-    # conformed the corpus rather than any one operand, so it belongs in `label_space` and
+    # conformed the dataset rather than any one operand, so it belongs in `label_space` and
     # not in an operand entry.
     by_source = {record.source: record for record in records}
     name, digest = _ontology_entry(ontology)
@@ -391,9 +391,9 @@ def export_provenance(
 
 
 def _ontology_entry(ontology: "ResolvedOntology | None") -> "tuple[str | None, str | None]":
-    """Name the ontology a corpus was conformed to, and digest its concepts.
+    """Name the ontology a dataset was conformed to, and digest its concepts.
 
-    Read from the resolution, not the label-space records, so a corpus that needed no
+    Read from the resolution, not the label-space records, so a dataset that needed no
     Relabel still says which vocabulary its labels are read under. Both are null where
     the export named no ontology, or where the named ontology failed to load.
     """
@@ -407,7 +407,7 @@ def _ontology_entry(ontology: "ResolvedOntology | None") -> "tuple[str | None, s
 def _operand_entry(operand: "SourceOperand", record: "LabelSpaceRecord | None") -> dict[str, Any]:
     """Describe one operand: the dataset it read, the view it read through, and the remap.
 
-    ``record`` is None where the operand's view conformed nothing, which is a corpus
+    ``record`` is None where the operand's view conformed nothing, which is a dataset
     merged from sources that already shared a vocabulary.
     """
     return {
@@ -455,7 +455,7 @@ def write_export(
 ) -> "Path":
     """Write one export under *dest_root*, and return the directory written.
 
-    The directory holds the corpus in the requested format and a `provenance.json`
+    The directory holds the dataset in the requested format and a `provenance.json`
     sidecar carrying the same mapping the COCO writer embeds in its `info` block.
 
     Parameters
@@ -517,7 +517,7 @@ def _write_or_explain(
         if cleared:
             _logger.error(
                 "  Export '%s' cleared %s before it failed. `mode: replace` empties the "
-                "destination first and does not restore it, so the corpus that was there is gone.",
+                "destination first and does not restore it, so the dataset that was there is gone.",
                 name,
                 dest,
             )
@@ -629,7 +629,7 @@ def _holds_a_dataset(dest: "Path") -> bool:
 
 
 def _refuse_occupied_destination(dest: "Path", mode: str) -> None:
-    """Refuse an occupied destination before the corpus is built.
+    """Refuse an occupied destination before the dataset is built.
 
     datamaite applies the same policy only after its writer has walked the dataset, by
     which point every image has been decoded. Check it here so a re-run that cannot write
@@ -649,7 +649,7 @@ def _warn_on_missing_ontology(export: "ExportConfig", config: "PipelineConfig") 
 
     An export names no workflow and inherits nothing from one, which is what keeps it
     independent of `tasks:`. An export written without the ontology a workflow declares
-    digests an empty label space, and the emitted corpus then carries an identity the
+    digests an empty label space, and the emitted dataset then carries an identity the
     run's envelope does not.
     """
     if export.ontology is not None or not config.workflows:
@@ -669,16 +669,16 @@ def _write_provenance(dest: "Path", provenance: "DatasetMetadata") -> None:
     """Write the provenance sidecar into a written export.
 
     Only the COCO writer carries `DatasetMetadata.info` into the files it writes; the
-    others drop it. Write it beside the corpus for every format, so an export's provenance
+    others drop it. Write it beside the dataset for every format, so an export's provenance
     does not depend on the format you asked for. COCO then carries it in both places, and
     the embedded block stays the flat mapping datamaite round-trips.
 
     The sidecar holds a `runs` list, one entry per write, in the order they were written.
-    `mode: append` writes into a directory that already holds a corpus, so a sidecar
-    carrying one entry would describe part of that corpus and read as the whole of it.
+    `mode: append` writes into a directory that already holds a dataset, so a sidecar
+    carrying one entry would describe part of that dataset and read as the whole of it.
     A fresh write leaves one entry; every other case keeps what is already recorded.
 
-    Call this after the corpus is written, so a failed write leaves no sidecar describing
+    Call this after the dataset is written, so a failed write leaves no sidecar describing
     a dataset that is not there.
     """
     import json

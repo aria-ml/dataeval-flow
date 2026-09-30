@@ -60,9 +60,9 @@ This is precisely where provenance meets [reproducibility](Reproducibility.md):
 provenance records the inputs; reproducibility guarantees that replaying them
 reproduces the result. A result you can trace is a result you can reproduce.
 
-## A merged corpus records every operand
+## A merged dataset records every operand
 
-A source can merge other sources into one corpus. Every envelope field that
+A source can merge other sources into one dataset. Every envelope field that
 names one input then names all of them: **dataset identifiers** list each
 operand's dataset, the **selection identifier** lists every view in the chain,
 operand views first and the merged source's own view last, the **source
@@ -98,7 +98,7 @@ view. Declare the same ontology on both and the downstream result's digest
 equals the digest of the audit that justified its vocabulary, so matching the
 two is a comparison of one value. An
 exported dataset carries the same digest in its provenance sidecar, which
-extends the join to the corpus itself.
+extends the join to the dataset itself.
 
 ## Provenance enables interoperability
 

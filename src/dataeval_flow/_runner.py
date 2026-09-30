@@ -233,7 +233,7 @@ def run(
 
     if not config.tasks:
         # An export names a source, not a task, so a config that runs nothing still has a
-        # corpus to write.
+        # dataset to write.
         _logger.info("No tasks defined in config.")
         export_failures = _write_declared_exports(config, output_dir, resolved_data)
         return 1 if export_failures and _gate(config.result.fail_on, fail_on_warning) != "never" else 0

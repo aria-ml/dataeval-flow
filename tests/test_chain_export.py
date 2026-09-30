@@ -44,28 +44,28 @@ def _instances(root: Path) -> dict[str, Any]:
 
 
 def test_exporting_a_chain_input_writes_it_under_task_dot_step(tmp_path: Path) -> None:
-    config = _config([{"name": "corpus", "transform": "export", "input": "a"}])
+    config = _config([{"name": "dataset", "transform": "export", "input": "a"}])
     result = run_tasks(config, output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
-    record = result.steps["corpus"].output
-    assert record.path == str(tmp_path / "datasets" / "t.corpus")
-    written = _instances(tmp_path / "datasets" / "t.corpus")
+    record = result.steps["dataset"].output
+    assert record.path == str(tmp_path / "datasets" / "t.dataset")
+    written = _instances(tmp_path / "datasets" / "t.dataset")
     assert len(written["images"]) == 5
     assert len(written["annotations"]) == 7
-    assert (tmp_path / "datasets" / "t.corpus" / "provenance.json").is_file()
+    assert (tmp_path / "datasets" / "t.dataset" / "provenance.json").is_file()
 
 
 def test_exporting_a_derived_dataset_encodes_its_pixels(tmp_path: Path) -> None:
     steps = [
         {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 3}}]},
-        {"name": "corpus", "transform": "export", "input": "few", "to": "first3"},
+        {"name": "dataset", "transform": "export", "input": "few", "to": "first3"},
     ]
     result = run_tasks(_config(steps), output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
     assert result.success
     written = _instances(tmp_path / "datasets" / "first3")
     assert len(written["images"]) == 3
-    assert result.steps["corpus"].output.items == 3
+    assert result.steps["dataset"].output.items == 3
     provenance = json.loads((tmp_path / "datasets" / "first3" / "provenance.json").read_text())["runs"][-1]
     assert [record["name"] for record in provenance["lineage"]] == ["few", "a"]
 
@@ -80,7 +80,7 @@ def test_the_provenance_of_a_derived_dataset_names_each_root_sources_dataset_vie
         "inputs": ["a", "b"],
         "steps": [
             {"name": "both", "transform": "merge", "input": ["a", "b"]},
-            {"name": "corpus", "transform": "export", "input": "both"},
+            {"name": "dataset", "transform": "export", "input": "both"},
         ],
     }
     config = PipelineConfig.model_validate(
@@ -101,7 +101,7 @@ def test_the_provenance_of_a_derived_dataset_names_each_root_sources_dataset_vie
     result = run_tasks(config, output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    provenance = json.loads((tmp_path / "datasets" / "t.corpus" / "provenance.json").read_text())["runs"][-1]
+    provenance = json.loads((tmp_path / "datasets" / "t.dataset" / "provenance.json").read_text())["runs"][-1]
     assert provenance["operands"] == [
         {"source": "plain", "dataset": "plain_data", "view": "vehicles", "class_remap": {"car": "vehicle"}},
         {"source": "renamed", "dataset": "renamed_data", "view": "vehicles", "class_remap": {"car": "vehicle"}},
@@ -138,7 +138,7 @@ def test_the_provenance_records_a_merged_roots_own_relabel(tmp_path: Path) -> No
                 {
                     "name": "w",
                     "inputs": ["a"],
-                    "steps": [few, {"name": "corpus", "transform": "export", "input": "few"}],
+                    "steps": [few, {"name": "dataset", "transform": "export", "input": "few"}],
                 }
             ],
             "tasks": [{"name": "t", "workflow": "w", "sources": ["merged"]}],
@@ -147,7 +147,7 @@ def test_the_provenance_records_a_merged_roots_own_relabel(tmp_path: Path) -> No
     result = run_tasks(config, output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    provenance = json.loads((tmp_path / "datasets" / "t.corpus" / "provenance.json").read_text())["runs"][-1]
+    provenance = json.loads((tmp_path / "datasets" / "t.dataset" / "provenance.json").read_text())["runs"][-1]
     records = [
         (record["source"], record["class_remap"], record["target"], record["digest"])
         for record in provenance["label_space"]
@@ -168,7 +168,7 @@ def test_the_provenance_records_the_root_relabel_then_each_conform_on_the_way_an
         {"name": "aligned", "evaluator": "align", "input": "a"},
         {"name": "c", "transform": "conform", "input": "a", "alignment": "aligned"},
         {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 3}}]},
-        {"name": "corpus", "transform": "export", "input": "c"},
+        {"name": "dataset", "transform": "export", "input": "c"},
         {"name": "plain", "transform": "export", "input": "few", "to": "plain"},
     ]
     concepts = [{"id": "Vehicle", "label": "Vehicle", "synonyms": ["vehicle"]}, {"id": "Person", "label": "Person"}]
@@ -194,7 +194,7 @@ def test_the_provenance_records_the_root_relabel_then_each_conform_on_the_way_an
         "target": ["vehicle", "person"],
         "digest": "1128b6b192d6",
     }
-    conformed = json.loads((tmp_path / "datasets" / "t.corpus" / "provenance.json").read_text())["runs"][-1]
+    conformed = json.loads((tmp_path / "datasets" / "t.dataset" / "provenance.json").read_text())["runs"][-1]
     assert "conforms" not in conformed
     first, conform = conformed["label_space"]
     assert first == root
@@ -208,18 +208,18 @@ def test_the_provenance_records_the_root_relabel_then_each_conform_on_the_way_an
 
 
 def test_without_an_output_directory_the_export_is_skipped_and_the_task_passes() -> None:
-    config = _config([{"name": "corpus", "transform": "export", "input": "a"}])
+    config = _config([{"name": "dataset", "transform": "export", "input": "a"}])
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
     assert result.success
-    status_and_reason = (result.steps["corpus"].status, result.steps["corpus"].reason)
+    status_and_reason = (result.steps["dataset"].status, result.steps["dataset"].reason)
     assert status_and_reason == ("skipped", "the run has no output directory")
 
 
 def test_the_record_is_in_the_json(tmp_path: Path) -> None:
-    config = _config([{"name": "corpus", "transform": "export", "input": "a"}])
+    config = _config([{"name": "dataset", "transform": "export", "input": "a"}])
     payload = cast("dict[str, Any]", run_tasks(config, output_dir=tmp_path)["t"].to_dict())
-    output = payload["steps"]["corpus"]["output"]
+    output = payload["steps"]["dataset"]["output"]
     assert (output["format"], output["mode"], output["items"]) == ("coco", "error", 5)
     assert output["provenance"]["tool"] == "dataeval-flow"
 
@@ -236,17 +236,17 @@ def test_two_exports_to_one_destination_fail_the_load() -> None:
 def test_an_export_of_a_list_output_writes_each_element_under_its_key(tmp_path: Path) -> None:
     steps = [
         {"name": "folds", "transform": "kfold", "input": "a", "folds": 2},
-        {"name": "corpus", "transform": "export", "input": "folds.train"},
+        {"name": "dataset", "transform": "export", "input": "folds.train"},
     ]
     result = run_tasks(_config(steps), output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    elements = result.steps["corpus"].elements
+    elements = result.steps["dataset"].elements
     assert elements is not None
     assert list(elements) == ["0", "1"]
     items = {record.name: record.items for record in result.metadata.lineage}
     for key in ("0", "1"):
-        where = tmp_path / "datasets" / "t.corpus" / key
+        where = tmp_path / "datasets" / "t.dataset" / key
         assert elements[key].output.path == str(where)
         assert len(_instances(where)["images"]) == items[f"folds.train[{key}]"]
 
@@ -256,7 +256,7 @@ def test_an_export_of_a_list_input_writes_each_source_under_its_name(tmp_path: P
     workflow = {
         "name": "w",
         "inputs": [{"name": "cams", "list": True}],
-        "steps": [{"name": "corpus", "transform": "export", "input": "cams"}],
+        "steps": [{"name": "dataset", "transform": "export", "input": "cams"}],
     }
     config = chain_pipeline(
         workflows=[workflow],
@@ -265,12 +265,12 @@ def test_an_export_of_a_list_input_writes_each_source_under_its_name(tmp_path: P
     )
     result = run_tasks(config, output_dir=tmp_path)["t"]
     assert result.success, result.errors
-    assert len(_instances(tmp_path / "datasets" / "t.corpus" / "cam1")["images"]) == 5
-    assert len(_instances(tmp_path / "datasets" / "t.corpus" / "cam2")["images"]) == 3
+    assert len(_instances(tmp_path / "datasets" / "t.dataset" / "cam1")["images"]) == 5
+    assert len(_instances(tmp_path / "datasets" / "t.dataset" / "cam2")["images"]) == 3
 
 
 def test_a_list_key_that_is_not_one_plain_directory_fails_its_element() -> None:
-    context = TransformContext(task="t", step="corpus", element="..")
+    context = TransformContext(task="t", step="dataset", element="..")
     with pytest.raises(ValueError, match=r"List key '\.\.' names a relative path rather than a directory"):
         ExportTransform()._where(ExportStepConfig(input="a"), context)
 
@@ -293,14 +293,14 @@ def test_a_transform_that_runs_only_once_refuses_a_list(plugins) -> None:
 def test_an_export_step_reading_one_element_of_a_list_writes_it(tmp_path: Path) -> None:
     steps = [
         {"name": "folds", "transform": "kfold", "input": "a", "folds": 2},
-        {"name": "corpus", "transform": "export", "input": "folds.train[0]"},
+        {"name": "dataset", "transform": "export", "input": "folds.train[0]"},
     ]
     result = run_tasks(_config(steps), output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     items = {record.name: record.items for record in result.metadata.lineage}
-    assert (items["folds.train[0]"], result.steps["corpus"].output.items) == (2, 2)
-    assert len(_instances(tmp_path / "datasets" / "t.corpus")["images"]) == 2
+    assert (items["folds.train[0]"], result.steps["dataset"].output.items) == (2, 2)
+    assert len(_instances(tmp_path / "datasets" / "t.dataset")["images"]) == 2
 
 
 @pytest.mark.parametrize(
@@ -313,23 +313,23 @@ def test_an_export_step_reading_one_element_of_a_list_writes_it(tmp_path: Path) 
 )
 def test_an_export_destination_that_is_not_one_plain_directory_fails_the_load(to: str, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
-        _config([{"name": "corpus", "transform": "export", "input": "a", "to": to}])
+        _config([{"name": "dataset", "transform": "export", "input": "a", "to": to}])
 
 
 def test_an_export_destination_that_is_one_plain_directory_loads() -> None:
-    config = _config([{"name": "corpus", "transform": "export", "input": "a", "to": "corpus_v2"}])
+    config = _config([{"name": "dataset", "transform": "export", "input": "a", "to": "dataset_v2"}])
     (step,) = config.workflows[0].steps  # type: ignore[index,union-attr]
-    assert step.config.to == "corpus_v2"  # type: ignore[union-attr]
+    assert step.config.to == "dataset_v2"  # type: ignore[union-attr]
 
 
 def test_an_export_step_colliding_with_a_top_level_export_fails_the_load() -> None:
-    step = {"name": "x", "transform": "export", "input": "a", "to": "corpus"}
-    extra = {"exports": [ExportConfig(name="corpus", source="src")]}
-    with pytest.raises(ValidationError, match="export 'corpus' and task 't' step 'x' both export"):
+    step = {"name": "x", "transform": "export", "input": "a", "to": "dataset"}
+    extra = {"exports": [ExportConfig(name="dataset", source="src")]}
+    with pytest.raises(ValidationError, match="export 'dataset' and task 't' step 'x' both export"):
         _config([step], extra=extra)
 
 
 def test_exporting_a_classification_dataset_fails_before_running(tmp_path: Path) -> None:
-    config = _config([{"name": "corpus", "transform": "export", "input": "a"}], datasets={"src": ToyImages()})
+    config = _config([{"name": "dataset", "transform": "export", "input": "a"}], datasets={"src": ToyImages()})
     with pytest.raises(GraphError, match="`input` takes object_detection"):
         run_tasks(config, output_dir=tmp_path)

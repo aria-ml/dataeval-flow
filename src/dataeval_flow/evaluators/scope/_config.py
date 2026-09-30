@@ -237,7 +237,7 @@ class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
     """Config for ``label-alignment``: how a Dataset's class names align to an ontology.
 
     Wraps ``dataeval.core.label_alignment``, with the remap written as labels to paste, the target vocabulary, and the
-    label-space digest a conformed corpus carries. A ``conform`` step applies it.
+    label-space digest a conformed dataset carries. A ``conform`` step applies it.
     """
 
     type: str = Field(

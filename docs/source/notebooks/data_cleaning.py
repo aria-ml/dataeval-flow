@@ -338,7 +338,7 @@ print(f"Removed: {result.steps['clean'].details['removed']}")
 #     inputs: [data]
 #     steps:
 #       - {name: cleaning, workflow: skysealand_cleaning, input: data}
-#       - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+#       - {name: dataset, transform: export, input: cleaning.clean, format: coco}
 #
 # tasks:
 #   - name: skysealand_export
@@ -349,8 +349,8 @@ print(f"Removed: {result.steps['clean'].details['removed']}")
 #
 # Run from this notebook's directory, `dataeval-flow --config data_cleaning.yaml --output ./output` runs both tasks.
 # In `skysealand_export`, the `cleaning` step runs the chain above as `cleaning/outliers`, `cleaning/labels`, and so on
-# to `cleaning/clean`, and `corpus` writes the cleaned dataset in COCO format under
-# `output/datasets/skysealand_export.corpus/`. Without `--output`, nothing is written, and the export step is skipped.
+# to `cleaning/clean`, and `dataset` writes the cleaned dataset in COCO format under
+# `output/datasets/skysealand_export.dataset/`. Without `--output`, nothing is written, and the export step is skipped.
 # See {doc}`Chain steps into a workflow of your own <../how_to/write_a_custom_workflow>`.
 
 # %% [markdown]

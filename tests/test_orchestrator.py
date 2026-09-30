@@ -1663,7 +1663,7 @@ class TestOntologyReachesTheContext:
 
 @pytest.mark.required
 class TestMergedSourceTask:
-    """A task naming a merged source reads one corpus."""
+    """A task naming a merged source reads one dataset."""
 
     def test_workflow_receives_one_merged_context(self):
         from dataeval_flow._orchestrator import _run_single_task

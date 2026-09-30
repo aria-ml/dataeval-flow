@@ -43,7 +43,7 @@ them.
 
 Write a **custom workflow** when the analysis is a sequence of your own: a chain of
 evaluator steps, workflow-type steps, and transforms that make the Datasets they
-read, such as a merged corpus, the same corpus without its duplicates, or its
+read, such as a merged dataset, the same dataset without its duplicates, or its
 training split. A chain's health counts the findings of its check steps, which
 hold an evaluator's output to thresholds, and those of the workflow types it runs.
 [Workflows as Chains of Steps](WorkflowsAsChains.md) explains how a chain works.

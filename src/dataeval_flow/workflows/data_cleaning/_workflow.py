@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 from dataeval_flow.evaluators.quality import DuplicatesConfig, LabelHealthConfig, OutliersConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
+from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import Preset, PresetChain
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningConfig
@@ -31,7 +32,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
     name: ClassVar[str] = "data-cleaning"
     title: ClassVar[str] = "Data Cleaning"
     description: ClassVar[str] = "Outlier and duplicate detection for image datasets, and the dataset without them"
-    slots: ClassVar[tuple[str, ...]] = ("data",)
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
     outputs: ClassVar[tuple[Port, ...]] = (Port("clean", DataType.DATASET),)
 
     @classmethod

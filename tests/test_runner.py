@@ -358,7 +358,7 @@ class TestNothingSucceeded:
 
 def _with_exports(path: Path, source: str) -> Path:
     """Append an `exports:` block naming *source* to an existing config file."""
-    path.write_text(path.read_text() + f"exports:\n  - name: corpus\n    source: {source}\n")
+    path.write_text(path.read_text() + f"exports:\n  - name: dataset\n    source: {source}\n")
     return path
 
 
@@ -413,7 +413,7 @@ class TestRunnerExports:
         assert (tmp_path / "out" / "results" / "result.json").exists()
 
     def test_an_export_is_written_when_the_config_declares_no_tasks(self, tmp_path: Path):
-        """An export names a source, so a config that runs nothing still writes its corpus."""
+        """An export names a source, so a config that runs nothing still writes its dataset."""
         import dataeval_flow._export as export_mod
         from dataeval_flow._runner import run
 

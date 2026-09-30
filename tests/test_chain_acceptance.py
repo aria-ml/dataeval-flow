@@ -26,8 +26,8 @@ extractors:
 """
 
 
-def _corpora() -> dict[str, ToyDetections]:
-    """Two corpora of 24 detection images: `a` names car and person, `b` car, truck and pedestrian (lossy)."""
+def _datasets() -> dict[str, ToyDetections]:
+    """Two datasets of 24 detection images: `a` names car and person, `b` car, truck and pedestrian (lossy)."""
     a = ToyDetections(
         [[i % 2, (i + 1) % 2] for i in range(24)], {0: "car", 1: "person"}, duplicate_of={9: 3}, dataset_id="a"
     )
@@ -62,7 +62,7 @@ evaluators:
   - {name: coverage, type: coverage}
   - {name: balance, type: balance}
 workflows:
-  - name: corpus
+  - name: dataset
     inputs: [a, b]
     steps:
       - {name: align_a, evaluator: align, input: a}
@@ -81,12 +81,12 @@ workflows:
       - {name: split, transform: split, input: clean, test_frac: 0.25}
       - {name: train_balance, evaluator: balance, input: split.train}
 tasks:
-  - {name: corpus, workflow: corpus, sources: [a, b], extractor: flat}
+  - {name: dataset, workflow: dataset, sources: [a, b], extractor: flat}
 """
     )
     # Coverage reads the crops' metadata, where DataEval drops the `source_id` DetectionCrops adds to every crop.
     with pytest.warns(UserWarning, match="`source_id` was dropped"):
-        result = _run(text, _corpora(), tmp_path, "corpus")
+        result = _run(text, _datasets(), tmp_path, "dataset")
     assert result.success, result.errors
     assert {record.status for record in result.steps.values()} == {"ok"}
     sizes = {record.name: record.items for record in result.metadata.lineage}
@@ -95,7 +95,7 @@ tasks:
     assert {record.source for record in result.metadata.label_space} == {"a2", "b2"}
 
 
-def test_clean_remove_export_writes_a_corpus_without_the_duplicate(tmp_path: Path) -> None:
+def test_clean_remove_export_writes_a_dataset_without_the_duplicate(tmp_path: Path) -> None:
     text = (
         _ONTOLOGY
         + """
@@ -107,17 +107,17 @@ workflows:
     steps:
       - {name: dupes, evaluator: dupes, input: data}
       - {name: clean, transform: remove, input: data, plans: {dupes: {keep: first}}}
-      - {name: corpus, transform: export, input: clean, format: coco}
+      - {name: dataset, transform: export, input: clean, format: coco}
 tasks:
   - {name: prep, workflow: clean_export, sources: [a]}
 """
     )
-    result = _run(text, {"a": _corpora()["a"]}, tmp_path, "prep")
+    result = _run(text, {"a": _datasets()["a"]}, tmp_path, "prep")
     assert result.success, result.errors
-    written = _coco(tmp_path / "datasets" / "prep.corpus")
+    written = _coco(tmp_path / "datasets" / "prep.dataset")
     assert len(written["images"]) == 23
-    assert result.steps["corpus"].output.items == 23
-    reloaded = load_dataset(tmp_path / "datasets" / "prep.corpus", dataset_format="coco")
+    assert result.steps["dataset"].output.items == 23
+    reloaded = load_dataset(tmp_path / "datasets" / "prep.dataset", dataset_format="coco")
     assert len(reloaded) == 23
     assert [reloaded[i][2]["source_id"] for i in range(23)] == [str(i) for i in range(24) if i != 9]
 
@@ -136,7 +136,7 @@ workflows:
       - {name: a2, transform: conform, input: a, alignment: align_a}
       - {name: b2, transform: conform, input: b, alignment: align_b%s}
       - {name: merged, transform: merge, input: [a2, b2]}
-      - {name: corpus, transform: export, input: merged, format: coco, to: conformed}
+      - {name: dataset, transform: export, input: merged, format: coco, to: conformed}
 tasks:
   - {name: build, workflow: conform_and_merge, sources: [a, b]}
 """
@@ -144,17 +144,17 @@ tasks:
 
 
 def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: Path) -> None:
-    refused = _run(_CONFORM % "", _corpora(), tmp_path / "refused", "build")
+    refused = _run(_CONFORM % "", _datasets(), tmp_path / "refused", "build")
     assert not refused.success
     assert refused.steps["b2"].status == "failed"
     assert "is lossy, beyond `allow: lossless`" in refused.steps["b2"].errors[0]
-    assert (refused.steps["merged"].status, refused.steps["corpus"].status) == ("skipped", "skipped")
+    assert (refused.steps["merged"].status, refused.steps["dataset"].status) == ("skipped", "skipped")
     assert not (tmp_path / "refused" / "datasets" / "conformed").exists()
 
-    allowed = _run(_CONFORM % ", allow: lossy", _corpora(), tmp_path / "allowed", "build")
+    allowed = _run(_CONFORM % ", allow: lossy", _datasets(), tmp_path / "allowed", "build")
     assert allowed.success, allowed.errors
-    corpus = tmp_path / "allowed" / "datasets" / "conformed"
-    written = _coco(corpus)
+    dataset = tmp_path / "allowed" / "datasets" / "conformed"
+    written = _coco(dataset)
     assert len(written["images"]) == 48
     assert sorted(category["name"] for category in written["categories"]) == ["Person", "Vehicle"]
     a2_remap = {"car": "Vehicle", "person": "Person"}
@@ -167,7 +167,7 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
         ("a2", "vehicles", "7322513e6772", a2_remap, ["Vehicle", "Person"]),
         ("b2", "vehicles", "7322513e6772", b2_remap, ["Vehicle", "Person"]),
     ]
-    provenance = json.loads((corpus / "provenance.json").read_text())["runs"][-1]
+    provenance = json.loads((dataset / "provenance.json").read_text())["runs"][-1]
     assert provenance["operands"] == [
         {"source": "a", "dataset": "a_data", "view": None, "class_remap": {}},
         {"source": "b", "dataset": "b_data", "view": None, "class_remap": {}},
@@ -247,11 +247,11 @@ workflows:
     inputs: [data]
     steps:
       - {name: cleaning, workflow: basic_clean, input: data}
-      - {name: corpus, transform: export, input: cleaning.clean, format: coco}
+      - {name: dataset, transform: export, input: cleaning.clean, format: coco}
 tasks:
   - {name: prep, workflow: clean_export, sources: [a]}
 """
-    result = _run(text, {"a": _corpora()["a"]}, tmp_path, "prep")
+    result = _run(text, {"a": _datasets()["a"]}, tmp_path, "prep")
     assert result.success, result.errors
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
         ("ok", "Image Outliers", "cleaning/image-outliers"),
@@ -264,7 +264,7 @@ tasks:
         "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
         "by_plan": {"dupes": {"items": 1}, "outliers": {}},
     }
-    written = _coco(tmp_path / "datasets" / "prep.corpus")
+    written = _coco(tmp_path / "datasets" / "prep.dataset")
     assert (len(written["images"]), len(written["annotations"])) == (23, 46)
-    reloaded = load_dataset(tmp_path / "datasets" / "prep.corpus", dataset_format="coco")
+    reloaded = load_dataset(tmp_path / "datasets" / "prep.dataset", dataset_format="coco")
     assert [reloaded[i][2]["source_id"] for i in range(23)] == [str(i) for i in range(24) if i != 9]

@@ -9,7 +9,6 @@ from dataeval_flow.config import StatsConfigMixin, StatsPolicyConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig
-from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 from dataeval_flow.workflows.ood_detection import OODDetectionConfig
 from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 
@@ -23,7 +22,6 @@ def test_the_mixin_carries_no_deprecated_field():
     [
         DataAnalysisConfig,
         DataCoverageConfig,
-        DataPrioritizationConfig,
         OODDetectionConfig,
         ParameterSweepConfig,
     ],

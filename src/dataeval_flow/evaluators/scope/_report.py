@@ -1,6 +1,6 @@
 """The scope evaluators' report tables."""
 
-__all__ = ["coverage_section", "uncovered_blocks"]
+__all__ = ["coverage_section", "prioritize_section", "uncovered_blocks"]
 
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -65,3 +65,42 @@ def coverage_section(output: Mapping[str, Any], sources: Sequence[str], *, detai
         *uncovered_blocks(refs, "images", listed_in="output.extras.uncovered_indices"),
         *output_blocks({**output, "extras": extras}, detailed=detailed),
     ]
+
+
+# A ranking's first and last this many items are listed.
+_ENDS = 25
+
+
+def prioritize_section(output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block]:  # noqa: ARG001
+    """The ranking's 25 highest-priority and 25 lowest-priority items: each one's rank, thumbnail, item and score.
+
+    Rank is the position in the ranking, which a stratified or class-balanced policy doesn't keep in score order.
+    Score shows where the method gives one. A ranking of 50 or fewer is split between the two.
+    """
+    indices = [int(index) for index in output.get("data") or ()]
+    scores = (output.get("extras") or {}).get("scores")
+    columns = [
+        Column(key="rank", header="Rank"),
+        Column(key="image", kind="image"),
+        Column(key="item", header="Item"),
+        *([Column(key="score", header="Score", format="{:.4g}")] if scores is not None else []),
+    ]
+    ends = [
+        ("Highest priority", range(min(_ENDS, len(indices)))),
+        ("Lowest priority", range(max(_ENDS, len(indices) - _ENDS), len(indices))),
+    ]
+    blocks: list[Block] = []
+    for title, positions in ends:
+        rows: list[dict[str, Cell]] = [
+            {
+                "rank": position + 1,
+                "image": ItemRef(source=sources[0], index=indices[position]),
+                "item": indices[position],
+                "score": None if scores is None else scores[position],
+            }
+            for position in positions
+        ]
+        if rows:
+            table = Table(columns=columns, rows=rows, preview=table_limits().preview)
+            blocks.append(Section(title=title, blocks=[table]))
+    return blocks

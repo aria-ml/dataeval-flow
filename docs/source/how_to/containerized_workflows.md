@@ -343,6 +343,10 @@ workflows:
                                    # | hdbscan_distance | hdbscan_complexity
     order: hard_first              # or easy_first
     policy: difficulty             # difficulty | stratified | class_balanced
+    n: 200                         # keep each pool's top 200 as `selected`; omit to keep all
+    cleaning:
+      outlier_method: adaptive
+      outlier_flags: [dimension, pixel]
 ```
 ````
 

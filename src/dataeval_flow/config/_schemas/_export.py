@@ -16,7 +16,7 @@ It is written only into the schema: the validator refuses at load, with a messag
 class ExportConfig(BaseModel):
     """A named dataset to write, and the format to write it in.
 
-    Declare an export to take a conformed corpus out of the tool. It is written to
+    Declare an export to take a conformed dataset out of the tool. It is written to
     ``output/datasets/<name>/`` when the run has an output directory, beside
     ``output/results/``. An export names a source, not a task, so it writes whether or
     not any task reads that source.
@@ -24,7 +24,7 @@ class ExportConfig(BaseModel):
     YAML example::
 
         exports:
-          - name: conformed_corpus
+          - name: conformed_dataset
             source: merged
             format: coco
     """
@@ -47,7 +47,7 @@ class ExportConfig(BaseModel):
         default="error",
         description=(
             "What to do when the destination already holds a dataset. The default refuses, "
-            "so a re-run cannot overwrite a corpus somebody is using. `replace` clears it "
+            "so a re-run cannot overwrite a dataset somebody is using. `replace` clears it "
             "first; `append` writes into it and may leave stale files behind."
         ),
     )
@@ -56,7 +56,7 @@ class ExportConfig(BaseModel):
         description=(
             "Label space the emitted dataset's labels are read under, by name under the "
             "top-level `ontologies:` key or as a path. Written into the dataset's "
-            "provenance so the emitted corpus carries the same digest as the run and the "
+            "provenance so the emitted dataset carries the same digest as the run and the "
             "audit. An export names no workflow, so it cannot inherit one."
         ),
     )
@@ -72,11 +72,11 @@ def one_directory_segment(value: str, *, what: str) -> str:
     """Refuse `value` unless it is a single safe directory segment; `what` names it in the message.
 
     The value becomes a directory under the run's output. A separator in it would write the
-    corpus somewhere the caller never named, and `.` or `..` would name the directory holding
-    every other corpus, or the run's whole output, which `mode: replace` then clears.
+    dataset somewhere the caller never named, and `.` or `..` would name the directory holding
+    every other dataset, or the run's whole output, which `mode: replace` then clears.
     """
     if not value:
-        raise ValueError(f"{what} must not be empty. Give it a plain name, such as 'conformed_corpus'.")
+        raise ValueError(f"{what} must not be empty. Give it a plain name, such as 'conformed_dataset'.")
     if "/" in value or "\\" in value:
         raise ValueError(
             f"{what} '{value}' must be one directory segment and cannot contain '/' or '\\'. "
@@ -85,6 +85,6 @@ def one_directory_segment(value: str, *, what: str) -> str:
     if value in {".", ".."}:
         raise ValueError(
             f"{what} '{value}' names a relative path rather than a directory. "
-            "Give it a plain name, such as 'conformed_corpus'."
+            "Give it a plain name, such as 'conformed_dataset'."
         )
     return value

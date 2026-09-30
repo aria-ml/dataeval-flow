@@ -196,7 +196,7 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
         graph = graphs.get(task.workflow) if task.kind == "workflow" else None
         if graph is None:
             continue
-        # A preset's slots take one source each, so only a custom workflow's list slot has keys to bind.
+        # A preset's chain reads no key of its list slot, so only a custom workflow's list slot has keys to bind.
         workflow = workflows.get(task.workflow)
         if workflow is not None:
             problems.extend(binding_problems(task, workflow, pipeline))
@@ -204,7 +204,12 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
     return problems
 
 
-def binding_problems(task: "TaskConfig", workflow: CustomWorkflowConfig, pipeline: "PipelineConfig") -> list[str]:
+def binding_problems(
+    task: "TaskConfig",
+    workflow: CustomWorkflowConfig,
+    pipeline: "PipelineConfig",
+    evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
+) -> list[str]:
     """Every address `task`'s sources leave naming nothing: a list key no source it binds to the list slot has.
 
     A list slot is keyed by the names of the sources a task binds to it, so its keys are known only once a task binds
@@ -216,7 +221,7 @@ def binding_problems(task: "TaskConfig", workflow: CustomWorkflowConfig, pipelin
         return []
     bound = tuple(names[len(workflow.single_slots) :])
     try:
-        build_graph(workflow, pipeline, slot_keys={slot.name: bound})
+        build_graph(workflow, pipeline, slot_keys={slot.name: bound}, evaluators=evaluators)
     except GraphError as error:
         return [f"Task '{task.name}' binds sources {', '.join(bound)} to `{slot.name}`. {error}"]
     return []
@@ -388,24 +393,33 @@ def _splice(
     """A preset step's chain, spliced in, refused unless the step reads one Dataset per slot."""
     from dataeval_flow._chain._presets import splice_preset
 
+    names = preset.slot_names()
     found = _input_addresses(entry)
-    if len(found) != len(preset.slots):
-        slots = ", ".join(f"`{slot}`" for slot in preset.slots)
+    if len(found) != len(names):
+        slots = ", ".join(
+            f"`{name}`" + (" (a list)" if not isinstance(slot, str) and slot.is_list else "")
+            for slot, name in zip(preset.slots, names, strict=True)
+        )
         raise GraphError(
             f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose inputs are {slots}, but the "
             f"step names {len(found)}."
         )
     bound: list[tuple[Address, ValueType]] = []
-    for address in found:
+    for slot, name, address in zip(preset.slots, names, found, strict=True):
         value = _typed(address, entry, workflow, types, later, empty)
         if value.type is not DataType.DATASET:
             raise GraphError(
                 f"Step '{entry.name}' reads `{address}`, which is {_ARTICLE[value.type]}, but workflow "
                 f"'{entry.target}' ({config.type}) reads Datasets."
             )
+        if not isinstance(slot, str) and slot.is_list and not value.is_list:
+            raise GraphError(
+                f"Step '{entry.name}' binds `{address}` to `{name}`, which takes a list of Datasets, but `{address}` "
+                "is one Dataset."
+            )
         bound.append((address, value))
     _check_extractor(entry, "workflow", config.type, config, pipeline)
-    return splice_preset(entry, config, preset, pipeline, dict(zip(preset.slots, bound, strict=True)))
+    return splice_preset(entry, config, preset, pipeline, dict(zip(names, bound, strict=True)))
 
 
 def _bind_inputs(

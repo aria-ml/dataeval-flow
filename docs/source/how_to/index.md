@@ -92,7 +92,7 @@ write_a_custom_workflow
 :header-rows: 0
 
 - - {doc}`Chain steps into a workflow of your own <write_a_custom_workflow>`
-  - Conform and merge two corpora, remove their duplicates, export the result, and check and split what is left, as
+  - Conform and merge two datasets, remove their duplicates, export the result, and check and split what is left, as
     one chain of steps.
 
 :::

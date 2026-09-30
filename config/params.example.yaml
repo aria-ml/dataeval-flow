@@ -176,7 +176,7 @@
 #   # operand a view whose `Relabel` passes the identical `target`, or their
 #   # integer labels denote different classes and the merge is refused. Each
 #   # datum's id becomes "<position>:<id>".
-#   - name: merged_corpus
+#   - name: merged_dataset
 #     merge: [my_dataset_conformed, coco_train_conformed]
 #     view: training_subset            # optional, applied after the merge
 
@@ -339,8 +339,8 @@
 # run's envelope does not.
 #
 # exports:
-#   - name: conformed_corpus
-#     source: merged_corpus
+#   - name: conformed_dataset
+#     source: merged_dataset
 #     format: coco                     # coco | yolo | huggingface_vision | visdrone
 #     mode: error                      # error (refuse a non-empty destination) | replace | append
 #     ontology: vehicles               # name under `ontologies:`, or a path
