@@ -23,6 +23,7 @@ from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline
 from tests.triage_toys import (
     AltitudeDataset,
+    AltitudeWeatherDataset,
     LatitudeDataset,
     MixedWeightDataset,
     OcclusionDataset,
@@ -278,7 +279,13 @@ def test_the_recommendation_pins_a_derived_cut_by_its_edges() -> None:
 
 @pytest.mark.parametrize(
     ("dataset", "still_unreadable"),
-    [(AltitudeDataset, set()), (MixedWeightDataset, set()), (LatitudeDataset, set()), (WeatherDataset, {"serial"})],
+    [
+        (AltitudeDataset, set()),
+        (MixedWeightDataset, set()),
+        (LatitudeDataset, set()),
+        (OcclusionDataset, set()),
+        (WeatherDataset, {"serial"}),
+    ],
 )
 def test_a_run_under_the_recommendation_reads_every_factor_as_declared(
     dataset: Any, still_unreadable: set[str]
@@ -344,6 +351,14 @@ def test_a_factor_the_descriptor_pins_is_not_named_again(tmp_path: Path) -> None
     result = _triage(AltitudeDataset(), {"encoding": "bins.json"}, data_dir=tmp_path)
     assert _record(result)["factors"]["altitude"]["encoding"]["provenance"] == "derived"  # as the export wrote it
     assert _data(result)["recommended_policy"] is None
+
+
+def test_a_descriptor_pinning_one_factor_leaves_the_other_to_the_recommendation(tmp_path: Path) -> None:
+    write_descriptor(_record(_triage(AltitudeDataset())), tmp_path / "bins.json")
+    result = _triage(AltitudeWeatherDataset(), {"encoding": "bins.json"}, data_dir=tmp_path)
+    recommendation = _data(result)["recommended_policy"]
+    assert recommendation == {"factor_levels": {"weather": ["clear", "fog", "rain"]}}
+    _triage(AltitudeWeatherDataset(), {"encoding": "bins.json", **recommendation}, data_dir=tmp_path)  # no "both"
 
 
 def test_the_recommendation_does_not_wait_for_verify() -> None:

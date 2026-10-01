@@ -135,3 +135,19 @@ class SpeedDataset:
         one_hot[index % 2] = 1.0
         speed = 0.0 if index % 5 in (0, 1) else 1.0 + (index * 7 % 24)
         return np.zeros((3, 8, 8), dtype=np.float32), one_hot, {"id": index, "speed": float(speed)}
+
+
+class AltitudeWeatherDataset:
+    """Classification items with a continuous ``altitude`` and a categorical ``weather``, neither pinned."""
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "altitude-weather", "index2label": {0: "cat", 1: "dog"}})
+    _altitude = np.random.default_rng(1).uniform(0.0, 1000.0, 60)
+
+    def __len__(self) -> int:
+        return 60
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        datum = {"id": index, "altitude": float(self._altitude[index]), "weather": ("clear", "fog", "rain")[index % 3]}
+        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, datum
