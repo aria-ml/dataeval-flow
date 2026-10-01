@@ -103,7 +103,8 @@ workflows:
     type: drift-monitoring
     detectors:
       - {type: drift-mmd}
-    classwise: [drift-mmd]
+    classwise:
+      drift-mmd: class
 ```
 
 A class is tested only where the reference and the test source each hold at least 2 items of it. A class too small for
@@ -180,7 +181,8 @@ workflows:
     type: drift-monitoring
     detectors:
       - {type: drift-mmd}
-    classwise: [drift-mmd]
+    classwise:
+      drift-mmd: class
 
   - name: object_drift
     inputs: [reference, {name: tests, list: true}]

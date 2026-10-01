@@ -290,7 +290,7 @@
 #         chunking:                   # optional temporal drift analysis
 #           chunk_size: 500           # or chunk_count; the reference needs >= 3 chunks
 #           incomplete: keep          # keep | drop | append the reference's short final chunk
-#     classwise: [drift-univariate]   # detectors to also run per class, unchunked (requires one label per item)
+#     classwise: {drift-univariate: class}   # detectors to also run per key, unchunked: class or predicted
 #     health_thresholds:
 #       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 #

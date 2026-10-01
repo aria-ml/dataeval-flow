@@ -3263,6 +3263,91 @@
       "title": "DriftDomainClassifierConfig",
       "type": "object"
     },
+    "DriftDomainClassifierDetector": {
+      "additionalProperties": false,
+      "description": "A `drift-domain-classifier` detector: its evaluator entry, and the extractor its steps embed with.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "drift-domain-classifier",
+          "default": "drift-domain-classifier",
+          "description": "The evaluator type this entry configures: `drift-domain-classifier`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "n_folds": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cross-validation folds. Unset uses DataEval's default (5).",
+          "title": "N Folds"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "AUROC above which drift is declared; with `chunking`, a (lower, upper) pair of AUROC bounds. Unset uses DataEval's default (0.55).",
+          "title": "Threshold"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
+          "title": "Extractor"
+        }
+      },
+      "title": "DriftDomainClassifierDetector",
+      "type": "object"
+    },
     "DriftKNeighborsConfig": {
       "additionalProperties": false,
       "description": "Config for ``drift-kneighbors``, DataEval's DriftKNeighbors.\n\nCompares the test data's distances to their nearest reference neighbors with the reference's own. Needs an\nextractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_drift\n        type: drift-kneighbors\n        k: 5",
@@ -3339,6 +3424,97 @@
         }
       },
       "title": "DriftKNeighborsConfig",
+      "type": "object"
+    },
+    "DriftKNeighborsDetector": {
+      "additionalProperties": false,
+      "description": "A `drift-kneighbors` detector: its evaluator entry, and the extractor its steps embed with.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "drift-kneighbors",
+          "default": "drift-kneighbors",
+          "description": "The evaluator type this entry configures: `drift-kneighbors`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors. Unset uses DataEval's default (10).",
+          "title": "K"
+        },
+        "distance_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "cosine",
+                "euclidean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distance between embeddings. Unset uses DataEval's default (`euclidean`).",
+          "title": "Distance Metric"
+        },
+        "p_val": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significance threshold for drift, without chunking. Unset uses DataEval's default (0.05).",
+          "title": "P Val"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
+          "title": "Extractor"
+        }
+      },
+      "title": "DriftKNeighborsDetector",
       "type": "object"
     },
     "DriftMMDConfig": {
@@ -3419,9 +3595,100 @@
       "title": "DriftMMDConfig",
       "type": "object"
     },
+    "DriftMMDDetector": {
+      "additionalProperties": false,
+      "description": "A `drift-mmd` detector: its evaluator entry, and the extractor its steps embed with.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "drift-mmd",
+          "default": "drift-mmd",
+          "description": "The evaluator type this entry configures: `drift-mmd`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "p_val": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significance threshold for drift. Unset uses DataEval's default (0.05).",
+          "title": "P Val"
+        },
+        "n_permutations": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Permutations in the test that estimates the no-drift distribution; more is more accurate and slower. Unset uses DataEval's default (100).",
+          "title": "N Permutations"
+        },
+        "permutation_batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Permutations computed per batch, to bound memory: a count, or `auto`, which sizes it from free GPU memory on CUDA and computes all at once on CPU. Unset uses DataEval's default (`auto`).",
+          "title": "Permutation Batch Size"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
+          "title": "Extractor"
+        }
+      },
+      "title": "DriftMMDDetector",
+      "type": "object"
+    },
     "DriftMonitoringConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``drift-monitoring`` entry: the detectors each test source is tested with, which also run\nby class, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: drift\n        type: drift-monitoring\n        detectors:\n          - {type: drift-mmd}\n          - {name: ks, type: drift-univariate, chunking: {chunk_count: 5}}\n        classwise: [drift-mmd]",
+      "description": "The settings of one ``drift-monitoring`` entry: the detectors each test source is tested with, which also run\nby class, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: drift\n        type: drift-monitoring\n        detectors:\n          - {type: drift-mmd}\n          - {name: ks, type: drift-univariate, chunking: {chunk_count: 5}}\n        classwise:\n          drift-mmd: class",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -3453,20 +3720,20 @@
           "title": "Ontology"
         },
         "detectors": {
-          "description": "Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), each tested on every test source against the reference. An entry's `name` names its step.",
+          "description": "Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), each tested on every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`.",
           "items": {
             "anyOf": [
               {
-                "$ref": "#/$defs/DriftUnivariateConfig"
+                "$ref": "#/$defs/DriftUnivariateDetector"
               },
               {
-                "$ref": "#/$defs/DriftMMDConfig"
+                "$ref": "#/$defs/DriftMMDDetector"
               },
               {
-                "$ref": "#/$defs/DriftKNeighborsConfig"
+                "$ref": "#/$defs/DriftKNeighborsDetector"
               },
               {
-                "$ref": "#/$defs/DriftDomainClassifierConfig"
+                "$ref": "#/$defs/DriftDomainClassifierDetector"
               }
             ]
           },
@@ -3475,12 +3742,12 @@
           "type": "array"
         },
         "classwise": {
-          "description": "Names of detectors to also run per class, unchunked, on classes with 2 or more items each side.",
-          "items": {
-            "type": "string"
+          "additionalProperties": {
+            "$ref": "#/$defs/ByConfig"
           },
+          "description": "Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written.",
           "title": "Classwise",
-          "type": "array"
+          "type": "object"
         },
         "health_thresholds": {
           "$ref": "#/$defs/DriftMonitoringThresholds",
@@ -3662,6 +3929,135 @@
         }
       },
       "title": "DriftUnivariateConfig",
+      "type": "object"
+    },
+    "DriftUnivariateDetector": {
+      "additionalProperties": false,
+      "description": "A `drift-univariate` detector: its evaluator entry, and the extractor its steps embed with.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "drift-univariate",
+          "default": "drift-univariate",
+          "description": "The evaluator type this entry configures: `drift-univariate`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "ks",
+                "cvm",
+                "mwu",
+                "anderson",
+                "bws"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The statistical test: `ks` (Kolmogorov-Smirnov), `cvm` (Cram\u00e9r-von Mises), `mwu` (Mann-Whitney U), `anderson` (Anderson-Darling) or `bws` (Baumgartner-Weiss-Schindler). Unset uses DataEval's default (`ks`).",
+          "title": "Method"
+        },
+        "p_val": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significance threshold for drift. Unset uses DataEval's default (0.05).",
+          "title": "P Val"
+        },
+        "correction": {
+          "anyOf": [
+            {
+              "enum": [
+                "bonferroni",
+                "fdr"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Multiple-testing correction across dimensions: `bonferroni`, conservative, or `fdr` (Benjamini-Hochberg). Unset uses DataEval's default (`bonferroni`).",
+          "title": "Correction"
+        },
+        "alternative": {
+          "anyOf": [
+            {
+              "enum": [
+                "two-sided",
+                "less",
+                "greater"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Alternative hypothesis, for the `ks`, `mwu` and `bws` tests; `cvm` and `anderson` are always two-sided. Unset uses DataEval's default (`two-sided`).",
+          "title": "Alternative"
+        },
+        "n_features": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Embedding dimensions to test. Unset infers them from the embeddings.",
+          "title": "N Features"
+        },
+        "chunking": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChunkedDriftConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Split the data into chunks, and test each against the spread of the reference's chunks. Unset tests the data whole."
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
+          "title": "Extractor"
+        }
+      },
+      "title": "DriftUnivariateDetector",
       "type": "object"
     },
     "DriftWassersteinConfig": {

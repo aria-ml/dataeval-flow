@@ -296,7 +296,7 @@ workflows:
         method: ks                 # ks | cvm | mwu | anderson | bws
         p_val: 0.05
         correction: bonferroni
-    classwise: [drift-univariate]  # also run these detectors once per class
+    classwise: {drift-univariate: class}  # also run this detector once per class
 ```
 ````
 ````{tab-item} ood-detection

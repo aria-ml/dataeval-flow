@@ -31,7 +31,7 @@ def test_each_detector_is_a_step_and_its_check():
 
 
 def test_classwise_runs_follow_every_whole_set_detector():
-    steps, _ = _chain(detectors=[{"type": "drift-mmd"}, {"type": "drift-kneighbors"}], classwise=["drift-mmd"])
+    steps, _ = _chain(detectors=[{"type": "drift-mmd"}, {"type": "drift-kneighbors"}], classwise={"drift-mmd": "class"})
     names = [step["name"] for step in steps]
     assert names[-2:] == ["drift-mmd-classes", "drift-mmd-classes-check"]
     classes = steps[-2]
@@ -42,7 +42,8 @@ def test_classwise_runs_follow_every_whole_set_detector():
 
 def test_a_chunked_classwise_detector_runs_an_unchunked_copy():
     steps, evaluators = _chain(
-        detectors=[{"name": "ks", "type": "drift-univariate", "chunking": {"chunk_count": 5}}], classwise=["ks"]
+        detectors=[{"name": "ks", "type": "drift-univariate", "chunking": {"chunk_count": 5}}],
+        classwise={"ks": "class"},
     )
     copy = next(entry for entry in evaluators if entry.name == "ks-unchunked")
     assert copy.chunking is None
@@ -53,7 +54,7 @@ def test_a_chunked_classwise_detector_runs_an_unchunked_copy():
 def test_health_thresholds_reach_every_check():
     steps, _ = _chain(
         detectors=[{"type": "drift-mmd"}],
-        classwise=["drift-mmd"],
+        classwise={"drift-mmd": "class"},
         health_thresholds={"drift": {"chunk_percent": 25.0}},
     )
     assert all(step["chunk_percent"] == 25.0 for step in steps if step.get("check") == "drift")
@@ -107,7 +108,7 @@ def test_an_empty_test_source_fails_only_its_own_element():  # Review Focus 1
 
 def test_classwise_on_unlabelled_data_is_not_assessed():  # Review Focus 3, through the preset
     datasets = {"reference": ToyImages(40, labeled=False), "cam1": ToyImages(40, seed=1, labeled=False)}
-    result = _preset_run(datasets, classwise=["drift-kneighbors"])
+    result = _preset_run(datasets, classwise={"drift-kneighbors": "class"})
     assert (result.steps["drift-kneighbors-classes"].elements or {})["cam1"].status == "skipped"
     (whole,) = (result.steps["drift-kneighbors-check"].elements or {})["cam1"].output
     assert (whole.severity, whole.title) == ("ok", "Drift (K-Neighbors)")
@@ -120,7 +121,7 @@ def test_the_crop_recipe_runs_the_preset_on_detections():
         "name": "drift",
         "type": "drift-monitoring",
         "detectors": [{"type": "drift-kneighbors", "k": 3}],
-        "classwise": ["drift-kneighbors"],
+        "classwise": {"drift-kneighbors": "class"},
     }
     recipe = {
         "name": "object_drift",
@@ -141,3 +142,46 @@ def test_the_crop_recipe_runs_the_preset_on_detections():
     (finding,) = (result.steps["drift/drift-kneighbors-classes-check"].elements or {})["cam1"].output
     assert finding.title == "Drift (K-Neighbors) by class"
     assert finding.brief.endswith("/3 classes warn")
+
+
+def test_a_detectors_own_extractor_reaches_its_steps_and_never_its_evaluator_entry():
+    steps, evaluators = _chain(
+        detectors=[{"name": "u", "type": "drift-univariate", "extractor": "unc", "chunking": {"chunk_count": 3}}],
+        classwise={"u": "predicted"},
+    )
+    by_name = {step["name"]: step for step in steps}
+    assert by_name["u"]["extractor"] == by_name["u-classes"]["extractor"] == "unc"
+    assert "extractor" not in by_name["u-check"]
+    assert {type(entry).__name__ for entry in evaluators} == {"DriftUnivariateConfig"}
+    assert (by_name["u-classes"]["by"], by_name["u-classes-check"]["by"]) == ("predicted", "predicted")
+
+
+def test_classwise_takes_groups_in_the_preset():
+    groups = {"class": {"groups": {"pets": ["cat", "dog"]}}}
+    steps, _ = _chain(detectors=[{"type": "drift-mmd"}], classwise={"drift-mmd": groups})
+    by_name = {step["name"]: step for step in steps}
+    assert by_name["drift-mmd-classes"]["by"] == groups
+    assert by_name["drift-mmd-classes-check"]["by"] == "class"
+
+
+def test_one_task_mixes_extractors_by_class_and_by_predicted_class(tmp_path, monkeypatch):  # Review Focus 4
+    from tests.drift_toys import ClassImages
+    from tests.evaluator_toys import FLAT
+    from tests.onnx_toys import CLASSIFIER, element, install, model_files, run_uncertainty
+
+    install(monkeypatch, CLASSIFIER)
+    model_files(tmp_path)
+    preset = {
+        "name": "drift",
+        "type": "drift-monitoring",
+        "detectors": [
+            {"type": "drift-kneighbors", "k": 3},
+            {"name": "u", "type": "drift-univariate", "extractor": "unc"},
+        ],
+        "classwise": {"drift-kneighbors": "class", "u": "predicted"},
+    }
+    datasets = {"reference": ClassImages({0: 20, 1: 20}), "cam1": ClassImages({0: 20, 1: 20}, seed=1)}
+    result = run_uncertainty(tmp_path, preset, [], datasets, detector=False, task_extractor="flat", extractors=[FLAT])
+    assert element(result, "drift-kneighbors-classes").output.label == "class"
+    assert element(result, "u-classes").output.label == "predicted class"
+    assert set(element(result, "u-classes").output.outputs) <= {"cat", "dog", "bird"}

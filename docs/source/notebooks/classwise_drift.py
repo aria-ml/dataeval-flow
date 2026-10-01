@@ -401,7 +401,7 @@ classwise_config = PipelineConfig(
                 DriftMMDConfig(n_permutations=100),
                 DriftUnivariateConfig(method="cvm"),
             ],
-            classwise=["drift-mmd", "drift-univariate"],
+            classwise={"drift-mmd": "class", "drift-univariate": "class"},
             health_thresholds=DriftMonitoringThresholds(drift=DriftThresholds(warn_on_drift=True)),
         ),
     ],

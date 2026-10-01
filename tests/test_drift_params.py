@@ -32,7 +32,7 @@ def _config(**settings: Any) -> DriftMonitoringConfig:
 )
 def test_each_detector_validates_as_the_evaluator_config_its_type_names(type_id: str, config_class: type) -> None:
     (detector,) = _config(detectors=[{"type": type_id}]).detectors
-    assert type(detector) is config_class
+    assert isinstance(detector, config_class)
     assert detector.name == type_id
 
 
@@ -52,20 +52,20 @@ def test_a_detector_refuses_another_evaluator_s_settings() -> None:
 
 def test_a_config_object_is_taken_as_it_is() -> None:
     mmd = DriftMMDConfig(n_permutations=10)
-    assert DriftMonitoringConfig(detectors=[mmd]).detectors == [mmd]
+    assert DriftMonitoringConfig(detectors=[mmd]).detectors[0].model_dump(exclude={"extractor"}) == mmd.model_dump()
 
 
 def test_defaults() -> None:
     config = _config(detectors=[{"type": "drift-mmd"}])
     assert config.type == "drift-monitoring"
-    assert config.classwise == []
+    assert config.classwise == {}
     assert config.health_thresholds.drift == DriftThresholds()
 
 
 def test_a_dump_keeps_each_detector_s_own_settings_and_validates_back() -> None:
     config = _config(
         detectors=[{"name": "ks", "type": "drift-univariate", "chunking": {"chunk_count": 5}}, {"type": "drift-mmd"}],
-        classwise=["ks"],
+        classwise={"ks": "class"},
     )
     dumped = config.model_dump()
     assert dumped["detectors"][0]["chunking"]["chunk_count"] == 5
@@ -91,7 +91,8 @@ def test_health_thresholds_hold_the_drift_check_s_fields() -> None:
         ({"detectors": [{"type": ["drift-mmd"]}]}, "needs a `type`, one of drift-univariate"),
         ({"detectors": [{"type": "drift-wasserstein"}]}, "validation set"),
         ({"detectors": [{"type": "outliers"}]}, "drift-univariate"),
-        ({"detectors": [{"type": "drift-mmd"}], "classwise": ["ks"]}, "`ks`"),
+        ({"detectors": [{"type": "drift-mmd"}], "classwise": {"ks": "class"}}, "`ks`"),
+        ({"detectors": [{"type": "drift-mmd"}], "classwise": ["drift-mmd"]}, "maps each detector to its `by:`"),
         ({"detectors": [{"type": "drift-mmd"}], "update_strategy": {"type": "last_seen", "n": 5}}, "update_strategy"),
         ({"detectors": [{"type": "drift-mmd"}], "health_thresholds": {"any_drift_is_warning": True}}, "any_drift"),
     ],

@@ -4,6 +4,7 @@
 
 ### Added
 
+- A drift-monitoring detector may name its own `extractor:`, which its steps embed with instead of the task's
 - `device:` on the pipeline chooses the device every tool computes on; unset picks CUDA when PyTorch sees it, else CPU.
 - Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
@@ -126,6 +127,8 @@
 
 ### Changed
 
+- drift-monitoring's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`), and takes class groups; the
+  list form is refused
 - An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
   policy pins the edges
 - `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the

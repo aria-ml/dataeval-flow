@@ -534,7 +534,7 @@ print(json_str[:600] + "\n...")
 # %% [markdown]
 # ## Next steps
 #
-# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise=[...]`
+# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise={detector: "class"}`
 #   to identify which target classes drive the drift signal.
 # - **Alternative detectors**: Test alternative statistical detectors such as `drift-domain-classifier`
 #   or Kolmogorov-Smirnov (`ks`), and see [Monitor drift with steps](../how_to/monitor_drift.md) to merge test sources or drift on crops.

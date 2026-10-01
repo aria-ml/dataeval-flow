@@ -11,16 +11,17 @@ from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.steps.checks._drift import evaluator_heading
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import Preset, PresetChain
-from dataeval_flow.workflows.drift_monitoring._config import DriftMonitoringConfig
+from dataeval_flow.workflows.drift_monitoring._config import DriftMonitoringConfig, evaluator_entry
 
 
 class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResult]):
     """Tests each test source against the reference with each detector, and by class where ``classwise`` says.
 
     The task's first source is ``reference``; every later one is an element of ``tests``. Per detector, the settings
-    expand to ``<detector>`` (its evaluator) and ``<detector>-check`` (``drift``). Each detector ``classwise`` names
-    then adds ``<detector>-classes`` (its evaluator, unchunked, with ``by: class``) and ``<detector>-classes-check``
-    (``drift``, with ``by: class``). Every step runs once per test source.
+    expand to ``<detector>`` (its evaluator) and ``<detector>-check`` (``drift``). Each detector ``classwise`` maps
+    then adds ``<detector>-classes`` (its evaluator, unchunked, with the mapped ``by:``) and
+    ``<detector>-classes-check`` (``drift``, with the bare kind, ``class`` or ``predicted``). A detector's own
+    ``extractor`` goes on its evaluate steps. Every step runs once per test source.
     """
 
     name: ClassVar[str] = "drift-monitoring"
@@ -43,30 +44,34 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
             name = detector.name
             # Each check names its detector, so a finding is titled by it even when its run made nothing to judge.
             subject = evaluator_heading(detector)
-            evaluators.append(detector)
+            entry = evaluator_entry(detector)
+            own = {"extractor": detector.extractor} if detector.extractor is not None else {}
+            evaluators.append(entry)
             steps += [
-                {"name": name, "evaluator": name, "input": ["reference", "tests"]},
+                {"name": name, "evaluator": name, "input": ["reference", "tests"], **own},
                 {"name": f"{name}-check", "check": "drift", "input": name, "subject": subject, **limits},
             ]
-            if name not in config.classwise:
+            by = config.classwise.get(name)
+            if by is None:
                 continue
-            entry = name
-            if detector.chunking is not None:
-                entry = f"{name}-unchunked"
-                evaluators.append(detector.model_copy(update={"name": entry, "chunking": None}))
+            unchunked = name
+            if entry.chunking is not None:
+                unchunked = f"{name}-unchunked"
+                evaluators.append(entry.model_copy(update={"name": unchunked, "chunking": None}))
             by_class += [
                 {
                     "name": f"{name}-classes",
-                    "evaluator": entry,
+                    "evaluator": unchunked,
                     "input": ["reference", "tests"],
-                    "by": "class",
+                    "by": by.model_dump(),
                     "optional": True,
+                    **own,
                 },
                 {
                     "name": f"{name}-classes-check",
                     "check": "drift",
                     "input": f"{name}-classes",
-                    "by": "class",
+                    "by": "predicted" if by.predicted is not None else "class",
                     "subject": subject,
                     **limits,
                 },
