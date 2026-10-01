@@ -80,18 +80,8 @@ def detect_drift_by_image(
     """
     from dataeval_flow.evaluators.shift._evaluator import chunked_arguments
 
-    predictions = [require(prepared.predictions, "predictions", prepared.source) for prepared in inputs]
+    predictions, facts = _compared(inputs)
     embeddings = [require(prepared.embeddings, "embeddings", prepared.source) for prepared in inputs]
-    confidence = predictions[0].confidence
-    for prepared, made in zip(inputs, predictions, strict=True):
-        if len(made.scores) == 0:
-            raise ValueError(f"No detections at `confidence` ≥ {confidence} in `{prepared.source}`.")
-    facts: dict[str, Any] = {
-        "unit": "detections",
-        "compared": {prepared.source: len(made.scores) for prepared, made in zip(inputs, predictions, strict=True)},
-        "images": {prepared.source: made.items for prepared, made in zip(inputs, predictions, strict=True)},
-        "confidence": confidence,
-    }
     if chunking is None:
         return _with_rows(detector.fit(*embeddings[:-1]).predict(embeddings[-1]), facts)
     reference_chunks = image_chunks(predictions[0].items, chunking)
@@ -137,12 +127,8 @@ def detect_ood_by_image(detector: Any, inputs: Sequence[EvaluatorInputs]) -> OOD
     ValueError
         When a source holds no detection at the confidence: there is nothing to fit, or nothing to assess.
     """
-    predictions = [require(prepared.predictions, "predictions", prepared.source) for prepared in inputs]
+    predictions, facts = _compared(inputs)
     reference, test = (require(prepared.embeddings, "embeddings", prepared.source) for prepared in inputs)
-    confidence = predictions[0].confidence
-    for prepared, made in zip(inputs, predictions, strict=True):
-        if len(made.scores) == 0:
-            raise ValueError(f"No detections at `confidence` ≥ {confidence} in `{prepared.source}`.")
     flagged = detector.fit(reference).predict(test)
     images = cast("NDArray[np.intp]", predictions[-1].rows)
     count = predictions[-1].items
@@ -150,20 +136,37 @@ def detect_ood_by_image(detector: Any, inputs: Sequence[EvaluatorInputs]) -> OOD
     np.logical_or.at(is_ood, images, flagged.is_ood)
     scores = np.full(count, np.nan, dtype=np.float32)
     np.fmax.at(scores, images, flagged.instance_score.astype(np.float32))
-    facts: dict[str, Any] = {
-        "unit": "detections",
-        "confidence": confidence,
-        "compared": {prepared.source: len(made.scores) for prepared, made in zip(inputs, predictions, strict=True)},
-        "images": {prepared.source: made.items for prepared, made in zip(inputs, predictions, strict=True)},
-        "detections": [
-            {"image": int(image), "score": float(score), "is_ood": bool(ood)}
-            for image, score, ood in zip(images, flagged.instance_score, flagged.is_ood, strict=True)
-        ],
-        "unassessed": sorted(set(range(count)) - set(images.tolist())),
-    }
+    facts["detections"] = [
+        {"image": int(image), "score": float(score), "is_ood": bool(ood)}
+        for image, score, ood in zip(images, flagged.instance_score, flagged.is_ood, strict=True)
+    ]
+    facts["unassessed"] = sorted(set(range(count)) - set(images.tolist()))
     made = OODRowsOutput(is_ood=is_ood, instance_score=scores, feature_score=None, rows=facts)
     object.__setattr__(made, "_meta", flagged.meta())
     return made
+
+
+def _compared(inputs: Sequence[EvaluatorInputs]) -> "tuple[list[Predictions], dict[str, Any]]":
+    """Each source's predictions, and the facts every rows output starts from: ``unit``, ``compared``, ``images`` and
+    ``confidence``.
+
+    Raises
+    ------
+    ValueError
+        When a source holds no detection at the confidence: there is nothing to fit, or nothing to assess.
+    """
+    predictions = [require(prepared.predictions, "predictions", prepared.source) for prepared in inputs]
+    confidence = predictions[0].confidence
+    for prepared, made in zip(inputs, predictions, strict=True):
+        if len(made.scores) == 0:
+            raise ValueError(f"No detections at `confidence` ≥ {confidence} in `{prepared.source}`.")
+    facts: dict[str, Any] = {
+        "unit": "detections",
+        "compared": {prepared.source: len(made.scores) for prepared, made in zip(inputs, predictions, strict=True)},
+        "images": {prepared.source: made.items for prepared, made in zip(inputs, predictions, strict=True)},
+        "confidence": confidence,
+    }
+    return predictions, facts
 
 
 def _groups(
