@@ -328,7 +328,7 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[TriageF
                 detail={"info": dict(info)},
                 remedy=(
                     f"derived from current sample. Declare `continuous_factor_bins: {{{name}: {count}}}` "
-                    "to fix bin edges across runs"
+                    "to fix its bin count; the recommended policy pins its edges"
                 ),
             )
         else:
@@ -340,7 +340,7 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[TriageF
                 detail={"info": dict(info)},
                 remedy=(
                     "vocabulary derived from current sample. Export with `dataeval-flow encoding` "
-                    "and reference in `encoding:`"
+                    "and reference in `encoding:`, or take it from the recommended policy's `factor_levels`"
                 ),
             )
 

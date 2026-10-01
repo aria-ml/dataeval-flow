@@ -7,6 +7,8 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
   `factor-triage` Output's `counts` and `verification` say the same.
 - **The result no longer carries the `dataset` it read.** A chain's steps hold the Datasets they read and made.
 - **The `metadata_*` fields are gone.** A config names a policy under `metadata:` instead, as data-cleaning's does.
+- **A "Recommended policy" finding is new.** Legacy never recommended a policy, so the comparison leaves it out
+  (docs/superpowers/specs/2026-09-30-recommended-policy-design.md §6).
 - **It names its items by the chain's input, `data`, not by the source** (spec §7.4).
 """
 
@@ -31,7 +33,7 @@ def _canonical(value: Any) -> str:
 def _produced(result: ChainResult) -> dict[str, Any]:
     """The preset's findings, its `triage` step's stanza, and its envelope's binning record."""
     return {
-        "findings": [[f.severity, f.title, f.brief] for f in result.findings],
+        "findings": [[f.severity, f.title, f.brief] for f in result.findings if f.title != "Recommended policy"],
         "suggested_policy_yaml": result.steps["triage"].output.data()["suggested_policy_yaml"],
         "metadata_binning": result.metadata.metadata_binning,
     }

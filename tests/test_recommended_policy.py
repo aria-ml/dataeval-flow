@@ -14,6 +14,7 @@ from dataeval import Metadata
 
 from dataeval_flow import run_tasks
 from dataeval_flow._binning import write_descriptor
+from dataeval_flow._blocks import Code, Paragraph
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._policy import ResolvedPolicy
 from dataeval_flow._recommend import CAVEAT, complete_stanza, pinned_count, recommend, render_recommendation
@@ -364,3 +365,36 @@ def test_the_recommendation_is_json() -> None:
     body = json.loads(json.dumps(_triage(AltitudeDataset()).to_dict()))
     data = body["steps"]["triage"]["output"]["data"]
     assert list(data["recommended_policy"]["continuous_factor_bins"]) == ["altitude"]
+
+
+def test_metadata_issues_shows_the_recommendation_last_with_its_caveat_first() -> None:
+    result = _triage(AltitudeDataset())
+    finding = result.findings[-1]
+    assert (finding.severity, finding.title, finding.brief) == (
+        "info",
+        "Recommended policy",
+        "pins 1 factor as read from this data",
+    )
+    caveat, code = finding.blocks
+    assert isinstance(caveat, Paragraph)
+    assert caveat.text == CAVEAT
+    assert isinstance(code, Code)
+    assert code.language == "yaml"
+    assert code.text == _data(result)["recommended_policy_yaml"].rstrip("\n")
+
+
+def test_a_failed_recommendation_is_a_warning() -> None:
+    with patch("dataeval_flow.evaluators.quality._triage.read_back", side_effect=RuntimeError("boom")):
+        result = _triage(AltitudeDataset())
+    finding = result.findings[-1]
+    assert (finding.severity, finding.title, finding.brief) == ("warning", "Recommendation failed", "no recommendation")
+    (paragraph,) = finding.blocks
+    assert isinstance(paragraph, Paragraph)
+    assert paragraph.text == "boom"
+
+
+def test_nothing_to_recommend_makes_no_finding() -> None:
+    first = _triage(AltitudeDataset())
+    edges = [float(e) for e in _record(first)["factors"]["altitude"]["encoding"]["edges"]]
+    result = _triage(AltitudeDataset(), {"continuous_factor_bins": {"altitude": edges}})
+    assert not [f for f in result.findings if f.title in ("Recommended policy", "Recommendation failed")]

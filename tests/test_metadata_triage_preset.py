@@ -55,7 +55,12 @@ def test_a_run_is_a_chain_result_of_its_two_steps() -> None:
     assert result.type == "metadata-triage"
     assert list(result.steps) == ["triage", "issues"]
     assert result.health["status"] == "warning"
-    assert [f.title for f in result.findings] == ["Unreadable factors", "Suggested policy", "Verified"]
+    assert [f.title for f in result.findings] == [
+        "Unreadable factors",
+        "Suggested policy",
+        "Verified",
+        "Recommended policy",
+    ]
 
 
 def test_its_envelope_records_the_encoding_triage_read() -> None:

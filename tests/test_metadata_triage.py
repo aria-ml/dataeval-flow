@@ -432,8 +432,8 @@ def test_each_unpinned_factor_is_a_section_under_the_remedy_they_share():
 
     assert paragraphs(unbinned) == [
         (
-            "These bin counts were derived from this sample. Declaring them in configuration ensures consistent "
-            "binning across runs."
+            "These cuts were derived from this sample. Declaring a bin count fixes how many bins there are; the "
+            "recommended policy pins their edges, which is what keeps runs comparable."
         )
     ]
     assert [(s.title, s.brief) for s in sections(unbinned)] == [
