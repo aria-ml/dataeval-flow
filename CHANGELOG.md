@@ -221,6 +221,8 @@
 ### Fixed
 
 - An exactly declared `continuous_factor_bins` name beats a bare statistic's expansion, whatever the key order
+- `metadata-triage` no longer calls a factor its policy's descriptor pins unpinned, so it suggests no bin count the
+  policy refuses as named by both `encoding` and `continuous_factor_bins`
 - Data prioritization ranks a labeled pool under `policy: class_balanced`, where it always
   raised "Cannot apply class_balanced policy: class_labels not provided"
 - Data prioritization succeeds when cleaning empties a pool, ranking it as empty, where the whole task failed

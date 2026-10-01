@@ -56,7 +56,10 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
         started, clock = datetime.now(UTC), time.monotonic()
         record = describe(metadata, policy)
         findings = find_issues(
-            record, min_missing_fraction=config.min_missing_fraction, default_bins=config.default_bins
+            record,
+            min_missing_fraction=config.min_missing_fraction,
+            default_bins=config.default_bins,
+            descriptor_factors=set(policy.encoding or {}),
         )
         stanza = to_policy_stanza(findings)
         verification: list[VerificationEntry] = []

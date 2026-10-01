@@ -373,6 +373,15 @@ def test_a_descriptor_pinning_one_factor_leaves_the_other_to_the_recommendation(
     _triage(AltitudeWeatherDataset(), {"encoding": "bins.json", **recommendation}, data_dir=tmp_path)  # no "both"
 
 
+def test_triage_suggests_nothing_for_a_factor_the_descriptor_pins(tmp_path: Path) -> None:
+    write_descriptor(_record(_triage(AltitudeDataset())), tmp_path / "bins.json")
+    data = _data(_triage(AltitudeWeatherDataset(), {"encoding": "bins.json"}, data_dir=tmp_path))
+    assert [(f.factor, f.category) for f in data["findings"]] == [("weather", "unreviewed")]
+    assert "altitude" not in (data["suggested_policy"].get("continuous_factor_bins") or {})
+    pasted = {"encoding": "bins.json", **data["suggested_policy"], **data["recommended_policy"]}
+    _triage(AltitudeWeatherDataset(), pasted, data_dir=tmp_path)  # refused if anything names altitude twice
+
+
 def test_the_recommendation_does_not_wait_for_verify() -> None:
     data = _data(_triage(AltitudeDataset(), verify=False))
     assert data["verification"] == []

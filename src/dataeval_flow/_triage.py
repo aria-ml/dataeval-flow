@@ -25,7 +25,7 @@ __all__ = [
 
 import difflib
 import math
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from datetime import datetime
 from typing import Any, Literal
 
@@ -135,6 +135,7 @@ def find_issues(
     *,
     min_missing_fraction: float = 0.2,
     default_bins: int = 10,
+    descriptor_factors: Collection[str] = (),
 ) -> list[TriageFinding]:
     """Every finding a binning record supports, worst first.
 
@@ -149,6 +150,11 @@ def find_issues(
         Bin count a suggestion falls back to where the run left no ``fit`` to read.  The
         populated bins of the derived cut are preferred wherever there are any: the auto-cut
         already found where the values are, and pinning that is not the same as replacing it.
+    descriptor_factors : Collection[str], default ()
+        Factors the policy's descriptor pins.  Never ``unbinned`` or ``unreviewed``, whatever their
+        ``provenance``: an exported descriptor still says ``derived``, yet it fixes the cut or the
+        vocabulary across runs, and a bin count suggested for one of its factors is refused as named by
+        both ``encoding`` and ``continuous_factor_bins``.
 
     Returns
     -------
@@ -158,7 +164,7 @@ def find_issues(
     findings = [
         *_unreadable(record),
         *_unbound(record),
-        *_encodings(record, default_bins),
+        *_encodings(record, default_bins, descriptor_factors),
         *_degenerate(record, min_missing_fraction),
         *_floor_mass(record),
     ]
@@ -287,8 +293,10 @@ def _no_encoding_remedy(factor_type: Any) -> str:
     return "unencoded values; declare levels or provide a descriptor"
 
 
-def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[TriageFinding]:
-    """Factors whose cut or vocabulary nobody pinned.
+def _encodings(
+    record: Mapping[str, Any], default_bins: int, descriptor_factors: Collection[str]
+) -> Iterator[TriageFinding]:
+    """Factors whose cut or vocabulary nobody pinned, leaving out those the policy's descriptor pins.
 
     The record carries a precomputed ``unreviewed`` list holding both halves.  This
     partitions it instead of reading it, because the two halves take different remedies —
@@ -303,6 +311,8 @@ def _encodings(record: Mapping[str, Any], default_bins: int) -> Iterator[TriageF
     and ``continuous_factor_bins`` was never suggested for anything.
     """
     for name, info in sorted(_factors(record).items()):
+        if name in descriptor_factors:
+            continue
         encoding = info.get("encoding")
         if not encoding:
             yield TriageFinding(
