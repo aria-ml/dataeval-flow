@@ -166,6 +166,19 @@ def test_per_class_drift_reports_one_table_of_its_classes_then_the_skipped():
     assert skipped == Paragraph(text="Not assessed: bird (1 item in `reference`, fewer than `min_items` 2).")
 
 
+def test_per_class_sections_that_are_not_one_fields_block_each_get_a_section_by_key():
+    from dataeval_flow._blocks import Section
+    from dataeval_flow.evaluators._report import per_class_blocks
+
+    serialized = {"key": "class", "classes": {"cat": {"n": 1}, "dog": {"n": 2}}, "skipped": {"bird": "too few"}}
+    blocks = per_class_blocks(serialized, lambda inner: [Paragraph(text=f"n={inner['n']}")], detailed=False)
+    assert blocks == [
+        Section(title="cat", blocks=[Paragraph(text="n=1")]),
+        Section(title="dog", blocks=[Paragraph(text="n=2")]),
+        Paragraph(text="Not assessed: bird (too few)."),
+    ]
+
+
 def test_by_is_refused_on_a_transform_and_settings_on_a_check():
     with pytest.raises(ValueError, match="by"):
         StepEntry.model_validate({"name": "v", "transform": "view", "input": "a", "view": "x", "by": "class"})
