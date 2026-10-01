@@ -19,7 +19,7 @@ from pydantic import (
 )
 
 from dataeval_flow.steps._address import STEP_NAME_PATTERN
-from dataeval_flow.steps._by import ByConfig, ClassKeys
+from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._step import StepConfig, StepKind
 
 if TYPE_CHECKING:
@@ -73,7 +73,7 @@ class StepEntry(BaseModel):
     by: ByConfig | None = Field(
         default=None,
         description=(
-            "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or "
+            "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, "
             "`{class: {groups: ..., min_items: ...}}`."
         ),
     )
@@ -111,9 +111,9 @@ class StepEntry(BaseModel):
             raise ValueError(
                 f"Step '{self.name}' is a {kind}, which takes no `by:`: only evaluate steps and checks do."
             )
-        if self.by is not None and kind == "check" and self.by.class_ != ClassKeys():
+        if self.by is not None and kind == "check" and self.by.keys != type(self.by.keys)():
             raise ValueError(
-                f"Step '{self.name}' is a check, whose `by: class` takes no settings: its keys come from its input."
+                f"Step '{self.name}' is a check, whose `by:` takes no settings: its keys come from its input."
             )
         if kind in ("evaluator", "workflow") and self.settings:
             keys = ", ".join(sorted(self.settings))
@@ -128,9 +128,7 @@ class StepEntry(BaseModel):
             data = {**({"input": self.input} if self.input is not None else {}), **self.settings}
             self._config = cast(StepConfig, impl.config_type.model_validate(data))
             if self.by is not None and len(impl.input_ports()) != 1:
-                raise ValueError(
-                    f"Step '{self.name}': `by: class` maps a check over one input, and `{target}` reads more."
-                )
+                raise ValueError(f"Step '{self.name}': `by:` maps a check over one input, and `{target}` reads more.")
         return self
 
     @model_serializer(mode="wrap")

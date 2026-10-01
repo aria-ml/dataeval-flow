@@ -10,8 +10,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from dataeval_flow._predictions import membership
 from dataeval_flow._result import failure_message
 from dataeval_flow.evaluators._core import execution
+from dataeval_flow.evaluators._fields import require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators._serialize import serialize_output
 
@@ -26,8 +28,8 @@ class PerClassOutput:
     """What an evaluate step with `by:` returns: each key's Output, and each key left out with why.
 
     ``outputs`` holds the evaluator's own Output per key, in key order: classes in ascending class index, or groups
-    in the order written. ``skipped`` holds each key left out, with why. ``label`` says what a key is, ``"class"`` or
-    ``"group"``.
+    in the order written. ``skipped`` holds each key left out, with why. ``label`` says what a key is, ``"class"``,
+    ``"group"``, ``"predicted class"`` or ``"predicted group"``.
     """
 
     def __init__(self, outputs: Mapping[str, Any], skipped: Mapping[str, str], *, label: str, meta: Any) -> None:
@@ -60,7 +62,72 @@ def require_one_label_per_item(datasets: Mapping[str, Any], inputs: Sequence[Eva
 
 
 def split_keys(inputs: Sequence[EvaluatorInputs], by: "ByConfig") -> tuple[dict[str, list[Any]], dict[str, str]]:
-    """Each key's item mask per input, in key order; and each key left out, with why."""
+    """Each key's row mask per input, in key order; and each key left out, with why.
+
+    `by: class` keys each item by its label. `by: predicted` keys each row by the classes the model predicts for it,
+    named by the reference's ``index2label`` only where its ids are the model's outputs.
+    """
+    first = inputs[0]
+    if by.predicted is None:
+        names = _shared_names(inputs)
+        # `require_one_label_per_item` has refused any input without labels.
+        labels = [cast("NDArray[np.intp]", prepared.labels) for prepared in inputs]
+        present = sorted({int(label) for own in labels for label in np.unique(own)})
+        selects = [lambda indices, own=own: np.isin(own, indices) for own in labels]
+        nouns = ["item"] * len(inputs)
+        outputs = 0
+    else:
+        made = [require(prepared.predictions, "predictions", prepared.source) for prepared in inputs]
+        members = [membership(own.scores, by.predicted.threshold) for own in made]
+        outputs = members[0].shape[1]
+        named = {int(index): name for index, name in (first.index2label or {}).items()}
+        # The model names no classes: the reference's names hold only where its ids are the model's outputs.
+        names = named if set(named) == set(range(outputs)) else {}
+        present = sorted({int(index) for own in members for index in np.flatnonzero(own.any(axis=0))})
+        selects = [lambda indices, own=own: own[:, indices].any(axis=1) for own in members]
+        nouns = ["item" if own.rows is None else "detection" for own in made]
+    skipped: dict[str, str] = {}
+    keyed: dict[str, list[int]] = {}
+    if by.keys.groups is None:
+        keyed = {names.get(index, str(index)): [index] for index in present}
+    else:
+        reverse = {name: index for index, name in names.items()}
+        for group, listed in by.keys.groups.items():
+            keyed[group] = []
+            for member in listed:
+                if isinstance(member, str) and member not in reverse:
+                    if by.predicted is not None and not names:
+                        raise ValueError(
+                            f"Group `{group}` names class `{member}`, but keys are the model's class indices: "
+                            f"`{first.source}`'s index2label does not name its outputs 0 to {outputs - 1}. List the "
+                            "group's classes by index."
+                        )
+                    raise ValueError(
+                        f"Group `{group}` names class `{member}`, which `{first.source}`'s index2label does not have."
+                    )
+                keyed[group].append(reverse[member] if isinstance(member, str) else member)
+        grouped = {index for indices in keyed.values() for index in indices}
+        skipped.update({names.get(index, str(index)): "in no group" for index in present if index not in grouped})
+    masks: dict[str, list[Any]] = {}
+    for key, indices in keyed.items():
+        per_input = [select(indices) for select in selects]
+        short = [
+            (prepared.source, count, noun)
+            for prepared, mask, noun in zip(inputs, per_input, nouns, strict=True)
+            if (count := int(mask.sum())) < by.keys.min_items
+        ]
+        if short:
+            source, count, noun = short[0]
+            skipped[key] = (
+                f"{count} {noun}{'' if count == 1 else 's'} in `{source}`, fewer than `min_items` {by.keys.min_items}"
+            )
+        else:
+            masks[key] = per_input
+    return masks, skipped
+
+
+def _shared_names(inputs: Sequence[EvaluatorInputs]) -> dict[int, str]:
+    """Class names by index, the first input's, refusing another input that names a shared index differently."""
     first = inputs[0]
     names = {int(index): name for index, name in (first.index2label or {}).items()}
     for other in inputs[1:]:
@@ -70,40 +137,7 @@ def split_keys(inputs: Sequence[EvaluatorInputs], by: "ByConfig") -> tuple[dict[
                     f"`{other.source}` names class {index} `{name}`, `{first.source}` `{names[int(index)]}`: "
                     "conform it first."
                 )
-    # `require_one_label_per_item` has refused any input without labels.
-    labels = [cast("NDArray[np.intp]", prepared.labels) for prepared in inputs]
-    present = sorted({int(label) for own in labels for label in np.unique(own)})
-    skipped: dict[str, str] = {}
-    members: dict[str, list[int]] = {}
-    if by.class_.groups is None:
-        members = {names.get(index, str(index)): [index] for index in present}
-    else:
-        reverse = {name: index for index, name in names.items()}
-        for group, listed in by.class_.groups.items():
-            members[group] = []
-            for member in listed:
-                if isinstance(member, str) and member not in reverse:
-                    raise ValueError(
-                        f"Group `{group}` names class `{member}`, which `{first.source}`'s index2label does not have."
-                    )
-                members[group].append(reverse[member] if isinstance(member, str) else member)
-        grouped = {index for indices in members.values() for index in indices}
-        skipped.update({names.get(index, str(index)): "in no group" for index in present if index not in grouped})
-    masks: dict[str, list[Any]] = {}
-    for key, indices in members.items():
-        per_input = [np.isin(own, indices) for own in labels]
-        short = [
-            (prepared.source, count)
-            for prepared, mask in zip(inputs, per_input, strict=True)
-            if (count := int(mask.sum())) < by.class_.min_items
-        ]
-        if short:
-            source, count = short[0]
-            noun = "item" if count == 1 else "items"
-            skipped[key] = f"{count} {noun} in `{source}`, fewer than `min_items` {by.class_.min_items}"
-        else:
-            masks[key] = per_input
-    return masks, skipped
+    return names
 
 
 def run_per_class(
@@ -132,8 +166,12 @@ def run_per_class(
 
 
 def _sliced(prepared: EvaluatorInputs, mask: Any) -> EvaluatorInputs:
-    """`prepared` narrowed to the items `mask` selects: its embeddings and labels."""
-    updates = {name: value[mask] for name in ("embeddings", "labels") if (value := getattr(prepared, name)) is not None}
+    """`prepared` narrowed to the rows `mask` selects: its embeddings, labels and predictions."""
+    updates: dict[str, Any] = {
+        name: value[mask] for name in ("embeddings", "labels") if (value := getattr(prepared, name)) is not None
+    }
+    if prepared.predictions is not None:
+        updates["predictions"] = prepared.predictions.sliced(mask)
     return dataclasses.replace(prepared, **updates)
 
 

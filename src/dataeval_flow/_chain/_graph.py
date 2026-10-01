@@ -263,6 +263,11 @@ def _task_graph_problems(
                 f"which runs a model whose rows may be detections; `{spec.type}` needs one row per item: only drift "
                 "evaluators read it."
             )
+        if spec.kind == "evaluator" and spec.by is not None and spec.by.predicted is not None and model is None:
+            problems.append(
+                f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' has `by: predicted`, which "
+                "needs a model's predictions: name an `uncertainty` extractor on the step or the task."
+            )
         if issubclass(spec.impl, Transform):
             problems.extend(_export_clashes(task, spec, spec.impl, owners))
     return problems
@@ -301,7 +306,7 @@ def _resolve(
         read = sorted(config.wanted_kinds() - {InputKind.EMBEDDINGS, InputKind.LABELS}) if entry.by is not None else []
         if read:
             raise GraphError(
-                f"Step '{entry.name}' has `by: class`, which slices embeddings and labels, and `{type_id}` reads "
+                f"Step '{entry.name}' has `by:`, which slices embeddings and labels, and `{type_id}` reads "
                 f"{', '.join(read)}."
             )
     else:
@@ -338,8 +343,8 @@ def _resolve(
     _check_extractor(entry, kind, type_id, config, pipeline)
     by = entry.by
     if kind == "check" and by is not None:
-        # A check's bare `by: class` keys by its input's keys, so it takes the `by:` of the step that made them: by
-        # class, or by group.
+        # A check's bare `by:` keys by its input's keys, so it takes the `by:` of the step that made them: by
+        # class, by group, or by predicted class.
         typed = (_typed(address, entry, workflow, types, later, empty) for b in bindings for address in b.addresses)
         by = next((value.by for value in typed if value.by is not None), by)
     return StepSpec(
@@ -626,11 +631,11 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
         raise GraphError(f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.")
     if value.by is not None and (entry.kind != "check" or entry.by is None):
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, which holds per-class Outputs (`by: class`): only a check with "
-            "`by: class` reads them."
+            f"Step '{entry.name}' reads `{address}`, which holds Outputs per key (`by:`): only a check with "
+            "`by:` reads them."
         )
     if entry.kind == "check" and entry.by is not None and value.by is None:
-        raise GraphError(f"Step '{entry.name}' has `by: class`, but `{address}` holds one Output, not one per class.")
+        raise GraphError(f"Step '{entry.name}' has `by:`, but `{address}` holds one Output, not one per key.")
     if port.is_list and not value.is_list:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes a whole list, but `{address}` "

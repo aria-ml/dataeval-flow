@@ -330,16 +330,47 @@
       "type": "object"
     },
     "ByConfig": {
-      "additionalProperties": false,
-      "description": "A step's `by:`. Written `by: class`, or `by: {class: {groups: ..., min_items: ...}}`.",
-      "properties": {
-        "class": {
-          "$ref": "#/$defs/ClassKeys",
-          "description": "Key items by their class."
+      "anyOf": [
+        {
+          "enum": [
+            "class",
+            "predicted"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A step's `by:`. Written `by: class` or `by: predicted`, or with settings, `by: {class: {groups: ...}}`.",
+          "properties": {
+            "class": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClassKeys"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Key items by their class."
+            },
+            "predicted": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PredictedKeys"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Key rows by the class a model predicts: needs an `uncertainty` extractor."
+            }
+          },
+          "title": "ByConfig",
+          "type": "object"
         }
-      },
-      "title": "ByConfig",
-      "type": "object"
+      ]
     },
     "CheckStep_class-imbalance": {
       "additionalProperties": false,
@@ -384,7 +415,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -392,7 +426,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -448,7 +482,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -456,7 +493,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -545,7 +582,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -553,7 +593,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -624,7 +664,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -632,7 +675,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -680,7 +723,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -688,7 +734,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -744,7 +790,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -752,7 +801,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -813,7 +862,10 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
+              "enum": [
+                "class",
+                "predicted"
+              ],
               "type": "string"
             },
             {
@@ -821,7 +873,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -3951,10 +4003,6 @@
         "by": {
           "anyOf": [
             {
-              "const": "class",
-              "type": "string"
-            },
-            {
               "$ref": "#/$defs/ByConfig"
             },
             {
@@ -3962,8 +4010,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`."
         },
         "name": {
           "description": "The step's name, which is the address of its output.",
@@ -6662,6 +6709,55 @@
         "factor"
       ],
       "title": "ParseValueCorrectionConfig",
+      "type": "object"
+    },
+    "PredictedKeys": {
+      "additionalProperties": false,
+      "description": "How `by: predicted` keys rows: by each class a model predicts, or by named groups of them.",
+      "properties": {
+        "groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of classes, each listed by index or by name, keying each group instead of each class. Groups may overlap; a class in no group is left out.",
+          "title": "Groups"
+        },
+        "min_items": {
+          "default": 2,
+          "description": "The fewest items of a key each input must hold for that key to run.",
+          "minimum": 1,
+          "title": "Min Items",
+          "type": "integer"
+        },
+        "threshold": {
+          "default": 0.99,
+          "description": "A row counts toward every class whose sigmoid score is at least this share of its largest, DataEval's rule; `1.0` takes the top class only.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Threshold",
+          "type": "number"
+        }
+      },
+      "title": "PredictedKeys",
       "type": "object"
     },
     "PreprocessingStep": {

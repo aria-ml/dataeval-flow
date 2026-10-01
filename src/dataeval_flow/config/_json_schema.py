@@ -57,8 +57,7 @@ def _step_union(plugins: bool) -> Any:
         __config__=forbid,
         evaluator=(str, required("evaluator")),
         input=(str | list[str], required("input")),
-        # `class` is the shorthand `ByConfig` reads as its default.
-        by=(Literal["class"] | ByConfig | None, StepEntry.model_fields["by"]),
+        by=(ByConfig | None, StepEntry.model_fields["by"]),
         **common,
     )
     workflow = create_model(
@@ -70,7 +69,7 @@ def _step_union(plugins: bool) -> Any:
     )
     # An inline step embeds nothing, so its step takes no `extractor:`; naming one fails the load.
     plain = {key: field for key, field in common.items() if key != "extractor"}
-    check_by = {"by": (Literal["class"] | None, StepEntry.model_fields["by"])}
+    check_by = {"by": (Literal["class", "predicted"] | None, StepEntry.model_fields["by"])}
     inline = [
         create_model(
             f"{kind.title()}Step_{cls.name}",
