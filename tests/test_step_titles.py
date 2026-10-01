@@ -50,6 +50,8 @@ _TITLES = {
     "wrap": "Wrap",
     "classwise-outliers": "Outliers by Class",
     "ood-union": "OOD Agreement",
+    "factor-deviation": "OOD Sample Metadata Deviations",
+    "factor-predictors": "OOD Factor Predictors",
     "data-analysis": "Data Analysis",
     "data-cleaning": "Data Cleaning",
     "data-coverage": "Data Coverage",

@@ -24,6 +24,8 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 | `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
+| `factor-predictors` | combine | `ood`: an `ood-union` or OOD Output; `reference`, `input`: the Datasets it was computed on | each factor's association with being flagged |
+| `factor-deviation` | combine | the same | the factors setting each of the most out-of-distribution agreed images apart |
 
 ## How thresholds work
 
@@ -195,6 +197,41 @@ Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
+
+### `factor-predictors`
+
+How strongly each metadata factor goes with being flagged: DataEval's `factor_predictors`, normalized mutual
+information from 0 to 1, strongest first, over the test images the detectors assessed. Factors are the item-level
+metadata factors, without `id`, with `class_label` where there is one label per item, and the per-image statistics
+named `f_<statistic>`; a factor counts where both Datasets have it, numeric, one-dimensional, finite in both, and not
+constant in the test. Where a Dataset's metadata or statistics cannot be read, the rest is read without it, and the
+section says so. Load refuses an `ood` Output computed on other Datasets than `reference` and `input`. Configured by
+{py:class}`~dataeval_flow.steps.combines.FactorPredictorsConfig`; makes a
+{py:class}`~dataeval_flow.steps.combines.FactorPredictors`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `ood` | an address | required | An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input` |
+| `reference` | an address | required | The reference Dataset the detectors fitted on |
+| `input` | an address | required | The test Dataset whose images were flagged |
+| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under |
+| `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
+
+### `factor-deviation`
+
+The factors that set each of the most out-of-distribution agreed images apart from the reference: DataEval's
+`factor_deviation`, each factor's scaled distance from the reference's median, most deviating first. It reads the
+factors `factor-predictors` reads. Configured by {py:class}`~dataeval_flow.steps.combines.FactorDeviationConfig`; makes
+a {py:class}`~dataeval_flow.steps.combines.FactorDeviations`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `ood` | an address | required | An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input` |
+| `reference` | an address | required | The reference Dataset the detectors fitted on |
+| `input` | an address | required | The test Dataset whose images were flagged |
+| `max_items` | an integer of at least 1 | `50` | The most out-of-distribution agreed images explained, at most |
+| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under |
+| `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
 
 ## data-cleaning is this chain
 

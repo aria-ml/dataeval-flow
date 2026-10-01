@@ -33,6 +33,8 @@ _BUILTINS: dict[str, str] = {
 }
 _COMBINE_BUILTINS: dict[str, str] = {
     "classwise-outliers": "dataeval_flow.steps.combines._classwise:ClasswiseOutliersCombine",
+    "factor-deviation": "dataeval_flow.steps.combines._factors:FactorDeviationCombine",
+    "factor-predictors": "dataeval_flow.steps.combines._factors:FactorPredictorsCombine",
     "ood-union": "dataeval_flow.steps.combines._ood:OODUnionCombine",
 }
 _CHECK_BUILTINS: dict[str, str] = {

@@ -181,6 +181,13 @@ dataeval_flow.steps.combines:ClasswiseOutliers
 dataeval_flow.steps.combines:ClasswiseOutliersCombine
 dataeval_flow.steps.combines:ClasswiseOutliersConfig
 dataeval_flow.steps.combines:ClasswiseRow
+dataeval_flow.steps.combines:FactorDeviation
+dataeval_flow.steps.combines:FactorDeviationCombine
+dataeval_flow.steps.combines:FactorDeviationConfig
+dataeval_flow.steps.combines:FactorDeviations
+dataeval_flow.steps.combines:FactorPredictors
+dataeval_flow.steps.combines:FactorPredictorsCombine
+dataeval_flow.steps.combines:FactorPredictorsConfig
 dataeval_flow.steps.combines:OODUnion
 dataeval_flow.steps.combines:OODUnionCombine
 dataeval_flow.steps.combines:OODUnionConfig

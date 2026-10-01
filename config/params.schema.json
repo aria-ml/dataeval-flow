@@ -1538,6 +1538,159 @@
       "title": "CombineStep_classwise-outliers",
       "type": "object"
     },
+    "CombineStep_factor-deviation": {
+      "additionalProperties": false,
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "ood": {
+          "description": "An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input`.",
+          "title": "Ood",
+          "type": "string"
+        },
+        "reference": {
+          "description": "The reference Dataset the detectors fitted on.",
+          "title": "Reference",
+          "type": "string"
+        },
+        "input": {
+          "description": "The test Dataset whose images were flagged.",
+          "title": "Input",
+          "type": "string"
+        },
+        "max_items": {
+          "default": 50,
+          "description": "The most out-of-distribution agreed images explained, at most. ood-detection's `max_ood_insights` before its port.",
+          "exclusiveMinimum": 0,
+          "title": "Max Items",
+          "type": "integer"
+        },
+        "combine": {
+          "const": "factor-deviation",
+          "description": "`factor-deviation`: Names the factors that set the most out-of-distribution agreed images apart.",
+          "title": "Combine",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ood",
+        "reference",
+        "input",
+        "combine",
+        "name"
+      ],
+      "title": "CombineStep_factor-deviation",
+      "type": "object"
+    },
+    "CombineStep_factor-predictors": {
+      "additionalProperties": false,
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "ood": {
+          "description": "An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input`.",
+          "title": "Ood",
+          "type": "string"
+        },
+        "reference": {
+          "description": "The reference Dataset the detectors fitted on.",
+          "title": "Reference",
+          "type": "string"
+        },
+        "input": {
+          "description": "The test Dataset whose images were flagged.",
+          "title": "Input",
+          "type": "string"
+        },
+        "combine": {
+          "const": "factor-predictors",
+          "description": "`factor-predictors`: Ranks the metadata factors that go with the images OOD detectors flagged.",
+          "title": "Combine",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ood",
+        "reference",
+        "input",
+        "combine",
+        "name"
+      ],
+      "title": "CombineStep_factor-predictors",
+      "type": "object"
+    },
     "CombineStep_ood-union": {
       "additionalProperties": false,
       "properties": {
@@ -1761,6 +1914,12 @@
               },
               {
                 "$ref": "#/$defs/CombineStep_classwise-outliers"
+              },
+              {
+                "$ref": "#/$defs/CombineStep_factor-deviation"
+              },
+              {
+                "$ref": "#/$defs/CombineStep_factor-predictors"
               },
               {
                 "$ref": "#/$defs/CombineStep_ood-union"
