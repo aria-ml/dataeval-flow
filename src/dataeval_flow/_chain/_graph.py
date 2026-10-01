@@ -56,8 +56,9 @@ class ValueType:
     is_list: bool = False
     keys: tuple[str, ...] | None = None
     step: str | None = None
-    by: bool = False
-    """Whether it holds a `PerClassOutput`: an evaluate step's Output with `by:`."""
+    by: ByConfig | None = None
+    """For a `PerClassOutput`, an evaluate step's Output with `by:`, that step's `by:`: whether it keys by class or by
+    group. ``None`` for anything else."""
 
 
 @dataclass(frozen=True)
@@ -165,7 +166,7 @@ def build_graph(
                 port.is_list or spec.broadcast,
                 keys,
                 step=spec.name,
-                by=spec.kind == "evaluator" and spec.by is not None,
+                by=spec.by if spec.kind == "evaluator" else None,
             )
     return ChainGraph(workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases)
 
@@ -321,6 +322,12 @@ def _resolve(
         if problem is not None:
             raise GraphError(f"Step '{entry.name}': {problem}")
     _check_extractor(entry, kind, type_id, config, pipeline)
+    by = entry.by
+    if kind == "check" and by is not None:
+        # A check's bare `by: class` keys by its input's keys, so it takes the `by:` of the step that made them: by
+        # class, or by group.
+        typed = (_typed(address, entry, workflow, types, later, empty) for b in bindings for address in b.addresses)
+        by = next((value.by for value in typed if value.by is not None), by)
     return StepSpec(
         name=entry.name,
         kind=kind,
@@ -333,7 +340,7 @@ def _resolve(
         optional=entry.optional,
         broadcast=broadcast,
         keys=tuple(keys) if broadcast and keys is not None else None,
-        by=entry.by,
+        by=by,
     )
 
 
@@ -603,12 +610,12 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
         wanted = ", ".join(cls.__name__ for cls in port.classes)
         given = ", ".join(cls.__name__ for cls in value.classes)
         raise GraphError(f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.")
-    if value.by and (entry.kind != "check" or entry.by is None):
+    if value.by is not None and (entry.kind != "check" or entry.by is None):
         raise GraphError(
             f"Step '{entry.name}' reads `{address}`, which holds per-class Outputs (`by: class`): only a check with "
             "`by: class` reads them."
         )
-    if entry.kind == "check" and entry.by is not None and not value.by:
+    if entry.kind == "check" and entry.by is not None and value.by is None:
         raise GraphError(f"Step '{entry.name}' has `by: class`, but `{address}` holds one Output, not one per class.")
     if port.is_list and not value.is_list:
         raise GraphError(

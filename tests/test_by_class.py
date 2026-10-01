@@ -252,6 +252,24 @@ def test_a_check_with_by_on_a_skipped_step_is_not_assessed_by_class(plugins):
     assert (finding.severity, finding.title, finding.brief) == ("info", "Drifted by class", "not assessed")
 
 
+_GROUPS = {"class": {"groups": {"pets": ["cat", "dog"], "birds": ["bird"]}}}
+
+
+def test_a_check_over_groups_rolls_up_by_group(plugins):
+    register_toys(plugins)
+    counts = {0: 15, 1: 15, 2: 15}
+    result = _run(_GROUPS, ClassImages(counts), ClassImages(counts, seed=1, bright_classes={2}), steps=_CHECK)
+    (finding,) = (result.steps["knn-check"].elements or {})["cam1"].output
+    assert (finding.title, finding.brief) == ("Drifted by group", "1/2 groups warn")
+
+
+def test_a_check_over_skipped_groups_is_not_assessed_by_group(plugins):
+    register_toys(plugins)
+    result = _run(_GROUPS, BoxImages(), BoxImages(seed=1), optional=True, steps=_CHECK)
+    (finding,) = (result.steps["knn-check"].elements or {})["cam1"].output
+    assert (finding.title, finding.brief) == ("Drifted by group", "not assessed")
+
+
 def test_a_check_with_by_returning_one_finding_per_class_fails_its_step(plugins):
     from unittest.mock import patch
 
