@@ -338,14 +338,14 @@ test_cases:
     name: Drift Monitoring Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that DriftMonitoringWorkflow executes end-to-end on synthetic
-      reference and test data.
+      Verify that the drift-monitoring preset runs end-to-end on synthetic
+      reference and test data, its result a ChainResult whose checks judge each detector.
     initial_conditions:
       - dataeval-flow installed
       - Two synthetic datasets (reference, test) configured as sources
     expected_results:
-      - DriftMonitoringWorkflow.run returns success=True
-      - result.output exposes drift findings
+      - The drift-monitoring task returns a ChainResult with success=True
+      - Each detector's drift-*-check step holds a finding for the test source
       - result.report() returns a non-empty string
 
   "9-1":

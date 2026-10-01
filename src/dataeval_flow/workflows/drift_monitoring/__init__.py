@@ -1,27 +1,6 @@
-"""Drift monitoring workflow."""
+"""The ``drift-monitoring`` preset."""
 
-__all__ = [
-    "ChunkingConfig",
-    "DriftDetectorDomainClassifier",
-    "DriftDetectorKNeighbors",
-    "DriftDetectorMMD",
-    "DriftDetectorUnivariate",
-    "DriftMonitoringConfig",
-    "DriftMonitoringHealthThresholds",
-    "DriftMonitoringResult",
-    "DriftMonitoringWorkflow",
-    "UpdateStrategyConfig",
-]
+__all__ = ["DriftMonitoringConfig", "DriftMonitoringThresholds", "DriftMonitoringWorkflow"]
 
-from dataeval_flow.workflows.drift_monitoring._config import (
-    ChunkingConfig,
-    DriftDetectorDomainClassifier,
-    DriftDetectorKNeighbors,
-    DriftDetectorMMD,
-    DriftDetectorUnivariate,
-    DriftMonitoringConfig,
-    DriftMonitoringHealthThresholds,
-    UpdateStrategyConfig,
-)
-from dataeval_flow.workflows.drift_monitoring._outputs import DriftMonitoringResult
+from dataeval_flow.workflows.drift_monitoring._config import DriftMonitoringConfig, DriftMonitoringThresholds
 from dataeval_flow.workflows.drift_monitoring._workflow import DriftMonitoringWorkflow

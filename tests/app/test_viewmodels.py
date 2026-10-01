@@ -506,8 +506,8 @@ class TestSectionViewModel:
 
     def test_add_remove_list_item(self) -> None:
         vm = SectionViewModel("workflows")
-        vm.load_fields("drift-monitoring")
-        # 'detectors' is a list of discriminated union for drift-monitoring
+        vm.load_fields("ood-detection")
+        # 'detectors' is a list of discriminated union for ood-detection
         msg = vm.add_list_item("detectors", "kneighbors", {"k": 5})
         assert "Added kneighbors" in msg
         assert len(vm.list_items["detectors"]) == 1
@@ -516,9 +516,14 @@ class TestSectionViewModel:
         assert len(vm.list_items["detectors"]) == 0
         assert not vm.remove_list_item("detectors", 0)
 
+    def test_drift_monitoring_loads_its_fields(self) -> None:
+        vm = SectionViewModel("workflows")
+        names = [descriptor.name for descriptor in vm.load_fields("drift-monitoring")]
+        assert names == ["ontology", "detectors", "classwise", "health_thresholds"]
+
     def test_get_variant_descriptors(self) -> None:
         vm = SectionViewModel("workflows")
-        vm.load_fields("drift-monitoring")
+        vm.load_fields("ood-detection")
         descriptors = vm.get_variant_descriptors("detectors", "kneighbors")
         assert len(descriptors) > 0
         # Check that 'k' is in the descriptors
@@ -569,12 +574,12 @@ class TestSectionViewModel:
 
     def test_add_list_item_invalid_field(self) -> None:
         vm = SectionViewModel("workflows")
-        vm.load_fields("drift-monitoring")
+        vm.load_fields("ood-detection")
         assert vm.add_list_item("no_such_field", "foo", {}) == ""
 
     def test_get_variant_descriptors_invalid(self) -> None:
         vm = SectionViewModel("workflows")
-        vm.load_fields("drift-monitoring")
+        vm.load_fields("ood-detection")
         assert vm.get_variant_descriptors("no_such_field", "foo") == []
         assert vm.get_variant_descriptors("detectors", "no_such_variant") == []
 
@@ -627,7 +632,7 @@ class TestSectionViewModel:
         from dataeval_flow._app._model._item import SKIP
 
         vm = SectionViewModel("workflows")
-        vm.load_fields("drift-monitoring")
+        vm.load_fields("ood-detection")
 
         # Create a LIST descriptor with union_variants
         desc = FieldDescriptor(

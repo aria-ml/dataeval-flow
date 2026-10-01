@@ -156,27 +156,3 @@ def pipeline(name: str) -> PipelineConfig:
     """Case `name`'s datasets and flatten extractor on the CPU with seed 0, so the golden holds on a CPU-only runner."""
     config = toy_pipeline(datasets=CASES[name].datasets(), extractor=True)
     return config.model_copy(update={"seed": 0, "device": "cpu"})
-
-
-def produced_legacy(result: Any) -> dict[str, Any]:
-    """What the legacy workflow's result gives, as the golden records it; classwise rows keep legacy's display name."""
-    output = result.output
-    return {
-        "severities": [finding.severity for finding in output.report.findings],
-        "detectors": {
-            key: {
-                "drifted": raw["drifted"],
-                "distance": raw["distance"],
-                "threshold": raw["threshold"],
-                "chunks": [{"value": c["value"], "drifted": c["drifted"]} for c in raw.get("chunks", [])],
-            }
-            for key, raw in output.raw.detectors.items()
-        },
-        "classwise": {
-            cw["detector"]: [
-                {"class": r["class_name"], "drifted": r["drifted"], "distance": r["distance"], "p_val": r["p_val"]}
-                for r in cw["rows"]
-            ]
-            for cw in (output.raw.classwise or [])
-        },
-    }

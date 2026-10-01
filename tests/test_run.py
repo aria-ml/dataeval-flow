@@ -15,9 +15,11 @@ from dataeval_flow import PipelineConfig, load_config, run, run_tasks
 from dataeval_flow.config import SourceConfig, StatsMeasureConfig, StatsPolicyConfig, TaskConfig, ViewConfig
 from dataeval_flow.config.extractors import FlattenExtractorConfig, list_extractors
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult, OutliersConfig, OutliersResult
+from dataeval_flow.evaluators.shift import DriftMMDConfig
+from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import DatasetContext, WorkflowConfig, WorkflowContext
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftMonitoringConfig, DriftMonitoringResult
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 
@@ -40,20 +42,20 @@ def test_run_matches_a_pipeline() -> None:
 def test_run_is_typed_to_the_configs_result() -> None:
     """Checked by pyright: the config's type parameter is the type `run` returns."""
     assert_type(run(DuplicatesConfig(), ToyImages()), DuplicatesResult)
-    drift = DriftMonitoringConfig(detectors=[DriftDetectorMMD(method="mmd")])
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     data = {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}
-    assert_type(run(drift, data, extractor=FlattenExtractorConfig(batch_size=8)), DriftMonitoringResult)
+    assert_type(run(drift, data, extractor=FlattenExtractorConfig(batch_size=8)), ChainResult)
 
 
 def test_several_sources_run_in_the_order_given() -> None:
     """Out of alphabetical order, so a run that sorted its sources would read `incoming` as the reference."""
-    drift = DriftMonitoringConfig(detectors=[DriftDetectorMMD(method="mmd")])
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     result = run(
         drift,
         {"reference": ToyImages(seed=0), "incoming": ToyImages(seed=1)},
         extractor=FlattenExtractorConfig(batch_size=8),
     )
-    assert isinstance(result, DriftMonitoringResult)
+    assert isinstance(result, ChainResult)
     assert result.success
     assert result.sources is not None
     assert list(result.sources) == ["reference", "incoming"]
@@ -79,7 +81,7 @@ def test_an_extractor_config_needs_no_name() -> None:
 
 
 def test_a_protocol_extractor_runs_and_is_not_cached_to_disk(tmp_path: Path) -> None:
-    drift = DriftMonitoringConfig(detectors=[DriftDetectorMMD(method="mmd")])
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     with use_batch_size(8):
         result = run(
             drift, {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}, extractor=_flatten, cache_dir=tmp_path
@@ -90,7 +92,7 @@ def test_a_protocol_extractor_runs_and_is_not_cached_to_disk(tmp_path: Path) -> 
 
 def test_an_extractor_config_is_cached_to_disk(tmp_path: Path) -> None:
     """The counterpart of the test above, so its empty cache means what it says."""
-    drift = DriftMonitoringConfig(detectors=[DriftDetectorMMD(method="mmd")])
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     extractor = FlattenExtractorConfig(batch_size=8)
     result = run(
         drift, {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}, extractor=extractor, cache_dir=tmp_path
@@ -235,7 +237,7 @@ def test_a_definition_of_another_type_is_refused() -> None:
 
 
 def test_inputs_are_checked_before_anything_runs() -> None:
-    drift = DriftMonitoringConfig(detectors=[DriftDetectorMMD(method="mmd")])
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     with pytest.raises(ValidationError, match="two or more sources"):
         run(drift, ToyImages(), extractor=FlattenExtractorConfig())
 
@@ -369,7 +371,6 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     from dataeval_flow._blocks import Paragraph, Section, Table
     from dataeval_flow._tables import TableLimits, table_limits
     from dataeval_flow.config import ResultConfig
-    from dataeval_flow.steps import ChainResult
     from tests.finding_blocks import walk
 
     config = toy_pipeline(

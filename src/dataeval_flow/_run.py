@@ -114,10 +114,11 @@ def run(
     Several sources, in the order the workflow reads them::
 
         from dataeval_flow.config.extractors import FlattenExtractorConfig
-        from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftMonitoringConfig
+        from dataeval_flow.evaluators.shift import DriftMMDConfig
+        from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
         drift = run(
-            DriftMonitoringConfig(detectors=[DriftDetectorMMD()]),
+            DriftMonitoringConfig(detectors=[DriftMMDConfig()]),
             {"reference": train, "test": incoming},
             extractor=FlattenExtractorConfig(batch_size=64),
         )

@@ -851,9 +851,10 @@ class TestWorkflowConfig:
 
     def test_drift_workflow_config_basic(self):
         """DriftMonitoringConfig stores name, type, and flat params."""
-        from dataeval_flow.workflows.drift_monitoring import DriftDetectorKNeighbors, DriftMonitoringConfig
+        from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
+        from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
-        wc = DriftMonitoringConfig(name="knn_drift", detectors=[DriftDetectorKNeighbors(k=10)])
+        wc = DriftMonitoringConfig(name="knn_drift", detectors=[DriftKNeighborsConfig(k=10)])
         assert wc.name == "knn_drift"
         assert wc.type == "drift-monitoring"
         assert len(wc.detectors) == 1

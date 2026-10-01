@@ -1,4 +1,5 @@
-"""Record what two tasks' results hold today, to show that running every task through the engine changes nothing.
+"""Record what the rerouting cases' results hold today, to show that running every task through the engine changes
+nothing.
 
 Run it from the repository root, with the code as it stands before the change it guards:
 

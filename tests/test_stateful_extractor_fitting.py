@@ -20,9 +20,10 @@ from dataeval_flow._embeddings import shared_extractor_scope
 from dataeval_flow._orchestrator import _run_single_task
 from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
 from dataeval_flow.config.extractors import Extractor, ExtractorConfig, FlattenExtractorConfig
+from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftMonitoringConfig
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 from tests.evaluator_toys import ToyImages
 
 BATCH = 4
@@ -91,22 +92,18 @@ def recording(plugins: dict[str, list[tuple[str, str]]]) -> Iterator[list[_Recor
     DatasetCache.clear_instances()
 
 
-REFERENCE, INCOMING = ToyImages(seed=0), ToyImages(seed=1)
+REFERENCE, INCOMING, LATER = ToyImages(seed=0), ToyImages(seed=1), ToyImages(seed=2)
 
 
 def _pipeline() -> tuple[TaskConfig, PipelineConfig]:
-    task = TaskConfig(name="drift", workflow="drift", sources=["reference", "incoming"], extractor="rec")
+    """A drift task over two test sources, each also tested by class."""
+    data = {"reference": REFERENCE, "incoming": INCOMING, "later": LATER}
+    task = TaskConfig(name="drift", workflow="drift", sources=list(data), extractor="rec")
     config = PipelineConfig(
-        datasets=[
-            DatasetProtocolConfig(name="reference", dataset=REFERENCE),
-            DatasetProtocolConfig(name="incoming", dataset=INCOMING),
-        ],
-        sources=[
-            SourceConfig(name="reference", dataset="reference"),
-            SourceConfig(name="incoming", dataset="incoming"),
-        ],
+        datasets=[DatasetProtocolConfig(name=name, dataset=dataset) for name, dataset in data.items()],
+        sources=[SourceConfig(name=name, dataset=name) for name in data],
         extractors=[RecordingConfig(name="rec", batch_size=BATCH)],
-        workflows=[DriftMonitoringConfig(name="drift", detectors=[DriftDetectorMMD()])],
+        workflows=[DriftMonitoringConfig(name="drift", detectors=[DriftMMDConfig()], classwise=["drift-mmd"])],
         tasks=[task],
     )
     return task, config
@@ -129,9 +126,12 @@ def _via_the_tui(task: TaskConfig, config: PipelineConfig) -> Any:
 def test_every_entry_point_builds_and_fits_once_per_task(
     recording: list[_Recording], entry_point: Callable[[TaskConfig, PipelineConfig], Any]
 ) -> None:
+    """On the reference, never again for a later test source or for a class."""
     task, config = _pipeline()
     result = entry_point(task, config)
     assert result.success, result.errors
+    classes = result.steps["drift-mmd-classes"].elements
+    assert {key: element.status for key, element in classes.items()} == {"incoming": "ok", "later": "ok"}
     assert len(recording) == 1
     assert recording[0].fitted_on is not None
     np.testing.assert_array_equal(recording[0].fitted_on, _first_batch(REFERENCE))

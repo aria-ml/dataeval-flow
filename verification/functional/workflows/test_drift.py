@@ -1,4 +1,4 @@
-"""TC-8-1 — drift monitoring workflow."""
+"""TC-8-1 — the drift-monitoring preset."""
 
 from __future__ import annotations
 
@@ -8,7 +8,9 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.drift_monitoring import DriftDetectorKNeighbors, DriftMonitoringConfig
+from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
+from dataeval_flow.steps import ChainResult
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
 pytestmark = pytest.mark.required
 
@@ -31,7 +33,7 @@ class TestDriftMonitoringWorkflow:
                 DriftMonitoringConfig(
                     name="drift_main",
                     type="drift-monitoring",
-                    detectors=[DriftDetectorKNeighbors(method="kneighbors", k=3)],
+                    detectors=[DriftKNeighborsConfig(k=3)],
                 ),
             ],
             tasks=[
@@ -44,10 +46,11 @@ class TestDriftMonitoringWorkflow:
             ],
         )
         result = run_tasks(cfg, data_dir=data_dir)["drift_task"]
+        assert isinstance(result, ChainResult)
         assert result.success
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
-        # Typed output check: exposes drift findings on the data payload
-        assert len(result.output.raw.detectors) > 0
-        assert len(result.output.report.findings) > 0
+        # The detector's `drift` check judges the test source against the reference
+        (finding,) = (result.steps["drift-kneighbors-check"].elements or {})["test"].output
+        assert finding.title == "Drift (K-Neighbors)"

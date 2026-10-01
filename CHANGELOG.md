@@ -116,6 +116,12 @@
   explicit edges or levels for every factor the policy left unpinned, read back from this data. A dominant value
   such as a speed of zero is left in, with a note to decide. `metadata-issues` shows it as a "Recommended policy"
   finding that opens with a caveat: a policy read from unrepresentative data can give invalid or misleading results
+- `by: class` on an evaluate step runs its evaluator once per class, or per named group of classes, on the classes
+  with `min_items` items in every input, in one Output that names each class it left out and why. On a check, it
+  judges each class and rolls the findings into one, briefed `2/8 classes warn`
+- `drift`, a check: a warning when a drift evaluator finds drift or, chunked, when `chunk_percent` of the chunks
+  drift or `consecutive_chunks` drift in a row
+- The drift evaluators' results have a report section: the verdict's fields, or one row per chunk
 
 ### Changed
 
@@ -191,6 +197,12 @@
   Pruning warning and each pool's info finding are gone
 - `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings. It
   returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
+- `drift-monitoring` is a preset: each detector is a step judged by a `drift` check, and each detector `classwise`
+  names also runs by class. Each test source is tested on its own against the reference, where they were merged;
+  `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
+  (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
+  names, and `health_thresholds` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
+  It returns a `ChainResult`; a detector that raises fails its step and the task
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
@@ -292,6 +304,11 @@
 - `MetadataTriageResult`, with its metadata's `blocking` and `verified`; a metadata-triage result is a `ChainResult`
 - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source` on
   `metadata-triage`, which refuses them: declare the binning in a `metadata:` policy
+- `update_strategy` on `drift-monitoring`, which was never applied and is now refused
+- The `DriftDetectorUnivariate`, `DriftDetectorMMD`, `DriftDetectorKNeighbors` and `DriftDetectorDomainClassifier`,
+  `ChunkingConfig`, `UpdateStrategyConfig` and `DriftMonitoringHealthThresholds` classes; a detector is a drift
+  evaluator config, and its `chunking:` a `ChunkedDriftConfig`
+- `DriftMonitoringResult` and its parts; a drift-monitoring result is a `ChainResult`
 
 ## v0.2.2
 

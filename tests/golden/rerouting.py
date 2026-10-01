@@ -8,8 +8,7 @@ import pytest
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
-from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftMonitoringConfig
-from tests.evaluator_toys import shifted_sources, toy_pipeline
+from tests.evaluator_toys import toy_pipeline
 
 _VOLATILE = {"timestamp", "execution_time_s", "tool_version", "execution_time", "execution_duration"}
 
@@ -57,15 +56,6 @@ def _duplicates() -> dict[str, Any]:
     return run_task(task, config, report_images=True).to_dict()
 
 
-def _drift() -> dict[str, Any]:
-    drift = DriftMonitoringConfig(name="drift", detectors=[DriftDetectorMMD(method="mmd", n_permutations=20)])
-    task = TaskConfig(name="t", workflow="drift", sources=["reference", "test"], extractor="flat")
-    config = toy_pipeline(workflows=[drift], tasks=[task], datasets=shifted_sources(count=24), extractor=True)
-    config = config.model_copy(update={"seed": 0, "device": "cpu"})
-    return run_task(task, config, report_images=False).to_dict()
-
-
 CASES: dict[str, Callable[[], dict[str, Any]]] = {
     "duplicates": _duplicates,
-    "drift": _drift,
 }
