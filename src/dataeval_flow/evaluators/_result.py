@@ -147,11 +147,19 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
 
     def _report_output(self, *, detailed: bool) -> list[Block]:
         """This evaluator's own section where it has one, else DataEval's output as it came; when not *detailed*,
-        the latter's tables stop at ``ROW_LIMIT`` rows."""
+        the latter's tables stop at ``ROW_LIMIT`` rows. A run with ``by:`` shows each key's section so."""
         from dataeval_flow._tables import limited_tables
-        from dataeval_flow.evaluators._report import output_blocks
+        from dataeval_flow.evaluators._per_class import PerClassOutput
+        from dataeval_flow.evaluators._report import output_blocks, per_class_blocks
 
         serialized = self._serialized or {}
+        if isinstance(self.output, PerClassOutput):
+            with limited_tables(self._limits):
+                return per_class_blocks(
+                    serialized,
+                    lambda inner: self._section(inner, self._source_names, detailed=detailed),
+                    detailed=detailed,
+                )
         if self._source_names:
             with limited_tables(self._limits):
                 own = self._section(serialized, self._source_names, detailed=detailed)

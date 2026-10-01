@@ -58,6 +58,7 @@ dataeval_flow.evaluators:Evaluator
 dataeval_flow.evaluators:EvaluatorConfig
 dataeval_flow.evaluators:EvaluatorInputs
 dataeval_flow.evaluators:EvaluatorResult
+dataeval_flow.evaluators:PerClassOutput
 dataeval_flow.evaluators:get_evaluator
 dataeval_flow.evaluators:list_evaluators
 dataeval_flow.evaluators.bias:BalanceConfig

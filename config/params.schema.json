@@ -329,6 +329,18 @@
       "title": "BoVWExtractorConfig",
       "type": "object"
     },
+    "ByConfig": {
+      "additionalProperties": false,
+      "description": "A step's `by:`. Written `by: class`, or `by: {class: {groups: ..., min_items: ...}}`.",
+      "properties": {
+        "class": {
+          "$ref": "#/$defs/ClassKeys",
+          "description": "Key items by their class."
+        }
+      },
+      "title": "ByConfig",
+      "type": "object"
+    },
     "CheckStep_class-imbalance": {
       "additionalProperties": false,
       "properties": {
@@ -982,6 +994,47 @@
         }
       },
       "title": "ChunkingConfig",
+      "type": "object"
+    },
+    "ClassKeys": {
+      "additionalProperties": false,
+      "description": "How `by: class` keys items: by class, or by named groups of classes, and the smallest key it runs.",
+      "properties": {
+        "groups": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named groups of classes, each listed by index or by name, keying each group instead of each class. Groups may overlap; a class in no group is left out.",
+          "title": "Groups"
+        },
+        "min_items": {
+          "default": 2,
+          "description": "The fewest items of a key each input must hold for that key to run.",
+          "minimum": 1,
+          "title": "Min Items",
+          "type": "integer"
+        }
+      },
+      "title": "ClassKeys",
       "type": "object"
     },
     "CocoDatasetConfig": {
@@ -4000,6 +4053,23 @@
           ],
           "description": "The address, or addresses, the step reads.",
           "title": "Input"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ByConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         },
         "name": {
           "description": "The step's name, which is the address of its output.",

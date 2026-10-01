@@ -1,11 +1,19 @@
 """An evaluator result's report body: DataEval's output as it came, as report blocks."""
 
-__all__ = ["ROW_LIMIT", "extras_blocks", "output_blocks", "render_result_body", "serialized_of", "table_blocks"]
+__all__ = [
+    "ROW_LIMIT",
+    "extras_blocks",
+    "output_blocks",
+    "per_class_blocks",
+    "render_result_body",
+    "serialized_of",
+    "table_blocks",
+]
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
-from dataeval_flow._blocks import Block, Column, Paragraph, Section, Table, Tree
+from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Section, Table, Tree
 from dataeval_flow._blocks._draw import flow_repr
 from dataeval_flow._blocks._text import Frame, render_text
 from dataeval_flow._result import failure_section
@@ -42,6 +50,44 @@ def output_blocks(output: dict[str, Any], *, detailed: bool) -> list[Block]:
     """Serialized DataEval output under an ``OUTPUT`` section, its extras in a section of their own."""
     blocks = [*_shape_blocks(output, detailed=detailed), *extras_blocks(output, detailed=detailed)]
     return [Section(title="Output", brief=_brief(output) or None, blocks=blocks)]
+
+
+def per_class_blocks(
+    serialized: Mapping[str, Any],
+    section: Callable[[Mapping[str, Any]], list[Block] | None],
+    *,
+    detailed: bool,
+) -> list[Block]:
+    """A per-class Output's section: one table when every key's section is one `Fields` block, else each key's section
+    in turn; then the keys skipped, with why.
+
+    `section` is a key's own section from its JSON, or ``None`` for its output as it came.
+    """
+    header = "Group" if serialized.get("key") == "group" else "Class"
+    sections = {
+        key: section(inner) or output_blocks(dict(inner), detailed=detailed)
+        for key, inner in serialized["classes"].items()
+    }
+    fields = {key: own[0] for key, own in sections.items() if len(own) == 1 and isinstance(own[0], Fields)}
+    blocks: list[Block]
+    if sections and len(fields) == len(sections):
+        labels = list(dict.fromkeys(label for own in fields.values() for label, _ in own.items))
+        columns = [
+            Column(key="key", header=header),
+            *(Column(key=f"f{i}", header=label) for i, label in enumerate(labels)),
+        ]
+        rows: list[dict[str, Cell]] = [
+            {"key": key, **{f"f{i}": dict(own.items).get(label) for i, label in enumerate(labels)}}
+            for key, own in fields.items()
+        ]
+        blocks = [Table(columns=columns, rows=rows)]
+    else:
+        blocks = [Section(title=key, blocks=own) for key, own in sections.items()]
+    skipped = serialized.get("skipped") or {}
+    if skipped:
+        listed = "; ".join(f"{key} ({why})" for key, why in skipped.items())
+        blocks.append(Paragraph(text=f"Not assessed: {listed}."))
+    return blocks
 
 
 def table_blocks(columns: Sequence[str], rows: Sequence[dict[str, Any]], *, limit: int | None) -> list[Block]:

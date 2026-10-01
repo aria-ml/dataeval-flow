@@ -19,8 +19,9 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from dataeval_flow._input_spec import SourceCount
+from dataeval_flow._input_spec import InputKind, SourceCount
 from dataeval_flow.steps._address import Address, parse_address
+from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import InlineStep, Step, StepKind, Transform, port_addresses
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
@@ -55,6 +56,8 @@ class ValueType:
     is_list: bool = False
     keys: tuple[str, ...] | None = None
     step: str | None = None
+    by: bool = False
+    """Whether it holds a `PerClassOutput`: an evaluate step's Output with `by:`."""
 
 
 @dataclass(frozen=True)
@@ -81,6 +84,7 @@ class StepSpec:
     optional: bool = False
     broadcast: bool = False
     keys: tuple[str, ...] | None = None
+    by: ByConfig | None = None
 
     def addresses(self, port: str) -> tuple[Address, ...]:
         """The addresses input `port` reads; ``()`` when none."""
@@ -156,7 +160,12 @@ def build_graph(
         for port in spec.outputs:
             keys = fixed.get(port.name) if port.is_list else spec.keys
             types[spec.output_address(port)] = ValueType(
-                port.type, port.classes, port.is_list or spec.broadcast, keys, step=spec.name
+                port.type,
+                port.classes,
+                port.is_list or spec.broadcast,
+                keys,
+                step=spec.name,
+                by=spec.kind == "evaluator" and spec.by is not None,
             )
     return ChainGraph(workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases)
 
@@ -274,6 +283,12 @@ def _resolve(
     if kind in ("evaluator", "workflow"):
         config, impl, addresses = _pooled(entry, pipeline, evaluators)
         type_id = config.type
+        read = sorted(config.wanted_kinds() - {InputKind.EMBEDDINGS, InputKind.LABELS}) if entry.by is not None else []
+        if read:
+            raise GraphError(
+                f"Step '{entry.name}' has `by: class`, which slices embeddings and labels, and `{type_id}` reads "
+                f"{', '.join(read)}."
+            )
     else:
         config, impl, addresses = _inline(entry, pipeline)
         type_id = entry.target
@@ -318,6 +333,7 @@ def _resolve(
         optional=entry.optional,
         broadcast=broadcast,
         keys=tuple(keys) if broadcast and keys is not None else None,
+        by=entry.by,
     )
 
 

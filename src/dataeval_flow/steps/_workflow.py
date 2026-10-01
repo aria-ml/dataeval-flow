@@ -19,6 +19,7 @@ from pydantic import (
 )
 
 from dataeval_flow.steps._address import STEP_NAME_PATTERN
+from dataeval_flow.steps._by import ByConfig, ClassKeys
 from dataeval_flow.steps._step import StepConfig, StepKind
 
 if TYPE_CHECKING:
@@ -69,6 +70,13 @@ class StepEntry(BaseModel):
     optional: bool = Field(
         default=False, description="Whether a failure is recorded as a skip that does not fail the task."
     )
+    by: ByConfig | None = Field(
+        default=None,
+        description=(
+            "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or "
+            "`{class: {groups: ..., min_items: ...}}` (spec §5.9)."
+        ),
+    )
 
     _config: StepConfig | None = PrivateAttr(default=None)
 
@@ -99,6 +107,14 @@ class StepEntry(BaseModel):
             which = "none" if not named else len(named)
             raise ValueError(f"Step '{self.name}' names {which} of {', '.join(KIND_KEYS)}; name exactly one.")
         kind, target = named[0], cast(str, getattr(self, named[0]))
+        if self.by is not None and kind not in ("evaluator", "check"):
+            raise ValueError(
+                f"Step '{self.name}' is a {kind}, which takes no `by:`: only evaluate steps and checks do."
+            )
+        if self.by is not None and kind == "check" and self.by.class_ != ClassKeys():
+            raise ValueError(
+                f"Step '{self.name}' is a check, whose `by: class` takes no settings: its keys come from its input."
+            )
         if kind in ("evaluator", "workflow") and self.settings:
             keys = ", ".join(sorted(self.settings))
             raise ValueError(
@@ -123,6 +139,8 @@ class StepEntry(BaseModel):
             written["extractor"] = self.extractor
         if self.optional:
             written["optional"] = True
+        if self.by is not None:
+            written["by"] = data["by"]
         written.update({key: data[key] for key in self.settings if key in data})
         return written
 

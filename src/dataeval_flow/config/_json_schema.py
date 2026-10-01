@@ -37,6 +37,7 @@ def _workflow_union(configs: Sequence[type[BaseModel]], custom: type[BaseModel])
 
 def _step_union(plugins: bool) -> Any:
     """One schema branch per kind of step, and one per registered transform, combine and check with its settings."""
+    from dataeval_flow.steps._by import ByConfig
     from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
     from dataeval_flow.steps._workflow import StepEntry
 
@@ -56,6 +57,8 @@ def _step_union(plugins: bool) -> Any:
         __config__=forbid,
         evaluator=(str, required("evaluator")),
         input=(str | list[str], required("input")),
+        # `class` is the shorthand `ByConfig` reads as its default.
+        by=(Literal["class"] | ByConfig | None, StepEntry.model_fields["by"]),
         **common,
     )
     workflow = create_model(

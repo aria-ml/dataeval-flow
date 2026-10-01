@@ -615,9 +615,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
 
     runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
     unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
-    if unions:  # otherwise the call is exactly a task's
-        return _run_target(runner, spec.config, context, stats_unions=unions)  # type: ignore[arg-type]
-    return _run_target(runner, spec.config, context)  # type: ignore[arg-type]
+    # Each is passed only when set, so without them the call is exactly a task's.
+    extra: dict[str, Any] = {"stats_unions": unions} if unions else {}
+    if spec.by is not None:
+        extra["by"] = spec.by
+    return _run_target(runner, spec.config, context, **extra)  # type: ignore[arg-type]
 
 
 def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":
