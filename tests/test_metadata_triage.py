@@ -174,6 +174,21 @@ def test_a_vanished_factor_is_not_recovered_even_when_absent_from_unreviewed():
     assert _factor_recovered(vanished, "altitude", pinned=True) is False
 
 
+def test_a_factor_the_descriptor_pins_is_not_unpinned_whatever_its_provenance():
+    """An exported descriptor still says ``derived``, but it pins the cut and the vocabulary across runs.
+
+    Called unpinned, such a factor drew a bin count the policy then refuses ("named by both `encoding` and
+    `continuous_factor_bins`"), or a remedy to export a vocabulary already exported.
+    """
+    weather = {"type": "categorical", "encoding": {"kind": "levels", "levels": ["clear"], "provenance": "derived"}}
+    record = _describe(_altitude_metadata())
+    record = {**record, "factors": {**record["factors"], "weather": weather}}
+    unpinned = {f.factor for f in find_issues(record) if f.category in ("unbinned", "unreviewed")}
+    assert unpinned == {"altitude", "weather"}
+    pinned = find_issues(record, descriptor_factors={"altitude", "weather"})
+    assert not [f for f in pinned if f.category in ("unbinned", "unreviewed")]
+
+
 def test_the_workflow_is_discoverable():
     from dataeval_flow.workflows import get_workflow, list_workflows
 
@@ -432,8 +447,8 @@ def test_each_unpinned_factor_is_a_section_under_the_remedy_they_share():
 
     assert paragraphs(unbinned) == [
         (
-            "These bin counts were derived from this sample. Declaring them in configuration ensures consistent "
-            "binning across runs."
+            "These cuts were derived from this sample. Declaring a bin count fixes how many bins there are; the "
+            "recommended policy pins their edges, which is what keeps runs comparable."
         )
     ]
     assert [(s.title, s.brief) for s in sections(unbinned)] == [

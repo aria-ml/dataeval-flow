@@ -20,6 +20,7 @@ from dataeval_flow._blocks import (
     Section,
     Table,
 )
+from dataeval_flow._recommend import CAVEAT, pinned_count
 from dataeval_flow._tables import group_cells, table_limits
 from dataeval_flow._triage import TriageFinding
 from dataeval_flow.workflows._base import Finding
@@ -44,12 +45,13 @@ _ORDER = ("unreadable", "unbound_request", "floor_mass", "degenerate", "unbinned
 # here rather than repeated under each.
 _COLLAPSED: dict[str, str] = {
     "unbinned": (
-        "These bin counts were derived from this sample. Declaring them in configuration "
-        "ensures consistent binning across runs."
+        "These cuts were derived from this sample. Declaring a bin count fixes how many bins there are; the "
+        "recommended policy pins their edges, which is what keeps runs comparable."
     ),
     "unreviewed": (
         "These categorical vocabularies were derived from this sample. Export them with "
-        "`dataeval-flow encoding` and reference the file in `encoding:`."
+        "`dataeval-flow encoding` and reference the file in `encoding:`, or take them from the recommended "
+        "policy's `factor_levels`."
     ),
 }
 
@@ -75,10 +77,12 @@ def minority_kind(counts: Mapping[str, int]) -> str | None:
 
 
 def build_findings(data: Mapping[str, Any], max_examples: int) -> list[Finding]:
-    """One Finding per category that holds an issue, then the suggested policy, then what verification found.
+    """One Finding per category that holds an issue, then the suggested policy, what verification found, and the
+    recommended policy.
 
     `data` is a `factor-triage` Output's ``data()``: its ``findings``, ``suggested_policy_yaml``, ``verification``,
-    ``verification_error`` and ``places``, any of which may be absent. ``severity`` is ``"warning"`` only where the
+    ``verification_error``, ``recommended_policy``, ``recommended_policy_yaml``, ``recommendation_error`` and
+    ``places``, any of which may be absent. ``severity`` is ``"warning"`` only where the
     category holds a blocking issue, which is what makes the chain's health flag on exactly those: a blocking issue
     means the run did less than the configuration asked for without saying so. ``places``, by factor, are where each
     of a mixed column's problem values sits, for its items to be pictured.
@@ -130,6 +134,29 @@ def build_findings(data: Mapping[str, Any], max_examples: int) -> list[Finding]:
                 severity="warning",
                 title="Verification failed",
                 brief="not verified",
+                blocks=[Paragraph(text=error)],
+            )
+        )
+    if recommended := data.get("recommended_policy_yaml"):
+        pinned = pinned_count(data.get("recommended_policy") or {})
+        findings.append(
+            Finding(
+                severity="info",
+                title="Recommended policy",
+                brief=(
+                    f"pins {pinned} factor{'' if pinned == 1 else 's'} as read from this data"
+                    if pinned
+                    else "completes the suggested corrections"
+                ),
+                blocks=[Paragraph(text=CAVEAT), Code(text=recommended.rstrip("\n"), language="yaml")],
+            )
+        )
+    elif error := data.get("recommendation_error"):
+        findings.append(
+            Finding(
+                severity="warning",
+                title="Recommendation failed",
+                brief="no recommendation",
                 blocks=[Paragraph(text=error)],
             )
         )

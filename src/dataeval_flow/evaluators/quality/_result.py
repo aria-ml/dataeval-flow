@@ -144,6 +144,13 @@ class FactorTriageOutput(CoreOutput):
       ``applied`` and ``recovered`` the factor; empty unless ``verify`` is on;
     - ``verification_error``: why verification raised, or ``None``. It tells a failed verification from
       ``verify: false`` and from nothing to verify, all of which leave ``verification`` empty;
+    - ``recommended_policy``: the suggested fixes, each value triage could not read dropped to NaN, plus a pin for
+      every factor the policy left unpinned, read from this data: explicit edges for a cut, as the binning record
+      writes them (an infinite edge is the string ``"-inf"`` or ``"inf"``), levels for a vocabulary; ``None`` where
+      the policy already pins everything and nothing was suggested. A ``floor_mass`` value is left in, not dropped.
+      ``recommended_policy_yaml``: the same as YAML, headed by the caveat that a policy read from unrepresentative
+      data can mislead;
+    - ``recommendation_error``: why the read-back behind the recommendation raised, or ``None``;
     - ``counts``: how many issues fall in each category, and in each severity;
     - ``factor_count``: how many factors the metadata read;
     - ``places``: by factor, where each of a mixed column's problem values sits: the value, how many rows hold it, and
@@ -163,7 +170,8 @@ class FactorTriageResult(EvaluatorResult[FactorTriageOutput]):
     ------
     output
         ``data()`` holds ``findings``, ``suggested_policy``, ``suggested_policy_yaml``, ``verification``,
-        ``verification_error``, ``counts``, ``factor_count`` and ``places``.
+        ``verification_error``, ``recommended_policy``, ``recommended_policy_yaml``, ``recommendation_error``,
+        ``counts``, ``factor_count`` and ``places``.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval

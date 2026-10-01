@@ -2,10 +2,11 @@
 
 Flow's own evaluator over DataEval's ``Metadata``: it describes how each factor was read, finds what the run could not
 read as configured (``dataeval_flow._triage``), and, with ``verify``, reads the metadata back under the suggestions,
-which ``Metadata.repair`` does without a second walk.
+which ``Metadata.repair`` does without a second walk. It also recommends a policy: the suggestions completed, plus a
+pin for every factor the run left unpinned, read back under them.
 """
 
-__all__ = ["FactorTriageEvaluator", "describe", "places", "verify"]
+__all__ = ["FactorTriageEvaluator", "describe", "places", "read_back", "verify"]
 
 import logging
 import time
@@ -22,6 +23,7 @@ from dataeval_flow._blocks import ItemRef
 from dataeval_flow._input_spec import InputKind
 from dataeval_flow._metadata import expand_declared_bins
 from dataeval_flow._policy import ResolvedPolicy, build_correction
+from dataeval_flow._recommend import complete_stanza, recommend, render_recommendation
 from dataeval_flow._tables import GROUP_SHOWN
 from dataeval_flow._triage import TriageFinding, find_issues, incomplete_factors, render_stanza, to_policy_stanza
 from dataeval_flow._triage_report import Places, minority_kind, summarize
@@ -46,14 +48,18 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "repair"}
 
     def run(self, config: FactorTriageConfig, inputs: Sequence[EvaluatorInputs]) -> FactorTriageOutput:
-        """Describe the source's metadata, find what it failed to read, suggest repairs, and verify them."""
+        """Describe the source's metadata, find what it failed to read, suggest repairs, verify them, and recommend a
+        policy."""
         (source,) = inputs
         metadata = require(source.metadata, "metadata", source.source)
         policy = source.metadata_policy or ResolvedPolicy()
         started, clock = datetime.now(UTC), time.monotonic()
         record = describe(metadata, policy)
         findings = find_issues(
-            record, min_missing_fraction=config.min_missing_fraction, default_bins=config.default_bins
+            record,
+            min_missing_fraction=config.min_missing_fraction,
+            default_bins=config.default_bins,
+            descriptor_factors=set(policy.encoding or {}),
         )
         stanza = to_policy_stanza(findings)
         verification: list[VerificationEntry] = []
@@ -64,12 +70,18 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
             except Exception as e:  # the findings are worth having without it
                 _logger.warning("Verification unavailable", exc_info=True)
                 error = str(e) or type(e).__name__
+        recommended, recommended_yaml, recommendation_error = _recommendation(
+            metadata, policy, findings, config.metadata
+        )
         data = {
             "findings": findings,
             "suggested_policy": stanza,
             "suggested_policy_yaml": render_stanza(stanza, incomplete=incomplete_factors(findings)),
             "verification": verification,
             "verification_error": error,
+            "recommended_policy": recommended,
+            "recommended_policy_yaml": recommended_yaml,
+            "recommendation_error": recommendation_error,
             "counts": summarize(findings),
             "factor_count": len(record.get("factors") or {}),
             "places": places(metadata, findings, source.source),
@@ -92,6 +104,63 @@ def describe(metadata: Any, policy: Any) -> dict[str, Any]:
         factor_source=policy.factor_source,
         declared_bins=declared,
     )
+
+
+def read_back(metadata: Any, policy: Any, stanza: Mapping[str, Any]) -> dict[str, Any]:
+    """The binning record under the policy plus `stanza`'s corrections and excludes: what a recommendation pins.
+
+    Always read off the copy ``repair`` returns, never off `metadata` itself: the excludes are set on it, and setting
+    them on the Metadata the chain holds would change what every later step reads. ``repair`` reuses the values the
+    walk kept, so this costs no second walk, and it replaces rather than accumulates corrections, so the policy's own
+    are passed through beside the stanza's.
+    """
+    from dataeval_flow.config._schemas import MetadataPolicyConfig
+
+    validated = MetadataPolicyConfig.model_validate(
+        {"name": "_recommended", "corrections": list(stanza.get("corrections") or ())}
+    )
+    built = [build_correction(entry) for entry in validated.corrections or ()]
+    repaired = metadata.repair([*policy.correction_specs, *built])
+    excluded = tuple(dict.fromkeys([*policy.exclude, *(stanza.get("exclude") or ())]))
+    if excluded != tuple(policy.exclude):
+        repaired.exclude = list(excluded)
+    return describe(repaired, replace(policy, exclude=excluded))
+
+
+def _recommendation(
+    metadata: Any, policy: Any, findings: Sequence[TriageFinding], policy_name: str | None
+) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    """The recommended policy, its YAML, and why it could not be made, or ``None`` for each that does not apply.
+
+    The findings are worth having without it, so a read-back that raises costs the recommendation and says why,
+    as a verification that raises does.
+
+    A ``floor_mass`` suggestion awaiting an answer is left out of what the recommendation completes: its value may be
+    a reading, such as a speed of zero, and dropping it could delete a large share of genuine rows. Only a value
+    triage could not read, a mixed column's string, is dropped. The left-out values are passed to the render, which
+    says to decide.
+    """
+    try:
+        held: dict[str, list[Any]] = {}
+        kept: list[TriageFinding] = []
+        for finding in findings:
+            if finding.category == "floor_mass" and finding.suggestion and not finding.suggestion.complete:
+                for correction in finding.suggestion.corrections:
+                    held.setdefault(correction["factor"], []).extend(r["match"] for r in correction["rules"])
+            else:
+                kept.append(finding)
+        completed, dropped = complete_stanza(to_policy_stanza(kept))
+        after = read_back(metadata, policy, completed)
+        recommended = recommend(after, completed, skip=set(policy.encoding or {}))
+        if recommended is None:
+            return None, None, None
+        text = render_recommendation(
+            recommended, after, dropped, held=held, name=policy_name or "standard", merge_into=policy_name
+        )
+    except Exception as e:  # the findings are worth having without it
+        _logger.warning("Recommendation unavailable", exc_info=True)
+        return None, None, str(e) or type(e).__name__
+    return recommended, text, None
 
 
 def verify(

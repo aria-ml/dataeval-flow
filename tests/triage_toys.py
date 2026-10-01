@@ -1,5 +1,5 @@
-"""Datasets whose metadata triage has something to say about: a mixed column, an unpinned cut, and problem values
-placed by item and by box (spec §10.10)."""
+"""Datasets whose metadata triage has something to say about: a mixed column, an unpinned cut, a derived vocabulary,
+and problem values placed by item and by box (spec §10.10)."""
 
 from typing import Any
 
@@ -97,3 +97,57 @@ class OcclusionDataset:
         occlusion: list[Any] = [0.1 * index, "high" if index % 5 == 0 else 0.2]
         target = _Target([[2, 2, 20, 20], [8, 8, 30, 30]], [0, 1])
         return np.zeros((3, 32, 32), dtype=np.uint8), target, {"id": index, "occlusion": occlusion}
+
+
+class WeatherDataset:
+    """Classification items with a categorical ``weather`` nobody pinned, and a ``serial`` that names each row.
+
+    ``weather`` reads as a vocabulary DataEval derived (``unreviewed``). ``serial`` is held back as ``unreadable``
+    with no suggestion: every value is its own, so nothing reads it and nothing pins it.
+    """
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "weather", "index2label": {0: "cat", 1: "dog"}})
+
+    def __len__(self) -> int:
+        return 60
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        datum = {"id": index, "weather": ("clear", "fog", "rain")[index % 3], "serial": f"SN-{index:04d}"}
+        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, datum
+
+
+class SpeedDataset:
+    """Classification items whose numeric ``speed`` is ``0.0`` on 24 of 60 rows, a genuine reading of a boat at rest.
+
+    Triage raises ``floor_mass`` for it, whose suggestion is a remap awaiting the user's answer: the zeros may be a
+    marker or a reading, and nothing here can say which.
+    """
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "speed", "index2label": {0: "cat", 1: "dog"}})
+
+    def __len__(self) -> int:
+        return 60
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        speed = 0.0 if index % 5 in (0, 1) else 1.0 + (index * 7 % 24)
+        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, {"id": index, "speed": float(speed)}
+
+
+class AltitudeWeatherDataset:
+    """Classification items with a continuous ``altitude`` and a categorical ``weather``, neither pinned."""
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "altitude-weather", "index2label": {0: "cat", 1: "dog"}})
+    _altitude = np.random.default_rng(1).uniform(0.0, 1000.0, 60)
+
+    def __len__(self) -> int:
+        return 60
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        datum = {"id": index, "altitude": float(self._altitude[index]), "weather": ("clear", "fog", "rain")[index % 3]}
+        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, datum

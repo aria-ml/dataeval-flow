@@ -158,6 +158,16 @@ class TestExpandingDeclaredBins:
             "unit_brightness": 4,
         }
 
+    @pytest.mark.parametrize("order", [("unit_brightness", "brightness"), ("brightness", "unit_brightness")])
+    def test_an_exact_name_beats_a_bare_expansion_whatever_the_order(self, order):
+        specs = {"unit_brightness": [0.0, 1.0], "brightness": 3}
+        declared = {key: specs[key] for key in order}
+        names = ["unit_brightness", "instance_brightness"]
+        assert expand_declared_bins(declared, names, self.LEVELS) == {
+            "unit_brightness": [0.0, 1.0],
+            "instance_brightness": 3,
+        }
+
     def test_empty_declaration_stays_empty(self):
         assert expand_declared_bins({}, ["unit_brightness"], self.LEVELS) == {}
 

@@ -111,9 +111,15 @@
 - `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
   `verify`, what the repair recovers
 - `metadata-issues`, a check: metadata-triage's findings, made from a `factor-triage` Output
+- `factor-triage` recommends a policy: its suggestions, each value triage could not read dropped to missing, plus
+  explicit edges or levels for every factor the policy left unpinned, read back from this data. A dominant value
+  such as a speed of zero is left in, with a note to decide. `metadata-issues` shows it as a "Recommended policy"
+  finding that opens with a caveat: a policy read from unrepresentative data can give invalid or misleading results
 
 ### Changed
 
+- An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
+  policy pins the edges
 - `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
   older `metadata_*` fields stay on the workflows that took them
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
@@ -214,6 +220,9 @@
 
 ### Fixed
 
+- An exactly declared `continuous_factor_bins` name beats a bare statistic's expansion, whatever the key order
+- `metadata-triage` no longer calls a factor its policy's descriptor pins unpinned, so it suggests no bin count the
+  policy refuses as named by both `encoding` and `continuous_factor_bins`
 - Data prioritization ranks a labeled pool under `policy: class_balanced`, where it always
   raised "Cannot apply class_balanced policy: class_labels not provided"
 - Data prioritization succeeds when cleaning empties a pool, ranking it as empty, where the whole task failed

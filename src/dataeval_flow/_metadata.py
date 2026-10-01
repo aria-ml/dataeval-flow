@@ -95,15 +95,18 @@ def expand_declared_bins(
     Matched against *levels*, not by bare suffix: ``endswith("_brightness")`` would also
     claim a dataset-native ``camera_brightness``. A declaration matching nothing falls
     through unchanged, keeping a misspelled factor visible in ``unmatched_bin_requests``.
+    A name declared exactly is never overwritten by another name's expansion, whichever comes first.
     """
     available = set(names)
+    exact = set(declared) & available
     prefixes = tuple(f"{level}_" for level in levels)
     expanded: dict[str, Any] = {}
     for name, spec in declared.items():
         candidates = {name, *(prefix + name for prefix in prefixes)}
         hits = sorted(candidates & available)
         for target in hits or [name]:
-            expanded[target] = spec
+            if target == name or target not in exact:
+                expanded[target] = spec
     return expanded
 
 

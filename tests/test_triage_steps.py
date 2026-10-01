@@ -60,6 +60,7 @@ def test_metadata_issues_makes_the_findings_metadata_triage_made() -> None:
         ["warning", "Unreadable factors", "1 factors"],
         ["info", "Suggested policy", "add to configuration under `metadata:`"],
         ["info", "Verified", "1 recovered"],
+        ["info", "Recommended policy", "pins 1 factor as read from this data"],
     ]
     assert {f.step for f in result.findings} == {"issues"}
     assert result.health["status"] == "warning"

@@ -172,7 +172,10 @@ Output: a mapping of `item_count`, `class_count` (the classes the Dataset declar
 What a Dataset's metadata failed to read, and a policy that repairs it. `factor-triage` reports each factor the run
 could not read as configured, in six categories, with a correction or bin count where one repairs it. It merges every
 suggestion into one `metadata:` stanza, and, with `verify`, reads the metadata back under the suggestions to say what
-each recovered. The `metadata-issues` check reads it, and the `metadata-triage` preset runs both. Configured by
+each recovered. It also recommends a policy: the suggestions, each value triage could not read dropped to missing, plus
+explicit edges or levels for every factor the policy left unpinned, read back from this data. A policy read from data
+that does not represent what you expect can give invalid or misleading results, and the recommendation says so first.
+The `metadata-issues` check reads it, and the `metadata-triage` preset runs both. Configured by
 {py:class}`~dataeval_flow.evaluators.quality.FactorTriageConfig`. It reads the Dataset's metadata through DataEval's
 `Metadata`, whose `repair` verifies without a second walk.
 
@@ -188,6 +191,7 @@ Output: a mapping of:
 - `findings`, each issue with its `factor`, `category`, `severity`, `reasons`, `remedy` and `suggestion`;
 - `suggested_policy` and `suggested_policy_yaml`;
 - `verification` and `verification_error`;
+- `recommended_policy`, `recommended_policy_yaml` and `recommendation_error`;
 - `counts`, by category and severity;
 - `factor_count`;
 - `places`, where each mixed column's problem values sit.
