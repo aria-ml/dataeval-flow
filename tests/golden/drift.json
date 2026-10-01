@@ -1,0 +1,254 @@
+{
+  "chunk_count": {
+    "chunked_detectors": [
+      "kneighbors"
+    ],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "kneighbors": {
+        "chunks": [
+          {
+            "drifted": true,
+            "value": 3014.5849609375
+          },
+          {
+            "drifted": true,
+            "value": 3007.02734375
+          },
+          {
+            "drifted": true,
+            "value": 2995.69091796875
+          },
+          {
+            "drifted": true,
+            "value": 3004.48583984375
+          }
+        ],
+        "distance": 3005.447265625,
+        "drifted": true,
+        "threshold": 2848.6494140625
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "chunk_size": {
+    "chunked_detectors": [
+      "kneighbors"
+    ],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "kneighbors": {
+        "chunks": [
+          {
+            "drifted": true,
+            "value": 3013.6123046875
+          },
+          {
+            "drifted": true,
+            "value": 3009.2958984375
+          },
+          {
+            "drifted": true,
+            "value": 2998.384765625
+          },
+          {
+            "drifted": true,
+            "value": 3002.01953125
+          }
+        ],
+        "distance": 3005.828125,
+        "drifted": true,
+        "threshold": 2846.63818359375
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "classwise": {
+    "chunked_detectors": [],
+    "classwise": {
+      "mmd": [
+        {
+          "class": "cat",
+          "distance": 0.0028626322746276855,
+          "drifted": false,
+          "p_val": 0.20000000298023224
+        },
+        {
+          "class": "dog",
+          "distance": 0.7748996019363403,
+          "drifted": true,
+          "p_val": 0.0
+        }
+      ]
+    },
+    "classwise_detectors": [
+      "mmd"
+    ],
+    "detectors": {
+      "kneighbors": {
+        "chunks": [],
+        "distance": 2065.004150390625,
+        "drifted": true,
+        "threshold": 0.05
+      },
+      "mmd": {
+        "chunks": [],
+        "distance": 0.1446983814239502,
+        "drifted": true,
+        "threshold": 0.05
+      }
+    },
+    "severities": [
+      "warning",
+      "warning"
+    ]
+  },
+  "classwise_boxes": {
+    "chunked_detectors": [],
+    "classwise": {},
+    "classwise_detectors": [
+      "kneighbors"
+    ],
+    "detectors": {
+      "kneighbors": {
+        "chunks": [],
+        "distance": 3196.59130859375,
+        "drifted": true,
+        "threshold": 0.05
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "classwise_chunked": {
+    "chunked_detectors": [
+      "kneighbors"
+    ],
+    "classwise": {
+      "kneighbors": [
+        {
+          "class": "cat",
+          "distance": 1716.7747802734375,
+          "drifted": false,
+          "p_val": 0.24036556482315063
+        },
+        {
+          "class": "dog",
+          "distance": 3142.287841796875,
+          "drifted": true,
+          "p_val": 1.69591078247322e-06
+        }
+      ]
+    },
+    "classwise_detectors": [
+      "kneighbors"
+    ],
+    "detectors": {
+      "kneighbors": {
+        "chunks": [
+          {
+            "drifted": false,
+            "value": 1716.7747802734375
+          },
+          {
+            "drifted": true,
+            "value": 2391.46923828125
+          }
+        ],
+        "distance": 2054.1220092773438,
+        "drifted": true,
+        "threshold": 1729.8050537109375
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "domain_classifier": {
+    "chunked_detectors": [],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "domain_classifier": {
+        "chunks": [],
+        "distance": 0.9240625,
+        "drifted": true,
+        "threshold": 0.55
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "kneighbors_same": {
+    "chunked_detectors": [],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "kneighbors": {
+        "chunks": [],
+        "distance": 2806.111328125,
+        "drifted": false,
+        "threshold": 0.05
+      }
+    },
+    "severities": [
+      "ok"
+    ]
+  },
+  "mmd": {
+    "chunked_detectors": [],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "mmd": {
+        "chunks": [],
+        "distance": 0.41380244493484497,
+        "drifted": true,
+        "threshold": 0.05
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "two_tests": {
+    "chunked_detectors": [],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "mmd": {
+        "chunks": [],
+        "distance": 0.10408467054367065,
+        "drifted": true,
+        "threshold": 0.05
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  },
+  "univariate": {
+    "chunked_detectors": [],
+    "classwise": {},
+    "classwise_detectors": [],
+    "detectors": {
+      "univariate": {
+        "chunks": [],
+        "distance": 0.49329426884651184,
+        "drifted": true,
+        "threshold": 6.510416666666667e-05
+      }
+    },
+    "severities": [
+      "warning"
+    ]
+  }
+}

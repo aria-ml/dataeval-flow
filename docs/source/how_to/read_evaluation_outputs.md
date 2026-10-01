@@ -34,7 +34,7 @@ A workflow's report is laid out in this order:
    line is the id alone, as `Workflow: drift-monitoring`. Then the timestamp, duration, the sources the run read,
    model and preprocessor identifiers.
 3. **Summary sentence** — the workflow's one-line account of the run, such as
-   `Drift monitoring complete. Reference: 261 items, Test: 909 items.`
+   `Steps: 4 ran` for a preset, which runs a chain of steps.
 4. **Summary** — one line per finding, then a health line. A run with no findings says `No findings to report.`
 5. **Detail** — a section per finding: its description, then its evidence as paragraphs, labelled values,
    tables and charts.

@@ -46,6 +46,7 @@
 # - How to combine chunked and non-chunked detectors in a single pipeline.
 # - How the size of the reference limits the chunk size.
 # - How to interpret formatted drift reports and chunked metric trends.
+# - How to read each detector's chunks from the result's steps.
 # - How K-Neighbors, MMD, and Univariate CVM detectors evaluate distribution shift.
 # - How feature representations influence drift sensitivity.
 # - How to construct baseline controls from reference data to establish expected variance.
@@ -152,8 +153,8 @@ plt.show()
 #
 # 1. **Datasets**: A reference dataset followed by one or more test sources.
 # 2. **Extractor**: An extractor to produce embedding vectors.
-# 3. **Detectors**: Statistical drift detection algorithms.
-# 4. **Chunking**: Window parameters for temporal analysis.
+# 3. **Detectors**: Drift evaluator entries, one per statistical drift detection algorithm.
+# 4. **Chunking**: Window parameters for temporal analysis, set on each detector.
 #
 # You will use a Bag of Visual Words (BoVW) extractor. BoVW quantizes SIFT keypoints
 # against a learned visual vocabulary, yielding fixed-length histograms regardless of
@@ -208,7 +209,7 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # **Chunking** is configured **per detector**. The chunk size applies to the reference
 # as well as the operational data: each reference chunk is scored against the rest of
 # the reference, and the drift bounds are the mean of those scores plus or minus
-# `threshold_multiplier` standard deviations. The reference must therefore split into
+# `k` standard deviations, where `threshold: [zscore, k]` sets the method and `k`. The reference must therefore split into
 # at least 3 chunks, and more chunks give a steadier spread. With 261 reference frames,
 # a `chunk_size` of 200 would leave only two reference chunks, and the detector refuses
 # to fit.
@@ -222,14 +223,14 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # %%
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.drift_monitoring import (
-    ChunkingConfig,
-    DriftDetectorKNeighbors,
-    DriftDetectorMMD,
-    DriftDetectorUnivariate,
-    DriftMonitoringConfig,
-    DriftMonitoringHealthThresholds,
+from dataeval_flow.evaluators.shift import (
+    ChunkedDriftConfig,
+    DriftKNeighborsConfig,
+    DriftMMDConfig,
+    DriftUnivariateConfig,
 )
+from dataeval_flow.steps.checks import DriftThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig, DriftMonitoringThresholds
 
 drift_task = TaskConfig(
     name="milco-drift-overall",
@@ -238,10 +239,12 @@ drift_task = TaskConfig(
     extractor="bovw",
 )
 
-chunking = ChunkingConfig(chunk_size=50, incomplete="append", threshold_multiplier=4.0)
+chunking = ChunkedDriftConfig(chunk_size=50, incomplete="append", threshold=("zscore", 4.0))
 
+# `device` pins the computation to the CPU, so the numbers below reproduce on a machine with a GPU too.
 config = PipelineConfig(
     seed=0,
+    device="cpu",
     datasets=[reference_dataset, operational_dataset],
     sources=[
         SourceConfig(name="ref_src", dataset="reference"),
@@ -253,13 +256,15 @@ config = PipelineConfig(
         DriftMonitoringConfig(
             name="milco-drift",
             detectors=[
-                DriftDetectorKNeighbors(k=10, chunking=chunking),
-                DriftDetectorMMD(n_permutations=100, chunking=chunking),
-                DriftDetectorUnivariate(test="cvm"),  # non-chunked overall test
+                DriftKNeighborsConfig(k=10, chunking=chunking),
+                DriftMMDConfig(n_permutations=100, chunking=chunking),
+                DriftUnivariateConfig(method="cvm"),  # non-chunked overall test
             ],
-            health_thresholds=DriftMonitoringHealthThresholds(
-                chunk_drift_pct_warning=15.0,  # warn if >15% of chunks drift
-                consecutive_chunks_warning=2,  # warn on 2+ consecutive drifted chunks
+            health_thresholds=DriftMonitoringThresholds(
+                drift=DriftThresholds(
+                    chunk_percent=15.0,  # warn if >15% of chunks drift
+                    consecutive_chunks=2,  # warn on 2+ consecutive drifted chunks
+                )
             ),
         ),
     ],
@@ -275,9 +280,9 @@ result = run_task(drift_task, config, cache_dir=Path("./cache"))
 # %% [markdown]
 # ## Results Exploration: Drift report
 #
-# The workflow produces a text report summarizing each detector's findings. With
-# chunking enabled, you will see a per-chunk breakdown showing which windows
-# drifted.
+# Each detector is a step of the workflow, and a `drift` check judges it. The report
+# summarizes each check's finding. With chunking enabled, you will see a per-chunk
+# breakdown showing which windows drifted.
 
 # %%
 print(result.report())
@@ -290,7 +295,10 @@ print(result.report())
 
 # %%
 operational_images = json.loads((operational_path / "annotations" / "instances.json").read_text())["images"]
-for chunk in result.output.raw.detectors["mmd"]["chunks"]:  # type: ignore[typeddict-item]
+# `result.steps` holds each step by name, a detector's named for its type unless its entry sets `name`. The
+# step's `elements` hold one run per test source, and a chunked run's chunks are the output's `details` table.
+mmd_chunks = (result.steps["drift-mmd"].elements or {})["ops_src"].output.details
+for chunk in mmd_chunks.iter_rows(named=True):
     window = operational_images[chunk["start_index"] : chunk["end_index"] + 1]
     years = Counter(Path(img["file_name"]).stem.split("_")[-1] for img in window)
     sizes = Counter(f"{img['width']}x{img['height']}" for img in window)
@@ -307,7 +315,7 @@ for chunk in result.output.raw.detectors["mmd"]["chunks"]:  # type: ignore[typed
 # In this run:
 #
 # - **K-Neighbors** flags the last two windows, `[800:849]` and `[850:908]`. Two
-#   consecutive drifted windows meet `consecutive_chunks_warning=2`, so the finding is
+#   consecutive drifted windows meet `consecutive_chunks=2`, so the finding is
 #   a warning.
 # - **MMD** flags only `[850:908]`. Its values for the 2018 windows `[350:399]` through
 #   `[600:649]` are 0.39 to 0.41, well above the 2010 windows (0.11 to 0.25) but just
@@ -347,6 +355,7 @@ control_task = TaskConfig(
 
 control_config = PipelineConfig(
     seed=0,
+    device="cpu",
     datasets=[reference_dataset],
     views=[
         ViewConfig(
@@ -368,9 +377,9 @@ control_config = PipelineConfig(
             name="milco-drift-control",
             # No chunking: 141 incoming frames forms a single window to test baseline variation.
             detectors=[
-                DriftDetectorKNeighbors(k=10),
-                DriftDetectorMMD(n_permutations=100),
-                DriftDetectorUnivariate(test="cvm"),
+                DriftKNeighborsConfig(k=10),
+                DriftMMDConfig(n_permutations=100),
+                DriftUnivariateConfig(method="cvm"),
             ],
         ),
     ],
@@ -414,7 +423,9 @@ print(control_result.report())
 # %% [markdown]
 # ### Inspect chunk-level details programmatically
 #
-# You can query per-detector and per-chunk metrics directly from `result.output.raw`:
+# Each detector's step holds one output per test source. It is DataEval's `DriftOutput`: `drifted`,
+# `distance`, `threshold`, `metric_name` and, when the detector is chunked, a `details` table with a row per chunk.
+# A check's step, such as `drift-mmd-check`, holds the finding that judged it.
 
 # %%
 import polars as pl
@@ -422,20 +433,19 @@ import polars as pl
 pl.Config.set_tbl_hide_dataframe_shape(True)
 pl.Config.set_tbl_rows(-1)
 
-raw = result.output.raw
-print(f"Reference size: {raw.reference_size}")
-print(f"Test size:      {raw.test_size}")
-print()
+outputs = {
+    name: (step.elements or {})["ops_src"].output
+    for name, step in result.steps.items()
+    if name.startswith("drift-") and not name.endswith("-check")
+}
 
-for method, det_result in raw.detectors.items():
-    print(f"── {method} ({det_result['metric_name']}) ──")
-    print(f"  Overall drifted: {det_result['drifted']}")
-    print(f"  Distance:        {det_result['distance']:.6g}")
+for name, output in outputs.items():
+    print(f"── {name} ({output.metric_name}) ──")
+    print(f"  Overall drifted: {output.drifted}")
+    print(f"  Distance:        {output.distance:.6g}")
 
-    chunks = det_result.get("chunks", [])
-    if chunks:
-        df = pl.DataFrame(chunks).select("key", "value", "lower_threshold", "upper_threshold", "drifted")
-        print(df)
+    if isinstance(output.details, pl.DataFrame):
+        print(output.details.select("key", "value", "lower_threshold", "upper_threshold", "drifted"))
     print()
 
 # %% [markdown]
@@ -445,13 +455,13 @@ for method, det_result in raw.detectors.items():
 
 # %%
 # Only plot detectors that have chunk results
-chunked_methods = [m for m, r in raw.detectors.items() if r.get("chunks")]
+chunked_methods = [name for name, output in outputs.items() if isinstance(output.details, pl.DataFrame)]
 fig, axes = plt.subplots(1, len(chunked_methods), figsize=(6 * len(chunked_methods), 4))
 if len(chunked_methods) == 1:
     axes = [axes]  # type: ignore[list-item]
 
 for ax, method in zip(axes, chunked_methods, strict=True):
-    chunks = raw.detectors[method]["chunks"]  # type: ignore[typeddict-item]
+    chunks = outputs[method].details.to_dicts()
 
     labels = [c["key"] for c in chunks]
     values = [c["value"] for c in chunks]
@@ -524,10 +534,10 @@ print(json_str[:600] + "\n...")
 # %% [markdown]
 # ## Next steps
 #
-# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise=True`
+# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise=[...]`
 #   to identify which target classes drive the drift signal.
-# - **Alternative detectors**: Test alternative statistical detectors such as `domain_classifier`
-#   or Kolmogorov-Smirnov (`ks`).
+# - **Alternative detectors**: Test alternative statistical detectors such as `drift-domain-classifier`
+#   or Kolmogorov-Smirnov (`ks`), and see [Monitor drift with steps](../how_to/monitor_drift.md) to merge test sources or drift on crops.
 # - **Embedding backbones**: Configure an ONNX model via [Use an ONNX model for embeddings](onnx_embeddings)
 #   to test pretrained deep representations.
 

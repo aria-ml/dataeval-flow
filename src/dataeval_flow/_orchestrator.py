@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._task import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
+    from dataeval_flow.steps._by import ByConfig
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
@@ -333,6 +334,23 @@ def _apply_seed(config: "PipelineConfig") -> None:
     )
 
 
+def _apply_device(config: "PipelineConfig") -> None:
+    """Set the device every tool computes on, through DataEval's device configuration (decision 25).
+
+    The pipeline's ``device`` when set, else CUDA when PyTorch sees a GPU, else CPU. Applied per task, as the seed is,
+    so a task's device does not depend on what ran before it.
+    """
+    import torch
+    from dataeval.config import set_device
+
+    device = config.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    try:
+        set_device(device)
+    except (RuntimeError, ValueError) as error:
+        raise ValueError(f"`device: {device}` is not a device PyTorch knows: {error}") from error
+    _logger.info("Computing on device %s", device)
+
+
 def _run_single_task(
     task: "TaskConfig",
     config: "PipelineConfig",
@@ -364,9 +382,10 @@ def _run_single_task(
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
-    # 0. Seed every stochastic component [CR-7-S-1]. Applied per task rather than
-    #    once per pipeline so a task's result does not depend on what ran before it.
+    # 0. Seed every stochastic component [CR-7-S-1] and set the compute device. Both are applied
+    #    per task rather than once per pipeline so a task's result does not depend on what ran before it.
     _apply_seed(config)
+    _apply_device(config)
 
     # 1. Normalize sources to list
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)
@@ -724,12 +743,14 @@ def _run_target(
     context: "WorkflowContext",
     *,
     stats_unions: "Mapping[str, ResolvedStatsPolicy] | None" = None,
+    by: "ByConfig | None" = None,
 ) -> "Result[Any, Any]":
     """Run a workflow or an evaluator on a resolved context. Never raises: a failure becomes a failed result.
 
     The failed result is of the config's result class. Only the run itself is covered: resolving the task before it,
     in :func:`_run_single_task`, raises on a config error, a transform's constructor included. `stats_unions` is what
-    a chain planned for an evaluator step's sources, handed to :func:`~dataeval_flow.evaluators._execute.execute`.
+    a chain planned for an evaluator step's sources, and `by` such a step's ``by:``, both handed to
+    :func:`~dataeval_flow.evaluators._execute.execute`.
     """
     from dataeval_flow._kind import result_type_of
     from dataeval_flow._result import failure_message
@@ -738,7 +759,7 @@ def _run_target(
     from dataeval_flow.workflows._result import WorkflowResult
 
     if isinstance(target, Evaluator):
-        return execute(target, context, config, stats_unions=stats_unions)
+        return execute(target, context, config, stats_unions=stats_unions, by=by)
     result_type: type[WorkflowResult[Any, Any]] = result_type_of(target, WorkflowResult)
     if not isinstance(config, target.config_type):
         return result_type.failed(
@@ -1194,8 +1215,8 @@ def run_task(
     -------
     Result
         The result of the workflow or evaluator the task runs, as that type's own result class —
-        ``isinstance(result, DriftMonitoringResult)`` narrows it. A run that raised returns a failed
-        result of the same class. A custom workflow's, or a preset's such as data-cleaning's, is a
+        ``isinstance(result, ParameterSweepResult)`` narrows it. A run that raised returns a failed
+        result of the same class. A custom workflow's, or a preset's such as drift-monitoring's, is a
         :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
     """
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))

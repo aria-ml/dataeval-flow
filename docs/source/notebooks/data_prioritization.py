@@ -378,7 +378,6 @@ config = PipelineConfig(
             name="cnn_extractor",
             model_path=str(model_path),
             layer_name="embed",
-            device="cpu",
             preprocessor="imagenet",
             batch_size=32,
         ),

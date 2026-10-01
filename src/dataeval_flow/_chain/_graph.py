@@ -19,8 +19,9 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from dataeval_flow._input_spec import SourceCount
+from dataeval_flow._input_spec import InputKind, SourceCount
 from dataeval_flow.steps._address import Address, parse_address
+from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import InlineStep, Step, StepKind, Transform, port_addresses
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
@@ -55,6 +56,9 @@ class ValueType:
     is_list: bool = False
     keys: tuple[str, ...] | None = None
     step: str | None = None
+    by: ByConfig | None = None
+    """For a `PerClassOutput`, an evaluate step's Output with `by:`, that step's `by:`: whether it keys by class or by
+    group. ``None`` for anything else."""
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,7 @@ class StepSpec:
     optional: bool = False
     broadcast: bool = False
     keys: tuple[str, ...] | None = None
+    by: ByConfig | None = None
 
     def addresses(self, port: str) -> tuple[Address, ...]:
         """The addresses input `port` reads; ``()`` when none."""
@@ -156,7 +161,12 @@ def build_graph(
         for port in spec.outputs:
             keys = fixed.get(port.name) if port.is_list else spec.keys
             types[spec.output_address(port)] = ValueType(
-                port.type, port.classes, port.is_list or spec.broadcast, keys, step=spec.name
+                port.type,
+                port.classes,
+                port.is_list or spec.broadcast,
+                keys,
+                step=spec.name,
+                by=spec.by if spec.kind == "evaluator" else None,
             )
     return ChainGraph(workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases)
 
@@ -274,6 +284,12 @@ def _resolve(
     if kind in ("evaluator", "workflow"):
         config, impl, addresses = _pooled(entry, pipeline, evaluators)
         type_id = config.type
+        read = sorted(config.wanted_kinds() - {InputKind.EMBEDDINGS, InputKind.LABELS}) if entry.by is not None else []
+        if read:
+            raise GraphError(
+                f"Step '{entry.name}' has `by: class`, which slices embeddings and labels, and `{type_id}` reads "
+                f"{', '.join(read)}."
+            )
     else:
         config, impl, addresses = _inline(entry, pipeline)
         type_id = entry.target
@@ -306,6 +322,12 @@ def _resolve(
         if problem is not None:
             raise GraphError(f"Step '{entry.name}': {problem}")
     _check_extractor(entry, kind, type_id, config, pipeline)
+    by = entry.by
+    if kind == "check" and by is not None:
+        # A check's bare `by: class` keys by its input's keys, so it takes the `by:` of the step that made them: by
+        # class, or by group.
+        typed = (_typed(address, entry, workflow, types, later, empty) for b in bindings for address in b.addresses)
+        by = next((value.by for value in typed if value.by is not None), by)
     return StepSpec(
         name=entry.name,
         kind=kind,
@@ -318,6 +340,7 @@ def _resolve(
         optional=entry.optional,
         broadcast=broadcast,
         keys=tuple(keys) if broadcast and keys is not None else None,
+        by=by,
     )
 
 
@@ -587,6 +610,13 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
         wanted = ", ".join(cls.__name__ for cls in port.classes)
         given = ", ".join(cls.__name__ for cls in value.classes)
         raise GraphError(f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.")
+    if value.by is not None and (entry.kind != "check" or entry.by is None):
+        raise GraphError(
+            f"Step '{entry.name}' reads `{address}`, which holds per-class Outputs (`by: class`): only a check with "
+            "`by: class` reads them."
+        )
+    if entry.kind == "check" and entry.by is not None and value.by is None:
+        raise GraphError(f"Step '{entry.name}' has `by: class`, but `{address}` holds one Output, not one per class.")
     if port.is_list and not value.is_list:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes a whole list, but `{address}` "

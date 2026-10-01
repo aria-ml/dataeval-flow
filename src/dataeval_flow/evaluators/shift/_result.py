@@ -1,9 +1,11 @@
 """The shift evaluators' results: DataEval's own output objects, typed per evaluator."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from dataeval.shift import DriftOutput, OODOutput
 
+from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = [
@@ -17,7 +19,17 @@ __all__ = [
 ]
 
 
-class DriftUnivariateResult(EvaluatorResult[DriftOutput[Any]]):
+class _DriftSection:
+    """The report section the five drift results share."""
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The verdict and statistics as fields, or one row per chunk."""
+        from dataeval_flow.evaluators.shift._report import drift_section
+
+        return drift_section(output)
+
+
+class DriftUnivariateResult(_DriftSection, EvaluatorResult[DriftOutput[Any]]):
     """The result of a ``drift-univariate`` run: ``output`` is DataEval's ``DriftOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -38,7 +50,7 @@ class DriftUnivariateResult(EvaluatorResult[DriftOutput[Any]]):
     """
 
 
-class DriftMMDResult(EvaluatorResult[DriftOutput[Any]]):
+class DriftMMDResult(_DriftSection, EvaluatorResult[DriftOutput[Any]]):
     """The result of a ``drift-mmd`` run: ``output`` is DataEval's ``DriftOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -59,7 +71,7 @@ class DriftMMDResult(EvaluatorResult[DriftOutput[Any]]):
     """
 
 
-class DriftKNeighborsResult(EvaluatorResult[DriftOutput[Any]]):
+class DriftKNeighborsResult(_DriftSection, EvaluatorResult[DriftOutput[Any]]):
     """The result of a ``drift-kneighbors`` run: ``output`` is DataEval's ``DriftOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -80,7 +92,7 @@ class DriftKNeighborsResult(EvaluatorResult[DriftOutput[Any]]):
     """
 
 
-class DriftWassersteinResult(EvaluatorResult[DriftOutput[Any]]):
+class DriftWassersteinResult(_DriftSection, EvaluatorResult[DriftOutput[Any]]):
     """The result of a ``drift-wasserstein`` run: ``output`` is DataEval's ``DriftOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -101,7 +113,7 @@ class DriftWassersteinResult(EvaluatorResult[DriftOutput[Any]]):
     """
 
 
-class DriftDomainClassifierResult(EvaluatorResult[DriftOutput[Any]]):
+class DriftDomainClassifierResult(_DriftSection, EvaluatorResult[DriftOutput[Any]]):
     """The result of a ``drift-domain-classifier`` run: ``output`` is DataEval's ``DriftOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the

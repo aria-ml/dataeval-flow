@@ -114,6 +114,7 @@ class TestRunTask:
         task_config = TaskConfig(name="test_task", workflow="clean", sources="src_test")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -210,6 +211,7 @@ class TestRunTask:
         task = TaskConfig(name="test_task", workflow="clean", sources="src_test")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -257,6 +259,7 @@ class TestRunTask:
     def test_run_task_raises_on_missing_source(self):
         """_run_single_task raises ValueError when source not found."""
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.sources = []
         config.extractors = None
@@ -288,6 +291,7 @@ class TestRunTask:
         task = TaskConfig(name="t", workflow="clean", sources="src_photos")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -324,6 +328,7 @@ class TestRunTask:
         task = TaskConfig(name="t", workflow="clean", sources="src_coco")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -355,6 +360,7 @@ class TestRunTask:
         task = TaskConfig(name="t", workflow="clean", sources="src_yolo")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -387,6 +393,7 @@ class TestRunTask:
         task = TaskConfig(name="t", workflow="clean", sources="src_coco")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -415,6 +422,7 @@ class TestRunTask:
         task = TaskConfig(name="t", workflow="clean", sources="src_yolo")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds_config]
@@ -527,6 +535,7 @@ class TestRunTaskMultiSource:
         ]
         sources = [SourceConfig(name=f"src_{n}", dataset=n) for n in ds_names]
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.datasets = datasets
         config.sources = sources
@@ -653,6 +662,7 @@ class TestRunTasks:
         source = SourceConfig(name="src", dataset="ds")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds]
@@ -713,6 +723,7 @@ class TestRunTasks:
     def test_run_tasks_all_disabled_raises(self):
         """run_tasks raises ValueError when all tasks are disabled."""
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.tasks = [
             TaskConfig(name="t1", workflow="clean", sources="src", enabled=False),
@@ -725,6 +736,7 @@ class TestRunTasks:
     def test_run_tasks_no_tasks_raises(self):
         """run_tasks raises ValueError when no tasks defined."""
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.tasks = None
 
@@ -744,6 +756,7 @@ class TestRunTasks:
     def test_run_tasks_unknown_name_raises(self):
         """run_tasks raises ValueError for unknown task name."""
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.tasks = [TaskConfig(name="t1", workflow="clean", sources="src")]
 
@@ -761,6 +774,7 @@ class TestSelectTasks:
 
     def _config(self) -> MagicMock:
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.tasks = [
             TaskConfig(name="task_a", workflow="clean", sources="src"),
@@ -815,6 +829,7 @@ class TestSelectTasks:
 
     def test_all_disabled_raises(self):
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.tasks = [TaskConfig(name="t1", workflow="clean", sources="src", enabled=False)]
         with pytest.raises(ValueError, match="All tasks are disabled"):
@@ -822,6 +837,7 @@ class TestSelectTasks:
 
     def test_no_tasks_raises(self):
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.tasks = []
         with pytest.raises(ValueError, match="No tasks defined"):
@@ -853,6 +869,7 @@ class TestSourceNameKeying:
         task = TaskConfig(name="t", workflow="clean", sources=["cifar_full", "cifar_sub"])
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds]
@@ -917,6 +934,7 @@ class TestRunTasksDisabledSkip:
         import logging
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
@@ -957,6 +975,7 @@ class TestRunTaskWrapper:
         task = TaskConfig(name="my_task", workflow="clean", sources="src")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds]
@@ -984,6 +1003,7 @@ class TestRunTaskWrapper:
         task = TaskConfig(name="my_task", workflow="clean", sources="src")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
@@ -1019,6 +1039,7 @@ class TestCacheDirAndLabelSource:
 
         task = TaskConfig(name="t", workflow="clean", sources="src")
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
         config.sources = [SourceConfig(name="src", dataset="ds")]
@@ -1047,6 +1068,7 @@ class TestCacheDirAndLabelSource:
         task = TaskConfig(name="t", workflow="clean", sources="src")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds]
@@ -1330,6 +1352,7 @@ class TestRunTasksAllEnabled:
     def test_run_tasks_none_disabled(self, mock_load_ds: MagicMock):
         """run_tasks with all tasks enabled skips the 'Skipping' log (line 353->355)."""
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
         config.sources = [SourceConfig(name="src", dataset="ds")]
@@ -1439,6 +1462,7 @@ class TestResolvedDatasetBackfill:
 
     def _config(self, ds_names: list[str], views: Any = None) -> MagicMock:
         config = MagicMock()
+        config.device = "cpu"
         config.result = ResultConfig()
         config.datasets = [
             HuggingFaceDatasetConfig(name=n, path=f"./{n}", split="train", task="image_classification")
@@ -1587,6 +1611,7 @@ class TestValueRangeReachesTheRun:
         task = TaskConfig(name="t", workflow="clean", sources="src")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds]
@@ -1624,6 +1649,7 @@ class TestOntologyReachesTheContext:
         coverage_instance = DataCoverageConfig(name="coverage", ontology="animals")
 
         config = MagicMock()
+        config.device = "cpu"
 
         config.result = ResultConfig()
         config.datasets = [ds]

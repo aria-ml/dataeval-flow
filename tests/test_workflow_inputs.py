@@ -42,7 +42,8 @@ def test_drift_with_one_source_is_refused_at_load() -> None:
     with pytest.raises(ValidationError, match="two or more sources"):
         PipelineConfig.model_validate(
             _pipeline(
-                {"type": "drift-monitoring", "detectors": [{"method": "mmd"}]}, {"sources": "a", "extractor": "flat"}
+                {"type": "drift-monitoring", "detectors": [{"type": "drift-mmd"}]},
+                {"sources": "a", "extractor": "flat"},
             )
         )
 

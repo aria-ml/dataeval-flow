@@ -8,6 +8,7 @@ import numpy as np
 from dataeval.data import Indices, View
 from dataeval.protocols import DatasetMetadata
 from dataeval.quality import DuplicatesOutput
+from dataeval.shift import DriftOutput
 from pydantic import BaseModel
 
 from dataeval_flow import PipelineConfig, SourceCount
@@ -258,6 +259,23 @@ class Worst(Check[WorstConfig]):
         return [Finding(severity="info", title=self.title, brief=brief)]
 
 
+class DriftedConfig(CheckConfig):
+    input: str
+
+
+class Drifted(Check[DriftedConfig]):
+    """``toy-drifted``: a warning when a drift Output drifted, ok otherwise."""
+
+    name: ClassVar[str] = "toy-drifted"
+    description: ClassVar[str] = "Warns on drift."
+    title: ClassVar[str] = "Drifted"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DriftOutput,)),)
+
+    def run(self, config: DriftedConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        drifted = inputs["input"].value.drifted
+        return [Finding(severity="warning" if drifted else "ok", title=self.title)]
+
+
 _TOYS = {
     "toy-keep": "tests.chain_toys:Keep",
     "toy-first": "tests.chain_toys:First",
@@ -272,7 +290,11 @@ _TOYS = {
 
 
 _COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
-_CHECK_TOYS = {"toy-at-most": "tests.chain_toys:GroupLimit", "toy-worst": "tests.chain_toys:Worst"}
+_CHECK_TOYS = {
+    "toy-at-most": "tests.chain_toys:GroupLimit",
+    "toy-worst": "tests.chain_toys:Worst",
+    "toy-drifted": "tests.chain_toys:Drifted",
+}
 
 
 def register_toys(plugins: dict[str, list[tuple[str, str]]]) -> None:

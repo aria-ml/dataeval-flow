@@ -4,6 +4,7 @@
 
 ### Added
 
+- `device:` on the pipeline chooses the device every tool computes on; unset picks CUDA when PyTorch sees it, else CPU.
 - Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
@@ -115,6 +116,13 @@
   explicit edges or levels for every factor the policy left unpinned, read back from this data. A dominant value
   such as a speed of zero is left in, with a note to decide. `metadata-issues` shows it as a "Recommended policy"
   finding that opens with a caveat: a policy read from unrepresentative data can give invalid or misleading results
+- `by: class` on an evaluate step runs its evaluator once per class, or per named group of classes, on the classes
+  with `min_items` items in every input, in one Output that names each class it left out and why. A class whose run
+  raises is left out with its error, and the step fails only when every class raises. On a check, it judges each
+  class and rolls the findings into one, briefed `2/8 classes warn`
+- `drift`, a check: a warning when a drift evaluator finds drift or, chunked, when `chunk_percent` of the chunks
+  drift or `consecutive_chunks` drift in a row
+- The drift evaluators' results have a report section: the verdict's fields, or one row per chunk
 
 ### Changed
 
@@ -190,6 +198,23 @@
   Pruning warning and each pool's info finding are gone
 - `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings. It
   returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
+- `drift-monitoring` is a preset: each detector is a step judged by a `drift` check, and each detector `classwise`
+  names also runs by class. Each test source is tested on its own against the reference, where they were merged;
+  `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
+  (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
+  names, and `health_thresholds` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
+  It returns a `ChainResult`; a detector that raises fails its step and the task. A classwise detector makes a
+  whole-set finding and a by-class finding, so it can add two warnings where legacy added one. Classwise reads each
+  item's label through DataEval's `Metadata`, so it needs a dataset with `.metadata`; without it the by-class run is
+  skipped, where legacy read the labels from the targets. To upgrade:
+  - `method: univariate|mmd|kneighbors|domain_classifier` is
+    `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
+  - a detector's `classwise: true` is its name in `classwise: [...]`
+  - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `health_thresholds.drift.warn_on_drift`;
+    `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning` is `consecutive_chunks`
+  - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
+    z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
+    band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
@@ -232,6 +257,8 @@
 - The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it
 - Data prioritization's `sources` and data splitting's `dataset` are the views they ran on, not views drawn anew
 - Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
+- A chunked drift finding with `chunk_percent: 0`, legacy's `chunk_drift_pct_warning: 0`, no longer warns when no
+  chunk drifted
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
 - Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
 - Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with the `duplicates`
@@ -262,6 +289,7 @@
 
 ### Removed
 
+- The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; set the pipeline's `device:` instead
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
 - Python 3.10 support; the minimum supported version is now 3.11
@@ -290,6 +318,11 @@
 - `MetadataTriageResult`, with its metadata's `blocking` and `verified`; a metadata-triage result is a `ChainResult`
 - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source` on
   `metadata-triage`, which refuses them: declare the binning in a `metadata:` policy
+- `update_strategy` on `drift-monitoring`, which was never applied and is now refused
+- The `DriftDetectorUnivariate`, `DriftDetectorMMD`, `DriftDetectorKNeighbors` and `DriftDetectorDomainClassifier`,
+  `ChunkingConfig`, `UpdateStrategyConfig` and `DriftMonitoringHealthThresholds` classes; a detector is a drift
+  evaluator config, and its `chunking:` a `ChunkedDriftConfig`
+- `DriftMonitoringResult` and its parts; a drift-monitoring result is a `ChainResult`
 
 ## v0.2.2
 

@@ -85,6 +85,7 @@ configure_metadata_binning
 :hidden:
 
 write_a_custom_workflow
+monitor_drift
 reuse_a_workflow
 ```
 
@@ -95,6 +96,9 @@ reuse_a_workflow
 - - {doc}`Chain steps into a workflow of your own <write_a_custom_workflow>`
   - Conform and merge two datasets, remove their duplicates, export the result, and check and split what is left, as
     one chain of steps.
+- - {doc}`Monitor drift with steps <monitor_drift>`
+  - Read what the drift preset makes for each test source, merge sources to test them as one, compare classes or
+    groups, and drift on the crops of detection data.
 - - {doc}`Reuse a cleaning chain on new data <reuse_a_workflow>`
   - Keep a chain in your config, in a file each project loads, or saved from Python, and run it on each new dataset.
 

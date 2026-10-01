@@ -1,360 +1,101 @@
-"""Tests for drift monitoring workflow parameters."""
+"""The drift-monitoring config: drift evaluator entries as detectors, `classwise` by name, thresholds by check type."""
+
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow.workflows.drift_monitoring import (
-    ChunkingConfig,
-    DriftDetectorDomainClassifier,
-    DriftDetectorKNeighbors,
-    DriftDetectorMMD,
-    DriftDetectorUnivariate,
-    DriftMonitoringConfig,
-    DriftMonitoringHealthThresholds,
-    UpdateStrategyConfig,
+from dataeval_flow.evaluators.shift import (
+    DriftDomainClassifierConfig,
+    DriftKNeighborsConfig,
+    DriftMMDConfig,
+    DriftUnivariateConfig,
 )
+from dataeval_flow.steps.checks import DriftThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
 pytestmark = pytest.mark.required
 
-# ---------------------------------------------------------------------------
-# DriftDetectorUnivariate
-# ---------------------------------------------------------------------------
-
-
-class TestDriftDetectorUnivariate:
-    def test_defaults(self):
-        cfg = DriftDetectorUnivariate()
-        assert cfg.method == "univariate"
-        assert cfg.test == "ks"
-        assert cfg.p_val == 0.05
-        assert cfg.correction == "bonferroni"
-        assert cfg.alternative == "two-sided"
-        assert cfg.n_features is None
-
-    @pytest.mark.parametrize("test", ["ks", "cvm", "mwu", "anderson", "bws"])
-    def test_valid_test_methods(self, test: str):
-        cfg = DriftDetectorUnivariate(test=test)  # type: ignore
-        assert cfg.test == test
-
-    def test_invalid_test_method(self):
-        with pytest.raises(ValidationError, match="test"):
-            DriftDetectorUnivariate(test="invalid")  # type: ignore
-
-    def test_p_val_bounds(self):
-        with pytest.raises(ValidationError):
-            DriftDetectorUnivariate(p_val=0.0)
-        with pytest.raises(ValidationError):
-            DriftDetectorUnivariate(p_val=1.0)
-
-    def test_n_features_positive(self):
-        cfg = DriftDetectorUnivariate(n_features=10)
-        assert cfg.n_features == 10
-        with pytest.raises(ValidationError):
-            DriftDetectorUnivariate(n_features=0)
-
-    def test_extra_fields_forbidden(self):
-        with pytest.raises(ValidationError, match="Extra inputs"):
-            DriftDetectorUnivariate(k=10)  # type: ignore
-
-    def test_extra_fields_from_other_detector_forbidden(self):
-        with pytest.raises(ValidationError, match="Extra inputs"):
-            DriftDetectorUnivariate(n_permutations=100)  # type: ignore
-
-
-# ---------------------------------------------------------------------------
-# DriftDetectorMMD
-# ---------------------------------------------------------------------------
-
-
-class TestDriftDetectorMMD:
-    def test_defaults(self):
-        cfg = DriftDetectorMMD()
-        assert cfg.method == "mmd"
-        assert cfg.p_val == 0.05
-        assert cfg.n_permutations == 100
-        assert cfg.device is None
-
-    def test_custom_values(self):
-        cfg = DriftDetectorMMD(p_val=0.01, n_permutations=200, device="cuda:0")
-        assert cfg.p_val == 0.01
-        assert cfg.n_permutations == 200
-        assert cfg.device == "cuda:0"
-
-    def test_n_permutations_positive(self):
-        with pytest.raises(ValidationError):
-            DriftDetectorMMD(n_permutations=0)
-
-    def test_extra_fields_forbidden(self):
-        with pytest.raises(ValidationError, match="Extra inputs"):
-            DriftDetectorMMD(test="ks")  # type: ignore[call-arg]
-
-
-# ---------------------------------------------------------------------------
-# DriftDetectorDomainClassifier
-# ---------------------------------------------------------------------------
-
-
-class TestDriftDetectorDomainClassifier:
-    def test_defaults(self):
-        cfg = DriftDetectorDomainClassifier()
-        assert cfg.method == "domain_classifier"
-        assert cfg.n_folds == 5
-        assert cfg.threshold == 0.55
-
-    def test_n_folds_minimum(self):
-        cfg = DriftDetectorDomainClassifier(n_folds=2)
-        assert cfg.n_folds == 2
-        with pytest.raises(ValidationError):
-            DriftDetectorDomainClassifier(n_folds=1)
-
-    def test_threshold_bounds(self):
-        with pytest.raises(ValidationError):
-            DriftDetectorDomainClassifier(threshold=0.5)  # must be > 0.5
-        with pytest.raises(ValidationError):
-            DriftDetectorDomainClassifier(threshold=1.1)
-
-    def test_extra_fields_forbidden(self):
-        with pytest.raises(ValidationError, match="Extra inputs"):
-            DriftDetectorDomainClassifier(k=10)  # type: ignore[call-arg]
-
 
-# ---------------------------------------------------------------------------
-# DriftDetectorKNeighbors
-# ---------------------------------------------------------------------------
-
-
-class TestDriftDetectorKNeighbors:
-    def test_defaults(self):
-        cfg = DriftDetectorKNeighbors()
-        assert cfg.method == "kneighbors"
-        assert cfg.k == 10
-        assert cfg.distance_metric == "euclidean"
-        assert cfg.p_val == 0.05
-
-    def test_custom_values(self):
-        cfg = DriftDetectorKNeighbors(k=5, distance_metric="cosine", p_val=0.01)
-        assert cfg.k == 5
-        assert cfg.distance_metric == "cosine"
-        assert cfg.p_val == 0.01
-
-    def test_k_positive(self):
-        with pytest.raises(ValidationError):
-            DriftDetectorKNeighbors(k=0)
-
-    def test_invalid_metric(self):
-        with pytest.raises(ValidationError, match="distance_metric"):
-            DriftDetectorKNeighbors(distance_metric="manhattan")  # type: ignore[arg-type]
-
-    def test_extra_fields_forbidden(self):
-        with pytest.raises(ValidationError, match="Extra inputs"):
-            DriftDetectorKNeighbors(n_folds=5)  # type: ignore[call-arg]
-
-
-# ---------------------------------------------------------------------------
-# Discriminated union dispatch
-# ---------------------------------------------------------------------------
-
-
-class TestDriftDetectorConfigUnion:
-    def test_univariate_dispatched(self):
-        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "univariate", "test": "cvm"}]})
-        assert isinstance(params.detectors[0], DriftDetectorUnivariate)
-        assert params.detectors[0].test == "cvm"
-
-    def test_mmd_dispatched(self):
-        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "mmd", "n_permutations": 50}]})
-        assert isinstance(params.detectors[0], DriftDetectorMMD)
-        assert params.detectors[0].n_permutations == 50
-
-    def test_domain_classifier_dispatched(self):
-        params = DriftMonitoringConfig.model_validate(
-            {"detectors": [{"method": "domain_classifier", "threshold": 0.6}]}
-        )
-        assert isinstance(params.detectors[0], DriftDetectorDomainClassifier)
-        assert params.detectors[0].threshold == 0.6
-
-    def test_kneighbors_dispatched(self):
-        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "kneighbors", "k": 20}]})
-        assert isinstance(params.detectors[0], DriftDetectorKNeighbors)
-        assert params.detectors[0].k == 20
-
-    def test_multiple_detectors(self):
-        params = DriftMonitoringConfig.model_validate(
-            {
-                "detectors": [
-                    {"method": "univariate"},
-                    {"method": "mmd"},
-                    {"method": "domain_classifier"},
-                    {"method": "kneighbors"},
-                ]
-            }
-        )
-        assert len(params.detectors) == 4
-        types = [type(d) for d in params.detectors]
-        assert types == [
-            DriftDetectorUnivariate,
-            DriftDetectorMMD,
-            DriftDetectorDomainClassifier,
-            DriftDetectorKNeighbors,
-        ]
-
-    def test_invalid_method_rejected(self):
-        with pytest.raises(ValidationError, match="method"):
-            DriftMonitoringConfig.model_validate({"detectors": [{"method": "invalid_method"}]})
-
-    def test_wrong_params_for_method_rejected(self):
-        with pytest.raises(ValidationError):
-            DriftMonitoringConfig.model_validate({"detectors": [{"method": "univariate", "k": 10}]})
-
-    def test_empty_detectors_rejected(self):
-        with pytest.raises(ValidationError, match="detectors"):
-            DriftMonitoringConfig.model_validate({"detectors": []})
-
-
-# ---------------------------------------------------------------------------
-# ChunkingConfig
-# ---------------------------------------------------------------------------
-
-
-class TestChunkingConfig:
-    def test_enabled_with_chunk_size(self):
-        cfg = ChunkingConfig(chunk_size=50)
-        assert cfg.chunk_size == 50
-
-    def test_enabled_with_chunk_count(self):
-        cfg = ChunkingConfig(chunk_count=10)
-        assert cfg.chunk_count == 10
-
-    def test_enabled_without_size_or_count_fails(self):
-        with pytest.raises(ValidationError, match="chunk_size or chunk_count must be set"):
-            ChunkingConfig()
-
-    def test_both_size_and_count_fails(self):
-        with pytest.raises(ValidationError, match="mutually exclusive"):
-            ChunkingConfig(chunk_size=50, chunk_count=10)
-
-    def test_requires_size_or_count(self):
-        with pytest.raises(ValidationError, match="chunk_size or chunk_count must be set"):
-            ChunkingConfig()
-
-    def test_chunk_size_positive(self):
-        with pytest.raises(ValidationError):
-            ChunkingConfig(chunk_size=0)
-
-    def test_chunk_count_positive(self):
-        with pytest.raises(ValidationError):
-            ChunkingConfig(chunk_count=0)
-
-    @pytest.mark.parametrize("incomplete", ["keep", "drop", "append"])
-    def test_valid_incomplete_values(self, incomplete: str):
-        cfg = ChunkingConfig(chunk_size=10, incomplete=incomplete)  # type: ignore[arg-type]
-        assert cfg.incomplete == incomplete
-
-
-# ---------------------------------------------------------------------------
-# UpdateStrategyConfig
-# ---------------------------------------------------------------------------
-
-
-class TestUpdateStrategyConfig:
-    def test_last_seen(self):
-        cfg = UpdateStrategyConfig(type="last_seen", n=100)
-        assert cfg.type == "last_seen"
-        assert cfg.n == 100
-
-    def test_reservoir_sampling(self):
-        cfg = UpdateStrategyConfig(type="reservoir_sampling", n=500)
-        assert cfg.type == "reservoir_sampling"
-
-    def test_n_positive(self):
-        with pytest.raises(ValidationError):
-            UpdateStrategyConfig(type="last_seen", n=0)
-
-    def test_invalid_type(self):
-        with pytest.raises(ValidationError, match="type"):
-            UpdateStrategyConfig(type="invalid", n=100)  # type: ignore[arg-type]
-
-
-# ---------------------------------------------------------------------------
-# DriftMonitoringHealthThresholds
-# ---------------------------------------------------------------------------
-
-
-class TestDriftMonitoringHealthThresholds:
-    def test_defaults(self):
-        t = DriftMonitoringHealthThresholds()
-        assert t.any_drift_is_warning is True
-        assert t.chunk_drift_pct_warning == 10.0
-        assert t.consecutive_chunks_warning == 3
-        assert t.classwise_any_drift_is_warning is True
-
-    def test_custom_values(self):
-        t = DriftMonitoringHealthThresholds(
-            any_drift_is_warning=False,
-            chunk_drift_pct_warning=25.0,
-            consecutive_chunks_warning=5,
-            classwise_any_drift_is_warning=False,
-        )
-        assert t.any_drift_is_warning is False
-        assert t.chunk_drift_pct_warning == 25.0
-
-    def test_chunk_pct_bounds(self):
-        with pytest.raises(ValidationError):
-            DriftMonitoringHealthThresholds(chunk_drift_pct_warning=-1.0)
-        with pytest.raises(ValidationError):
-            DriftMonitoringHealthThresholds(chunk_drift_pct_warning=101.0)
-
-    def test_consecutive_minimum(self):
-        with pytest.raises(ValidationError):
-            DriftMonitoringHealthThresholds(consecutive_chunks_warning=0)
-
-
-# ---------------------------------------------------------------------------
-# DriftMonitoringConfig (top-level)
-# ---------------------------------------------------------------------------
-
-
-class TestDriftMonitoringConfig:
-    def test_minimal_valid(self):
-        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "mmd"}]})
-        assert len(params.detectors) == 1
-        assert params.detectors[0].chunking is None
-        assert params.detectors[0].classwise is False
-        assert params.update_strategy is None
-
-    def test_full_config(self):
-        params = DriftMonitoringConfig.model_validate(
-            {
-                "detectors": [
-                    {
-                        "method": "univariate",
-                        "test": "ks",
-                        "classwise": True,
-                        "chunking": {"chunk_size": 100},
-                    },
-                    {"method": "mmd", "n_permutations": 200, "classwise": True},
-                ],
-                "update_strategy": {"type": "last_seen", "n": 500},
-                "health_thresholds": {
-                    "any_drift_is_warning": False,
-                    "chunk_drift_pct_warning": 20.0,
-                },
-            }
-        )
-        assert len(params.detectors) == 2
-        assert params.detectors[0].chunking is not None
-        assert params.detectors[0].chunking.chunk_size == 100
-        assert params.detectors[1].chunking is None
-        assert params.detectors[0].classwise is True
-        assert params.detectors[1].classwise is True
-        assert params.update_strategy is not None
-        assert params.update_strategy.type == "last_seen"
-        assert params.health_thresholds.any_drift_is_warning is False
-
-    def test_no_detectors_fails(self):
-        with pytest.raises(ValidationError):
-            DriftMonitoringConfig.model_validate({"detectors": []})
-
-    def test_defaults_for_optional_fields(self):
-        params = DriftMonitoringConfig.model_validate({"detectors": [{"method": "kneighbors"}]})
-        assert isinstance(params.health_thresholds, DriftMonitoringHealthThresholds)
+def _config(**settings: Any) -> DriftMonitoringConfig:
+    return DriftMonitoringConfig.model_validate({"name": "drift", **settings})
+
+
+@pytest.mark.parametrize(
+    ("type_id", "config_class"),
+    [
+        ("drift-univariate", DriftUnivariateConfig),
+        ("drift-mmd", DriftMMDConfig),
+        ("drift-kneighbors", DriftKNeighborsConfig),
+        ("drift-domain-classifier", DriftDomainClassifierConfig),
+    ],
+)
+def test_each_detector_validates_as_the_evaluator_config_its_type_names(type_id: str, config_class: type) -> None:
+    (detector,) = _config(detectors=[{"type": type_id}]).detectors
+    assert type(detector) is config_class
+    assert detector.name == type_id
+
+
+def test_a_detector_takes_its_evaluator_s_settings() -> None:
+    entry = {"name": "ks", "type": "drift-univariate", "method": "cvm", "p_val": 0.01, "chunking": {"chunk_count": 5}}
+    (detector,) = _config(detectors=[entry]).detectors
+    assert isinstance(detector, DriftUnivariateConfig)
+    assert (detector.name, detector.method, detector.p_val) == ("ks", "cvm", 0.01)
+    assert detector.chunking is not None
+    assert detector.chunking.chunk_count == 5
+
+
+def test_a_detector_refuses_another_evaluator_s_settings() -> None:
+    with pytest.raises(ValidationError, match="n_permutations"):
+        _config(detectors=[{"type": "drift-kneighbors", "n_permutations": 10}])
+
+
+def test_a_config_object_is_taken_as_it_is() -> None:
+    mmd = DriftMMDConfig(n_permutations=10)
+    assert DriftMonitoringConfig(detectors=[mmd]).detectors == [mmd]
+
+
+def test_defaults() -> None:
+    config = _config(detectors=[{"type": "drift-mmd"}])
+    assert config.type == "drift-monitoring"
+    assert config.classwise == []
+    assert config.health_thresholds.drift == DriftThresholds()
+
+
+def test_a_dump_keeps_each_detector_s_own_settings_and_validates_back() -> None:
+    config = _config(
+        detectors=[{"name": "ks", "type": "drift-univariate", "chunking": {"chunk_count": 5}}, {"type": "drift-mmd"}],
+        classwise=["ks"],
+    )
+    dumped = config.model_dump()
+    assert dumped["detectors"][0]["chunking"]["chunk_count"] == 5
+    assert dumped["detectors"][1]["n_permutations"] is None
+    assert DriftMonitoringConfig.model_validate(dumped) == config
+
+
+def test_health_thresholds_hold_the_drift_check_s_fields() -> None:
+    drift = {"warn_on_drift": False, "chunk_percent": None, "consecutive_chunks": 2}
+    config = _config(detectors=[{"type": "drift-mmd"}], health_thresholds={"drift": drift})
+    assert config.health_thresholds.drift.model_dump() == drift
+
+
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [
+        ({"detectors": []}, "at least 1 item"),
+        ({"detectors": [{"type": "drift-mmd"}, {"type": "drift-mmd"}]}, "two detectors named `drift-mmd`"),
+        ({"detectors": [{"name": "x-check", "type": "drift-mmd"}]}, "-check"),
+        ({"detectors": [{"name": "x-classes", "type": "drift-mmd"}]}, "`x-classes` ends in"),
+        ({"detectors": [{"name": "x-unchunked", "type": "drift-mmd"}]}, "`x-unchunked` ends in"),
+        ({"detectors": [{"method": "mmd"}]}, "needs a `type`.*`method: mmd` is now `type: drift-mmd`"),
+        ({"detectors": [{"type": ["drift-mmd"]}]}, "needs a `type`, one of drift-univariate"),
+        ({"detectors": [{"type": "drift-wasserstein"}]}, "validation set"),
+        ({"detectors": [{"type": "outliers"}]}, "drift-univariate"),
+        ({"detectors": [{"type": "drift-mmd"}], "classwise": ["ks"]}, "`ks`"),
+        ({"detectors": [{"type": "drift-mmd"}], "update_strategy": {"type": "last_seen", "n": 5}}, "update_strategy"),
+        ({"detectors": [{"type": "drift-mmd"}], "health_thresholds": {"any_drift_is_warning": True}}, "any_drift"),
+    ],
+)
+def test_load_refuses(settings: dict[str, Any], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        _config(**settings)

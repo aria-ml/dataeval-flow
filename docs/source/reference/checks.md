@@ -6,8 +6,8 @@ findings: each `ok`, `info` or `warning`, rolled up into the task's health, wher
 reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
-The built-in checks are the ones `data-cleaning` runs, whose findings are theirs, and `metadata-issues`, which makes
-`metadata-triage`'s. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
+The built-in checks are the ones `data-cleaning` runs, whose findings are theirs, `metadata-issues`, which makes
+`metadata-triage`'s, and `drift`, which judges `drift-monitoring`'s detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -18,6 +18,7 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
+| `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
@@ -28,10 +29,16 @@ ratio, and a finding warns where the measured value passes it. `null` switches a
 made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
 
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
-`info` finding in its own name, briefed `not assessed`, whose description names that input and why it holds nothing:
-"Not assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
+`info` finding briefed `not assessed`, titled with its `subject` where it takes one and with its own title otherwise,
+followed by " by class" where it has `by: class`. Its description names that input and why it holds nothing: "Not
+assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
 per element, and each finding names its element under `step`, as `imbalance[train]`. The report groups those findings
 by the element's key, `train`, in its summary and below it.
+
+A check with `by: class` runs once per class, or per group of classes, of an Output made with the same `by:`, and
+rolls the findings up into one, titled with the first's title and " by class". Its brief counts the classes that warn,
+as `1/3 classes warn`, and its description names those that warned and those not assessed. See
+[Write a custom workflow](../how_to/write_a_custom_workflow.md) for how to set it up.
 
 ## Checks
 
@@ -110,6 +117,22 @@ It has no thresholds. Configured by {py:class}`~dataeval_flow.steps.checks.Metad
 | --- | --- | --- | --- |
 | `input` | an address | required | A `factor-triage` Output |
 | `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
+
+### `drift`
+
+Whether a drift detector found drift. Configured by {py:class}`~dataeval_flow.steps.checks.DriftCheckConfig`. Without
+chunking, drift is a warning, or `info` where `warn_on_drift` is false. With chunking, the finding warns when the share
+of drifted chunks or the longest run of drifted chunks reaches its limit, is `info` when some chunks drifted but
+neither does, and is `ok` when no chunk drifted. With both limits `null` it judges nothing, and is `info` whether or
+not a chunk drifted.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A drift evaluator's Output |
+| `subject` | text, or `null` | `null` | The finding's title, a `not assessed` one's too; unset, the evaluator's title, followed by its entry's name where that differs from its type |
+| `warn_on_drift` | true or false | `true` | Unchunked, and per class: whether drift warns, or is `info` |
+| `chunk_percent` | a percentage, or `null` | `10.0` | Chunked: the share of drifted chunks at which the finding warns |
+| `consecutive_chunks` | an integer of at least 1, or `null` | `3` | Chunked: the longest run of drifted chunks at which the finding warns |
 
 ## Combines
 

@@ -424,24 +424,24 @@ class TestSectionModalPopulateFields:
 
 
 # ---------------------------------------------------------------------------
-# Editing workflow with union list (drift-monitoring detectors)
+# Editing workflow with union list (ood-detection detectors)
 # ---------------------------------------------------------------------------
 
 
 class TestSectionModalVariantEditWithListItems:
     async def test_variant_edit_vm_state(self) -> None:
-        """Edit a drift-monitoring workflow — verify VM state without Textual Select timing."""
+        """Edit an ood-detection workflow — verify VM state without Textual Select timing."""
         from dataeval_flow._app._viewmodel._section_vm import SectionViewModel
 
         existing = {
             "name": "wf1",
-            "type": "drift-monitoring",
+            "type": "ood-detection",
             "detectors": [{"method": "kneighbors", "k": 5}],
-            "health_thresholds": {"any_drift_is_warning": True},
+            "health_thresholds": {"ood_pct_warning": 5.0},
         }
         # Test the VM directly — avoids Textual Select compose timing
         vm = SectionViewModel("workflows", existing=existing)
-        vm.load_fields("drift-monitoring")
+        vm.load_fields("ood-detection")
         # populate list_items from existing
         for desc in vm.descriptors:
             if desc.name in existing and desc.union_variants and isinstance(existing[desc.name], list):
@@ -455,11 +455,11 @@ class TestSectionModalVariantEditWithListItems:
         async with app.run_test(size=(120, 40)) as pilot:
             existing = {
                 "name": "wf2",
-                "type": "drift-monitoring",
-                "detectors": [{"method": "mmd", "p_val": 0.05}],
+                "type": "ood-detection",
+                "detectors": [{"method": "domain_classifier", "n_folds": 3}],
                 "health_thresholds": {
-                    "any_drift_is_warning": True,
-                    "chunk_drift_pct_warning": 10.0,
+                    "ood_pct_warning": 5.0,
+                    "ood_pct_info": 1.0,
                 },
             }
             modal = SectionModal("workflows", existing=existing)
@@ -484,9 +484,9 @@ class TestSectionModalNestedUnionField:
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
-            # Select drift-monitoring to trigger rebuild with detectors (union list)
+            # Select ood-detection to trigger rebuild with detectors (union list)
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Fields container should have been populated
@@ -609,7 +609,7 @@ class TestSectionModalAddStep:
 
 
 class TestSectionModalRebuildVariantParams:
-    async def test_rebuild_variant_params_drift_monitoring(self) -> None:
+    async def test_rebuild_variant_params_ood_detection(self) -> None:
         """_rebuild_variant_params builds params form for a union variant."""
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
@@ -617,9 +617,9 @@ class TestSectionModalRebuildVariantParams:
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
-            # Select drift-monitoring
+            # Select ood-detection
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Find the detectors picker and select a variant
@@ -648,7 +648,7 @@ class TestSectionModalRebuildVariantParams:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Call _rebuild_variant_params with the picker still blank
@@ -664,7 +664,7 @@ class TestSectionModalRebuildVariantParams:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
@@ -686,16 +686,16 @@ class TestSectionModalRebuildVariantParams:
 
 class TestSectionModalAddListItem:
     async def test_add_list_item_workflow_detector(self) -> None:
-        """Add a union list item (detector) to a drift-monitoring workflow."""
+        """Add a union list item (detector) to an ood-detection workflow."""
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
-            # Select drift-monitoring type
+            # Select ood-detection type
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
@@ -726,7 +726,7 @@ class TestSectionModalAddListItem:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Call _add_list_item without selecting a variant
@@ -742,7 +742,7 @@ class TestSectionModalAddListItem:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Call with unknown field name
@@ -758,7 +758,7 @@ class TestSectionModalAddListItem:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
@@ -786,7 +786,7 @@ class TestSectionModalRefreshListItems:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Manually populate list_items
@@ -813,7 +813,7 @@ class TestSectionModalRefreshListItems:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             modal._vm.list_items["detectors"] = []
@@ -836,7 +836,7 @@ class TestSectionModalHandleListRemoveSuccess:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Add an item to list_items
@@ -920,7 +920,7 @@ class TestSectionModalReadRawFieldUnionList:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             # Find the detectors descriptor
@@ -941,7 +941,7 @@ class TestSectionModalReadRawFieldUnionList:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             from dataeval_flow._app._model._introspect import FieldKind
@@ -996,7 +996,7 @@ class TestSectionModalReadVariantWidget:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
@@ -1045,10 +1045,10 @@ class TestSectionModalMountUnionListField:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             await pilot.pause()
-            # After selecting drift-monitoring, detectors should be in list_items
+            # After selecting ood-detection, detectors should be in list_items
             assert "detectors" in modal._vm.list_items
 
 

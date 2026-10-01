@@ -15,24 +15,9 @@ from dataeval_flow import PipelineConfig, Result, run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
 from dataeval_flow.evaluators.scope import CoverageConfig, RepresentationConfig
-from dataeval_flow.evaluators.shift import (
-    DriftDomainClassifierConfig,
-    DriftKNeighborsConfig,
-    DriftMMDConfig,
-    DriftUnivariateConfig,
-    OODDomainClassifierConfig,
-    OODKNeighborsConfig,
-)
+from dataeval_flow.evaluators.shift import OODDomainClassifierConfig, OODKNeighborsConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisResult
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageResult
-from dataeval_flow.workflows.drift_monitoring import (
-    DriftDetectorDomainClassifier,
-    DriftDetectorKNeighbors,
-    DriftDetectorMMD,
-    DriftDetectorUnivariate,
-    DriftMonitoringConfig,
-    DriftMonitoringResult,
-)
 from dataeval_flow.workflows.ood_detection import (
     OODDetectionConfig,
     OODDetectionResult,
@@ -138,54 +123,6 @@ def test_representation_agrees_with_data_coverage():
     assert table["extras"]["total_deficit"] == representation.total_deficit
     assert table["extras"]["violations"]["rows"] == _json([row.model_dump() for row in representation.violations])
     assert table["extras"]["dark_branches"]["rows"] == _json([row.model_dump() for row in representation.dark_branches])
-
-
-@pytest.mark.parametrize(
-    ("detector", "evaluator", "key"),
-    [
-        (
-            DriftDetectorUnivariate(test="ks", p_val=0.05),
-            DriftUnivariateConfig(name="ev", method="ks", p_val=0.05),
-            "univariate",
-        ),
-        (
-            DriftDetectorMMD(p_val=0.05, n_permutations=50),
-            DriftMMDConfig(name="ev", p_val=0.05, n_permutations=50),
-            "mmd",
-        ),
-        (
-            DriftDetectorKNeighbors(k=5, distance_metric="euclidean", p_val=0.05),
-            DriftKNeighborsConfig(name="ev", k=5, distance_metric="euclidean", p_val=0.05),
-            "kneighbors",
-        ),
-        (
-            DriftDetectorDomainClassifier(n_folds=3, threshold=0.55),
-            DriftDomainClassifierConfig(name="ev", n_folds=3, threshold=0.55),
-            "domain_classifier",
-        ),
-    ],
-)
-def test_drift_agrees_with_drift_monitoring(detector: Any, evaluator: Any, key: str):
-    tasks = _tasks("wf", "ev", ["reference", "test"], extractor=True)
-    config = toy_pipeline(
-        workflows=[DriftMonitoringConfig(name="wf", detectors=[detector])],
-        evaluators=[evaluator],
-        tasks=tasks,
-        datasets=shifted_sources(),
-        extractor=True,
-    )
-    workflow_result, evaluator_result = _run(config, tasks[0]), _run(config, tasks[1])
-    assert isinstance(workflow_result, DriftMonitoringResult)
-    expected = workflow_result.output.raw.detectors[key]
-    data = output_json(evaluator_result)["data"]
-    assert data["drifted"] == expected["drifted"]
-    assert data["metric_name"] == expected["metric_name"]
-    assert data["distance"] == pytest.approx(expected["distance"])
-    assert data["threshold"] == pytest.approx(expected["threshold"])
-    if "p_val" in expected["details"]:  # type: ignore[reportTypedDictNotRequiredAccess]
-        assert data["details"]["p_val"] == pytest.approx(
-            expected["details"]["p_val"]  # type: ignore[reportTypedDictNotRequiredAccess]
-        )
 
 
 @pytest.mark.parametrize(

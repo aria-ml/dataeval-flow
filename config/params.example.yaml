@@ -34,6 +34,14 @@
 # deterministic: false    # force PyTorch deterministic algorithms (slower)
 
 # -----------------------------------------------------------------------------
+# DEVICE (optional)
+# -----------------------------------------------------------------------------
+# The device every tool computes on. Unset: CUDA when PyTorch sees a GPU,
+# otherwise CPU. Applied before each task.
+#
+# device: cuda:0          # cpu | cuda | cuda:0 | etc.
+
+# -----------------------------------------------------------------------------
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:
@@ -206,13 +214,11 @@
 #     model_path: "./model.pt"
 #     layer_name: "avgpool"            # layer for forward-hook extraction
 #     use_output: true                 # capture layer output (True) or input (False)
-#     device: cuda:0                   # cpu | cuda:0 | etc.
 #
 #   - name: uncertainty_extractor
 #     model: uncertainty
 #     model_path: "./classifier.pt"
 #     preds_type: probs                # probs | logits
-#     device: cpu
 
 # -----------------------------------------------------------------------------
 # ONTOLOGIES — Named label spaces, referenced by workflows
@@ -275,16 +281,18 @@
 #       image_outliers: 1.0
 #
 #   - name: basic_drift
-#     type: drift-monitoring
-#     detectors:
-#       - method: univariate          # univariate | mmd | domain_classifier | kneighbors
-#         test: ks                    # ks | cvm | mwu | anderson | bws
+#     type: drift-monitoring          # each test source is tested on its own against the first, the reference
+#     detectors:                      # drift evaluator entries: drift-univariate | drift-mmd | drift-kneighbors |
+#       - type: drift-univariate      #   drift-domain-classifier; an entry's `name` (default: its type) names its step
+#         method: ks                  # ks | cvm | mwu | anderson | bws
 #         p_val: 0.05
 #         correction: bonferroni      # bonferroni | fdr
-#         classwise: false            # per-class drift detection (requires labels)
 #         chunking:                   # optional temporal drift analysis
-#           chunk_size: 500           # or chunk_count (mutually exclusive); the reference needs >= 3 chunks
+#           chunk_size: 500           # or chunk_count; the reference needs >= 3 chunks
 #           incomplete: keep          # keep | drop | append the reference's short final chunk
+#     classwise: [drift-univariate]   # detectors to also run per class, unchunked (requires one label per item)
+#     health_thresholds:
+#       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 #
 #   - name: clean
 #     type: data-cleaning

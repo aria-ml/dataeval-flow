@@ -60,6 +60,11 @@ def run(
     The data is checked against what `config` consumes before anything runs. The run then goes through
     :func:`~dataeval_flow.run_task` as a one-task pipeline, so it returns what that pipeline's task would.
 
+    The compute device is chosen for each task: CUDA where PyTorch sees a GPU, otherwise the CPU. The pipeline sets no
+    device, so this choice overrides one set with ``dataeval.config.set_device``. To choose it, give
+    :func:`~dataeval_flow.run_task` a :class:`~dataeval_flow.PipelineConfig` with ``device:``, or hide the GPU with
+    ``CUDA_VISIBLE_DEVICES``.
+
     Parameters
     ----------
     config : WorkflowConfig, EvaluatorConfig or CustomWorkflowConfig
@@ -114,10 +119,11 @@ def run(
     Several sources, in the order the workflow reads them::
 
         from dataeval_flow.config.extractors import FlattenExtractorConfig
-        from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftMonitoringConfig
+        from dataeval_flow.evaluators.shift import DriftMMDConfig
+        from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
         drift = run(
-            DriftMonitoringConfig(detectors=[DriftDetectorMMD()]),
+            DriftMonitoringConfig(detectors=[DriftMMDConfig()]),
             {"reference": train, "test": incoming},
             extractor=FlattenExtractorConfig(batch_size=64),
         )

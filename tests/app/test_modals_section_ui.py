@@ -293,7 +293,7 @@ class TestSectionModalSelectChanged:
             await app.push_screen(modal)
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             picker_id = modal._wid("detectors-picker")
             picker_widgets = modal.query(f"#{picker_id}")
@@ -321,7 +321,7 @@ class TestSectionModalListButtonRouting:
             await app.push_screen(modal)
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             add_btn_id = modal._wid("detectors-add")
             add_btns = modal.query(f"#{add_btn_id}")
@@ -361,7 +361,7 @@ class TestRebuildVariantParams:
             await app.push_screen(modal)
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "drift-monitoring"
+            disc.value = "ood-detection"
             await pilot.pause()
             picker_id = modal._wid("detectors-picker")
             picker_widgets = modal.query(f"#{picker_id}")

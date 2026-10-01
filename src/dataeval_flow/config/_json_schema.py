@@ -37,6 +37,7 @@ def _workflow_union(configs: Sequence[type[BaseModel]], custom: type[BaseModel])
 
 def _step_union(plugins: bool) -> Any:
     """One schema branch per kind of step, and one per registered transform, combine and check with its settings."""
+    from dataeval_flow.steps._by import ByConfig
     from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
     from dataeval_flow.steps._workflow import StepEntry
 
@@ -56,6 +57,8 @@ def _step_union(plugins: bool) -> Any:
         __config__=forbid,
         evaluator=(str, required("evaluator")),
         input=(str | list[str], required("input")),
+        # `class` is the shorthand `ByConfig` reads as its default.
+        by=(Literal["class"] | ByConfig | None, StepEntry.model_fields["by"]),
         **common,
     )
     workflow = create_model(
@@ -67,12 +70,14 @@ def _step_union(plugins: bool) -> Any:
     )
     # An inline step embeds nothing, so its step takes no `extractor:`; naming one fails the load.
     plain = {key: field for key, field in common.items() if key != "extractor"}
+    check_by = {"by": (Literal["class"] | None, StepEntry.model_fields["by"])}
     inline = [
         create_model(
             f"{kind.title()}Step_{cls.name}",
             __base__=cls.config_type,
             **{kind: (Literal[cls.name], Field(description=f"`{cls.name}`: {cls.description}"))},  # type: ignore[valid-type]
             **plain,
+            **(check_by if kind == "check" else {}),
         )
         for kind, registry in (("transform", TRANSFORMS), ("combine", COMBINES), ("check", CHECKS))
         for cls in registry.list(plugins=plugins)

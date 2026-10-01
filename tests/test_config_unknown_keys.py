@@ -22,11 +22,7 @@ from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThre
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
 from dataeval_flow.workflows.data_coverage._config import DataCoverageConfig, DataCoverageHealthThresholds
-from dataeval_flow.workflows.drift_monitoring._config import (
-    ChunkingConfig,
-    DriftMonitoringHealthThresholds,
-    UpdateStrategyConfig,
-)
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringThresholds
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
 from dataeval_flow.workflows.ood_detection._config import OODDetectionHealthThresholds
 from tests.chain_toys import chain_pipeline
@@ -78,10 +74,8 @@ _NESTED = [
     pytest.param(DataAnalysisHealthThresholds, {}, id="analysis-thresholds"),
     pytest.param(DataCleaningHealthThresholds, {}, id="cleaning-thresholds"),
     pytest.param(DataCoverageHealthThresholds, {}, id="coverage-thresholds"),
-    pytest.param(DriftMonitoringHealthThresholds, {}, id="drift-thresholds"),
+    pytest.param(DriftMonitoringThresholds, {}, id="drift-thresholds"),
     pytest.param(OODDetectionHealthThresholds, {}, id="ood-thresholds"),
-    pytest.param(ChunkingConfig, {"chunk_size": 100}, id="drift-chunking"),
-    pytest.param(UpdateStrategyConfig, {"type": "last_seen", "n": 500}, id="drift-update-strategy"),
 ]
 
 

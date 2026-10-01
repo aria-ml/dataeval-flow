@@ -16,6 +16,7 @@ from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
 from dataeval_flow._chain._reads import MetadataRead, ReadingContext, note_read, noting_reads
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
 from dataeval_flow.steps._address import Address
+from dataeval_flow.steps._by import roll_up
 from dataeval_flow.steps._check import Check, CheckContext
 from dataeval_flow.steps._combine import Combine, CombineContext
 from dataeval_flow.steps._port import DataType, Port
@@ -235,13 +236,18 @@ def _gap_text(address: Address, missing: Missing, steps: Mapping[str, StepResult
     return f"`{address}` {missing.reason}" + (f": {cause}" if cause else "")
 
 
+def _check_title(spec: StepSpec) -> str:
+    """What a check's finding is titled where the check makes none itself: its `subject`, if any, else its title."""
+    return getattr(spec.config, "subject", None) or spec.impl.title  # type: ignore[attr-defined]  # every check has one
+
+
 def _unassessed(
     spec: StepSpec, inputs_text: list[str], gap: str, element: str | None
 ) -> tuple[StepResult, dict[str, _Value]]:
     """A check whose input holds nothing: never skipped, it reports one ``info`` finding saying why (spec §9.1)."""
     finding = Finding(
         severity="info",
-        title=spec.impl.title,  # type: ignore[attr-defined]  # every check declares one
+        title=_check_title(spec) + (f" by {spec.by.label}" if spec.by is not None else ""),
         brief="not assessed",
         description=f"Not assessed: {gap}.",
         step=_finding_step(spec, element),
@@ -513,18 +519,34 @@ def _combine(
 def _check(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None) -> dict[str, _Value]:
     """Run a check; each finding is stamped with the step, and with the element's key where it ran once per element."""
     impl: Check[Any] = spec.impl()  # type: ignore[assignment]
-    returned = impl.run(spec.config, inputs, CheckContext(task=settings.task, step=spec.name))
+    context = CheckContext(task=settings.task, step=spec.name)
+    if spec.by is not None:
+        (port,) = (binding.port for binding in spec.bindings)
+        node = inputs[port.name]
+        per_class = node.value
+        found_by_key = {
+            key: _findings(spec, impl.run(spec.config, {port.name: replace(node, payload=output)}, context))
+            for key, output in per_class.outputs.items()
+        }
+        found = [roll_up(found_by_key, per_class.skipped, title=_check_title(spec), by=spec.by)]
+    else:
+        found = _findings(spec, impl.run(spec.config, inputs, context))
+    stamp = _finding_step(spec, element)
+    findings = [finding.model_copy(update={"step": stamp}) for finding in found]
+    (port,) = spec.outputs
+    node = Node(_at(spec, port, element), DataType.FINDINGS, payload=findings, step=spec.name, step_type=spec.type)
+    return {port.name: node}
+
+
+def _findings(spec: StepSpec, returned: Any) -> list[Finding]:
+    """What one run of a check returned, refused unless it is a list of findings."""
     if isinstance(returned, Finding):
         raise TypeError(f"check '{spec.type}' returned a Finding, not a list of findings.")
     found = list(returned)
     strays = [type(item).__name__ for item in found if not isinstance(item, Finding)]
     if strays:
         raise TypeError(f"check '{spec.type}' returned {', '.join(strays)}, not findings.")
-    stamp = _finding_step(spec, element)
-    findings = [finding.model_copy(update={"step": stamp}) for finding in found]
-    (port,) = spec.outputs
-    node = Node(_at(spec, port, element), DataType.FINDINGS, payload=findings, step=spec.name, step_type=spec.type)
-    return {port.name: node}
+    return found
 
 
 def _computed_on(inputs: Mapping[str, Any]) -> tuple[Node, ...]:
@@ -615,9 +637,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
 
     runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
     unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
-    if unions:  # otherwise the call is exactly a task's
-        return _run_target(runner, spec.config, context, stats_unions=unions)  # type: ignore[arg-type]
-    return _run_target(runner, spec.config, context)  # type: ignore[arg-type]
+    # Each is passed only when set, so without them the call is exactly a task's.
+    extra: dict[str, Any] = {"stats_unions": unions} if unions else {}
+    if spec.by is not None:
+        extra["by"] = spec.by
+    return _run_target(runner, spec.config, context, **extra)  # type: ignore[arg-type]
 
 
 def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":
