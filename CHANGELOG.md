@@ -111,10 +111,10 @@
 - `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
   `verify`, what the repair recovers
 - `metadata-issues`, a check: metadata-triage's findings, made from a `factor-triage` Output
-- `factor-triage` recommends a policy: its suggestions, each placeholder dropped to missing, plus explicit edges or
-  levels for every factor the policy left unpinned, read back from this data. `metadata-issues` shows it as a
-  "Recommended policy" finding that opens with a caveat: a policy read from unrepresentative data can give invalid
-  or misleading results
+- `factor-triage` recommends a policy: its suggestions, each value triage could not read dropped to missing, plus
+  explicit edges or levels for every factor the policy left unpinned, read back from this data. A dominant value
+  such as a speed of zero is left in, with a note to decide. `metadata-issues` shows it as a "Recommended policy"
+  finding that opens with a caveat: a policy read from unrepresentative data can give invalid or misleading results
 
 ### Changed
 

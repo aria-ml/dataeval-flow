@@ -21,7 +21,14 @@ from dataeval_flow._recommend import CAVEAT, complete_stanza, pinned_count, reco
 from dataeval_flow.evaluators.quality._triage import read_back
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline
-from tests.triage_toys import AltitudeDataset, LatitudeDataset, MixedWeightDataset, OcclusionDataset, WeatherDataset
+from tests.triage_toys import (
+    AltitudeDataset,
+    LatitudeDataset,
+    MixedWeightDataset,
+    OcclusionDataset,
+    SpeedDataset,
+    WeatherDataset,
+)
 
 _INF = ["-inf", 265.8536348826109, 504.1481565221535, 742.442678161696, "inf"]
 
@@ -173,6 +180,11 @@ def test_a_dropped_value_says_it_was_dropped_by_default() -> None:
     )
     text = render_recommendation(completed, {"factors": {}}, dropped)
     assert "to: .nan  # dropped by default: decide what 'high' means" in text
+
+
+def test_a_held_value_says_it_was_not_dropped() -> None:
+    text = render_recommendation({"factor_levels": {"weather": ["clear"]}}, {"factors": {}}, {}, held={"speed": [0.0]})
+    assert "  # not dropped: decide whether speed's 0.0 is a marker or a reading" in text.splitlines()
 
 
 def test_a_sentinel_rule_is_not_said_to_be_dropped() -> None:
@@ -404,3 +416,14 @@ def test_nothing_to_recommend_makes_no_finding() -> None:
     edges = _record(first)["factors"]["altitude"]["encoding"]["edges"]
     result = _triage(AltitudeDataset(), {"continuous_factor_bins": {"altitude": edges}})
     assert not [f for f in result.findings if f.title in ("Recommended policy", "Recommendation failed")]
+
+
+def test_a_floor_mass_value_is_held_not_dropped() -> None:
+    data = _data(_triage(SpeedDataset()))
+    assert [f.category for f in data["findings"] if f.factor == "speed"][0] == "floor_mass"
+    assert "corrections" not in data["recommended_policy"]
+    assert "# not dropped: decide whether speed's 0.0 is a marker or a reading" in data["recommended_policy_yaml"]
+    assert "dropped by default" not in data["recommended_policy_yaml"]
+    assert data["recommended_policy"]["continuous_factor_bins"]["speed"] == ["-inf", 8.0, 16.0, "inf"]
+    (suggested,) = data["suggested_policy"]["corrections"]
+    assert suggested["rules"] == [{"match": 0.0, "to": None}]  # the suggestion still offers the remap

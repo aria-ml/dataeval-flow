@@ -94,6 +94,7 @@ def render_recommendation(
     record: Mapping[str, Any],
     dropped: Mapping[str, Sequence[Any]],
     *,
+    held: Mapping[str, Sequence[Any]] = {},
     name: str = "standard",
     merge_into: str | None = None,
 ) -> str:
@@ -106,6 +107,7 @@ def render_recommendation(
     - a cut placed from a declared count says it was one;
     - a vocabulary says how many levels this data held;
     - a value dropped by default says so, where a sentinel's rule, answered by triage, says nothing;
+    - a value `held` is left in: triage could not tell a marker from a reading, so it says to decide;
     - a factor the record holds but cannot pin, with no encoding or still held back, is named at the end.
     """
     factors = record.get("factors") or {}
@@ -130,6 +132,11 @@ def render_recommendation(
     lines.extend(
         f"  # not pinned: {factor} has no encoding to read"
         for factor in sorted((unpinnable | set(record.get("unusable") or ())) - excluded)
+    )
+    lines.extend(
+        f"  # not dropped: decide whether {factor}'s {value!r} is a marker or a reading"
+        for factor, values in held.items()
+        for value in values
     )
     return "\n".join(lines) + "\n"
 

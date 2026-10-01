@@ -116,3 +116,22 @@ class WeatherDataset:
         one_hot[index % 2] = 1.0
         datum = {"id": index, "weather": ("clear", "fog", "rain")[index % 3], "serial": f"SN-{index:04d}"}
         return np.zeros((3, 8, 8), dtype=np.float32), one_hot, datum
+
+
+class SpeedDataset:
+    """Classification items whose numeric ``speed`` is ``0.0`` on 24 of 60 rows, a genuine reading of a boat at rest.
+
+    Triage raises ``floor_mass`` for it, whose suggestion is a remap awaiting the user's answer: the zeros may be a
+    marker or a reading, and nothing here can say which.
+    """
+
+    metadata: DatasetMetadata = DatasetMetadata({"id": "speed", "index2label": {0: "cat", 1: "dog"}})
+
+    def __len__(self) -> int:
+        return 60
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
+        one_hot = np.zeros(2, dtype=np.float32)
+        one_hot[index % 2] = 1.0
+        speed = 0.0 if index % 5 in (0, 1) else 1.0 + (index * 7 % 24)
+        return np.zeros((3, 8, 8), dtype=np.float32), one_hot, {"id": index, "speed": float(speed)}

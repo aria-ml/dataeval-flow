@@ -66,7 +66,9 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
             except Exception as e:  # the findings are worth having without it
                 _logger.warning("Verification unavailable", exc_info=True)
                 error = str(e) or type(e).__name__
-        recommended, recommended_yaml, recommendation_error = _recommendation(metadata, policy, stanza, config.metadata)
+        recommended, recommended_yaml, recommendation_error = _recommendation(
+            metadata, policy, findings, config.metadata
+        )
         data = {
             "findings": findings,
             "suggested_policy": stanza,
@@ -122,21 +124,34 @@ def read_back(metadata: Any, policy: Any, stanza: Mapping[str, Any]) -> dict[str
 
 
 def _recommendation(
-    metadata: Any, policy: Any, stanza: Mapping[str, Any], policy_name: str | None
+    metadata: Any, policy: Any, findings: Sequence[TriageFinding], policy_name: str | None
 ) -> tuple[dict[str, Any] | None, str | None, str | None]:
     """The recommended policy, its YAML, and why it could not be made, or ``None`` for each that does not apply.
 
     The findings are worth having without it, so a read-back that raises costs the recommendation and says why,
     as a verification that raises does.
+
+    A ``floor_mass`` suggestion awaiting an answer is left out of what the recommendation completes: its value may be
+    a reading, such as a speed of zero, and dropping it could delete a large share of genuine rows. Only a value
+    triage could not read, a mixed column's string, is dropped. The left-out values are passed to the render, which
+    says to decide.
     """
     try:
-        completed, dropped = complete_stanza(stanza)
+        held: dict[str, list[Any]] = {}
+        kept: list[TriageFinding] = []
+        for finding in findings:
+            if finding.category == "floor_mass" and finding.suggestion and not finding.suggestion.complete:
+                for correction in finding.suggestion.corrections:
+                    held.setdefault(correction["factor"], []).extend(r["match"] for r in correction["rules"])
+            else:
+                kept.append(finding)
+        completed, dropped = complete_stanza(to_policy_stanza(kept))
         after = read_back(metadata, policy, completed)
         recommended = recommend(after, completed, skip=set(policy.encoding or {}))
         if recommended is None:
             return None, None, None
         text = render_recommendation(
-            recommended, after, dropped, name=policy_name or "standard", merge_into=policy_name
+            recommended, after, dropped, held=held, name=policy_name or "standard", merge_into=policy_name
         )
     except Exception as e:  # the findings are worth having without it
         _logger.warning("Recommendation unavailable", exc_info=True)
