@@ -45,7 +45,7 @@ class Port:
     is_list: bool = False
     """Whether the port takes or gives a whole keyed list rather than one item."""
     count: SourceCount | None = None
-    """For a Dataset port fed several addresses, how many it allows."""
+    """For a port fed several addresses, how many it allows. A port with a count is always handed a list of nodes."""
     derives: frozenset[InputKind] = frozenset()
     """For an evaluator's Dataset port, the kinds Flow derives from it."""
 

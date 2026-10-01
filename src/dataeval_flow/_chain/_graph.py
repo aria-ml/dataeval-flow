@@ -332,6 +332,7 @@ def _resolve(
         )
     if issubclass(impl, InlineStep):
         _same_node(entry, impl, addresses, specs, types)
+        _datasets_agree(entry, impl, addresses, specs, types)
         bound = {
             str(address): _typed(address, entry, workflow, types, later, empty).classes
             for binding in bindings
@@ -666,11 +667,43 @@ def _same_node(
                 )
 
 
+def _datasets_agree(
+    entry: StepEntry,
+    impl: type[InlineStep],
+    addresses: dict[str, tuple[Address, ...]],
+    specs: dict[str, StepSpec],
+    types: dict[str, ValueType],
+) -> None:
+    """Refuse Outputs a step requires to share their Datasets, or to have been computed on its own Dataset ports."""
+    for port in impl.shared_datasets:
+        found = {str(address): _computed_on(address, specs, types) for address in addresses.get(port, ())}
+        if len(set(found.values())) > 1:
+            listed = "; ".join(f"`{address}` on {_where(on)}" for address, on in found.items())
+            raise GraphError(
+                f"Step '{entry.name}' reads Outputs on `{port}` computed on different Datasets ({listed}): it reads "
+                "the Outputs of one comparison."
+            )
+    for port, dataset_ports in impl.computed_on.items():
+        wanted = tuple(str(address) for name in dataset_ports for address in addresses.get(name, ()))
+        for address in addresses.get(port, ()):
+            computed = _computed_on(address, specs, types)
+            if computed != wanted:
+                raise GraphError(
+                    f"Step '{entry.name}' reads `{address}`, which was computed on {_where(computed)}, not on "
+                    f"{_where(wanted)}: it applies only to the Datasets it was computed on."
+                )
+
+
+def _where(addresses: tuple[str, ...]) -> str:
+    return ", ".join(f"`{item}`" for item in addresses) or "no Dataset"
+
+
 def _computed_on(address: Address, specs: dict[str, StepSpec], types: dict[str, ValueType]) -> tuple[str, ...]:
     """The addresses of the Datasets the Output at `address` was computed on: its producer's `input`.
 
     An element of a producer run once per element, such as `dupes[0]`, was computed on that element of each list the
-    producer ran over, so each of those lists is named by the same key: `k.train[0]`.
+    producer ran over, so each of those lists is named by the same key: `k.train[0]`. An Output whose producer read
+    Outputs alone, as `ood-union` does, was computed on what those were, where they agree; ``()`` where they do not.
     """
     producer = specs.get(address.name)
     if producer is None:
@@ -679,10 +712,19 @@ def _computed_on(address: Address, specs: dict[str, StepSpec], types: dict[str, 
     if binding is None:
         return ()
     if address.key is None or not producer.broadcast or binding.port.is_list:
-        return tuple(str(item) for item in binding.addresses)
-    return tuple(
-        str(replace(item, key=address.key)) if _is_list(item, types) else str(item) for item in binding.addresses
-    )
+        read = binding.addresses
+    else:
+        read = tuple(replace(item, key=address.key) if _is_list(item, types) else item for item in binding.addresses)
+    if read and all(_holds_output(item, types) for item in read):
+        found = {_computed_on(item, specs, types) for item in read}
+        return found.pop() if len(found) == 1 else ()
+    return tuple(str(item) for item in read)
+
+
+def _holds_output(address: Address, types: dict[str, ValueType]) -> bool:
+    """Whether `address`, or the list it names an element of, holds Outputs."""
+    value = types.get(str(address.base))
+    return value is not None and value.type is DataType.OUTPUT
 
 
 def _is_list(address: Address, types: dict[str, ValueType]) -> bool:
