@@ -40,6 +40,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "drift": "dataeval_flow.steps.checks._drift:DriftCheck",
     "duplicate-rate": "dataeval_flow.steps.checks._duplicates:DuplicateRateCheck",
     "metadata-issues": "dataeval_flow.steps.checks._triage:MetadataIssuesCheck",
+    "ood": "dataeval_flow.steps.checks._ood:OODCheck",
     "outlier-rate": "dataeval_flow.steps.checks._outliers:OutlierRateCheck",
     "target-outlier-rate": "dataeval_flow.steps.checks._outliers:TargetOutlierRateCheck",
 }

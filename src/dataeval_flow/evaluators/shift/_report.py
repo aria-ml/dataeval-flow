@@ -1,8 +1,9 @@
 """The drift evaluators' report section: the verdict as fields, or one row per chunk."""
 
-__all__ = ["drift_section"]
+__all__ = ["derived_threshold", "drift_section", "ood_section", "score_histogram"]
 
-from collections.abc import Mapping
+import math
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from dataeval_flow._blocks import Block, Cell, Column, Fields, Paragraph, Scalar, Table
@@ -79,3 +80,85 @@ def _chunk_table(rows: list[Mapping[str, Any]], images: list[list[int]] | None =
         for label, row in zip(labels, rows, strict=True)
     ]
     return Table(columns=columns, rows=cells)
+
+
+def _assessed(scores: Sequence[float | None], flags: Sequence[bool]) -> list[tuple[float, bool]]:
+    """Each assessed image's score and flag: those whose score is finite, ``None`` or NaN being not assessed."""
+    return [
+        (float(score), bool(flag))
+        for score, flag in zip(scores, flags, strict=True)
+        if score is not None and math.isfinite(score)
+    ]
+
+
+def derived_threshold(scores: Sequence[float | None], flags: Sequence[bool]) -> float | None:
+    """A detector's threshold, derived as legacy derived it from what it flagged: the highest score of an assessed
+    image it did not flag, or the lowest score where it flagged every assessed one. ``None`` where it assessed none.
+    DataEval keeps the true percentile private."""
+    assessed = _assessed(scores, flags)
+    if not assessed:
+        return None
+    unflagged = [score for score, flag in assessed if not flag]
+    return max(unflagged) if unflagged else min(score for score, _ in assessed)
+
+
+def score_histogram(
+    scores: Sequence[float | None], flags: Sequence[bool], threshold: float | None, n_bins: int = 10
+) -> list[Block]:
+    """The assessed images' scores in `n_bins` bins: in-distribution and OOD counts per bin, the threshold's bin
+    marked. Legacy's histogram, over assessed images."""
+    pairs = _assessed(scores, flags)
+    if not pairs:
+        return []
+    low, high = min(score for score, _ in pairs), max(score for score, _ in pairs)
+    if high == low:
+        return [Paragraph(text=f"All scores = {low:.4f}")]
+    width = (high - low) / n_bins
+    rows: list[dict[str, Cell]] = []
+    for index in range(n_bins):
+        start = low + index * width
+        stop = start + width
+        inside = [flag for score, flag in pairs if start <= score < stop or (index == n_bins - 1 and score == stop)]
+        ood = sum(inside)
+        # The threshold's bin is found by the bounds as printed, to three places.
+        at = threshold is not None and float(f"{start:.3f}") <= threshold < float(f"{stop:.3f}")
+        rows.append(
+            {
+                "range": f"{start:.3f}-{stop:.3f}",
+                "in": len(inside) - ood,
+                "ood": ood,
+                "bar": [len(inside) - ood, ood],
+                "marker": "← threshold" if at else "",
+            }
+        )
+    columns = [
+        Column(key="range", header="Range", align="right"),
+        Column(key="in", header="In"),
+        Column(key="ood", header="OOD"),
+        Column(key="bar", kind="stacked", series=["in-dist", "OOD"]),
+        Column(key="marker", align="left"),
+    ]
+    return [Table(columns=columns, rows=rows)]
+
+
+def ood_section(output: Mapping[str, Any]) -> list[Block]:
+    """An OOD Output's JSON as a section: its score histogram, and how many images it flagged of those it assessed,
+    against the threshold derived from its flags. Rows that are detections add what was compared, and list the
+    images not assessed."""
+    data = output["data"]
+    scores = list(data["instance_score"])
+    flags = [bool(flag) for flag in data["is_ood"]]
+    rows = data.get("rows") if isinstance(data.get("rows"), Mapping) else None
+    threshold = derived_threshold(scores, flags)
+    assessed = len(_assessed(scores, flags))
+    shown: Scalar = round(threshold, 6) if threshold is not None else "—"
+    items: list[tuple[str, Scalar]] = [("Flagged", sum(flags)), ("Assessed", assessed), ("Threshold", shown)]
+    if rows is not None:
+        items.append(("Compared", _compared_item(rows)))
+    blocks: list[Block] = [*score_histogram(scores, flags, threshold), Fields(items=items)]
+    if rows is not None and rows.get("unassessed"):
+        listed = ", ".join(str(image) for image in rows["unassessed"])
+        blocks.append(
+            Paragraph(text=f"Not assessed, with no detection at confidence ≥ {rows['confidence']}: images {listed}.")
+        )
+    return blocks

@@ -746,6 +746,101 @@
       "title": "CheckStep_metadata-issues",
       "type": "object"
     },
+    "CheckStep_ood": {
+      "additionalProperties": false,
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 1.0,
+          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "title": "Info"
+        },
+        "input": {
+          "description": "An OOD evaluator's Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the finding is titled. Unset: the evaluator's title, followed by its entry's name where that differs from its type, such as `OOD (K-Neighbors) \u00b7 uncertain`.",
+          "title": "Subject"
+        },
+        "check": {
+          "const": "ood",
+          "description": "`ood`: Judges the share of a test source's images an OOD detector flagged.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_ood",
+      "type": "object"
+    },
     "CheckStep_outlier-rate": {
       "additionalProperties": false,
       "properties": {
@@ -1554,6 +1649,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_metadata-issues"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_ood"
               },
               {
                 "$ref": "#/$defs/CheckStep_outlier-rate"

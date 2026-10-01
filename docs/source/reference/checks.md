@@ -7,7 +7,7 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs, `metadata-issues`, which makes
-`metadata-triage`'s, and `drift`, which judges `drift-monitoring`'s detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
+`metadata-triage`'s, and `drift`, which judges `drift-monitoring`'s detectors, and `ood`, which judges `ood-detection`'s detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -19,6 +19,7 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
+| `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
@@ -133,6 +134,21 @@ not a chunk drifted.
 | `warn_on_drift` | true or false | `true` | Unchunked, and per class: whether drift warns, or is `info` |
 | `chunk_percent` | a percentage, or `null` | `10.0` | Chunked: the share of drifted chunks at which the finding warns |
 | `consecutive_chunks` | an integer of at least 1, or `null` | `3` | Chunked: the longest run of drifted chunks at which the finding warns |
+
+### `ood`
+
+How much of a test source an OOD detector flagged, as a percent of the images it assessed. On a detector's
+`uncertainty` rows, an image with no detection at the confidence is not assessed, and the brief also counts the
+detections flagged. Configured by {py:class}`~dataeval_flow.steps.checks.OODCheckConfig`. The finding warns from
+`warning` percent, is `info` from `info` percent, and is `ok` below both; a `null` threshold judges nothing at its
+level, and with both `null` the finding is `info`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | An OOD evaluator's Output |
+| `subject` | text, or `null` | `null` | The finding's title; unset, the evaluator's title, followed by its entry's name where that differs from its type |
+| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images flagged at which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
 
 ## Combines
 

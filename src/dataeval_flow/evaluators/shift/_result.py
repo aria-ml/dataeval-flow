@@ -29,6 +29,16 @@ class _DriftSection:
         return drift_section(output)
 
 
+class _OODSection:
+    """The report section the two OOD results share."""
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The score histogram, and how many images were flagged of those assessed."""
+        from dataeval_flow.evaluators.shift._report import ood_section
+
+        return ood_section(output)
+
+
 class DriftUnivariateResult(_DriftSection, EvaluatorResult[DriftOutput[Any]]):
     """The result of a ``drift-univariate`` run: ``output`` is DataEval's ``DriftOutput``.
 
@@ -134,7 +144,7 @@ class DriftDomainClassifierResult(_DriftSection, EvaluatorResult[DriftOutput[Any
     """
 
 
-class OODKNeighborsResult(EvaluatorResult[OODOutput]):
+class OODKNeighborsResult(_OODSection, EvaluatorResult[OODOutput]):
     """The result of an ``ood-kneighbors`` run: ``output`` is DataEval's ``OODOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -147,6 +157,8 @@ class OODKNeighborsResult(EvaluatorResult[OODOutput]):
         DataEval's ``OODOutput``: ``is_ood``, whether each item of the data to test is out of distribution;
         ``instance_score``, each item's score; and ``feature_score``, ``None`` for this detector. ``to_dict()``
         writes them under ``data``.
+        On a detector's ``uncertainty`` rows, an ``OODRowsOutput``: per test image, with ``rows`` saying what was
+        compared (ood-detection spec §7).
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
@@ -155,7 +167,7 @@ class OODKNeighborsResult(EvaluatorResult[OODOutput]):
     """
 
 
-class OODDomainClassifierResult(EvaluatorResult[OODOutput]):
+class OODDomainClassifierResult(_OODSection, EvaluatorResult[OODOutput]):
     """The result of an ``ood-domain-classifier`` run: ``output`` is DataEval's ``OODOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
@@ -168,6 +180,8 @@ class OODDomainClassifierResult(EvaluatorResult[OODOutput]):
         DataEval's ``OODOutput``: ``is_ood``, whether each item of the data to test is out of distribution;
         ``instance_score``, each item's score; and ``feature_score``, ``None`` for this detector. ``to_dict()``
         writes them under ``data``.
+        On a detector's ``uncertainty`` rows, an ``OODRowsOutput``: per test image, with ``rows`` saying what was
+        compared (ood-detection spec §7).
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
