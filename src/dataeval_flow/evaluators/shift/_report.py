@@ -14,8 +14,9 @@ def drift_section(output: Mapping[str, Any]) -> list[Block]:
     data = output["data"]
     details = data.get("details")
     rows = data.get("rows") if isinstance(data.get("rows"), Mapping) else None
-    blocks: list[Block] = [Paragraph(text=_compared(rows))] if rows is not None else []
-    if isinstance(details, Mapping) and details.get("shape") == "table":
+    chunked = isinstance(details, Mapping) and details.get("shape") == "table"
+    blocks: list[Block] = [Paragraph(text=_compared(rows))] if rows is not None and chunked else []
+    if chunked:
         blocks.append(_chunk_table(details["rows"], (rows or {}).get("chunk_images")))
         if rows is not None and rows.get("unassessed"):
             blocks.append(Paragraph(text=_unassessed(rows["unassessed"])))
@@ -31,15 +32,25 @@ def drift_section(output: Mapping[str, Any]) -> list[Block]:
     if isinstance(details, Mapping) and details.get("feature_drift") is not None:
         flags = list(details["feature_drift"])
         items.append(("Features drifted", f"{sum(bool(flag) for flag in flags)} / {len(flags)}"))
+    if rows is not None:
+        items.append(("Compared", _compared_item(rows)))
     return [*blocks, Fields(items=items)]
+
+
+def _per_source(rows: Mapping[str, Any]) -> str:
+    return "; ".join(
+        f"`{source}` {count:,} in {rows['images'][source]:,} images" for source, count in rows["compared"].items()
+    )
 
 
 def _compared(rows: Mapping[str, Any]) -> str:
     """What was compared: each source's detections, and the images they came from."""
-    per_source = "; ".join(
-        f"`{source}` {count:,} in {rows['images'][source]:,} images" for source, count in rows["compared"].items()
-    )
-    return f"Compared detections at confidence ≥ {rows['confidence']}: {per_source}."
+    return f"Compared detections at confidence ≥ {rows['confidence']}: {_per_source(rows)}."
+
+
+def _compared_item(rows: Mapping[str, Any]) -> str:
+    """The same, as one field, where a per-class table lists it beside each class's verdict."""
+    return f"{_per_source(rows)} (confidence ≥ {rows['confidence']})"
 
 
 def _unassessed(entries: list[Mapping[str, Any]]) -> str:

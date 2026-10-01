@@ -149,6 +149,20 @@ def test_the_section_says_what_was_compared_and_labels_chunks_by_image_range():
     assert unassessed == Paragraph(text="Not assessed: images 180–199 in `cam1` (no detections).")
 
 
+def test_an_unchunked_section_is_one_fields_block_with_a_compared_item():
+    rows = {
+        "compared": {"reference": 4812, "cam1": 3977},
+        "images": {"reference": 300, "cam1": 280},
+        "confidence": 0.25,
+    }
+    data = {"drifted": False, "distance": 0.1, "threshold": 0.3, "metric_name": "ks", "details": None, "rows": rows}
+    (fields,) = drift_section({"data": data})
+    assert isinstance(fields, Fields)
+    assert dict(fields.items)["Compared"] == (
+        "`reference` 4,812 in 300 images; `cam1` 3,977 in 280 images (confidence ≥ 0.25)"
+    )
+
+
 def test_a_section_on_embeddings_is_unchanged():
     data = {"drifted": False, "distance": 0.1, "threshold": 0.05, "metric_name": "mmd2", "details": {"p_val": 0.4}}
     (fields,) = drift_section({"data": data})
