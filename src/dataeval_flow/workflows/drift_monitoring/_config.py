@@ -89,10 +89,13 @@ def _detector_entry(entry: Any) -> Any:
 
 
 DriftDetector = Annotated[
-    SerializeAsAny[
-        DriftUnivariateDetector | DriftMMDDetector | DriftKNeighborsDetector | DriftDomainClassifierDetector
-    ],
-    BeforeValidator(_detector_entry),
+    SerializeAsAny[DriftUnivariateConfig | DriftMMDConfig | DriftKNeighborsConfig | DriftDomainClassifierConfig],
+    BeforeValidator(
+        _detector_entry,
+        json_schema_input_type=(
+            DriftUnivariateDetector | DriftMMDDetector | DriftKNeighborsDetector | DriftDomainClassifierDetector
+        ),
+    ),
 ]
 
 
@@ -139,6 +142,7 @@ class DriftMonitoringConfig(WorkflowConfig[ChainResult]):
             "An entry may name its own `extractor:`."
         ),
     )
+    # Values also accept "class" / "predicted" strings, validated into ByConfig.
     classwise: dict[str, ByConfig] = Field(
         default_factory=dict,
         description=(

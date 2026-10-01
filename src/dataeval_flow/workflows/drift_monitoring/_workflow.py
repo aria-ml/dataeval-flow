@@ -45,7 +45,8 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
             # Each check names its detector, so a finding is titled by it even when its run made nothing to judge.
             subject = evaluator_heading(detector)
             entry = evaluator_entry(detector)
-            own = {"extractor": detector.extractor} if detector.extractor is not None else {}
+            extractor = getattr(detector, "extractor", None)
+            own = {"extractor": extractor} if extractor is not None else {}
             evaluators.append(entry)
             steps += [
                 {"name": name, "evaluator": name, "input": ["reference", "tests"], **own},

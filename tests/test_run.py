@@ -42,14 +42,14 @@ def test_run_matches_a_pipeline() -> None:
 def test_run_is_typed_to_the_configs_result() -> None:
     """Checked by pyright: the config's type parameter is the type `run` returns."""
     assert_type(run(DuplicatesConfig(), ToyImages()), DuplicatesResult)
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])  # type: ignore[arg-type]
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     data = {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}
     assert_type(run(drift, data, extractor=FlattenExtractorConfig(batch_size=8)), ChainResult)
 
 
 def test_several_sources_run_in_the_order_given() -> None:
     """Out of alphabetical order, so a run that sorted its sources would read `incoming` as the reference."""
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])  # type: ignore[arg-type]
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     result = run(
         drift,
         {"reference": ToyImages(seed=0), "incoming": ToyImages(seed=1)},
@@ -81,7 +81,7 @@ def test_an_extractor_config_needs_no_name() -> None:
 
 
 def test_a_protocol_extractor_runs_and_is_not_cached_to_disk(tmp_path: Path) -> None:
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])  # type: ignore[arg-type]
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     with use_batch_size(8):
         result = run(
             drift, {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}, extractor=_flatten, cache_dir=tmp_path
@@ -92,7 +92,7 @@ def test_a_protocol_extractor_runs_and_is_not_cached_to_disk(tmp_path: Path) -> 
 
 def test_an_extractor_config_is_cached_to_disk(tmp_path: Path) -> None:
     """The counterpart of the test above, so its empty cache means what it says."""
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])  # type: ignore[arg-type]
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     extractor = FlattenExtractorConfig(batch_size=8)
     result = run(
         drift, {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}, extractor=extractor, cache_dir=tmp_path
@@ -237,7 +237,7 @@ def test_a_definition_of_another_type_is_refused() -> None:
 
 
 def test_inputs_are_checked_before_anything_runs() -> None:
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])  # type: ignore[arg-type]
+    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
     with pytest.raises(ValidationError, match="two or more sources"):
         run(drift, ToyImages(), extractor=FlattenExtractorConfig())
 
