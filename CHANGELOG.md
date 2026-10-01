@@ -202,7 +202,15 @@
   `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
   (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
   names, and `health_thresholds` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
-  It returns a `ChainResult`; a detector that raises fails its step and the task
+  It returns a `ChainResult`; a detector that raises fails its step and the task. To upgrade:
+  - `method: univariate|mmd|kneighbors|domain_classifier` is
+    `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
+  - a detector's `classwise: true` is its name in `classwise: [...]`
+  - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `health_thresholds.drift.warn_on_drift`;
+    `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning` is `consecutive_chunks`
+  - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
+    z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
+    band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,

@@ -479,8 +479,55 @@ Loading a config and saving it, from the TUI or the config builder, keeps every 
 beside the workflow, so the file loads and runs on its own. [Reuse a cleaning chain on new data](reuse_a_workflow.md)
 keeps a chain that way and runs it on each new dataset.
 
+## 10. Run a step once per class
+
+An evaluate step or a check with `by:` runs once per class, or once per group of classes, and keeps every run in one
+Output. It suits an evaluator that compares two sources, such as a drift detector, when you want to know which
+classes differ:
+
+```yaml
+evaluators:
+  - {name: mmd, type: drift-mmd}
+
+workflows:
+  - name: class_drift
+    inputs: [reference, {name: tests, list: true}]
+    steps:
+      - {name: mmd-classes, evaluator: mmd, input: [reference, tests], by: class}
+      - {name: mmd-classes-check, check: drift, input: mmd-classes, by: class}
+      - name: mmd-groups
+        evaluator: mmd
+        input: [reference, tests]
+        by:
+          class:
+            groups: {vehicles: [car, truck, van], people: [person]}
+            min_items: 2
+      - {name: mmd-groups-check, check: drift, input: mmd-groups, by: class}
+```
+
+Notice:
+
+- `by: class` keys each class by its name, taken from the first input's `index2label`, and runs the step on that
+  class's items alone, in ascending class index.
+- `groups:` keys each named group instead, in the order written. A group lists classes by name or by index, and a name
+  that resolves to nothing fails the step. Groups may overlap, and a class in no group is left out and listed as
+  skipped.
+- With several inputs, a key runs only where every input holds at least `min_items` of it, 2 unless you set it.
+  Otherwise the key is skipped, and the Output says why.
+- The step's output is a `PerClassOutput`: `outputs` holds each key's own Output, and `skipped` holds each key left
+  out with its reason. Only a check with `by:` can read it.
+- A check's `by: class` takes no settings, since its keys come from the step it reads. It runs once for each key and
+  rolls the findings into one, titled with the per-key title and `by class` or `by group`, which names the keys that
+  warned and each key it did not assess.
+- `by:` slices embeddings and labels, so it needs a Dataset with one label per item, as image classification has.
+  The load refuses an evaluator that reads statistics, metadata or clusters. For detection data, run `wrap` with
+  `DetectionCrops` first.
+
+[Monitor drift with steps](monitor_drift.md) uses `by:` with drift detectors, and compares one group against another.
+
 ## See also
 
+- [Monitor drift with steps](monitor_drift.md) — merge test sources, compare classes or groups, and drift on crops
 - [Reuse a cleaning chain on new data](reuse_a_workflow.md) — keep a chain and run it on each new dataset
 - [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) — steps, addresses and lists, derived data,
   failures and lineage

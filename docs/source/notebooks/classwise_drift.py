@@ -40,6 +40,7 @@
 # - Partition reference and incoming subsets using `ViewConfig` and `Indices`.
 # - **Phase 1**: Run overall drift detection with chunked K-Neighbors to confirm drift and identify onset timing.
 # - **Phase 2**: Run classwise drift detection using MMD and Univariate CVM to pinpoint affected classes.
+# - **Phase 3**: Compare the degraded classes with the rest as two groups, in a custom workflow.
 
 # %% [markdown]
 # ## What you will learn
@@ -48,7 +49,9 @@
 # - How to subset datasets using `ViewConfig` and `Indices`.
 # - How to simulate progressive degradation using dataset wrappers.
 # - How to execute a two-phase drift workflow: chunked detection followed by classwise diagnostics.
-# - How setting `classwise: true` provides per-class drift statistics.
+# - How naming a detector in `classwise:` runs it once per class.
+# - How to read a classwise step's `PerClassOutput`.
+# - How `by:` with `groups:` runs a detector once per group of classes.
 # - How extractor feature spaces determine drift detection sensitivity.
 
 # %% [markdown]
@@ -114,6 +117,9 @@ print(f"Degrading: {[index2label[c] for c in sorted(DEGRADED)]}")
 # three selected classes: `BMP-1`, `BTR-80`, and `T-72`. This models localized sensor
 # degradation over time.
 #
+# The wrapper passes the wrapped dataset's `metadata` through. A classwise run names each class from
+# its `index2label`, so a dataset without `metadata` could not be run by class.
+#
 # The blur radius scales linearly with sample index: early samples have negligible blur,
 # while later samples receive heavy blurring.
 
@@ -144,6 +150,11 @@ class DegradedDataset:
         self._dataset = dataset
         self._degraded_classes = degraded_classes
         self.max_blur_radius: float = max_blur_radius
+
+    @property
+    def metadata(self) -> Any:
+        """The wrapped dataset's metadata, which holds the `index2label` that names each class."""
+        return self._dataset.metadata
 
     def __len__(self) -> int:
         return len(self._dataset)
@@ -258,12 +269,9 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 from dataeval_flow.config.extractors import TorchExtractorConfig
-from dataeval_flow.workflows.drift_monitoring import (
-    ChunkingConfig,
-    DriftDetectorKNeighbors,
-    DriftMonitoringConfig,
-    DriftMonitoringHealthThresholds,
-)
+from dataeval_flow.evaluators.shift import ChunkedDriftConfig, DriftKNeighborsConfig
+from dataeval_flow.steps.checks import DriftThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig, DriftMonitoringThresholds
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
 ref_config = DatasetProtocolConfig(
@@ -314,12 +322,9 @@ extractor_config = TorchExtractorConfig(
 drift_workflow_config = DriftMonitoringConfig(
     name="overall-drift",
     detectors=[
-        DriftDetectorKNeighbors(k=10, chunking=ChunkingConfig(chunk_count=5, threshold_multiplier=1.5)),
+        DriftKNeighborsConfig(k=10, chunking=ChunkedDriftConfig(chunk_count=5, threshold=("zscore", 1.5))),
     ],
-    health_thresholds=DriftMonitoringHealthThresholds(
-        chunk_drift_pct_warning=15.0,
-        consecutive_chunks_warning=2,
-    ),
+    health_thresholds=DriftMonitoringThresholds(drift=DriftThresholds(chunk_percent=15.0, consecutive_chunks=2)),
 )
 
 # --- Phase 1: Overall drift with chunking (no classwise) ---
@@ -331,6 +336,7 @@ overall_task = TaskConfig(
 )
 
 overall_config = PipelineConfig(
+    device="cpu",  # the same numbers on a machine with a GPU
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],
@@ -360,14 +366,19 @@ print(overall_result.report())
 # ## Step 3: Phase 2: Classwise drift detection
 #
 # Once overall drift is confirmed, you can identify affected classes. Set
-# `classwise=True` on each detector. In this phase, you will configure MMD and
-# Univariate CVM:
+# `classwise:` to the names of the detectors to run once per class. A detector is named for its type
+# unless its entry sets `name`. In this phase, you will configure MMD and Univariate CVM:
 #
 # - **MMD**: Evaluates distribution distance per class using kernel maximum mean discrepancy.
 # - **Univariate CVM**: Runs Cramer-von Mises tests on individual embedding dimensions.
+#
+# Each named detector keeps its whole-set step, `drift-mmd`, and gains a step that runs it by class,
+# `drift-mmd-classes`. A `drift` check judges each, as `drift-mmd-check` and `drift-mmd-classes-check`.
+# A class needs 2 or more items in the reference and in the incoming data to be tested; the step
+# lists any it leaves out as skipped.
 
 # %%
-from dataeval_flow.workflows.drift_monitoring import DriftDetectorMMD, DriftDetectorUnivariate
+from dataeval_flow.evaluators.shift import DriftMMDConfig, DriftUnivariateConfig
 
 classwise_task = TaskConfig(
     name="vehicles-classwise-drift",
@@ -377,6 +388,7 @@ classwise_task = TaskConfig(
 )
 
 classwise_config = PipelineConfig(
+    device="cpu",
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],
@@ -386,12 +398,11 @@ classwise_config = PipelineConfig(
         DriftMonitoringConfig(
             name="classwise-drift",
             detectors=[
-                DriftDetectorMMD(n_permutations=100, classwise=True),
-                DriftDetectorUnivariate(test="cvm", classwise=True),
+                DriftMMDConfig(n_permutations=100),
+                DriftUnivariateConfig(method="cvm"),
             ],
-            health_thresholds=DriftMonitoringHealthThresholds(
-                classwise_any_drift_is_warning=True,
-            ),
+            classwise=["drift-mmd", "drift-univariate"],
+            health_thresholds=DriftMonitoringThresholds(drift=DriftThresholds(warn_on_drift=True)),
         ),
     ],
     tasks=[classwise_task],
@@ -409,43 +420,57 @@ classwise_result = run_task(classwise_task, classwise_config, cache_dir=Path("./
 # The report contains a classwise pivot table. You should inspect both detection flags
 # and distance values. The degraded classes (`BMP-1`, `BTR-80`, `T-72`) exhibit distances
 # substantially higher than unaffected classes.
+#
+# In this run, five of the 24 classes warn for each detector. `BMP-1`, `BTR-80` and `T-72` are
+# the degraded ones, with MMD distances near 0.13 to 0.17 against about zero for most others.
+# The other warnings sit just under the significance threshold: MMD flags `BMP-T15` and `T-64`
+# at a p-value of 0.04, and CVM flags `BM-30` and `Tornado` on distances close to the unaffected
+# classes'. A detector tested at `p_val` flags about that share of unaffected classes by luck, and
+# 24 classes is 24 tests, so read the size of a class's distance, not only its flag. The
+# [drift how-to](../how_to/monitor_drift.md) says more about reading many verdicts.
 
 # %%
 print(classwise_result.report())
 
 # %% [markdown]
 # ## Results Exploration: Classwise results
+#
+# A classwise step's output is a `PerClassOutput`. Its `outputs` hold DataEval's `DriftOutput` for each class, in
+# ascending class index, and its `skipped` holds each class left out, with why. The incoming source is named
+# `incoming_2k`, so its elements are under that key.
 
 # %%
 import polars as pl
 
 pl.Config.set_tbl_hide_dataframe_shape(True)
 
-raw = classwise_result.output.raw
+steps = classwise_result.steps
 
 # Overall results (from the classwise run)
 print("── Overall Drift ──")
-for method, det_result in raw.detectors.items():
-    status = "DRIFT" if det_result["drifted"] else "ok"
-    print(f"  {method}: {status} (distance={det_result['distance']:.4f})")
+for name in ("drift-mmd", "drift-univariate"):
+    output = (steps[name].elements or {})["incoming_2k"].output
+    status = "DRIFT" if output.drifted else "ok"
+    print(f"  {name}: {status} (distance={output.distance:.4f})")
 print()
 
 # Classwise results
-if raw.classwise:
-    print("── Classwise Drift ──")
-    for cw in raw.classwise:
-        print(f"\n  Detector: {cw['detector']}")
-        rows = [
-            {
-                "class": r["class_name"],
-                "drifted": r["drifted"],
-                "distance": round(r["distance"], 4),
-                "p_val": round(r["p_val"], 6) if r.get("p_val") is not None else None,  # type:ignore
-            }
-            for r in cw["rows"]
-        ]
-        df = pl.DataFrame(rows)
-        print(df)
+print("── Classwise Drift ──")
+per_class = {}
+for name in ("drift-mmd", "drift-univariate"):
+    per_class[name] = (steps[f"{name}-classes"].elements or {})["incoming_2k"].output
+    print(f"\n  Detector: {name}")
+    rows = [
+        {
+            "class": label,
+            "drifted": output.drifted,
+            "distance": round(output.distance, 4),
+            "p_val": round(output.details["p_val"], 6) if "p_val" in output.details else None,
+        }
+        for label, output in per_class[name].outputs.items()
+    ]
+    print(pl.DataFrame(rows))
+    print(f"  Skipped: {per_class[name].skipped}")
 
 # %% [markdown]
 # ### Visualize classwise drift
@@ -454,28 +479,76 @@ if raw.classwise:
 # and stable classes visually.
 
 # %%
-assert raw.classwise is not None  # classwise=True was set on each detector above
-detectors = [cw["detector"] for cw in raw.classwise]
+fig, axes = plt.subplots(1, len(per_class), figsize=(6 * len(per_class), 4))
 
-fig, axes = plt.subplots(1, len(detectors), figsize=(6 * len(detectors), 4))
-if len(detectors) == 1:
-    axes = [axes]
-
-for ax, cw in zip(axes, raw.classwise, strict=True):
-    class_names = [r["class_name"] for r in cw["rows"]]
-    distances = [r["distance"] for r in cw["rows"]]
-    drifted = [r["drifted"] for r in cw["rows"]]
-    colors = ["#e74c3c" if d else "#2ecc71" for d in drifted]
+for ax, (name, classes) in zip(axes, per_class.items(), strict=True):
+    class_names = list(classes.outputs)
+    distances = [output.distance for output in classes.outputs.values()]
+    colors = ["#e74c3c" if output.drifted else "#2ecc71" for output in classes.outputs.values()]
 
     ax.barh(class_names, distances, color=colors, edgecolor="white", linewidth=0.5)
     ax.set_xlabel("Distance")
     ax.set_ylabel("Class")
-    ax.set_title(cw["detector"], fontsize=12, fontweight="bold")
+    ax.set_title(name, fontsize=12, fontweight="bold")
     ax.invert_yaxis()
 
 fig.suptitle("Classwise drift: green = ok, red = drift detected", fontsize=13)
 plt.tight_layout()
 plt.show()
+
+# %% [markdown]
+# ## Step 5: Phase 3: Compare groups of classes
+#
+# The preset runs each class on its own. A custom workflow can run a detector once per *group* of classes instead,
+# with `by:` on its evaluate step and on the check that judges it. Here the three degraded classes are one group
+# and the other classes are the other, so each group's distances are tested as one population. A class is listed by
+# name or by index, and a name resolves through the first input's `index2label`.
+
+# %%
+from dataeval_flow.steps import CustomWorkflowConfig, StepEntry
+
+others = [name for index, name in sorted(index2label.items()) if index not in DEGRADED]
+groups = {"class": {"groups": {"degraded": [index2label[c] for c in sorted(DEGRADED)], "others": others}}}
+
+grouped_task = TaskConfig(
+    name="vehicles-grouped-drift",
+    workflow="grouped-drift",
+    sources=["reference_2k", "incoming_2k"],
+    extractor="resnet18",
+)
+
+grouped_config = PipelineConfig(
+    device="cpu",
+    datasets=[ref_config, incoming_config],
+    views=[ref_view],
+    sources=[ref_source_config, inc_source_config],
+    preprocessors=[preprocessor_config],
+    extractors=[extractor_config],
+    evaluators=[DriftMMDConfig(name="mmd", n_permutations=100)],
+    workflows=[
+        CustomWorkflowConfig(
+            name="grouped-drift",
+            inputs=["reference", {"name": "tests", "list": True}],
+            steps=[
+                StepEntry.model_validate(
+                    {"name": "mmd-groups", "evaluator": "mmd", "input": ["reference", "tests"], "by": groups}
+                ),
+                StepEntry.model_validate(
+                    {"name": "mmd-groups-check", "check": "drift", "input": "mmd-groups", "by": "class"}
+                ),
+            ],
+        ),
+    ],
+    tasks=[grouped_task],
+)
+
+grouped_result = run_task(grouped_task, grouped_config, cache_dir=Path("./cache"))
+print(grouped_result.report())
+
+# %% [markdown]
+# The check's `by:` takes no settings, since its keys come from the step it reads. It rolls the groups into one
+# finding, which names the groups that drifted. Where a group holds fewer than `min_items` items (2 by default) in
+# either source, it is skipped and the finding says why.
 
 # %% [markdown]
 # ## Conclusion
@@ -487,6 +560,7 @@ plt.show()
 # - Simulate progressive class-specific degradation using custom dataset wrappers.
 # - Execute Phase 1 overall drift detection with chunked K-Neighbors.
 # - Execute Phase 2 classwise drift detection with MMD and Univariate CVM detectors.
+# - Run a detector once per group of classes with `by:` in a custom workflow.
 # - Configure pretrained extractors to evaluate semantic distribution shifts.
 #
 # You can apply this two-phase methodology to confirm high-level drift and isolate
@@ -500,6 +574,8 @@ plt.show()
 # - **Alternative backbones**: Evaluate larger pretrained models or ONNX extractors via
 #   [Use an ONNX model for embeddings](onnx_embeddings).
 # - **Health thresholds**: Tune `health_thresholds` to control warning triggers.
+# - **More recipes**: [Monitor drift with steps](../how_to/monitor_drift.md) merges test sources, compares
+#   one group of classes against another, and drifts on detection crops.
 
 # %% [markdown]
 # ## Related guides

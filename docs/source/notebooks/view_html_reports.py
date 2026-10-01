@@ -61,12 +61,9 @@ from dataeval_flow.config import (
     TaskConfig,
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
+from dataeval_flow.evaluators.shift import ChunkedDriftConfig, DriftKNeighborsConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.drift_monitoring import (
-    ChunkingConfig,
-    DriftDetectorKNeighbors,
-    DriftMonitoringConfig,
-)
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
 data_root = Path("./data")
 
@@ -78,6 +75,7 @@ MILCO(root=data_root, image_set="operational", as_datamaite=True)
 # %%
 config = PipelineConfig(
     seed=0,
+    device="cpu",
     # `original_id` numbers each frame, so it names the frames rather than describing them.
     metadata=[MetadataPolicyConfig(name="milco", exclude=["original_id"])],
     datasets=[
@@ -101,8 +99,8 @@ config = PipelineConfig(
         DriftMonitoringConfig(
             name="drift",
             detectors=[
-                DriftDetectorKNeighbors(
-                    k=10, chunking=ChunkingConfig(chunk_size=50, incomplete="append", threshold_multiplier=4.0)
+                DriftKNeighborsConfig(
+                    k=10, chunking=ChunkedDriftConfig(chunk_size=50, incomplete="append", threshold=("zscore", 4.0))
                 ),
             ],
         ),

@@ -283,18 +283,20 @@ workflows:
 ```
 ````
 ````{tab-item} drift-monitoring
-Detect distribution drift between reference and test datasets.
-See the {doc}`Drift Monitoring tutorial <../notebooks/drift_monitoring>` for a full walkthrough.
+Detect distribution drift between a reference and each test dataset.
+See the {doc}`Drift Monitoring tutorial <../notebooks/drift_monitoring>` for a full walkthrough, and
+{doc}`Monitor drift with steps <monitor_drift>` for merging test sources and testing by class.
 
 ```yaml
 workflows:
   - name: ks_drift
     type: drift-monitoring
     detectors:
-      - method: univariate         # univariate | mmd | domain_classifier | kneighbors
-        test: ks                   # ks | cvm | mwu | anderson | bws
+      - type: drift-univariate     # drift-univariate | drift-mmd | drift-domain-classifier | drift-kneighbors
+        method: ks                 # ks | cvm | mwu | anderson | bws
         p_val: 0.05
         correction: bonferroni
+    classwise: [drift-univariate]  # also run these detectors once per class
 ```
 ````
 ````{tab-item} ood-detection
