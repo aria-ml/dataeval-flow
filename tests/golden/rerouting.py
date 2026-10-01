@@ -61,7 +61,7 @@ def _drift() -> dict[str, Any]:
     drift = DriftMonitoringConfig(name="drift", detectors=[DriftDetectorMMD(method="mmd", n_permutations=20)])
     task = TaskConfig(name="t", workflow="drift", sources=["reference", "test"], extractor="flat")
     config = toy_pipeline(workflows=[drift], tasks=[task], datasets=shifted_sources(count=24), extractor=True)
-    config = config.model_copy(update={"seed": 0})
+    config = config.model_copy(update={"seed": 0, "device": "cpu"})
     return run_task(task, config, report_images=False).to_dict()
 
 

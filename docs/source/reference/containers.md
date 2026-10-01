@@ -182,14 +182,13 @@ with others:
   - `model: onnx` **requires** `model_path`; `output_name` is optional;
     `image_height` and `image_width` **must be set together** (setting only one
     is rejected) and, when both are set, override the model's native input size.
-  - `model: torch` **requires** `model_path`; `layer_name`, `use_output`, and
-    `device` are optional.
+  - `model: torch` **requires** `model_path`; `layer_name` and `use_output` are optional.
   - `model: uncertainty` **requires** `model_path`; `preds_type`
-    (`probs`/`logits`) and `device` are optional.
+    (`probs`/`logits`) is optional.
   - `model: bovw` and `model: flatten` need **no** `model_path`.
 - **Preprocessor references must resolve.** An extractor's `preprocessor` field,
   if set, must name a preprocessor defined in the same configuration.
-- **GPU execution requires a CUDA image and runtime.** Setting an extractor
+- **GPU execution requires a CUDA image and runtime.** Setting the pipeline's
   `device: cuda:0` requires running a CUDA image variant (`cu126` / `cu130`)
   with `--gpus all`; on the `cpu` image, models run on CPU regardless.
 - **Metadata-dependent analyses.** Bias, parity, and metadata-insight outputs

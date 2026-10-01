@@ -102,14 +102,12 @@ class TorchExtractorConfig(ExtractorConfig):
             model: torch
             model_path: "./resnet.pt"
             layer_name: layer4
-            device: cpu
     """
 
     model: str = Field(default="torch", description="The extractor this entry configures: `torch`.")
     model_path: str = Field(description="Path to PyTorch model file (relative to data root).")
     layer_name: str | None = Field(default=None, description="Layer for forward hook extraction.")
     use_output: bool = Field(default=True, description="Capture layer output (True) or input (False).")
-    device: str | None = Field(default=None, description="Device (e.g., 'cpu', 'cuda:0').")
 
     @field_validator("model_path")
     @classmethod
@@ -132,7 +130,6 @@ class UncertaintyExtractorConfig(ExtractorConfig):
     model: str = Field(default="uncertainty", description="The extractor this entry configures: `uncertainty`.")
     model_path: str = Field(description="Path to model file (relative to data root).")
     preds_type: Literal["probs", "logits"] | None = Field(default=None, description="Model output format.")
-    device: str | None = Field(default=None, description="Device (e.g., 'cpu', 'cuda:0').")
 
     @field_validator("model_path")
     @classmethod
@@ -257,7 +254,6 @@ class _TorchExtractor(Extractor[TorchExtractorConfig]):
         return TorchExtractor(
             model,
             transforms=torch_transforms,
-            device=config.device,
             layer_name=config.layer_name,
             use_output=config.use_output,
         )

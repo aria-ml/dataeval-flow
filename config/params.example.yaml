@@ -34,6 +34,14 @@
 # deterministic: false    # force PyTorch deterministic algorithms (slower)
 
 # -----------------------------------------------------------------------------
+# DEVICE (optional)
+# -----------------------------------------------------------------------------
+# The device every tool computes on. Unset: CUDA when PyTorch sees a GPU,
+# otherwise CPU. Applied before each task.
+#
+# device: cuda:0          # cpu | cuda | cuda:0 | etc.
+
+# -----------------------------------------------------------------------------
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:
@@ -206,13 +214,11 @@
 #     model_path: "./model.pt"
 #     layer_name: "avgpool"            # layer for forward-hook extraction
 #     use_output: true                 # capture layer output (True) or input (False)
-#     device: cuda:0                   # cpu | cuda:0 | etc.
 #
 #   - name: uncertainty_extractor
 #     model: uncertainty
 #     model_path: "./classifier.pt"
 #     preds_type: probs                # probs | logits
-#     device: cpu
 
 # -----------------------------------------------------------------------------
 # ONTOLOGIES — Named label spaces, referenced by workflows

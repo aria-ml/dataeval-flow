@@ -3088,19 +3088,6 @@
           "title": "N Permutations",
           "type": "integer"
         },
-        "device": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "PyTorch device for kernel computation (e.g. 'cpu', 'cuda:0'). None = auto.",
-          "title": "Device"
-        },
         "classwise": {
           "default": false,
           "description": "Run drift detection per class for this detector. Requires labelled datasets. Runs non-chunked only.",
@@ -7693,7 +7680,7 @@
     },
     "TorchExtractorConfig": {
       "additionalProperties": false,
-      "description": "Extractor config for PyTorch models.\n\nYAML example::\n\n    extractors:\n      - name: torch_extractor\n        model: torch\n        model_path: \"./resnet.pt\"\n        layer_name: layer4\n        device: cpu",
+      "description": "Extractor config for PyTorch models.\n\nYAML example::\n\n    extractors:\n      - name: torch_extractor\n        model: torch\n        model_path: \"./resnet.pt\"\n        layer_name: layer4",
       "properties": {
         "name": {
           "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
@@ -7756,19 +7743,6 @@
           "description": "Capture layer output (True) or input (False).",
           "title": "Use Output",
           "type": "boolean"
-        },
-        "device": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Device (e.g., 'cpu', 'cuda:0').",
-          "title": "Device"
         }
       },
       "required": [
@@ -8423,19 +8397,6 @@
           "default": null,
           "description": "Model output format.",
           "title": "Preds Type"
-        },
-        "device": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Device (e.g., 'cpu', 'cuda:0').",
-          "title": "Device"
         }
       },
       "required": [
@@ -8762,6 +8723,19 @@
       "description": "Force PyTorch to use deterministic algorithms. Only meaningful alongside `seed`. Improves run-to-run reproducibility on GPU at some cost to performance.",
       "title": "Deterministic",
       "type": "boolean"
+    },
+    "device": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The device every tool computes on, such as `cpu`, `cuda` or `cuda:1`. Unset: CUDA when PyTorch sees a GPU, otherwise CPU. Applied before each task through DataEval's `set_device`, so it overrides a device a Python caller set with `dataeval.config.set_device`.",
+      "title": "Device"
     },
     "datasets": {
       "anyOf": [

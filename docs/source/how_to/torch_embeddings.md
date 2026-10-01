@@ -53,9 +53,13 @@ classifier head when the head itself is what you want to bypass.
 
 ## Select a device
 
+The device is chosen once for the whole pipeline, not per extractor. Set it at the top level of the config:
+
 ```yaml
-    device: cuda:0     # or cpu; omit to let DataEval Flow choose
+device: cuda:0     # or cpu
 ```
+
+Unset, DataEval Flow computes on CUDA when PyTorch sees a GPU and on CPU otherwise.
 
 Setting `device: cuda:0` requires a CUDA image variant (`cu126` / `cu130`) run with `--gpus all`. On the `cpu` image
 the model runs on CPU regardless of this field. A GPU is not required — it only speeds up extraction, and matters

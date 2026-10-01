@@ -68,7 +68,6 @@ def _build_detector(config: DriftDetectorConfig) -> _DriftDetector:  # type: ign
         return DriftMMD(
             p_val=config.p_val,
             n_permutations=config.n_permutations,
-            device=config.device,
         )
     if isinstance(config, DriftDetectorDomainClassifier):
         return DriftDomainClassifier(

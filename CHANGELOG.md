@@ -4,6 +4,7 @@
 
 ### Added
 
+- `device:` on the pipeline chooses the device every tool computes on; unset picks CUDA when PyTorch sees it, else CPU.
 - Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
@@ -262,6 +263,7 @@
 
 ### Removed
 
+- The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; set the pipeline's `device:` instead
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
 - Python 3.10 support; the minimum supported version is now 3.11

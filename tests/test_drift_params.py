@@ -72,13 +72,11 @@ class TestDriftDetectorMMD:
         assert cfg.method == "mmd"
         assert cfg.p_val == 0.05
         assert cfg.n_permutations == 100
-        assert cfg.device is None
 
     def test_custom_values(self):
-        cfg = DriftDetectorMMD(p_val=0.01, n_permutations=200, device="cuda:0")
+        cfg = DriftDetectorMMD(p_val=0.01, n_permutations=200)
         assert cfg.p_val == 0.01
         assert cfg.n_permutations == 200
-        assert cfg.device == "cuda:0"
 
     def test_n_permutations_positive(self):
         with pytest.raises(ValidationError):

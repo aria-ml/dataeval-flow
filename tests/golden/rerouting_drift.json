@@ -64,7 +64,6 @@
           {
             "chunking": null,
             "classwise": false,
-            "device": null,
             "method": "mmd",
             "n_permutations": 20,
             "p_val": 0.05

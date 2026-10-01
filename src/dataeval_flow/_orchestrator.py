@@ -333,6 +333,23 @@ def _apply_seed(config: "PipelineConfig") -> None:
     )
 
 
+def _apply_device(config: "PipelineConfig") -> None:
+    """Set the device every tool computes on, through DataEval's device configuration (decision 25).
+
+    The pipeline's ``device`` when set, else CUDA when PyTorch sees a GPU, else CPU. Applied per task, as the seed is,
+    so a task's device does not depend on what ran before it.
+    """
+    import torch
+    from dataeval.config import set_device
+
+    device = config.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    try:
+        set_device(device)
+    except (RuntimeError, ValueError) as error:
+        raise ValueError(f"`device: {device}` is not a device PyTorch knows: {error}") from error
+    _logger.info("Computing on device %s", device)
+
+
 def _run_single_task(
     task: "TaskConfig",
     config: "PipelineConfig",
@@ -364,9 +381,10 @@ def _run_single_task(
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
-    # 0. Seed every stochastic component [CR-7-S-1]. Applied per task rather than
-    #    once per pipeline so a task's result does not depend on what ran before it.
+    # 0. Seed every stochastic component [CR-7-S-1] and set the compute device. Both are applied
+    #    per task rather than once per pipeline so a task's result does not depend on what ran before it.
     _apply_seed(config)
+    _apply_device(config)
 
     # 1. Normalize sources to list
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)

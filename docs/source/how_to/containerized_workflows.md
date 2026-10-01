@@ -101,6 +101,7 @@ reference-by-name** pattern with these sections:
 | `tasks` | Yes | Lightweight composition — references a workflow, sources, and optional extractor |
 | `seed` | No | Seed for every stochastic component of the run |
 | `deterministic` | No | Force PyTorch deterministic algorithms (only meaningful alongside `seed`) |
+| `device` | No | Device every tool computes on; unset picks CUDA when PyTorch sees it, else CPU |
 | `logging` | No | App and library log levels |
 
 The legacy `selections` / `selection` / `steps` keys are still accepted as deprecated

@@ -166,10 +166,6 @@ class DriftDetectorMMD(BaseModel):
         gt=0,
         description="Number of permutations for the test.",
     )
-    device: str | None = Field(
-        default=None,
-        description="PyTorch device for kernel computation (e.g. 'cpu', 'cuda:0'). None = auto.",
-    )
     classwise: bool = Field(
         default=False,
         description=(

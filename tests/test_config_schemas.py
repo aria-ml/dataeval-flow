@@ -326,11 +326,10 @@ class TestExtractorConfig:
 
     def test_extractor_config_valid_torch(self):
         """ExtractorConfig with torch model type."""
-        ext = TorchExtractorConfig(name="torch_ext", model_path="./resnet.pt", layer_name="layer4", device="cpu")
+        ext = TorchExtractorConfig(name="torch_ext", model_path="./resnet.pt", layer_name="layer4")
         assert ext.model == "torch"
         assert ext.model_path == "./resnet.pt"
         assert ext.layer_name == "layer4"
-        assert ext.device == "cpu"
 
     def test_extractor_config_valid_uncertainty(self):
         """ExtractorConfig with uncertainty model type."""
@@ -1079,7 +1078,7 @@ class TestExtractorConfigFieldValidation:
             UncertaintyExtractorConfig(name="ext", model_path="./m.pt", preds_type="logits", vocab_size=512)  # type: ignore[call-arg]
 
     def test_torch_allows_relevant_fields(self):
-        ext = TorchExtractorConfig(name="ext", model_path="./m.pt", layer_name="layer4", use_output=False, device="cpu")
+        ext = TorchExtractorConfig(name="ext", model_path="./m.pt", layer_name="layer4", use_output=False)
         assert ext.layer_name == "layer4"
         assert ext.use_output is False
 
