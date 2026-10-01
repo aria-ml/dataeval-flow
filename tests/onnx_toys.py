@@ -4,7 +4,7 @@ without onnxruntime installed, as DataEval's own tests stub it."""
 import json
 import sys
 import types
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -114,7 +114,7 @@ class Frames:
     """
 
     def __init__(
-        self, brightness: Sequence[float], seed: int = 0, *, index2label: Mapping[int, str] | None = CLASSES
+        self, brightness: Iterable[float], seed: int = 0, *, index2label: Mapping[int, str] | None = CLASSES
     ) -> None:
         rng = np.random.default_rng(seed)
         self._images = [np.clip(rng.normal(255 * b, 4, (3, 16, 16)), 0, 255).astype(np.uint8) for b in brightness]

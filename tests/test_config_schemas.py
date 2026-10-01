@@ -856,7 +856,7 @@ class TestWorkflowConfig:
         from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
         from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 
-        wc = DriftMonitoringConfig(name="knn_drift", detectors=[DriftKNeighborsConfig(k=10)])
+        wc = DriftMonitoringConfig(name="knn_drift", detectors=[DriftKNeighborsConfig(k=10)])  # type: ignore[arg-type]
         assert wc.name == "knn_drift"
         assert wc.type == "drift-monitoring"
         assert len(wc.detectors) == 1
@@ -1079,8 +1079,12 @@ class TestExtractorConfigFieldValidation:
     def test_uncertainty_rejects_vocab_size(self):
         with pytest.raises(ValidationError):
             UncertaintyExtractorConfig(
-                name="ext", model_path="./m.pt", metadata_path="./model.json", preds_type="logits", vocab_size=512
-            )  # type: ignore[call-arg]
+                name="ext",
+                model_path="./m.pt",
+                metadata_path="./model.json",
+                preds_type="logits",
+                vocab_size=512,  # type: ignore[call-arg]
+            )
 
     def test_torch_allows_relevant_fields(self):
         ext = TorchExtractorConfig(name="ext", model_path="./m.pt", layer_name="layer4", use_output=False)

@@ -52,7 +52,7 @@ def test_a_detector_refuses_another_evaluator_s_settings() -> None:
 
 def test_a_config_object_is_taken_as_it_is() -> None:
     mmd = DriftMMDConfig(n_permutations=10)
-    assert DriftMonitoringConfig(detectors=[mmd]).detectors[0].model_dump(exclude={"extractor"}) == mmd.model_dump()
+    assert DriftMonitoringConfig(detectors=[mmd]).detectors[0].model_dump(exclude={"extractor"}) == mmd.model_dump()  # type: ignore[arg-type]
 
 
 def test_defaults() -> None:

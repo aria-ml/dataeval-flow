@@ -95,7 +95,8 @@ def compute_predictions(
     _refuse(config, spec, detector=detector, batch_size=batch_size)
     fixed = spec.batch_size > 0
     size = spec.batch_size if fixed else resolve_batch_size(batch_size)
-    image_size = (config.image_height, config.image_width) if config.image_height is not None else None
+    height, width = config.image_height, config.image_width
+    image_size = (height, width) if height is not None and width is not None else None
     model_type = OnnxObjectDetector if detector else OnnxImageClassifier
     model = model_type(config.model_path, config.metadata_path, image_size=image_size)
     threshold = config.confidence or 0.0
@@ -106,7 +107,7 @@ def compute_predictions(
         images = [_image(dataset[index][0], transforms) for index in indices]
         padded = images + [images[-1]] * (size - len(images)) if fixed else images
         for index, prediction in zip(indices, model(padded)[: len(images)], strict=True):
-            own = np.asarray(prediction.scores if detector else prediction, dtype=np.float32).reshape(
+            own = np.asarray(prediction.scores if detector else prediction, dtype=np.float32).reshape(  # type: ignore[union-attr]
                 -1, spec.n_classes
             )
             if detector:

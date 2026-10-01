@@ -83,7 +83,7 @@ import threading
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import polars as pl
@@ -1168,7 +1168,8 @@ class DatasetCache:
         predictions = compute_predictions(dataset, extractor_config, transforms, batch_size)
         self._mem_set(selection_repr, obj_key, predictions)
         if path is not None:
-            _atomic_write(path, lambda p: np.savez(p, **predictions.to_arrays()), suffix=".npz")
+            arrays = cast("dict[str, Any]", predictions.to_arrays())
+            _atomic_write(path, lambda p: np.savez(p, **arrays), suffix=".npz")
         return predictions
 
     # =====================================================================

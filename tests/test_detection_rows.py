@@ -77,6 +77,8 @@ def test_a_drift_monitoring_task_takes_it():
 
 def test_run_refuses_it_for_a_non_drift_evaluator():
     config = chain_pipeline(evaluators=[OODKNeighborsConfig(name="ood")], datasets=_DATA, extra={"extractors": [_UNC]})
-    result = run_task(TaskConfig(name="t", evaluator="ood", sources=["reference", "cam1"], extractor="unc"), config)
+    result = run_task(
+        TaskConfig(name="t", workflow="ood", kind="evaluator", sources=["reference", "cam1"], extractor="unc"), config
+    )
     assert not result.success
     assert "only drift evaluators read it" in result.errors[0]
