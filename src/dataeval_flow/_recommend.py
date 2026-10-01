@@ -54,13 +54,14 @@ def recommend(
 ) -> dict[str, Any] | None:
     """The completed stanza plus a pin for each factor `record` holds unpinned, or ``None`` where there is none to add.
 
-    A cut is pinned by its edges in ``continuous_factor_bins``, replacing any bin count the stanza suggested for it,
+    A cut is pinned by its edges, kept as the record writes them (``"-inf"`` and ``"inf"`` as strings, so the result
+    stays standard JSON), in ``continuous_factor_bins``, replacing any bin count the stanza suggested for it,
     and a vocabulary by its levels in ``factor_levels``. `skip` names the factors the policy's descriptor pins: they
     are never named again, whatever their provenance and not even as a bin count the stanza suggested, since an
     exported descriptor still says ``derived`` and a factor named by both the descriptor and
     ``continuous_factor_bins`` is refused.
     """
-    edges: dict[str, list[float]] = {}
+    edges: dict[str, list[Any]] = {}
     levels: dict[str, list[Any]] = {}
     for name, info in sorted((record.get("factors") or {}).items()):
         encoding = info.get("encoding") or {}
@@ -69,7 +70,7 @@ def recommend(
         if encoding.get("kind") == "levels":
             levels[name] = list(encoding.get("levels") or ())
         else:
-            edges[name] = [float(edge) for edge in encoding.get("edges") or ()]
+            edges[name] = list(encoding.get("edges") or ())
     counts = {k: v for k, v in (completed.get("continuous_factor_bins") or {}).items() if k not in skip}
     kept = {k: v for k, v in completed.items() if k != "continuous_factor_bins"}
     if not edges and not levels and not counts and not kept:
@@ -150,8 +151,10 @@ def _mark_drops(body: dict[str, Any], dropped: Mapping[str, Sequence[Any]]) -> d
 
 def _pin_line(factor: str, value: Any, info: Mapping[str, Any]) -> str:
     """One pin as a YAML line, with what it assumes of this data where it assumes anything."""
-    line = yaml.safe_dump({factor: value}, default_flow_style=None, sort_keys=False, width=_WIDTH).rstrip("\n")
     encoding = info.get("encoding") or {}
+    if isinstance(value, list) and encoding.get("kind") == "bins":
+        value = [float(edge) for edge in value]  # the YAML writes an infinite edge as .inf, which reads back as a float
+    line = yaml.safe_dump({factor: value}, default_flow_style=None, sort_keys=False, width=_WIDTH).rstrip("\n")
     if isinstance(value, int):
         return line
     if encoding.get("kind") == "levels":

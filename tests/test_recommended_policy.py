@@ -77,7 +77,7 @@ def test_completing_answers_each_placeholder_with_a_drop() -> None:
 def test_a_derived_cut_is_pinned_by_its_edges_and_a_vocabulary_by_its_levels() -> None:
     record = {"factors": {"altitude": _cut(_INF), "weather": _vocab(["clear", "fog", "rain"])}}
     assert recommend(record, {}) == {
-        "continuous_factor_bins": {"altitude": [-math.inf, *_INF[1:4], math.inf]},
+        "continuous_factor_bins": {"altitude": _INF},
         "factor_levels": {"weather": ["clear", "fog", "rain"]},
     }
 
@@ -115,7 +115,7 @@ def test_edges_replace_a_suggested_count_and_a_count_stays_where_nothing_pins() 
     }
     assert recommend(record, completed) == {
         "corrections": [{"kind": "parse_value", "factor": "w", "drop": [","]}],
-        "continuous_factor_bins": {"altitude": [-math.inf, *_INF[1:4], math.inf], "depth": 10},
+        "continuous_factor_bins": {"altitude": _INF, "depth": 10},
     }
 
 
@@ -196,6 +196,12 @@ def test_a_factor_that_cannot_be_pinned_is_named() -> None:
     assert "object_id" not in text
 
 
+def _floated(stanza: dict[str, Any]) -> dict[str, Any]:
+    """`stanza` with each cut's edges as floats, which is how its YAML reads back."""
+    bins = {k: [float(e) for e in v] if isinstance(v, list) else v for k, v in stanza["continuous_factor_bins"].items()}
+    return {**stanza, "continuous_factor_bins": bins}
+
+
 def test_the_yaml_reads_back_as_the_stanza() -> None:
     record = {
         "factors": {
@@ -210,7 +216,7 @@ def test_the_yaml_reads_back_as_the_stanza() -> None:
     assert stanza is not None
     loaded = yaml.safe_load(render_recommendation(stanza, record, dropped))["metadata"][0]
     assert loaded.pop("name") == "standard"
-    assert _canonical(loaded) == _canonical(stanza)
+    assert _canonical(loaded) == _canonical(_floated(stanza))
 
 
 _UNPINNED = {"derived", "count"}
@@ -251,7 +257,7 @@ def _record(result: ChainResult) -> dict[str, Any]:
 
 def test_the_recommendation_pins_a_derived_cut_by_its_edges() -> None:
     first = _triage(AltitudeDataset())
-    edges = [float(e) for e in _record(first)["factors"]["altitude"]["encoding"]["edges"]]
+    edges = _record(first)["factors"]["altitude"]["encoding"]["edges"]
     data = _data(first)
     assert data["recommended_policy"] == {"continuous_factor_bins": {"altitude": edges}}
     assert "altitude: [-.inf, " in data["recommended_policy_yaml"]
@@ -305,14 +311,14 @@ def test_a_cut_from_a_declared_count_is_pinned_by_the_edges_it_placed() -> None:
     encoding = _record(result)["factors"]["altitude"]["encoding"]
     assert encoding["provenance"] == "count"
     data = _data(result)
-    assert data["recommended_policy"]["continuous_factor_bins"]["altitude"] == [float(e) for e in encoding["edges"]]
+    assert data["recommended_policy"]["continuous_factor_bins"]["altitude"] == encoding["edges"]
     assert "# was a count of 4; these are the edges DataEval placed from this data" in data["recommended_policy_yaml"]
     assert "# Merge these into your policy 'p'." in data["recommended_policy_yaml"]
 
 
 def test_nothing_is_recommended_where_the_policy_pins_every_factor() -> None:
     first = _triage(AltitudeDataset())
-    edges = [float(e) for e in _record(first)["factors"]["altitude"]["encoding"]["edges"]]
+    edges = _record(first)["factors"]["altitude"]["encoding"]["edges"]
     data = _data(_triage(AltitudeDataset(), {"continuous_factor_bins": {"altitude": edges}}))
     assert (data["recommended_policy"], data["recommended_policy_yaml"], data["recommendation_error"]) == (
         None,
@@ -362,7 +368,7 @@ def test_read_back_never_changes_the_metadata_it_is_given() -> None:
 
 
 def test_the_recommendation_is_json() -> None:
-    body = json.loads(json.dumps(_triage(AltitudeDataset()).to_dict()))
+    body = json.loads(json.dumps(_triage(AltitudeDataset()).to_dict(), allow_nan=False))
     data = body["steps"]["triage"]["output"]["data"]
     assert list(data["recommended_policy"]["continuous_factor_bins"]) == ["altitude"]
 
@@ -395,6 +401,6 @@ def test_a_failed_recommendation_is_a_warning() -> None:
 
 def test_nothing_to_recommend_makes_no_finding() -> None:
     first = _triage(AltitudeDataset())
-    edges = [float(e) for e in _record(first)["factors"]["altitude"]["encoding"]["edges"]]
+    edges = _record(first)["factors"]["altitude"]["encoding"]["edges"]
     result = _triage(AltitudeDataset(), {"continuous_factor_bins": {"altitude": edges}})
     assert not [f for f in result.findings if f.title in ("Recommended policy", "Recommendation failed")]
