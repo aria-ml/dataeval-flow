@@ -217,8 +217,10 @@
 #
 #   - name: uncertainty_extractor
 #     model: uncertainty
-#     model_path: "./classifier.pt"
-#     preds_type: probs                # probs | logits
+#     model_path: detector.onnx
+#     metadata_path: detector.json   # DataEval's model metadata: task, input size, class count
+#     preds_type: sigmoid            # logits, probs or sigmoid
+#     confidence: 0.25               # a detector only: keep boxes whose top score is at least this
 
 # -----------------------------------------------------------------------------
 # ONTOLOGIES — Named label spaces, referenced by workflows

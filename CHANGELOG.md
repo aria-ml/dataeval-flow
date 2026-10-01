@@ -4,6 +4,9 @@
 
 ### Added
 
+- `uncertainty` extractor: an ONNX classifier's or detector's normalized entropy per prediction, for drift on unlabelled
+  data, one row per detection for a detector; only drift evaluators read it
+- `by: predicted` keys a step by the class a model predicts
 - A drift-monitoring detector may name its own `extractor:`, which its steps embed with instead of the task's
 - `device:` on the pipeline chooses the device every tool computes on; unset picks CUDA when PyTorch sees it, else CPU.
 - Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
@@ -127,6 +130,7 @@
 
 ### Changed
 
+- `uncertainty` extractor entries need `metadata_path` and `preds_type`, and the TUI no longer offers them
 - drift-monitoring's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`), and takes class groups; the
   list form is refused
 - An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended

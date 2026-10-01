@@ -183,8 +183,8 @@ with others:
     `image_height` and `image_width` **must be set together** (setting only one
     is rejected) and, when both are set, override the model's native input size.
   - `model: torch` **requires** `model_path`; `layer_name` and `use_output` are optional.
-  - `model: uncertainty` **requires** `model_path`; `preds_type`
-    (`probs`/`logits`) is optional.
+  - `model: uncertainty` **requires** `model_path`, `metadata_path` (DataEval's model metadata) and `preds_type`
+    (`logits`, `probs` or `sigmoid`), and `confidence` for a detector; only drift evaluators read it
   - `model: bovw` and `model: flatten` need **no** `model_path`.
 - **Preprocessor references must resolve.** An extractor's `preprocessor` field,
   if set, must name a preprocessor defined in the same configuration.
