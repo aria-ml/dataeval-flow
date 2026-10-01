@@ -8300,7 +8300,7 @@
     },
     "UncertaintyExtractorConfig": {
       "additionalProperties": false,
-      "description": "Extractor config for uncertainty estimation models.\n\nYAML example::\n\n    extractors:\n      - name: unc_extractor\n        model: uncertainty\n        model_path: \"./classifier.pt\"\n        preds_type: logits",
+      "description": "Extractor config for model uncertainty: the normalized entropy of an ONNX classifier's or detector's\npredictions, one row per image for a classifier and one per detection for a detector.\n\nOnly drift evaluators read it, since a detector's rows are detections rather than items.\n\nYAML example::\n\n    extractors:\n      - name: yolo-uncertainty\n        model: uncertainty\n        model_path: yolo.onnx\n        metadata_path: yolo.json\n        preds_type: sigmoid\n        confidence: 0.25\n        batch_size: 16",
       "properties": {
         "name": {
           "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
@@ -8341,30 +8341,71 @@
           "type": "string"
         },
         "model_path": {
-          "description": "Path to model file (relative to data root).",
+          "description": "Path to the ONNX model file (relative to data root).",
           "title": "Model Path",
           "type": "string"
         },
+        "metadata_path": {
+          "description": "Path to DataEval's model metadata file (relative to data root): its task, input size and classes.",
+          "title": "Metadata Path",
+          "type": "string"
+        },
         "preds_type": {
+          "description": "What the model emits: `logits`, `probs` that sum to 1, or per-class `sigmoid` scores.",
+          "enum": [
+            "logits",
+            "probs",
+            "sigmoid"
+          ],
+          "title": "Preds Type",
+          "type": "string"
+        },
+        "confidence": {
           "anyOf": [
             {
-              "enum": [
-                "probs",
-                "logits"
-              ],
-              "type": "string"
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Model output format.",
-          "title": "Preds Type"
+          "description": "For a detector, and required there: keep each box whose top raw score is at least this. `0` keeps every box, padding included.",
+          "title": "Confidence"
+        },
+        "image_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The model's input height, set with `image_width`; needed where the metadata leaves it open.",
+          "title": "Image Height"
+        },
+        "image_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The model's input width, set with `image_height`; needed where the metadata leaves it open.",
+          "title": "Image Width"
         }
       },
       "required": [
-        "model_path"
+        "model_path",
+        "metadata_path",
+        "preds_type"
       ],
       "title": "UncertaintyExtractorConfig",
       "type": "object"

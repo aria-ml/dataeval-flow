@@ -297,18 +297,17 @@ E = TypeVar("E", bound=BaseModel)
 
 
 def _resolve_extractor_paths(extractor_cfg: E, data_dir: Path | None) -> E:
-    """Resolve relative ``model_path`` on extractor configs against *data_dir*."""
-    model_path: str | None = getattr(extractor_cfg, "model_path", None)
+    """Resolve relative ``model_path`` and ``metadata_path`` on extractor configs against *data_dir*."""
+    from dataeval_flow.config._loader import resolve_path
 
-    if model_path is not None:
-        from dataeval_flow.config._loader import resolve_path
-
-        # Models default to the `models` folder of the input mount.
-        resolved = str(resolve_path(model_path, data_dir, default_subdir="models"))
-        if resolved != model_path:
-            return extractor_cfg.model_copy(update={"model_path": resolved})
-
-    return extractor_cfg
+    # Models, and their metadata, default to the `models` folder of the input mount.
+    update = {
+        field: resolved
+        for field in ("model_path", "metadata_path")
+        if (value := getattr(extractor_cfg, field, None)) is not None
+        and (resolved := str(resolve_path(value, data_dir, default_subdir="models"))) != value
+    }
+    return extractor_cfg.model_copy(update=update) if update else extractor_cfg
 
 
 def _apply_seed(config: "PipelineConfig") -> None:

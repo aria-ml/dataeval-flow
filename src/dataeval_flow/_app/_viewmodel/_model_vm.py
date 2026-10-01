@@ -9,8 +9,8 @@ from typing import Any
 
 __all__ = ["ModelViewModel"]
 
-MODEL_TYPES = ["onnx", "bovw", "flatten", "torch", "uncertainty"]
-_PATH_TYPES = frozenset({"onnx", "torch", "uncertainty"})
+MODEL_TYPES = ["onnx", "bovw", "flatten", "torch"]
+_PATH_TYPES = frozenset({"onnx", "torch"})
 
 
 class ModelViewModel:
@@ -67,4 +67,4 @@ class ModelViewModel:
     @staticmethod
     def validation_message() -> str:
         """Return the error message for invalid input."""
-        return "Name and type are required. Path required for onnx/torch/uncertainty."
+        return "Name and type are required. Path required for onnx/torch."

@@ -333,7 +333,9 @@ class TestExtractorConfig:
 
     def test_extractor_config_valid_uncertainty(self):
         """ExtractorConfig with uncertainty model type."""
-        ext = UncertaintyExtractorConfig(name="unc_ext", model_path="./classifier.pt", preds_type="logits")
+        ext = UncertaintyExtractorConfig(
+            name="unc_ext", model_path="./classifier.pt", metadata_path="./model.json", preds_type="logits"
+        )
         assert ext.model == "uncertainty"
         assert ext.preds_type == "logits"
 
@@ -1076,7 +1078,9 @@ class TestExtractorConfigFieldValidation:
 
     def test_uncertainty_rejects_vocab_size(self):
         with pytest.raises(ValidationError):
-            UncertaintyExtractorConfig(name="ext", model_path="./m.pt", preds_type="logits", vocab_size=512)  # type: ignore[call-arg]
+            UncertaintyExtractorConfig(
+                name="ext", model_path="./m.pt", metadata_path="./model.json", preds_type="logits", vocab_size=512
+            )  # type: ignore[call-arg]
 
     def test_torch_allows_relevant_fields(self):
         ext = TorchExtractorConfig(name="ext", model_path="./m.pt", layer_name="layer4", use_output=False)
@@ -1145,7 +1149,9 @@ class TestConfigPathValidation:
     def test_uncertainty_rejects_absolute_model_path(self):
         """Absolute uncertainty model_path is rejected."""
         with pytest.raises(ValidationError, match="relative"):
-            UncertaintyExtractorConfig(name="ext", model_path="/models/clf.pt", preds_type="logits")
+            UncertaintyExtractorConfig(
+                name="ext", model_path="/models/clf.pt", metadata_path="./model.json", preds_type="logits"
+            )
 
     def test_extractor_rejects_parent_escape(self):
         """Extractor model_path that escapes via .. is rejected."""

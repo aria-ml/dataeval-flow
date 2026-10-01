@@ -13,7 +13,6 @@ from dataeval_flow.config.extractors import (
     FlattenExtractorConfig,
     OnnxExtractorConfig,
     TorchExtractorConfig,
-    UncertaintyExtractorConfig,
 )
 
 pytestmark = pytest.mark.required
@@ -101,14 +100,6 @@ class TestBuildEmbeddings:
         mock_load.assert_called_once_with("./model.pt", map_location="cpu", weights_only=False)
         mock_torch_cls.assert_called_once()
         mock_embed_cls.assert_called_once()
-
-    def test_unsupported_extractor_raises(self):
-        """Unsupported extractor type raises ValueError."""
-        from dataeval_flow._embeddings import build_embeddings
-
-        config = UncertaintyExtractorConfig(name="test", model_path="./model.pt")
-        with pytest.raises(ValueError, match="not yet implemented"):
-            build_embeddings(MagicMock(), config)
 
 
 # ---------------------------------------------------------------------------

@@ -370,7 +370,6 @@ class TestModelViewModel:
         [
             ("onnx", True),
             ("torch", True),
-            ("uncertainty", True),
             ("bovw", False),
             ("flatten", False),
         ],
@@ -383,7 +382,6 @@ class TestModelViewModel:
         [
             ("onnx", False),
             ("torch", False),
-            ("uncertainty", False),
             ("bovw", True),
             ("flatten", False),
         ],
