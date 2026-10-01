@@ -37,7 +37,8 @@ class CombineContext:
     derive_stats: "Callable[[Any], Any]"
     """Image statistics of a Dataset node, per image and not per target, under this step's stats policy, or every
     statistic where it names none, at the Dataset's value range: DataEval's stats result, whose ``stats`` maps each
-    statistic to one value per image, beside ``image_count``. Cached as evaluators' statistics are."""
+    statistic to one value per image, beside ``image_count``. Cached as evaluators' statistics are. Only the
+    requested statistics are returned, whatever else the cache holds."""
 
 
 class Combine(InlineStep, ABC, Generic[CombineConfigT]):

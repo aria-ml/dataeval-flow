@@ -85,3 +85,9 @@ def test_a_combine_s_section_is_shown_with_its_thumbnails(plugins) -> None:
     result = _run()
     assert [(asset.item.source, asset.item.index) for asset in result.assets] == [("a", 0)]
     assert '<details class="thumb">' in result.to_html()
+
+
+def test_a_combine_reads_only_its_policy_s_statistics_from_a_cache_holding_more(plugins) -> None:
+    plugins.setdefault("dataeval_flow.combines", []).append(("toy-measure", "tests.test_combine_context:Measure"))
+    assert "brightness" in _run().steps["m"].output.names
+    assert "brightness" not in _run("pix").steps["m"].output.names

@@ -829,20 +829,20 @@ def _stats(node: Node, policy: "ResolvedStatsPolicy | None") -> Any:
     from dataeval.flags import ImageStats
 
     from dataeval_flow._cache import active_cache, get_or_compute_stats, selection_repr
-    from dataeval_flow._stats import ResolvedStatsPolicy
+    from dataeval_flow._stats import ResolvedStatsPolicy, columns_for, restrict_columns
 
     dataset = node.value
     cache = node.context.cache if node.context is not None else None
     value_range = node.context.value_range if node.context is not None else None
     scope = active_cache(cache, selection_repr(dataset)) if cache is not None else contextlib.nullcontext()
+    policy = policy if policy is not None else ResolvedStatsPolicy.of_flags(ImageStats.ALL)
     with scope:
-        return get_or_compute_stats(
-            policy if policy is not None else ResolvedStatsPolicy.of_flags(ImageStats.ALL),
-            dataset=dataset,
-            per_image=True,
-            per_target=False,
-            value_range=value_range,
+        result = get_or_compute_stats(
+            policy, dataset=dataset, per_image=True, per_target=False, value_range=value_range
         )
+    # The cache holds the union of everything computed under the scope: keep only the request's columns.
+    allowed = set().union(*(columns_for([view], flags) for view, flags in policy.request.items()))
+    return restrict_columns(result, allowed)
 
 
 def _datasets(values: Iterable[Any]) -> list[Node]:
