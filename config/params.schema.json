@@ -392,7 +392,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -456,7 +456,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -553,7 +553,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -632,7 +632,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -688,7 +688,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -752,7 +752,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -821,7 +821,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         }
       },
@@ -3962,7 +3962,7 @@
             }
           ],
           "default": null,
-          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}`.",
           "title": "By"
         },
         "name": {

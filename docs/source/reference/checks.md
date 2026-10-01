@@ -122,8 +122,9 @@ It has no thresholds. Configured by {py:class}`~dataeval_flow.steps.checks.Metad
 
 Whether a drift detector found drift. Configured by {py:class}`~dataeval_flow.steps.checks.DriftCheckConfig`. Without
 chunking, drift is a warning, or `info` where `warn_on_drift` is false. With chunking, the finding warns when the share
-of drifted chunks or the longest run of drifted chunks reaches its limit, and is `info` when some chunks drifted but
-neither does; it is `info` too when both limits are `null`. With no chunk drifted it is `ok`.
+of drifted chunks or the longest run of drifted chunks reaches its limit, is `info` when some chunks drifted but
+neither does, and is `ok` when no chunk drifted. With both limits `null` it judges nothing, and is `info` whether or
+not a chunk drifted.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |

@@ -147,6 +147,9 @@ To compare one group of the reference with a different group of the test data, s
 dogs in the other, narrow each side with a `view` step and run a detector on the two views:
 
 ```yaml
+evaluators:
+  - {name: mmd, type: drift-mmd}
+
 workflows:
   - name: group_against_group
     inputs: [reference, {name: tests, list: true}]
@@ -206,12 +209,13 @@ drift.
 
 Every source, class and group is a separate test at the detector's `p_val`, so each has about that chance of flagging
 drift by luck when nothing changed. With 24 classes and 3 test sources, there are 72 by-class tests, and at 0.05 a few
-of them flag on unchanged data. Read the size of a flagged distance beside its flag, and compare it with the
-distances of the classes that did not flag. A class that flags at a p-value just under `p_val`, with a distance
-close to the quiet classes', is likelier chance than drift. Lower `p_val`, or give the univariate detector a
-`correction`, to flag less often, and repeat a surprising result on new data before you act on it. The
-[classwise drift tutorial](../notebooks/classwise_drift.py) shows a run where five of 24 classes flag, three of them
-the ones that were degraded.
+of them flag on unchanged data. Read the size of a flagged distance beside its flag, and compare it with the distances
+of the classes that did not flag. A class that flags at a p-value just under `p_val`, with a distance close to the quiet
+classes', is likelier chance than drift. To flag less often, lower `p_val`. Judge the classes or sources that warned
+together, against how many were tested. The univariate detector's `correction` does not help here: it corrects across
+the embedding's features within one test, not across classes or sources. Repeat a surprising result on new data before
+you act on it. The [classwise drift tutorial](../notebooks/classwise_drift.py) shows a run where five of 24 classes
+flag, three of them the ones that were degraded.
 
 ## See also
 

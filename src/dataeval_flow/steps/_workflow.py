@@ -74,7 +74,7 @@ class StepEntry(BaseModel):
         default=None,
         description=(
             "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or "
-            "`{class: {groups: ..., min_items: ...}}` (spec §5.9)."
+            "`{class: {groups: ..., min_items: ...}}`."
         ),
     )
 

@@ -203,7 +203,10 @@
   `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
   (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
   names, and `health_thresholds` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
-  It returns a `ChainResult`; a detector that raises fails its step and the task. To upgrade:
+  It returns a `ChainResult`; a detector that raises fails its step and the task. A classwise detector makes a
+  whole-set finding and a by-class finding, so it can add two warnings where legacy added one. Classwise reads each
+  item's label through DataEval's `Metadata`, so it needs a dataset with `.metadata`; without it the by-class run is
+  skipped, where legacy read the labels from the targets. To upgrade:
   - `method: univariate|mmd|kneighbors|domain_classifier` is
     `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
   - a detector's `classwise: true` is its name in `classwise: [...]`
