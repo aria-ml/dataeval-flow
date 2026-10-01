@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from dataeval_flow._policy import ResolvedPolicy
+    from dataeval_flow._predictions import Predictions
     from dataeval_flow._stats import ResolvedStatsPolicy
 
 
@@ -24,7 +25,8 @@ class EvaluatorInputs:
     :meth:`Evaluator.run` receives one per source, in the order the task names the sources. Flow builds them after
     applying the source's view; an evaluator only reads them. Each input kind the run wants sets its fields:
     ``stats`` sets ``stats`` and ``stats_policy``; ``clusters`` sets ``clusters`` and ``embeddings``;
-    ``embeddings`` sets ``embeddings``; ``metadata`` sets ``metadata`` and ``metadata_policy``; ``labels`` sets
+    ``embeddings`` sets ``embeddings``, and ``predictions`` where the
+    extractor runs a model; ``metadata`` sets ``metadata`` and ``metadata_policy``; ``labels`` sets
     ``labels`` and ``index2label``. ``ontology`` and ``ontology_source`` are the task's, set on every source whatever
     the run wants. ``label_source`` is the source's, set on every source whatever the run wants.
     """
@@ -48,7 +50,12 @@ class EvaluatorInputs:
     """DataEval's clusters over the source's embeddings, when the run wants ``clusters``."""
     embeddings: "NDArray[Any] | None" = None
     """The source's embeddings from the task's extractor, one row per item, when the run wants ``embeddings`` or
-    ``clusters``: clusters are built from them, and DataEval may read both."""
+    ``clusters``: clusters are built from them, and DataEval may read both. An extractor that runs a model gives each
+    row's normalized entropy instead, one column, whose rows ``predictions`` describes."""
+    predictions: "Predictions | None" = None
+    """The model's predictions ``embeddings`` came from, where the extractor runs one: each row's class scores
+    (``scores``), each row's item (``rows``, or ``None`` where each row is one item), the source's item count
+    (``items``) and the confidence a detector's boxes met (``confidence``). ``None`` for any other extractor."""
     metadata: "Metadata | None" = None
     """DataEval's ``Metadata`` for the source, built under the task's metadata policy, when the run wants
     ``metadata``."""

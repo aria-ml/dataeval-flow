@@ -109,7 +109,13 @@ def produce_labels(pc: ProducerContext) -> dict[str, Any]:
 
 
 def produce_embeddings(pc: ProducerContext) -> dict[str, Any]:
-    """The task's extractor over the source, cached, with one fitted stateful extractor for the whole task."""
+    """The task's extractor over the source, cached, with one fitted stateful extractor for the whole task. An
+    extractor that runs a model gives each row's entropy instead, with the predictions the rows came from."""
+    from dataeval_flow._predictions import runs_model, uncertainty_rows
+
+    if runs_model(pc.dataset_context.extractor):
+        predictions = pc.workflow_context.predictions(pc.source)
+        return {"embeddings": uncertainty_rows(predictions), "predictions": predictions}
     return {"embeddings": np.asarray(pc.workflow_context.embeddings(pc.source))}
 
 

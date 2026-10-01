@@ -537,6 +537,7 @@ class TestLoadOrComputeEmbeddings:
         cfg.model = "onnx"  # a registered, stateless extractor: no fitting source joins the key
         cfg.model_dump_json.return_value = '{"type":"onnx","model_path":"model.onnx"}'
         cfg.model_path = None  # no file to hash — keeps cache key = model_dump_json()
+        cfg.metadata_path = None
         return cfg
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
@@ -601,6 +602,7 @@ class TestGetOrComputeEmbeddings:
         cfg.model = "onnx"  # a registered, stateless extractor: no fitting source joins the key
         cfg.model_dump_json.return_value = '{"type":"onnx","model_path":"model.onnx"}'
         cfg.model_path = None  # no file to hash — keeps cache key = model_dump_json()
+        cfg.metadata_path = None
         return cfg
 
     def test_without_cache_computes_directly(self):

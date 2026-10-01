@@ -11,6 +11,11 @@ from typing import Any
 import numpy as np
 import pytest
 
+from dataeval_flow import run_task
+from dataeval_flow.config import TaskConfig
+from dataeval_flow.config.extractors import UncertaintyExtractorConfig
+from dataeval_flow.steps import ChainResult, StepResult
+from tests.chain_toys import chain_pipeline
 from tests.drift_toys import CLASSES
 
 N_CLASSES = 3
@@ -122,3 +127,43 @@ class Frames:
 
     def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
         return self._images[index], _NoBoxes(), {"id": index}
+
+
+def run_uncertainty(
+    tmp_path: Path,
+    workflow: Mapping[str, Any],
+    evaluators: Sequence[Any],
+    datasets: Mapping[str, Any],
+    *,
+    detector: bool,
+    cache: bool = False,
+    extractor: Mapping[str, Any] | None = None,
+    task_extractor: str = "unc",
+    extractors: Sequence[Any] = (),
+    extra: Mapping[str, Any] | None = None,
+) -> ChainResult:
+    """Run `workflow` over `datasets`, in order, with the stub model's uncertainty as extractor `unc`.
+
+    The model files must already be in `tmp_path`, which is the data root. `extractor` overrides `unc`'s fields, and
+    `extractors` adds more entries. A detector keeps boxes at confidence 0.3 and reads sigmoid scores.
+    """
+    fields: dict[str, Any] = {"name": "unc", "model_path": "model.onnx", "metadata_path": "model.json", "batch_size": 8}
+    fields |= {"preds_type": "sigmoid", "confidence": 0.3} if detector else {"preds_type": "logits"}
+    uncertainty = UncertaintyExtractorConfig.model_validate(fields | dict(extractor or {}))
+    config = chain_pipeline(
+        workflows=[workflow],
+        evaluators=evaluators,
+        datasets=datasets,
+        extra={"device": "cpu", "extractors": [uncertainty, *extractors], **(extra or {})},
+    )
+    task = TaskConfig(name="t", workflow=workflow["name"], sources=list(datasets), extractor=task_extractor)
+    result = run_task(task, config, data_dir=tmp_path, cache_dir=tmp_path / "cache" if cache else None)
+    assert isinstance(result, ChainResult)
+    return result
+
+
+def element(result: ChainResult, step: str, key: str = "cam1") -> StepResult:
+    """Step `step`'s run on element `key` of the list it broadcast over."""
+    elements = result.steps[step].elements
+    assert elements is not None
+    return elements[key]
