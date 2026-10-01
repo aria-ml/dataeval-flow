@@ -111,8 +111,15 @@
 - `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
   `verify`, what the repair recovers
 - `metadata-issues`, a check: metadata-triage's findings, made from a `factor-triage` Output
+- `factor-triage` recommends a policy: its suggestions, each placeholder dropped to missing, plus explicit edges or
+  levels for every factor the policy left unpinned, read back from this data. `metadata-issues` shows it as a
+  "Recommended policy" finding that opens with a caveat: a policy read from unrepresentative data can give invalid
+  or misleading results
 
 ### Changed
+
+- An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
+  policy pins the edges
 
 - `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
   older `metadata_*` fields stay on the workflows that took them

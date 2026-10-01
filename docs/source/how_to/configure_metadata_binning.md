@@ -108,6 +108,32 @@ that you read it and it is right. That is what lets `strict` be set later.
 A run whose tasks encoded the dataset differently writes no `encoding.json`, because no single descriptor describes
 it; pass `--task <name>` to take one. Splits work the same way — see `reference_split`.
 
+### Start from a recommended policy
+
+`metadata-triage` recommends a policy as its last finding. It holds the fixes triage suggests plus a pin for every
+factor your policy left unpinned, read from this data: explicit edges for each cut, and the vocabulary, as
+`factor_levels`, for each categorical factor. A remap value triage could not read is dropped to missing and marked
+for you to decide.
+
+```yaml
+# Every cut and vocabulary below was read from this data. Pinning them keeps later runs comparable, and it also
+# commits them to this data's assumptions. If this data does not represent the data you expect, results computed under
+# this policy can be invalid or misleading. Review each factor before you commit it.
+metadata:
+- name: standard
+  continuous_factor_bins:
+    altitude: [-.inf, 265.8536348826109, 504.1481565221535, 742.442678161696, .inf]  # seen 27.5591 to 980.737; the outer bins are open, so values beyond this range join them
+```
+
+Read the caveat as the point, not the preamble. The outer bins are open, so a value far beyond anything this data
+held lands in the outermost bin beside the largest values it did hold, and a category it never saw takes a new code.
+Pinning a policy read from a sample that does not represent your data fixes that sample's assumptions for every
+later run.
+
+The recommendation is inline YAML you review in the config, one line per factor. A descriptor from
+`dataeval-flow encoding` holds the same cuts in a file, which suits large vocabularies and sharing one encoding
+across configs.
+
 ### Apply a committed encoding
 
 `encoding` points at a descriptor — the artifact `dataeval-flow encoding` writes — held under the data root and

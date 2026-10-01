@@ -18,7 +18,7 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
-| `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified |
+| `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 
 ## How thresholds work
@@ -100,6 +100,9 @@ The findings `metadata-triage` makes, from a `factor-triage` Output, in this ord
    meaning the run did less than its configuration asked, and info otherwise.
 2. "Suggested policy", holding the stanza to paste under `metadata:`.
 3. "Verified", saying what each suggestion recovered, or "Verification failed", a warning, when verification raised.
+4. "Recommended policy", opening with the caveat that a policy read from unrepresentative data can mislead, then the
+   stanza that pins every factor the policy left unpinned; or "Recommendation failed", a warning, when reading the
+   data back raised. Neither where the policy already pins everything.
 
 It has no thresholds. Configured by {py:class}`~dataeval_flow.steps.checks.MetadataIssuesConfig`.
 

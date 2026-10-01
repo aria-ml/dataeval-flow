@@ -244,6 +244,20 @@ print(triage["suggested_policy_yaml"])
 # until cleaned. You can check the report for the rationale behind each omitted factor.
 
 # %% [markdown]
+# ### The recommended policy
+#
+# Triage also recommends a policy that pins every factor the run left unpinned: explicit edges for each continuous
+# factor and the vocabulary for each categorical one, read from this data. A remap value you have not coded yet is
+# dropped to missing by default, and marked so you can decide what it means.
+#
+# The recommendation is only as good as the data it was read from. If this sample does not represent the data you
+# expect, results computed under the recommended policy can be invalid or misleading, so review each factor before
+# you commit it.
+
+# %%
+print(triage["recommended_policy_yaml"])
+
+# %% [markdown]
 # ## Step 4: Apply the policy and re-run
 #
 # You should now complete the placeholder values in the suggested policy:
