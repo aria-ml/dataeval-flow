@@ -41,10 +41,12 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
         by_class: list[dict[str, Any]] = []
         for detector in config.detectors:
             name = detector.name
+            # Each check names its detector, so a finding is titled by it even when its run made nothing to judge.
+            subject = evaluator_heading(detector)
             evaluators.append(detector)
             steps += [
                 {"name": name, "evaluator": name, "input": ["reference", "tests"]},
-                {"name": f"{name}-check", "check": "drift", "input": name, **limits},
+                {"name": f"{name}-check", "check": "drift", "input": name, "subject": subject, **limits},
             ]
             if name not in config.classwise:
                 continue
@@ -65,7 +67,7 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
                     "check": "drift",
                     "input": f"{name}-classes",
                     "by": "class",
-                    "subject": evaluator_heading(detector),
+                    "subject": subject,
                     **limits,
                 },
             ]

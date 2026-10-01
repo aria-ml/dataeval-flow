@@ -232,6 +232,26 @@ def test_skipped_keys_are_named_with_why_in_the_rollup(plugins):
     assert expected in [b.text for b in finding.blocks]
 
 
+def test_a_check_with_by_on_a_skipped_step_is_not_assessed_by_class(plugins):
+    register_toys(plugins)
+    result = _run("class", BoxImages(), BoxImages(seed=1), optional=True, steps=_CHECK)
+    (finding,) = (result.steps["knn-check"].elements or {})["cam1"].output
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Drifted by class", "not assessed")
+
+
+def test_a_check_with_by_returning_one_finding_per_class_fails_its_step(plugins):
+    from unittest.mock import patch
+
+    from dataeval_flow.workflows import Finding
+    from tests.chain_toys import Drifted
+
+    register_toys(plugins)
+    with patch.object(Drifted, "run", return_value=Finding(title="x")):
+        result = _run("class", ClassImages({0: 4, 1: 4}), ClassImages({0: 4, 1: 4}, seed=1), steps=_CHECK)
+    element = (result.steps["knn-check"].elements or {})["cam1"]
+    assert element.errors == ["TypeError: check 'toy-drifted' returned a Finding, not a list of findings."]
+
+
 def test_nothing_assessed_is_not_assessed():
     from dataeval_flow.steps._by import ByConfig, roll_up
 

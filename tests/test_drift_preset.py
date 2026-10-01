@@ -27,6 +27,7 @@ def test_each_detector_is_a_step_and_its_check():
     steps, _ = _chain(detectors=[{"type": "drift-mmd"}, {"name": "ks", "type": "drift-univariate"}])
     assert [step["name"] for step in steps] == ["drift-mmd", "drift-mmd-check", "ks", "ks-check"]
     assert steps[0]["input"] == ["reference", "tests"]
+    assert (steps[1]["subject"], steps[3]["subject"]) == ("Drift (MMD)", "Drift (Univariate) · ks")
 
 
 def test_classwise_runs_follow_every_whole_set_detector():
@@ -35,7 +36,8 @@ def test_classwise_runs_follow_every_whole_set_detector():
     assert names[-2:] == ["drift-mmd-classes", "drift-mmd-classes-check"]
     classes = steps[-2]
     assert (classes["by"], classes["optional"], classes["evaluator"]) == ("class", True, "drift-mmd")
-    assert steps[-1]["subject"] == "Drift (MMD)"
+    subjects = [step["subject"] for step in steps if step.get("check")]
+    assert subjects == ["Drift (MMD)", "Drift (K-Neighbors)", "Drift (MMD)"]
 
 
 def test_a_chunked_classwise_detector_runs_an_unchunked_copy():
@@ -45,7 +47,7 @@ def test_a_chunked_classwise_detector_runs_an_unchunked_copy():
     copy = next(entry for entry in evaluators if entry.name == "ks-unchunked")
     assert copy.chunking is None
     assert steps[-2]["evaluator"] == "ks-unchunked"
-    assert steps[-1]["subject"] == "Drift (Univariate) · ks"
+    assert [step["subject"] for step in steps if step.get("check")] == ["Drift (Univariate) · ks"] * 2
 
 
 def test_health_thresholds_reach_every_check():
@@ -90,6 +92,8 @@ def test_a_detector_that_raises_fails_its_step_and_the_task_but_not_the_others()
     result = _preset_run({"reference": ToyImages(40), "cam1": ToyImages(40, seed=1, bright=True)}, detectors=detectors)
     assert result.steps["big"].status == "failed"
     assert not result.success
+    (unassessed,) = (result.steps["big-check"].elements or {})["cam1"].output
+    assert (unassessed.title, unassessed.brief) == ("Drift (MMD) · big", "not assessed")
     assert (result.steps["drift-kneighbors-check"].elements or {})["cam1"].output[0].severity == "warning"
 
 
@@ -105,9 +109,10 @@ def test_classwise_on_unlabelled_data_is_not_assessed():  # Review Focus 3, thro
     datasets = {"reference": ToyImages(40, labeled=False), "cam1": ToyImages(40, seed=1, labeled=False)}
     result = _preset_run(datasets, classwise=["drift-kneighbors"])
     assert (result.steps["drift-kneighbors-classes"].elements or {})["cam1"].status == "skipped"
-    assert (result.steps["drift-kneighbors-check"].elements or {})["cam1"].output[0].severity == "ok"
+    (whole,) = (result.steps["drift-kneighbors-check"].elements or {})["cam1"].output
+    assert (whole.severity, whole.title) == ("ok", "Drift (K-Neighbors)")
     (finding,) = (result.steps["drift-kneighbors-classes-check"].elements or {})["cam1"].output
-    assert (finding.severity, finding.brief) == ("info", "not assessed")
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Drift (K-Neighbors) by class", "not assessed")
 
 
 def test_the_crop_recipe_runs_the_preset_on_detections():

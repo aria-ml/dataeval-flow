@@ -111,4 +111,4 @@ def test_classwise_on_detection_data_is_not_assessed() -> None:
     result = _run("classwise_boxes")
     assert (result.steps["drift-kneighbors-classes"].elements or {})["test"].status == "skipped"
     (finding,) = _output(result, "drift-kneighbors-classes-check")
-    assert (finding.severity, finding.brief) == ("info", "not assessed")
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Drift (K-Neighbors) by class", "not assessed")

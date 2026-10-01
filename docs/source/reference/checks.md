@@ -29,8 +29,9 @@ ratio, and a finding warns where the measured value passes it. `null` switches a
 made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
 
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
-`info` finding in its own name, briefed `not assessed`, whose description names that input and why it holds nothing:
-"Not assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
+`info` finding briefed `not assessed`, titled with its `subject` where it takes one and with its own title otherwise,
+followed by " by class" where it has `by: class`. Its description names that input and why it holds nothing: "Not
+assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
 per element, and each finding names its element under `step`, as `imbalance[train]`. The report groups those findings
 by the element's key, `train`, in its summary and below it.
 
@@ -127,7 +128,7 @@ neither does; it is `info` too when both limits are `null`. With no chunk drifte
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A drift evaluator's Output |
-| `subject` | text, or `null` | `null` | The finding's title; unset, the evaluator's title, followed by its entry's name where that differs from its type |
+| `subject` | text, or `null` | `null` | The finding's title, a `not assessed` one's too; unset, the evaluator's title, followed by its entry's name where that differs from its type |
 | `warn_on_drift` | true or false | `true` | Unchunked, and per class: whether drift warns, or is `info` |
 | `chunk_percent` | a percentage, or `null` | `10.0` | Chunked: the share of drifted chunks at which the finding warns |
 | `consecutive_chunks` | an integer of at least 1, or `null` | `3` | Chunked: the longest run of drifted chunks at which the finding warns |
