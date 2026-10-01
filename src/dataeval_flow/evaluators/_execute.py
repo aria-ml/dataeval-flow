@@ -3,6 +3,7 @@
 __all__ = ["execute"]
 
 import contextlib
+import dataclasses
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -50,8 +51,8 @@ def execute(
         By source, the statistics a chain planned to compute there, each source's
         :attr:`~dataeval_flow.evaluators._producers.ProducerContext.stats_union`. ``None`` outside a chain.
     by : ByConfig or None, optional
-        A chain step's ``by:``: run *evaluator* once per class or class group, on each source's embeddings and labels
-        sliced by key, into one :class:`~dataeval_flow.evaluators.PerClassOutput`. ``None`` runs it once.
+        A chain step's ``by:``: run *evaluator* once per key (class, class group, or predicted class), on each source's
+        rows sliced by key, into one :class:`~dataeval_flow.evaluators.PerClassOutput`. ``None`` runs it once.
 
     Returns
     -------
@@ -74,7 +75,18 @@ def execute(
             output = evaluator.run(config, inputs)
             serialized = serialize_output(output, extras=evaluator.output_extras)
         else:
-            require_one_label_per_item(datasets, inputs)
+            if by.predicted is None:
+                if any(
+                    prepared.predictions is not None and prepared.predictions.rows is not None for prepared in inputs
+                ):
+                    raise ValueError(
+                        "`by: class` keys items, and the model's rows are detections: use `by: predicted`."
+                    )
+                require_one_label_per_item(datasets, inputs)
+            else:
+                # Keys come from the predictions; labels gave only the reference's class names, and a detection
+                # dataset's are per target, which a row mask cannot slice.
+                inputs = [dataclasses.replace(prepared, labels=None) for prepared in inputs]
             output = run_per_class(evaluator, config, inputs, by)
             serialized = serialize_per_class(output, extras=evaluator.output_extras)
         # Recording the output reads its `meta()`, which an output that is not DataEval's may lack or break.

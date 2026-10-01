@@ -63,7 +63,7 @@ def per_class_blocks(
 
     `section` is a key's own section from its JSON, or ``None`` for its output as it came.
     """
-    header = "Group" if serialized.get("key") == "group" else "Class"
+    header = str(serialized.get("key", "class")).capitalize()
     sections = {
         key: section(inner) or output_blocks(dict(inner), detailed=detailed)
         for key, inner in serialized["classes"].items()

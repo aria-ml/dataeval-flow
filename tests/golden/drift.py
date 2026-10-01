@@ -128,7 +128,7 @@ CASES: dict[str, Case] = {
         {"detectors": [{"method": "mmd", "n_permutations": 50, "classwise": True}, {"method": "kneighbors", "k": 3}]},
         {
             "detectors": [{"type": "drift-mmd", **_MMD}, {"type": "drift-kneighbors", "k": 3, **_KNN}],
-            "classwise": ["drift-mmd"],
+            "classwise": {"drift-mmd": "class"},
         },
         {"mmd": "drift-mmd", "kneighbors": "drift-kneighbors"},
     ),
@@ -139,20 +139,20 @@ CASES: dict[str, Case] = {
             "detectors": [
                 {"type": "drift-kneighbors", "k": 3, **_KNN, "chunking": {"chunk_count": 3, "threshold": _ZSCORE}}
             ],
-            "classwise": ["drift-kneighbors"],
+            "classwise": {"drift-kneighbors": "class"},
         },
         {"kneighbors": "drift-kneighbors"},
     ),
     "classwise_boxes": Case(
         _boxes,
         {"detectors": [{"method": "kneighbors", "k": 3, "classwise": True}]},
-        {"detectors": [{"type": "drift-kneighbors", "k": 3, **_KNN}], "classwise": ["drift-kneighbors"]},
+        {"detectors": [{"type": "drift-kneighbors", "k": 3, **_KNN}], "classwise": {"drift-kneighbors": "class"}},
         {"kneighbors": "drift-kneighbors"},
     ),
 }
 
 
 def pipeline(name: str) -> PipelineConfig:
-    """Case `name`'s datasets and flatten extractor on the CPU with seed 0, so the golden holds on a CPU-only runner."""
+    """Case `name`'s datasets and flatten extractor with seed 0. Tests compute on the CPU, as a CPU-only runner does."""
     config = toy_pipeline(datasets=CASES[name].datasets(), extractor=True)
-    return config.model_copy(update={"seed": 0, "device": "cpu"})
+    return config.model_copy(update={"seed": 0})

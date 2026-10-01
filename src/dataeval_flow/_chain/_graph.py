@@ -200,6 +200,7 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
     workflows = {
         workflow.name: workflow for workflow in pipeline.workflows or () if isinstance(workflow, CustomWorkflowConfig)
     }
+    extractors = {extractor.name: extractor for extractor in pipeline.extractors or ()}
     problems: list[str] = []
     owners: dict[str, str] = {export.name: f"export '{export.name}'" for export in pipeline.exports or ()}
     for task in pipeline.tasks or ():
@@ -210,7 +211,7 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
         workflow = workflows.get(task.workflow)
         if workflow is not None:
             problems.extend(binding_problems(task, workflow, pipeline))
-        problems.extend(_task_graph_problems(task, graph, owners))
+        problems.extend(_task_graph_problems(task, graph, owners, extractors))
     return problems
 
 
@@ -237,8 +238,13 @@ def binding_problems(
     return []
 
 
-def _task_graph_problems(task: "TaskConfig", graph: ChainGraph, owners: dict[str, str]) -> list[str]:
-    """A task's problems running one workflow graph: missing extractors, and export destinations already claimed."""
+def _task_graph_problems(
+    task: "TaskConfig", graph: ChainGraph, owners: dict[str, str], extractors: Mapping[str, Any]
+) -> list[str]:
+    """A task's problems running one workflow graph: missing extractors, a model extractor on a step that reads one
+    row per item, and export destinations already claimed."""
+    from dataeval_flow._predictions import runs_model
+
     problems: list[str] = []
     for spec in graph.steps:
         config: Any = spec.config
@@ -248,6 +254,20 @@ def _task_graph_problems(task: "TaskConfig", graph: ChainGraph, owners: dict[str
             problems.append(
                 f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' needs an extractor to "
                 f"produce {kinds}; name one with `extractor:` on the task or the step."
+            )
+        name = spec.extractor or task.extractor
+        model = name if name is not None and runs_model(extractors.get(name)) else None
+        if needs_extractor and model is not None and not config.inputs.detection_rows:
+            problems.append(
+                f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' embeds with `{model}`, "
+                f"which runs a model whose rows may be detections; `{spec.type}` needs one row per item: only drift "
+                "evaluators read it."
+            )
+        if spec.kind == "evaluator" and spec.by is not None and spec.by.predicted is not None and model is None:
+            problems.append(
+                f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' has `by: predicted`, which "
+                "needs a model's predictions: name an `uncertainty` extractor on the step, the task, or a preset's "
+                "detector."
             )
         if issubclass(spec.impl, Transform):
             problems.extend(_export_clashes(task, spec, spec.impl, owners))
@@ -287,7 +307,7 @@ def _resolve(
         read = sorted(config.wanted_kinds() - {InputKind.EMBEDDINGS, InputKind.LABELS}) if entry.by is not None else []
         if read:
             raise GraphError(
-                f"Step '{entry.name}' has `by: class`, which slices embeddings and labels, and `{type_id}` reads "
+                f"Step '{entry.name}' has `by:`, which slices embeddings and labels, and `{type_id}` reads "
                 f"{', '.join(read)}."
             )
     else:
@@ -324,8 +344,8 @@ def _resolve(
     _check_extractor(entry, kind, type_id, config, pipeline)
     by = entry.by
     if kind == "check" and by is not None:
-        # A check's bare `by: class` keys by its input's keys, so it takes the `by:` of the step that made them: by
-        # class, or by group.
+        # A check's bare `by:` keys by its input's keys, so it takes the `by:` of the step that made them: by
+        # class, by group, or by predicted class.
         typed = (_typed(address, entry, workflow, types, later, empty) for b in bindings for address in b.addresses)
         by = next((value.by for value in typed if value.by is not None), by)
     return StepSpec(
@@ -612,11 +632,11 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
         raise GraphError(f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.")
     if value.by is not None and (entry.kind != "check" or entry.by is None):
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, which holds per-class Outputs (`by: class`): only a check with "
-            "`by: class` reads them."
+            f"Step '{entry.name}' reads `{address}`, which holds Outputs per key (`by:`): only a check with "
+            "`by:` reads them."
         )
     if entry.kind == "check" and entry.by is not None and value.by is None:
-        raise GraphError(f"Step '{entry.name}' has `by: class`, but `{address}` holds one Output, not one per class.")
+        raise GraphError(f"Step '{entry.name}' has `by:`, but `{address}` holds one Output, not one per key.")
     if port.is_list and not value.is_list:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes a whole list, but `{address}` "

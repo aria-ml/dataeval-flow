@@ -116,7 +116,9 @@ class DriftUnivariateConfig(EvaluatorConfig[DriftUnivariateResult]):
         default="drift-univariate",
         description="The evaluator type this entry configures: `drift-univariate`.",
     )
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO, detection_rows=True
+    )
 
     method: Literal["ks", "cvm", "mwu", "anderson", "bws"] | None = Field(
         default=None,
@@ -171,7 +173,9 @@ class DriftMMDConfig(EvaluatorConfig[DriftMMDResult]):
     """
 
     type: str = Field(default="drift-mmd", description="The evaluator type this entry configures: `drift-mmd`.")
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO, detection_rows=True
+    )
 
     p_val: float | None = Field(
         default=None,
@@ -218,7 +222,9 @@ class DriftKNeighborsConfig(EvaluatorConfig[DriftKNeighborsResult]):
         default="drift-kneighbors",
         description="The evaluator type this entry configures: `drift-kneighbors`.",
     )
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO, detection_rows=True
+    )
 
     k: int | None = Field(default=None, gt=0, description="Nearest neighbors. Unset uses DataEval's default (10).")
     distance_metric: Literal["cosine", "euclidean"] | None = Field(
@@ -260,7 +266,9 @@ class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
         default="drift-wasserstein",
         description="The evaluator type this entry configures: `drift-wasserstein`.",
     )
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.THREE)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.THREE, detection_rows=True
+    )
 
     ratio_threshold: float | None = Field(
         default=None,
@@ -299,7 +307,9 @@ class DriftDomainClassifierConfig(EvaluatorConfig[DriftDomainClassifierResult]):
         default="drift-domain-classifier",
         description="The evaluator type this entry configures: `drift-domain-classifier`.",
     )
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO, detection_rows=True
+    )
 
     n_folds: int | None = Field(
         default=None, ge=2, description="Cross-validation folds. Unset uses DataEval's default (5)."

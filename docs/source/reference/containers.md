@@ -183,14 +183,18 @@ with others:
     `image_height` and `image_width` **must be set together** (setting only one
     is rejected) and, when both are set, override the model's native input size.
   - `model: torch` **requires** `model_path`; `layer_name` and `use_output` are optional.
-  - `model: uncertainty` **requires** `model_path`; `preds_type`
-    (`probs`/`logits`) is optional.
+  - `model: uncertainty` **requires** `model_path`, `metadata_path` (DataEval's model metadata) and `preds_type`
+    (`logits`, `probs` or `sigmoid`), and `confidence` for a detector;
+    `image_height` and `image_width` are set together, and needed when the model's metadata leaves its input size
+    open; only drift evaluators read it
   - `model: bovw` and `model: flatten` need **no** `model_path`.
 - **Preprocessor references must resolve.** An extractor's `preprocessor` field,
   if set, must name a preprocessor defined in the same configuration.
-- **GPU execution requires a CUDA image and runtime.** Setting the pipeline's
-  `device: cuda:0` requires running a CUDA image variant (`cu126` / `cu130`)
-  with `--gpus all`; on the `cpu` image, models run on CPU regardless.
+- **GPU execution requires a CUDA image and runtime.** Tools compute on a GPU
+  where PyTorch sees one: a CUDA image variant (`cu126` / `cu130`) run with
+  `--gpus all`. The `cpu` image computes on the CPU, and a config names no
+  device. `--gpus device=1` picks a GPU; `-e CUDA_VISIBLE_DEVICES=` keeps a CUDA
+  image on the CPU. Each result's `metadata.device` records the device used.
 - **Metadata-dependent analyses.** Bias, parity, and metadata-insight outputs
   require per-sample metadata factors to be present in the dataset; without them
   those analyses are skipped.

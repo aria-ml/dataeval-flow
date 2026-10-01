@@ -96,6 +96,9 @@ class InputSpec:
     """The kinds a run reads only when its config's values switch them on, through the config's ``wanted_kinds``."""
     dataset_kinds: frozenset[str] | None = None
     """The Dataset kinds this entry reads, from ``dataeval_flow.steps.DATASET_KINDS``; ``None`` reads any."""
+    detection_rows: bool = False
+    """Whether its embeddings may hold one row per detection rather than per item, as an extractor that runs a model
+    (``uncertainty``) gives them. Only the drift evaluators, and drift-monitoring, read such rows."""
 
     @property
     def kinds(self) -> frozenset[InputKind]:

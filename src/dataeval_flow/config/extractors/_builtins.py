@@ -116,25 +116,59 @@ class TorchExtractorConfig(ExtractorConfig):
 
 
 class UncertaintyExtractorConfig(ExtractorConfig):
-    """Extractor config for uncertainty estimation models.
+    """Extractor config for model uncertainty: the normalized entropy of an ONNX classifier's or detector's
+    predictions, one row per image for a classifier and one per detection for a detector.
+
+    Only drift evaluators read it, since a detector's rows are detections rather than items.
 
     YAML example::
 
         extractors:
-          - name: unc_extractor
+          - name: yolo-uncertainty
             model: uncertainty
-            model_path: "./classifier.pt"
-            preds_type: logits
+            model_path: yolo.onnx
+            metadata_path: yolo.json
+            preds_type: sigmoid
+            confidence: 0.25
+            batch_size: 16
     """
 
     model: str = Field(default="uncertainty", description="The extractor this entry configures: `uncertainty`.")
-    model_path: str = Field(description="Path to model file (relative to data root).")
-    preds_type: Literal["probs", "logits"] | None = Field(default=None, description="Model output format.")
+    model_path: str = Field(description="Path to the ONNX model file (relative to data root).")
+    metadata_path: str = Field(
+        description="Path to DataEval's model metadata file (relative to data root): its task, input size and classes."
+    )
+    preds_type: Literal["logits", "probs", "sigmoid"] = Field(
+        description="What the model emits: `logits`, `probs` that sum to 1, or per-class `sigmoid` scores."
+    )
+    confidence: float | None = Field(
+        default=None,
+        description=(
+            "For a detector, and required there: keep each box whose top raw score is at least this. `0` keeps every "
+            "box, padding included."
+        ),
+    )
+    image_height: int | None = Field(
+        default=None,
+        gt=0,
+        description="The model's input height, set with `image_width`; needed where the metadata leaves it open.",
+    )
+    image_width: int | None = Field(
+        default=None,
+        gt=0,
+        description="The model's input width, set with `image_height`; needed where the metadata leaves it open.",
+    )
 
-    @field_validator("model_path")
+    @field_validator("model_path", "metadata_path")
     @classmethod
-    def _model_path_must_be_relative(cls, v: str) -> str:
+    def _paths_must_be_relative(cls, v: str) -> str:
         return validate_config_path(v)
+
+    @model_validator(mode="after")
+    def _image_size_requires_both_dims(self) -> "UncertaintyExtractorConfig":
+        if (self.image_height is None) != (self.image_width is None):
+            raise ValueError("image_height and image_width must be set together to resize model inputs.")
+        return self
 
 
 # --- Extractors ---
@@ -260,17 +294,17 @@ class _TorchExtractor(Extractor[TorchExtractorConfig]):
 
 
 class _UncertaintyExtractor(Extractor[UncertaintyExtractorConfig]):
-    """Reserved for model-uncertainty embeddings; building one is not yet supported."""
+    """Model uncertainty, read through Flow's predictions (``dataeval_flow._predictions``), never through `build`."""
 
     name: ClassVar[str] = "uncertainty"
-    description: ClassVar[str] = "Model prediction uncertainty (not yet implemented)."
+    description: ClassVar[str] = "The normalized entropy of an ONNX classifier's or detector's predictions."
 
     def build(
         self,
         config: UncertaintyExtractorConfig,
         transforms: Callable[[Any], Any] | None,  # noqa: ARG002
     ) -> FeatureExtractor:
-        """Refuse: no DataEval extractor backs this model type yet.
+        """Refuse: Flow's predictions read this extractor, and only drift evaluators reach them.
 
         Raises
         ------
@@ -278,5 +312,6 @@ class _UncertaintyExtractor(Extractor[UncertaintyExtractorConfig]):
             Always.
         """
         raise ValueError(
-            f"Extractor type '{config.model}' is not yet implemented. Currently supported: onnx, bovw, flatten, torch."
+            f"Extractor `{config.name}` runs a model whose rows may be detections: only drift evaluators read it, "
+            "through Flow's predictions."
         )

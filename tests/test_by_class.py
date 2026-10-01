@@ -286,7 +286,9 @@ def test_a_check_with_by_returning_one_finding_per_class_fails_its_step(plugins)
 def test_nothing_assessed_is_not_assessed():
     from dataeval_flow.steps._by import ByConfig, roll_up
 
-    finding = roll_up({}, {"cat": "0 items in `cam1`, fewer than `min_items` 2"}, title="Drifted", by=ByConfig())
+    finding = roll_up(
+        {}, {"cat": "0 items in `cam1`, fewer than `min_items` 2"}, title="Drifted", by=ByConfig.model_validate("class")
+    )
     assert (finding.severity, finding.title, finding.brief) == ("info", "Drifted by class", "not assessed")
 
 
@@ -302,7 +304,7 @@ def test_groups_roll_up_by_group():
 def test_a_per_class_output_is_refused_to_a_check_without_by(plugins):
     register_toys(plugins)
     steps = [{"name": "knn-check", "check": "toy-drifted", "input": "knn"}]
-    with pytest.raises(ValidationError, match="per-class"):
+    with pytest.raises(ValidationError, match="Outputs per key"):
         _run("class", ClassImages({0: 4, 1: 4}), ClassImages({0: 4, 1: 4}, seed=1), steps=steps)
 
 

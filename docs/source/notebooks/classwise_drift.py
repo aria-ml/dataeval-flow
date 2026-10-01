@@ -258,7 +258,7 @@ if not model_path.exists():
 print(f"Extractor model: {model_path}")
 
 # %%
-from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow import PipelineConfig, run_task, set_device
 from dataeval_flow.config import (
     DatasetProtocolConfig,
     PreprocessingStep,
@@ -335,8 +335,9 @@ overall_task = TaskConfig(
     extractor="resnet18",
 )
 
+set_device("cpu")  # the same numbers on a machine with a GPU
+
 overall_config = PipelineConfig(
-    device="cpu",  # the same numbers on a machine with a GPU
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],
@@ -388,7 +389,6 @@ classwise_task = TaskConfig(
 )
 
 classwise_config = PipelineConfig(
-    device="cpu",
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],
@@ -401,7 +401,7 @@ classwise_config = PipelineConfig(
                 DriftMMDConfig(n_permutations=100),
                 DriftUnivariateConfig(method="cvm"),
             ],
-            classwise=["drift-mmd", "drift-univariate"],
+            classwise={"drift-mmd": "class", "drift-univariate": "class"},
             health_thresholds=DriftMonitoringThresholds(drift=DriftThresholds(warn_on_drift=True)),
         ),
     ],
@@ -518,7 +518,6 @@ grouped_task = TaskConfig(
 )
 
 grouped_config = PipelineConfig(
-    device="cpu",
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],

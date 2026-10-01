@@ -25,6 +25,7 @@ from pydantic import (
 from dataeval_flow._blocks._table import DEFAULT_PREVIEW, DEFAULT_ROWS
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._kind import input_problem
+from dataeval_flow._predictions import runs_model
 from dataeval_flow.config._schemas import (
     DatasetConfig,
     DatasetProtocolConfig,
@@ -356,14 +357,6 @@ class PipelineConfig(BaseModel):
             "Improves run-to-run reproducibility on GPU at some cost to performance."
         ),
     )
-    device: str | None = Field(
-        default=None,
-        description=(
-            "The device every tool computes on, such as `cpu`, `cuda` or `cuda:1`. Unset: CUDA when PyTorch sees a "
-            "GPU, otherwise CPU. Applied before each task through DataEval's `set_device`, so it overrides a device a "
-            "Python caller set with `dataeval.config.set_device`."
-        ),
-    )
 
     # Named resource pools
     datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = Field(
@@ -482,6 +475,7 @@ class PipelineConfig(BaseModel):
         """Refuse a task its workflow or evaluator cannot run, before any data is read."""
         workflows = {workflow.name: workflow for workflow in self.workflows or ()}
         evaluators = {evaluator.name: evaluator for evaluator in self.evaluators or ()}
+        extractors = {extractor.name: extractor for extractor in self.extractors or ()}
         for task in self.tasks or ():
             kind = task.kind
             pool = evaluators if kind == "evaluator" else workflows
@@ -496,8 +490,12 @@ class PipelineConfig(BaseModel):
                 if problem is not None:
                     raise ValueError(f"Task '{task.name}' runs workflow '{target.name}', which {problem}")
                 continue
+            extractor = extractors.get(task.extractor) if task.extractor is not None else None
             problem = input_problem(
-                target, source_count=len(task.source_names), has_extractor=task.extractor is not None
+                target,
+                source_count=len(task.source_names),
+                has_extractor=task.extractor is not None,
+                model_extractor=task.extractor if runs_model(extractor) else None,
             )
             if problem is not None:
                 raise ValueError(f"Task '{task.name}' runs {kind} '{target.name}' ({target.type}), which {problem}")

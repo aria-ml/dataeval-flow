@@ -94,8 +94,9 @@ reads a list of addresses.
 
 ## 3. By class, and by group
 
-To see which classes drift, name detectors in the preset's `classwise:`. Each named detector also runs once per
-class, unchunked, as the step `<detector>-classes`, judged by `<detector>-classes-check`:
+To see which classes drift, map detectors to `by:` in the preset's `classwise:`, as `classwise: {drift-mmd: class}`.
+Each mapped detector also runs once per class, unchunked, as the step `<detector>-classes`, judged by
+`<detector>-classes-check`:
 
 ```yaml
 workflows:
@@ -103,7 +104,8 @@ workflows:
     type: drift-monitoring
     detectors:
       - {type: drift-mmd}
-    classwise: [drift-mmd]
+    classwise:
+      drift-mmd: class
 ```
 
 A class is tested only where the reference and the test source each hold at least 2 items of it. A class too small for
@@ -180,7 +182,8 @@ workflows:
     type: drift-monitoring
     detectors:
       - {type: drift-mmd}
-    classwise: [drift-mmd]
+    classwise:
+      drift-mmd: class
 
   - name: object_drift
     inputs: [reference, {name: tests, list: true}]
@@ -216,6 +219,71 @@ together, against how many were tested. The univariate detector's `correction` d
 the embedding's features within one test, not across classes or sources. Repeat a surprising result on new data before
 you act on it. The [classwise drift tutorial](../notebooks/classwise_drift.py) shows a run where five of 24 classes
 flag, three of them the ones that were degraded.
+
+## 6. Drift in a model's uncertainty
+
+Embeddings say whether the images changed. A deployed model's uncertainty says whether the model still knows them, and
+it needs no labels: when the model is less sure on incoming data than on its validation data, the data has moved away
+from what it learned. The `uncertainty` extractor runs an ONNX classifier or detector and gives each prediction's
+normalized entropy, one column, which a drift detector tests.
+
+```yaml
+extractors:
+  - name: yolo-uncertainty
+    model: uncertainty
+    model_path: yolo.onnx
+    metadata_path: yolo.json   # DataEval's model metadata: task, input size, class count
+    preds_type: sigmoid
+    confidence: 0.25
+    batch_size: 16
+
+workflows:
+  - name: drift
+    type: drift-monitoring
+    detectors:
+      - {type: drift-mmd}
+      - name: uncertainty
+        type: drift-univariate
+        extractor: yolo-uncertainty
+        chunking: {chunk_count: 5}
+    classwise:
+      uncertainty: predicted
+```
+
+- **`preds_type`** says what the model emits: `logits`, `probs` that sum to 1, or per-class `sigmoid` scores, as
+  YOLO-family detectors emit. Check the export: `logits` given probabilities fails silently, squashing every entropy.
+- **`image_height` and `image_width`** are set together, and needed when the model's metadata leaves its input size
+  open.
+- **A classifier gives one row per image. A detector gives one row per box** whose top score is at least `confidence`.
+  The model returns a fixed number of boxes per image, padding included, so a detector needs `confidence`; `0` keeps
+  every box, and caches every one.
+- **Only drift reads it.** A detector's rows are detections, not images, so load refuses the extractor on any other
+  evaluator. A detector entry's own `extractor:` lets one task mix it with the task's embeddings.
+- **Chunks hold whole images.** `chunk_size` and `chunk_count` count images, and a chunk whose images hold no
+  detections is listed as not assessed. The section says how many detections each source held, in how many images.
+- **`by: predicted`** keys rows by the class the model predicts, which unlabelled data allows. A detection counts toward
+  every class whose sigmoid score is at least `threshold` (default 0.99) of its top one, and `min_items` counts
+  detections. Classes are named by the reference's `index2label` where its ids are the model's outputs, `0` to `n − 1`,
+  which holds when the reference is the model's validation data; otherwise they are named by index.
+- **Caveats.** Detections in one image are correlated, so p-values read optimistic, as they do for crops. A
+  preprocessor that returns floats must return them in [0, 1]: DataEval scales only integer images.
+
+DataEval's own examples test uncertainty with `drift-wasserstein`, against a validation baseline. drift-monitoring takes
+no validation source, so run it as a step of a custom workflow:
+
+```yaml
+evaluators:
+  - {name: wasserstein, type: drift-wasserstein}
+
+workflows:
+  - name: uncertainty_wasserstein
+    inputs: [reference, validation, {name: tests, list: true}]
+    steps:
+      - name: w
+        evaluator: wasserstein
+        input: [reference, validation, tests]
+        extractor: yolo-uncertainty
+```
 
 ## See also
 

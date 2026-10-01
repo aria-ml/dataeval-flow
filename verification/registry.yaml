@@ -210,7 +210,8 @@ test_cases:
       - Version string is set and valid (not "unknown")
       - All public symbols listed in __all__ are importable
       - The top-level __all__ is exactly the front door (load_config, load_dataset, run, run_task,
-        run_tasks, PipelineConfig, Result, ResultMetadata, InputSpec, InputKind, SourceCount, __version__)
+        run_tasks, set_device, PipelineConfig, Result, ResultMetadata, InputSpec, InputKind, SourceCount,
+        __version__)
       - py.typed marker is present
 
   "1-2":
@@ -289,7 +290,7 @@ test_cases:
       - TorchExtractorConfig constructs with a dotted-path target
       - OnnxExtractorConfig constructs with a model path
       - BoVWExtractorConfig constructs with default params
-      - UncertaintyExtractorConfig constructs with default params
+      - UncertaintyExtractorConfig constructs with its required fields
       - All extractor configs are exported from dataeval_flow.config.extractors.__all__
 
   "5-1":

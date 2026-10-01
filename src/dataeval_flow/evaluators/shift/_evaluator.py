@@ -65,8 +65,14 @@ def detect_drift(
 ) -> DriftOutput[Any]:
     """Fit `detector` on the first source and predict on the last, chunked where `chunking` says so.
 
-    A middle source, which only ``drift-wasserstein`` takes, is its validation set, fitted beside the reference.
+    A middle source, which only ``drift-wasserstein`` takes, is its validation set, fitted beside the reference. Rows
+    that are detections, from a detector's predictions, are chunked by whole images instead (``_rows``).
     """
+    made = inputs[0].predictions
+    if made is not None and made.rows is not None:
+        from dataeval_flow.evaluators.shift._rows import detect_drift_by_image
+
+        return detect_drift_by_image(detector, chunking, inputs)
     reference, *validation, test = (require(i.embeddings, "embeddings", i.source) for i in inputs)
     fitted = detector.chunked(**chunked_arguments(chunking)) if chunking is not None else detector
     return fitted.fit(reference, *validation).predict(test)

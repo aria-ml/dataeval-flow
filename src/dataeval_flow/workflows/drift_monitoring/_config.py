@@ -1,11 +1,11 @@
 """The ``drift-monitoring`` preset's config: its detectors, which run by class, and when a finding warns."""
 
-__all__ = ["DriftMonitoringConfig", "DriftMonitoringThresholds"]
+__all__ = ["DriftMonitoringConfig", "DriftMonitoringThresholds", "evaluator_entry"]
 
 from collections.abc import Mapping
 from typing import Annotated, Any, ClassVar, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, field_validator, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators.shift import (
@@ -14,16 +14,58 @@ from dataeval_flow.evaluators.shift import (
     DriftMMDConfig,
     DriftUnivariateConfig,
 )
+from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps.checks._drift import DriftThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
 
-_DETECTORS: dict[str, type[BaseModel]] = {
+_BASES: dict[str, type[BaseModel]] = {
     "drift-univariate": DriftUnivariateConfig,
     "drift-mmd": DriftMMDConfig,
     "drift-kneighbors": DriftKNeighborsConfig,
     "drift-domain-classifier": DriftDomainClassifierConfig,
 }
+_EXTRACTOR = "An `extractors:` entry this detector's steps embed with, instead of the task's."
+
+
+class DriftUnivariateDetector(DriftUnivariateConfig):
+    """A `drift-univariate` detector: its evaluator entry, and the extractor its steps embed with."""
+
+    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+
+
+class DriftMMDDetector(DriftMMDConfig):
+    """A `drift-mmd` detector: its evaluator entry, and the extractor its steps embed with."""
+
+    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+
+
+class DriftKNeighborsDetector(DriftKNeighborsConfig):
+    """A `drift-kneighbors` detector: its evaluator entry, and the extractor its steps embed with."""
+
+    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+
+
+class DriftDomainClassifierDetector(DriftDomainClassifierConfig):
+    """A `drift-domain-classifier` detector: its evaluator entry, and the extractor its steps embed with."""
+
+    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+
+
+_DETECTORS: dict[str, type[BaseModel]] = {
+    "drift-univariate": DriftUnivariateDetector,
+    "drift-mmd": DriftMMDDetector,
+    "drift-kneighbors": DriftKNeighborsDetector,
+    "drift-domain-classifier": DriftDomainClassifierDetector,
+}
+
+
+def evaluator_entry(detector: Any) -> Any:
+    """A detector's evaluator entry: its drift config without `extractor`, which DataEval's drift detectors would
+    take as their own argument."""
+    return _BASES[detector.type].model_validate(detector.model_dump(exclude={"extractor"}))
+
+
 _RESERVED = ("-check", "-classes", "-unchunked")
 
 
@@ -43,11 +85,22 @@ def _detector_entry(entry: Any) -> Any:
         )
     if type_id not in _DETECTORS:
         raise ValueError(f"`detectors:` takes {', '.join(_DETECTORS)} entries, not `{type_id}`.")
-    return _DETECTORS[type_id].model_validate(entry) if isinstance(entry, Mapping) else entry
+    return _DETECTORS[type_id].model_validate(entry if isinstance(entry, Mapping) else entry.model_dump())
 
 
+# Typed callers may pass a drift config; the validator turns either into its detector entry, and the detector members
+# carry `extractor` into the schema.
 DriftDetector = Annotated[
-    SerializeAsAny[DriftUnivariateConfig | DriftMMDConfig | DriftKNeighborsConfig | DriftDomainClassifierConfig],
+    SerializeAsAny[
+        DriftUnivariateDetector
+        | DriftMMDDetector
+        | DriftKNeighborsDetector
+        | DriftDomainClassifierDetector
+        | DriftUnivariateConfig
+        | DriftMMDConfig
+        | DriftKNeighborsConfig
+        | DriftDomainClassifierConfig
+    ],
     BeforeValidator(_detector_entry),
 ]
 
@@ -74,7 +127,8 @@ class DriftMonitoringConfig(WorkflowConfig[ChainResult]):
             detectors:
               - {type: drift-mmd}
               - {name: ks, type: drift-univariate, chunking: {chunk_count: 5}}
-            classwise: [drift-mmd]
+            classwise:
+              drift-mmd: class
     """
 
     type: str = Field(
@@ -84,21 +138,36 @@ class DriftMonitoringConfig(WorkflowConfig[ChainResult]):
         required=frozenset({InputKind.EMBEDDINGS}),
         optional=frozenset({InputKind.LABELS}),
         sources=SourceCount.TWO_OR_MORE,
+        detection_rows=True,
     )
     detectors: list[DriftDetector] = Field(
         min_length=1,
         description=(
             "Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), "
-            "each tested on every test source against the reference. An entry's `name` names its step."
+            "each tested on every test source against the reference. An entry's `name` names its step. "
+            "An entry may name its own `extractor:`."
         ),
     )
-    classwise: list[str] = Field(
-        default_factory=list,
-        description="Names of detectors to also run per class, unchunked, on classes with 2 or more items each side.",
+    # Values also accept "class" / "predicted" strings, validated into ByConfig.
+    classwise: dict[str, ByConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, "
+            "`{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written."
+        ),
     )
     health_thresholds: DriftMonitoringThresholds = Field(
         default_factory=DriftMonitoringThresholds, description="When findings warn, keyed by check type."
     )
+
+    @field_validator("classwise", mode="before")
+    @classmethod
+    def _mapping(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            raise ValueError(
+                "`classwise:` maps each detector to its `by:`, such as `{drift-mmd: class}`; the list form is gone."
+            )
+        return value
 
     @model_validator(mode="after")
     def _names(self) -> Self:

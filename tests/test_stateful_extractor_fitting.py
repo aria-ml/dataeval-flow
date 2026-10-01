@@ -103,7 +103,7 @@ def _pipeline() -> tuple[TaskConfig, PipelineConfig]:
         datasets=[DatasetProtocolConfig(name=name, dataset=dataset) for name, dataset in data.items()],
         sources=[SourceConfig(name=name, dataset=name) for name in data],
         extractors=[RecordingConfig(name="rec", batch_size=BATCH)],
-        workflows=[DriftMonitoringConfig(name="drift", detectors=[DriftMMDConfig()], classwise=["drift-mmd"])],
+        workflows=[DriftMonitoringConfig(name="drift", detectors=[DriftMMDConfig()], classwise={"drift-mmd": "class"})],  # type: ignore[arg-type]
         tasks=[task],
     )
     return task, config

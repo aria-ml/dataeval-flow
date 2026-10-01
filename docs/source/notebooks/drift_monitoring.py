@@ -221,7 +221,7 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 # operational data always merges its remainder into its last window.
 
 # %%
-from dataeval_flow import run_task
+from dataeval_flow import run_task, set_device
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import (
     ChunkedDriftConfig,
@@ -241,10 +241,11 @@ drift_task = TaskConfig(
 
 chunking = ChunkedDriftConfig(chunk_size=50, incomplete="append", threshold=("zscore", 4.0))
 
-# `device` pins the computation to the CPU, so the numbers below reproduce on a machine with a GPU too.
+# Computing on the CPU makes the numbers below reproduce on a machine with a GPU too.
+set_device("cpu")
+
 config = PipelineConfig(
     seed=0,
-    device="cpu",
     datasets=[reference_dataset, operational_dataset],
     sources=[
         SourceConfig(name="ref_src", dataset="reference"),
@@ -355,7 +356,6 @@ control_task = TaskConfig(
 
 control_config = PipelineConfig(
     seed=0,
-    device="cpu",
     datasets=[reference_dataset],
     views=[
         ViewConfig(
@@ -534,7 +534,7 @@ print(json_str[:600] + "\n...")
 # %% [markdown]
 # ## Next steps
 #
-# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise=[...]`
+# - **Classwise drift**: Use [Detect classwise drift](classwise_drift) with `classwise={detector: "class"}`
 #   to identify which target classes drive the drift signal.
 # - **Alternative detectors**: Test alternative statistical detectors such as `drift-domain-classifier`
 #   or Kolmogorov-Smirnov (`ks`), and see [Monitor drift with steps](../how_to/monitor_drift.md) to merge test sources or drift on crops.

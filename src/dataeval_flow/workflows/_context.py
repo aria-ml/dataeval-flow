@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from dataeval_flow._cache import DatasetCache
     from dataeval_flow._policy import ResolvedPolicy
+    from dataeval_flow._predictions import Predictions
     from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.config._schemas import ViewOperation
     from dataeval_flow.config.extractors._base import ExtractorConfig
@@ -253,6 +254,36 @@ class WorkflowContext:
             raise ValueError(f"Source {source!r} has no extractor; name one on the task with `extractor:`.")
         with self._cached(source) as dataset:
             return get_or_compute_embeddings(dataset, dc.extractor, dc.transforms, dc.batch_size)
+
+    def predictions(self, source: str) -> "Predictions":
+        """The source's extractor's model run over every item in the source, cached: each row's class scores and the
+        item it came from.
+
+        Parameters
+        ----------
+        source : str
+            One of :attr:`sources`.
+
+        Returns
+        -------
+        Predictions
+            The model's predictions over :meth:`dataset`.
+
+        Raises
+        ------
+        KeyError
+            When *source* is not one of :attr:`sources`.
+        ValueError
+            When the source's extractor runs no model.
+        """
+        from dataeval_flow._cache import get_or_compute_predictions
+        from dataeval_flow._predictions import runs_model
+
+        dc = self._source(source)
+        if not runs_model(dc.extractor):
+            raise ValueError(f"Source {source!r} has no model to predict with; name an `uncertainty` extractor.")
+        with self._cached(source) as dataset:
+            return get_or_compute_predictions(dataset, dc.extractor, dc.transforms, dc.batch_size)
 
     def clusters(
         self, source: str, *, algorithm: "Literal['kmeans', 'hdbscan'] | None" = None, n_clusters: int | None = None

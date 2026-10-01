@@ -83,7 +83,7 @@ import threading
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import polars as pl
@@ -96,6 +96,7 @@ if TYPE_CHECKING:
     from dataeval import Metadata
 
     from dataeval_flow._policy import ResolvedPolicy
+    from dataeval_flow._predictions import Predictions
     from dataeval_flow._stats import ResolvedStatsPolicy
 
 _logger = logging.getLogger(__name__)
@@ -297,13 +298,16 @@ def _extractor_config_key(extractor_config: Any) -> str:
     The Pydantic ``model_dump_json`` only serializes config fields (path,
     layer name, etc.) — not the model weights.  If the user retrains and
     overwrites the file at the same path, the JSON is identical but the
-    embeddings should differ.  We append a content hash of the model file
+    embeddings should differ.  We append a content hash of the model file and the metadata file's
     so the cache key changes when the weights change.
     """
     config_json = extractor_config.model_dump_json(exclude_defaults=False)
     model_path = getattr(extractor_config, "model_path", None)
     if model_path is not None:
         config_json += f"|file_hash={_file_content_hash(model_path)}"
+    metadata_path = getattr(extractor_config, "metadata_path", None)
+    if metadata_path is not None:
+        config_json += f"|metadata_hash={_file_content_hash(metadata_path)}"
     return config_json
 
 
@@ -779,6 +783,33 @@ def get_or_compute_embeddings(
     )
 
 
+def get_or_compute_predictions(
+    dataset: AnnotatedDataset[Any],
+    extractor_config: Any,
+    transforms: Any = None,
+    batch_size: int | None = None,
+) -> "Predictions":
+    """A model's predictions over `dataset`, with context-aware caching, as :func:`get_or_compute_embeddings` caches
+    embeddings."""
+    from dataeval_flow._predictions import compute_predictions
+
+    ctx = _active_cache.get()
+    if ctx is None:
+        _logger.info("Computing predictions (no cache)")
+        return compute_predictions(dataset, extractor_config, transforms, batch_size)
+    cache, sel_key = ctx
+    transforms_key = repr(transforms) if transforms is not None else "none"
+    return cache.load_or_compute_predictions(
+        sel_key,
+        _extractor_config_key(extractor_config),
+        transforms_key,
+        dataset,
+        extractor_config,
+        transforms,
+        batch_size,
+    )
+
+
 def get_or_compute_cluster_result(
     embeddings: NDArray[Any],
     algorithm: Literal["kmeans", "hdbscan"],
@@ -1090,6 +1121,56 @@ class DatasetCache:
         array = _do_compute_embeddings(dataset, extractor_config, transforms, batch_size, selection=selection)
         self.save_embeddings(selection_repr, extractor_config_json, transforms_repr, array)
         return array
+
+    def _predictions_path(self, selection_repr: str, extractor_config_json: str, transforms_repr: str) -> Path | None:
+        sel_dir = self._selection_dir(selection_repr)
+        if sel_dir is None:
+            return None
+        return sel_dir / f"predictions_{_config_hash(extractor_config_json + '|' + transforms_repr)}.npz"
+
+    def load_or_compute_predictions(
+        self,
+        selection_repr: str,
+        extractor_config_json: str,
+        transforms_repr: str,
+        dataset: AnnotatedDataset[Any],
+        extractor_config: Any,
+        transforms: Any = None,
+        batch_size: int | None = None,
+    ) -> "Predictions":
+        """Load a model's cached predictions, or compute, cache and return them.
+
+        The scores and each row's item are stored in one ``.npz`` beside the selection's embeddings; the rest follows
+        from the config, which the key holds.
+        """
+        from dataeval_flow._predictions import Predictions, compute_predictions
+
+        obj_key = f"predictions_{_config_hash(extractor_config_json + '|' + transforms_repr)}"
+        cached = self._mem_get(selection_repr, obj_key)
+        if cached is not None:
+            return cached
+        path = self._predictions_path(selection_repr, extractor_config_json, transforms_repr)
+        if path is not None and path.exists():
+            try:
+                with np.load(path, allow_pickle=False) as stored:
+                    predictions = Predictions.from_arrays(dict(stored), extractor_config)
+                _logger.info("Cache hit: predictions for %s/%s", self._dataset_name, selection_repr)
+                self._mem_set(selection_repr, obj_key, predictions)
+                return predictions
+            except Exception:
+                _logger.warning(
+                    "Failed to load predictions from cache for %s/%s — recomputing",
+                    self._dataset_name,
+                    selection_repr,
+                    exc_info=True,
+                )
+        _logger.info("Computing predictions for %s/%s", self._dataset_name, selection_repr)
+        predictions = compute_predictions(dataset, extractor_config, transforms, batch_size)
+        self._mem_set(selection_repr, obj_key, predictions)
+        if path is not None:
+            arrays = cast("dict[str, Any]", predictions.to_arrays())
+            _atomic_write(path, lambda p: np.savez(p, **arrays), suffix=".npz")
+        return predictions
 
     # =====================================================================
     # Cluster results (.npz)

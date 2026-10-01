@@ -94,8 +94,8 @@ class ResultMetadata(BaseModel):
 
     Every result carries one as ``metadata``: the envelope's version and timestamp, the tool that made it, the
     datasets, views, extractor and configuration the run read, and how its metadata was encoded. Once the run
-    returns, Flow fills in ``dataset_id``, ``source_descriptions``, ``tool_version``, ``execution_time_s`` and
-    ``resolved_config``, and, where they apply, the view, extractor, label and diagnostics fields. The encoding
+    returns, Flow fills in ``dataset_id``, ``source_descriptions``, ``tool_version``, ``execution_time_s``, ``device``
+    and ``resolved_config``, and, where they apply, the view, extractor, label and diagnostics fields. The encoding
     fields are the workflow's to set. ``to_dict()`` and ``export()`` write the envelope under ``metadata``.
 
     Subclassing
@@ -152,6 +152,14 @@ class ResultMetadata(BaseModel):
     tool: str = Field(default="dataeval-flow", description="The tool that made the result.")
     tool_version: str = Field(default="", description="The version of dataeval-flow that made the result.")
     execution_time_s: float | None = Field(default=None, description="How long the run took, in seconds.")
+    device: str | None = Field(
+        default=None,
+        description=(
+            "The device the run computed on: `cpu`, or a GPU's index and model, such as `cuda:0 (NVIDIA L4)`. Set by "
+            "`dataeval_flow.set_device`, else CUDA where PyTorch sees a GPU. Models served through ONNX Runtime run "
+            "where it finds a provider, which this does not record."
+        ),
+    )
     metadata_binning: dict[str, Any] | None = Field(
         default=None,
         description=(

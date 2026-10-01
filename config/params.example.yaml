@@ -34,14 +34,6 @@
 # deterministic: false    # force PyTorch deterministic algorithms (slower)
 
 # -----------------------------------------------------------------------------
-# DEVICE (optional)
-# -----------------------------------------------------------------------------
-# The device every tool computes on. Unset: CUDA when PyTorch sees a GPU,
-# otherwise CPU. Applied before each task.
-#
-# device: cuda:0          # cpu | cuda | cuda:0 | etc.
-
-# -----------------------------------------------------------------------------
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:
@@ -217,8 +209,10 @@
 #
 #   - name: uncertainty_extractor
 #     model: uncertainty
-#     model_path: "./classifier.pt"
-#     preds_type: probs                # probs | logits
+#     model_path: detector.onnx
+#     metadata_path: detector.json   # DataEval's model metadata: task, input size, class count
+#     preds_type: sigmoid            # logits, probs or sigmoid
+#     confidence: 0.25               # a detector only: keep boxes whose top score is at least this
 
 # -----------------------------------------------------------------------------
 # ONTOLOGIES — Named label spaces, referenced by workflows
@@ -290,7 +284,7 @@
 #         chunking:                   # optional temporal drift analysis
 #           chunk_size: 500           # or chunk_count; the reference needs >= 3 chunks
 #           incomplete: keep          # keep | drop | append the reference's short final chunk
-#     classwise: [drift-univariate]   # detectors to also run per class, unchunked (requires one label per item)
+#     classwise: {drift-univariate: class}   # detectors to also run per key, unchunked: class or predicted
 #     health_thresholds:
 #       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 #

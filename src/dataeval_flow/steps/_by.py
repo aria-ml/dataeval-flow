@@ -1,9 +1,12 @@
-"""`by:`: a step run once per class, or per group of classes, inside one Output (spec §5.9)."""
+"""`by:`: a step run once per class, or group of classes, by label or by a model's prediction.
 
-__all__ = ["ByConfig", "ClassKeys", "roll_up"]
+See spec §5.9 and uncertainty-drift spec §5.
+"""
+
+__all__ = ["ByConfig", "ClassKeys", "PredictedKeys", "roll_up"]
 
 from collections.abc import Mapping, Sequence
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
@@ -36,35 +39,72 @@ class ClassKeys(BaseModel):
         return groups
 
 
+class PredictedKeys(ClassKeys):
+    """How `by: predicted` keys rows: by each class a model predicts, or by named groups of them."""
+
+    threshold: float = Field(
+        default=0.99,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "A row counts toward every class whose sigmoid score is at least this share of its largest, DataEval's "
+            "rule; `1.0` takes the top class only."
+        ),
+    )
+
+
 class ByConfig(BaseModel):
-    """A step's `by:`. Written `by: class`, or `by: {class: {groups: ..., min_items: ...}}`."""
+    """A step's `by:`. Written `by: class` or `by: predicted`, or with settings, `by: {class: {groups: ...}}`."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    class_: ClassKeys = Field(default_factory=ClassKeys, alias="class", description="Key items by their class.")
+    class_: ClassKeys | None = Field(default=None, alias="class", description="Key items by their class.")
+    predicted: PredictedKeys | None = Field(
+        default=None, description="Key rows by the class a model predicts: needs an `uncertainty` extractor."
+    )
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> Any:
+        """The object form, or the bare `class` or `predicted` that `_shorthand` reads."""
+        return {"anyOf": [{"enum": ["class", "predicted"], "type": "string"}, handler(core_schema)]}
 
     @model_validator(mode="before")
     @classmethod
     def _shorthand(cls, value: Any) -> Any:
-        if value == "class" or (isinstance(value, Mapping) and "class" in value and value["class"] is None):
-            return {"class": {}}
+        if value in ("class", "predicted"):
+            return {value: {}}
+        if isinstance(value, Mapping):
+            return {key: {} if inner is None else inner for key, inner in value.items()}
         return value
+
+    @model_validator(mode="after")
+    def _one_kind(self) -> "ByConfig":
+        if (self.class_ is None) == (self.predicted is None):
+            raise ValueError("`by:` keys by exactly one of `class` or `predicted`.")
+        return self
 
     @model_serializer(mode="plain")
     def _as_written(self) -> Any:
-        if self.class_ == ClassKeys():
-            return "class"
-        return {"class": self.class_.model_dump(exclude_defaults=True)}
+        kind = "class" if self.class_ is not None else "predicted"
+        keys = self.keys
+        return kind if keys == type(keys)() else {kind: keys.model_dump(exclude_defaults=True)}
 
     @property
-    def label(self) -> Literal["class", "group"]:
-        """What one key is: a class, or a group of classes."""
-        return "group" if self.class_.groups is not None else "class"
+    def keys(self) -> ClassKeys:
+        """The written kind's settings: its groups and `min_items`, and for `predicted`, its `threshold`."""
+        return cast(ClassKeys, self.class_ if self.class_ is not None else self.predicted)
+
+    @property
+    def label(self) -> str:
+        """What one key is: `class`, `group`, `predicted class` or `predicted group`."""
+        noun = "group" if self.keys.groups is not None else "class"
+        return f"predicted {noun}" if self.predicted is not None else noun
 
     @property
     def plural(self) -> str:
-        """`classes` or `groups`."""
-        return "groups" if self.class_.groups is not None else "classes"
+        """`classes`, `groups`, `predicted classes` or `predicted groups`."""
+        noun = "groups" if self.keys.groups is not None else "classes"
+        return f"predicted {noun}" if self.predicted is not None else noun
 
 
 _ORDER: tuple[Literal["ok", "info", "warning"], ...] = ("ok", "info", "warning")

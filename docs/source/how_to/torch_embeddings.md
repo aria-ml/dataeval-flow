@@ -53,17 +53,21 @@ classifier head when the head itself is what you want to bypass.
 
 ## Select a device
 
-The device is chosen once for the whole pipeline, not per extractor. Set it at the top level of the config:
+The device is chosen once for the whole run, not per extractor, and by the machine rather than the config: DataEval
+Flow computes on CUDA when PyTorch sees a GPU and on the CPU otherwise. Each result's `metadata.device` records the
+device its task ran on.
 
-```yaml
-device: cuda:0     # or cpu
+To choose, hide or pick GPUs with `CUDA_VISIBLE_DEVICES`: empty runs on the CPU, and `1` on the second GPU. From
+Python, `set_device` chooses for every task run after it:
+
+```python
+from dataeval_flow import set_device
+
+set_device("cuda:1")  # or "cpu"; None returns to the default
 ```
 
-Unset, DataEval Flow computes on CUDA when PyTorch sees a GPU and on CPU otherwise.
-
-Setting `device: cuda:0` requires a CUDA image variant (`cu126` / `cu130`) run with `--gpus all`. On the `cpu` image
-the model runs on CPU regardless of this field. A GPU is not required — it only speeds up extraction, and matters
-most on embedding-heavy workflows over large datasets.
+A GPU needs a CUDA image variant (`cu126` / `cu130`) run with `--gpus all`; the `cpu` image computes on the CPU. A GPU
+is not required — it only speeds up extraction, and matters most on embedding-heavy workflows over large datasets.
 
 ## Add preprocessing
 
