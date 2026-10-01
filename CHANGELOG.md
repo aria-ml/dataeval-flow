@@ -120,7 +120,6 @@
 
 - An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
   policy pins the edges
-
 - `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
   older `metadata_*` fields stay on the workflows that took them
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
