@@ -186,7 +186,7 @@ with others:
   - `model: uncertainty` **requires** `model_path`, `metadata_path` (DataEval's model metadata) and `preds_type`
     (`logits`, `probs` or `sigmoid`), and `confidence` for a detector;
     `image_height` and `image_width` are set together, and needed when the model's metadata leaves its input size
-    open; only drift evaluators read it
+    open; only drift and OOD evaluators read it
   - `model: bovw` and `model: flatten` need **no** `model_path`.
 - **Preprocessor references must resolve.** An extractor's `preprocessor` field,
   if set, must name a preprocessor defined in the same configuration.

@@ -1,14 +1,14 @@
 """Drift over rows that are detections: chunks of whole images, chunks without detections left out, and what was
 compared (uncertainty-drift spec §4.3, §4.4, §7)."""
 
-__all__ = ["DriftRowsOutput", "detect_drift_by_image", "image_chunks"]
+__all__ = ["DriftRowsOutput", "OODRowsOutput", "detect_drift_by_image", "detect_ood_by_image", "image_chunks"]
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-from dataeval.shift import DriftOutput
+from dataeval.shift import DriftOutput, OODOutput
 
 from dataeval_flow.evaluators._fields import require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
@@ -27,6 +27,21 @@ class DriftRowsOutput(DriftOutput[Any]):
     ``rows`` holds ``unit`` (``"detections"``), ``compared`` and ``images`` (per source, its rows and the images they
     came from), ``confidence``, and, chunked, ``chunk_images`` (each assessed chunk's first and last image, in
     ``details`` order) and ``unassessed`` (each chunk left out: its source, first and last image, and why).
+    """
+
+    rows: Mapping[str, Any] | None = None
+
+
+@dataclass(frozen=True, repr=False)
+class OODRowsOutput(OODOutput):
+    """DataEval's ``OODOutput`` for rows that are detections, judged per test image, with what was compared under
+    ``rows``.
+
+    ``is_ood`` and ``instance_score`` hold one value per test image: an image is out of distribution when any of its
+    detections is, and scores as its most out-of-distribution detection. An image with no detection is not assessed:
+    unflagged, its score ``NaN``. ``rows`` holds ``unit`` (``"detections"``), ``confidence``, ``compared`` and
+    ``images`` (per source, its detections and the images they came from), ``detections`` (each test detection's
+    ``image``, ``score`` and ``is_ood``, in row order) and ``unassessed`` (the test images with no detection).
     """
 
     rows: Mapping[str, Any] | None = None
@@ -111,6 +126,44 @@ def detect_drift_by_image(
     facts["chunk_images"] = [[int(chunk[0]), int(chunk[-1])] for chunk, _ in test_kept]
     facts["unassessed"] = reference_left + test_left
     return _with_rows(output, facts)
+
+
+def detect_ood_by_image(detector: Any, inputs: Sequence[EvaluatorInputs]) -> OODRowsOutput:
+    """Fit `detector` on the reference's detections and flag the test source's, then judge each test image by its
+    detections.
+
+    Raises
+    ------
+    ValueError
+        When a source holds no detection at the confidence: there is nothing to fit, or nothing to assess.
+    """
+    predictions = [require(prepared.predictions, "predictions", prepared.source) for prepared in inputs]
+    reference, test = (require(prepared.embeddings, "embeddings", prepared.source) for prepared in inputs)
+    confidence = predictions[0].confidence
+    for prepared, made in zip(inputs, predictions, strict=True):
+        if len(made.scores) == 0:
+            raise ValueError(f"No detections at `confidence` ≥ {confidence} in `{prepared.source}`.")
+    flagged = detector.fit(reference).predict(test)
+    images = cast("NDArray[np.intp]", predictions[-1].rows)
+    count = predictions[-1].items
+    is_ood = np.zeros(count, dtype=bool)
+    np.logical_or.at(is_ood, images, flagged.is_ood)
+    scores = np.full(count, np.nan, dtype=np.float32)
+    np.fmax.at(scores, images, flagged.instance_score.astype(np.float32))
+    facts: dict[str, Any] = {
+        "unit": "detections",
+        "confidence": confidence,
+        "compared": {prepared.source: len(made.scores) for prepared, made in zip(inputs, predictions, strict=True)},
+        "images": {prepared.source: made.items for prepared, made in zip(inputs, predictions, strict=True)},
+        "detections": [
+            {"image": int(image), "score": float(score), "is_ood": bool(ood)}
+            for image, score, ood in zip(images, flagged.instance_score, flagged.is_ood, strict=True)
+        ],
+        "unassessed": sorted(set(range(count)) - set(images.tolist())),
+    }
+    made = OODRowsOutput(is_ood=is_ood, instance_score=scores, feature_score=None, rows=facts)
+    object.__setattr__(made, "_meta", flagged.meta())
+    return made
 
 
 def _groups(

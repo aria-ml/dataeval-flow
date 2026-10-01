@@ -119,7 +119,7 @@ class UncertaintyExtractorConfig(ExtractorConfig):
     """Extractor config for model uncertainty: the normalized entropy of an ONNX classifier's or detector's
     predictions, one row per image for a classifier and one per detection for a detector.
 
-    Only drift evaluators read it, since a detector's rows are detections rather than items.
+    Only drift and OOD evaluators read it, since a detector's rows are detections rather than items.
 
     YAML example::
 
@@ -304,7 +304,7 @@ class _UncertaintyExtractor(Extractor[UncertaintyExtractorConfig]):
         config: UncertaintyExtractorConfig,
         transforms: Callable[[Any], Any] | None,  # noqa: ARG002
     ) -> FeatureExtractor:
-        """Refuse: Flow's predictions read this extractor, and only drift evaluators reach them.
+        """Refuse: Flow's predictions read this extractor, and only drift and OOD evaluators reach them.
 
         Raises
         ------
@@ -312,6 +312,6 @@ class _UncertaintyExtractor(Extractor[UncertaintyExtractorConfig]):
             Always.
         """
         raise ValueError(
-            f"Extractor `{config.name}` runs a model whose rows may be detections: only drift evaluators read it, "
-            "through Flow's predictions."
+            f"Extractor `{config.name}` runs a model whose rows may be detections: only drift and OOD evaluators read "
+            "it, through Flow's predictions."
         )

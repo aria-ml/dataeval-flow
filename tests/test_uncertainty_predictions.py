@@ -194,5 +194,5 @@ def test_both_paths_resolve_against_the_data_root(tmp_path):
 def test_the_embeddings_path_refuses_it_naming_drift():
     from dataeval_flow._embeddings import build_embeddings
 
-    with pytest.raises(ValueError, match="only drift evaluators"):
+    with pytest.raises(ValueError, match="only drift and OOD evaluators"):
         build_embeddings(MagicMock(), _config())

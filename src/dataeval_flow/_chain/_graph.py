@@ -261,7 +261,13 @@ def _task_graph_problems(
             problems.append(
                 f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' embeds with `{model}`, "
                 f"which runs a model whose rows may be detections; `{spec.type}` needs one row per item: only drift "
-                "evaluators read it."
+                "and OOD evaluators read it."
+            )
+        rows_problem = config.model_rows_problem() if needs_extractor and model is not None else None
+        if rows_problem is not None and config.inputs.detection_rows:
+            problems.append(
+                f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' embeds with `{model}`, "
+                f"and `{spec.type}` {rows_problem}"
             )
         if spec.kind == "evaluator" and spec.by is not None and spec.by.predicted is not None and model is None:
             problems.append(

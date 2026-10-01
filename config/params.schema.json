@@ -5527,7 +5527,7 @@
     },
     "OODDomainClassifierConfig": {
       "additionalProperties": false,
-      "description": "Config for ``ood-domain-classifier``, DataEval's OODDomainClassifier.\n\nTrains a classifier to tell each test item from the reference under repeated cross-validation, and flags the\nitems it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-domain-classifier`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_ood\n        type: ood-domain-classifier\n        n_repeats: 10",
+      "description": "Config for ``ood-domain-classifier``, DataEval's OODDomainClassifier.\n\nTrains a classifier to tell each test item from the reference under repeated cross-validation, and flags the\nitems it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.\n\nOn the `uncertainty` extractor's rows from a detector, it judges each test image by its detections (ood-detection\nspec \u00a77).\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-domain-classifier`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: classifier_ood\n        type: ood-domain-classifier\n        n_repeats: 10",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -5618,7 +5618,7 @@
     },
     "OODKNeighborsConfig": {
       "additionalProperties": false,
-      "description": "Config for ``ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: ood-kneighbors\n        distance_metric: euclidean",
+      "description": "Config for ``ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nOn the `uncertainty` extractor's rows from a detector, it judges each test image by its detections (ood-detection\nspec \u00a77).\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: ood-kneighbors\n        distance_metric: euclidean",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -8804,7 +8804,7 @@
     },
     "UncertaintyExtractorConfig": {
       "additionalProperties": false,
-      "description": "Extractor config for model uncertainty: the normalized entropy of an ONNX classifier's or detector's\npredictions, one row per image for a classifier and one per detection for a detector.\n\nOnly drift evaluators read it, since a detector's rows are detections rather than items.\n\nYAML example::\n\n    extractors:\n      - name: yolo-uncertainty\n        model: uncertainty\n        model_path: yolo.onnx\n        metadata_path: yolo.json\n        preds_type: sigmoid\n        confidence: 0.25\n        batch_size: 16",
+      "description": "Extractor config for model uncertainty: the normalized entropy of an ONNX classifier's or detector's\npredictions, one row per image for a classifier and one per detection for a detector.\n\nOnly drift and OOD evaluators read it, since a detector's rows are detections rather than items.\n\nYAML example::\n\n    extractors:\n      - name: yolo-uncertainty\n        model: uncertainty\n        model_path: yolo.onnx\n        metadata_path: yolo.json\n        preds_type: sigmoid\n        confidence: 0.25\n        batch_size: 16",
       "properties": {
         "name": {
           "description": "Identifier for the extractor, referenced by tasks. Defaults to its `model`.",
