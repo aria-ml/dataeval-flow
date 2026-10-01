@@ -88,6 +88,22 @@ def test_a_class_missing_from_the_test_source_is_skipped_as_zero_items():
     assert _knn(result).output.skipped == {"bird": "0 items in `tests[cam1]`, fewer than `min_items` 2"}
 
 
+def test_a_class_whose_run_raises_is_skipped_with_its_error_and_the_rest_still_run():
+    # `k` is 3, so a class of 3 reference items is too small for `drift-kneighbors`, which raises.
+    result = _run("class", ClassImages({0: 12, 1: 12, 2: 3}), ClassImages({0: 12, 1: 12, 2: 3}, seed=1))
+    element = _knn(result)
+    assert element.status == "ok"
+    assert list(element.output.outputs) == ["cat", "dog"]
+    assert list(element.output.skipped) == ["bird"]
+    assert "k (3) must be less than" in element.output.skipped["bird"]
+
+
+def test_every_class_raising_fails_the_step_with_the_first_error():
+    element = _knn(_run("class", ClassImages({0: 3, 1: 3}), ClassImages({0: 3, 1: 3}, seed=1)))
+    assert element.status == "failed"
+    assert "k (3) must be less than" in element.errors[0]
+
+
 def test_groups_key_by_name_may_overlap_and_list_classes_in_no_group():
     by = {"class": {"groups": {"pets": ["cat", "dog"], "felines": [0]}}}
     data = ClassImages({0: 12, 1: 12, 2: 12})

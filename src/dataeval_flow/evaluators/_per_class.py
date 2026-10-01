@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from dataeval_flow._result import failure_message
 from dataeval_flow.evaluators._core import execution
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators._serialize import serialize_output
@@ -108,13 +109,24 @@ def split_keys(inputs: Sequence[EvaluatorInputs], by: "ByConfig") -> tuple[dict[
 def run_per_class(
     evaluator: "Evaluator[Any, Any]", config: Any, inputs: Sequence[EvaluatorInputs], by: "ByConfig"
 ) -> PerClassOutput:
-    """Call `evaluator` once per key, on each input's items of that key."""
+    """Call `evaluator` once per key, on each input's items of that key.
+
+    A key whose run raises is skipped with its error, and the other keys still run; when every key raises, the first
+    error is raised.
+    """
     started, clock = datetime.now(UTC), time.monotonic()
     masks, skipped = split_keys(inputs, by)
-    outputs = {
-        key: evaluator.run(config, [_sliced(prepared, mask) for prepared, mask in zip(inputs, per_input, strict=True)])
-        for key, per_input in masks.items()
-    }
+    outputs: dict[str, Any] = {}
+    errors: list[Exception] = []
+    for key, per_input in masks.items():
+        sliced = [_sliced(prepared, mask) for prepared, mask in zip(inputs, per_input, strict=True)]
+        try:
+            outputs[key] = evaluator.run(config, sliced)
+        except Exception as error:  # noqa: BLE001 - a key it cannot run, such as a class too small, is skipped
+            errors.append(error)
+            skipped[key] = failure_message(error)
+    if errors and not outputs:
+        raise errors[0]
     meta = execution(f"{evaluator.name} by {by.label}", started, time.monotonic() - clock, {"by": by.model_dump()})
     return PerClassOutput(outputs, skipped, label=by.label, meta=meta)
 

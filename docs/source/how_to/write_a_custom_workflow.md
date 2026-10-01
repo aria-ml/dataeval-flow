@@ -514,6 +514,8 @@ Notice:
   skipped.
 - With several inputs, a key runs only where every input holds at least `min_items` of it, 2 unless you set it.
   Otherwise the key is skipped, and the Output says why.
+- A key whose run raises, such as a class too small for the evaluator, is skipped with its error, and the other keys
+  still run. The step fails only when every key raises.
 - The step's output is a `PerClassOutput`: `outputs` holds each key's own Output, and `skipped` holds each key left
   out with its reason. Only a check with `by:` can read it.
 - A check's `by: class` takes no settings, since its keys come from the step it reads. It runs once for each key and

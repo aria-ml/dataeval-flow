@@ -117,8 +117,9 @@
   such as a speed of zero is left in, with a note to decide. `metadata-issues` shows it as a "Recommended policy"
   finding that opens with a caveat: a policy read from unrepresentative data can give invalid or misleading results
 - `by: class` on an evaluate step runs its evaluator once per class, or per named group of classes, on the classes
-  with `min_items` items in every input, in one Output that names each class it left out and why. On a check, it
-  judges each class and rolls the findings into one, briefed `2/8 classes warn`
+  with `min_items` items in every input, in one Output that names each class it left out and why. A class whose run
+  raises is left out with its error, and the step fails only when every class raises. On a check, it judges each
+  class and rolls the findings into one, briefed `2/8 classes warn`
 - `drift`, a check: a warning when a drift evaluator finds drift or, chunked, when `chunk_percent` of the chunks
   drift or `consecutive_chunks` drift in a row
 - The drift evaluators' results have a report section: the verdict's fields, or one row per chunk
