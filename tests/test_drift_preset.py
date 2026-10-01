@@ -185,3 +185,13 @@ def test_one_task_mixes_extractors_by_class_and_by_predicted_class(tmp_path, mon
     assert element(result, "drift-kneighbors-classes").output.label == "class"
     assert element(result, "u-classes").output.label == "predicted class"
     assert set(element(result, "u-classes").output.outputs) <= {"cat", "dog", "bird"}
+
+
+def test_a_detectors_extractor_the_pipeline_does_not_define_is_refused_at_load():
+    entry = {
+        "name": "drift",
+        "type": "drift-monitoring",
+        "detectors": [{"name": "u", "type": "drift-univariate", "extractor": "ghost"}],
+    }
+    with pytest.raises(ValueError, match=r"'u'.*extractor 'ghost'.*does not define"):
+        chain_pipeline(workflows=[entry], datasets={"reference": BoxImages(), "cam1": BoxImages()}, extractor=True)
