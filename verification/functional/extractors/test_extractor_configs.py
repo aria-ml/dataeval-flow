@@ -34,7 +34,9 @@ class TestExtractorConfigs:
         assert cfg.model == "bovw"
 
     def test_uncertainty_extractor_config_constructs(self) -> None:
-        cfg = UncertaintyExtractorConfig(name="unc_ex", model_path="classifier.pt")
+        cfg = UncertaintyExtractorConfig(
+            name="unc_ex", model_path="classifier.onnx", metadata_path="classifier.json", preds_type="logits"
+        )
         assert cfg.model == "uncertainty"
 
     def test_all_extractor_configs_exported(self) -> None:

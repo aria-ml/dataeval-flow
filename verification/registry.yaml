@@ -289,7 +289,7 @@ test_cases:
       - TorchExtractorConfig constructs with a dotted-path target
       - OnnxExtractorConfig constructs with a model path
       - BoVWExtractorConfig constructs with default params
-      - UncertaintyExtractorConfig constructs with default params
+      - UncertaintyExtractorConfig constructs with its required fields
       - All extractor configs are exported from dataeval_flow.config.extractors.__all__
 
   "5-1":
