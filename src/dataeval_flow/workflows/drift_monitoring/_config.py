@@ -88,14 +88,20 @@ def _detector_entry(entry: Any) -> Any:
     return _DETECTORS[type_id].model_validate(entry if isinstance(entry, Mapping) else entry.model_dump())
 
 
+# Typed callers may pass a drift config; the validator turns either into its detector entry, and the detector members
+# carry `extractor` into the schema.
 DriftDetector = Annotated[
-    SerializeAsAny[DriftUnivariateConfig | DriftMMDConfig | DriftKNeighborsConfig | DriftDomainClassifierConfig],
-    BeforeValidator(
-        _detector_entry,
-        json_schema_input_type=(
-            DriftUnivariateDetector | DriftMMDDetector | DriftKNeighborsDetector | DriftDomainClassifierDetector
-        ),
-    ),
+    SerializeAsAny[
+        DriftUnivariateDetector
+        | DriftMMDDetector
+        | DriftKNeighborsDetector
+        | DriftDomainClassifierDetector
+        | DriftUnivariateConfig
+        | DriftMMDConfig
+        | DriftKNeighborsConfig
+        | DriftDomainClassifierConfig
+    ],
+    BeforeValidator(_detector_entry),
 ]
 
 
