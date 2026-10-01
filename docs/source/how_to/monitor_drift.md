@@ -106,14 +106,14 @@ workflows:
     classwise: [drift-mmd]
 ```
 
-A class is tested only where the reference and the test source each hold at least 2 items of it. A class too small
-for the detector, such as one with no more reference items than `drift-kneighbors`'s `k`, is left out with the
-detector's error. The step lists a class it leaves out under `skipped`, with the reason, and the report names it. The by-class finding is one finding
-for the source, titled `Drift (MMD) by class`, briefed such as `2/8 classes warn`, and it names the classes that
-warned. In Python, `result.steps["drift-mmd-classes"].elements["cam1"].output` is a `PerClassOutput`: its `outputs`
-holds each class's `DriftOutput`, by class name, and its `skipped` holds each class's reason. Detection data has no
-single label per item, so the by-class step is skipped for it with that reason. Section 4 shows how to run it on
-crops.
+A class is tested only where the reference and the test source each hold at least 2 items of it. A class too small for
+the detector, such as one with no more reference items than `drift-kneighbors`'s `k`, is left out with the detector's
+error. The step lists a class it leaves out under `skipped`, with the reason, and the report names it. The by-class
+finding is one finding for the source, titled `Drift (MMD) by class`, briefed such as `2/8 classes warn`, and it names
+the classes that warned. In Python, `result.steps["drift-mmd-classes"].elements["cam1"].output` is a `PerClassOutput`:
+its `outputs` holds each class's `DriftOutput`, by class name, and its `skipped` holds each class's reason. Detection
+data has no single label per item, so the by-class step is skipped for it with that reason. Section 4 shows how to run
+it on crops.
 
 A custom workflow takes the same machinery on any evaluate step or check, with `by:`. `by: class` runs the step once
 per class, and `groups:` runs it once per group of classes instead:
