@@ -143,7 +143,11 @@ def build_findings(data: Mapping[str, Any], max_examples: int) -> list[Finding]:
             Finding(
                 severity="info",
                 title="Recommended policy",
-                brief=f"pins {pinned} factor{'' if pinned == 1 else 's'} as read from this data",
+                brief=(
+                    f"pins {pinned} factor{'' if pinned == 1 else 's'} as read from this data"
+                    if pinned
+                    else "completes the suggested corrections"
+                ),
                 blocks=[Paragraph(text=CAVEAT), Code(text=recommended.rstrip("\n"), language="yaml")],
             )
         )

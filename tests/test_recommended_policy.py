@@ -18,6 +18,7 @@ from dataeval_flow._blocks import Code, Paragraph
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._policy import ResolvedPolicy
 from dataeval_flow._recommend import CAVEAT, complete_stanza, pinned_count, recommend, render_recommendation
+from dataeval_flow._triage_report import build_findings
 from dataeval_flow.evaluators.quality._triage import read_back
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline
@@ -186,6 +187,15 @@ def test_a_dropped_value_says_it_was_dropped_by_default() -> None:
 def test_a_held_value_says_it_was_not_dropped() -> None:
     text = render_recommendation({"factor_levels": {"weather": ["clear"]}}, {"factors": {}}, {}, held={"speed": [0.0]})
     assert "  # not dropped: decide whether speed's 0.0 is a marker or a reading" in text.splitlines()
+
+
+def test_a_dropped_value_is_escaped_in_its_comment() -> None:
+    completed, dropped = complete_stanza(
+        {"corrections": [{"kind": "remap", "factor": "f", "rules": [{"match": "a\nb'c", "to": None}]}]}
+    )
+    text = render_recommendation(completed, {"factors": {}}, dropped)
+    assert yaml.safe_load(text)["metadata"][0]["corrections"][0]["rules"][0]["match"] == "a\nb'c"
+    assert '# dropped by default: decide what "a\\nb\'c" means' in text
 
 
 def test_a_sentinel_rule_is_not_said_to_be_dropped() -> None:
@@ -414,6 +424,13 @@ def test_metadata_issues_shows_the_recommendation_last_with_its_caveat_first() -
     assert isinstance(code, Code)
     assert code.language == "yaml"
     assert code.text == _data(result)["recommended_policy_yaml"].rstrip("\n")
+
+
+def test_a_recommendation_that_pins_nothing_is_briefed_as_completing_corrections() -> None:
+    recommended = {"corrections": [{"kind": "remap", "factor": "no", "rules": [{"match": "N", "to": math.nan}]}]}
+    data = {"recommended_policy": recommended, "recommended_policy_yaml": "metadata: []\n"}
+    (finding,) = [f for f in build_findings(data, 3) if f.title == "Recommended policy"]
+    assert finding.brief == "completes the suggested corrections"
 
 
 def test_a_failed_recommendation_is_a_warning() -> None:

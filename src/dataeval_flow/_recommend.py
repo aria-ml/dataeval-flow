@@ -151,7 +151,7 @@ def _mark_drops(body: dict[str, Any], dropped: Mapping[str, Sequence[Any]]) -> d
                 continue
             if rule.get("match") in dropped.get(correction["factor"], ()):
                 mark = _DROP_MARK.format(len(notes))
-                notes[mark] = f".nan  # dropped by default: decide what '{rule['match']}' means"
+                notes[mark] = f".nan  # dropped by default: decide what {rule['match']!r} means"
                 rule["to"] = mark
     return notes
 

@@ -2,8 +2,8 @@
 
 Flow's own evaluator over DataEval's ``Metadata``: it describes how each factor was read, finds what the run could not
 read as configured (``dataeval_flow._triage``), and, with ``verify``, reads the metadata back under the suggestions,
-which ``Metadata.repair`` does without a second walk, and a policy that pins every factor the run left unpinned, read
-back under the completed suggestions.
+which ``Metadata.repair`` does without a second walk. It also recommends a policy: the suggestions completed, plus a
+pin for every factor the run left unpinned, read back under them.
 """
 
 __all__ = ["FactorTriageEvaluator", "describe", "places", "read_back", "verify"]
@@ -48,7 +48,8 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "repair"}
 
     def run(self, config: FactorTriageConfig, inputs: Sequence[EvaluatorInputs]) -> FactorTriageOutput:
-        """Describe the source's metadata, find what it failed to read, suggest repairs, and verify them."""
+        """Describe the source's metadata, find what it failed to read, suggest repairs, verify them, and recommend a
+        policy."""
         (source,) = inputs
         metadata = require(source.metadata, "metadata", source.source)
         policy = source.metadata_policy or ResolvedPolicy()
