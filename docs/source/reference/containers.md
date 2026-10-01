@@ -190,9 +190,11 @@ with others:
   - `model: bovw` and `model: flatten` need **no** `model_path`.
 - **Preprocessor references must resolve.** An extractor's `preprocessor` field,
   if set, must name a preprocessor defined in the same configuration.
-- **GPU execution requires a CUDA image and runtime.** Setting the pipeline's
-  `device: cuda:0` requires running a CUDA image variant (`cu126` / `cu130`)
-  with `--gpus all`; on the `cpu` image, models run on CPU regardless.
+- **GPU execution requires a CUDA image and runtime.** Tools compute on a GPU
+  where PyTorch sees one: a CUDA image variant (`cu126` / `cu130`) run with
+  `--gpus all`. The `cpu` image computes on the CPU, and a config names no
+  device. `--gpus device=1` picks a GPU; `-e CUDA_VISIBLE_DEVICES=` keeps a CUDA
+  image on the CPU. Each result's `metadata.device` records the device used.
 - **Metadata-dependent analyses.** Bias, parity, and metadata-insight outputs
   require per-sample metadata factors to be present in the dataset; without them
   those analyses are skipped.

@@ -18,6 +18,8 @@ from dataeval_flow.steps._workflow import CustomWorkflowConfig
 _logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    import torch
+
     from dataeval_flow._chain._run import ChainRun, ExtractorSetup
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._result import Result
@@ -333,21 +335,79 @@ def _apply_seed(config: "PipelineConfig") -> None:
     )
 
 
-def _apply_device(config: "PipelineConfig") -> None:
-    """Set the device every tool computes on, through DataEval's device configuration (decision 25).
+_chosen_device: "torch.device | None" = None
 
-    The pipeline's ``device`` when set, else CUDA when PyTorch sees a GPU, else CPU. Applied per task, as the seed is,
-    so a task's device does not depend on what ran before it.
+
+def set_device(device: "str | torch.device | None") -> None:
+    """Choose the device every tool computes on, for each task Flow runs from now on.
+
+    ``None`` returns to Flow's own choice, the default: CUDA when PyTorch sees a GPU, otherwise the CPU. The machine
+    decides the device, so a pipeline config names none; hide the GPU with ``CUDA_VISIBLE_DEVICES`` to run a config
+    on the CPU without code. Each result's ``metadata.device`` records the device its task ran on.
+
+    Flow applies the device before each task through DataEval's ``set_device``, so it overrides a device set with
+    ``dataeval.config.set_device``. Models served through ONNX Runtime are not moved: they run where ONNX Runtime
+    finds a provider, and ``CUDA_VISIBLE_DEVICES`` is what keeps them off a GPU.
+
+    Parameters
+    ----------
+    device : str, torch.device or None
+        Such as ``"cpu"``, ``"cuda"`` or ``"cuda:1"``.
+
+    Raises
+    ------
+    ValueError
+        Where PyTorch knows no such device, or cannot see the GPU it names.
+
+    Examples
+    --------
+    >>> from dataeval_flow import set_device
+    >>> set_device("cpu")
+    >>> set_device(None)
     """
     import torch
-    from dataeval.config import set_device
 
-    device = config.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    global _chosen_device
+    if device is None:
+        _chosen_device = None
+        return
     try:
-        set_device(device)
-    except (RuntimeError, ValueError) as error:
-        raise ValueError(f"`device: {device}` is not a device PyTorch knows: {error}") from error
-    _logger.info("Computing on device %s", device)
+        chosen = torch.device(device)
+    except (RuntimeError, TypeError) as error:
+        raise ValueError(f"{device!r} is not a device PyTorch knows: {error}") from error
+    visible = torch.cuda.device_count() if torch.cuda.is_available() else 0
+    if chosen.type == "cuda" and (chosen.index or 0) >= visible:
+        raise ValueError(
+            f"PyTorch sees no `{chosen}`: it sees {visible} GPU{'' if visible == 1 else 's'}. A CPU-only install or "
+            "image sees none, and so does a container run without `--gpus`."
+        )
+    _chosen_device = chosen
+
+
+def _device_name(device: "torch.device") -> str:
+    """A device as a result records it: ``cpu``, or a GPU's index and model, as ``cuda:0 (NVIDIA L4)``."""
+    import torch
+
+    if device.type != "cuda":
+        return str(device)
+    index = torch.cuda.current_device() if device.index is None else device.index
+    return f"cuda:{index} ({torch.cuda.get_device_name(index)})"
+
+
+def _apply_device() -> str:
+    """Set the device every tool computes on, through DataEval's device configuration, and name it.
+
+    The device chosen with :func:`set_device`, else CUDA when PyTorch sees a GPU, else CPU. Applied per task, as the
+    seed is, so a task's device does not depend on what ran before it.
+    """
+    import torch
+    from dataeval.config import set_device as set_dataeval_device
+
+    device = _chosen_device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    set_dataeval_device(device)
+    name = _device_name(device)
+    _logger.info("Computing on %s", name)
+    return name
 
 
 def _run_single_task(
@@ -384,7 +444,7 @@ def _run_single_task(
     # 0. Seed every stochastic component [CR-7-S-1] and set the compute device. Both are applied
     #    per task rather than once per pipeline so a task's result does not depend on what ran before it.
     _apply_seed(config)
-    _apply_device(config)
+    _apply_device()
 
     # 1. Normalize sources to list
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)
@@ -857,6 +917,8 @@ def _populate_result_metadata(
     ontology: "ResolvedOntology | None" = None,
 ) -> None:
     """Fill in the JATIC metadata envelope from resolved source/extractor context."""
+    from dataeval.config import get_device
+
     from dataeval_flow import __version__
     from dataeval_flow._sources import label_space_records
 
@@ -868,6 +930,8 @@ def _populate_result_metadata(
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
     result.metadata.execution_time_s = round(elapsed, 3)
+    # The device this task applied before it ran, as `_apply_device` named it.
+    result.metadata.device = _device_name(get_device())
 
     # Every view a source reads through, operands first. A merge's conform views define
     # the label space, so leaving them out would drop what the result was read under.

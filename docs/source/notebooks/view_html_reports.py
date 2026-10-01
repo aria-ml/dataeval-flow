@@ -51,7 +51,7 @@ from pathlib import Path
 
 from maite_datasets.object_detection import MILCO
 
-from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow import PipelineConfig, run_tasks, set_device
 from dataeval_flow.config import (
     CocoDatasetConfig,
     MetadataPolicyConfig,
@@ -73,9 +73,10 @@ MILCO(root=data_root, image_set="train", as_datamaite=True)
 MILCO(root=data_root, image_set="operational", as_datamaite=True)
 
 # %%
+set_device("cpu")  # the same numbers on a machine with a GPU
+
 config = PipelineConfig(
     seed=0,
-    device="cpu",
     # `original_id` numbers each frame, so it names the frames rather than describing them.
     metadata=[MetadataPolicyConfig(name="milco", exclude=["original_id"])],
     datasets=[

@@ -154,7 +154,7 @@ def run_uncertainty(
         workflows=[workflow],
         evaluators=evaluators,
         datasets=datasets,
-        extra={"device": "cpu", "extractors": [uncertainty, *extractors], **(extra or {})},
+        extra={"extractors": [uncertainty, *extractors], **(extra or {})},
     )
     task = TaskConfig(name="t", workflow=workflow["name"], sources=list(datasets), extractor=task_extractor)
     result = run_task(task, config, data_dir=tmp_path, cache_dir=tmp_path / "cache" if cache else None)

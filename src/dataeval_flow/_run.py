@@ -60,10 +60,8 @@ def run(
     The data is checked against what `config` consumes before anything runs. The run then goes through
     :func:`~dataeval_flow.run_task` as a one-task pipeline, so it returns what that pipeline's task would.
 
-    The compute device is chosen for each task: CUDA where PyTorch sees a GPU, otherwise the CPU. The pipeline sets no
-    device, so this choice overrides one set with ``dataeval.config.set_device``. To choose it, give
-    :func:`~dataeval_flow.run_task` a :class:`~dataeval_flow.PipelineConfig` with ``device:``, or hide the GPU with
-    ``CUDA_VISIBLE_DEVICES``.
+    The compute device is the one chosen with :func:`~dataeval_flow.set_device`, else CUDA where PyTorch sees a GPU,
+    otherwise the CPU. It is applied before each task, so it overrides one set with ``dataeval.config.set_device``.
 
     Parameters
     ----------

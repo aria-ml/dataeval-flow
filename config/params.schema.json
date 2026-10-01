@@ -9206,19 +9206,6 @@
       "title": "Deterministic",
       "type": "boolean"
     },
-    "device": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "The device every tool computes on, such as `cpu`, `cuda` or `cuda:1`. Unset: CUDA when PyTorch sees a GPU, otherwise CPU. Applied before each task through DataEval's `set_device`, so it overrides a device a Python caller set with `dataeval.config.set_device`.",
-      "title": "Device"
-    },
     "datasets": {
       "anyOf": [
         {

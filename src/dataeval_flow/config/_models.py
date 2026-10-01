@@ -357,14 +357,6 @@ class PipelineConfig(BaseModel):
             "Improves run-to-run reproducibility on GPU at some cost to performance."
         ),
     )
-    device: str | None = Field(
-        default=None,
-        description=(
-            "The device every tool computes on, such as `cpu`, `cuda` or `cuda:1`. Unset: CUDA when PyTorch sees a "
-            "GPU, otherwise CPU. Applied before each task through DataEval's `set_device`, so it overrides a device a "
-            "Python caller set with `dataeval.config.set_device`."
-        ),
-    )
 
     # Named resource pools
     datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = Field(

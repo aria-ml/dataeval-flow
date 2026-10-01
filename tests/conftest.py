@@ -24,6 +24,19 @@ def _clear_dataeval_env(monkeypatch: pytest.MonkeyPatch):
             monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _on_cpu():
+    """Compute on the CPU, as CI does, so a verdict does not depend on the machine's GPU."""
+    from dataeval.config import set_device as set_dataeval_device
+
+    from dataeval_flow import set_device
+
+    set_device("cpu")
+    yield
+    set_device(None)
+    set_dataeval_device(None)
+
+
 @pytest.fixture
 def plugins(monkeypatch: pytest.MonkeyPatch):
     """Serve entry points from a dict of group -> [(name, value)], resetting every registry around the test.

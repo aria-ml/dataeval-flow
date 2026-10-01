@@ -13,9 +13,6 @@ from tests.chain_toys import chain_pipeline
 from tests.drift_toys import BoxImages
 from tests.evaluator_toys import ToyImages
 
-# Verdicts below hold on the CPU; an unset device runs on CUDA where torch sees it, and CI has none.
-_CPU = {"device": "cpu"}
-
 
 def _chain(**settings: Any) -> tuple[list[Mapping[str, Any]], list[Any]]:
     """The steps and evaluator entries an entry with `settings` expands to."""
@@ -68,7 +65,7 @@ def _preset_run(datasets: dict[str, Any], **settings: Any) -> ChainResult:
         "detectors": [{"type": "drift-kneighbors", "k": 3}],
         **settings,
     }
-    config = chain_pipeline(workflows=[entry], datasets=datasets, extractor=True, extra=_CPU)
+    config = chain_pipeline(workflows=[entry], datasets=datasets, extractor=True)
     result = run_task(TaskConfig(name="t", workflow="drift", sources=list(datasets), extractor="flat"), config)
     assert isinstance(result, ChainResult)
     return result
@@ -133,7 +130,7 @@ def test_the_crop_recipe_runs_the_preset_on_detections():
         ],
     }
     datasets = {"reference": BoxImages(40), "cam1": BoxImages(40, seed=1, bright=True)}
-    config = chain_pipeline(workflows=[preset, recipe], datasets=datasets, extractor=True, extra=_CPU)
+    config = chain_pipeline(workflows=[preset, recipe], datasets=datasets, extractor=True)
     task = TaskConfig(name="t", workflow="object_drift", sources=["reference", "cam1"], extractor="flat")
     # The binning record reads the crops' metadata, where DataEval bins the `source_id` DetectionCrops adds to each.
     with pytest.warns(UserWarning, match="`source_id` was binned automatically"):

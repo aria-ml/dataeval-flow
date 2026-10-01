@@ -12,6 +12,7 @@ PUBLIC_API = [
     "run",
     "run_task",
     "run_tasks",
+    "set_device",
     "PipelineConfig",
     "Result",
     "ResultMetadata",

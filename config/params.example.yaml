@@ -34,14 +34,6 @@
 # deterministic: false    # force PyTorch deterministic algorithms (slower)
 
 # -----------------------------------------------------------------------------
-# DEVICE (optional)
-# -----------------------------------------------------------------------------
-# The device every tool computes on. Unset: CUDA when PyTorch sees a GPU,
-# otherwise CPU. Applied before each task.
-#
-# device: cuda:0          # cpu | cuda | cuda:0 | etc.
-
-# -----------------------------------------------------------------------------
 # LOGGING (optional)
 # -----------------------------------------------------------------------------
 # logging:

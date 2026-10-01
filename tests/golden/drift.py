@@ -153,6 +153,6 @@ CASES: dict[str, Case] = {
 
 
 def pipeline(name: str) -> PipelineConfig:
-    """Case `name`'s datasets and flatten extractor on the CPU with seed 0, so the golden holds on a CPU-only runner."""
+    """Case `name`'s datasets and flatten extractor with seed 0. Tests compute on the CPU, as a CPU-only runner does."""
     config = toy_pipeline(datasets=CASES[name].datasets(), extractor=True)
-    return config.model_copy(update={"seed": 0, "device": "cpu"})
+    return config.model_copy(update={"seed": 0})

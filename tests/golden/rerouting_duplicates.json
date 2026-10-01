@@ -25,6 +25,7 @@
       "name": "dataeval.quality._duplicates.Duplicates.from_stats"
     },
     "dataset_id": "toy",
+    "device": "cpu",
     "diagnostics": [],
     "encoding_digest": null,
     "evaluator": "duplicates",

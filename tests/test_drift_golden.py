@@ -19,8 +19,8 @@ that answers it. Deliberate differences from the legacy run (spec §10.3 item 3)
   an unchunked copy of the entry by class, and `classwise_chunked` compares its classes with legacy's.
 - **Classwise on detection or unlabelled data is reported "not assessed"**, where legacy skipped it with only a log
   line. In `classwise_boxes`, the by-class run is skipped and its check makes an info finding.
-- **`update_strategy`, `device` and the summary line are gone.** `update_strategy` was never applied, the pipeline
-  sets the device, and the chain's findings replace the summary.
+- **`update_strategy`, `device` and the summary line are gone.** `update_strategy` was never applied, Flow sets
+  the device, and the chain's findings replace the summary.
 
 A detector that raises fails its step and the task, where legacy recorded it and still succeeded. No toy here makes
 one raise, so `tests/test_drift_preset.py` pins it.
@@ -42,7 +42,7 @@ _ORDER = ("ok", "info", "warning")
 
 
 def _run(name: str) -> ChainResult:
-    """Case `name` through the preset, or through its custom workflow, with the golden's seed and device."""
+    """Case `name` through the preset, or through its custom workflow, with the golden's seed."""
     case = CASES[name]
     workflow = case.custom or {"name": "drift", "type": "drift-monitoring", **case.preset}
     task = {"name": "t", "workflow": workflow["name"], "sources": list(case.datasets()), "extractor": "flat"}

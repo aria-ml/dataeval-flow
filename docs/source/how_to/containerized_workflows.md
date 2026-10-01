@@ -101,7 +101,6 @@ reference-by-name** pattern with these sections:
 | `tasks` | Yes | Lightweight composition — references a workflow, sources, and optional extractor |
 | `seed` | No | Seed for every stochastic component of the run |
 | `deterministic` | No | Force PyTorch deterministic algorithms (only meaningful alongside `seed`) |
-| `device` | No | Device every tool computes on; unset picks CUDA when PyTorch sees it, else CPU |
 | `logging` | No | App and library log levels |
 
 The legacy `selections` / `selection` / `steps` keys are still accepted as deprecated
@@ -463,6 +462,10 @@ docker run --rm --gpus all \
     --mount type=bind,source="$(pwd)/workspace/cache",target=/cache \
     harbor.jatic.net/aria/dataeval-flow:latest-cu130
 ```
+
+The image and the GPUs it sees decide the device, not the config: tools compute on a GPU where PyTorch sees one, and
+on the CPU otherwise. `--gpus device=1` runs on the second GPU, and `-e CUDA_VISIBLE_DEVICES=` keeps a CUDA image on
+the CPU. Each result's `metadata.device` records the device its task ran on.
 
 ### Specifying a config file
 
