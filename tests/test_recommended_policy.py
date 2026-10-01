@@ -275,7 +275,9 @@ def _data(result: ChainResult) -> dict[str, Any]:
 
 
 def _record(result: ChainResult) -> dict[str, Any]:
-    return result.metadata.metadata_binning
+    binning = result.metadata.metadata_binning
+    assert binning is not None
+    return binning
 
 
 def test_the_recommendation_pins_a_derived_cut_by_its_edges() -> None:
