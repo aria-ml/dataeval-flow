@@ -49,6 +49,7 @@ _TITLES = {
     "view": "View",
     "wrap": "Wrap",
     "classwise-outliers": "Outliers by Class",
+    "ood-union": "OOD Agreement",
     "data-analysis": "Data Analysis",
     "data-cleaning": "Data Cleaning",
     "data-coverage": "Data Coverage",

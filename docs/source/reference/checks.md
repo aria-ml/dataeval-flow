@@ -19,9 +19,11 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
+| `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
+| `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
 
 ## How thresholds work
 
@@ -150,6 +152,18 @@ level, and with both `null` the finding is `info`.
 | `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images flagged at which the finding warns |
 | `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
 
+### `ood-agreement`
+
+Whether OOD detectors agree. The aggregate finding judges the percent of assessed test images every detector flagged,
+as `ood` judges its percent, and a second, `info` finding counts the images one detector alone flagged, where any
+did. Configured by {py:class}`~dataeval_flow.steps.checks.OODAgreementConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | An `ood-union` Output |
+| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images every detector flagged at which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
+
 ## Combines
 
 ### `classwise-outliers`
@@ -167,6 +181,20 @@ and a share of the class, most flagged first, and the total. Configured by
 On a detection Dataset it refuses outliers not computed per box (`per_target: true`), rather than report none.
 
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
+
+### `ood-union`
+
+The OOD Outputs of one test source's comparison with one reference, combined. Each flagged image falls in one group:
+flagged by every detector, by more than one but not every one (partial), or by one alone. Its agreement score is the
+mean, over the detectors that scored it, of its score over the detector's threshold, which is derived from the
+detector's flags. A detector whose derived threshold is not positive is left out, and the section names it. The
+section pictures each flagged image once, most out of distribution first. Load refuses Outputs computed on different
+Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`; makes an
+{py:class}`~dataeval_flow.steps.combines.OODUnion`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
 
 ## data-cleaning is this chain
 

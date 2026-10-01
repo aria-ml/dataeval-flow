@@ -1,6 +1,14 @@
 """The `ood` check: how much of a test source an OOD detector flagged (ood-detection spec §5.1)."""
 
-__all__ = ["OODCheck", "OODCheckConfig", "OODThresholds", "assessed_images", "ood_severity"]
+__all__ = [
+    "OODAgreementCheck",
+    "OODAgreementConfig",
+    "OODCheck",
+    "OODCheckConfig",
+    "OODThresholds",
+    "assessed_images",
+    "ood_severity",
+]
 
 from collections.abc import Mapping
 from typing import Any, ClassVar, Literal
@@ -12,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._drift import evaluator_heading
+from dataeval_flow.steps.combines._ood import OODUnion
 from dataeval_flow.workflows import Finding
 
 Severity = Literal["ok", "info", "warning"]
@@ -101,3 +110,50 @@ class OODCheck(Check[OODCheckConfig]):
         return [
             Finding(severity=ood_severity(percent, config), title=title, brief=brief + ")", description=description)
         ]
+
+
+class OODAgreementConfig(CheckConfig, OODThresholds):
+    """An `ood-agreement` step's input and thresholds."""
+
+    input: str = Field(description="An `ood-union` Output.")
+
+
+class OODAgreementCheck(Check[OODAgreementConfig]):
+    """``ood-agreement``: how many images every OOD detector flagged, judged as `ood` judges, and the images one
+    detector alone flagged."""
+
+    name: ClassVar[str] = "ood-agreement"
+    description: ClassVar[str] = (
+        "Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged."
+    )
+    title: ClassVar[str] = "OOD Agreement"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODUnion,)),)
+
+    def run(self, config: OODAgreementConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+        """The aggregate finding, and the unique one where any image is unique."""
+        union = inputs["input"].value
+        mutual = len(union.mutual)
+        percent = 100.0 * mutual / union.assessed if union.assessed else 0.0
+        findings = [
+            Finding(
+                severity=ood_severity(percent, config),
+                title="Aggregate OOD (all detectors agree)",
+                brief=f"{mutual}/{len(union.union)} OOD images agreed by all detectors ({percent:.1f}%)",
+                description=(
+                    "Ranked most out of distribution first. A score is a multiple of the detector's threshold, "
+                    "averaged over the detectors."
+                ),
+            )
+        ]
+        unique = sum(len(indices) for indices in union.unique.values())
+        if unique:
+            partial = "; images some but not all flagged are listed as partial" if union.partial else ""
+            findings.append(
+                Finding(
+                    severity="info",
+                    title="Unique OOD Samples (single-detector only)",
+                    brief=f"{unique} image(s) flagged by only one detector",
+                    description=f"Images one detector flagged and the others did not{partial}.",
+                )
+            )
+        return findings

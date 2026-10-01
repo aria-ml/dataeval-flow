@@ -841,6 +841,88 @@
       "title": "CheckStep_ood",
       "type": "object"
     },
+    "CheckStep_ood-agreement": {
+      "additionalProperties": false,
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 1.0,
+          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "title": "Info"
+        },
+        "input": {
+          "description": "An `ood-union` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "ood-agreement",
+          "description": "`ood-agreement`: Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_ood-agreement",
+      "type": "object"
+    },
     "CheckStep_outlier-rate": {
       "additionalProperties": false,
       "properties": {
@@ -1456,6 +1538,51 @@
       "title": "CombineStep_classwise-outliers",
       "type": "object"
     },
+    "CombineStep_ood-union": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Each detector's OOD Output, every one computed on the same reference and test source.",
+          "title": "Input"
+        },
+        "combine": {
+          "const": "ood-union",
+          "description": "`ood-union`: Groups each flagged image as flagged by every OOD detector, by some, or by one alone.",
+          "title": "Combine",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "combine",
+        "name"
+      ],
+      "title": "CombineStep_ood-union",
+      "type": "object"
+    },
     "CoverageConfig": {
       "additionalProperties": false,
       "description": "Config for ``coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: coverage\n        num_observations: 30",
@@ -1636,6 +1763,9 @@
                 "$ref": "#/$defs/CombineStep_classwise-outliers"
               },
               {
+                "$ref": "#/$defs/CombineStep_ood-union"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_class-imbalance"
               },
               {
@@ -1652,6 +1782,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_ood"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_ood-agreement"
               },
               {
                 "$ref": "#/$defs/CheckStep_outlier-rate"

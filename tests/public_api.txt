@@ -168,6 +168,8 @@ dataeval_flow.steps.checks:DuplicateRateCheck
 dataeval_flow.steps.checks:DuplicateRateConfig
 dataeval_flow.steps.checks:MetadataIssuesCheck
 dataeval_flow.steps.checks:MetadataIssuesConfig
+dataeval_flow.steps.checks:OODAgreementCheck
+dataeval_flow.steps.checks:OODAgreementConfig
 dataeval_flow.steps.checks:OODCheck
 dataeval_flow.steps.checks:OODCheckConfig
 dataeval_flow.steps.checks:OODThresholds
@@ -179,6 +181,9 @@ dataeval_flow.steps.combines:ClasswiseOutliers
 dataeval_flow.steps.combines:ClasswiseOutliersCombine
 dataeval_flow.steps.combines:ClasswiseOutliersConfig
 dataeval_flow.steps.combines:ClasswiseRow
+dataeval_flow.steps.combines:OODUnion
+dataeval_flow.steps.combines:OODUnionCombine
+dataeval_flow.steps.combines:OODUnionConfig
 dataeval_flow.steps.transforms:ConformConfig
 dataeval_flow.steps.transforms:ConformTransform
 dataeval_flow.steps.transforms:ExportRecord
