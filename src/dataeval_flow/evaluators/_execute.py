@@ -76,6 +76,12 @@ def execute(
             serialized = serialize_output(output, extras=evaluator.output_extras)
         else:
             if by.predicted is None:
+                if any(
+                    prepared.predictions is not None and prepared.predictions.rows is not None for prepared in inputs
+                ):
+                    raise ValueError(
+                        "`by: class` keys items, and the model's rows are detections: use `by: predicted`."
+                    )
                 require_one_label_per_item(datasets, inputs)
             else:
                 # Keys come from the predictions; labels gave only the reference's class names, and a detection

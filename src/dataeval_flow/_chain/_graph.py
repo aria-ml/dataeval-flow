@@ -266,7 +266,8 @@ def _task_graph_problems(
         if spec.kind == "evaluator" and spec.by is not None and spec.by.predicted is not None and model is None:
             problems.append(
                 f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' has `by: predicted`, which "
-                "needs a model's predictions: name an `uncertainty` extractor on the step or the task."
+                "needs a model's predictions: name an `uncertainty` extractor on the step, the task, or a preset's "
+                "detector."
             )
         if issubclass(spec.impl, Transform):
             problems.extend(_export_clashes(task, spec, spec.impl, owners))

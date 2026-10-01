@@ -106,6 +106,8 @@ def split_keys(inputs: Sequence[EvaluatorInputs], by: "ByConfig") -> tuple[dict[
                         f"Group `{group}` names class `{member}`, which `{first.source}`'s index2label does not have."
                     )
                 keyed[group].append(reverse[member] if isinstance(member, str) else member)
+        if by.predicted is not None:
+            _require_outputs(keyed, outputs)
         grouped = {index for indices in keyed.values() for index in indices}
         skipped.update({names.get(index, str(index)): "in no group" for index in present if index not in grouped})
     masks: dict[str, list[Any]] = {}
@@ -124,6 +126,16 @@ def split_keys(inputs: Sequence[EvaluatorInputs], by: "ByConfig") -> tuple[dict[
         else:
             masks[key] = per_input
     return masks, skipped
+
+
+def _require_outputs(keyed: Mapping[str, Sequence[int]], outputs: int) -> None:
+    """Refuse a group member that is no output of the model: a slice would raise past the last, and wrap below 0."""
+    for group, indices in keyed.items():
+        for index in indices:
+            if not 0 <= index < outputs:
+                raise ValueError(
+                    f"Group `{group}` lists class index {index}, but the model's outputs are 0…{outputs - 1}."
+                )
 
 
 def _shared_names(inputs: Sequence[EvaluatorInputs]) -> dict[int, str]:

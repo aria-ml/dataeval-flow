@@ -94,6 +94,13 @@ def test_a_group_naming_a_class_when_keys_are_indices_is_refused():
         split_keys(_inputs([_CAT, _CAT], [_CAT, _CAT], names=None), by)
 
 
+@pytest.mark.parametrize("index", [5, -1])
+def test_a_group_member_outside_the_models_outputs_is_refused(index):
+    by = ByConfig.model_validate({"predicted": {"groups": {"odd": [index]}}})
+    with pytest.raises(ValueError, match=rf"`odd`.*{index}.*0\u20262"):
+        split_keys(_inputs([_CAT, _CAT], [_CAT, _CAT]), by)
+
+
 def test_a_test_source_naming_a_class_differently_is_not_refused():
     renamed = {0: "kitty", 1: "dog", 2: "bird"}
     masks, _ = split_keys(
@@ -115,6 +122,22 @@ def test_the_per_class_table_is_headed_by_its_key_label():
     (table,) = per_class_blocks(serialized, lambda _inner: [Fields(items=[("Drifted", "no")])], detailed=False)
     assert isinstance(table, Table)
     assert table.columns[0].header == "Predicted class"
+
+
+def test_the_per_class_table_forms_over_unchunked_detection_rows():
+    from dataeval_flow.evaluators.shift._report import drift_section
+
+    def inner(count: int, images: int) -> dict[str, Any]:
+        rows = {"compared": {"reference": count, "cam1": count}, "images": {"reference": images, "cam1": images}}
+        data = {"drifted": False, "distance": 0.1, "threshold": 0.3, "metric_name": "ks", "details": None}
+        return {"data": data | {"rows": rows | {"unit": "detections", "confidence": 0.25}}}
+
+    serialized = {"key": "predicted class", "classes": {"cat": inner(40, 20), "dog": inner(30, 15)}, "skipped": {}}
+    (table,) = per_class_blocks(serialized, drift_section, detailed=False)
+    assert isinstance(table, Table)
+    assert [column.header for column in table.columns][:2] == ["Predicted class", "Drifted"]
+    compared = next(index for index, column in enumerate(table.columns) if column.header == "Compared")
+    assert "`reference` 40 in 20 images" in str(table.rows[0][f"f{compared - 1}"])
 
 
 def _workflow(by: Any = "predicted", *, check: bool = False) -> dict[str, Any]:
@@ -165,6 +188,17 @@ def test_a_chunked_run_by_predicted_class_chunks_each_class_by_image(tmp_path, m
     result = _run(tmp_path, monkeypatch, reference, test, chunking={"chunk_count": 3})
     output = element(result, "ks").output
     assert output.outputs["cat"].rows["chunk_images"] == [[0, 9], [10, 19], [20, 29]]
+
+
+def test_by_class_over_a_detectors_rows_is_refused_pointing_at_predicted(tmp_path, monkeypatch):
+    from tests.drift_toys import ClassImages
+
+    install(monkeypatch, DETECTOR)
+    model_files(tmp_path, "IMAGE_OBJECT_DETECTION")
+    ks = DriftUnivariateConfig(name="ks")
+    datasets = {"reference": ClassImages({0: 5, 1: 5}), "cam1": ClassImages({0: 5, 1: 5}, seed=1)}
+    result = run_uncertainty(tmp_path, _workflow("class"), [ks], datasets, detector=True)
+    assert "use `by: predicted`" in element(result, "ks").errors[0]
 
 
 def test_by_predicted_without_a_model_extractor_is_refused_at_load():
