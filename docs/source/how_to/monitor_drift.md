@@ -94,8 +94,9 @@ reads a list of addresses.
 
 ## 3. By class, and by group
 
-To see which classes drift, name detectors in the preset's `classwise:`. Each named detector also runs once per
-class, unchunked, as the step `<detector>-classes`, judged by `<detector>-classes-check`:
+To see which classes drift, map detectors to `by:` in the preset's `classwise:`, as `classwise: {drift-mmd: class}`.
+Each mapped detector also runs once per class, unchunked, as the step `<detector>-classes`, judged by
+`<detector>-classes-check`:
 
 ```yaml
 workflows:
@@ -251,6 +252,8 @@ workflows:
 
 - **`preds_type`** says what the model emits: `logits`, `probs` that sum to 1, or per-class `sigmoid` scores, as
   YOLO-family detectors emit. Check the export: `logits` given probabilities fails silently, squashing every entropy.
+- **`image_height` and `image_width`** are set together, and needed when the model's metadata leaves its input size
+  open.
 - **A classifier gives one row per image. A detector gives one row per box** whose top score is at least `confidence`.
   The model returns a fixed number of boxes per image, padding included, so a detector needs `confidence`; `0` keeps
   every box, and caches every one.
