@@ -200,6 +200,7 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
     workflows = {
         workflow.name: workflow for workflow in pipeline.workflows or () if isinstance(workflow, CustomWorkflowConfig)
     }
+    extractors = {extractor.name: extractor for extractor in pipeline.extractors or ()}
     problems: list[str] = []
     owners: dict[str, str] = {export.name: f"export '{export.name}'" for export in pipeline.exports or ()}
     for task in pipeline.tasks or ():
@@ -210,7 +211,7 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
         workflow = workflows.get(task.workflow)
         if workflow is not None:
             problems.extend(binding_problems(task, workflow, pipeline))
-        problems.extend(_task_graph_problems(task, graph, owners))
+        problems.extend(_task_graph_problems(task, graph, owners, extractors))
     return problems
 
 
@@ -237,8 +238,13 @@ def binding_problems(
     return []
 
 
-def _task_graph_problems(task: "TaskConfig", graph: ChainGraph, owners: dict[str, str]) -> list[str]:
-    """A task's problems running one workflow graph: missing extractors, and export destinations already claimed."""
+def _task_graph_problems(
+    task: "TaskConfig", graph: ChainGraph, owners: dict[str, str], extractors: Mapping[str, Any]
+) -> list[str]:
+    """A task's problems running one workflow graph: missing extractors, a model extractor on a step that reads one
+    row per item, and export destinations already claimed."""
+    from dataeval_flow._predictions import runs_model
+
     problems: list[str] = []
     for spec in graph.steps:
         config: Any = spec.config
@@ -248,6 +254,14 @@ def _task_graph_problems(task: "TaskConfig", graph: ChainGraph, owners: dict[str
             problems.append(
                 f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' needs an extractor to "
                 f"produce {kinds}; name one with `extractor:` on the task or the step."
+            )
+        name = spec.extractor or task.extractor
+        model = name if name is not None and runs_model(extractors.get(name)) else None
+        if needs_extractor and model is not None and not config.inputs.detection_rows:
+            problems.append(
+                f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' embeds with `{model}`, "
+                f"which runs a model whose rows may be detections; `{spec.type}` needs one row per item: only drift "
+                "evaluators read it."
             )
         if issubclass(spec.impl, Transform):
             problems.extend(_export_clashes(task, spec, spec.impl, owners))

@@ -84,6 +84,7 @@ class DriftMonitoringConfig(WorkflowConfig[ChainResult]):
         required=frozenset({InputKind.EMBEDDINGS}),
         optional=frozenset({InputKind.LABELS}),
         sources=SourceCount.TWO_OR_MORE,
+        detection_rows=True,
     )
     detectors: list[DriftDetector] = Field(
         min_length=1,

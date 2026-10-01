@@ -234,7 +234,9 @@ class KindConfig(BaseModel):
         return state_type_id(cls, schema, "type", base=KindConfig)
 
 
-def input_problem(config: "KindConfig", *, source_count: int, has_extractor: bool) -> str | None:
+def input_problem(
+    config: "KindConfig", *, source_count: int, has_extractor: bool, model_extractor: str | None = None
+) -> str | None:
     """What is wrong with a task that runs *config*, or ``None`` when the task can run it.
 
     Checked when the config loads, so a task that cannot run costs a config error rather
@@ -249,6 +251,8 @@ def input_problem(config: "KindConfig", *, source_count: int, has_extractor: boo
         How many sources the task names.
     has_extractor : bool
         Whether the task names an extractor.
+    model_extractor : str or None
+        The task's extractor's name where it runs a model, whose rows may be detections; ``None`` otherwise.
 
     Returns
     -------
@@ -265,4 +269,9 @@ def input_problem(config: "KindConfig", *, source_count: int, has_extractor: boo
         return f"needs an extractor to produce {kinds}; name one with `extractor:`."
     if has_extractor and not spec.accepts_extractor:
         return "does not use an extractor; remove `extractor:` from the task."
+    if model_extractor is not None and config.requires_extractor() and not spec.detection_rows:
+        return (
+            f"needs one embeddings row per item, and extractor `{model_extractor}` runs a model whose rows may be "
+            "detections: only drift evaluators read it."
+        )
     return None

@@ -427,7 +427,15 @@ def _run_single_task(
     # `config.tasks`) would skip this and fail later, deep inside the run. Check here for
     # both kinds, with the config-load check's message, as a failed result so a caller
     # sees the same envelope either way.
-    problem = input_problem(instance, source_count=len(source_names), has_extractor=task.extractor is not None)
+    from dataeval_flow._predictions import runs_model
+
+    extractor = next((entry for entry in config.extractors or () if entry.name == task.extractor), None)
+    problem = input_problem(
+        instance,
+        source_count=len(source_names),
+        has_extractor=task.extractor is not None,
+        model_extractor=task.extractor if runs_model(extractor) else None,
+    )
     if problem is not None:
         default = EvaluatorResult if task.kind == "evaluator" else WorkflowResult
         result_type = result_type_of(runner, default)
