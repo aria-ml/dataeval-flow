@@ -493,6 +493,7 @@ def _combine(
         task=settings.task,
         step=spec.name,
         derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
+        derive_stats=lambda node: _stats(node, step.stats_policy),
     )
     made = impl.run(spec.config, inputs, context)
     missing = [port.name for port in spec.outputs if port.name not in made]
@@ -821,6 +822,27 @@ def _metadata(node: Node, policy: Any, policy_name: str | None) -> Any:
         metadata = get_or_compute_metadata(dataset, policy)
     note_read(node.address, policy_name, policy, metadata)
     return metadata
+
+
+def _stats(node: Node, policy: "ResolvedStatsPolicy | None") -> Any:
+    """`node`'s per-image statistics under `policy`, every statistic where the step names none, cached on the node."""
+    from dataeval.flags import ImageStats
+
+    from dataeval_flow._cache import active_cache, get_or_compute_stats, selection_repr
+    from dataeval_flow._stats import ResolvedStatsPolicy
+
+    dataset = node.value
+    cache = node.context.cache if node.context is not None else None
+    value_range = node.context.value_range if node.context is not None else None
+    scope = active_cache(cache, selection_repr(dataset)) if cache is not None else contextlib.nullcontext()
+    with scope:
+        return get_or_compute_stats(
+            policy if policy is not None else ResolvedStatsPolicy.of_flags(ImageStats.ALL),
+            dataset=dataset,
+            per_image=True,
+            per_target=False,
+            value_range=value_range,
+        )
 
 
 def _datasets(values: Iterable[Any]) -> list[Node]:
