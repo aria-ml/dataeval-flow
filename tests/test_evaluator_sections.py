@@ -4,15 +4,18 @@ from collections.abc import Sequence
 from typing import Any, cast
 
 from dataeval_flow import run_task
-from dataeval_flow._blocks import Block, ItemRef, Paragraph, Section, Table
+from dataeval_flow._blocks import Block, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators._result import EvaluatorMetadata
 from dataeval_flow.evaluators.bias import BalanceConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult, OutliersConfig
 from dataeval_flow.evaluators.scope import CoverageConfig, PrioritizeConfig
 from dataeval_flow.evaluators.scope._report import prioritize_section
+from dataeval_flow.evaluators.shift import DriftUnivariateConfig
 from tests.chain_toys import ToyDetections, chain_pipeline, run_chain_task
+from tests.drift_toys import ClassImages
 from tests.evaluator_toys import ToyFactors, ToyImages, toy_pipeline
+from tests.test_by_class import _knn, _run
 
 _OUTLIERS = {"name": "e", "flags": ["pixel", "visual"], "outlier_threshold": "zscore"}
 
@@ -202,3 +205,49 @@ def test_a_prioritize_result_pictures_its_ranking_in_its_own_section() -> None:
     (table,) = _tables(_section(result._report_output(detailed=True), "Highest priority").blocks)
     assert [row["item"] for row in table.rows] == [int(index) for index in result.output.indices]
     assert {ref.source for ref in _refs(table)} == {"src"}
+
+
+def test_an_unchunked_drift_section_is_one_fields_block_of_the_verdict() -> None:
+    result = _task(
+        DriftUnivariateConfig(name="e", method="ks"), sources=("a", "b"), dataset=ToyImages(count=40), extractor=True
+    )
+    (fields,) = result._report_output(detailed=False)
+    assert isinstance(fields, Fields)
+    assert [label for label, _ in fields.items] == [
+        "Drifted",
+        "Distance",
+        "Threshold",
+        "Metric",
+        "p-value",
+        "Features drifted",
+    ]
+
+
+def test_a_chunked_drift_section_is_one_table_with_a_row_per_chunk() -> None:
+    config = DriftUnivariateConfig.model_validate({"name": "e", "method": "ks", "chunking": {"chunk_count": 4}})
+    result = _task(config, sources=("a", "b"), dataset=ToyImages(count=40), extractor=True)
+    (table,) = result._report_output(detailed=False)
+    assert isinstance(table, Table)
+    assert len(table.rows) == len(result.output.details)  # pyright: ignore[reportArgumentType]
+
+
+def test_a_per_class_drift_section_is_one_table_with_class_first() -> None:
+    counts = {0: 15, 1: 15, 2: 15}
+    run = _knn_by_class(ClassImages(counts), ClassImages(counts, seed=1, bright_classes={2}))
+    (table,) = run._report_output(detailed=False)
+    assert isinstance(table, Table)
+    assert [column.header for column in table.columns] == [
+        "Class",
+        "Drifted",
+        "Distance",
+        "Threshold",
+        "Metric",
+        "p-value",
+    ]
+    assert [row["key"] for row in table.rows] == ["cat", "dog", "bird"]
+
+
+def _knn_by_class(reference: Any, test: Any) -> Any:
+    run = _knn(_run("class", reference, test)).result
+    assert run is not None
+    return run

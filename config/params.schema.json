@@ -468,6 +468,103 @@
       "title": "CheckStep_classwise-outlier-rate",
       "type": "object"
     },
+    "CheckStep_drift": {
+      "additionalProperties": false,
+      "properties": {
+        "warn_on_drift": {
+          "default": true,
+          "description": "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy `any_drift_is_warning` and `classwise_any_drift_is_warning`.",
+          "title": "Warn On Drift",
+          "type": "boolean"
+        },
+        "chunk_percent": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+          "title": "Chunk Percent"
+        },
+        "consecutive_chunks": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3,
+          "description": "Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+          "title": "Consecutive Chunks"
+        },
+        "input": {
+          "description": "A drift evaluator's Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the finding is titled. Unset: the evaluator's title, followed by its entry's name where that differs from its type, such as `Drift (MMD) \u00b7 mmd_chunked`.",
+          "title": "Subject"
+        },
+        "check": {
+          "const": "drift",
+          "description": "`drift`: Warns when a drift detector finds drift, whole or chunk by chunk.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_drift",
+      "type": "object"
+    },
     "CheckStep_duplicate-rate": {
       "additionalProperties": false,
       "properties": {
@@ -1450,6 +1547,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_drift"
               },
               {
                 "$ref": "#/$defs/CheckStep_duplicate-rate"

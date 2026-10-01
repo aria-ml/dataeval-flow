@@ -160,6 +160,9 @@ dataeval_flow.steps.checks:ClassImbalanceCheck
 dataeval_flow.steps.checks:ClassImbalanceConfig
 dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
+dataeval_flow.steps.checks:DriftCheck
+dataeval_flow.steps.checks:DriftCheckConfig
+dataeval_flow.steps.checks:DriftThresholds
 dataeval_flow.steps.checks:DuplicateRateCheck
 dataeval_flow.steps.checks:DuplicateRateConfig
 dataeval_flow.steps.checks:MetadataIssuesCheck

@@ -7,10 +7,9 @@ import pytest
 from pydantic import ValidationError
 
 from dataeval_flow import run_task
-from dataeval_flow._blocks import Paragraph, Section
+from dataeval_flow._blocks import Paragraph, Table
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import PerClassOutput
-from dataeval_flow.evaluators._report import output_blocks
 from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
 from dataeval_flow.steps import ChainResult, StepEntry, StepResult
 from tests.chain_toys import chain_pipeline, register_toys
@@ -141,15 +140,13 @@ def test_per_class_json_holds_each_classs_own_json():
     assert body["skipped"] == {"bird": "1 item in `reference`, fewer than `min_items` 2"}
 
 
-def test_without_an_own_section_each_key_falls_back_to_its_output_in_turn_then_the_skipped():
+def test_per_class_drift_reports_one_table_of_its_classes_then_the_skipped():
     result = _run("class", ClassImages({0: 12, 1: 12, 2: 1}), ClassImages({0: 12, 1: 12, 2: 12}, seed=1))
     run = _knn(result).result
     assert run is not None
-    *sections, skipped = run._report_output(detailed=False)
-    classes = cast(dict[str, Any], run.to_dict()["output"])["classes"]
-    assert sections == [
-        Section(title=key, blocks=output_blocks(classes[key], detailed=False)) for key in ("cat", "dog")
-    ]
+    table, skipped = run._report_output(detailed=False)
+    assert isinstance(table, Table)
+    assert [row["key"] for row in table.rows] == ["cat", "dog"]
     assert skipped == Paragraph(text="Not assessed: bird (1 item in `reference`, fewer than `min_items` 2).")
 
 
