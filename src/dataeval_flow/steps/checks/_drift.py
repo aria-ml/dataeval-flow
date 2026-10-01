@@ -82,7 +82,7 @@ class DriftCheck(Check[DriftCheckConfig]):
             longest = max(longest, run)
         percent = 100.0 * drifted / len(chunks)
         judged = config.chunk_percent is not None or config.consecutive_chunks is not None
-        warns = (config.chunk_percent is not None and percent >= config.chunk_percent) or (
+        warns = (config.chunk_percent is not None and drifted > 0 and percent >= config.chunk_percent) or (
             config.consecutive_chunks is not None and longest >= config.consecutive_chunks
         )
         severity = ("warning" if warns else "info" if drifted else "ok") if judged else "info"

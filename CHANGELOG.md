@@ -254,6 +254,8 @@
 - The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it
 - Data prioritization's `sources` and data splitting's `dataset` are the views they ran on, not views drawn anew
 - Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
+- A chunked drift finding with `chunk_percent: 0`, legacy's `chunk_drift_pct_warning: 0`, no longer warns when no
+  chunk drifted
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
 - Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
 - Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with the `duplicates`

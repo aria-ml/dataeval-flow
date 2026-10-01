@@ -1,11 +1,15 @@
 """The `drift` check: a warning on drift, or, chunked, when enough chunks drift or enough drift in a row (§10.11)."""
 
+from types import SimpleNamespace
 from typing import Any
+
+import polars as pl
 
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
-from dataeval_flow.steps import ChainResult
+from dataeval_flow.steps import ChainResult, CheckContext
+from dataeval_flow.steps.checks import DriftCheck, DriftCheckConfig
 from tests.chain_toys import chain_pipeline
 from tests.drift_toys import ClassImages
 from tests.evaluator_toys import ToyImages
@@ -79,3 +83,30 @@ def test_by_class_rolls_up_under_the_title():
     finding = _finding(datasets, by="class")
     assert finding.title == "Drift (K-Neighbors) · knn by class"
     assert finding.brief.endswith("/3 classes warn")
+
+
+def _judged(flags: list[bool], **limits: Any) -> Any:
+    """The finding `drift` makes on a chunked Output whose chunks drifted as `flags` say."""
+    output = SimpleNamespace(details=pl.DataFrame({"drifted": flags}), drifted=any(flags))
+    config = DriftCheckConfig.model_validate({"input": "knn", **limits})
+    (finding,) = DriftCheck().run(config, {"input": SimpleNamespace(value=output, config=None)}, CheckContext("t", "s"))
+    return finding
+
+
+def test_three_scattered_chunks_of_ten_warn_by_percent_alone():
+    flags = [True, False, False, True, False, False, True, False, False, False]
+    finding = _judged(flags)
+    assert (finding.severity, finding.brief) == ("warning", "3/10 chunks drifted")
+    assert finding.description == "3/10 chunks drifted (30%) | max consecutive: 1"
+    assert _judged(flags, chunk_percent=None).severity == "info"
+
+
+def test_three_chunks_in_a_row_warn_with_percent_off():
+    flags = [False, True, True, True, False, False, False, False, False, False]
+    finding = _judged(flags, chunk_percent=None)
+    assert finding.severity == "warning"
+    assert finding.description == "3/10 chunks drifted (30%) | max consecutive: 3"
+
+
+def test_a_zero_chunk_percent_with_no_chunk_drifted_is_ok():
+    assert _judged([False] * 10, chunk_percent=0).severity == "ok"
