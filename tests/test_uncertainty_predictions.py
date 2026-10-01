@@ -116,6 +116,17 @@ def test_what_cannot_run_is_refused_before_inference(here, monkeypatch, task, fi
     assert session.batches == []
 
 
+@pytest.mark.parametrize(
+    ("task", "stub", "fields"),
+    [("IMAGE_OBJECT_DETECTION", DETECTOR, {"confidence": 0.0}), ("IMAGE_CLASSIFICATION", CLASSIFIER, {})],
+)
+def test_a_model_whose_width_disagrees_with_its_metadata_is_refused(here, monkeypatch, task, stub, fields):
+    install(monkeypatch, stub)
+    model_files(here, task, n_classes=2)
+    with pytest.raises(ValueError, match="emits 3 class scores per row, and its metadata says 2"):
+        compute_predictions(Frames([0.5, 0.6]), _config(**fields), None, 4)
+
+
 def test_metadata_for_another_task_is_refused(here, monkeypatch):
     install(monkeypatch, CLASSIFIER)
     model_files(here, "IMAGE_SEGMENTATION")

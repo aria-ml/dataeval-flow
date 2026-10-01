@@ -98,7 +98,7 @@ def compute_predictions(
     height, width = config.image_height, config.image_width
     image_size = (height, width) if height is not None and width is not None else None
     model_type = OnnxObjectDetector if detector else OnnxImageClassifier
-    model = model_type(config.model_path, config.metadata_path, image_size=image_size)
+    model: Any = model_type(config.model_path, config.metadata_path, image_size=image_size)
     threshold = config.confidence or 0.0
     scores: list[NDArray[np.float32]] = []
     rows: list[NDArray[np.intp]] = []
@@ -107,11 +107,11 @@ def compute_predictions(
         images = [_image(dataset[index][0], transforms) for index in indices]
         padded = images + [images[-1]] * (size - len(images)) if fixed else images
         for index, prediction in zip(indices, model(padded)[: len(images)], strict=True):
-            own = np.asarray(prediction.scores if detector else prediction, dtype=np.float32).reshape(  # type: ignore[union-attr]
-                -1, spec.n_classes
-            )
             if detector:
+                own = _checked(np.asarray(prediction.scores, dtype=np.float32), config, spec)
                 own = own[own.max(axis=1) >= threshold]
+            else:
+                own = _checked(np.asarray(prediction, dtype=np.float32), config, spec)
             scores.append(own)
             rows.append(np.full(len(own), index, dtype=np.intp))
     stacked = np.concatenate(scores) if scores else np.empty((0, spec.n_classes), dtype=np.float32)
@@ -152,6 +152,19 @@ def membership(scores: "NDArray[np.float32]", threshold: float) -> "NDArray[np.b
 def _read_as(config: "UncertaintyExtractorConfig") -> Literal["logits", "probs"]:
     """How DataEval reads the scores `config`'s model emits: sigmoid scores arrive as logits."""
     return "probs" if config.preds_type == "probs" else "logits"
+
+
+def _checked(
+    own: "NDArray[np.float32]", config: "UncertaintyExtractorConfig", spec: "ModelIOSpec"
+) -> "NDArray[np.float32]":
+    """One item's scores as rows, refusing a width its metadata does not give; DataEval never checks."""
+    own = np.atleast_2d(own)
+    if own.shape[-1] != spec.n_classes:
+        raise ValueError(
+            f"`{config.name}`'s model emits {own.shape[-1]} class scores per row, and its metadata says "
+            f"{spec.n_classes}."
+        )
+    return own
 
 
 def _image(image: Any, transforms: Callable[[Any], Any] | None) -> Any:
