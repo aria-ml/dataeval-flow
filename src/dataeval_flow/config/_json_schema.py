@@ -70,12 +70,14 @@ def _step_union(plugins: bool) -> Any:
     )
     # An inline step embeds nothing, so its step takes no `extractor:`; naming one fails the load.
     plain = {key: field for key, field in common.items() if key != "extractor"}
+    check_by = {"by": (Literal["class"] | None, StepEntry.model_fields["by"])}
     inline = [
         create_model(
             f"{kind.title()}Step_{cls.name}",
             __base__=cls.config_type,
             **{kind: (Literal[cls.name], Field(description=f"`{cls.name}`: {cls.description}"))},  # type: ignore[valid-type]
             **plain,
+            **(check_by if kind == "check" else {}),
         )
         for kind, registry in (("transform", TRANSFORMS), ("combine", COMBINES), ("check", CHECKS))
         for cls in registry.list(plugins=plugins)

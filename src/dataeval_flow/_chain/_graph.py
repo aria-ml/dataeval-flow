@@ -603,6 +603,13 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
         wanted = ", ".join(cls.__name__ for cls in port.classes)
         given = ", ".join(cls.__name__ for cls in value.classes)
         raise GraphError(f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.")
+    if value.by and (entry.kind != "check" or entry.by is None):
+        raise GraphError(
+            f"Step '{entry.name}' reads `{address}`, which holds per-class Outputs (`by: class`): only a check with "
+            "`by: class` reads them."
+        )
+    if entry.kind == "check" and entry.by is not None and not value.by:
+        raise GraphError(f"Step '{entry.name}' has `by: class`, but `{address}` holds one Output, not one per class.")
     if port.is_list and not value.is_list:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes a whole list, but `{address}` "

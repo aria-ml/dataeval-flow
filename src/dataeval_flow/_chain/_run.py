@@ -16,6 +16,7 @@ from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
 from dataeval_flow._chain._reads import MetadataRead, ReadingContext, note_read, noting_reads
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
 from dataeval_flow.steps._address import Address
+from dataeval_flow.steps._by import roll_up
 from dataeval_flow.steps._check import Check, CheckContext
 from dataeval_flow.steps._combine import Combine, CombineContext
 from dataeval_flow.steps._port import DataType, Port
@@ -513,7 +514,18 @@ def _combine(
 def _check(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None) -> dict[str, _Value]:
     """Run a check; each finding is stamped with the step, and with the element's key where it ran once per element."""
     impl: Check[Any] = spec.impl()  # type: ignore[assignment]
-    returned = impl.run(spec.config, inputs, CheckContext(task=settings.task, step=spec.name))
+    context = CheckContext(task=settings.task, step=spec.name)
+    if spec.by is not None:
+        (port,) = (binding.port for binding in spec.bindings)
+        node = inputs[port.name]
+        per_class = node.value
+        found_by_key = {
+            key: list(impl.run(spec.config, {port.name: replace(node, payload=output)}, context))
+            for key, output in per_class.outputs.items()
+        }
+        returned = [roll_up(found_by_key, per_class.skipped, title=impl.title, by=spec.by)]
+    else:
+        returned = impl.run(spec.config, inputs, context)
     if isinstance(returned, Finding):
         raise TypeError(f"check '{spec.type}' returned a Finding, not a list of findings.")
     found = list(returned)

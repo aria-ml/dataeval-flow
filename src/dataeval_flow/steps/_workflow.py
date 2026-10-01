@@ -127,6 +127,10 @@ class StepEntry(BaseModel):
             impl = inline_registry(kind).get(target)
             data = {**({"input": self.input} if self.input is not None else {}), **self.settings}
             self._config = cast(StepConfig, impl.config_type.model_validate(data))
+            if self.by is not None and len(impl.input_ports()) != 1:
+                raise ValueError(
+                    f"Step '{self.name}': `by: class` maps a check over one input, and `{target}` reads more."
+                )
         return self
 
     @model_serializer(mode="wrap")

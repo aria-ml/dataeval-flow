@@ -10,16 +10,27 @@ CLASSES = {0: "cat", 1: "dog", 2: "bird"}
 class ClassImages:
     """Image classification over `CLASSES`: `counts` items of each class, in class order, random 3x16x16 images.
 
-    `bright` lifts every pixel by 100, out of the distribution of an unbrightened set; `labeled=False` gives every
-    item an empty target.
+    `bright` lifts every pixel by 100, out of the distribution of an unbrightened set, and `bright_classes` lifts only
+    the items of those classes; `labeled=False` gives every item an empty target.
     """
 
-    def __init__(self, counts: dict[int, int], seed: int = 0, *, bright: bool = False, labeled: bool = True) -> None:
+    def __init__(
+        self,
+        counts: dict[int, int],
+        seed: int = 0,
+        *,
+        bright: bool = False,
+        bright_classes: frozenset[int] | set[int] = frozenset(),
+        labeled: bool = True,
+    ) -> None:
         rng = np.random.default_rng(seed)
         self._labels = [cls for cls, n in sorted(counts.items()) for _ in range(n)]
-        shift = 100 if bright else 0
         self._images = [
-            np.clip(rng.integers(0, 155, (3, 16, 16)) + shift + 30 * label, 0, 255).astype(np.uint8)
+            np.clip(
+                rng.integers(0, 155, (3, 16, 16)) + (100 if bright or label in bright_classes else 0) + 30 * label,
+                0,
+                255,
+            ).astype(np.uint8)
             for label in self._labels
         ]
         self._labeled = labeled

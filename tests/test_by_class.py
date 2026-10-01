@@ -13,7 +13,7 @@ from dataeval_flow.evaluators import PerClassOutput
 from dataeval_flow.evaluators._report import output_blocks
 from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
 from dataeval_flow.steps import ChainResult, StepEntry, StepResult
-from tests.chain_toys import chain_pipeline
+from tests.chain_toys import chain_pipeline, register_toys
 from tests.drift_toys import BoxImages, ClassImages
 
 
@@ -191,3 +191,65 @@ def test_by_round_trips_through_save():
     entry = StepEntry.model_validate({"name": "k", "evaluator": "knn", "input": ["a", "b"], "by": grouped})
     assert entry.model_dump()["by"] == grouped
     assert StepEntry.model_validate(entry.model_dump()).by == entry.by
+
+
+_CHECK = [{"name": "knn-check", "check": "toy-drifted", "input": "knn", "by": "class"}]
+
+
+def test_a_check_with_by_rolls_its_per_class_findings_into_one(plugins):
+    register_toys(plugins)
+    counts = {0: 15, 1: 15, 2: 15}
+    result = _run("class", ClassImages(counts), ClassImages(counts, seed=1, bright_classes={2}), steps=_CHECK)
+    elements = result.steps["knn-check"].elements
+    assert elements is not None
+    (finding,) = elements["cam1"].output
+    assert finding.title == "Drifted by class"
+    assert finding.severity == "warning"
+    assert finding.brief == "1/3 classes warn"
+    assert [block.text for block in finding.blocks] == ["Warned: bird."]
+
+
+def test_skipped_keys_are_named_with_why_in_the_rollup(plugins):
+    register_toys(plugins)
+    result = _run("class", ClassImages({0: 15, 1: 15, 2: 15}), ClassImages({0: 15, 1: 15, 2: 1}, seed=1), steps=_CHECK)
+    elements = result.steps["knn-check"].elements
+    assert elements is not None
+    (finding,) = elements["cam1"].output
+    expected = "Not assessed: bird (1 item in `tests[cam1]`, fewer than `min_items` 2)."
+    assert expected in [b.text for b in finding.blocks]
+
+
+def test_nothing_assessed_is_not_assessed():
+    from dataeval_flow.steps._by import ByConfig, roll_up
+
+    finding = roll_up({}, {"cat": "0 items in `cam1`, fewer than `min_items` 2"}, title="Drifted", by=ByConfig())
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Drifted by class", "not assessed")
+
+
+def test_groups_roll_up_by_group():
+    from dataeval_flow.steps._by import ByConfig, roll_up
+    from dataeval_flow.workflows import Finding
+
+    by = ByConfig.model_validate({"class": {"groups": {"pets": ["cat"]}}})
+    ok = Finding(severity="ok", title="Drifted")
+    assert roll_up({"pets": [ok]}, {}, title="Drifted", by=by).brief == "0/1 groups warn"
+
+
+def test_a_per_class_output_is_refused_to_a_check_without_by(plugins):
+    register_toys(plugins)
+    steps = [{"name": "knn-check", "check": "toy-drifted", "input": "knn"}]
+    with pytest.raises(ValidationError, match="per-class"):
+        _run("class", ClassImages({0: 4, 1: 4}), ClassImages({0: 4, 1: 4}, seed=1), steps=steps)
+
+
+def test_a_check_with_by_is_refused_on_an_output_without_it(plugins):
+    register_toys(plugins)
+    with pytest.raises(ValidationError, match="one Output"):
+        _run(None, ClassImages({0: 4, 1: 4}), ClassImages({0: 4, 1: 4}, seed=1), steps=_CHECK)
+
+
+def test_a_check_with_by_and_more_than_one_input_is_refused_at_load():
+    with pytest.raises(ValidationError, match="maps a check over one input"):
+        StepEntry.model_validate(
+            {"name": "c", "check": "target-outlier-rate", "input": "a", "labels": "b", "by": "class"}
+        )

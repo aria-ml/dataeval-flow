@@ -380,6 +380,20 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         }
       },
       "required": [
@@ -430,6 +444,20 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         }
       },
       "required": [
@@ -495,6 +523,20 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         }
       },
       "required": [
@@ -537,6 +579,20 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         }
       },
       "required": [
@@ -587,6 +643,20 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         }
       },
       "required": [
@@ -642,6 +712,20 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "const": "class",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per class, or group of classes, inside one Output: `class`, or `{class: {groups: ..., min_items: ...}}` (spec \u00a75.9).",
+          "title": "By"
         }
       },
       "required": [
