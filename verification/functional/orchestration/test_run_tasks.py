@@ -27,7 +27,6 @@ class TestOrchestration:
             "data-coverage",
             "drift-monitoring",
             "ood-detection",
-            "parameter-sweep",
             "data-prioritization",
             "data-splitting",
             "metadata-triage",

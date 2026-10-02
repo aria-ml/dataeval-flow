@@ -27,7 +27,6 @@ BUILTIN_WORKFLOWS = [
     "drift-monitoring",
     "metadata-triage",
     "ood-detection",
-    "parameter-sweep",
 ]
 
 

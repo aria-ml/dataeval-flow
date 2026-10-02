@@ -60,7 +60,6 @@ _TITLES = {
     "drift-monitoring": "Drift Monitoring",
     "metadata-triage": "Metadata Triage",
     "ood-detection": "OOD Detection",
-    "parameter-sweep": "Parameter Sweep",
 }
 
 

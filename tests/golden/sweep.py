@@ -1,8 +1,9 @@
 """The parameter-sweep combinations the agreement golden records, and the counts each gave.
 
-The generator ran `legacy_counts` once on the legacy `parameter-sweep` workflow, before its removal. The agreement test
-runs the same combinations as a data-cleaning task's matrix (task-matrix spec §11.3). They agree exactly on
-classification data, with `duplicate_merge_near` at its default and no `value_range`: the conditions this module keeps.
+Commit c93bf6a's generator ran the legacy `parameter-sweep` workflow on these combinations, before its removal. The
+agreement test runs the same combinations as a data-cleaning task's matrix (task-matrix spec §11.3). They agree
+exactly on classification data, with `duplicate_merge_near` at its default and no `value_range`: the conditions this
+module keeps.
 """
 
 from typing import Any
@@ -28,23 +29,31 @@ def dataset() -> ToyImages:
     return ToyImages(count=24, near_duplicate=True)
 
 
-def legacy_counts() -> list[dict[str, Any]]:
-    """Each combination's swept values and counts, as the legacy workflow gave them, in its order."""
-    from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
+def matrix_counts() -> list[dict[str, Any]]:
+    """Each combination's values and counts as a data-cleaning task's matrix gives them, read from each run's steps."""
+    import polars as pl
+
+    from dataeval_flow import MatrixResult
 
     DatasetCache.clear_instances()
-    sweep = ParameterSweepConfig(name="sweep", outlier_flags=FLAGS, **GRID)
-    task = {"name": "t", "workflow": "sweep", "sources": ["src"], "extractor": "flat"}
+    entry = {"name": "cleaning", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": FLAGS}
+    task = {"name": "t", "workflow": "cleaning", "sources": ["src"], "extractor": "flat", "matrix": GRID}
     config = chain_pipeline(
-        workflows=[sweep], tasks=[task], datasets={"src": dataset()}, extractor=True, extra={"seed": SEED}
+        workflows=[entry], tasks=[task], datasets={"src": dataset()}, extractor=True, extra={"seed": SEED}
     )
     result = run_tasks(config)["t"]
+    assert isinstance(result, MatrixResult)
     assert result.success, result.errors
-    return [
-        {
-            "params": {key: run.params[key] for key in GRID},
-            "outlier_count": run.outlier_count,
-            "near_duplicate_groups": run.near_duplicate_groups,
-        }
-        for run in result.output.raw.results
-    ]
+    counts: list[dict[str, Any]] = []
+    for run in result.runs:
+        outliers = run.result.steps["outliers"].output.data()
+        dupes = run.result.steps["dupes"].output.data()
+        near = dupes.filter((pl.col("dup_type") == "near") & (pl.col("level") == "item")) if len(dupes) else dupes
+        counts.append(
+            {
+                "params": {key: run.values[key] for key in GRID},
+                "outlier_count": outliers["item_index"].n_unique() if len(outliers) else 0,
+                "near_duplicate_groups": len(near),
+            }
+        )
+    return counts

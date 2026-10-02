@@ -1,7 +1,6 @@
 """Merging cluster-mode results into the statistics-mode ones.
 
-Shared by the quality evaluators, which ``data-cleaning``'s chain runs, and by ``parameter-sweep``'s detection, so
-the two cannot disagree on the same data.
+Used by the quality evaluators, which ``data-cleaning``'s chain runs.
 """
 
 __all__ = ["cast_to_int", "merge_duplicate_outputs", "merge_outlier_outputs"]

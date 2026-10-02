@@ -2,8 +2,7 @@
 
 Both read image statistics, and in cluster mode the clusters over the task's embeddings as
 well. ``find_duplicates`` and ``find_outliers`` are the only code here that calls DataEval,
-and they merge cluster results through the same functions ``parameter-sweep`` uses. ``data-cleaning``'s chain runs
-these evaluators.
+and they merge cluster results through ``_merge``. ``data-cleaning``'s chain runs these evaluators.
 """
 
 __all__ = ["DuplicatesEvaluator", "LabelHealthEvaluator", "OutliersEvaluator", "find_duplicates", "find_outliers"]

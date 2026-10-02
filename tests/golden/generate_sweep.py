@@ -1,14 +1,11 @@
-"""Record `sweep.json` from the legacy parameter-sweep workflow, before its removal (task-matrix spec §11.3).
+"""Recorded `sweep.json` from the legacy parameter-sweep workflow, before its removal.
 
-Run once: `.venv/bin/python -m tests.golden.generate_sweep`.
+Commit c93bf6a ran it once, writing each combination's outlier and near-duplicate counts. A data-cleaning task's
+matrix must give the same counts (task-matrix spec §11.3). The legacy workflow is gone, so it can't run again.
 """
 
-import json
-from pathlib import Path
-
-from tests.golden.sweep import legacy_counts
-
 if __name__ == "__main__":
-    path = Path(__file__).with_name("sweep.json")
-    path.write_text(json.dumps(legacy_counts(), indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {path}")
+    raise SystemExit(
+        "generate_sweep recorded from the legacy parameter-sweep workflow, which has been removed: a data-cleaning "
+        "task's matrix is tested against the golden it wrote, tests/golden/sweep.json."
+    )

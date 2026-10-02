@@ -20,7 +20,6 @@ from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import DatasetContext, WorkflowConfig, WorkflowContext
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
-from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 
 
@@ -148,12 +147,6 @@ _CLUSTERING_CLEANERS = [
         outlier_cluster_threshold=2.0,
         outlier_cluster_algorithm="kmeans",
         outlier_n_clusters=2,
-    ),
-    ParameterSweepConfig(
-        outlier_method=["zscore"],
-        outlier_flags=["dimension"],
-        outlier_cluster_threshold=[2.0],
-        outlier_cluster_algorithm=["hdbscan"],
     ),
 ]
 
