@@ -89,3 +89,9 @@ def test_an_ood_evaluator_task_takes_it():
     _load(
         task=_task("knn", "unc", "evaluator"), evaluators=[OODKNeighborsConfig(name="knn", distance_metric="euclidean")]
     )
+
+
+def test_an_ood_evaluator_task_ranking_by_cosine_distance_is_refused():
+    wanted = "runs evaluator 'knn' .*, which cannot rank the one number per row an uncertainty extractor gives"
+    with pytest.raises(ValidationError, match=wanted):
+        _load(task=_task("knn", "unc", "evaluator"), evaluators=[OODKNeighborsConfig(name="knn")])

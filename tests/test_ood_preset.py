@@ -141,7 +141,7 @@ def test_a_detector_named_as_a_preset_step_is_refused(name: str) -> None:
     ],
 )
 def test_legacy_settings_are_refused(legacy: dict[str, Any]) -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         _config(detectors=[_KNN], **legacy)
 
 
