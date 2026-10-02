@@ -273,9 +273,11 @@ def test_the_envelope_names_the_task_as_written_and_the_sources_read() -> None:
     assert result.metadata.execution_time_s is not None
 
 
-def test_the_report_keeps_a_null_the_matrix_lists() -> None:
-    result = _matrix(_config({"outlier_threshold": [None, 3.0]}))
-    assert "outlier_threshold: [None, 3.0]" in result.report()
+def test_the_report_writes_the_matrix_as_yaml_writes_it() -> None:
+    grids = [{"outlier_threshold": [None, 2, 4]}, {"outlier_threshold": {"from": 2.5, "to": 3.5, "step": 0.5}}]
+    report = _matrix(_config(grids)).report(detailed=False)
+    assert "- {outlier_threshold: [null, 2, 4]}" in report  # not `None`, nor `range(2, 5, 2)` for 2 and 4
+    assert "- {outlier_threshold: {from: 2.5, to: 3.5, step: 0.5}}" in report
 
 
 def test_run_task_runs_a_matrix_task_the_config_does_not_hold() -> None:

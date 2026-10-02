@@ -188,14 +188,3 @@ def _envelope(
         metadata.model_id = f"{setup.config.name} ({setup.config.model})"
     metadata.resolved_config = {"task": task.model_dump(), "sources": list(drawn), "seed": config.seed}
     result._entry = task.workflow  # noqa: SLF001 - the banner names the entry its runs ran
-    # Every null in the matrix is a value the user wrote: its report keeps them, where it drops unset defaults.
-    written = _nulls(metadata.resolved_config["task"].get("matrix"), ("task", "matrix"))
-    result._set_nulls = frozenset(written)  # noqa: SLF001 - as `_entry`
-
-
-def _nulls(value: Any, path: tuple[str | int, ...]) -> set[tuple[str | int, ...]]:
-    """The key and index paths of every ``None`` in `value`, through mappings and lists."""
-    if value is None:
-        return {path}
-    items = value.items() if isinstance(value, dict) else enumerate(value) if isinstance(value, list) else ()
-    return {found for key, item in items for found in _nulls(item, (*path, key))}

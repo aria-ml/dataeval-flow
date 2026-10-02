@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from pydantic_core import to_jsonable_python
 
 from dataeval_flow._result import Result, ResultKind, ResultMetadata, finite_json
+from dataeval_flow.config._schemas._matrix import show_value
 
 if TYPE_CHECKING:
     from dataeval_flow._blocks import Asset, Block, Scalar, Section
@@ -155,6 +156,19 @@ class MatrixResult(Result[ResultMetadata, MatrixOutput]):
         from dataeval_flow._matrix._table import comparison_blocks
 
         return comparison_blocks(self, detailed=detailed)
+
+    def _report_config(self) -> dict[str, Any]:
+        """The configuration, each of the matrix's values as YAML writes it: ``null``, ``true``, ``[2, 4]``."""
+        config = self.metadata.resolved_config
+        matrix = config.get("task", {}).get("matrix")
+        if matrix is None:
+            return config
+        several = isinstance(matrix, list)
+        grids = [
+            {key: show_value(values) for key, values in grid.items()} for grid in (matrix if several else [matrix])
+        ]
+        shown = grids if several else grids[0]
+        return {**config, "task": {**config["task"], "matrix": shown}}
 
     def _html_reports(self, *, detailed: bool) -> "list[tuple[Section, list[Asset]]]":
         """The comparison, then, when *detailed*, each run's report with its own thumbnails: a chain names an item by

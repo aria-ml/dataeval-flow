@@ -522,12 +522,14 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
-            config = _without_none(
-                to_jsonable_python(self.metadata.resolved_config, fallback=str), keep=self._set_nulls
-            )
+            config = _without_none(to_jsonable_python(self._report_config(), fallback=str), keep=self._set_nulls)
             if config:
                 blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)
+
+    def _report_config(self) -> dict[str, Any]:
+        """The configuration the report's Configuration section shows: ``metadata.resolved_config``."""
+        return self.metadata.resolved_config
 
     def _html_reports(self, *, detailed: bool) -> list[tuple[Section, list[Asset]]]:
         """The reports an HTML page draws for this result, each with the thumbnails its image cells show."""
