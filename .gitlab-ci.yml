@@ -786,7 +786,7 @@ ironbank:bundle:
   extends: [.nox]
   stage: publish
   variables:
-    PYTHON_VERSION: "3.12"
+    PYTHON_VERSION: "3.14"  # must match ironbank/variants.yaml python_version (wheelhouse ABI)
   needs:
     - job: resolve:version
       artifacts: true

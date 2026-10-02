@@ -2,7 +2,7 @@
 # Used by `ironbank/generate.py` to render Dockerfile, hardening_manifest.yaml, and README.md
 # per variant.
 
-python_version: "3.12"
+python_version: "3.14"
 repository_name: "dataeval/dataeval-flow"
 release_url_prefix: "https://github.com/aria-ml/dataeval-flow/releases/download"
 

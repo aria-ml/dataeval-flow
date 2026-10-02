@@ -66,6 +66,7 @@ for name, variant in config["variants"].items():
         "label_title": variant["label_title"],
         "label_description": variant["label_description"],
         "mode": variant.get("mode", "cpu"),
+        "python_version": config["python_version"],
         "version": version,
         "repository_name": repository_name,
         "release_url_prefix": release_url_prefix,

@@ -21,8 +21,8 @@ RUN microdnf update -y \
         coreutils-single \
         findutils \
         glibc-langpack-en \
-        python3.12 \
-        python3.12-pip \
+        python3.14 \
+        python3.14-pip \
         shadow-utils \
         tar \
         gzip \
@@ -56,7 +56,7 @@ COPY LICENSE /opt/dataeval-flow/LICENSE
 # and keeps the whole install hermetic (offline, hash-verified).
 RUN mkdir -p /tmp/wheelhouse /opt/dataeval-flow/venv \
     && tar -xzf /tmp/${WHEELHOUSE_ARCHIVE} -C /tmp/wheelhouse \
-    && python3.12 -m venv /opt/dataeval-flow/venv \
+    && python3.14 -m venv /opt/dataeval-flow/venv \
     && grep -v -E '^[a-zA-Z0-9_-]+ @ git\+' /tmp/requirements.txt > /tmp/requirements.pinned.txt \
     && /opt/dataeval-flow/venv/bin/pip install --no-cache-dir --no-index --find-links=/tmp/wheelhouse -r /tmp/requirements.pinned.txt \
     && /opt/dataeval-flow/venv/bin/pip install --no-cache-dir --no-index --no-deps --find-links=/tmp/wheelhouse dataeval \
