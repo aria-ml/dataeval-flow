@@ -413,6 +413,7 @@ def _attempt(
     details: dict[str, Any] | None = None
     try:
         if spec.kind in ("evaluator", "workflow"):
+            _require_extractor(spec, settings)
             result = _pooled(spec, inputs, settings, element)
             if not result.success:
                 failed = _failed(spec, inputs_text, list(result.errors), start, result)
@@ -567,6 +568,17 @@ def _computed_on(inputs: Mapping[str, Any]) -> tuple[Node, ...]:
 def _at(spec: StepSpec, port: Port, element: str | None) -> str:
     """Where one run of `spec` stores `port`'s output: its address, narrowed to `element` in a broadcast."""
     return spec.output_address(port) + (f"[{element}]" if element is not None else "")
+
+
+_NO_EXTRACTOR = "needs an extractor: name one with `extractor:` on the task or the step"
+
+
+def _require_extractor(spec: StepSpec, settings: RunSettings) -> None:
+    """Skip a step that embeds with no extractor named, which load lets through only when it is optional
+    (data-splitting spec §5.2)."""
+    config: Any = spec.config
+    if config.requires_extractor() and settings.extractors.get(spec.extractor) is None:
+        raise StepSkipped(_NO_EXTRACTOR)
 
 
 def _failure_word(spec: StepSpec) -> str:
