@@ -63,6 +63,41 @@ def test_the_runner_writes_a_matrix_and_gates_on_its_warnings(tmp_path: Path, mo
     assert "outlier_threshold" in files[".txt"].read_text(encoding="utf-8")
 
 
+def test_the_runner_prints_and_writes_a_failed_matrix_and_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from dataeval_flow import _runner
+
+    # k-means can't make 50 clusters of 12 items, so run 2's outliers step fails and run 1 finishes.
+    entry = {**_CLEANING, "outlier_cluster_threshold": 1.0, "outlier_cluster_algorithm": "kmeans"}
+    config = chain_pipeline(
+        workflows=[entry],
+        extractor=True,
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "cleaning",
+                "sources": "src",
+                "extractor": "flat",
+                "matrix": {"outlier_n_clusters": [None, 50]},
+            }
+        ],
+        extra={"result": {"formats": ["json", "text", "html", "markdown", "junit"]}},
+    )
+    monkeypatch.setattr(_runner, "_resolve_config", lambda *_args, **_kwargs: config)
+    assert _runner.run(None, output_dir=tmp_path, data_dir=tmp_path) == 1
+    assert "Run 2 failed:" in capsys.readouterr().out
+    results = tmp_path / "results"
+    payload = json.loads((results / "result.json").read_text(encoding="utf-8"))["t"]
+    assert (payload["health"]["status"], payload["health"]["failed_runs"]) == ("failed", [2])
+    assert [run["result"]["kind"] for run in payload["runs"]] == ["workflow", "workflow"]
+    assert "Run 2 failed:" in (results / "result.txt").read_text(encoding="utf-8")
+    assert "Run 2 · outlier_n_clusters=50" in (results / "result.html").read_text(encoding="utf-8")
+    assert "**Health:** failed" in (results / "result.md").read_text(encoding="utf-8")
+    suites = ET.fromstring((results / "result.xml").read_text(encoding="utf-8"))  # noqa: S314 - our own output
+    assert [suite.get("name") for suite in suites] == ["t · run 1", "t · run 2"]
+
+
 def test_agreed_compares_rendered_descriptors_and_skips_records_without_one() -> None:
     assert agreed([("run 1", None), ("run 2", None)]) == (None, [])
     record = _record(0.0)
