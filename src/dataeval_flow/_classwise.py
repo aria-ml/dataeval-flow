@@ -79,7 +79,8 @@ def classwise_pivot(
         .unique()
         .group_by("class_name")
         .len()
-        .sort("len", descending=True)
+        # Tied classes by name: `group_by` keeps no order, so a tie would otherwise name a different worst class.
+        .sort(["len", "class_name"], descending=[True, False])
     )
 
     rows: list[Any] = []

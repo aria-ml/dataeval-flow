@@ -221,6 +221,22 @@ def test_classwise_outlier_rate_without_a_limit_names_the_worst_and_judges_nothi
     assert (finding.severity, finding.brief) == ("info", "worst: van (30.0%)")
 
 
+def test_the_classwise_pivot_orders_tied_classes_by_name() -> None:
+    """One flagged item in each of eight classes: a tie, so the worst class it names must not change between runs."""
+    from dataeval_flow._classwise import classwise_pivot
+
+    names = list("hgfedcba")
+    metadata = SimpleNamespace(
+        multi_target=False,
+        index2label=dict(enumerate(names)),
+        class_labels=list(range(8)),
+        item_indices=list(range(8)),
+    )
+    pivot = classwise_pivot(None, pl.DataFrame({"item_index": list(range(8))}), metadata)  # type: ignore[arg-type]
+    assert pivot is not None
+    assert [row["class_name"] for row in pivot["rows"]] == [*sorted(names), "Total"]
+
+
 def test_classwise_outlier_rate_with_nothing_flagged_passes() -> None:
     empty = ClasswiseOutliers(count_basis="image", rows=[], total=None)
     (finding,) = ClasswiseOutlierRateCheck().run(
