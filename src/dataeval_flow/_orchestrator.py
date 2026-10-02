@@ -484,6 +484,7 @@ def _run_resolved(
     cache_dir: Path | None,
     report_images: bool,
     output_dir: Path | None,
+    run: int | None = None,
 ) -> "Result[Any, Any]":
     """Run `task` over its resolved extractor and sources: from resolving its target to the filled envelope.
 
@@ -524,6 +525,7 @@ def _run_resolved(
             output_dir=output_dir,
             report_images=report_images,
             limits=limits,
+            run=run,
         )
     runner = _implementation(instance)
 
@@ -571,6 +573,7 @@ def _run_resolved(
             limits=limits,
             evaluators=evaluators,
             entry=instance,
+            run=run,
         )
 
     # 5-7. Resolve the step's policies and ontology, then run it as a one-step graph.
@@ -586,6 +589,7 @@ def _run_resolved(
         cache_dir=cache_dir,
         output_dir=output_dir,
         limits=limits,
+        run=run,
     )
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
@@ -737,6 +741,7 @@ def _run_one_step(
     cache_dir: Path | None,
     output_dir: Path | None,
     limits: "TableLimits",
+    run: int | None = None,
 ) -> "tuple[Result[Any, Any], float, ResolvedOntology | None, dict[str, DatasetContext]]":
     """Run an ``evaluator:`` or workflow-type task as a one-step graph: its result, unwrapped, the seconds it took,
     the ontology its step resolved, and each source's context over the one draw of its view the step read.
@@ -765,6 +770,7 @@ def _run_one_step(
         extractors={None: setup},
         step_contexts=contexts,
         runners={task.name: runner},
+        run=run,
     )
     _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()
@@ -810,6 +816,7 @@ def _run_custom_task(
     limits: "TableLimits",
     evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
     entry: "WorkflowConfig[Any] | None" = None,
+    run: int | None = None,
 ) -> "ChainResult":
     """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's.
 
@@ -863,6 +870,7 @@ def _run_custom_task(
         output_dir=output_dir,
         extractors=extractors,
         step_contexts=contexts,
+        run=run,
     )
     _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()

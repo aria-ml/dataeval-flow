@@ -77,6 +77,8 @@ class RunSettings:
     runners: "Mapping[str, Workflow[Any, Any] | Evaluator[Any, Any]]" = field(default_factory=dict)
     """By step name, the instance an evaluator or workflow step runs, where the caller made it already, as a one-step
     task makes its own. Any other such step makes a fresh instance of its type."""
+    run: int | None = None
+    """The task-matrix run this task's run is, numbered from 1; ``None`` outside a matrix."""
 
 
 @dataclass
@@ -714,6 +716,7 @@ def _transform(
         lineage=lambda address: _ancestry(address, lineage),
         label_space=tuple(record for record in applied if record.source in ancestors),
         element=element,
+        run=settings.run,
     )
     made = impl.run(spec.config, inputs, context)
     _check_datasets(spec, made)

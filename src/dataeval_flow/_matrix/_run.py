@@ -136,6 +136,7 @@ def run_matrix(
                     cache_dir=cache_dir,
                     report_images=report_images,
                     output_dir=output_dir,
+                    run=plan.number,
                 )
         except Exception as error:  # a run that raised is a failed run; the others go on
             _logger.exception("Task '%s': run %d raised", task.name, plan.number)
