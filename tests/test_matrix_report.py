@@ -67,7 +67,8 @@ def test_the_health_column_fits_its_header_at_80_columns() -> None:
     assert [row["health"] for row in comparison_table(result).rows] == ["[!!]", "[!!]"]
     text = result.report(detailed=False)
     # the table is wider than 80 columns, and narrows its columns to their headers, Health's to `Health`
-    assert "warnin" not in text[text.index("#  outlier_threshold") :]
+    # check that no row breaks the word warning across two lines
+    assert "warning"[:-1] not in text[text.index("#  outlier_threshold") :]
 
 
 def test_the_html_page_draws_the_table() -> None:

@@ -34,6 +34,7 @@ def matrix_counts() -> list[dict[str, Any]]:
     import polars as pl
 
     from dataeval_flow import MatrixResult
+    from dataeval_flow.steps import ChainResult
 
     DatasetCache.clear_instances()
     entry = {"name": "cleaning", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": FLAGS}
@@ -46,8 +47,10 @@ def matrix_counts() -> list[dict[str, Any]]:
     assert result.success, result.errors
     counts: list[dict[str, Any]] = []
     for run in result.runs:
-        outliers = run.result.steps["outliers"].output.data()
-        dupes = run.result.steps["dupes"].output.data()
+        chain = run.result
+        assert isinstance(chain, ChainResult)
+        outliers = chain.steps["outliers"].output.data()
+        dupes = chain.steps["dupes"].output.data()
         near = dupes.filter((pl.col("dup_type") == "near") & (pl.col("level") == "item")) if len(dupes) else dupes
         counts.append(
             {
