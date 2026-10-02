@@ -26,6 +26,14 @@ class TestSectionModalInit:
         SectionModal(section=section, state=ConfigState())
         assert get_variant_choices(section) is None
 
+    def test_a_workflow_type_served_after_import_is_a_variant(self, plugins):
+        from dataeval_flow._app._model._registry import get_model_for_variant
+        from tests.workflow_toys import ToyCountConfig, register_count
+
+        register_count(plugins)
+        assert "test.count" in (get_variant_choices("workflows") or [])
+        assert get_model_for_variant("workflows", "test.count") is ToyCountConfig
+
     def test_edit_mode_with_existing(self):
         existing = {"name": "ds1", "format": "huggingface", "path": "data"}
         modal = SectionModal(section="datasets", existing=existing, state=ConfigState())
