@@ -48,6 +48,8 @@ class _Collected:
     # Each task's text report as printed, and whether in full, so a file wanting the same needn't draw it again.
     printed: dict[str, tuple[bool, str]] = field(default_factory=dict)
     binning: dict[str, dict] = field(default_factory=dict)
+    # Matrix tasks whose runs were encoded differently: no one descriptor describes them.
+    disagreeing: list[str] = field(default_factory=list)
 
 
 def _collect_results(
@@ -58,6 +60,7 @@ def _collect_results(
     ``results`` is keyed by the task that produced each result, as ``run_tasks`` returns it.
     """
     from dataeval_flow._logging import flush_logs
+    from dataeval_flow._matrix._result import MatrixResult
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
 
@@ -71,7 +74,7 @@ def _collect_results(
                 _logger.error("    %s", error)
             collected.failures += 1
             flush_logs()
-            if not isinstance(result, ChainResult):
+            if not isinstance(result, ChainResult | MatrixResult):
                 continue
 
         # --- Text report: summary (no flag) or full detail (-v) ---
@@ -82,11 +85,13 @@ def _collect_results(
         # --- Collect for file output ---
         collected.merged[name] = result.to_dict()
         collected.reported[name] = result
-        if record := getattr(result.metadata, "metadata_binning", None):
+        if isinstance(result, MatrixResult):
+            _collect_matrix_binning(name, result, collected)
+        elif record := getattr(result.metadata, "metadata_binning", None):
             collected.binning[name] = record
 
         # Only a workflow judges health; an evaluator makes determinations, never a verdict.
-        if isinstance(result, WorkflowResult) and result.warning_count:
+        if isinstance(result, WorkflowResult | MatrixResult) and result.warning_count:
             collected.warned.append(name)
 
         # A failed chain already logged FAILED above; its partial steps are still printed and written, but it
@@ -96,6 +101,24 @@ def _collect_results(
         flush_logs()
 
     return collected
+
+
+def _collect_matrix_binning(name: str, result: Any, collected: _Collected) -> None:
+    """Take a matrix task's one binning record where its runs agree, and note the task where they do not."""
+    from dataeval_flow._encoding_cli import agreed
+
+    record, differing = agreed(
+        [(f"run {run.number}", getattr(run.result.metadata, "metadata_binning", None)) for run in result.runs]
+    )
+    if differing:
+        collected.disagreeing.append(name)
+        _logger.info(
+            "  Matrix task '%s' encoded its runs differently (%s), so no encoding descriptor is written.",
+            name,
+            ", ".join(differing),
+        )
+    elif record:
+        collected.binning[name] = record
 
 
 def _write_results(collected: _Collected, results_dir: Path, settings: ResultConfig, width: int) -> list[str]:
@@ -252,7 +275,7 @@ def run(
         results_dir = output_dir / "results"
         if written := _write_results(collected, results_dir, config.result, width):
             _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
-        if collected.merged:
+        if collected.merged and not collected.disagreeing:
             _write_encoding_descriptor(collected.binning, results_dir)
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)
