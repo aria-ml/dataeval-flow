@@ -232,7 +232,7 @@ def test_a_run_that_raised_keeps_its_envelope_and_the_matrix_its_entry(monkeypat
     assert "cleaning (data-cleaning), matrix of 2 runs" in result.report()
 
 
-def test_the_json_holds_each_run_s_result_and_hoists_thumbnails_once() -> None:
+def test_the_json_holds_each_run_s_result_as_its_type_writes_it() -> None:
     result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
     payload = cast("dict[str, Any]", result.to_dict())
     assert payload["kind"] == "matrix"
@@ -241,9 +241,27 @@ def test_the_json_holds_each_run_s_result_and_hoists_thumbnails_once() -> None:
     assert payload["health"] == result.health
     assert [run["number"] for run in payload["runs"]] == [1, 2]
     assert payload["runs"][0]["values"] == {"outlier_threshold": 2.0}
-    assert all("assets" not in run["result"] for run in payload["runs"])
-    items = [asset["item"] for asset in payload.get("assets", [])]
-    assert len(items) == len({str(item) for item in items})
+    assert [run["result"] for run in payload["runs"]] == [run.result.to_dict() for run in result.runs]
+    assert "assets" not in payload
+
+
+def test_each_run_keeps_the_thumbnails_of_the_data_it_read() -> None:
+    # A chain's thumbnails are keyed by node address, `data` here whichever source the run binds to it.
+    datasets = {"a": ToyImages(), "b": ToyImages(seed=1)}
+
+    def config(**task: Any) -> Any:
+        return chain_pipeline(
+            workflows=[_CLEANING], datasets=datasets, tasks=[{"name": "t", "workflow": "cleaning", **task}]
+        )
+
+    matrix = _matrix(config(sources="a", matrix={"sources": ["a", "b"]}))
+    alone = [cast("dict[str, Any]", run_tasks(config(sources=name))["t"].to_dict())["assets"] for name in "ab"]
+    payload = cast("dict[str, Any]", matrix.to_dict())
+    assert [run["result"]["assets"] for run in payload["runs"]] == alone
+    shared = {str(asset["item"]): asset["data"] for asset in alone[0]}
+    assert any(shared.get(str(asset["item"]), asset["data"]) != asset["data"] for asset in alone[1])
+    page = matrix.to_html()
+    assert all(asset["data"] in page for assets in alone for asset in assets)
 
 
 def test_the_envelope_names_the_task_as_written_and_the_sources_read() -> None:

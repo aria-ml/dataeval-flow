@@ -12,7 +12,7 @@ from pydantic_core import to_jsonable_python
 from dataeval_flow._result import Result, ResultKind, ResultMetadata, finite_json
 
 if TYPE_CHECKING:
-    from dataeval_flow._blocks import Asset, Block, Scalar
+    from dataeval_flow._blocks import Asset, Block, Scalar, Section
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,8 @@ class MatrixResult(Result[ResultMetadata, MatrixOutput]):
 
     Any failed run fails it (``success`` is false, ``errors`` names each failed run), and its runs stay readable in
     :attr:`runs`. ``health["status"]`` is the worst of the runs, and :attr:`warning_count` adds up theirs. Its report
-    opens with a table comparing the runs' findings; its JSON holds each run's result under ``runs``.
+    opens with a table comparing the runs' findings; its JSON holds each run's result under ``runs``. It has no
+    thumbnails of its own: each run keeps its own, since a run's items can differ from another's at one address.
 
     Fields
     ------
@@ -105,7 +106,6 @@ class MatrixResult(Result[ResultMetadata, MatrixOutput]):
         )
         self.keys: list[str] = list(keys)
         self.runs: list[MatrixRun] = runs
-        self.assets = _deduplicated(runs)
 
     @property
     def warning_count(self) -> int:
@@ -121,8 +121,8 @@ class MatrixResult(Result[ResultMetadata, MatrixOutput]):
         return {"status": status, "warnings": warnings, "failed_runs": failed}
 
     def to_dict(self) -> dict[str, object]:
-        """Kind, type, keys, envelope, health and every run's result, then any errors and the runs' thumbnails, once
-        each. Non-finite floats are written as ``null``."""
+        """Kind, type, keys, envelope, health and every run's result, as its type writes it, then any errors.
+        Non-finite floats are written as ``null``."""
         payload: dict[str, object] = {
             "kind": self.kind,
             "type": self.type,
@@ -134,15 +134,13 @@ class MatrixResult(Result[ResultMetadata, MatrixOutput]):
                     "number": run.number,
                     "label": run.label,
                     "values": to_jsonable_python(run.values, fallback=str),
-                    "result": {key: value for key, value in run.result.to_dict().items() if key != "assets"},
+                    "result": run.result.to_dict(),
                 }
                 for run in self.runs
             ],
         }
         if self.errors:
             payload["errors"] = list(self.errors)
-        if self.assets:
-            payload["assets"] = [asset.model_dump(mode="json") for asset in self.assets]
         return cast("dict[str, object]", finite_json(payload))
 
     def _report_title(self) -> str:
@@ -158,17 +156,16 @@ class MatrixResult(Result[ResultMetadata, MatrixOutput]):
 
         return comparison_blocks(self, detailed=detailed)
 
+    def _html_reports(self, *, detailed: bool) -> "list[tuple[Section, list[Asset]]]":
+        """The comparison, then, when *detailed*, each run's report with its own thumbnails: a chain names an item by
+        its node's address, which holds other items in a run reading another source."""
+        from dataeval_flow._matrix._table import run_section
+
+        runs = [(run_section(run), run.result.assets) for run in self.runs] if detailed else []
+        return [(self._document(detailed=False), []), *runs]
+
     def _report_output(self, *, detailed: bool) -> "list[Block]":
         return self._report_body(detailed=detailed)
 
     def _dict_body(self) -> dict[str, object]:
         return {key: value for key, value in self.to_dict().items() if key not in ("kind", "metadata")}
-
-
-def _deduplicated(runs: Sequence[MatrixRun]) -> "list[Asset]":
-    """The runs' thumbnails, each item once: the runs read one draw, so they name the same items."""
-    seen: dict[Any, Asset] = {}
-    for run in runs:
-        for asset in run.result.assets:
-            seen.setdefault(asset.item, asset)
-    return list(seen.values())

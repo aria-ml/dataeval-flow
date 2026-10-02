@@ -1,6 +1,6 @@
 """The comparison a matrix's report opens with: a row per run, a column per finding (task-matrix spec §7.1)."""
 
-__all__ = ["comparison_blocks", "comparison_table"]
+__all__ = ["comparison_blocks", "comparison_table", "run_section"]
 
 from collections import Counter
 from typing import TYPE_CHECKING, Any
@@ -10,7 +10,7 @@ from dataeval_flow._blocks._text import _MARKERS
 from dataeval_flow.config._schemas._matrix import show_value
 
 if TYPE_CHECKING:
-    from dataeval_flow._matrix._result import MatrixResult
+    from dataeval_flow._matrix._result import MatrixResult, MatrixRun
     from dataeval_flow._result import Result
     from dataeval_flow.workflows._base import Finding
 
@@ -87,6 +87,11 @@ def _health_line(result: "MatrixResult") -> str:
     return f"Health: ok — {count} runs, no warnings"
 
 
+def run_section(run: "MatrixRun") -> Section:
+    """A run's full report, headed with its number and values."""
+    return Section(title=f"Run {run.number} · {run.label}", blocks=run.result._document(detailed=True).blocks)  # noqa: SLF001
+
+
 def comparison_blocks(result: "MatrixResult", *, detailed: bool) -> list[Block]:
     """The health line, the table, each failed run's error, and, when *detailed*, each run's report."""
     blocks: list[Block] = [Paragraph(text=_health_line(result)), comparison_table(result)]
@@ -96,8 +101,5 @@ def comparison_blocks(result: "MatrixResult", *, detailed: bool) -> list[Block]:
         if not run.result.success
     )
     if detailed:
-        blocks.extend(
-            Section(title=f"Run {run.number} · {run.label}", blocks=run.result._document(detailed=True).blocks)  # noqa: SLF001
-            for run in result.runs
-        )
+        blocks.extend(run_section(run) for run in result.runs)
     return blocks

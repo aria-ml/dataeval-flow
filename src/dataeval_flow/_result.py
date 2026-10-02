@@ -306,10 +306,10 @@ def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: L
 
 def results_html(results: Sequence["Result[Any, Any]"], *, detailed: bool = True) -> str:
     """Every result's report on one page, as a run's ``result.html`` holds all of its tasks; *detailed* as `to_html`."""
-    # The runner writes one page for the whole run, from the documents each result draws.
-    documents = [result._document(detailed=detailed) for result in results]  # noqa: SLF001 - one page, many reports
+    # The runner writes one page for the whole run, from the reports each result draws.
+    reports = [report for result in results for report in result._html_reports(detailed=detailed)]  # noqa: SLF001
     title = results[0]._page_title() if len(results) == 1 else "dataeval-flow results"  # noqa: SLF001 - as its report
-    return html_page(title, documents, [result.assets for result in results])
+    return html_page(title, [document for document, _ in reports], [assets for _, assets in reports])
 
 
 def finite_json(value: Any) -> Any:
@@ -478,8 +478,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         str
             A complete HTML document.
         """
-        document = self._document(detailed=detailed)
-        return html_page(self._page_title(), [document], [self.assets])
+        reports = self._html_reports(detailed=detailed)
+        return html_page(self._page_title(), [document for document, _ in reports], [assets for _, assets in reports])
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.
@@ -528,6 +528,10 @@ class Result(ABC, Generic[TMetadata, TOutput]):
             if config:
                 blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)
+
+    def _html_reports(self, *, detailed: bool) -> list[tuple[Section, list[Asset]]]:
+        """The reports an HTML page draws for this result, each with the thumbnails its image cells show."""
+        return [(self._document(detailed=detailed), self.assets)]
 
     def _report_envelope(self) -> list[Block]:
         """The envelope under the banner: what ran, then the shared items."""

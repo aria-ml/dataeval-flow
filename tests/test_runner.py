@@ -171,7 +171,7 @@ def _fake_result(*, warnings: int = 0):
     result = MagicMock(spec=WorkflowResult)
     result.success = True
     result.report.return_value = "report"
-    result._document.return_value = Section(title="report")
+    result._html_reports.return_value = [(Section(title="report"), [])]
     result.to_dict.return_value = {"metadata": {}}
     result.metadata = MagicMock(metadata_binning=None)
     result.warning_count = warnings
@@ -503,7 +503,7 @@ class TestResultFiles:
     def test_summary_detail_writes_the_summary(self, tmp_path: Path):
         _, result = self._run(tmp_path, "result:\n  detail: summary\n")
         assert result.report.call_args_list[-1].kwargs["detailed"] is False  # type: ignore[attr-defined]
-        assert {call.kwargs["detailed"] for call in result._document.call_args_list} == {False}  # type: ignore[attr-defined]
+        assert {call.kwargs["detailed"] for call in result._html_reports.call_args_list} == {False}  # type: ignore[attr-defined]
 
     def test_the_config_sets_the_width(self, tmp_path: Path):
         _, result = self._run(tmp_path, "result:\n  width: 100\n")
