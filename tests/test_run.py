@@ -277,30 +277,30 @@ def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> N
     assert 'alt="data 7"' in page
 
 
-def test_an_ood_run_reads_each_sample_s_thumbnail_from_its_own_test_source() -> None:
-    """Test sources are scored joined end to end; night's black images, all out of distribution, are night's own."""
+def test_an_ood_run_reads_each_image_s_thumbnail_from_its_own_test_source() -> None:
+    """Each test source is scored against the reference on its own; night's black images, all out of distribution,
+    are night's own."""
     import base64
     import io
 
     from PIL import Image
 
-    from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectorKNeighbors
+    from dataeval_flow.workflows.ood_detection import OODDetectionConfig
 
     class Dark(ToyImages):
         def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
             image, target, datum = super().__getitem__(index)
             return np.zeros_like(image), target, datum
 
-    config = OODDetectionConfig(
-        detectors=[OODDetectorKNeighbors(k=3), OODDetectorKNeighbors(k=5)], metadata_insights=False
-    )
+    detectors = [{"type": "ood-kneighbors", "name": "k3", "k": 3}, {"type": "ood-kneighbors", "name": "k5", "k": 5}]
+    config = OODDetectionConfig.model_validate({"name": "ood", "detectors": detectors, "metadata_insights": False})
     data = {"reference": ToyImages(seed=0, count=20), "day": ToyImages(seed=1, count=12), "night": Dark(count=4)}
     result = run(config, data, extractor=FlattenExtractorConfig(batch_size=8))
-    night = [asset for asset in result.assets if asset.item.source == "night"]
+    night = [asset for asset in result.assets if asset.item.source == "tests[night]"]
     assert sorted(asset.item.index for asset in night) == [0, 1, 2, 3]
     for asset in night:
         assert np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max() < 8
-    assert {asset.item.source for asset in result.assets} <= {"day", "night"}
+    assert {asset.item.source for asset in result.assets} <= {"tests[day]", "tests[night]"}
 
 
 def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -317,17 +317,17 @@ def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.Mon
     assert '<span class="item">7</span>' in result.to_html()
 
 
-def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded() -> None:
+def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded() -> None:  # Review Focus 1
     """The detectors score one draw of a random view; each thumbnail is read from that draw, not a fresh one."""
     import base64
     import io
 
     from PIL import Image
 
-    from dataeval_flow._blocks._items import refs_in
+    from dataeval_flow._blocks import ItemRef
     from dataeval_flow.config import DatasetProtocolConfig, ViewOperation
-    from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectionResult, OODDetectorKNeighbors
-    from tests.finding_blocks import tables
+    from dataeval_flow.steps import ChainResult
+    from dataeval_flow.workflows.ood_detection import OODDetectionConfig
 
     class Mixed(ToyImages):
         """Items 0 to 3 black, which the reference has never seen; the rest noise like the reference's."""
@@ -336,6 +336,7 @@ def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded
             image, target, datum = super().__getitem__(index)
             return (np.zeros_like(image) if index < 4 else image), target, datum
 
+    detectors = [{"type": "ood-kneighbors", "name": "k3", "k": 3}, {"type": "ood-kneighbors", "name": "k5", "k": 5}]
     config = PipelineConfig(
         datasets=[
             DatasetProtocolConfig(name="ref", format="maite", dataset=ToyImages(seed=0, count=20)),
@@ -348,16 +349,14 @@ def test_an_ood_thumbnail_is_the_sample_scored_though_its_view_shuffles_unseeded
         ],
         extractors=[FlattenExtractorConfig(name="flat", batch_size=8)],
         workflows=[
-            OODDetectionConfig(
-                name="ood", detectors=[OODDetectorKNeighbors(k=3), OODDetectorKNeighbors(k=5)], metadata_insights=False
-            )
+            OODDetectionConfig.model_validate({"name": "ood", "detectors": detectors, "metadata_insights": False})
         ],
         tasks=[TaskConfig(name="t", workflow="ood", sources=["reference", "test"], extractor="flat")],
     )
     result = run_tasks(config)["t"]
-    assert isinstance(result, OODDetectionResult)
-    (aggregate,) = [finding for finding in result.findings if finding.title.startswith("Aggregate")]
-    agreed = {ref for row in tables(aggregate)[0].rows for ref in refs_in(row.get("image"))}
+    assert isinstance(result, ChainResult)
+    union = (result.steps["agreement"].elements or {})["test"].output
+    agreed = {ItemRef(source="tests[test]", index=index) for index in union.mutual}
     shades = {
         asset.item: int(np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max())
         for asset in result.assets

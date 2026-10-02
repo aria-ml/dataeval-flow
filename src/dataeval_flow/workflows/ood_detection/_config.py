@@ -1,189 +1,161 @@
-"""The ``ood-detection`` workflow's config: its detectors and health thresholds."""
+"""The ``ood-detection`` preset's config: its detectors, its metadata insights, and when a finding warns."""
 
-from collections.abc import Sequence
-from typing import Annotated, ClassVar, Literal
+__all__ = ["FactorDeviationSettings", "OODDetectionConfig", "OODDetectionThresholds", "evaluator_entry"]
 
-from pydantic import BaseModel, ConfigDict, Field
+from collections.abc import Mapping
+from typing import Annotated, Any, ClassVar, Self
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
-from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
-from dataeval_flow.workflows.ood_detection._outputs import OODDetectionResult
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.evaluators.shift import OODDomainClassifierConfig, OODKNeighborsConfig
+from dataeval_flow.steps._result import ChainResult
+from dataeval_flow.steps.checks._ood import OODThresholds
+from dataeval_flow.workflows._base import WorkflowConfig
 
-__all__ = [
-    "OODDetectionConfig",
-    "OODDetectorConfig",
-    "OODDetectorDomainClassifier",
-    "OODDetectorKNeighbors",
-    "OODDetectionHealthThresholds",
+_BASES: dict[str, type[BaseModel]] = {
+    "ood-kneighbors": OODKNeighborsConfig,
+    "ood-domain-classifier": OODDomainClassifierConfig,
+}
+_EXTRACTOR = "An `extractors:` entry this detector's steps embed with, instead of the task's."
+_RESERVED = ("agreement", "factor-predictors", "factor-deviation")
+
+
+class OODKNeighborsDetector(OODKNeighborsConfig):
+    """An `ood-kneighbors` detector: its evaluator entry, and the extractor its steps embed with."""
+
+    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+
+
+class OODDomainClassifierDetector(OODDomainClassifierConfig):
+    """An `ood-domain-classifier` detector: its evaluator entry, and the extractor its steps embed with."""
+
+    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+
+
+_DETECTORS: dict[str, type[BaseModel]] = {
+    "ood-kneighbors": OODKNeighborsDetector,
+    "ood-domain-classifier": OODDomainClassifierDetector,
+}
+
+
+def evaluator_entry(detector: Any) -> Any:
+    """A detector's evaluator entry: its OOD config without `extractor`, which DataEval's detectors would take as
+    their own argument."""
+    return _BASES[detector.type].model_validate(detector.model_dump(exclude={"extractor"}))
+
+
+def _detector_entry(entry: Any) -> Any:
+    """One `detectors:` item, validated with the OOD evaluator config its `type` names."""
+    type_id = entry.get("type") if isinstance(entry, Mapping) else getattr(entry, "type", None)
+    if not isinstance(type_id, str):
+        legacy = " Legacy's `method: kneighbors` is now `type: ood-kneighbors`: see the CHANGELOG for every rename."
+        raise ValueError(
+            f"Each detector needs a `type`, one of {', '.join(_DETECTORS)}."
+            + (legacy if isinstance(entry, Mapping) and "method" in entry else "")
+        )
+    if type_id not in _DETECTORS:
+        raise ValueError(f"`detectors:` takes {', '.join(_DETECTORS)} entries, not `{type_id}`.")
+    return _DETECTORS[type_id].model_validate(entry if isinstance(entry, Mapping) else entry.model_dump())
+
+
+# Typed callers may pass an OOD config; the validator turns either into its detector entry, and the detector members
+# carry `extractor` into the schema.
+OODDetector = Annotated[
+    SerializeAsAny[
+        OODKNeighborsDetector | OODDomainClassifierDetector | OODKNeighborsConfig | OODDomainClassifierConfig
+    ],
+    BeforeValidator(_detector_entry),
 ]
 
 
-# ---------------------------------------------------------------------------
-# OOD detector configs — discriminated union on ``method``
-# ---------------------------------------------------------------------------
+class OODDetectionThresholds(BaseModel):
+    """When ood-detection's findings warn: each check's fields, keyed by check type."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True)
+
+    ood: OODThresholds = Field(
+        default_factory=OODThresholds, description="The `ood` check's thresholds, applied to each detector's check."
+    )
+    ood_agreement: OODThresholds = Field(
+        default_factory=OODThresholds,
+        alias="ood-agreement",
+        description=(
+            "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as "
+            "legacy judged both with one pair."
+        ),
+    )
 
 
-class OODDetectorKNeighbors(BaseModel):
-    """K-nearest neighbors OOD detector.
-
-    Uses average distance to k nearest neighbors in embedding space to
-    detect OOD samples.  Samples with larger average distances to their
-    k nearest neighbors in the reference set are considered more likely OOD.
-    """
+class FactorDeviationSettings(BaseModel):
+    """The `factor-deviation` step's own setting."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    method: Literal["kneighbors"] = Field(default="kneighbors", description="Selects this OOD detector: `kneighbors`.")
-    k: int = Field(
-        default=10,
+    max_items: int = Field(
+        default=50,
         gt=0,
-        description="Number of nearest neighbors to consider.",
-    )
-    distance_metric: Literal["cosine", "euclidean"] = Field(
-        default="cosine",
-        description="Distance metric for k-NN computation.",
-    )
-    threshold_perc: float = Field(
-        default=95.0,
-        gt=0.0,
-        le=100.0,
         description=(
-            "Percentage of reference data considered normal (0-100). "
-            "Higher values result in more permissive thresholds."
+            "The most out-of-distribution agreed images explained per test source. Legacy's `max_ood_insights`."
         ),
     )
 
 
-class OODDetectorDomainClassifier(BaseModel):
-    """Domain classifier OOD detector.
-
-    Uses a LightGBM classifier's ability to distinguish test samples from
-    reference samples as an OOD signal.  Samples that a classifier can identify as 'not reference' are likely OOD.
-    """
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    method: Literal["domain_classifier"] = Field(
-        default="domain_classifier", description="Selects this OOD detector: `domain_classifier`."
-    )
-    n_folds: int = Field(
-        default=5,
-        ge=2,
-        description="Number of cross-validation folds per repeat.",
-    )
-    n_repeats: int = Field(
-        default=5,
-        ge=1,
-        description="Number of times to repeat the k-fold split.",
-    )
-    n_std: float = Field(
-        default=2.0,
-        gt=0.0,
-        description="Number of standard deviations above the null mean for threshold.",
-    )
-    threshold_perc: float = Field(
-        default=95.0,
-        gt=0.0,
-        le=100.0,
-        description=(
-            "Percentage of reference data considered normal (0-100). "
-            "Higher values result in more permissive thresholds."
-        ),
-    )
-
-
-# Discriminated union — Pydantic selects the right model based on ``method``.
-OODDetectorConfig = Annotated[
-    OODDetectorKNeighbors | OODDetectorDomainClassifier,
-    Field(discriminator="method"),
-]
-
-
-# ---------------------------------------------------------------------------
-# Health thresholds
-# ---------------------------------------------------------------------------
-
-
-class OODDetectionHealthThresholds(BaseModel):
-    """Configurable thresholds that control finding severity.
-
-    Findings that exceed a threshold are elevated to ``severity="warning"``;
-    otherwise they stay at ``severity="info"`` or ``severity="ok"``.
-    """
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    ood_pct_warning: float = Field(
-        default=10.0,
-        ge=0.0,
-        le=100.0,
-        description="Percentage of test samples flagged OOD that triggers a warning.",
-    )
-    ood_pct_info: float = Field(
-        default=1.0,
-        ge=0.0,
-        le=100.0,
-        description=(
-            "Percentage of test samples flagged OOD that triggers an info finding. "
-            "Below this percentage, severity is 'ok'."
-        ),
-    )
-
-
-# ---------------------------------------------------------------------------
-# Top-level parameters
-# ---------------------------------------------------------------------------
-
-
-class OODDetectionConfig(
-    WorkflowConfig[OODDetectionResult],
-    MetadataConfigMixin,
-    _LegacyMetadataMixin,
-    _LegacyValueRangeMixin,
-    StatsConfigMixin,
-):
-    """The settings of one ``ood-detection`` entry: the OOD detectors scored against the reference, and when they warn.
-
-    At least one detector must be configured.  Metadata insights are
-    enabled by default to explain why samples are flagged OOD.
+class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigMixin):
+    """The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata
+    behind what they flag is explained, and when a finding warns.
 
     Example YAML::
 
         workflows:
-          - name: ood_knn
+          - name: ood
             type: ood-detection
             detectors:
-              - method: kneighbors
-                k: 10
+              - {type: ood-kneighbors, k: 10}
+              - {type: ood-domain-classifier, n_folds: 5}
+            health_thresholds:
+              ood: {warning: 10.0, info: 1.0}
     """
 
     type: str = Field(default="ood-detection", description="The workflow type this entry configures: `ood-detection`.")
-
     inputs: ClassVar[InputSpec] = InputSpec(
-        required=frozenset({InputKind.EMBEDDINGS, InputKind.STATS, InputKind.METADATA}),
+        required=frozenset({InputKind.EMBEDDINGS}),
+        optional=frozenset({InputKind.METADATA, InputKind.STATS}),
         sources=SourceCount.TWO_OR_MORE,
+        detection_rows=True,
     )
 
-    detectors: Sequence[OODDetectorConfig] = Field(
+    detectors: list[OODDetector] = Field(
         min_length=1,
-        description="List of OOD detectors to run. At least one required.",
-    )
-    health_thresholds: OODDetectionHealthThresholds = Field(
-        default_factory=OODDetectionHealthThresholds,
-        description="Warning thresholds for OOD severity classification.",
+        description=(
+            "OOD evaluator entries (`ood-kneighbors`, `ood-domain-classifier`), each scoring every test source against "
+            "the reference. An entry's `name` names its step. An entry may name its own `extractor:`."
+        ),
     )
     metadata_insights: bool = Field(
         default=True,
-        description=(
-            "Whether to compute factor_deviation and factor_predictors for OOD samples to explain why they are flagged."
-        ),
+        description="Whether the metadata factors behind the flagged images are explained, by two optional steps.",
     )
-    max_ood_insights: int = Field(
-        default=50,
-        gt=0,
-        description=(
-            "Maximum number of OOD samples to compute detailed metadata "
-            "deviation for. Caps compute cost on large datasets."
-        ),
+    factor_deviation: FactorDeviationSettings = Field(
+        default_factory=FactorDeviationSettings, description="The `factor-deviation` step's settings."
     )
+    health_thresholds: OODDetectionThresholds = Field(
+        default_factory=OODDetectionThresholds, description="When findings warn, keyed by check type."
+    )
+
+    @model_validator(mode="after")
+    def _names(self) -> Self:
+        names = [detector.name for detector in self.detectors]
+        twice = sorted({name for name in names if names.count(name) > 1})
+        if twice:
+            raise ValueError(
+                f"There are two detectors named {', '.join(f'`{n}`' for n in twice)}: give each a distinct `name`."
+            )
+        reserved = [name for name in names if name in _RESERVED or name.endswith("-check")]
+        if reserved:
+            raise ValueError(
+                f"Detector {', '.join(f'`{n}`' for n in reserved)} is a name the preset's own steps use (`agreement`, "
+                "`factor-predictors`, `factor-deviation`, or a name ending in `-check`): rename it."
+            )
+        return self

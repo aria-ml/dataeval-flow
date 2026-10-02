@@ -24,7 +24,7 @@ from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThre
 from dataeval_flow.workflows.data_coverage._config import DataCoverageConfig, DataCoverageHealthThresholds
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringThresholds
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
-from dataeval_flow.workflows.ood_detection._config import OODDetectionHealthThresholds
+from dataeval_flow.workflows.ood_detection import OODDetectionThresholds
 from tests.chain_toys import chain_pipeline
 
 pytestmark = pytest.mark.required
@@ -75,7 +75,7 @@ _NESTED = [
     pytest.param(DataCleaningHealthThresholds, {}, id="cleaning-thresholds"),
     pytest.param(DataCoverageHealthThresholds, {}, id="coverage-thresholds"),
     pytest.param(DriftMonitoringThresholds, {}, id="drift-thresholds"),
-    pytest.param(OODDetectionHealthThresholds, {}, id="ood-thresholds"),
+    pytest.param(OODDetectionThresholds, {}, id="ood-thresholds"),
 ]
 
 

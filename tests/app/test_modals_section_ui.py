@@ -11,6 +11,7 @@ from textual.widgets import Button, Input, Select, Static
 
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens import SectionModal
+from tests.workflow_toys import register_union
 
 from .conftest import _MinimalApp, _state_with_datasets, _wait_for_result
 
@@ -285,22 +286,23 @@ class TestSectionModalRefreshListItems:
 class TestSectionModalSelectChanged:
     """Tests for on_select_changed dispatch in SectionModal."""
 
-    async def test_picker_select_triggers_rebuild_variant_params(self) -> None:
+    async def test_picker_select_triggers_rebuild_variant_params(self, plugins) -> None:
         """Covers lines 524-529 (picker select triggers variant rebuild)."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(100, 40)) as pilot:
             modal = SectionModal(section="workflows", state=ConfigState())
             await app.push_screen(modal)
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             picker_id = modal._wid("detectors-picker")
             picker_widgets = modal.query(f"#{picker_id}")
             if picker_widgets:
                 picker = picker_widgets.first(Select)  # type: ignore[arg-type]
                 with patch.object(modal, "_rebuild_variant_params") as mock_rebuild:
-                    picker.value = "kneighbors"
+                    picker.value = "near"
                     await pilot.pause()
                     mock_rebuild.assert_called_once_with("detectors")
 
@@ -313,15 +315,16 @@ class TestSectionModalSelectChanged:
 class TestSectionModalListButtonRouting:
     """Tests for add/remove button routing for list items."""
 
-    async def test_add_button_calls_add_list_item(self) -> None:
+    async def test_add_button_calls_add_list_item(self, plugins) -> None:
         """Covers lines 548-552 (add button routes to _add_list_item)."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(100, 40)) as pilot:
             modal = SectionModal(section="workflows", state=ConfigState())
             await app.push_screen(modal)
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             add_btn_id = modal._wid("detectors-add")
             add_btns = modal.query(f"#{add_btn_id}")
@@ -353,21 +356,22 @@ class TestSectionModalListButtonRouting:
 class TestRebuildVariantParams:
     """Tests for _rebuild_variant_params."""
 
-    async def test_select_variant_builds_widgets(self) -> None:
+    async def test_select_variant_builds_widgets(self, plugins) -> None:
         """Covers lines 951-966."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(100, 40)) as pilot:
             modal = SectionModal(section="workflows", state=ConfigState())
             await app.push_screen(modal)
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             picker_id = modal._wid("detectors-picker")
             picker_widgets = modal.query(f"#{picker_id}")
             if picker_widgets:
                 picker = picker_widgets.first(Select)  # type: ignore[arg-type]
-                picker.value = "kneighbors"
+                picker.value = "near"
                 await pilot.pause()
                 params_id = modal._wid("detectors-params")
                 params_container = modal.query_one(f"#{params_id}", Vertical)

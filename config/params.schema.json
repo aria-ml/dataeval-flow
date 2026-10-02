@@ -4903,6 +4903,21 @@
       "title": "ExportConfig",
       "type": "object"
     },
+    "FactorDeviationSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-deviation` step's own setting.",
+      "properties": {
+        "max_items": {
+          "default": 50,
+          "description": "The most out-of-distribution agreed images explained per test source. Legacy's `max_ood_insights`.",
+          "exclusiveMinimum": 0,
+          "title": "Max Items",
+          "type": "integer"
+        }
+      },
+      "title": "FactorDeviationSettings",
+      "type": "object"
+    },
     "FactorTriageConfig": {
       "additionalProperties": false,
       "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
@@ -5609,7 +5624,7 @@
     },
     "OODDetectionConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``ood-detection`` entry: the OOD detectors scored against the reference, and when they warn.\n\nAt least one detector must be configured.  Metadata insights are\nenabled by default to explain why samples are flagged OOD.\n\nExample YAML::\n\n    workflows:\n      - name: ood_knn\n        type: ood-detection\n        detectors:\n          - method: kneighbors\n            k: 10",
+      "description": "The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata\nbehind what they flag is explained, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: ood\n        type: ood-detection\n        detectors:\n          - {type: ood-kneighbors, k: 10}\n          - {type: ood-domain-classifier, n_folds: 5}\n        health_thresholds:\n          ood: {warning: 10.0, info: 1.0}",
       "properties": {
         "stats": {
           "anyOf": [
@@ -5623,100 +5638,6 @@
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
           "title": "Stats"
-        },
-        "value_range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "deprecated": true,
-          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
-          "title": "Value Range"
-        },
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
-          "title": "Metadata Continuous Factor Bins"
-        },
-        "metadata_factor_source": {
-          "anyOf": [
-            {
-              "enum": [
-                "coded",
-                "values",
-                "auto"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
-          "title": "Metadata Factor Source"
         },
         "metadata": {
           "anyOf": [
@@ -5761,21 +5682,20 @@
           "title": "Ontology"
         },
         "detectors": {
-          "description": "List of OOD detectors to run. At least one required.",
+          "description": "OOD evaluator entries (`ood-kneighbors`, `ood-domain-classifier`), each scoring every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`.",
           "items": {
-            "discriminator": {
-              "mapping": {
-                "domain_classifier": "#/$defs/OODDetectorDomainClassifier",
-                "kneighbors": "#/$defs/OODDetectorKNeighbors"
-              },
-              "propertyName": "method"
-            },
-            "oneOf": [
+            "anyOf": [
               {
-                "$ref": "#/$defs/OODDetectorKNeighbors"
+                "$ref": "#/$defs/OODKNeighborsDetector"
               },
               {
-                "$ref": "#/$defs/OODDetectorDomainClassifier"
+                "$ref": "#/$defs/OODDomainClassifierDetector"
+              },
+              {
+                "$ref": "#/$defs/OODKNeighborsConfig"
+              },
+              {
+                "$ref": "#/$defs/OODDomainClassifierConfig"
               }
             ]
           },
@@ -5783,22 +5703,19 @@
           "title": "Detectors",
           "type": "array"
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/OODDetectionHealthThresholds",
-          "description": "Warning thresholds for OOD severity classification."
-        },
         "metadata_insights": {
           "default": true,
-          "description": "Whether to compute factor_deviation and factor_predictors for OOD samples to explain why they are flagged.",
+          "description": "Whether the metadata factors behind the flagged images are explained, by two optional steps.",
           "title": "Metadata Insights",
           "type": "boolean"
         },
-        "max_ood_insights": {
-          "default": 50,
-          "description": "Maximum number of OOD samples to compute detailed metadata deviation for. Caps compute cost on large datasets.",
-          "exclusiveMinimum": 0,
-          "title": "Max Ood Insights",
-          "type": "integer"
+        "factor_deviation": {
+          "$ref": "#/$defs/FactorDeviationSettings",
+          "description": "The `factor-deviation` step's settings."
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/OODDetectionThresholds",
+          "description": "When findings warn, keyed by check type."
         }
       },
       "required": [
@@ -5807,112 +5724,20 @@
       "title": "OODDetectionConfig",
       "type": "object"
     },
-    "OODDetectionHealthThresholds": {
+    "OODDetectionThresholds": {
       "additionalProperties": false,
-      "description": "Configurable thresholds that control finding severity.\n\nFindings that exceed a threshold are elevated to ``severity=\"warning\"``;\notherwise they stay at ``severity=\"info\"`` or ``severity=\"ok\"``.",
+      "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "ood_pct_warning": {
-          "default": 10.0,
-          "description": "Percentage of test samples flagged OOD that triggers a warning.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Ood Pct Warning",
-          "type": "number"
+        "ood": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood` check's thresholds, applied to each detector's check."
         },
-        "ood_pct_info": {
-          "default": 1.0,
-          "description": "Percentage of test samples flagged OOD that triggers an info finding. Below this percentage, severity is 'ok'.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Ood Pct Info",
-          "type": "number"
+        "ood-agreement": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as legacy judged both with one pair."
         }
       },
-      "title": "OODDetectionHealthThresholds",
-      "type": "object"
-    },
-    "OODDetectorDomainClassifier": {
-      "additionalProperties": false,
-      "description": "Domain classifier OOD detector.\n\nUses a LightGBM classifier's ability to distinguish test samples from\nreference samples as an OOD signal.  Samples that a classifier can identify as 'not reference' are likely OOD.",
-      "properties": {
-        "method": {
-          "const": "domain_classifier",
-          "default": "domain_classifier",
-          "description": "Selects this OOD detector: `domain_classifier`.",
-          "title": "Method",
-          "type": "string"
-        },
-        "n_folds": {
-          "default": 5,
-          "description": "Number of cross-validation folds per repeat.",
-          "minimum": 2,
-          "title": "N Folds",
-          "type": "integer"
-        },
-        "n_repeats": {
-          "default": 5,
-          "description": "Number of times to repeat the k-fold split.",
-          "minimum": 1,
-          "title": "N Repeats",
-          "type": "integer"
-        },
-        "n_std": {
-          "default": 2.0,
-          "description": "Number of standard deviations above the null mean for threshold.",
-          "exclusiveMinimum": 0.0,
-          "title": "N Std",
-          "type": "number"
-        },
-        "threshold_perc": {
-          "default": 95.0,
-          "description": "Percentage of reference data considered normal (0-100). Higher values result in more permissive thresholds.",
-          "exclusiveMinimum": 0.0,
-          "maximum": 100.0,
-          "title": "Threshold Perc",
-          "type": "number"
-        }
-      },
-      "title": "OODDetectorDomainClassifier",
-      "type": "object"
-    },
-    "OODDetectorKNeighbors": {
-      "additionalProperties": false,
-      "description": "K-nearest neighbors OOD detector.\n\nUses average distance to k nearest neighbors in embedding space to\ndetect OOD samples.  Samples with larger average distances to their\nk nearest neighbors in the reference set are considered more likely OOD.",
-      "properties": {
-        "method": {
-          "const": "kneighbors",
-          "default": "kneighbors",
-          "description": "Selects this OOD detector: `kneighbors`.",
-          "title": "Method",
-          "type": "string"
-        },
-        "k": {
-          "default": 10,
-          "description": "Number of nearest neighbors to consider.",
-          "exclusiveMinimum": 0,
-          "title": "K",
-          "type": "integer"
-        },
-        "distance_metric": {
-          "default": "cosine",
-          "description": "Distance metric for k-NN computation.",
-          "enum": [
-            "cosine",
-            "euclidean"
-          ],
-          "title": "Distance Metric",
-          "type": "string"
-        },
-        "threshold_perc": {
-          "default": 95.0,
-          "description": "Percentage of reference data considered normal (0-100). Higher values result in more permissive thresholds.",
-          "exclusiveMinimum": 0.0,
-          "maximum": 100.0,
-          "title": "Threshold Perc",
-          "type": "number"
-        }
-      },
-      "title": "OODDetectorKNeighbors",
+      "title": "OODDetectionThresholds",
       "type": "object"
     },
     "OODDomainClassifierConfig": {
@@ -6006,6 +5831,110 @@
       "title": "OODDomainClassifierConfig",
       "type": "object"
     },
+    "OODDomainClassifierDetector": {
+      "additionalProperties": false,
+      "description": "An `ood-domain-classifier` detector: its evaluator entry, and the extractor its steps embed with.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "ood-domain-classifier",
+          "default": "ood-domain-classifier",
+          "description": "The evaluator type this entry configures: `ood-domain-classifier`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "n_folds": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cross-validation folds per repeat. Unset uses DataEval's default (5).",
+          "title": "N Folds"
+        },
+        "n_repeats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Times the fold split is repeated. Unset uses DataEval's default (5).",
+          "title": "N Repeats"
+        },
+        "n_std": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Standard deviations above the null mean where the threshold sits, used when `threshold_perc` is unset. Unset uses DataEval's default (2.0).",
+          "title": "N Std"
+        },
+        "hyperparameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "LightGBM hyperparameters for the classifier. Unset uses DataEval's.",
+          "title": "Hyperparameters"
+        },
+        "threshold_perc": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percentage of the reference treated as normal, 0 to 100; overrides `n_std`. Unset uses `n_std`.",
+          "title": "Threshold Perc"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
+          "title": "Extractor"
+        }
+      },
+      "title": "OODDomainClassifierDetector",
+      "type": "object"
+    },
     "OODKNeighborsConfig": {
       "additionalProperties": false,
       "description": "Config for ``ood-kneighbors``, DataEval's OODKNeighbors.\n\nScores each item of the second source by its distance to its nearest neighbors in the first, and flags those\nfarther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the\nreference, then the data to test.\n\nOn the `uncertainty` extractor's rows from a detector, it judges each test image by its detections (ood-detection\nspec \u00a77).\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators ood-kneighbors`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: knn_ood\n        type: ood-kneighbors\n        distance_metric: euclidean",
@@ -6070,6 +5999,123 @@
         }
       },
       "title": "OODKNeighborsConfig",
+      "type": "object"
+    },
+    "OODKNeighborsDetector": {
+      "additionalProperties": false,
+      "description": "An `ood-kneighbors` detector: its evaluator entry, and the extractor its steps embed with.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "ood-kneighbors",
+          "default": "ood-kneighbors",
+          "description": "The evaluator type this entry configures: `ood-kneighbors`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors each item is scored against. Unset uses DataEval's default (10).",
+          "title": "K"
+        },
+        "distance_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "cosine",
+                "euclidean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Distance between embeddings. Unset uses DataEval's default (`cosine`).",
+          "title": "Distance Metric"
+        },
+        "threshold_perc": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Percentage of the reference treated as normal, 0 to 100; higher is more permissive. Unset uses DataEval's default (95).",
+          "title": "Threshold Perc"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
+          "title": "Extractor"
+        }
+      },
+      "title": "OODKNeighborsDetector",
+      "type": "object"
+    },
+    "OODThresholds": {
+      "additionalProperties": false,
+      "description": "When an OOD finding is `info` or warns: the percent of the assessed test images flagged.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 1.0,
+          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "title": "Info"
+        }
+      },
+      "title": "OODThresholds",
       "type": "object"
     },
     "OnnxExtractorConfig": {

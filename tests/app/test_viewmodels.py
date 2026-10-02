@@ -7,6 +7,7 @@ import pytest
 from dataeval_flow._app._viewmodel._builder_vm import BuilderViewModel
 from dataeval_flow._app._viewmodel._model_vm import ModelViewModel
 from dataeval_flow._app._viewmodel._section_vm import SectionViewModel
+from tests.workflow_toys import register_union
 
 pytestmark = pytest.mark.optional
 
@@ -502,12 +503,13 @@ class TestSectionViewModel:
         vm.add_step("all", {})
         assert vm.step_display_lines() == ["1. all"]
 
-    def test_add_remove_list_item(self) -> None:
+    def test_add_remove_list_item(self, plugins) -> None:
+        register_union(plugins)
         vm = SectionViewModel("workflows")
-        vm.load_fields("ood-detection")
-        # 'detectors' is a list of discriminated union for ood-detection
-        msg = vm.add_list_item("detectors", "kneighbors", {"k": 5})
-        assert "Added kneighbors" in msg
+        vm.load_fields("test.union")
+        # 'detectors' is a list of discriminated union for test.union
+        msg = vm.add_list_item("detectors", "near", {"k": 5})
+        assert "Added near" in msg
         assert len(vm.list_items["detectors"]) == 1
 
         assert vm.remove_list_item("detectors", 0)
@@ -519,10 +521,11 @@ class TestSectionViewModel:
         names = [descriptor.name for descriptor in vm.load_fields("drift-monitoring")]
         assert names == ["ontology", "detectors", "classwise", "health_thresholds"]
 
-    def test_get_variant_descriptors(self) -> None:
+    def test_get_variant_descriptors(self, plugins) -> None:
+        register_union(plugins)
         vm = SectionViewModel("workflows")
-        vm.load_fields("ood-detection")
-        descriptors = vm.get_variant_descriptors("detectors", "kneighbors")
+        vm.load_fields("test.union")
+        descriptors = vm.get_variant_descriptors("detectors", "near")
         assert len(descriptors) > 0
         # Check that 'k' is in the descriptors
         assert any(d.name == "k" for d in descriptors)
@@ -570,14 +573,16 @@ class TestSectionViewModel:
         # No init_step_builder called
         assert vm.get_step_params("Shuffle") == []
 
-    def test_add_list_item_invalid_field(self) -> None:
+    def test_add_list_item_invalid_field(self, plugins) -> None:
+        register_union(plugins)
         vm = SectionViewModel("workflows")
-        vm.load_fields("ood-detection")
+        vm.load_fields("test.union")
         assert vm.add_list_item("no_such_field", "foo", {}) == ""
 
-    def test_get_variant_descriptors_invalid(self) -> None:
+    def test_get_variant_descriptors_invalid(self, plugins) -> None:
+        register_union(plugins)
         vm = SectionViewModel("workflows")
-        vm.load_fields("ood-detection")
+        vm.load_fields("test.union")
         assert vm.get_variant_descriptors("no_such_field", "foo") == []
         assert vm.get_variant_descriptors("detectors", "no_such_variant") == []
 
@@ -625,12 +630,13 @@ class TestSectionViewModel:
         desc.kind = "non-existent-kind"  # type: ignore
         assert vm.collect_field(desc, "bar") == SKIP
 
-    def test_collect_field_list_union_with_items(self) -> None:
+    def test_collect_field_list_union_with_items(self, plugins) -> None:
+        register_union(plugins)
         from dataeval_flow._app._model._introspect import FieldDescriptor, FieldKind
         from dataeval_flow._app._model._item import SKIP
 
         vm = SectionViewModel("workflows")
-        vm.load_fields("ood-detection")
+        vm.load_fields("test.union")
 
         # Create a LIST descriptor with union_variants
         desc = FieldDescriptor(
@@ -638,16 +644,16 @@ class TestSectionViewModel:
             kind=FieldKind.LIST,
             description="",
             required=True,
-            union_variants={"kneighbors": object},  # type: ignore
+            union_variants={"near": object},  # type: ignore
         )
 
         # With no items - should return SKIP
         assert vm.collect_field(desc, None) == SKIP
 
         # With items
-        vm.list_items["detectors"] = [{"method": "kneighbors", "k": 5}]
+        vm.list_items["detectors"] = [{"method": "near", "k": 5}]
         result = vm.collect_field(desc, None)
-        assert result == [{"method": "kneighbors", "k": 5}]
+        assert result == [{"method": "near", "k": 5}]
 
     def test_build_result_tasks_preserve_enabled(self) -> None:
         existing = {"name": "t1", "workflow": "w1", "enabled": False}
