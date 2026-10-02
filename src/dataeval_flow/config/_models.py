@@ -485,6 +485,8 @@ class PipelineConfig(BaseModel):
                     f"Task '{task.name}' names {kind} '{task.workflow}', which `{kind}s:` does not define. "
                     f"Defined: {sorted(pool)}"
                 )
+            if task.matrix is not None:
+                continue  # its runs are checked, in _check_matrices
             if isinstance(target, CustomWorkflowConfig):
                 problem = target.binding_problem(len(task.source_names))
                 if problem is not None:
@@ -553,6 +555,18 @@ class PipelineConfig(BaseModel):
                         f"Task '{task.name}' can't name its result files, as `result: per_task` would: "
                         "a task name there can't hold '/' or '\\'"
                     )
+        return self
+
+    @model_validator(mode="after")
+    def _check_matrices(self) -> "PipelineConfig":
+        """Refuse a task's matrix whose keys name nothing, or whose runs don't validate, every problem at once.
+
+        A matrix task as written skips the task checks above; each of its runs, a copy holding only that task, is
+        checked instead (task-matrix spec §3.5)."""
+        from dataeval_flow._matrix._build import expand_matrix
+
+        for task in self.tasks or ():
+            expand_matrix(task, self)
         return self
 
 

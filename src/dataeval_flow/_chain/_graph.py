@@ -207,6 +207,13 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
         graph = graphs.get(task.workflow) if task.kind == "workflow" else None
         if graph is None:
             continue
+        if task.matrix is not None:
+            # Its runs are checked one by one; only the destinations its export steps claim are checked here, against
+            # every other task's and export's (task-matrix spec §5.6).
+            for spec in graph.steps:
+                if issubclass(spec.impl, Transform):
+                    problems.extend(_export_clashes(task, spec, spec.impl, owners))
+            continue
         # A preset's chain reads no key of its list slot, so only a custom workflow's list slot has keys to bind.
         workflow = workflows.get(task.workflow)
         if workflow is not None:
