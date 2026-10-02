@@ -105,8 +105,8 @@ class ChainGraph:
     steps: tuple[StepSpec, ...]
     one_step: bool = False
     aliases: Mapping[str, str] = field(default_factory=dict)
-    """Each declared output of a preset step, such as `cleaning.clean`, to the address of the spliced step that
-    makes it, `cleaning/clean`."""
+    """Each declared output of a preset step, such as `cleaning.clean`, to the output address in the spliced
+    chain that holds it, `cleaning/clean` or `splits/split.train`."""
 
     def aliases_of(self, address: str) -> tuple[str, ...]:
         """The addresses that read what `address` holds: each declared output of a preset step made there."""
@@ -151,6 +151,7 @@ def build_graph(
             specs.update((spec.name, spec) for spec in spliced.steps)
             aliases.update(spliced.aliases)
             types.update(spliced.types)
+            empty[entry.name] = spliced.empty
             continue
         spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
         specs[entry.name] = spec

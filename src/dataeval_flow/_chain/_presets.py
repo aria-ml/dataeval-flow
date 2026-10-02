@@ -7,8 +7,9 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from dataeval_flow._chain._graph import GraphError, PortBinding, StepSpec, ValueType, build_graph
-from dataeval_flow.steps._address import Address
-from dataeval_flow.steps._port import DataType
+from dataeval_flow.steps._address import Address, parse_address
+from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._step import Transform
 
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
@@ -22,9 +23,12 @@ class Spliced:
 
     steps: tuple[StepSpec, ...]
     aliases: dict[str, str]
-    """Each declared output's address, such as `cleaning.clean`, to the address of the spliced step that makes it."""
+    """Each declared output's address, such as `cleaning.clean`, to the output address of the spliced step that makes
+    it."""
     types: dict[str, ValueType]
     """What each declared output's address holds."""
+    empty: frozenset[str] = frozenset()
+    """The declared outputs these settings leave empty, which no step outside may read."""
 
 
 def splice_preset(
@@ -63,23 +67,54 @@ def splice_preset(
         )
         for spec in graph.steps
     )
+    mapped = preset.chain(config).outputs
     aliases: dict[str, str] = {}
     types: dict[str, ValueType] = {}
+    empty: set[str] = set()
     made = {spec.name: spec for spec in graph.steps}
     for port in preset.outputs:
-        spec = made.get(port.name)
-        (output, *more) = spec.outputs if spec is not None else (None,)
-        if spec is None or more or output is None or output.type is not DataType.DATASET or output.is_list:
+        target = mapped.get(port.name, port.name)
+        found = _output(made, target)
+        if found is None:
+            where = (
+                f"at `{target}`, but `{target}` is no Dataset its chain makes"
+                if port.name in mapped
+                else f"but no step of its chain named `{port.name}` makes one Dataset"
+            )
             raise GraphError(
                 f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), which declares output "
-                f"`{port.name}`, but no step of its chain named `{port.name}` makes one Dataset."
+                f"`{port.name}`{' ' if port.name in mapped else ', '}{where}."
             )
+        spec, output = found
+        inner = renamed[spec.name] if len(spec.outputs) == 1 else f"{renamed[spec.name]}.{output.name}"
+        transform = spec.impl if issubclass(spec.impl, Transform) else None
+        keys = dict(transform.output_keys(spec.config)).get(output.name) if output.is_list and transform else spec.keys
         address = f"{entry.name}.{port.name}"
-        aliases[address] = renamed[spec.name]
+        aliases[address] = inner
         types[address] = ValueType(
-            DataType.DATASET, output.classes, is_list=spec.broadcast, keys=spec.keys, step=renamed[spec.name]
+            DataType.DATASET,
+            output.classes,
+            is_list=output.is_list or spec.broadcast,
+            keys=keys,
+            step=renamed[spec.name],
         )
-    return Spliced(steps, aliases, types)
+        if transform is not None and output.name in transform.empty_outputs(spec.config):
+            empty.add(port.name)
+    return Spliced(steps, aliases, types, frozenset(empty))
+
+
+def _output(made: Mapping[str, StepSpec], target: str) -> "tuple[StepSpec, Port] | None":
+    """The step and Dataset output `target` names in a preset's chain: `step.output`, or a step with one output;
+    ``None`` where it names no Dataset."""
+    address = parse_address(target)
+    spec = made.get(address.name)
+    if spec is None or address.key is not None:
+        return None
+    if address.output is None:
+        port = spec.outputs[0] if len(spec.outputs) == 1 else None
+    else:
+        port = next((port for port in spec.outputs if port.name == address.output), None)
+    return (spec, port) if port is not None and port.type is DataType.DATASET else None
 
 
 def _moved(address: Address, bound: Mapping[str, tuple[Address, ValueType]], renamed: Mapping[str, str]) -> Address:

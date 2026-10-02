@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 from pydantic import Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.evaluators.quality import DuplicatesConfig
+from dataeval_flow.evaluators.quality import DuplicatesConfig, LabelHealthConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._workflow import InputSlot
@@ -122,7 +122,67 @@ class ToyPoolPreset(Preset, Workflow[ToyPoolPresetConfig, ChainResult]):
         )
 
 
+class ToySplitPresetConfig(WorkflowConfig[ChainResult]):
+    """A split into train and test, holding out no val."""
+
+    type: str = Field(default="toy-split-preset", description="The workflow type this entry configures.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
+
+
+class ToySplitPreset(Preset, Workflow[ToySplitPresetConfig, ChainResult]):
+    """Declares `train`, `val` and `test`, read from its `split` step's outputs; `val` is empty, and `labels` is no
+    Dataset."""
+
+    name: ClassVar[str] = "toy-split-preset"
+    description: ClassVar[str] = "Splits off a test, holding out no val."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    outputs: ClassVar[tuple[Port, ...]] = (
+        Port("train", DataType.DATASET),
+        Port("val", DataType.DATASET),
+        Port("test", DataType.DATASET),
+    )
+
+    @classmethod
+    def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
+        """A `split` holding out a quarter as test."""
+        return PresetChain(
+            steps=[{"name": "parts", "transform": "split", "input": "data", "test_frac": 0.25}],
+            outputs={"train": "parts.train", "val": "parts.val", "test": "parts.test"},
+        )
+
+
+class ToyFoldPresetConfig(WorkflowConfig[ChainResult]):
+    """Two folds."""
+
+    type: str = Field(default="toy-fold-preset", description="The workflow type this entry configures.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
+    to_labels: bool = Field(default=False, description="Whether `train` is mapped to an Output, which is refused.")
+
+
+class ToyFoldPreset(Preset, Workflow[ToyFoldPresetConfig, ChainResult]):
+    """Declares `train`, read from `kfold`'s list of trains."""
+
+    name: ClassVar[str] = "toy-fold-preset"
+    description: ClassVar[str] = "Makes two folds."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("train", DataType.DATASET),)
+
+    @classmethod
+    def chain(cls, config: ToyFoldPresetConfig) -> PresetChain:
+        """Two folds, and the whole's label health."""
+        return PresetChain(
+            steps=[
+                {"name": "parts", "transform": "kfold", "input": "data", "folds": 2},
+                {"name": "labels", "evaluator": "labels", "input": "data"},
+            ],
+            evaluators=[LabelHealthConfig(name="labels")],
+            outputs={"train": "labels" if config.to_labels else "parts.train"},
+        )
+
+
 _PRESETS = {
+    "toy-split-preset": "tests.preset_toys:ToySplitPreset",
+    "toy-fold-preset": "tests.preset_toys:ToyFoldPreset",
     "toy-pool-preset": "tests.preset_toys:ToyPoolPreset",
     "toy-preset": "tests.preset_toys:ToyPreset",
     "toy-broken-preset": "tests.preset_toys:BrokenPreset",

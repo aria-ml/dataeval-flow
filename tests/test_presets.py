@@ -380,3 +380,68 @@ def test_a_preset_step_names_a_list_slot_as_a_list_when_its_count_is_off() -> No
             tasks=[{"name": "t", "workflow": "outer", "sources": ["ref", "p1"]}],
             datasets=_pooled_sources(),
         )
+
+
+def _reading(preset: str, address: str, **entry: Any) -> PipelineConfig:
+    """A custom workflow running `preset` as step `s` over 12 toy images, then finding duplicates on `address`."""
+    return chain_pipeline(
+        workflows=[
+            {"name": "p", "type": preset, **entry},
+            {
+                "name": "outer",
+                "inputs": ["data"],
+                "steps": [
+                    {"name": "s", "workflow": "p", "input": "data"},
+                    {"name": "again", "evaluator": "dupes", "input": address},
+                ],
+            },
+        ],
+        evaluators=[{"name": "dupes", "type": "duplicates"}],
+        tasks=[{"name": "t", "workflow": "outer", "sources": ["src"]}],
+        datasets={"src": ToyImages(count=12)},
+    )
+
+
+def test_a_preset_output_reads_the_output_of_a_step_with_several() -> None:
+    config = _reading("toy-split-preset", "s.train")
+    assert _graph(config).aliases == {"s.train": "s/parts.train", "s.val": "s/parts.val", "s.test": "s/parts.test"}
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert result.steps["again"].inputs == ["s.train"]
+    assert len(result.steps["s/parts"].output["train"]) == 9
+
+
+def test_a_preset_output_its_settings_leave_empty_is_refused() -> None:
+    message = "Step 'again' reads `s.val`, which step 's' leaves empty with its settings."
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        _reading("toy-split-preset", "s.val")
+
+
+def test_a_preset_output_read_from_a_list_is_a_list_with_its_keys() -> None:
+    result = run_tasks(_reading("toy-fold-preset", "s.train"))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert list(result.steps["again"].elements or {}) == ["0", "1"]
+
+
+def test_a_preset_output_mapped_to_no_dataset_is_refused() -> None:
+    message = "declares output `train` at `labels`, but `labels` is no Dataset its chain makes"
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        _reading("toy-fold-preset", "s.train", to_labels=True)
+
+
+def test_a_preset_with_list_outputs_over_a_list_is_refused() -> None:
+    with pytest.raises(ValidationError, match="lists do not nest"):
+        chain_pipeline(
+            workflows=[
+                {"name": "p", "type": "toy-fold-preset"},
+                {
+                    "name": "outer",
+                    "inputs": [{"name": "all", "list": True}],
+                    "steps": [{"name": "s", "workflow": "p", "input": "all"}],
+                },
+            ],
+            tasks=[{"name": "t", "workflow": "outer", "sources": ["a", "b"]}],
+            datasets={"a": ToyImages(count=12), "b": ToyImages(count=12)},
+        )
