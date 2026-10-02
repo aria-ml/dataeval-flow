@@ -25,7 +25,7 @@
 
 # Pinned tool versions (shared across all variants)
 uv_version: "0.10.12"
-python_version: "3.12"
+python_version: "3.14"
 
 variants:
   cpu:

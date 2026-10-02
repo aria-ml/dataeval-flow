@@ -40,15 +40,15 @@ RUN apt-get update \
 # Copy uv binary from official image (pin version for reproducibility)
 COPY --from=ghcr.io/astral-sh/uv:0.10.12 /uv /uvx /bin/
 
-# Install Python 3.12 to /opt/python (accessible by all users)
+# Install Python 3.14 to /opt/python (accessible by all users)
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 ENV UV_LINK_MODE=copy
-RUN uv python install 3.12
+RUN uv python install 3.14
 
 # Drop the pip bundled with the standalone interpreter
-RUN rm -rf /opt/python/*/lib/python3.12/site-packages/pip \
-           /opt/python/*/lib/python3.12/site-packages/pip-*.dist-info \
-           /opt/python/*/lib/python3.12/ensurepip \
+RUN rm -rf /opt/python/*/lib/python3.14/site-packages/pip \
+           /opt/python/*/lib/python3.14/site-packages/pip-*.dist-info \
+           /opt/python/*/lib/python3.14/ensurepip \
            /opt/python/*/bin/pip*
 
 WORKDIR /app
