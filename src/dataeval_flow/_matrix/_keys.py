@@ -111,12 +111,23 @@ def _field(model: BaseModel, segment: str) -> tuple[str | None, str] | None:
     return None
 
 
+def _owner(model: BaseModel, segment: str) -> BaseModel:
+    """Where `segment` lives on `model`: an inline step's validated config, for a setting not written on the step and
+    so left at its default; `model` itself otherwise."""
+    from dataeval_flow.steps._workflow import StepEntry
+
+    if isinstance(model, StepEntry) and model.config is not None and _field(model, segment) is None:
+        return model.config
+    return model
+
+
 def _name(item: Any) -> Any:
     return item.get("name") if isinstance(item, Mapping) else getattr(item, "name", None)
 
 
 def _child(value: Any, key: str | int) -> Any:
     if isinstance(value, BaseModel):
+        value = _owner(value, str(key))
         found = _field(value, str(key))
         if found is None:
             return None
@@ -130,15 +141,16 @@ def _child(value: Any, key: str | int) -> Any:
 def walk(root: BaseModel, path: Sequence[str], where: str) -> tuple[tuple[str | int, ...], Any]:
     """The dump keys and list indices `path` walks through `root`, and the value at its end.
 
-    Fields are matched by name or alias, mapping keys as they are (an absent one is added), and list items by their
-    ``name``. Raises ``ValueError`` naming the segment that names nothing, a path through an unset value, and a list
-    item's ``name``.
+    Fields are matched by name or alias, an inline step's settings on its config where the step does not write them,
+    mapping keys as they are (an absent one is added), and list items by their ``name``. Raises ``ValueError`` naming
+    the segment that names nothing, a path through an unset value, and a list item's ``name``.
     """
     keys: list[str | int] = []
     node: Any = root
     for depth, segment in enumerate(path):
         shown, parent = ".".join(path[: depth + 1]), ".".join(path[:depth])
         if isinstance(node, BaseModel):
+            node = _owner(node, segment)
             found = _field(node, segment)
             if found is None:
                 raise ValueError(f"{where} has no setting `{shown}`")

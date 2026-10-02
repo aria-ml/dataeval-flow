@@ -136,6 +136,28 @@ def test_a_custom_workflow_is_swept_through_its_pool_entries_and_inline_steps() 
     assert runs[0].pipeline.evaluators[0].merge_near_duplicates is False
 
 
+def test_a_step_setting_left_at_its_default_is_set_and_one_the_step_lacks_is_refused() -> None:
+    workflow = {
+        "name": "w",
+        "inputs": ["a"],
+        "steps": [
+            {"name": "out", "evaluator": "outl", "input": "a"},
+            {"name": "gate", "check": "outlier-rate", "input": "out"},
+        ],
+    }
+
+    def build(matrix: Any) -> Any:
+        return chain_pipeline(
+            workflows=[workflow],
+            evaluators=[{"name": "outl", "type": "outliers", "flags": ["pixel"]}],
+            tasks=[{"name": "t", "workflow": "w", "sources": "src", "matrix": matrix}],
+        )
+
+    runs = _runs(build({"steps.gate.image": [0.05, 0.2]}))
+    assert [run.pipeline.workflows[0].steps[1].config.image for run in runs] == [0.05, 0.2]
+    _refusal(lambda: build({"steps.gate.imag": [0.05]}), "workflow 'w' has no setting `steps.gate.imag`")
+
+
 def test_sources_and_extractor_are_the_task_s_own() -> None:
     config = chain_pipeline(
         workflows=[_CLEANING],
